@@ -301,6 +301,22 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("config", "PUT", "/api/config", config.schemaReponseEcritureConfig, config.schemaCorpsConfigCompte),
   c("config", "GET", "/api/public-config", config.schemaReponseConfigPublique),
   c("apparence", "GET", "/api/skins", apparence.schemaReponseSkins),
+  c("apparence", "GET", "/api/skins/perso", apparence.schemaReponseListePerso),
+  c(
+    "apparence",
+    "POST",
+    "/api/skins/perso/verifier",
+    apparence.schemaRapportPerso,
+    apparence.schemaCorpsPerso,
+  ),
+  c(
+    "apparence",
+    "POST",
+    "/api/skins/perso",
+    apparence.schemaReponseEnregistrementPerso,
+    apparence.schemaCorpsPerso,
+  ),
+  c("apparence", "DELETE", "/api/skins/perso/:skin_id", schemaOk),
   c("notifications", "GET", "/api/notifications", notifications.schemaReponseNotifications),
   c("notifications", "GET", "/api/notifications/unread-count", notifications.schemaReponseNonLues),
   c(

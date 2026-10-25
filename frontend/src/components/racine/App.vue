@@ -60,6 +60,7 @@ import VisionneuseSource from "../rag/VisionneuseSource.vue";
 import PageRoutines from "../routines/PageRoutines.vue";
 import PageStudio from "../studio/PageStudio.vue";
 import CartesConnexion from "./CartesConnexion.vue";
+import ApercuSkin from "../reglages/ApercuSkin.vue";
 import ChromeApp from "./ChromeApp.vue";
 
 // Les modules typent chacun leurs refs et leur contexte : la racine leur passe les mêmes, partagés.
@@ -177,6 +178,7 @@ fournirDomaineModales(r, false);
   <ZoomImage />
   <ModaleAx />
   <FormulaireAssistant />
+  <ApercuSkin />
   <FicheOutil />
   <RemplissageTemplate />
 </template>

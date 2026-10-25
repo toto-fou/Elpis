@@ -77,6 +77,8 @@ export const EXTRA_FILES: readonly string[] = ["README.md", "LICENSE", "LICENSE.
 /** `.elpis-skin-self` désigne le skin lui-même dans sa feuille (réécrit au rendu). */
 export const SELF_ID = "self";
 export const SELF_CLASS = `.elpis-skin-${SELF_ID}`;
+/** Classe des habillages personnels : un skin importé ne peut pas la prendre. */
+export const ID_PERSO = "perso";
 
 const AT_RULES_OK: ReadonlySet<string> = new Set([
   "media",
@@ -376,6 +378,9 @@ function idsIntegres(): Set<string> {
   return new Set(builtinSkins().map((s) => s["id"] as string));
 }
 
+export const MAX_LABEL_SKIN = 40;
+export const MAX_DESC_SKIN = 200;
+
 /** Manifeste normalisé (champs connus seulement, dans l'ordre de Python) ou `SkinError`. */
 export function validateManifest(data: unknown, options: { hasCss?: boolean } = {}): Dict {
   const hasCss = options.hasCss ?? false;
@@ -386,11 +391,12 @@ export function validateManifest(data: unknown, options: { hasCss?: boolean } = 
       "Identifiant invalide : 2 à 32 caractères, minuscule en tête, puis minuscules, chiffres, - ou _.",
     );
   if (sid === SELF_ID) throw new SkinError("Identifiant réservé : self.");
+  if (sid === ID_PERSO) throw new SkinError("Identifiant réservé : perso.");
   if (idsIntegres().has(sid)) throw new SkinError(`Identifiant déjà pris par un skin intégré : ${sid}.`);
   const out: Dict = { id: sid };
-  out["label"] = texteNettoye(getPy(data, "label"), "Nom", 40, true);
+  out["label"] = texteNettoye(getPy(data, "label"), "Nom", MAX_LABEL_SKIN, true);
   const desc = Object.hasOwn(data, "description") ? data["description"] : getPy(data, "desc");
-  out["description"] = texteNettoye(desc, "Description", 200);
+  out["description"] = texteNettoye(desc, "Description", MAX_DESC_SKIN);
   const version = texteNettoye(getPy(data, "version"), "Version", 20);
   if (version && !VERSION_RE.test(version))
     throw new SkinError("Version : chiffres, lettres, . + - seulement.");
@@ -542,6 +548,7 @@ export function pluginSkins(): Dict[] {
   if (!estDossierPy(racine)) return [];
   const reserves = idsIntegres();
   reserves.add(SELF_ID);
+  reserves.add(ID_PERSO);
   let dossiers: string[];
   try {
     dossiers = readdirSync(racine)

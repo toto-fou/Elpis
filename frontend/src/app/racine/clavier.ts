@@ -3,6 +3,7 @@
 import { computed, nextTick, watch } from "vue";
 import type { Ref } from "vue";
 
+import { apercuSkin, fermerApercuSkin } from "../../features/reglages/skins-perso";
 import { gardeFocus, piegerTab, SELECTEUR_FOCUSABLES } from "../../utils/focus";
 import type { EtatFenetre, MenuContextuel } from "./chrome";
 import type { Modules } from "./types";
@@ -80,6 +81,25 @@ export function creerClavier(s: EtatClavier) {
     });
   });
 
+  // Aperçu d'habillage (z-[6000], au-dessus de Paramètres) : il prend le focus et gagne le piège Tab tant qu'il est ouvert.
+  const gardeApercu = gardeFocus();
+  watch(
+    () => apercuSkin.value !== null,
+    (ouvert) => {
+      if (!ouvert) {
+        gardeApercu.restore();
+        return;
+      }
+      gardeApercu.remember();
+      void nextTick(() => {
+        document
+          .querySelector("[data-apercu-skin]")
+          ?.querySelector<HTMLElement>(SELECTEUR_FOCUSABLES)
+          ?.focus();
+      });
+    },
+  );
+
   /** Échap : ferme l'élément du dessus et s'arrête ; vrai s'il a été consommé. */
   function cascadeEchap(e: KeyboardEvent): void {
     const c = m.chat;
@@ -89,6 +109,11 @@ export function creerClavier(s: EtatClavier) {
     // Fenêtre de confirmation ou de saisie : au sommet de la pile, porte de toutes les actions destructrices.
     if (s.modalState.value.isOpen) {
       s.handleModalCancel();
+      return;
+    }
+    // Aperçu d'habillage : ouvert depuis le chat ou Paramètres, il se ferme avant eux.
+    if (apercuSkin.value) {
+      fermerApercuSkin();
       return;
     }
     // Boîtes de la page RAG (Publier, Nouvelle collection, import du bac) : au-dessus de la page.
@@ -347,12 +372,14 @@ export function creerClavier(s: EtatClavier) {
     const dialogueImage = vrai(c?.imageViewer) || vrai(c?.imageGallery);
     if (
       e.key === "Tab" &&
-      grandeFenetreOuverte.value &&
+      (grandeFenetreOuverte.value || apercuSkin.value !== null) &&
       !dialogueImage &&
       !s.modalState.value.isOpen &&
       !s.contextMenu.value.isOpen
     ) {
-      const overlay = document.querySelector<HTMLElement>("[data-a11y-modal]");
+      const overlay =
+        document.querySelector<HTMLElement>("[data-apercu-skin]") ??
+        document.querySelector<HTMLElement>("[data-a11y-modal]");
       if (overlay) piegerTab(e, overlay);
     }
     if (e.key === "Escape" && !e.ctrlKey && !e.metaKey) {

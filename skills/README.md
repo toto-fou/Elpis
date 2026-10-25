@@ -30,6 +30,10 @@ skills/
     SKILL.md
   creer-une-routine/       ← assistant de création de routine (livré)
     SKILL.md
+  apparence/               ← assistant d'habillage personnel (livré)
+    SKILL.md               ← entretien ask_user, UN bloc ```elpis-skin de jetons
+    references/            ← jetons.md (liste, requis, contrastes), exemples.md (2 habillages valides)
+    assets/apercu.html     ← maquette HTML/CSS sans script, rendue par la carte du chat pour valider l'habillage
   learned/                 ← SAS de curation admin (brouillons)
   <paquet>/                ← exemple de PACKAGE (dossier-skill, id "<paquet>")
     SKILL.md               ← aperçu du domaine + table d'orientation

@@ -78,6 +78,7 @@ export interface RacineReglages {
   resetCatTools(cat: CategorieOutilsRacine): void;
   loadMcpUserCategories(): unknown;
   openSkillsTab(): unknown;
+  ouvrirAssistant(id: string, pre?: Record<string, string>): void;
   openAxModal(): unknown;
   studioTargets: CibleBureau[];
   desktopActiveTarget: string;
@@ -138,6 +139,7 @@ const CLES: Readonly<Record<keyof RacineReglages | "showSamplingPanel", true>> =
   resetCatTools: true,
   loadMcpUserCategories: true,
   openSkillsTab: true,
+  ouvrirAssistant: true,
   openAxModal: true,
   studioTargets: true,
   desktopActiveTarget: true,

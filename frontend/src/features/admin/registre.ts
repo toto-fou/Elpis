@@ -162,7 +162,14 @@ const ENTREES: readonly EntreeAdmin[] = [
         loaders: [CONFIG],
         paths: ["app_info.", "app."],
       },
-      { id: "appearance", label: "Apparence", wide: true, loaders: [["loadAdminSkins"]], paths: ["skins."] },
+      {
+        id: "appearance",
+        label: "Apparence",
+        wide: true,
+        stores: ["config"],
+        loaders: [["loadAdminSkins"], CONFIG],
+        paths: ["skins."],
+      },
       { id: "https", label: "Accès HTTPS", loaders: [CONFIG] },
       {
         id: "data",

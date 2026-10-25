@@ -49,6 +49,8 @@
   "skins": {
     "dir": "user_skins",
     "enabled": { "kiki": false },
-    "default": "elpis"
+    "default": "elpis",
+    "user_custom": true,
+    "user_max": 10
   }
 }

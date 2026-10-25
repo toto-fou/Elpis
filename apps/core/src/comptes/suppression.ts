@@ -7,6 +7,7 @@ import { estTableAbsente } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { supprimerEntreeSous } from "@elpis/securite";
 
+import { purgerPersoCompte } from "../apparence/comptes-perso";
 import { purgerCacheGraphique } from "../graphiques/incrustation";
 import { deleteUserDir } from "../images/magasin";
 import { journal } from "../journal";
@@ -85,6 +86,11 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
   if (!supprime) return false;
   invaliderAccesRag(base);
   await deleteUserDir(uid);
+  try {
+    await purgerPersoCompte(uid);
+  } catch (e) {
+    log.error({ err: e }, "[users] purge des habillages personnels échouée");
+  }
   await nettoyerRagCompte(uid, rag);
   if (nom && (await dossiersAPurger(base, nom))) await purgerDossiersDuNom(nom);
   return true;

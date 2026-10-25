@@ -11,6 +11,8 @@ export interface ChampAdmin {
 }
 
 export const CHAMPS_ADMIN: readonly ChampAdmin[] = Object.freeze([
+    {"control": "", "hint": "Coupée, la section Mes habillages disparaît des Paramètres ; les habillages déjà créés restent sur les comptes.", "label": "Autoriser les habillages personnels", "page": "appearance", "path": "skins.user_custom", "store": "config"},
+    {"control": "", "hint": "0 = aucun habillage par compte.", "label": "Plafond par compte", "page": "appearance", "path": "skins.user_max", "store": "config"},
     {"control": "", "hint": "Vide = le moteur d'inférence principal s'en charge.", "label": "Adresse", "page": "compression", "path": "endpoint_url", "store": "compression"},
     {"control": "", "hint": "N'active rien : chaque utilisateur reste libre de l'activer (désactivée par défaut).", "label": "Autorisée", "page": "compression", "path": "enabled", "store": "compression"},
     {"control": "", "hint": "Au-delà, le budget de contexte prend le relais. 0 = sans limite.", "label": "Compressions par conversation", "page": "compression", "path": "max_per_chat", "store": "compression"},

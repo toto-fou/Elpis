@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu d'un habillage</title>
+<!-- Maquette d'Elpis en HTML/CSS pur, sans script : seules des variables CSS avec repli neutre ; l'application remplit #elpis-jetons. -->
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--app-bg,#f1f5f9);color:var(--text-700,#334155);overflow:hidden}
+.app{display:flex;height:100%;min-height:420px}
+.rail{width:150px;flex:none;background:var(--rail-bg,#0f172a);color:var(--rail-text,#cbd5e1);border-right:1px solid var(--rail-border,#1e293b);padding:12px 8px;display:flex;flex-direction:column;gap:4px}
+.rail .marque{color:var(--rail-text-strong,#fff);font-weight:700;padding:4px 8px 10px;display:flex;align-items:center;gap:8px}
+.rail .puce{width:10px;height:10px;border-radius:50%;background:var(--accent,#2563eb)}
+.rail a{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius,10px);color:var(--rail-text,#cbd5e1);text-decoration:none}
+.rail a:hover{background:var(--rail-hover,rgba(255,255,255,.1))}
+.rail a.actif{background:var(--rail-active-bg,rgba(37,99,235,.2));color:var(--rail-text-strong,#fff)}
+.rail .titre{color:var(--rail-muted,#94a3b8);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:10px 8px 2px}
+.rail .pied{margin-top:auto;background:var(--rail-bg-2,#0b1220);border-radius:var(--radius,10px);padding:8px;color:var(--rail-muted,#94a3b8);font-size:12px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.entete{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface,#fff);border-bottom:1px solid var(--border,#e2e8f0);color:var(--text-900,#0f172a);font-weight:600}
+.badge{font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--accent-surface,#e8f0fe);color:var(--accent-text,#1d4ed8);border:1px solid var(--accent-border,#bfd3fb)}
+.fil{flex:1;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.bulle{max-width:78%;padding:8px 12px;border-radius:var(--radius,10px)}
+.bulle.moi{align-self:flex-end;background:var(--accent-surface-2,#dbe7fd);color:var(--text-900,#0f172a);border:1px solid var(--accent-border,#bfd3fb)}
+.bulle.elpis{align-self:flex-start;background:var(--surface,#fff);color:var(--text-700,#334155);border:1px solid var(--border,#e2e8f0)}
+.bulle h4{color:var(--text-900,#0f172a);margin-bottom:2px}
+.bulle small{color:var(--text-500,#64748b)}
+.bulle a{color:var(--prose-link,#1d4ed8)}
+code.en-ligne{background:var(--code-inline-bg,#f1f5f9);color:var(--code-inline-fg,#1e40af);border:1px solid var(--code-inline-border,#e2e8f0);border-radius:4px;padding:0 4px;font:12px ui-monospace,Menlo,monospace}
+pre{background:var(--code-bg,#0d1117);color:var(--code-fg,#c9d1d9);border:1px solid var(--border,#30363d);border-radius:var(--radius,10px);padding:8px 10px;margin-top:6px;font:12px/1.4 ui-monospace,Menlo,monospace;overflow:hidden}
+table{border-collapse:collapse;width:100%;margin-top:6px;font-size:12px;background:var(--surface,#fff)}
+th,td{border:1px solid var(--border,#e2e8f0);padding:3px 8px;text-align:left}
+th{background:var(--surface-2,#f8fafc);color:var(--text-900,#0f172a)}
+td{color:var(--text-700,#334155)}
+.saisie{display:flex;gap:8px;align-items:center;padding:10px 16px;background:var(--app-bg,#f1f5f9);border-top:1px solid var(--border,#e2e8f0)}
+.champ{flex:1;padding:7px 10px;border-radius:var(--radius,10px);background:var(--surface,#fff);color:var(--text-400,#94a3b8);border:1px solid var(--border,#e2e8f0);box-shadow:0 0 0 2px var(--accent-ring,transparent)}
+.bouton{padding:7px 14px;border-radius:var(--radius,10px);border:0;background:var(--accent,#2563eb);color:var(--accent-fg,#fff);font-weight:600}
+.secondaire{padding:6px 12px;border-radius:var(--radius,10px);background:var(--surface-3,#eef2f7);color:var(--text-800,#1e293b);border:1px solid var(--border,#e2e8f0)}
+.toast{position:absolute;right:14px;top:52px;padding:8px 12px;border-radius:var(--radius,10px);background:var(--surface-4,#e2e8f0);color:var(--text-900,#0f172a);border:1px solid var(--border,#cbd5e1);box-shadow:0 4px 14px rgba(0,0,0,.18);font-size:12px}
+</style>
+<style id="elpis-jetons"></style>
+</head>
+<body class="elpis-skin-perso">
+<div class="app">
+  <nav class="rail" aria-label="Maquette du rail">
+    <div class="marque"><span class="puce"></span>Elpis</div>
+    <a class="actif" href="#">Conversation</a>
+    <a href="#">Routines</a>
+    <a href="#">Skills</a>
+    <div class="titre">Récents</div>
+    <a href="#">Notes de réunion</a>
+    <a href="#">Plan du projet</a>
+    <div class="pied">Compte local</div>
+  </nav>
+  <div class="main">
+    <header class="entete">Nouvelle idée <span class="badge">Aperçu</span></header>
+    <div class="toast">Habillage appliqué</div>
+    <section class="fil">
+      <div class="bulle moi">Peux-tu résumer l'avancement et me donner un exemple ?</div>
+      <div class="bulle elpis">
+        <h4>Résumé</h4>
+        Trois tâches sont terminées, voir <a href="#">le détail</a> ; la commande <code class="en-ligne">npm test</code> passe.
+        <small>Mis à jour il y a 2 min.</small>
+        <pre>function bonjour(nom) {
+  return "Bonjour " + nom;
+}</pre>
+        <table>
+          <tr><th>Tâche</th><th>État</th></tr>
+          <tr><td>Maquette</td><td>Terminée</td></tr>
+          <tr><td>Tests</td><td>En cours</td></tr>
+        </table>
+      </div>
+    </section>
+    <div class="saisie">
+      <div class="champ">Écrire un message…</div>
+      <span class="secondaire">Joindre</span>
+      <span class="bouton">Envoyer</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

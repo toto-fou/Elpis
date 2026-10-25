@@ -4,6 +4,8 @@ import DOMPurify from "dompurify";
 
 import { ensureVendor } from "../../../platform/vendor.ts";
 import { mouvementReduit } from "../../../utils/dom.ts";
+import { ouvrirApercu } from "./apercu.ts";
+import { carteSkin } from "./carte-skin.ts";
 import { ElpisCharts } from "./graphiques.ts";
 import type { OptionBrute } from "./graphiques.ts";
 import { ouvrirZoomDiagramme } from "./zoom-diagramme.ts";
@@ -193,6 +195,15 @@ function graphiqueOuRenvoi(cible: Element, brut: string): void {
   note.setAttribute("data-renvoi-graphique", brut.trim());
   note.textContent = "graphique dans la réponse";
   cible.replaceWith(note);
+}
+
+// Hors réponse finale, l'habillage devient une mention discrète ; la carte est montée dans la réponse.
+function skinOuRenvoi(pre: HTMLElement, rawText: string): void {
+  if (!pre.closest("[" + ATTRIBUT_SANS_GRAPHIQUES + "]")) return carteSkin(pre, rawText);
+  const note = document.createElement("span");
+  note.className = "text-[12px] italic text-slate-400";
+  note.textContent = "habillage dans la réponse";
+  pre.replaceWith(note);
 }
 
 function blocReferenceGraphique(pre: Element, brut: string): void {
@@ -476,9 +487,6 @@ function blocSvg(pre: HTMLElement, rawText: string): void {
 }
 
 const ICONE_COPIER = '<i class="ph ph-copy"></i><span class="sr-only">Copier</span>';
-// Document d'aperçu servi par le core avec sa propre CSP (un srcdoc hériterait de celle de la page).
-const URL_APERCU = "/apercu-code";
-const APERCU_PRET = "elpis-apercu-pret";
 
 function boutonApercu(pre: HTMLElement, wrapper: HTMLElement, rawText: string): HTMLButtonElement {
   const previewBtn = document.createElement("button");
@@ -488,10 +496,10 @@ function boutonApercu(pre: HTMLElement, wrapper: HTMLElement, rawText: string): 
   };
   fermer();
   let iframe: HTMLIFrameElement | null = null;
-  let surPret: ((e: MessageEvent) => void) | null = null;
+  let annuler: (() => void) | null = null;
   previewBtn.onclick = () => {
-    if (surPret) window.removeEventListener("message", surPret);
-    surPret = null;
+    annuler?.();
+    annuler = null;
     if (iframe) {
       iframe.remove();
       iframe = null;
@@ -501,17 +509,7 @@ function boutonApercu(pre: HTMLElement, wrapper: HTMLElement, rawText: string): 
     }
     const cadre = document.createElement("iframe");
     cadre.className = "code-preview-frame";
-    cadre.setAttribute("sandbox", "allow-scripts");
-    // Origine opaque (sans allow-same-origin) : le HTML part vers « * » et seulement à l'amorce de ce cadre.
-    const ecoute = (e: MessageEvent): void => {
-      if (!cadre.contentWindow || e.source !== cadre.contentWindow || e.data !== APERCU_PRET) return;
-      window.removeEventListener("message", ecoute);
-      surPret = null;
-      cadre.contentWindow.postMessage(rawText, "*");
-    };
-    surPret = ecoute;
-    window.addEventListener("message", ecoute);
-    cadre.src = URL_APERCU;
+    annuler = ouvrirApercu(cadre, rawText);
     iframe = cadre;
     wrapper.appendChild(cadre);
     pre.style.display = "none";
@@ -581,6 +579,7 @@ function enrichirPre(pre: HTMLElement): void {
   const lang = langClass ? langClass.replace("language-", "").toLowerCase() : "";
   const rawText = (code ? code.textContent : pre.textContent) || "";
   if (lang === "chart-ref") return graphiqueOuRenvoi(pre, rawText);
+  if (lang === "elpis-skin") return skinOuRenvoi(pre, rawText);
   if (lang === "mermaid") return blocMermaid(pre, rawText);
   if (lang === "svg") return blocSvg(pre, rawText);
   if ((lang === "" || lang === "xml" || lang === "html" || lang === "plaintext") && ressembleASvg(rawText))

@@ -8,6 +8,10 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Pour l'exploitant
 
+- **Habillages personnels : `skins.user_custom` et `skins.user_max`.** Actifs
+  par défaut, 10 par compte, réglables dans la console (Apparence). Rangés dans
+  `SKINS_DIR/_comptes/<id>/`, inclus dans les sauvegardes, effacés avec le
+  compte ; visibles et applicables par leur seul propriétaire.
 - **Outils intégrés `routine_save` et `ask_user`.** `routine_save` (réglage du
   compte « Créer des routines », actif par défaut) crée une routine en pause avec
   les mêmes contrôles que l'API ; il est absent en mode plan, dans le Studio, les
@@ -43,6 +47,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Habillages personnels.** Paramètres › Apparence › « Mes habillages » : chaque
+  compte crée ses habillages avec l'assistant (skill `apparence`). Le modèle
+  propose un bloc de jetons ; une carte le vérifie, un aperçu isolé le montre en
+  clair et en sombre avec ses contrastes, et l'import reste un clic de
+  l'utilisateur. Jetons seulement (aucun CSS), contraste AA exigé.
 - **Assistant de routine.** Bouton « Assistant » de la page Routines et commande
   `/routine` : le modèle mène un court entretien, puis crée la routine avec
   l'outil intégré `routine_save`, toujours en pause ; on la relit et l'active

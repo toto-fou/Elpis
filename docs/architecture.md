@@ -1174,6 +1174,27 @@ les autres couleurs sont sémantiques (statut).
   activé ou administrateur ; aussi montées sur le process admin) ;
   `/api/admin/skins` (`GET`, `PUT` état, `POST` formulaire, `POST /import`,
   `GET /{id}/export`, `DELETE /{id}`), page console *Système › Apparence*.
+- **Habillages personnels.** Chaque compte peut avoir ses propres habillages,
+  visibles par lui seul : un `skin.json` de **jetons seuls** (ni `skin.css`, ni
+  image, ni `brand`, ni `mascot`), rangé dans
+  `SKINS_DIR/_comptes/<uid>/<id>/skin.json` (le dossier `_comptes` échappe à
+  `pluginSkins`, `_` n'étant pas admis par `ID_RE`). Moteur
+  `apps/core/src/apparence/perso.ts` : liste blanche `JETONS_PERSO`, cœur
+  `JETONS_REQUIS` exigé en clair et en sombre (un seul jeu avec `darkBase`),
+  grammaire stricte des valeurs (couleurs hex / `rgb()` / `hsl()` numériques,
+  `--radius` de 0 à 32 px), dérivations des jetons absents, contraste WCAG
+  bloquant (4,5:1 texte, 3:1 éléments d'interface, maths dans
+  `@elpis/commun/couleurs`) et feuille générée côté serveur sous
+  `body.elpis-skin-perso` et `body.elpis-skin-perso.elpis-app-dark`. Routes
+  (session) : `GET /api/skins/perso`, `POST /api/skins/perso/verifier`,
+  `POST /api/skins/perso` (400 avec le rapport s'il reste une erreur, 409 si
+  l'id existe sans `overwrite` ou si le plafond est atteint),
+  `DELETE /api/skins/perso/{id}`, `GET /api/skins/perso/{id}/skin.css`
+  (propriétaire seul). `GET /api/skins` ajoute les entrées `perso:<id>`
+  (fonction active) sans changer sa forme ; `GET /api/skins/perso` donne `max` ; le réglage `skin = "perso:<id>"` n'est accepté que pour le
+  propriétaire. Config : `skins.user_custom` (vrai par défaut, faux : routes en
+  403 et retour au défaut) et `skins.user_max` (10). Le dossier du compte part
+  avec le compte (`comptes/suppression.ts`) et suit la sauvegarde de `SKINS_DIR`.
 - **Mascottes.** Registre unique `frontend/assets/mascotte/mascottes.json`,
   lu par le serveur (validation de `welcome_mascot`) et servi à l'interface
   (`mascottes_catalogue`).
@@ -2779,7 +2800,7 @@ détruisait la bibliothèque.
 processus (`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
 critique.
 
-Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`, `creer-une-routine`) ; les
+Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`, `creer-une-routine`, `apparence`) ; les
 skills métier sont ceux des comptes ou de l'admin. ⚠ Ne pas bundler de `.md` orphelin ; purger les
 `__pycache__` avant packaging.
 
@@ -2793,6 +2814,17 @@ outils sont actifs, hors mode plan, et que le réglage `routine_tool_enabled` n'
 les outils sont actifs, mode plan compris. Ni l'un ni l'autre n'est proposé à un tour éphémère (Studio). Ils sont
 refusés en dur, quel que soit le registre : `deniedForRoutine` les ajoute à la politique `deny_for`, et
 `OUTILS_JAMAIS_SOUS_AGENT` ainsi que la liste de refus des sous-agents les écartent.
+
+**Assistant d'habillage.** L'entrée `apparence` de `ASSISTANTS` épingle le skill livré `apparence` (catégorie `skill`
+seule, pour lire les références ; `ask_user` est un intégré générique) ; le modèle répond par un bloc
+` ```elpis-skin ` de jetons. `chat/rendu/carte-skin.ts` en fait une carte (réponse finale
+seulement) qui appelle `/api/skins/perso/verifier` une fois par contenu ; Importer et Importer et appliquer sont
+des clics (`reglages/skins-perso.ts`, le seul client de ces routes, aussi utilisé par Paramètres › Mes habillages).
+La modale `ApercuSkin.vue` lit `assets/apercu.html` du skill par
+`/api/skills/file`, y injecte la feuille validée par le serveur et l'affiche dans deux iframes `/apercu-code` via
+`ouvrirApercu()` (la poignée de main commune avec l'aperçu des blocs HTML) : aucun pont retour, le tableau des
+contrastes est rendu par l'application. Les événements `elpis:skins-perso` (liste rechargée, skin à appliquer) et
+`elpis:skin-correction` (message au chat) relient le DOM de la carte à la racine.
 
 ---
 

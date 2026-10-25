@@ -209,6 +209,7 @@ function completerConfig(brut: Noeud): ConfigAdmin {
     completer(section(c, "app"), { upload_dir: "user_db/uploads", sandbox_dir: "../user_sandboxes" });
 
   completer(section(c, "features"), { opencode: true, office_preview: true });
+  completer(section(c, "skins"), { user_custom: true, user_max: 10 });
 
   const session = security["session"];
   if (!session) {

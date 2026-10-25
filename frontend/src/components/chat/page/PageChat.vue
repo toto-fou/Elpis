@@ -18,11 +18,20 @@ import FilConversation from "./FilConversation.vue";
 import FileAttente from "./FileAttente.vue";
 import InfoCompression from "./InfoCompression.vue";
 import MenuSlash from "./MenuSlash.vue";
+import PiedQuestionnaire from "./PiedQuestionnaire.vue";
+import PuceQuestionnaire from "./PuceQuestionnaire.vue";
 import QuestionnaireAssistant from "./QuestionnaireAssistant.vue";
 import SurvolDepot from "./SurvolDepot.vue";
 
 const p = domaine(CLE_PAGE);
 const comp = domaine(CLE_COMPOSEUR);
+const questionnaireOuvert = computed(() => !!comp.askUserPanel?.ouvert);
+// Annonce lue à l'ouverture, en naviguant et à la réouverture : la région reste dans la page, hors du questionnaire.
+const annonceQuestionnaire = computed(() => {
+  const q = comp.askUserPanel;
+  const courante = q?.ouvert ? q.items[q.idx] : null;
+  return q && courante ? `Question ${q.idx + 1} sur ${q.items.length} : ${courante.q}` : "";
+});
 // Rien au-dessus du composeur : l'échec d'une tâche de fond est signalé par un toast.
 utiliserEchecsJobs(p, domaine(CLE_CONVERSATION));
 // Liste ouverte sous la saisie (combobox) et option active, pour le lecteur d'écran.
@@ -101,10 +110,14 @@ function surFichiers(e: Event): void {
 
         <AlerteContexte />
 
-        <QuestionnaireAssistant />
+        <PuceQuestionnaire />
+
+        <div class="sr-only" role="status" aria-live="polite">{{ annonceQuestionnaire }}</div>
 
         <div
           class="elpis-compose-card relative bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 focus-within:border-slate-300 transition-colors flex flex-col"
+          :class="{ 'elpis-ask-ouvert': questionnaireOuvert }"
+          @keydown="comp.askUserKeydown"
         >
           <!-- Perchoir de la mascotte (src/components/mascotte) : elle vient dormir sur la barre après trois minutes sans geste. -->
           <MascottePerchee
@@ -115,6 +128,7 @@ function surFichiers(e: Event): void {
             :anim="p.percheAnim"
             :dort="p.percheDort"
           />
+          <QuestionnaireAssistant />
           <EpinglesComposeur />
           <PiecesJointes :fichiers="p.attachedFiles" @retirer="p.removeAttachedFile" />
 
@@ -130,12 +144,16 @@ function surFichiers(e: Event): void {
               :nouveau-chat="p.messages.length === 0"
               :liste-id="listeOuverte"
               :option-active="optionActive"
+              :etiquette="questionnaireOuvert ? 'Autre réponse ou précision' : undefined"
+              :decrit-par="questionnaireOuvert ? 'elpis-ask-question' : undefined"
               :placeholder="
-                p.isStreaming
-                  ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)'
-                  : p.imageMode
-                    ? 'Décrivez l’image…'
-                    : p.composerPlaceholder
+                questionnaireOuvert
+                  ? 'Autre réponse, ou une précision…'
+                  : p.isStreaming
+                    ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)'
+                    : p.imageMode
+                      ? 'Décrivez l’image…'
+                      : p.composerPlaceholder
               "
               @element="p.inputRef = $event"
               @touche="p.handleInputKeydown"
@@ -149,7 +167,8 @@ function surFichiers(e: Event): void {
               multiple
               @change="surFichiers"
             />
-            <BarreComposeur />
+            <PiedQuestionnaire v-if="questionnaireOuvert" />
+            <BarreComposeur v-else />
           </div>
         </div>
       </div>

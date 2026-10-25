@@ -7,8 +7,10 @@ const props = defineProps<{
   texte: string;
   placeholder: string;
   nouveauChat?: boolean;
+  etiquette?: string;
   listeId?: string | null;
   optionActive?: string | null;
+  decritPar?: string;
 }>();
 const emit = defineEmits<{
   "update:texte": [texte: string];
@@ -41,10 +43,11 @@ onBeforeUnmount(() => emit("element", null));
     v-model="valeur"
     rows="1"
     role="combobox"
-    aria-label="Message"
+    :aria-label="props.etiquette || 'Message'"
     aria-autocomplete="list"
     aria-haspopup="listbox"
     aria-multiline="true"
+    :aria-describedby="props.decritPar || undefined"
     :aria-expanded="props.listeId ? 'true' : 'false'"
     :aria-controls="props.listeId || undefined"
     :aria-activedescendant="props.listeId && props.optionActive ? props.optionActive : undefined"

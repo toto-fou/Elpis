@@ -598,7 +598,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     try {
       const skills = l.pinnedSkillNames();
       l.clearPinnedSkills();
-      e.askUserPanel.value = null;
+      l.resetAskUser();
       if (e.abortController.value) {
         try {
           e.abortController.value.abort();

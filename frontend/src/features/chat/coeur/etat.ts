@@ -69,6 +69,10 @@ export interface QuestionAsk {
 export interface PanneauAsk {
   items: QuestionAsk[];
   idx: number;
+  /** Faux après « Répondre librement » : le composeur est normal et la puce propose de reprendre. */
+  ouvert: boolean;
+  /** Texte du composeur mis de côté pendant que le questionnaire est ouvert. */
+  brouillon: string;
 }
 
 export interface CategorieMcp {
@@ -235,6 +239,8 @@ export interface EtatFlux {
   pendingReattach: string | null;
   pendingAskUser: QuestionAsk[] | null;
   composeRestoreDraft: string | null;
+  /** Posé par le questionnaire : le prochain envoi part en message de chat, même en mode Images. */
+  envoiQuestionnaire: boolean;
   todoTouchedThisTurn: boolean;
   shellPend: Map<string, { chunk: string; seq: number }>;
   shellFlushTimer: Minuterie | null;
@@ -266,6 +272,7 @@ export function creerEtatFlux(): EtatFlux {
     pendingReattach: null,
     pendingAskUser: null,
     composeRestoreDraft: null,
+    envoiQuestionnaire: false,
     todoTouchedThisTurn: false,
     shellPend: new Map(),
     shellFlushTimer: null,

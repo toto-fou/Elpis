@@ -244,7 +244,10 @@ export function setupChat(
   );
   const vueFlux = creerVueFlux(c);
   const generation = creerGeneration(c, session);
-  const questionnaire = creerQuestionnaire(c);
+  const questionnaire = creerQuestionnaire(
+    c,
+    () => !!composeur.showSlash.value || !!composeur.showMentionDropdown.value,
+  );
   const segments = creerSegmentsVue(c, (s) => cartesMemoire.toolStepsForDisplay(s));
   const modeles = setupChatModels(
     Vue,
@@ -333,8 +336,13 @@ export function setupChat(
     } as unknown as DepsHistorique,
     session,
   );
+  // Un questionnaire ouvert, ou avec des réponses gardées, retient les réveils comme une saisie.
+  const questionnaireActif = Vue.computed(() => {
+    const p = e.askUserPanel.value;
+    return !!p && (p.ouvert || p.items.some((x) => x._sel.length > 0 || x._free.trim() !== ""));
+  });
   const jobs = creerJobs(
-    { currentChatId, inputMessage, isStreaming },
+    { currentChatId, inputMessage, isStreaming, questionnaireActif },
     {
       fetchAuth: ctx.fetchAuth,
       showToast: ctx.showToast,
@@ -449,6 +457,7 @@ export function setupChat(
     loadAvailableModels: modeles.loadAvailableModels,
     loadLlmConnectors: modeles.loadLlmConnectors,
     resetAskUser: questionnaire.resetAskUser,
+    ouvrirAskUser: questionnaire.ouvrirAskUser,
     normalizeAskUser: normaliserQuestions,
     flashRenamedTitle,
     mergeFilesChanged: (idx: number, files: unknown) => {
@@ -525,10 +534,10 @@ export function setupChat(
     runs.oublierRuns();
     e.assistantForm.value = { open: false, id: "", valeurs: {} };
     e.attachedFiles.value = [];
+    questionnaire.resetAskUser();
     inputMessage.value = "";
     composeurTyped.pinnedSkills.value = [];
     ragChat.vider();
-    questionnaire.resetAskUser();
     e.todoList.value = [];
     e.queueStatus.value = null;
     jobs.jobsReinitialiser();
@@ -723,7 +732,10 @@ export function setupChat(
     onMentionScroll: composeur.onMentionScroll,
     closeMentionDropdown: composeur.closeMentionDropdown,
     selectMention: composeur.selectMention,
-    handleInputKeydown: composeur.handleInputKeydown,
+    // Le questionnaire ouvert passe avant le composeur, sauf si un menu « / » ou « @ » attend la touche.
+    handleInputKeydown: (ev: KeyboardEvent) => {
+      if (!questionnaire.askUserKeydown(ev)) composeur.handleInputKeydown(ev);
+    },
     handleInputInput: composeur.handleInputInput,
     mentionIconClass: composeur.mentionIconClass,
     mentionFilenameOf: composeur.mentionFilenameOf,
@@ -760,6 +772,9 @@ export function setupChat(
     isAskOptionOn: questionnaire.isAskOptionOn,
     toggleAskOption: questionnaire.toggleAskOption,
     askUserPrev: questionnaire.askUserPrev,
+    askUserKeydown: questionnaire.askUserKeydown,
+    askUserRepondues: questionnaire.askUserRepondues,
+    rouvrirAskUser: questionnaire.rouvrirAskUser,
     askUserNext: questionnaire.askUserNext,
     dismissAskUser: questionnaire.dismissAskUser,
     submitAskUser: questionnaire.submitAskUser,

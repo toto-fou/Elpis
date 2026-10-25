@@ -333,13 +333,13 @@ export function creerHistoriqueChat(
   const user = refs.user ?? { value: null };
   const { fetchAuth, showToast, openConfirm, openPrompt, showSidebar } = ctx;
 
-  // Pièces jointes, édition, menus et questionnaire ne suivent pas vers une autre conversation.
+  // Pièces jointes, édition, menus et questionnaire ne suivent pas vers une autre conversation ; la relecture de la même garde le questionnaire (réponses en cours).
   function remettreComposeur(memeChat: boolean): void {
     if (!memeChat && refs.attachedFiles) refs.attachedFiles.value = [];
     appeler(deps.cancelEditMessage);
     appeler(deps.resetSlash);
     appeler(deps.clearPinnedSkills);
-    appeler(deps.resetAskUser);
+    if (!memeChat) appeler(deps.resetAskUser);
     appeler(deps.closeTaskModal);
     if (!memeChat) appeler(deps.resetImageCompose);
   }

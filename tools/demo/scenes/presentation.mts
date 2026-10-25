@@ -4,7 +4,7 @@ import type { Page } from "playwright-core";
 
 import type { Conversation } from "../instance.mts";
 import type { Scenario } from "../moteur.mts";
-import { cliquer, defiler, deplacer, glisser, pause, taper, tirer } from "../curseur.mts";
+import { cliquer, defiler, deplacer, glisser, pause, taper } from "../curseur.mts";
 import {
   CORRECTIF_INIT,
   CORRECTIF_RECHERCHE,
@@ -232,10 +232,9 @@ export async function jouer(page: Page): Promise<void> {
   await pause(page, 400);
   await cliquer(page, page.locator("button[title='Réduire le panneau']:visible").first());
   await pause(page, 300);
-  await tirer(page, page.locator("[title='Redimensionner']:visible").first(), 600);
-  for (const n of ["search-service", "search_service", "index.py"])
-    await cliquer(page, page.getByText(n, { exact: true }).first());
-  await pause(page, 700);
+  // Explorateur fermé, largeur par défaut : le composeur garde sa place ; la modification de l'agent ouvre le fichier.
+  await cliquer(page, page.locator("button[title='Explorateur de fichiers']:visible").first());
+  await pause(page, 600);
   await cliquer(page, page.locator("textarea").first());
   await taper(page, PROMPT_2);
   await pause(page, 300);

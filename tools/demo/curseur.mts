@@ -93,20 +93,6 @@ export async function cliquer(page: Page, cible: Locator): Promise<void> {
   await pause(page, 160);
 }
 
-/** Glisser-déposer d'une poignée jusqu'à l'abscisse `x`. */
-export async function tirer(page: Page, poignee: Locator, x: number): Promise<void> {
-  const b = await poignee.boundingBox();
-  if (!b) throw new Error(`poignée invisible : ${poignee.toString()}`);
-  const y = position.y < b.y || position.y > b.y + b.height ? b.y + b.height / 2 : position.y;
-  await deplacer(page, b.x + b.width / 2, y);
-  await pause(page, 120);
-  await page.mouse.down();
-  await deplacer(page, x, y + 6);
-  await pause(page, 80);
-  await page.mouse.up();
-  await pause(page, 200);
-}
-
 /** Défilement doux de `dy` pixels sous le curseur. */
 export async function defiler(page: Page, dy: number, duree = 900): Promise<void> {
   const pas = Math.max(6, Math.round(duree / 30));

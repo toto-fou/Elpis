@@ -148,8 +148,17 @@ async function filmer(scene: { jouer(page: Page): Promise<void> }, brut: string)
     const taille = await page.evaluate(() => [innerWidth, innerHeight]);
     if (taille[0] !== LARGEUR || taille[1] !== HAUTEUR)
       throw new Error(`fenêtre ${taille.join("x")}, attendu ${LARGEUR}x${HAUTEUR}`);
-    await page.locator("textarea").first().waitFor();
-    await page.locator(`button[title='${MODELE}']`).waitFor();
+    // Liste des modèles parfois vide au premier chargement : la page est rechargée.
+    for (let essai = 0; ; essai++) {
+      await page.locator("textarea").first().waitFor();
+      try {
+        await page.locator(`button[title='${MODELE}']`).waitFor({ timeout: 10_000 });
+        break;
+      } catch (e) {
+        if (essai >= 2) throw e;
+        await page.reload();
+      }
+    }
     await deplacer(page, 980, 640);
     await pause(page, 1500);
     const ffmpeg = capturer(brut);

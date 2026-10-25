@@ -16,6 +16,8 @@ import {
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { MODELE } from "./moteur.mts";
+
 export const DEPOT = path.resolve(import.meta.dirname, "..", "..");
 export const RACINE = path.join(import.meta.dirname, ".instance");
 export const PORTS = { main: 38001, admin: 38002, toolhost: 38765, moteur: 38080 } as const;
@@ -40,7 +42,7 @@ const PROPRES = new Set([
 
 function config(): Record<string, unknown> {
   return {
-    llama: { ip: "127.0.0.1", port: String(PORTS.moteur), model: "team-coder-32b", engine: "llamacpp" },
+    llama: { ip: "127.0.0.1", port: String(PORTS.moteur), model: MODELE, engine: "llamacpp" },
     security: { https: { enabled: false }, listen: "local", session: { https_only: false } },
     rag: { enabled: false },
     executors: { idle_kill_hours: 0 },
@@ -193,6 +195,18 @@ async function sante(url: string, delai = 60_000): Promise<void> {
   throw new Error(`${url} injoignable (journaux : ${path.join(RACINE, "logs")})`);
 }
 
+/** Attend que le core annonce le modèle : une interface chargée avant garde « Aucun modèle ». */
+async function modeleAnnonce(cookie: string, delai = 30_000): Promise<void> {
+  const fin = Date.now() + delai;
+  while (Date.now() < fin) {
+    const r = await fetch(`${URL_MAIN}/api/llm/models`, { headers: { cookie } }).catch(() => null);
+    const d = r?.ok ? ((await r.json()) as { models?: string[] }) : null;
+    if (d?.models?.includes(MODELE)) return;
+    await new Promise((ok) => setTimeout(ok, 500));
+  }
+  throw new Error(`modèle ${MODELE} non annoncé par le core`);
+}
+
 export async function connexion(username: string = COMPTE.username): Promise<string> {
   const r = await fetch(`${URL_MAIN}/api/login-lite`, {
     method: "POST",
@@ -278,12 +292,14 @@ export async function demarrerInstance(scene: string, o: OptionsInstance = {}): 
     await sante(`http://127.0.0.1:${PORTS.toolhost}/health`);
     fils.push(lancer("main", [process.execPath, "--enable-source-maps", core], environnement("main")));
     await sante(`${URL_MAIN}/api/me`);
+    const cookie = await connexion();
     const r = await fetch(`${URL_MAIN}/api/settings`, {
       method: "PUT",
-      headers: { "content-type": "application/json", cookie: await connexion() },
+      headers: { "content-type": "application/json", cookie },
       body: JSON.stringify({ memory_enabled: true }),
     });
     if (!r.ok) throw new Error(`réglages : ${r.status} ${await r.text()}`);
+    await modeleAnnonce(cookie);
   } catch (e) {
     await arreterTout();
     throw e;

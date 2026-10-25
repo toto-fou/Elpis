@@ -1,10 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/outils/EtapeOutil.vue — une étape d'un segment : réflexion, pastille d'état, progression, journal, puis console ou carte détail. -->
 <script setup lang="ts">
-import { fmtCompression } from "../../../features/chat/outils/format";
+import { fmtCompression, fmtDuree } from "../../../features/chat/outils/format";
 import type { EtapeOutil, GroupeSegment } from "../../../features/chat/outils/types";
 import { suivreReflexionOuverte } from "../../../utils/dom";
-import { fmtElapsedMs } from "../../../utils/utils-purs";
 import CarteOutil from "./CarteOutil.vue";
 import ConsoleShell from "./ConsoleShell.vue";
 
@@ -90,6 +89,12 @@ function bloquerReflexion(ev: MouseEvent): void {
         aria-label="Compression terminée"
       ></i>
       <i
+        v-else-if="step.status === 'stopped'"
+        class="ph ph-stop-circle text-slate-400"
+        style="font-size: 11px"
+        aria-label="Arrêtée"
+      ></i>
+      <i
         v-else-if="step._is_error && step.status === 'done'"
         class="ph ph-x-circle text-red-500"
         style="font-size: 11px"
@@ -119,14 +124,10 @@ function bloquerReflexion(ev: MouseEvent): void {
             ? step.status === 'running'
               ? 'text-slate-500'
               : 'text-slate-500 group-hover/toolbtn:text-slate-700'
-            : step._is_error && step.status === 'done'
-              ? 'text-red-600 group-hover/toolbtn:text-red-700'
-              : step.status === 'running'
-                ? 'text-blue-600'
-                : 'text-slate-600 group-hover/toolbtn:text-blue-600'
+            : 'text-slate-600 group-hover/toolbtn:text-slate-800'
         "
         style="transition: color 0.15s"
-        >{{ step._kind === "compression" ? "compression du contexte" : step.ragLabel || step.name }}</span
+        >{{ step._kind === "compression" ? "Compression du contexte" : step.ragLabel || step.name }}</span
       >
 
       <template v-if="step._kind === 'compression'">
@@ -134,9 +135,9 @@ function bloquerReflexion(ev: MouseEvent): void {
           >· {{ step.turns }} tours</span
         >
         <span v-if="step.status === 'running' && step.pct" class="text-slate-400 text-[11px] font-normal"
-          >· {{ step.pct }}% ctx</span
+          >· contexte {{ step.pct }} %</span
         >
-        <span v-if="step.status === 'skipped'" class="text-amber-600/80 text-[11px] font-normal"
+        <span v-if="step.status === 'skipped'" class="text-slate-500 text-[11px] font-normal"
           >· {{ step.reasonLabel || "Non appliquée" }}</span
         >
         <span
@@ -147,12 +148,12 @@ function bloquerReflexion(ev: MouseEvent): void {
         <span
           v-else-if="step.status === 'done' && step.stats && step.stats.tokens_saved"
           class="text-slate-400 text-[11px] font-normal"
-          >· −{{ step.stats.tokens_saved }} tokens</span
+          >· −{{ step.stats.tokens_saved }} jetons</span
         >
         <span
           v-if="step.status === 'done' && step.stats && step.stats.duration_ms"
           class="text-slate-400 text-[11px] font-mono tabular-nums"
-          >· {{ fmtElapsedMs(step.stats.duration_ms) }}</span
+          >· {{ fmtDuree(step.stats.duration_ms) }}</span
         >
       </template>
       <template v-else>
@@ -170,7 +171,13 @@ function bloquerReflexion(ev: MouseEvent): void {
         <span
           v-if="step.status === 'done' && step.durationMs != null && !step.shellMs"
           class="text-slate-400 text-[11px] font-mono tabular-nums"
-          >· {{ fmtElapsedMs(step.durationMs) }}</span
+          >· {{ fmtDuree(step.durationMs) }}</span
+        >
+        <span
+          v-else-if="step.status === 'stopped'"
+          class="text-slate-500 text-[11px] tabular-nums"
+          data-arretee
+          >· {{ step.durationMs != null ? "arrêtée à " + fmtDuree(step.durationMs) : "arrêtée" }}</span
         >
       </template>
 
@@ -228,19 +235,19 @@ function bloquerReflexion(ev: MouseEvent): void {
     class="mt-1 mb-0.5 text-[10px] font-mono leading-tight space-y-0.5"
     style="max-width: min(420px, 80vw)"
   >
-    <div
-      v-for="(ln, li) in step.logs.slice(-3)"
-      :key="'lp' + li"
-      class="truncate"
-      :class="{
-        'text-slate-400': ln.level === 'debug',
-        'text-slate-500': ln.level === 'info' || ln.level === 'notice',
-        'text-amber-500': ln.level === 'warning',
-        'text-red-500':
-          ln.level === 'error' || ln.level === 'critical' || ln.level === 'alert' || ln.level === 'emergency',
-      }"
-    >
-      · {{ ln.message }}
+    <div v-for="(ln, li) in step.logs.slice(-3)" :key="'lp' + li" class="truncate text-slate-500">
+      <span
+        :class="
+          ln.level === 'warning'
+            ? 'text-amber-600'
+            : ['error', 'critical', 'alert', 'emergency'].includes(ln.level)
+              ? 'text-red-500'
+              : ''
+        "
+        aria-hidden="true"
+        >·</span
+      >
+      {{ ln.message }}
     </div>
   </div>
 

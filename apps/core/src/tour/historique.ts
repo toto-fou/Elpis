@@ -21,6 +21,7 @@ import { clipResumeThinking, RESUME_AFTER_THINK_INSTRUCTION } from "../boucle/re
 import { AppelsParId, mergeUserSuffix, pruneKey, userSuffixSig } from "../contexte/elagage";
 import { copyFields } from "../images/messages";
 import { fusionnerSourcesRag, sourcesRagPropres } from "../rag/sources-message";
+import { erreurPropre, fusionnerMetaOutils, metaOutilsPropre } from "./journal-etapes";
 
 /** `_msg_text` : texte d'un contenu, parts `text` d'un contenu multimodal jointes par une espace. */
 export function msgText(contenu: unknown): string {
@@ -237,6 +238,10 @@ export function mergePrevSegmentLists(prev: Dict, msg: Dict): void {
   }
   if (Array.isArray(prev["rag_sources"]) && prev["rag_sources"].length)
     msg["rag_sources"] = fusionnerSourcesRag(prev["rag_sources"], msg["rag_sources"]);
+  if (prev["tool_meta"] !== undefined) {
+    const meta = fusionnerMetaOutils(prev["tool_meta"], msg["tool_meta"]);
+    if (meta) msg["tool_meta"] = meta;
+  }
   const ancFc = fcList(prev);
   if (ancFc.length) {
     const acc = new Map(ancFc.map((e) => [e["path"] as string, e]));
@@ -272,6 +277,8 @@ const GRAFT_KEYS = [
   "compactions",
   "tool_images",
   "rag_sources",
+  "tool_meta",
+  "error",
 ];
 
 /** Recolle aux assistants TRONQUÉS du payload l'état d'outils que seule la base connaît (même position, même question, même texte) ; rend le nombre de messages complétés. */
@@ -372,6 +379,14 @@ export function normalizeClientMessages(messages: unknown): [Dict[], Dict[]] {
     if (m["role"] === "assistant" && Array.isArray(m["rag_sources"])) {
       const sources = sourcesRagPropres(m["rag_sources"]);
       if (sources.length) mm["rag_sources"] = sources;
+    }
+    if (m["role"] === "assistant" && m["tool_meta"] !== undefined) {
+      const meta = metaOutilsPropre(m["tool_meta"]);
+      if (meta) mm["tool_meta"] = meta;
+    }
+    if (m["role"] === "assistant" && m["error"] !== undefined) {
+      const erreur = erreurPropre(m["error"]);
+      if (erreur) mm["error"] = erreur;
     }
     if (m["role"] === "user" && m["origin"] === "job_wake") {
       mm["origin"] = "job_wake";

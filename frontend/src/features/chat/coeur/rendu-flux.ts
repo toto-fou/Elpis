@@ -192,7 +192,12 @@ export function creerRenduFlux(c: CoeurChat) {
     }
     const fusion = (cur.thinking || "") + f.thinkBuf;
     f.thinkBuf = "";
-    msgs[idx] = Object.assign({}, cur, { thinking: fusion });
+    msgs[idx] = Object.assign(
+      {},
+      cur,
+      { thinking: fusion },
+      cur._thinkingStartedAt ? {} : { _thinkingStartedAt: Date.now(), _thinkingEndedAt: undefined },
+    );
     e.statusText.value = l.thinkingTitle(fusion);
     scheduleStreamScroll();
   }

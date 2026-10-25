@@ -12,6 +12,7 @@ import type { Ref } from "vue";
 import { lireSchema } from "../../utils/lecture-json";
 import { DISQUE_PAR_DEFAUT, JOBS_PAR_DEFAUT } from "./etat";
 import type { BaseAdmin, ConfigExecEditee, ProfilReseauEdite } from "./etat";
+import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
 
@@ -146,6 +147,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
   const { showToast, openConfirm, fetchAuth } = ctx;
   const { execConfig } = e;
   const execLoading = ref(false);
+  const execCharge = ref(false);
   const execHealthcheck: Ref<SanteDocker | null> = ref(null);
   const sandboxContainers: Ref<ConteneurBac[]> = ref([]);
   const staleNetContainers: Ref<ConteneurPerime[]> = ref([]);
@@ -346,10 +348,14 @@ export function creerSandboxAdmin(b: BaseAdmin) {
       };
       execConfig.value = nouvelle;
       lien.markAdminStoreClean("exec");
+      execCharge.value = true;
+      chargementReussi("loadExecConfig");
       await loadExecHealthcheck();
       await loadSandboxContainers();
     } catch (err) {
-      showToast("Erreur chargement : " + (err instanceof Error ? err.message : String(err)), "error");
+      chargementEchoue("loadExecConfig", err instanceof Error ? err.message : String(err), () =>
+        loadExecConfig(),
+      );
     } finally {
       execLoading.value = false;
     }
@@ -453,6 +459,7 @@ export function creerSandboxAdmin(b: BaseAdmin) {
 
   return {
     execLoading,
+    execCharge,
     execConfig,
     execHealthcheck,
     execExtraArgsText,

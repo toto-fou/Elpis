@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/outils/segments.ts — segments texte/outils d'un message assistant (porté de `chat/_tool_segments.js`) : reconstruction depuis la `tool_history` persistée et libellés partagés entre le direct et le rechargement. */
+import type { MetaOutils } from "@elpis/contracts";
+
 import type { EtapeOutil } from "./types.ts";
 
 type Objet = Record<string, unknown>;
@@ -31,7 +33,12 @@ export interface OptionsSegments {
   prevHistory?: unknown;
   finalContent?: unknown;
   delta?: boolean;
+  /** `tool_meta` validé du message : durée, réflexion et arrêt de chaque étape. */
+  meta?: MetaOutils | null;
 }
+
+/** Extrait d'un résultat gardé au rechargement ; la longueur complète est signalée. */
+export const RESULTAT_RECHARGE_MAX = 2000;
 
 const estObjet = (v: unknown): v is Objet => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -155,6 +162,14 @@ function debutDuTour(h: readonly unknown[], prev: readonly unknown[] | null): nu
   return apresDernierUser(h);
 }
 
+function appliquerMeta(step: EtapeReconstruite, m: MetaOutils["steps"][string] | undefined): void {
+  if (!m) return;
+  if (typeof m.ms === "number") step.durationMs = m.ms;
+  if (m.think) step.thinking = m.think;
+  if (typeof m.think_ms === "number") step.thinkingMs = m.think_ms;
+  if (m.state === "stopped") step.status = "stopped";
+}
+
 /** Vue entrelacée d'un message rechargé ; null si rien d'affichable. */
 export function parseToolHistorySegments(
   toolHistory: unknown,
@@ -185,7 +200,8 @@ export function parseToolHistorySegments(
         const c = e["content"];
         const resStr = typeof c === "string" ? c : c == null ? "" : JSON.stringify(c);
         st._is_error = resultIsError(resStr);
-        st.result = resStr.slice(0, 2000);
+        st.result = resStr.slice(0, RESULTAT_RECHARGE_MAX);
+        if (resStr.length > RESULTAT_RECHARGE_MAX) st.resultLength = resStr.length;
         if (st.name.indexOf("rag_") === 0) st.ragResultLabel = ragResultLabel(st.name, resStr);
         if (st.name === "execute_shell") {
           const shf = shellFieldsFromResult(resStr);
@@ -241,7 +257,11 @@ export function parseToolHistorySegments(
       const genre = genreEtape(name, args);
       if (genre) step._kind = genre;
       toolSteps.push(step);
-      if (typeof a["id"] === "string" && a["id"]) parId[a["id"]] = step;
+      if (typeof a["id"] === "string" && a["id"]) {
+        parId[a["id"]] = step;
+        step.callId = a["id"];
+        appliquerMeta(step, opts.meta?.steps[a["id"]]);
+      }
     }
   }
 

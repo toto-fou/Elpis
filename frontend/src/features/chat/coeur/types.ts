@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/types.ts — formes du cœur du chat : message et étape d'outil mutables, événement de flux appliqué à la vue, refs et contexte fournis par la racine (app.js). */
-import type { BilanTache, ResumeReveil, SourceCiteeRag } from "@elpis/contracts";
+import type { BilanTache, MetaOutils, ResumeReveil, SourceCiteeRag } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../flux/aides.ts";
@@ -28,10 +28,16 @@ export interface EtapeChat {
   _is_error?: boolean;
   thinking?: string;
   thinkingOpen?: boolean;
+  /** Durée de la réflexion qui précède l'appel. */
+  thinkingMs?: number;
+  /** Longueur du résultat complet quand `result` en est un extrait (rechargement). */
+  resultLength?: number;
   isRag?: boolean;
   ragLabel?: string;
   ragResultLabel?: string;
   durationMs?: number;
+  /** Horodatage de l'appel (direct) : durée d'une étape arrêtée. */
+  startedAt?: number;
   progress?: number;
   progressInfo?: { value: number; total: number | null; pct: number | null; message: string; at: number };
   logs?: JournalOutil[];
@@ -120,6 +126,8 @@ export interface MessageChat {
   isStreaming?: boolean;
   isError?: boolean;
   errorMessage?: string;
+  errorDetail?: string;
+  errorKind?: string;
   isTruncated?: boolean;
   toolLoopTruncated?: boolean;
   toolLoopStats?: Objet | null;
@@ -135,6 +143,8 @@ export interface MessageChat {
   image_request?: Objet | null;
   tool_history?: unknown[] | null;
   tool_history_delta?: boolean;
+  /** Durées, réflexions, captures et arrêts des étapes, enregistrés avec le message. */
+  tool_meta?: MetaOutils | null;
   metrics?: Objet | null;
   run_ids?: unknown[] | null;
   files_changed?: unknown[] | null;
@@ -155,6 +165,8 @@ export interface MessageChat {
   _prefillCachePct?: number;
   _thinkingStartedAt?: number;
   _thinkingEndedAt?: number;
+  /** Durée de la réflexion finale relue de l'historique. */
+  _thinkingMs?: number;
   _lastToolResultAt?: number | null;
   _modelLoad?: Objet | null;
   _imageTurn?: boolean;

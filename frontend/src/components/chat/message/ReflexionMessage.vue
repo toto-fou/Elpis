@@ -55,12 +55,18 @@ function bloquer(e: MouseEvent): void {
         "
         @click="bloquer"
       >
-        <i class="ph ph-brain text-slate-400/80" style="font-size: 11px"></i>
+        <i
+          v-if="entry.msg.thinkingTruncated && !entry.msg.isStreaming"
+          class="ph ph-warning text-amber-600"
+          style="font-size: 11px"
+          aria-hidden="true"
+        ></i>
+        <i v-else class="ph ph-brain text-slate-400/80" style="font-size: 11px"></i>
         <span
           class="text-[12.5px] font-semibold"
           :class="
             entry.msg.thinkingTruncated && !entry.msg.isStreaming
-              ? 'text-amber-600'
+              ? 'text-slate-700'
               : !entry.msg.content && !entry.msg.isStreaming
                 ? 'text-slate-700'
                 : ''
@@ -71,7 +77,9 @@ function bloquer(e: MouseEvent): void {
               ? "Réflexion interrompue"
               : !entry.msg.content && !entry.msg.isStreaming
                 ? "Réponse"
-                : "Réflexion…"
+                : entry.msg.isStreaming
+                  ? "Réflexion…"
+                  : "Réflexion"
           }}
         </span>
         <span

@@ -3655,6 +3655,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 .task-run-ico.is-running { color: var(--accent); }
 .task-run-ico.is-done    { color: var(--ok-text); }
 .task-run-ico.is-error   { color: var(--danger-text); }
+.task-run-ico.is-warn    { color: var(--warn-text); }
+.task-run-ico.is-neutral { color: var(--text-400); }
 .task-run-title {
     flex: 0 1 auto;
     min-width: 0;
@@ -3694,8 +3696,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     margin-left: 0.15rem;
     border-radius: 4px;
     border: none;
@@ -3717,8 +3719,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     margin-left: 0.15rem;
     border-radius: 4px;
     border: none;
@@ -3757,7 +3759,8 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
     color: var(--text-600);
     background: color-mix(in srgb, var(--text-500) 12%, transparent);
 }
-.task-run-badge.is-ok    { color: var(--ok-text);     background: color-mix(in srgb, var(--ok-text) 12%, transparent); }
+.task-run-badge.is-ok    { color: var(--text-600); background: none; padding-left: 0; }
+.task-run-badge.is-ok::before { content: "✓ "; color: var(--ok-text); }
 .task-run-badge.is-warn  { color: var(--warn-text-strong); background: color-mix(in srgb, var(--warn-text) 14%, transparent); }
 .task-run-badge.is-error { color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 12%, transparent); }
 .task-run-ro {

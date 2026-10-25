@@ -39,6 +39,26 @@ export function classeStatutTache(s: StatutTache): "is-ok" | "is-warn" | "is-err
   return "is-warn";
 }
 
+const LIBELLES_ETAT_RUN: Readonly<Record<string, string>> = {
+  running: "en cours",
+  completed: "terminé",
+  incomplete: "inachevé",
+  timeout: "délai dépassé",
+  failed: "échec",
+  cancelled: "annulé",
+};
+
+/** État d'un run de sous-agent en français ; un état inconnu reste tel quel. */
+export const libelleEtatRun = (s: string | undefined): string => (s ? (LIBELLES_ETAT_RUN[s] ?? s) : "");
+
+/** Signe d'un run fini : réussite, échec, incomplet ou arrêt (seul le signe porte la couleur). */
+export function signeEtatRun(s: string | undefined): "ok" | "echec" | "incomplet" | "arret" {
+  if (s === "completed") return "ok";
+  if (s === "failed" || s === "timeout") return "echec";
+  if (s === "cancelled") return "arret";
+  return "incomplet";
+}
+
 const LIBELLES_SOURCE: Readonly<Record<NonNullable<BilanTache["read_only_source"]>, string>> = {
   admin_forced: "imposée par l'administrateur",
   task: "demandée par l'agent principal",

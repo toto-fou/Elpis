@@ -45,6 +45,7 @@ import ModaleTransfert from "../chat/modales/ModaleTransfert.vue";
 import ProprietesModele from "../chat/modales/ProprietesModele.vue";
 import RemplissageTemplate from "../chat/modales/RemplissageTemplate.vue";
 import TranscriptionSousAgent from "../chat/modales/TranscriptionSousAgent.vue";
+import VoletAgent from "../chat/modales/VoletAgent.vue";
 import VisionneuseImages from "../chat/modales/VisionneuseImages.vue";
 import ZoomImage from "../chat/modales/ZoomImage.vue";
 import PageCode from "../code/PageCode.vue";
@@ -150,6 +151,7 @@ fournirDomaineModales(r, false);
       <!-- Source citée d'une réponse du RAG : volet à droite du chat, à la place de l'éditeur de la sandbox. -->
       <VisionneuseSource v-if="!(r.showEditor && r.settings.enable_editor)" />
       <PanneauMcp />
+      <VoletAgent />
       <PanneauEchantillonnage />
       <PageEditeur />
       <PageRoutines />

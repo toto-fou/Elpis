@@ -1,11 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : réflexion, travail, captures, sous-agents, effets, statut, contenu et pièces jointes, fichiers modifiés, pied, incidents. -->
+<!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : réflexion, travail, captures, sous-agents, effets, statut, contenu et pièces jointes, fichiers modifiés, interruption, pied, incidents. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
+import { textesDuTour } from "../../../features/chat/message/chronologie";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { interfaceApp } from "../../../features/reglages/interface";
 import { domaineRagOptionnel } from "../../../features/rag/domaine";
 
+import FilTour from "./FilTour.vue";
 import ReflexionMessage from "./ReflexionMessage.vue";
 import TravailAssistant from "./TravailAssistant.vue";
 import ContenuMarkdown from "../ContenuMarkdown.vue";
@@ -15,6 +18,7 @@ import EffetsMessage from "./EffetsMessage.vue";
 import FichiersModifies from "./FichiersModifies.vue";
 import ImageGrid from "../../images/ImageGrid.vue";
 import ImageTile from "../../images/ImageTile.vue";
+import LigneInterruption from "./LigneInterruption.vue";
 import PiedMessage from "./PiedMessage.vue";
 import PiedSources from "../../rag/PiedSources.vue";
 
@@ -25,6 +29,7 @@ const props = withDefaults(defineProps<{ entry: EntreeMessage; pied?: boolean; t
   texte: undefined,
 });
 const fil = domaine(CLE_FIL);
+const ui = interfaceApp();
 const rag = domaineRagOptionnel();
 // Renvois [n] : seulement une réponse de l'assistant dans une conversation qui a affaire au RAG.
 const renvois = computed(() =>
@@ -38,6 +43,21 @@ const phase = computed(() =>
     : null,
 );
 
+// Nouveau fil : la phase n'est dite que si aucune étape vivante ne la montre déjà.
+const phaseFil = computed(() => {
+  const p = phase.value;
+  if (!p) return null;
+  const vivante = (props.entry.msg.toolSteps ?? []).some((s) => s.status === "running");
+  if ((p.kind === "tool" || p.kind === "rag") && vivante) return null;
+  return p.kind === "think" && props.entry.msg.thinking ? null : p;
+});
+// Copier : les textes du tour dans l'ordre (nouveau fil), sinon la réponse (ou la bulle regroupée).
+const texteCopie = computed(() =>
+  props.texte !== undefined || ui.classique || !props.entry.msg.segTexts?.length
+    ? props.texte
+    : textesDuTour(props.entry.msg),
+);
+
 function cleFichier(f: string | FichierJoint, i: number): string {
   return ((typeof f === "string" ? "" : f.name) || "file") + ":" + i;
 }
@@ -49,23 +69,26 @@ function masquerBouton(e: Event): void {
 </script>
 
 <template>
-  <ReflexionMessage :entry="entry" />
+  <template v-if="ui.classique">
+    <ReflexionMessage :entry="entry" />
 
-  <TravailAssistant :entry="entry" />
+    <TravailAssistant :entry="entry" />
 
-  <CapturesWeb :entry="entry" />
+    <CapturesWeb :entry="entry" />
 
-  <SousAgents
-    v-if="entry.msg.taskRuns && entry.msg.taskRuns.length"
-    :runs="entry.msg.taskRuns"
-    :logo-app="fil.logoApp"
-    @deroule="fil.openTaskModal(entry, $event)"
-    @arreter="fil.cancelTaskRun"
-  ></SousAgents>
+    <SousAgents
+      v-if="entry.msg.taskRuns && entry.msg.taskRuns.length"
+      :runs="entry.msg.taskRuns"
+      :logo-app="fil.logoApp"
+      @deroule="fil.openTaskModal(entry, $event)"
+      @arreter="fil.cancelTaskRun"
+    ></SousAgents>
 
-  <EffetsMessage :entry="entry" />
+    <EffetsMessage :entry="entry" />
+  </template>
+  <FilTour v-else :entry="entry" />
 
-  <template v-if="phase">
+  <template v-if="phase && ui.classique">
     <div
       v-if="phase && !((phase.kind === 'tool' || phase.kind === 'rag') && fil.pipelineFor(entry.msg).show)"
       role="status"
@@ -86,7 +109,7 @@ function masquerBouton(e: Event): void {
     </div>
   </template>
 
-  <div v-if="!entry.msg.isError">
+  <div>
     <div v-if="entry.msg.images && entry.msg.images.length > 0" class="mb-2.5">
       <div class="flex flex-wrap gap-2">
         <img
@@ -224,11 +247,34 @@ function masquerBouton(e: Event): void {
     </div>
   </div>
 
+  <template v-if="!ui.classique">
+    <div
+      v-if="phaseFil"
+      role="status"
+      aria-live="polite"
+      class="flex items-center gap-2 my-1 select-none"
+      data-phase
+    >
+      <span class="relative flex h-2 w-2 shrink-0">
+        <span
+          class="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping"
+          :class="fil.statusDotClass(phaseFil.kind)"
+        ></span>
+        <span
+          class="relative inline-flex h-2 w-2 rounded-full"
+          :class="fil.statusDotClass(phaseFil.kind)"
+        ></span>
+      </span>
+      <span class="text-[12.5px] font-medium truncate mem-wave">{{ phaseFil.label }}</span>
+    </div>
+    <CapturesWeb :entry="entry" />
+  </template>
+
   <PiedSources v-if="rag && entry.msg.role === 'assistant' && entry.msg.rag_sources?.length" :entry="entry" />
 
   <FichiersModifies :entry="entry" />
 
-  <PiedMessage v-if="pied" :entry="entry" :texte="texte" />
+  <PiedMessage v-if="pied" :entry="entry" :texte="texteCopie" />
 
   <div
     v-if="entry.msg._journalTruncated && entry.msg.isStreaming"
@@ -249,7 +295,14 @@ function masquerBouton(e: Event): void {
     <span class="min-w-0 truncate">Sources : {{ entry.msg._ragSources.join(" · ") }}</span>
   </div>
 
-  <div v-if="entry.msg.isTruncated && entry.idx === fil.lastAssistantIdx && !fil.isStreaming" class="mt-3">
+  <LigneInterruption v-if="entry.msg.isError" :entry="entry" />
+
+  <div
+    v-if="
+      !entry.msg.isError && entry.msg.isTruncated && entry.idx === fil.lastAssistantIdx && !fil.isStreaming
+    "
+    class="mt-3"
+  >
     <div
       v-if="entry.msg.toolLoopTruncated"
       role="status"
@@ -303,32 +356,5 @@ function masquerBouton(e: Event): void {
         <i class="ph ph-arrow-right text-sm" aria-hidden="true"></i> Continuer
       </button>
     </div>
-  </div>
-
-  <div v-if="entry.msg.isError" class="elpis-error-card rounded-xl p-4 mt-2 shadow-sm">
-    <div class="elpis-error-title font-bold flex items-center gap-2 mb-2 text-sm">
-      <i class="ph ph-warning-circle"></i> Erreur d'exécution
-    </div>
-    <div class="elpis-error-detail text-xs font-mono mb-3 p-2.5 rounded-lg">
-      {{ entry.msg.errorMessage || "Erreur inconnue" }}
-    </div>
-    <button
-      v-if="entry.msg.tool_history && entry.msg.tool_history.length"
-      title="Reprendre après l'erreur en gardant les outils déjà exécutés (ne relance pas tout le tour)"
-      aria-label="Reprendre : garde les outils déjà exécutés et poursuit"
-      class="elpis-error-btn px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 w-max"
-      @click="fil.resumeAfterError(entry.idx)"
-    >
-      <i class="ph ph-arrow-right"></i> Reprendre
-    </button>
-    <button
-      v-else
-      title="Régénérer la réponse après l'erreur : le message en erreur est remplacé"
-      aria-label="Réessayer : régénérer la réponse après l'erreur"
-      class="elpis-error-btn px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-1.5 w-max"
-      @click="fil.retryGeneration(entry.idx)"
-    >
-      <i class="ph ph-arrow-clockwise"></i> Réessayer
-    </button>
   </div>
 </template>

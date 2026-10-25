@@ -7,6 +7,7 @@ import { fmtElapsed } from "../../../utils/utils-purs.ts";
 import { lireNdjson } from "../../../platform/streams/ndjson";
 import type { GestionnaireSession } from "../../auth/session";
 import { SuiviFlux } from "../suivi";
+import { cloreTour } from "./cloture.ts";
 import type { RunLu } from "./etat.ts";
 import { fmtTokens } from "./formats.ts";
 import type { CoeurChat } from "./liens.ts";
@@ -212,7 +213,13 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       const msgs = l.getStreamMsgs();
       const li = msgs.length - 1;
       if (li >= 0 && msgs[li]?.role === "assistant")
-        l.patch(li, { isError: true, errorMessage: msg, isStreaming: false, ...STREAM_RENDER_CLEAR });
+        l.patch(li, {
+          isError: true,
+          errorMessage: msg,
+          errorKind: "account_busy",
+          isStreaming: false,
+          ...STREAM_RENDER_CLEAR,
+        });
       ctx.showToast(msg, "info");
       return true;
     }
@@ -273,6 +280,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       marquerErreur({
         isError: true,
         errorMessage: em + " Choisissez un autre serveur dans le sélecteur de modèle.",
+        errorKind: "unreachable",
       });
       ctx.showToast(em, "error");
       if (e.selectedConnector.value) {
@@ -290,11 +298,11 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     const enCours = raison === "generation_running";
     const msg =
       raison === "compression_running"
-        ? "Compression du contexte en cours — réessaie dans un instant."
+        ? "Compression du contexte en cours — réessayez dans un instant."
         : enCours
           ? "Une génération est déjà en cours sur cette conversation — elle se rechargera à la fin."
-          : "Une autre opération est en cours sur ce chat — réessaie dans un instant.";
-    marquerErreur({ isError: !enCours, errorMessage: msg });
+          : "Une autre opération est en cours sur ce chat — réessayez dans un instant.";
+    marquerErreur({ isError: !enCours, errorMessage: msg, ...(enCours ? {} : { errorKind: "busy" }) });
     ctx.showToast(msg, "info");
     if (enCours) {
       const sfc = String(f.streamingForChatId || "");
@@ -329,6 +337,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         errorMessage: serveurMaitre
           ? "Connexion interrompue — la génération se poursuit côté serveur. Cette conversation se rechargera automatiquement à la fin."
           : (err instanceof Error && err.message) || "Erreur réseau",
+        ...(serveurMaitre ? {} : { errorKind: "network" }),
         isStreaming: false,
         ...STREAM_RENDER_CLEAR,
       });
@@ -362,31 +371,6 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     e.statusText.value = "";
     r.isUserScrolling.value = false;
     ctx._lockAutoScroll?.();
-  }
-
-  // Captures web des messages précédents libérées (non persistées).
-  function libererCaptures(): void {
-    try {
-      const msgs = r.messages.value;
-      for (let i = 0; i < msgs.length; i++) {
-        const m = msgs[i];
-        if (!m?.webScreenshots || !m.webScreenshots.length) continue;
-        for (const s of m.webScreenshots)
-          if (s.blobUrl)
-            try {
-              URL.revokeObjectURL(s.blobUrl);
-            } catch {
-              /* déjà libérée */
-            }
-        msgs[i] = Object.assign({}, m, {
-          webScreenshots: [],
-          webScreenshotIdx: null,
-          webScreenshotExpanded: false,
-        });
-      }
-    } catch {
-      /* liste en cours de remplacement */
-    }
   }
 
   function charge(sMsgs: MessageChat[], continuation: boolean): { payload: Objet[]; prefill: string | null } {
@@ -613,7 +597,6 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       const skills = l.pinnedSkillNames();
       l.clearPinnedSkills();
       e.askUserPanel.value = null;
-      libererCaptures();
       if (e.abortController.value) {
         try {
           e.abortController.value.abort();
@@ -647,11 +630,6 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       if (!tot) preparerTour(continuation);
       if (!continuation) {
         retirerReprisesPerimees(runMsgs, -1);
-        for (let i = 0; i < runMsgs.length; i++) {
-          const m = runMsgs[i];
-          if (m && m.role === "assistant" && m.thinking)
-            runMsgs[i] = Object.assign({}, m, { thinking: "", thinkingOpen: false });
-        }
         const req = l.imageGenFor(runMsgs);
         runMsgs.push({
           ...bulleAssistant(),
@@ -689,15 +667,14 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     await doGenerate(false);
   }
 
-  function marquerSousAgentsAnnules(): void {
+  // Étapes et sous-agents encore en cours : arrêtés, avec la durée atteinte.
+  function cloreTourArrete(): void {
     const msgs = l.getStreamMsgs();
+    const maintenant = Date.now();
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
-      const runs = m?.taskRuns;
-      if (!m || !runs || !runs.length || !runs.some((x) => x.state === "running")) continue;
-      msgs[i] = Object.assign({}, m, {
-        taskRuns: runs.map((x) => (x.state === "running" ? { ...x, state: "cancelled", progress: null } : x)),
-      });
+      const p = m ? cloreTour(m, maintenant) : null;
+      if (m && p) msgs[i] = Object.assign({}, m, p);
     }
   }
 
@@ -815,7 +792,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     if (si >= 0 && sc && sc._statusLine) sm[si] = Object.assign({}, sc, { _statusLine: "" });
     if (chatStop && !chatStop.startsWith("__")) l.markRunDone(chatStop);
     l.setFollowBubble(false);
-    marquerSousAgentsAnnules();
+    cloreTourArrete();
     l.stopThinkFlush();
     l.stopPreContentFlush();
     l.stopStreamFlush();
@@ -915,19 +892,22 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     await doGenerate(true);
   }
 
-  // Reprendre après erreur : la tool_history est gardée et le tour continue (sinon régénération).
+  // Reprendre après erreur : outils déjà exécutés et texte partiel gardés, le tour continue (sinon régénération).
   async function resumeAfterError(index: number): Promise<void> {
     if (r.isStreaming.value) return;
     const msgs = r.messages.value;
     const cible = msgs[index];
     if (!cible || cible.role !== "assistant") return;
-    if (index !== msgs.length - 1 || !(cible.tool_history && cible.tool_history.length)) {
+    const acquis = !!(cible.tool_history && cible.tool_history.length) || !!(cible.content || "").trim();
+    if (index !== msgs.length - 1 || !acquis) {
       await retryGeneration(index);
       return;
     }
     msgs[index] = Object.assign({}, cible, {
       isError: false,
       errorMessage: "",
+      errorDetail: "",
+      errorKind: "",
       isTruncated: false,
       toolLoopTruncated: false,
       toolLoopStats: null,

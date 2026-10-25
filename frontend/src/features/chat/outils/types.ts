@@ -25,11 +25,15 @@ export interface LigneJournalOutil {
 export interface EtapeOutil {
   name: string;
   status?: string;
+  callId?: string | null;
+  startedAt?: number;
   seg?: number;
   _kind?: string;
   _is_error?: boolean;
   thinking?: string | null;
   thinkingOpen?: boolean;
+  thinkingMs?: number | null;
+  resultLength?: number | null;
   ragLabel?: string | null;
   ragResultLabel?: string | null;
   args?: Readonly<Record<string, unknown>> | null;
@@ -101,6 +105,8 @@ export type PatchUiMessage = Readonly<Record<string, unknown>>;
 
 export interface ExecutionSousAgent {
   id?: string | null;
+  /** Appel `task` qui l'a lancé (ligne du fil, volet de l'agent). */
+  callId?: string | null;
   agent?: string;
   label?: string | null;
   depth?: number;
@@ -112,6 +118,11 @@ export interface ExecutionSousAgent {
   cancelRequested?: boolean;
   /** Bloc du harnais validé à la réception ; absent sur les anciens runs. */
   harness?: BilanTache | null;
+  prompt?: string | null;
+  result?: string | null;
+  duration_ms?: number | null;
+  /** Horodatage du lancement (direct) : horloge de la ligne et du volet. */
+  startedAt?: number;
 }
 
 export interface TacheSession {

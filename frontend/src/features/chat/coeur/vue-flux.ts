@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/vue-flux.ts — vue du flux de génération (portée de `handleStreamEvent` d'`app-chat.js`) : chaque événement appliqué au message assistant en cours (texte, réflexion, outils, sous-agents, compression, images, fin de tour). */
+import { schemaMetaOutils } from "@elpis/contracts";
 import { journal } from "../../../platform/journal";
 import { nextTick } from "vue";
 
@@ -8,6 +9,7 @@ import { fusionnerSourcesRag, sourcesRag } from "../affichage";
 import { sourcesRagValides } from "../../rag/sources";
 import { lireBilanTache } from "../outils/bilan-tache";
 import { ragCallLabel, ragResultLabel, resultIsError, shellFieldsFromResult } from "../outils/segments";
+import { cloreTour } from "./cloture";
 import { comprSkipLabel } from "./formats";
 import type { CoeurChat } from "./liens";
 import { PRE_RENDER_CLEAR, STREAM_RENDER_CLEAR } from "./rendu-flux";
@@ -481,7 +483,10 @@ export function creerVueFlux(c: CoeurChat) {
     }
     const runIds = d["run_ids"];
     const compactions = d["compactions"];
+    const meta = d["tool_meta"] === undefined ? null : schemaMetaOutils.safeParse(d["tool_meta"]);
     l.patch(t.idx, {
+      ...cloreTour(cur),
+      ...(meta?.success ? { tool_meta: meta.data } : {}),
       content: contenu,
       thinking: reflexion,
       thinkingOpen: deplier,
@@ -647,6 +652,10 @@ export function creerVueFlux(c: CoeurChat) {
     if (narration) segTexts.push(narration);
     if (!segTexts.length) segTexts.push("");
     const reflexion = src.thinking || "";
+    const reflexionMs =
+      reflexion && src._thinkingStartedAt
+        ? Math.max(0, (src._thinkingEndedAt ?? Date.now()) - src._thinkingStartedAt)
+        : undefined;
     const memoire =
       nom === "memory" && !!args && MUTANTS_MEMOIRE.includes(String(args["action"] || "").toLowerCase());
     const todo = nom === "todowrite";
@@ -657,9 +666,11 @@ export function creerVueFlux(c: CoeurChat) {
       args,
       result: null,
       status: "running",
+      startedAt: Date.now(),
       callId: d.call_id || null,
       seg: segTexts.length - 1,
       thinking: reflexionSurMessage ? "" : reflexion,
+      ...(reflexionSurMessage || reflexionMs === undefined ? {} : { thinkingMs: reflexionMs }),
       thinkingOpen: false,
       isRag: false,
       ragLabel: libelleRag,
@@ -677,6 +688,7 @@ export function creerVueFlux(c: CoeurChat) {
             label: chaine(args?.["description"]),
             prompt: chaine(args?.["prompt"]),
             state: "running",
+            startedAt: Date.now(),
             tokens: 0,
             steps_total: 0,
             tools: [],
@@ -689,6 +701,7 @@ export function creerVueFlux(c: CoeurChat) {
       ...PRE_RENDER_CLEAR,
       _pendingToolThinking: "",
       thinking: reflexionSurMessage ? reflexion : "",
+      ...(reflexionSurMessage ? {} : { _thinkingStartedAt: undefined, _thinkingEndedAt: undefined }),
       thinkingOpen: false,
       _liveThinkingOpen: undefined,
       _statusLine: rag ? libelleRag : memoire || todo || tache ? "" : nom,
@@ -1175,6 +1188,7 @@ export function creerVueFlux(c: CoeurChat) {
       for (const s of cur.webScreenshots) s.pending = false;
     // Une erreur n'est pas suivie d'un `final` : la bulle sort du flux ici.
     l.patch(t.idx, {
+      ...(cur ? cloreTour(cur) : null),
       isError: true,
       errorMessage: d.text || "Erreur",
       errorDetail: d["detail"] || "",

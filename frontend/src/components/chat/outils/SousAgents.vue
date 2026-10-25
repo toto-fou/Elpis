@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/outils/SousAgents.vue — lignes persistantes des sous-agents (outil task) : état, tokens, étape, bilan du harnais (statut, appels, durée, lecture seule, détails dépliables), déroulé et arrêt. -->
+<!-- frontend/src/components/chat/outils/SousAgents.vue — lignes persistantes des sous-agents (outil task) : état, jetons, étape, bilan du harnais (statut, appels, durée, lecture seule, détails dépliables), déroulé et arrêt. -->
 <script setup lang="ts">
 import { computed, ref, useId } from "vue";
 
@@ -9,9 +9,11 @@ import {
   detailsTache,
   fmtAppelsTache,
   fmtDureeTache,
+  libelleEtatRun,
   libelleSourceLectureSeule,
   libelleStatutTache,
   resumeDetailsTache,
+  signeEtatRun,
 } from "../../../features/chat/outils/bilan-tache";
 import { fmtTokensCourt } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
@@ -20,6 +22,12 @@ import DetailsSousAgent from "./DetailsSousAgent.vue";
 const props = defineProps<{ runs: readonly ExecutionSousAgent[]; logoApp: string }>();
 const emit = defineEmits<{ deroule: [index: number]; arreter: [run: ExecutionSousAgent] }>();
 
+const SIGNES = {
+  ok: "ph-check-circle is-done",
+  echec: "ph-warning-circle is-error",
+  incomplet: "ph-warning-circle is-warn",
+  arret: "ph-stop-circle is-neutral",
+} as const;
 const base = useId();
 const ouverts = ref<ReadonlySet<number>>(new Set());
 function basculer(i: number): void {
@@ -49,9 +57,7 @@ const lignes = computed(() =>
               ? 'ph-hourglass-medium'
               : run.state === 'running'
                 ? 'ph-spinner-gap animate-spin is-running'
-                : run.state === 'completed'
-                  ? 'ph-check-circle is-done'
-                  : 'ph-warning-circle is-error'
+                : SIGNES[signeEtatRun(run.state)]
           "
         ></i>
         <img
@@ -68,19 +74,15 @@ const lignes = computed(() =>
           class="task-run-tokens"
           :class="{ 'is-live': run.state === 'running' }"
         >
-          {{ fmtTokensCourt(run.tokens) }} tokens
+          {{ fmtTokensCourt(run.tokens) }} jetons
         </span>
         <span v-if="run.state === 'running' && !run.id" class="task-run-meta">· En attente</span>
         <span v-else-if="run.state === 'running' && run.progress" class="task-run-meta">
           · étape {{ run.progress.step
           }}<template v-if="run.progress.max_steps">/{{ run.progress.max_steps }}</template>
         </span>
-        <span
-          v-else-if="run.state && run.state !== 'running' && !bilan"
-          class="task-run-meta"
-          :class="{ 'is-error': run.state !== 'completed' }"
-        >
-          <template v-if="run.state !== 'completed'">· {{ run.state }}</template
+        <span v-else-if="run.state && run.state !== 'running' && !bilan" class="task-run-meta" data-etat-run>
+          <template v-if="run.state !== 'completed'">· {{ libelleEtatRun(run.state) }}</template
           ><template v-else-if="run.steps_total"
             >· {{ run.steps_total }} appel{{ run.steps_total > 1 ? "s" : "" }}</template
           >

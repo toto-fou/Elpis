@@ -54,10 +54,13 @@ export function appelDuJob(messages: readonly unknown[], jobId: string): string 
 
 const SURLIGNAGE_MS = 1200;
 
-/** Fait défiler jusqu'à la ligne du fil `[data-etape="<callId>"]` et la surligne brièvement ; faux si elle est absente. */
+/** Fait défiler jusqu'à la ligne visible de l'étape (elle-même ou son groupe replié, `data-etapes`) et la surligne ; faux si elle est absente. */
 export function allerALEtape(callId: string | null | undefined): boolean {
   if (!callId) return false;
-  const el = document.querySelector<HTMLElement>(`[data-etape="${CSS.escape(callId)}"]`);
+  const id = CSS.escape(callId);
+  const visible = (sel: string): HTMLElement | null =>
+    [...document.querySelectorAll<HTMLElement>(sel)].find((l) => !l.closest("[hidden]")) ?? null;
+  const el = visible(`[data-etape="${id}"]`) ?? visible(`[data-etapes~="${id}"]`);
   if (!el) return false;
   const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   el.scrollIntoView({ block: "center", behavior: reduit ? "auto" : "smooth" });

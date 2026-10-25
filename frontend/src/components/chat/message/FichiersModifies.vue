@@ -36,7 +36,7 @@ const aTelecharger = computed(() => fichiers.value.filter((f) => f.change !== "d
                 file.change === 'created'
                   ? 'ph-file-plus text-emerald-600'
                   : file.change === 'deleted'
-                    ? 'ph-file-minus text-rose-500'
+                    ? 'ph-file-minus text-red-500'
                     : file.change === 'moved'
                       ? 'ph-arrow-bend-up-right text-slate-500'
                       : 'ph-file-code text-slate-500'
@@ -46,12 +46,12 @@ const aTelecharger = computed(() => fichiers.value.filter((f) => f.change !== "d
             <div class="flex-1 min-w-0">
               <div class="text-[12.5px] font-medium text-slate-800 truncate">
                 {{ file.name }}
-                <span v-if="file.change === 'created'" class="ml-1 text-[10.5px] font-normal text-emerald-600"
+                <span v-if="file.change === 'created'" class="ml-1 text-[11.5px] font-normal text-slate-600"
                   >créé</span
                 >
                 <span
                   v-else-if="file.change === 'deleted'"
-                  class="ml-1 text-[10.5px] font-normal text-rose-500"
+                  class="ml-1 text-[11.5px] font-normal text-slate-600"
                   >supprimé</span
                 >
                 <span
@@ -64,15 +64,16 @@ const aTelecharger = computed(() => fichiers.value.filter((f) => f.change !== "d
                 <span v-if="file.loading" class="text-slate-400 inline-flex items-center gap-1">
                   <i class="ph ph-spinner-gap animate-spin"></i>
                 </span>
-                <span v-else-if="file.error" class="text-amber-500" :title="file.error"
-                  ><i class="ph ph-warning-circle"></i
+                <span v-else-if="file.error" class="text-amber-600" :title="file.error"
+                  ><i class="ph ph-warning-circle" aria-label="Statistiques indisponibles"></i
                 ></span>
                 <template v-else-if="file.computed && !file.noStats">
-                  <span v-if="file.additions > 0" class="text-emerald-600">+{{ file.additions }}</span>
-                  <span v-if="file.deletions > 0" class="text-rose-500">-{{ file.deletions }}</span>
-                  <span v-if="!file.additions && !file.deletions" class="text-slate-300"
-                    >aucun changement</span
+                  <span v-if="file.additions > 0 || file.deletions > 0" class="font-semibold text-slate-700"
+                    >{{ file.additions > 0 ? "+" + file.additions : ""
+                    }}{{ file.additions > 0 && file.deletions > 0 ? " " : ""
+                    }}{{ file.deletions > 0 ? "−" + file.deletions : "" }}</span
                   >
+                  <span v-else class="text-slate-500">aucun changement</span>
                 </template>
                 <span
                   v-if="file.change === 'moved' && file.from"
@@ -109,18 +110,18 @@ const aTelecharger = computed(() => fichiers.value.filter((f) => f.change !== "d
               class="px-2 whitespace-pre"
               :class="
                 ln.t === '+'
-                  ? 'bg-emerald-50 text-emerald-800'
+                  ? 'bg-emerald-50 text-slate-800'
                   : ln.t === '-'
-                    ? 'bg-rose-50 text-rose-800'
+                    ? 'bg-red-100 text-slate-800'
                     : ln.t === '@'
-                      ? 'text-slate-400 bg-slate-100'
+                      ? 'text-slate-500 bg-slate-100'
                       : 'text-slate-600'
               "
             >
               {{ (ln.t === "@" ? "" : ln.t) + ln.text }}
             </div>
-            <div v-if="!file.lines.length" class="px-2 py-1 text-slate-400">aucun changement</div>
-            <div v-if="file.truncated" class="px-2 py-1 text-slate-400">diff tronqué</div>
+            <div v-if="!file.lines.length" class="px-2 py-1 text-slate-500">aucun changement</div>
+            <div v-if="file.truncated" class="px-2 py-1 text-slate-500">diff tronqué</div>
           </div>
         </div>
       </template>

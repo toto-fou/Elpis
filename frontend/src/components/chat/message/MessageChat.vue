@@ -1,10 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/MessageChat.vue — une ligne du fil : avatar, en-tête et actions, notice, édition, corps ; les réveils qui continuent une réponse de l'agent s'ajoutent à sa bulle. -->
+<!-- frontend/src/components/chat/message/MessageChat.vue — une ligne du fil : avatar, en-tête et actions, notice, édition, corps ; les réveils qui continuent une réponse de l'agent s'ajoutent à sa bulle, chaque réponse garde son pied. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
-import { resumeReveil } from "../../../features/chat/jobs/format";
 import { estReveil } from "../../../features/chat/liste/regroupement";
 
 import NoticeRecherche from "../../rag/NoticeRecherche.vue";
@@ -18,16 +17,6 @@ const fil = domaine(CLE_FIL);
 const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string] }>();
 
 const membres = computed(() => [props.entry, ...(props.entry.suite ?? [])]);
-// Le pied (métriques, copier, régénérer, détails, lecture) vise la dernière réponse de la bulle.
-const cible = computed(() => membres.value.filter((m) => !estReveil(m.msg)).at(-1) ?? props.entry);
-const texteBulle = computed(() =>
-  props.entry.suite?.length
-    ? membres.value
-        .map((m) => (estReveil(m.msg) ? resumeReveil(m.msg.wake) : m.msg.content || ""))
-        .filter((t) => t.trim())
-        .join("\n\n")
-    : undefined,
-);
 const attenuee = computed(() => {
   const q = fil.messageSearchQ && fil.messageSearchActive ? fil.messageSearchQ.toLowerCase() : "";
   const textes = q ? membres.value.map((m) => m.msg.content || "").filter(Boolean) : [];
@@ -80,14 +69,7 @@ function ouvert(e: Event): boolean {
         </div>
       </div>
       <div v-else>
-        <div
-          v-if="entry.msg.isError"
-          class="elpis-error-avatar w-9 h-9 rounded-full flex items-center justify-center shadow-sm"
-        >
-          <i class="ph ph-warning text-lg"></i>
-        </div>
         <img
-          v-else
           :src="fil.logoApp"
           alt=""
           data-avatar-assistant
@@ -132,10 +114,10 @@ function ouvert(e: Event): boolean {
         <span
           class="font-medium text-slate-600"
           title="L'historique ancien a été résumé pour le modèle — le fil affiché reste intact."
-          >Conversation compactée</span
+          >Conversation compressée</span
         >
         <span v-if="entry.msg.tokens_after" class="font-mono text-slate-600">
-          · ≈ {{ entry.msg.tokens_after.toLocaleString("fr-FR") }} tokens</span
+          · ≈ {{ entry.msg.tokens_after.toLocaleString("fr-FR") }} jetons</span
         >
         <span v-if="entry.msg.ts" class="text-slate-400"> · {{ fil.fmtNoticeTs(entry.msg.ts) }}</span>
         <details
@@ -147,7 +129,7 @@ function ouvert(e: Event): boolean {
           <summary
             class="list-none flex items-center gap-1.5 cursor-pointer select-none w-fit py-0.5 text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <span class="text-[12px] font-medium">Vérifier le compact</span>
+            <span class="text-[12px] font-medium">Voir le résumé</span>
             <i
               class="ph ph-caret-right text-slate-300 transition-transform group-open/compact:rotate-90 shrink-0"
               style="font-size: 9px"
@@ -188,23 +170,13 @@ function ouvert(e: Event): boolean {
       </div>
 
       <template v-else>
-        <CorpsMessage
-          :entry="entry"
-          :pied="cible === entry"
-          :texte="texteBulle"
-          @zoom-image="(u: string) => emit('zoom-image', u)"
-        />
+        <CorpsMessage :entry="entry" @zoom-image="(u: string) => emit('zoom-image', u)" />
         <template v-for="s in entry.suite" :key="s.idx">
           <div v-if="estReveil(s.msg)" :data-vs-part="s.idx" class="mt-3 mb-2">
             <LigneReveil integree :wake="s.msg.wake" :content="s.msg.content || ''" />
           </div>
           <div v-else :data-vs-part="s.idx">
-            <CorpsMessage
-              :entry="s"
-              :pied="cible === s"
-              :texte="texteBulle"
-              @zoom-image="(u: string) => emit('zoom-image', u)"
-            />
+            <CorpsMessage :entry="s" @zoom-image="(u: string) => emit('zoom-image', u)" />
           </div>
         </template>
       </template>

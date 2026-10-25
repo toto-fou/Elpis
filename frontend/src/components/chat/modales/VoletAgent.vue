@@ -109,6 +109,7 @@ async function copierRendu(): Promise<void> {
     role="complementary"
     :aria-label="'Agent ' + (run.agent || '')"
     data-volet-agent
+    data-sans-graphiques
     @keydown.esc.stop="fermer"
   >
     <div class="h-14 flex items-center gap-2 px-3 border-b border-slate-200 shrink-0">

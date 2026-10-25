@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/message/graphiques-tour.ts — graphiques tracés par un outil du tour que la réponse ne cite pas : affichés sous leur étape. */
+/** frontend/src/features/chat/message/graphiques-tour.ts — graphiques tracés par un outil du tour que la réponse finale ne cite pas : tracés à sa suite, seul endroit où un graphique est rendu. */
 import type { EtapeOutil } from "../outils/types.ts";
 import type { MessageFil } from "./chronologie.ts";
 
@@ -20,14 +20,10 @@ export function refGraphique(s: EtapeOutil): string {
   return typeof ref === "string" && REF.test(ref) ? ref : "";
 }
 
-/** Étape (`flat`) → référence des graphiques qu'aucun texte du tour ne cite ; rien tant que le tour s'écrit. */
-export function graphiquesNonCites(m: MessageFil): ReadonlyMap<number, string> {
-  const out = new Map<number, string>();
-  if (m.isStreaming) return out;
-  const textes = [...(m.segTexts ?? []), m.content ?? ""].join("\n").toLowerCase();
-  (m.toolSteps ?? []).forEach((s, flat) => {
-    const ref = refGraphique(s);
-    if (ref && !textes.includes(ref.toLowerCase())) out.set(flat, ref);
-  });
-  return out;
+/** Références des graphiques du tour que la réponse finale ne cite pas, dans l'ordre et sans doublon ; rien tant que le tour s'écrit. */
+export function graphiquesNonCites(m: MessageFil): string[] {
+  if (m.isStreaming) return [];
+  const reponse = (m.content ?? "").toLowerCase();
+  const refs = (m.toolSteps ?? []).map(refGraphique).filter((r) => r && !reponse.includes(r.toLowerCase()));
+  return [...new Set(refs)];
 }

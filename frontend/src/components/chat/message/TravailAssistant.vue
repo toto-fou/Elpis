@@ -92,6 +92,7 @@ function ouvert(e: Event): boolean {
             v-if="grp.text"
             class="markdown-body--worklog mb-1.5"
             :msg="{ content: grp.text }"
+            data-sans-graphiques
             @click-markdown="fil.handleMarkdownClick"
           ></ContenuMarkdown>
 

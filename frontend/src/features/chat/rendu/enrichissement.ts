@@ -28,6 +28,8 @@ export interface DependancesEnrichissement {
 
 /** Marqueur des corps possédés par un composant : la passe historique (portée large) ne les touche pas. */
 export const ATTRIBUT_COMPOSANT = "data-elpis-enrichi";
+/** Zone où un graphique n'est pas tracé (texte d'étape, volet d'agent) : seule la réponse finale en trace. */
+export const ATTRIBUT_SANS_GRAPHIQUES = "data-sans-graphiques";
 
 const CACHE_GRAPHIQUES_MAX = 100;
 const cacheGraphiques = new Map<string, unknown>();
@@ -183,6 +185,16 @@ function monterGraphique(pre: Element, cfg: unknown): void {
   });
 }
 
+// Hors réponse finale, la référence devient une mention discrète ; le graphique est tracé dans la réponse.
+function graphiqueOuRenvoi(cible: Element, brut: string): void {
+  if (!cible.closest("[" + ATTRIBUT_SANS_GRAPHIQUES + "]")) return blocReferenceGraphique(cible, brut);
+  const note = document.createElement("span");
+  note.className = "text-[12px] italic text-slate-400";
+  note.setAttribute("data-renvoi-graphique", brut.trim());
+  note.textContent = "graphique dans la réponse";
+  cible.replaceWith(note);
+}
+
 function blocReferenceGraphique(pre: Element, brut: string): void {
   const chartId = String(brut || "")
     .trim()
@@ -240,7 +252,7 @@ function referencesEnLigne(scope: ParentNode, corps: readonly Element[]): void {
     if (!cible.parentNode) return;
     const holder = porteur();
     cible.parentNode.replaceChild(holder, cible);
-    blocReferenceGraphique(holder, mm[1]);
+    graphiqueOuRenvoi(holder, mm[1]);
   });
   for (const body of corps) {
     const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
@@ -275,7 +287,7 @@ function referencesEnLigne(scope: ParentNode, corps: readonly Element[]): void {
           const holder = porteur();
           if (!after.parentNode) break;
           after.parentNode.replaceChild(holder, after);
-          blocReferenceGraphique(holder, m[1] ?? "");
+          graphiqueOuRenvoi(holder, m[1] ?? "");
           node = rest;
         } catch {
           break;
@@ -568,7 +580,7 @@ function enrichirPre(pre: HTMLElement): void {
   const langClass = code ? Array.from(code.classList).find((c) => c.startsWith("language-")) : "";
   const lang = langClass ? langClass.replace("language-", "").toLowerCase() : "";
   const rawText = (code ? code.textContent : pre.textContent) || "";
-  if (lang === "chart-ref") return blocReferenceGraphique(pre, rawText);
+  if (lang === "chart-ref") return graphiqueOuRenvoi(pre, rawText);
   if (lang === "mermaid") return blocMermaid(pre, rawText);
   if (lang === "svg") return blocSvg(pre, rawText);
   if ((lang === "" || lang === "xml" || lang === "html" || lang === "plaintext") && ressembleASvg(rawText))

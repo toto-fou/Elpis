@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/message/tour-affiche.ts — état d'affichage d'un tour commun aux déroulés (chronologie, en bloc, journal) : horloge, blocs, replis, détail d'outil, texte vivant, captures, graphiques, agents, tâches de fond. */
+/** frontend/src/features/chat/message/tour-affiche.ts — état d'affichage d'un tour commun aux déroulés (chronologie, en bloc, journal) : horloge, blocs, replis, détail d'outil, texte vivant, captures, agents, tâches de fond. */
 import { computed, inject, onUnmounted, ref, watch } from "vue";
 
 import type { ResumeJob } from "@elpis/contracts";
@@ -12,7 +12,6 @@ import { CLE_FIL, CLE_PAGE, domaine } from "../page/domaines.ts";
 import { capturesDuTour, visionneuseCaptures } from "./captures-tour.ts";
 import { chronologieTour } from "./chronologie.ts";
 import type { BlocFil } from "./chronologie.ts";
-import { graphiquesNonCites } from "./graphiques-tour.ts";
 import { jobDeLEtape } from "./taches-fond.ts";
 import type { EntreeMessage } from "./types.ts";
 
@@ -78,7 +77,6 @@ export function utiliserTour(entree: () => EntreeMessage) {
 
   const captures = computed(() => (pref.captures ? capturesDuTour(msg()) : []));
   const visionneuse = computed(() => visionneuseCaptures(captures.value));
-  const graphiques = computed(() => graphiquesNonCites(msg()));
 
   function voirCapture(rang: number): void {
     fil.openImageViewer(visionneuse.value.items, rang, { captures: true });
@@ -147,7 +145,6 @@ export function utiliserTour(entree: () => EntreeMessage) {
     vivant,
     captures,
     visionneuse,
-    graphiques,
     apercu,
     voirCapture,
     basculer,

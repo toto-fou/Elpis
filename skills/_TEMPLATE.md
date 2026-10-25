@@ -9,8 +9,8 @@ tags: [logiciel, domaine, mot-clé]
 <!--
 Un skill = une procédure actionnable. Conventions :
   - FORMAT DE RÉFÉRENCE : un DOSSIER `[<domaine>/]<name>/SKILL.md` (name == dossier),
-    avec ses ressources bundlées (`scripts/`, `references/`, `assets/`) — voir le
-    package `ansible/` en exemple. Ce gabarit mono-fichier reste accepté (legacy).
+    avec ses ressources bundlées (`scripts/`, `references/`, `assets/`) — voir
+    skills/README.md. Ce gabarit mono-fichier reste accepté (legacy).
   - description : dense en mots-clés (c'est ce qui déclenche l'injection).
   - corps : étapes concrètes, commandes exactes, chemins réels. Les scripts
     bundlés se référencent via l'outil d'exécution

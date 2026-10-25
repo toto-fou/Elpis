@@ -2778,8 +2778,8 @@ détruisait la bibliothèque.
 processus (`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
 critique.
 
-Bibliothèque livrée : `ansible`, `python`, `robotframework` (packages), plus
-`creer-un-skill`. ⚠ Ne pas bundler de `.md` orphelin ; purger les
+Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`) ; les
+skills métier sont ceux des comptes ou de l'admin. ⚠ Ne pas bundler de `.md` orphelin ; purger les
 `__pycache__` avant packaging.
 
 ---

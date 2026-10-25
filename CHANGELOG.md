@@ -8,6 +8,10 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Pour l'exploitant
 
+- **Skills livrés : les assistants seulement.** Les paquets génériques ansible,
+  python et robotframework ne sont plus livrés ; la bibliothèque intégrée garde
+  les skills d'assistant (création de skill). Un compte ou un administrateur
+  qui s'en servait les réimporte comme skills personnels ou globaux.
 - **Suppression d'un compte : données rangées par nom effacées.** Ses skills
   personnelles (et leur copie dans le bac), sa mémoire, son cache de
   graphiques et ses identifiants de sites enregistrés dans la base du core

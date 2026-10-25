@@ -26,17 +26,15 @@ les corps des sous-skills se chargent à la demande via `skill_get("parent/enfan
 skills/
   README.md                ← ce fichier
   _TEMPLATE.md             ← gabarit (ignoré par le loader)
-  ansible/                 ← PACKAGE (dossier-skill, id "ansible")
-    SKILL.md               ← aperçu du domaine + table d'orientation
-    ansible-debug-runs/    ← sous-skill (id "ansible/ansible-debug-runs")
-      SKILL.md
-      scripts/safe_run.sh  ← script exécutable, stagé en sandbox
-    ansible-write-playbook/
-      SKILL.md
-      references/playbook.example.yml
-    …
-  python/ robotframework/  ← autres packages, même modèle
+  creer-un-skill/          ← assistant de création de skill (livré)
+    SKILL.md
   learned/                 ← SAS de curation admin (brouillons)
+  <paquet>/                ← exemple de PACKAGE (dossier-skill, id "<paquet>")
+    SKILL.md               ← aperçu du domaine + table d'orientation
+    <sous-skill>/          ← sous-skill (id "<paquet>/<sous-skill>")
+      SKILL.md
+      scripts/run.sh       ← script exécutable, stagé en sandbox
+      references/exemple.yml
 ```
 
 Le **legacy mono-fichier** `[<domaine>/]<name>.md` reste lu (rétro-compat),
@@ -113,8 +111,7 @@ tags: [ansible, playbook, idempotence]
 
 Le **corps markdown** est la procédure elle-même. Pas d'emoji. Si le skill
 embarque des scripts, le corps les référence via l'outil d'exécution
-(`skill_run_script(name="<pkg>/<name>", script="scripts/x.sh", args=[…])`) —
-voir le package `ansible/` en exemple.
+(`skill_run_script(name="<pkg>/<name>", script="scripts/x.sh", args=[…])`).
 
 ## Ajouter / éditer un skill
 

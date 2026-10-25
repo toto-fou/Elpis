@@ -53,10 +53,12 @@ function titreCollection(c: { description: string; auteur: string | null }): str
       <span class="font-mono font-medium truncate">{{ sk.name }}</span>
       <button
         type="button"
-        class="text-blue-300 hover:text-blue-600 transition-colors shrink-0"
+        title="Retirer"
+        :aria-label="`Retirer le skill ${sk.name}`"
+        class="text-blue-600 hover:text-blue-800 transition-colors shrink-0 min-w-[24px] min-h-[24px] -my-1 flex items-center justify-center"
         @click="comp.removePinnedSkill(sk.name)"
       >
-        <i class="ph ph-x" style="font-size: 11px"></i>
+        <i class="ph ph-x" style="font-size: 11px" aria-hidden="true"></i>
       </button>
     </span>
   </div>

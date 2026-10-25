@@ -50,6 +50,8 @@ export function creerClavier(s: EtatClavier) {
       vrai(c?.showModelProps) ||
       vrai(c?.taskModal) ||
       vrai(c?.toolInfo) ||
+      vrai(c?.runDetails) ||
+      !!c?.skillAssistForm.value.open ||
       vrai(a?.showAxModal) ||
       vrai(e?.showGitCloneModal) ||
       vrai(e?.showGitInitModal) ||

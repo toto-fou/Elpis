@@ -12,10 +12,14 @@ const ent = domaine(CLE_ENTETE);
     <div class="relative flex items-start justify-between gap-3 px-3 md:px-4 pt-3">
       <div class="flex items-center gap-2 min-w-0 pointer-events-auto">
         <button
+          type="button"
+          :title="ent.showSidebar ? 'Fermer le volet' : 'Ouvrir le volet'"
+          :aria-label="ent.showSidebar ? 'Fermer le volet' : 'Ouvrir le volet'"
+          :aria-expanded="ent.showSidebar ? 'true' : 'false'"
           class="lg:hidden w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
           @click="ent.showSidebar = !ent.showSidebar"
         >
-          <i class="ph ph-list text-lg"></i>
+          <i class="ph ph-list text-lg" aria-hidden="true"></i>
         </button>
 
         <input
@@ -63,10 +67,12 @@ const ent = domaine(CLE_ENTETE);
                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
             "
             class="flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+            aria-label="Réglages de génération"
+            :aria-pressed="ent.showSamplingPanel ? 'true' : 'false'"
             :title="
               ent.selectedConnector || !ent.activeModelIds.includes(ent.selectedModel)
                 ? 'Réglages de génération — valeurs du modèle indisponibles, vos réglages s\'appliquent quand même'
-                : 'Réglages de génération (sampling)'
+                : 'Réglages de génération'
             "
             @click="ent.togglePanel('sampling')"
           >
@@ -122,7 +128,7 @@ const ent = domaine(CLE_ENTETE);
                         ent.showChatMenu = false;
                       "
                     >
-                      <i class="ph ph-brackets-curly text-amber-500"></i> JSON
+                      <i class="ph ph-brackets-curly text-slate-400" aria-hidden="true"></i> JSON
                     </button>
                     <button
                       class="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors"
@@ -131,7 +137,7 @@ const ent = domaine(CLE_ENTETE);
                         ent.showChatMenu = false;
                       "
                     >
-                      <i class="ph ph-markdown-logo text-blue-500"></i> Markdown
+                      <i class="ph ph-markdown-logo text-slate-400" aria-hidden="true"></i> Markdown
                     </button>
                     <button
                       class="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors"
@@ -140,7 +146,7 @@ const ent = domaine(CLE_ENTETE);
                         ent.showChatMenu = false;
                       "
                     >
-                      <i class="ph ph-file-text text-slate-500"></i> Texte brut
+                      <i class="ph ph-file-text text-slate-400" aria-hidden="true"></i> Texte brut
                     </button>
                     <button
                       class="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors"
@@ -149,7 +155,7 @@ const ent = domaine(CLE_ENTETE);
                         ent.showChatMenu = false;
                       "
                     >
-                      <i class="ph ph-file-pdf text-rose-500"></i> PDF
+                      <i class="ph ph-file-pdf text-slate-400" aria-hidden="true"></i> PDF
                     </button>
                   </div>
                 </Transition>
@@ -177,7 +183,7 @@ const ent = domaine(CLE_ENTETE);
                   ent.showChatMenu = false;
                 "
               >
-                <i class="ph ph-terminal text-blue-500"></i> OpenCode
+                <i class="ph ph-terminal text-slate-400" aria-hidden="true"></i> OpenCode
               </button>
               <div class="h-px bg-slate-100 my-1"></div>
               <button

@@ -7,9 +7,13 @@ import type { ComponentPublicInstance } from "vue";
 import { LOGO_ELPIS } from "../../../features/communs/logo";
 import { CLE_BARRE, domaine } from "../../../features/chat/page/domaines";
 import { fonduDefilement } from "../../../features/chat/page/fondu-defilement";
+import { interfaceApp } from "../../../features/reglages/interface";
+import MenuCompte from "./MenuCompte.vue";
 import MenuPagesPlus from "./MenuPagesPlus.vue";
+import NotificationsPied from "./NotificationsPied.vue";
 
 const b = domaine(CLE_BARRE);
+const ui = interfaceApp();
 let detacherFondu: (() => void) | null = null;
 // L'historique peut être recréé (rail replié puis déployé) : le fondu suit l'élément monté.
 function brancherFondu(el: Element | ComponentPublicInstance | null): void {
@@ -149,7 +153,9 @@ onBeforeUnmount(() => brancherFondu(null));
       <MenuPagesPlus :compact="true" />
       <div class="mt-auto flex flex-col items-center gap-1">
         <div class="w-6 h-px bg-white/10 my-0.5"></div>
+        <MenuCompte v-if="!ui.classique" :compact="true" />
         <button
+          v-else
           title="Compte"
           class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
           @click="b.showSidebar = true"
@@ -193,13 +199,14 @@ onBeforeUnmount(() => brancherFondu(null));
                            remappé par le rail sur --rail-ok (olive sur elpis, vert ailleurs). -->
         <button
           v-if="b.user.is_admin || b.user.role === 'moderator'"
-          title="Admin"
+          title="Administration"
           class="w-9 h-9 rounded-lg hover:bg-white/10 text-emerald-400 hover:text-emerald-300 flex items-center justify-center transition-colors"
           @click="b.goToAdmin"
         >
           <i class="ph ph-shield-check text-lg"></i>
         </button>
         <button
+          v-if="ui.classique"
           title="Déconnexion"
           class="w-9 h-9 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors"
           @click="b.logout"
@@ -405,17 +412,17 @@ onBeforeUnmount(() => brancherFondu(null));
           >
             Aucun résultat
           </div>
-          <div
+          <button
             v-for="chat in b.chatSearchResults"
             :key="'s' + chat.id"
-            role="button"
-            tabindex="0"
-            class="px-3 h-[30px] text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
+            type="button"
+            data-chat-row
+            :aria-current="b.currentView === 'chat' && b.currentChatId === chat.id ? 'page' : undefined"
+            class="w-full text-left px-3 h-[30px] text-slate-300 hover:bg-white/[0.05] hover:text-white rounded-lg cursor-pointer truncate flex items-center transition-colors select-none"
             @click="b.loadChat(String(chat.id))"
-            @keydown.enter="b.loadChat(String(chat.id))"
           >
             <span class="truncate flex-1 text-[13.5px]">{{ chat.title }}</span>
-          </div>
+          </button>
         </div>
 
         <div v-else class="min-h-full flex flex-col space-y-px">
@@ -452,57 +459,68 @@ onBeforeUnmount(() => brancherFondu(null));
             <div
               v-for="chat in group.items"
               :key="chat.id"
-              role="button"
-              tabindex="0"
-              class="relative px-3 h-[30px] hover:pr-9 focus-within:pr-9 rounded-lg cursor-pointer flex items-center gap-2 group transition-colors select-none"
+              data-chat-row
+              :data-chat-id="chat.id"
+              class="relative h-[30px] rounded-lg flex items-center group transition-colors select-none"
               :class="
                 b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
                   ? 'bg-blue-600/20 text-white font-medium'
                   : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'
               "
-              @click="b.chatSelectMode ? b.toggleChatSelect(chat.id) : b.loadChat(chat.id)"
-              @keydown.enter="b.chatSelectMode ? b.toggleChatSelect(chat.id) : b.loadChat(chat.id)"
               @contextmenu.prevent="b.openContextMenu($event, 'chat', chat)"
             >
-              <!-- Case à cocher (mode sélection) -->
-              <div
-                v-if="b.chatSelectMode"
-                class="shrink-0 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition-colors"
-                :class="
-                  b.chatSelected.includes(chat.id)
-                    ? 'bg-blue-600 border-blue-600'
-                    : 'border-white/25 hover:border-white/50'
-                "
-                @click.stop="b.toggleChatSelect(chat.id)"
-              >
-                <i v-if="b.chatSelected.includes(chat.id)" class="ph ph-check text-white text-[10px]"></i>
-              </div>
-              <span class="truncate flex-1 text-[13.5px]" :class="chat._renamed ? 'elpis-title-flash' : ''">{{
-                chat.title
-              }}</span>
-              <!-- Run en cours (tous onglets, tous appareils) : point d'accent qui respire (immobile en mouvement réduit). -->
-              <span
-                v-if="b.activeRunIds.includes(String(chat.id))"
-                class="elpis-run-dot shrink-0"
-                role="img"
-                aria-label="Génération en cours"
-                title="Génération en cours…"
-              ></span>
-              <!-- a11y (WCAG 2.1.1) — bouton "…" focusable : ouvre le MÊME menu
-                                   (Renommer / Archiver / Supprimer) que le clic droit, mais
-                                   atteignable au clavier et sur tablette (pas de clic droit).
-                                   Posé en absolu : le titre garde toute la largeur et ne
-                                   cède la place qu'au survol ou au focus (pr-9 de la ligne).
-                                   @click.stop pour ne pas déclencher loadChat de la ligne. -->
+              <!-- Titre (ouvre ou coche en mode sélection) et « Actions » : deux boutons frères, jamais imbriqués. -->
               <button
+                type="button"
+                data-chat-open
+                class="flex-1 min-w-0 h-full pl-3 pr-2 group-hover:pr-9 group-focus-within:pr-9 rounded-lg flex items-center gap-2 text-left cursor-pointer"
+                :aria-current="
+                  b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
+                    ? 'page'
+                    : undefined
+                "
+                :aria-pressed="
+                  b.chatSelectMode ? (b.chatSelected.includes(chat.id) ? 'true' : 'false') : undefined
+                "
+                @click="b.chatSelectMode ? b.toggleChatSelect(chat.id) : b.loadChat(chat.id)"
+                @keydown.f2.prevent="b.renameChat(chat.id, chat.title)"
+              >
+                <span
+                  v-if="b.chatSelectMode"
+                  aria-hidden="true"
+                  class="shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors"
+                  :class="
+                    b.chatSelected.includes(chat.id)
+                      ? 'bg-blue-600 border-blue-600'
+                      : 'border-white/25 group-hover:border-white/50'
+                  "
+                >
+                  <i v-if="b.chatSelected.includes(chat.id)" class="ph ph-check text-white text-[10px]"></i>
+                </span>
+                <span
+                  class="truncate flex-1 text-[13.5px]"
+                  :class="chat._renamed ? 'elpis-title-flash' : ''"
+                  >{{ chat.title }}</span
+                >
+                <!-- Run en cours (tous onglets, tous appareils) : point d'accent qui respire (immobile en mouvement réduit). -->
+                <span
+                  v-if="b.activeRunIds.includes(String(chat.id))"
+                  class="elpis-run-dot shrink-0"
+                  role="img"
+                  aria-label="Génération en cours"
+                  title="Génération en cours…"
+                ></span>
+              </button>
+              <button
+                v-if="!b.chatSelectMode"
+                type="button"
                 title="Actions"
-                aria-label="Actions sur la conversation"
+                :aria-label="`Actions sur « ${chat.title} »`"
                 aria-haspopup="menu"
                 class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:outline-none w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-opacity"
-                @click.stop="b.openContextMenu($event, 'chat', chat)"
-                @keydown.enter.stop.prevent="b.openContextMenu($event, 'chat', chat)"
+                @click="b.openContextMenu($event, 'chat', chat)"
               >
-                <i class="ph ph-dots-three text-sm"></i>
+                <i class="ph ph-dots-three text-sm" aria-hidden="true"></i>
               </button>
             </div>
           </template>
@@ -532,7 +550,8 @@ onBeforeUnmount(() => brancherFondu(null));
                    Fond un cran plus sombre ; --sb-ring-offset adapte l'anneau de
                    focus à ce fond. -->
       <div class="elpis-rail-foot px-3 py-2.5 border-t border-white/[0.07] flex items-center gap-2 shrink-0">
-        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+        <MenuCompte v-if="!ui.classique" />
+        <div v-else class="flex items-center gap-2.5 min-w-0 flex-1">
           <img
             v-if="b.user.avatar"
             :src="'/avatars/' + b.user.avatar"
@@ -547,162 +566,7 @@ onBeforeUnmount(() => brancherFondu(null));
           <span class="truncate text-sm font-medium text-slate-200 min-w-0">{{ b.user.username }}</span>
         </div>
         <div class="flex items-center gap-0.5 shrink-0">
-          <!-- Cloche notifications : badge non-lus + panneau déroulant
-                           ancré au-dessus (bottom-full). Le ref enveloppe bouton +
-                           panneau pour la fermeture au clic externe (app.js). -->
-          <div :ref="(el) => (b.notifDropdownRef = el)" class="relative">
-            <button
-              :title="b.notifUnread ? b.notifUnread + ' notification(s) non lue(s)' : 'Notifications'"
-              :aria-pressed="b.showNotifPanel ? 'true' : 'false'"
-              class="relative w-8 h-8 rounded-md hover:bg-white/10 transition-colors flex items-center justify-center"
-              :class="b.showNotifPanel ? 'bg-white/[0.08] text-white' : 'text-slate-400 hover:text-white'"
-              @click="b.toggleNotifPanel"
-            >
-              <i class="ph text-base" :class="b.notifUnread ? 'ph-bell-ringing' : 'ph-bell'"></i>
-              <span
-                v-if="b.notifUnread"
-                role="status"
-                :aria-label="b.notifUnread + ' notification(s) non lue(s)'"
-                class="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none shadow-sm ring-1 ring-[#0b1120]"
-              >
-                {{ b.notifUnread > 99 ? "99+" : b.notifUnread }}
-              </span>
-            </button>
-
-            <!-- Panneau (light, cohérent avec les dropdowns memory/+/RAG).
-                               Positionné en FIXED ancré au coin bas-gauche du viewport :
-                               la cloche vit dans le pied de sidebar (bas-gauche) et un
-                               ancrage absolute right-0 faisait déborder les 320px du
-                               panneau hors de l'écran à gauche. Le panneau reste un
-                               enfant DOM du wrapper → la fermeture au clic externe
-                               (notifDropdownRef.contains) continue de fonctionner. -->
-            <Transition name="popover">
-              <!-- elpis-notif-pop : marqueur « surface claire de l'app » —
-                               les remaps rail de style.css ne doivent pas déteindre ici. -->
-              <div
-                v-if="b.showNotifPanel"
-                class="elpis-notif-pop fixed bottom-16 left-3 w-80 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden"
-              >
-                <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                  <span class="text-sm font-semibold text-slate-800">Notifications</span>
-                  <div class="flex items-center gap-1">
-                    <button
-                      v-if="b.notifications.length"
-                      title="Tout marquer comme lu"
-                      class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"
-                      @click="b.markAllNotifsRead"
-                    >
-                      <i class="ph ph-checks text-sm"></i>
-                    </button>
-                    <button
-                      v-if="b.notifications.length"
-                      title="Tout effacer"
-                      class="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-100 transition-colors"
-                      @click="b.clearNotifs"
-                    >
-                      <i class="ph ph-trash text-sm"></i>
-                    </button>
-                  </div>
-                </div>
-                <div class="max-h-[360px] overflow-y-auto custom-scrollbar py-1">
-                  <!-- Chargement initial -->
-                  <div
-                    v-if="b.notifLoading && !b.notifications.length"
-                    class="py-8 flex items-center justify-center text-slate-400"
-                  >
-                    <i class="ph ph-spinner-gap text-lg animate-spin"></i>
-                  </div>
-                  <!-- Erreur réseau -->
-                  <div
-                    v-else-if="b.notifError && !b.notifications.length"
-                    class="py-8 px-4 text-center text-xs text-slate-500"
-                  >
-                    <i class="ph ph-wifi-slash text-2xl text-slate-300"></i>
-                    <p class="mt-2">Chargement impossible.</p>
-                    <button
-                      class="mt-1.5 text-blue-600 hover:underline font-medium"
-                      @click="b.loadNotifications"
-                    >
-                      Réessayer
-                    </button>
-                  </div>
-                  <!-- Vide (état utile) -->
-                  <div v-else-if="!b.notifications.length" class="py-8 px-5 text-center">
-                    <i class="ph ph-bell-slash text-2xl text-slate-300"></i>
-                    <p class="mt-2 text-xs text-slate-400 leading-relaxed">
-                      Vos routines, scénarios du Studio et rapports d'usage apparaîtront ici.
-                    </p>
-                  </div>
-                  <!-- Liste groupée par date -->
-                  <template v-for="g in b.groupedNotifications" :key="g.label">
-                    <div class="px-4 pt-2.5 pb-1 text-xs font-semibold text-slate-500 select-none">
-                      {{ g.label }}
-                    </div>
-                    <div
-                      v-for="n in g.items"
-                      :key="n.id"
-                      role="button"
-                      tabindex="0"
-                      class="flex items-start gap-2.5 px-4 py-2.5 hover:bg-slate-50 cursor-pointer group transition-colors"
-                      :class="b.isNotifNew(n) ? 'bg-blue-50/40' : ''"
-                      @click="b.openNotifItem(n)"
-                      @keydown.enter="b.openNotifItem(n)"
-                    >
-                      <span
-                        class="w-1.5 h-1.5 rounded-full mt-2 shrink-0"
-                        :class="b.isNotifNew(n) ? 'bg-blue-500' : 'bg-transparent'"
-                        aria-hidden="true"
-                      ></span>
-                      <span v-if="b.isNotifNew(n)" class="sr-only">Non lue :</span>
-                      <i
-                        class="ph text-base mt-0.5 shrink-0"
-                        :class="b.notifIcon(n.kind) + ' ' + b.notifColor(n.kind)"
-                      ></i>
-                      <div class="min-w-0 flex-1">
-                        <div
-                          class="text-[13px] text-slate-800 truncate"
-                          :class="b.isNotifNew(n) ? 'font-semibold' : 'font-normal'"
-                        >
-                          {{ n.title }}
-                        </div>
-                        <div v-if="n.body" class="text-xs text-slate-500 line-clamp-2 mt-0.5">
-                          {{ n.body }}
-                        </div>
-                        <div class="text-[11px] text-slate-400 mt-0.5">
-                          {{ b.notifTimeAgo(n.created_at, b.notifNowTick) }}
-                        </div>
-                      </div>
-                      <div class="flex items-center gap-0.5 shrink-0">
-                        <button
-                          :title="n.read_at ? 'Marquer comme non lu' : 'Marquer comme lu'"
-                          class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-slate-100 transition-all"
-                          @click.stop="b.toggleNotifReadState(n)"
-                        >
-                          <i class="ph text-xs" :class="n.read_at ? 'ph-circle' : 'ph-check'"></i>
-                        </button>
-                        <button
-                          title="Supprimer"
-                          class="opacity-0 group-hover:opacity-100 focus:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-slate-100 transition-all"
-                          @click.stop="b.deleteNotif(n.id)"
-                        >
-                          <i class="ph ph-x text-xs"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </template>
-                  <!-- Pagination -->
-                  <button
-                    v-if="b.notifHasMore"
-                    :disabled="b.notifLoading"
-                    class="w-full py-2 mt-1 text-[11px] font-medium text-blue-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    @click="b.loadMoreNotifs"
-                  >
-                    {{ b.notifLoading ? "Chargement…" : "Voir plus" }}
-                  </button>
-                </div>
-              </div>
-            </Transition>
-          </div>
+          <NotificationsPied />
 
           <button
             title="Paramètres"
@@ -713,13 +577,14 @@ onBeforeUnmount(() => brancherFondu(null));
           </button>
           <button
             v-if="b.user.is_admin || b.user.role === 'moderator'"
-            title="Admin"
+            title="Administration"
             class="w-8 h-8 rounded-md hover:bg-white/10 text-emerald-400 hover:text-emerald-300 transition-colors flex items-center justify-center"
             @click="b.goToAdmin"
           >
             <i class="ph ph-shield-check text-base"></i>
           </button>
           <button
+            v-if="ui.classique"
             title="Déconnexion"
             class="w-8 h-8 rounded-md hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors flex items-center justify-center"
             @click="b.logout"

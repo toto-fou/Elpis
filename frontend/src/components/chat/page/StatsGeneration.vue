@@ -16,7 +16,7 @@ const mod = domaine(CLE_MODELES);
       <span>{{ mod.liveGen.secLabel }}</span>
       <template v-if="mod.liveGen.tokPerSec !== null">
         <span class="text-slate-300">·</span>
-        <span title="Vitesse de génération">↑ {{ mod.liveGen.tokPerSec }} tok/s</span>
+        <span title="Vitesse de génération">↑ {{ mod.liveGen.tokPerSec }} jetons/s</span>
       </template>
       <template v-if="mod.liveGen.ctxLabel">
         <span class="text-slate-300">·</span>
@@ -26,12 +26,12 @@ const mod = domaine(CLE_MODELES);
           :title="
             'Contexte : ' +
             mod.liveGen.ctxLabel +
-            ' tokens (' +
+            ' jetons (' +
             mod.liveGen.pct +
-            '%) — dernier prompt mesuré par le moteur, + jetons générés depuis (réflexion comprise), / fenêtre'
+            ' %) — dernier prompt mesuré par le moteur, + jetons générés depuis (réflexion comprise), / fenêtre'
           "
         >
-          <i class="ph ph-database text-[10px]"></i>{{ mod.liveGen.ctxLabel }} ctx
+          <i class="ph ph-database text-[10px]" aria-hidden="true"></i>{{ mod.liveGen.ctxLabel }}
         </span>
       </template>
     </div>
@@ -45,12 +45,12 @@ const mod = domaine(CLE_MODELES);
       mod.ctxUsage.used.toLocaleString('fr-FR') +
       ' / ' +
       mod.ctxUsage.total.toLocaleString('fr-FR') +
-      ' tokens (' +
+      ' jetons (' +
       mod.ctxUsage.pct +
       ' %)' +
       (mod.ctxUsage.persisted ? ' — valeur enregistrée, restaurée au chargement' : '')
     "
   >
-    <i class="ph ph-database text-[10px]"></i>{{ mod.fmtCtxUsage(mod.ctxUsage) }} ctx
+    <i class="ph ph-database text-[10px]" aria-hidden="true"></i>{{ mod.fmtCtxUsage(mod.ctxUsage) }}
   </div>
 </template>

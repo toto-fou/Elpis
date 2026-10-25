@@ -1,7 +1,10 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/PageChat.vue — colonne du chat : dépôt de fichiers, en-tête, fil, composeur (saisie, mentions, menus « / » et « + », micro, mode plan, tâches, modèle, envoi) et perchoir de la mascotte. -->
 <script setup lang="ts">
-import { CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { computed } from "vue";
+
+import { CLE_COMPOSEUR, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
+import { interfaceApp } from "../../../features/reglages/interface";
 import MascottePerchee from "../../mascotte/MascottePerchee.vue";
 import BoutonMicro from "../../voix/BoutonMicro.vue";
 import MenuMention from "../composeur/MenuMention.vue";
@@ -10,11 +13,14 @@ import ZoneSaisie from "../composeur/ZoneSaisie.vue";
 import PuceJobs from "../outils/PuceJobs.vue";
 import PuceTaches from "../outils/PuceTaches.vue";
 import AlerteContexte from "./AlerteContexte.vue";
+import BarreActivite from "./BarreActivite.vue";
+import BarreComposeur from "./BarreComposeur.vue";
 import BarreImage from "./BarreImage.vue";
 import BoutonBas from "./BoutonBas.vue";
 import BoutonsEnvoi from "./BoutonsEnvoi.vue";
 import EffortReflexion from "./EffortReflexion.vue";
 import EnteteChat from "./EnteteChat.vue";
+import EnteteConversation from "./EnteteConversation.vue";
 import EpinglesComposeur from "./EpinglesComposeur.vue";
 import FilConversation from "./FilConversation.vue";
 import FileAttente from "./FileAttente.vue";
@@ -22,12 +28,24 @@ import InfoCompression from "./InfoCompression.vue";
 import MenuPlus from "./MenuPlus.vue";
 import MenuSlash from "./MenuSlash.vue";
 import ProgressionModele from "./ProgressionModele.vue";
+import PucesComposeur from "./PucesComposeur.vue";
 import QuestionnaireAssistant from "./QuestionnaireAssistant.vue";
 import SelecteurModele from "./SelecteurModele.vue";
 import StatsGeneration from "./StatsGeneration.vue";
 import SurvolDepot from "./SurvolDepot.vue";
 
 const p = domaine(CLE_PAGE);
+const comp = domaine(CLE_COMPOSEUR);
+const ui = interfaceApp();
+// Liste ouverte sous la saisie (combobox) et option active, pour le lecteur d'écran.
+const listeOuverte = computed(() => {
+  if (comp.showSlash) return "slash-list";
+  return p.showMentionDropdown && !p.isMentionLoading && p.mentionFiles.length ? "mention-list" : null;
+});
+const optionActive = computed(() => {
+  if (listeOuverte.value === "slash-list") return `slash-opt-${comp.slashIdx}`;
+  return listeOuverte.value === "mention-list" ? `mention-opt-${p.mentionIndex}` : null;
+});
 // Le dépôt ne lit que les fichiers de la cible.
 function surFichiers(e: Event): void {
   p.handleFileUpload({ target: e.target as HTMLInputElement });
@@ -44,7 +62,8 @@ function surFichiers(e: Event): void {
   >
     <SurvolDepot />
 
-    <EnteteChat />
+    <EnteteChat v-if="ui.classique" />
+    <EnteteConversation v-else />
 
     <!-- Colonne de défilement, en-tête, composeur : composants de frontend/src/components/chat/page/ (domaines injectés). -->
     <FilConversation
@@ -97,6 +116,8 @@ function surFichiers(e: Event): void {
 
         <QuestionnaireAssistant />
 
+        <BarreActivite v-if="!ui.classique" />
+
         <div
           class="elpis-compose-card relative bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200 focus-within:border-slate-300 transition-colors flex flex-col"
         >
@@ -119,9 +140,12 @@ function surFichiers(e: Event): void {
                                        message, style chatbot classique) — l'ENVOI reste bloqué :
                                        le bouton devient Stop et Enter insère un retour à la ligne
                                        (cf. handleInputKeydown). Pas de file d'attente. -->
+            <PucesComposeur v-if="!ui.classique" />
             <ZoneSaisie
               v-model:texte="p.inputMessage"
               :nouveau-chat="p.messages.length === 0"
+              :liste-id="listeOuverte"
+              :option-active="optionActive"
               :placeholder="
                 p.isStreaming
                   ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)'
@@ -133,19 +157,18 @@ function surFichiers(e: Event): void {
               @touche="p.handleInputKeydown"
               @saisie="p.handleInputInput"
             />
-            <!-- Barre d'outils EN BAS : + à gauche, envoyer à droite. -->
-            <div class="flex items-center w-full gap-1">
+            <!-- « Joindre un fichier » vit dans le menu « + » : l'input caché est déclenché par triggerFileUpload(). -->
+            <input
+              :ref="(el) => (p.fileInput = el)"
+              type="file"
+              class="hidden"
+              multiple
+              @change="surFichiers"
+            />
+            <!-- Rangée du bas : courte (interface nouvelle) ou barre d'outils complète (interface classique). -->
+            <BarreComposeur v-if="!ui.classique" />
+            <div v-else class="flex items-center w-full gap-1">
               <div class="shrink-0 flex items-center gap-0.5">
-                <!-- Bouton trombone autonome RETIRÉ : « Joindre un fichier » vit
-                                           désormais dans le menu « + » (point d'entrée unique). L'input
-                                           caché reste, déclenché par triggerFileUpload(). -->
-                <input
-                  :ref="(el) => (p.fileInput = el)"
-                  type="file"
-                  class="hidden"
-                  multiple
-                  @change="surFichiers"
-                />
                 <!-- Ancien bouton brain/réflexion retiré ici : l'activation
                                            de la réflexion (Qwen3 / DeepSeek-R1) vit désormais dans
                                            le panneau Sampling (section "Agent & reasoning"), à côté

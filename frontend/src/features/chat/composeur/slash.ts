@@ -311,9 +311,9 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     },
     {
       name: "template",
-      label: "Templates",
+      label: "Gabarits",
       icon: "ph-brackets-curly",
-      desc: "Insérer un template de prompt, variables à remplir",
+      desc: "Insérer un gabarit de prompt, variables à remplir",
       args: [
         {
           name: "nom",
@@ -322,7 +322,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
             const liste = templates ? templates.templatesAll.value : [];
             return liste
               .map((t): ValeurArgument => ({ value: t.name, label: t.title || t.name }))
-              .concat([{ value: "+", label: "Nouveau template", last: true }]);
+              .concat([{ value: "+", label: "Nouveau gabarit", last: true }]);
           },
         },
       ],
@@ -465,9 +465,9 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     },
     {
       name: "settings",
-      label: "Réglages",
+      label: "Paramètres",
       icon: "ph-gear",
-      desc: "Ouvrir les réglages sur un onglet",
+      desc: "Ouvrir les paramètres sur un onglet",
       args: [{ name: "onglet", label: "onglet", values: SETTINGS_TABS }],
       run: async (a) => {
         const tab = a[0] ? SETTINGS_TABS.find((t) => t.value === a[0]) || null : null;

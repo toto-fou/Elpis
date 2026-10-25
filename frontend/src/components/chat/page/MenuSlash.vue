@@ -20,23 +20,29 @@ suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx
       <div
         class="elpis-slash-head px-3 py-2 text-xs font-semibold border-b border-slate-100 flex items-center gap-2 bg-slate-50"
       >
-        <i class="ph text-blue-500" :class="comp.slashHeaderIcon"></i>
+        <i class="ph text-blue-500" :class="comp.slashHeaderIcon" aria-hidden="true"></i>
         {{ comp.slashHeaderLabel }}
         <span v-if="comp.slashRaw && comp.slashRaw.name" class="elpis-slash-cmd font-mono">{{
           comp.slashHeaderCmd
         }}</span>
-        <span class="ml-auto normal-case font-normal">↑↓ Tab/Entrée · Échap</span>
+        <span class="ml-auto normal-case font-normal" aria-hidden="true">↑↓ Tab/Entrée · Échap</span>
       </div>
       <ul
         id="slash-list"
         ref="liste"
+        role="listbox"
+        :aria-label="`${comp.slashHeaderLabel}, ${comp.slashList.length} suggestions`"
         class="max-h-52 overflow-y-auto custom-scrollbar py-1"
         :style="comp.slashLevel === 'values' ? { maxHeight: '20rem' } : undefined"
       >
         <li
           v-for="(item, i) in comp.slashList"
+          :id="`slash-opt-${i}`"
           :key="comp.slashRowKey(item, i)"
           data-slash-row
+          role="option"
+          :aria-selected="comp.slashIdx === i ? 'true' : 'false'"
+          :aria-disabled="comp.slashCmdOk(item) ? undefined : 'true'"
           :title="comp.slashRowTitle(item)"
           :class="[
             comp.slashIdx === i ? 'bg-blue-50 elpis-slash-on' : 'text-slate-700 hover:bg-slate-50',
@@ -104,7 +110,11 @@ suivreLigneActive(useTemplateRef<HTMLUListElement>("liste"), () => comp.slashIdx
             </div>
           </template>
 
-          <i v-if="comp.slashIdx === i" class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"></i>
+          <i
+            v-if="comp.slashIdx === i"
+            class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"
+            aria-hidden="true"
+          ></i>
         </li>
       </ul>
     </div>

@@ -1,12 +1,18 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/page/SelecteurModele.vue — sélecteur de modèle : serveur intégré et connecteurs, chargement, infos, pied d'état. -->
+<!-- frontend/src/components/chat/page/SelecteurModele.vue — sélecteur de modèle : serveur intégré et connecteurs, chargement, infos, entrées ajoutées par le parent, pied d'état. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { CLE_MODELES, domaine } from "../../../features/chat/page/domaines";
 import { resumeCharge } from "../../../features/chat/modeles/charge";
+import { abregerModele } from "../../../features/chat/page/puces";
 
+// `abrege` : nom court (colonne étroite) ; `aDroite` : menu ouvert vers la gauche depuis un bouton calé à droite.
+const props = defineProps<{ abrege?: boolean; aDroite?: boolean }>();
 const mod = domaine(CLE_MODELES);
+const libelle = computed(() =>
+  props.abrege ? abregerModele(mod.selectedModelLabel) : mod.selectedModelLabel,
+);
 
 // Jauge du cache KV du moteur visé : l'intégré, ou le connecteur choisi s'il expose ses métriques.
 const jauge = computed(() => {
@@ -40,7 +46,7 @@ const ligneCharge = computed(() =>
             ? mod.selectedModelLabel + ' · ' + mod.selectedEngineMeta.label
             : mod.selectedModelLabel
         "
-        >{{ mod.selectedModelLabel }}</span
+        >{{ libelle }}</span
       >
       <i
         class="ph ph-caret-down text-[10px] transition-transform"
@@ -51,13 +57,14 @@ const ligneCharge = computed(() =>
     <Transition name="popover-up">
       <div
         v-if="mod.showModelManager"
-        class="absolute left-0 bottom-full mb-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-[200] overflow-hidden"
+        class="absolute bottom-full mb-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 z-[200] overflow-hidden"
+        :class="props.aDroite ? 'right-0' : 'left-0'"
         @keydown="mod.onModelMenuKeydown"
         @click.stop
       >
         <div v-if="jauge" class="px-3 py-2 bg-slate-50 border-b" data-jauge-kv>
           <div class="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-            <span>KV Cache</span>
+            <span>Cache du moteur</span>
             <span class="font-mono font-semibold" :class="mod.kvTextClass(jauge.pct)"
               >{{ jauge.used }} / {{ jauge.total }}</span
             >
@@ -309,6 +316,8 @@ const ligneCharge = computed(() =>
           </template>
         </div>
 
+        <slot name="pied"></slot>
+
         <div class="px-3 py-1.5 bg-slate-50 border-t flex items-center justify-between">
           <template v-if="!mod.selectedConnector">
             <span
@@ -325,7 +334,7 @@ const ligneCharge = computed(() =>
               class="text-[10px] text-blue-500 font-mono font-semibold"
             >
               <i class="ph ph-brackets-angle text-[9px]"></i>
-              {{ mod.llmHealth.props.n_ctx.toLocaleString("fr-FR") }} ctx
+              {{ mod.llmHealth.props.n_ctx.toLocaleString("fr-FR") }} jetons de contexte
             </span>
           </template>
           <template v-else>
@@ -346,7 +355,7 @@ const ligneCharge = computed(() =>
               class="text-[10px] text-blue-500 font-mono font-semibold"
             >
               <i class="ph ph-brackets-angle text-[9px]"></i>
-              {{ mod.selectedEngineMeta.n_ctx.toLocaleString("fr-FR") }} ctx
+              {{ mod.selectedEngineMeta.n_ctx.toLocaleString("fr-FR") }} jetons de contexte
             </span>
           </template>
           <button

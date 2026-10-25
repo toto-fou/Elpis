@@ -36,39 +36,52 @@ suivreLigneActive(liste, () => props.index, "li[data-mention-row]");
       <div
         class="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-100 flex items-center gap-2 bg-slate-50"
       >
-        <i class="ph ph-at text-blue-500"></i>
+        <i class="ph ph-at text-blue-500" aria-hidden="true"></i>
         Insérer un fichier
         <span v-if="props.requete" class="text-blue-600 font-mono">{{ props.requete }}</span>
-        <span class="ml-auto text-slate-300 normal-case font-normal">↑↓ Entrée · Échap</span>
+        <span class="ml-auto text-slate-300 normal-case font-normal" aria-hidden="true"
+          >↑↓ Entrée · Échap</span
+        >
       </div>
-      <div v-if="props.chargement" class="flex items-center justify-center py-5 text-slate-400">
+      <div v-if="props.chargement" role="status" class="flex items-center justify-center py-5 text-slate-400">
         <i class="ph ph-spinner animate-spin text-lg mr-2"></i> Chargement...
       </div>
-      <div v-else-if="props.fichiers.length === 0" class="py-5 text-center text-xs text-slate-400">
+      <div
+        v-else-if="props.fichiers.length === 0"
+        role="status"
+        class="py-5 text-center text-xs text-slate-400"
+      >
         Aucun fichier trouvé
       </div>
       <ul
         v-else
         id="mention-list"
         ref="liste"
+        role="listbox"
+        :aria-label="`Fichiers, ${props.fichiers.length} suggestions`"
         class="max-h-52 overflow-y-auto custom-scrollbar py-1"
         @scroll.passive="emit('defiler', $event)"
       >
         <template v-for="(f, i) in props.fichiers" :key="f.path">
           <li
             v-if="i === 0 && props.recents > 0"
+            role="presentation"
             class="px-3 pt-1.5 pb-0.5 text-[11px] font-semibold text-slate-500 pointer-events-none select-none"
           >
             Récents
           </li>
           <li
             v-if="i === props.recents && props.recents > 0 && i < props.fichiers.length"
+            role="presentation"
             class="px-3 pt-2 pb-0.5 text-[11px] font-semibold text-slate-500 pointer-events-none select-none border-t border-slate-100 mt-1"
           >
             Tous
           </li>
           <li
+            :id="`mention-opt-${i}`"
             data-mention-row
+            role="option"
+            :aria-selected="props.index === i ? 'true' : 'false'"
             :class="props.index === i ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'"
             class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer transition-colors text-sm"
             @click="emit('choisir', f)"
@@ -83,11 +96,16 @@ suivreLigneActive(liste, () => props.index, "li[data-mention-row]");
               <div class="font-mono text-xs font-medium truncate">{{ mentionFilenameOf(f.path) }}</div>
               <div class="font-mono text-[10px] text-slate-400 truncate">{{ mentionDirOf(f.path) }}</div>
             </div>
-            <i v-if="props.index === i" class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"></i>
+            <i
+              v-if="props.index === i"
+              class="ph ph-arrow-bend-down-left text-blue-400 text-xs shrink-0"
+              aria-hidden="true"
+            ></i>
           </li>
         </template>
         <li
           v-if="props.encore"
+          role="presentation"
           class="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] text-slate-400 italic"
         >
           <i class="ph ph-dots-three-outline text-xs"></i> Faire défiler pour afficher plus

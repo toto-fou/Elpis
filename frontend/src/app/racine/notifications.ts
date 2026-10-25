@@ -231,11 +231,29 @@ export function creerNotifications(dep: DependancesNotifications) {
     );
   }
 
-  async function clearNotifs(): Promise<void> {
+  // Effacement différé : la liste disparaît aussitôt, le serveur n'est vidé qu'à la fin du toast « Annuler ».
+  function clearNotifs(): void {
+    const avant = { liste: notifications.value, nonLus: notifUnread.value, nouvelles: notifNewIds.value };
+    if (!avant.liste.length) return;
     notifications.value = [];
     notifUnread.value = 0;
     notifNewIds.value = new Set();
-    await dep.fetchAuth("/api/notifications/clear", { method: "POST" }, true);
+    let annule = false;
+    const n = avant.liste.length;
+    dep.showToast(`${n} notification${n > 1 ? "s effacées" : " effacée"}`, "success", {
+      duration: 6000,
+      actionLabel: "Annuler",
+      onAction: () => {
+        annule = true;
+        notifications.value = avant.liste;
+        notifUnread.value = avant.nonLus;
+        notifNewIds.value = avant.nouvelles;
+        dep.showToast("Notifications restaurées");
+      },
+      onExpire: () => {
+        if (!annule) void dep.fetchAuth("/api/notifications/clear", { method: "POST" }, true);
+      },
+    });
   }
 
   // Ouvrir le panneau vaut « vu » : compteur soldé et read_at posé localement.

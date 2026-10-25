@@ -94,10 +94,13 @@ function nomCourt(chemin: string): string {
         </template>
       </div>
       <button
+        type="button"
+        title="Retirer"
+        :aria-label="`Retirer ${file.name}`"
         class="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 transition-all z-20 bg-slate-700 text-white hover:bg-slate-900 shadow-md"
         @click="emit('retirer', index)"
       >
-        <i class="ph ph-x text-[10px]"></i>
+        <i class="ph ph-x text-[10px]" aria-hidden="true"></i>
       </button>
     </div>
   </div>

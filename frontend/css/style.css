@@ -4771,3 +4771,14 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 @media (prefers-reduced-motion: reduce) { .adm-rag-barre > span { transition: none; } }
 .adm-rag-valeur { font-size: 0.875rem; color: var(--text-700); }
 .peer:checked ~ .set-switch-track.adm-rag-sw { background: var(--accent); border-color: var(--accent); }
+
+/* Barres de défilement discrètes (interface nouvelle) : invisibles au repos, visibles au survol, au focus dans la zone
+   et une seconde après un défilement (.elpis-defile, features/chat/page/barres-defilement.ts) ; la gouttière reste réservée. */
+:where(body:not(.elpis-ui-classique)) * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+:where(body:not(.elpis-ui-classique)) :is(:hover, :focus-within, .elpis-defile) {
+    scrollbar-color: var(--scrollbar-thumb-hover) transparent;
+}
+:where(body:not(.elpis-ui-classique)) aside.elpis-slide-panel :is(:hover, :focus-within, .elpis-defile) {
+    scrollbar-color: color-mix(in srgb, var(--rail-muted) 50%, transparent) transparent;
+}
+:where(body:not(.elpis-ui-classique)) :is(.overflow-y-auto, .overflow-auto, .overflow-x-auto) { scrollbar-gutter: stable; }

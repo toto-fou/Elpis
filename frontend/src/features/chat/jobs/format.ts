@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/jobs/format.ts — libellés français des tâches de fond : durée, état, déclencheurs, résumé d'un réveil. */
+/** frontend/src/features/chat/jobs/format.ts — libellés français des tâches de fond : durée, état et issue (code de sortie), déclencheurs, résumé d'un réveil. */
 import type { DeclencheurJob, EtatJob, EvenementReveil, ResumeJob, ResumeReveil } from "@elpis/contracts";
 
 const ETATS: Readonly<Record<EtatJob, string>> = {
@@ -28,6 +28,23 @@ export const libelleEtat = (etat: EtatJob): string => ETATS[etat];
 
 export const jobActif = (j: Pick<ResumeJob, "state">): boolean =>
   j.state === "starting" || j.state === "running";
+
+export type IssueJob = "actif" | "reussi" | "echec" | "arrete" | "perdu";
+
+/** Issue d'un job : une sortie en code ≠ 0 ou par signal est un échec, pas une fin normale. */
+export function issueJob(j: Pick<ResumeJob, "state" | "exit_code" | "signal">): IssueJob {
+  if (jobActif(j)) return "actif";
+  if (j.state === "exited") return j.exit_code === 0 && !j.signal ? "reussi" : "echec";
+  if (j.state === "killed") return "arrete";
+  return j.state === "lost" ? "perdu" : "echec";
+}
+
+/** « terminé », « échec, code 1 », « échec (SIGSEGV) », « arrêté »… */
+export function libelleJob(j: Pick<ResumeJob, "state" | "exit_code" | "signal">): string {
+  if (j.state !== "exited" || issueJob(j) === "reussi") return ETATS[j.state];
+  if (j.signal) return `échec (${j.signal})`;
+  return j.exit_code == null ? "échec" : `échec, code ${j.exit_code}`;
+}
 
 /** « 10 min 03 s », « 42 s », « 1 h 02 min » ; vide si la durée est inconnue. */
 export function dureeFr(secondes: number | null | undefined): string {

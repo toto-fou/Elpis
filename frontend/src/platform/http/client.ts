@@ -3,6 +3,7 @@
 import type { ZodType } from "zod";
 
 import type { GestionnaireSession } from "../../features/auth/session";
+import { noterHeureServeur } from "../horloge";
 import { decoderErreur } from "./resultat";
 import type { ApiResult } from "./resultat";
 
@@ -42,6 +43,7 @@ export class ClientHttp {
       if (estAbandon(e)) return { type: "annulation" };
       return { type: "reseau", raison: e instanceof Error ? e.message : String(e) };
     }
+    noterHeureServeur(rep.headers?.get("date"));
     if (!this.session.estCourante(generation)) return { type: "perime" };
     if (rep.status === 401 && !opts.sans401) {
       this.session.signalerExpiration(generation);

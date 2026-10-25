@@ -5,6 +5,7 @@ import { watch } from "vue";
 import type { ResumeJob } from "@elpis/contracts";
 
 import { issueJob } from "../jobs/format";
+import { appelDeLancement } from "../message/taches-fond";
 import type { IssueJob } from "../jobs/format";
 import { allerALEtape, appelDuJob } from "./activite";
 import type { DomaineConversation, DomainePage } from "./types";
@@ -20,10 +21,12 @@ export function utiliserEchecsJobs(
   conv: Pick<DomaineConversation, "isUserScrolling">,
   actif: () => boolean,
 ): void {
-  // Étape absente du fil chargé : le volet des tâches de fond montre la tâche et son journal.
+  // Le lancement d'abord (pas un appel `status`) ; sans étape dans le fil, le volet des tâches de fond.
   function allerAuJob(j: ResumeJob): void {
     conv.isUserScrolling = true;
-    if (!allerALEtape(appelDuJob(p.messages, j.id))) p.jobsBasculer(true);
+    if (allerALEtape(appelDeLancement(p.messages, j.id) ?? appelDuJob(p.messages, j.id))) return;
+    // Ouvert après le clic du toast : la fermeture au clic extérieur le refermerait aussitôt.
+    setTimeout(() => p.jobsBasculer(true), 0);
   }
 
   const vus = new Map<string, IssueJob>();

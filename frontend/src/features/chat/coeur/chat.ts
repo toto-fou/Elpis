@@ -342,7 +342,7 @@ export function setupChat(
         ? { openInEditor: ctx.openInEditor as (chemin: string) => unknown }
         : {}),
       loadChat: (id, o) => historique.loadChat(id, o),
-      reattachOrFollow: (id) => runs.reattachOrFollow(id),
+      reattachOrFollow: (id, reveil) => runs.reattachOrFollow(id, reveil),
     },
   );
   const envoi = creerEnvoi(c, {

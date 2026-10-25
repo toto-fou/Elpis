@@ -1,19 +1,23 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche, sous-agents, mémoire, compression, puis le texte qui s'écrit. -->
+<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche, sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
 <script setup lang="ts">
 import { computed, inject, onUnmounted, ref, watch } from "vue";
+
+import type { ResumeJob } from "@elpis/contracts";
 
 import { chronologieTour } from "../../../features/chat/message/chronologie";
 import type { BlocFil } from "../../../features/chat/message/chronologie";
 import type { EntreeMessage } from "../../../features/chat/message/types";
 import { fmtCompression, fmtDuree } from "../../../features/chat/outils/format";
 import { CLE_MODALES } from "../../../features/chat/modales/domaine";
+import { jobDeLEtape } from "../../../features/chat/message/taches-fond";
 import type { EtapeOutil } from "../../../features/chat/outils/types";
-import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { CLE_FIL, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
 
 import ContenuMarkdown from "../ContenuMarkdown.vue";
 import CarteOutil from "../outils/CarteOutil.vue";
 import LigneEtapes from "../outils/LigneEtapes.vue";
+import LigneJob from "../outils/LigneJob.vue";
 import LignesAgents from "../outils/LignesAgents.vue";
 import type { AgentLigne } from "../outils/LignesAgents.vue";
 import EffetMemoire from "./EffetMemoire.vue";
@@ -22,6 +26,8 @@ import LigneReflexion from "./LigneReflexion.vue";
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
 const modales = inject(CLE_MODALES, null);
+// Tâches de fond de la conversation (page du chat) ; absentes quand le fil est monté seul.
+const page = inject(CLE_PAGE, null);
 
 // Horloge des étapes vivantes : une seconde, seulement pendant le flux.
 const maintenant = ref(Date.now());
@@ -74,6 +80,20 @@ function agentsDe(b: Extract<BlocFil, { k: "agents" }>): AgentLigne[] {
     const run = runs[a.ri];
     return run ? [{ run, ri: a.ri, callId: a.etape.callId ?? null }] : [];
   });
+}
+
+type BlocJob = Extract<BlocFil, { k: "job" }>;
+
+function jobDe(b: BlocJob): ResumeJob | null {
+  return page ? jobDeLEtape(b.etape, page.jobsChat) : null;
+}
+
+// Journal dans l'éditeur, sinon le volet des tâches de fond ; job inconnu : détail de l'appel.
+function ouvrirJob(b: BlocJob): void {
+  const job = jobDe(b);
+  if (!page || !job) basculerDetail(b.flat);
+  else if (fil.settings.enable_editor) page.jobsOuvrirJournal(job);
+  else page.jobsBasculer(true);
 }
 
 // Agent dont le volet est ouvert : sa ligne reste marquée.
@@ -130,6 +150,17 @@ function resumeCompression(s: EtapeOutil): string {
         :actif="agentActif"
         @ouvrir="(ri: number) => fil.openTaskModal(entry, ri)"
       />
+      <div v-else-if="b.k === 'job'" class="mb-1">
+        <LigneJob :etape="b.etape" :job="jobDe(b)" @ouvrir="ouvrirJob(b)" />
+        <CarteOutil
+          v-if="detail === b.flat"
+          :step="b.etape"
+          :numero="0"
+          :compact-ouvert="!!entry.msg._compactOpen"
+          @fermer="basculerDetail(b.flat)"
+          @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
+        />
+      </div>
       <div v-else-if="b.k === 'memoire' && lignesMemoire[b.rang]" class="elpis-effects mb-1" data-effects>
         <EffetMemoire :line="lignesMemoire[b.rang]!" />
       </div>

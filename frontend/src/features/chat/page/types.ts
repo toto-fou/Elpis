@@ -515,6 +515,7 @@ export type DomainePage = Pick<
   | "jobsOuvert"
   | "jobsFileReveil"
   | "jobsReveilEnCours"
+  | "jobsReveilsPrevus"
   | "jobsReveilDesactive"
   | "jobsLimites"
   | "jobsActifsChat"

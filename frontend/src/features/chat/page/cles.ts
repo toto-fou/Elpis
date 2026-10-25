@@ -409,6 +409,7 @@ const PAGE: Cles<DomainePage> = {
   jobsOuvert: true,
   jobsFileReveil: true,
   jobsReveilEnCours: true,
+  jobsReveilsPrevus: true,
   jobsReveilDesactive: true,
   jobsLimites: true,
   jobsActifsChat: true,

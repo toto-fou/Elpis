@@ -4,7 +4,7 @@ import { computed, inject, provide, reactive, watch } from "vue";
 import type { InjectionKey } from "vue";
 
 export const DEROULES = ["classic", "work_block", "timeline", "terminal"] as const;
-export const CONTEXTES = ["fill", "percent", "ring"] as const;
+export const CONTEXTES = ["tokens", "fill", "percent", "ring"] as const;
 export const REFLEXIONS = ["collapsed", "expanded", "hidden"] as const;
 export const METRIQUES = ["full", "essential", "hidden"] as const;
 export const DENSITES = ["comfortable", "compact"] as const;
@@ -35,10 +35,10 @@ export interface ReglagesAffichageChat {
   hide_thinking?: unknown;
 }
 
-// Par défaut, le premier affichage d'Elpis (choix du 25/10) ; les autres déroulés se choisissent dans Paramètres › Chat.
+// Par défaut, le premier affichage d'Elpis (déroulé et jetons du contexte, choix du 25/10) ; le reste se choisit dans Paramètres › Chat.
 export const PREFERENCES_PAR_DEFAUT: PreferencesChat = Object.freeze({
   deroule: "classic",
-  contexte: "fill",
+  contexte: "tokens",
   reflexions: "collapsed",
   metriques: "full",
   densite: "comfortable",
@@ -139,7 +139,8 @@ export const REGLAGES_AFFICHAGE: readonly ReglageAffichage[] = [
     icone: "ph-gauge",
     lire: (p) => p.contexte,
     choix: [
-      { valeur: "fill", libelle: "Bloc" },
+      { valeur: "tokens", libelle: "Jetons (utilisés / fenêtre)" },
+      { valeur: "fill", libelle: "Bloc qui se remplit" },
       { valeur: "percent", libelle: "Pourcentage" },
       { valeur: "ring", libelle: "Anneau" },
     ],
@@ -162,7 +163,7 @@ export const REGLAGES_AFFICHAGE: readonly ReglageAffichage[] = [
     lire: (p) => p.metriques,
     choix: [
       { valeur: "full", libelle: "Complètes" },
-      { valeur: "essential", libelle: "Essentielles" },
+      { valeur: "essential", libelle: "Essentielles (modèle, durée)" },
       { valeur: "hidden", libelle: "Masquées" },
     ],
   },

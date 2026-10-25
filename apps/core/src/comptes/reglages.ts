@@ -114,7 +114,7 @@ const SANDBOX_PROTECTED = ["sandbox_mode", "network_profile_id"] as const;
 /** Préférences d'affichage du chat à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
 export const CHOIX_AFFICHAGE: Readonly<Record<string, readonly string[]>> = {
   chat_workflow: ["classic", "work_block", "timeline", "terminal"],
-  context_display: ["fill", "percent", "ring"],
+  context_display: ["tokens", "fill", "percent", "ring"],
   thinking_display: ["collapsed", "expanded", "hidden"],
   footer_metrics: ["full", "essential", "hidden"],
   thread_density: ["comfortable", "compact"],

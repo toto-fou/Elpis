@@ -26,11 +26,12 @@ holds the SPDX texts of the licenses used by the project itself (REUSE).
 
 ### `frontend/assets/mascotte/` and `frontend/*.png` (project artwork)
 
-Not third-party code: drawings created for Elpis by the author, distributed
-under the project license (MIT). Part of them (the Elpis and Kiki
-illustrations) was produced with an image-generation tool and then cut with the
-tools of the folder; the copyright protection of such images is uncertain in
-some jurisdictions. Origin and reservation:
+Not third-party code. The pixel-art mascots are drawn by script from the grids
+in their `source.json` and distributed under the project license (MIT). The
+Elpis logo (`frontend/*.png`) and the Kiki skin illustrations
+(`frontend/assets/mascotte/kiki*/`) were produced with an image-generation tool;
+their copyright protection is uncertain, so no rights are claimed and they are
+dedicated under CC0-1.0 (`LICENSES/CC0-1.0.txt`). Origin and caveats:
 [`frontend/assets/mascotte/README.md`](frontend/assets/mascotte/README.md).
 
 ### `frontend/dist/` (web bundle, built by Vite)

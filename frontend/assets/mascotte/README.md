@@ -57,13 +57,13 @@ entrée a son dossier, sa planche CSS et son entrée dans `socle-mascottes.json`
 
 ## Origine et licence
 
-Dessins créés pour Elpis par l'auteur du projet (pixel art généré par script ;
-illustrations d'Elpis et du skin Kiki produites par génération d'images puis
-découpées avec les outils du dossier). Distribués sous la licence du projet
-(MIT).
+- Pixel art (coffre, flammes, fantôme, buste d'Elpis) : dessiné par script à
+  partir des grilles de `source.json`, sous la licence du projet (MIT).
+- Logo d'Elpis (`frontend/elpis-*.png`) et illustrations du skin Kiki
+  (`kiki*/`, découpées avec les outils du dossier) : produits par génération
+  d'images. Leur protection par le droit d'auteur est incertaine : aucun droit
+  n'est revendiqué, ils sont placés sous CC0-1.0 (`REUSE.toml`).
 
-Réserve : une image produite par génération d'images peut ne pas être
-protégeable par le droit d'auteur selon les juridictions, et sa ressemblance
-avec des œuvres existantes n'est pas contrôlée. Le skin Kiki est désactivé par
-défaut ; un déploiement sensible peut garder les seuls dessins générés par
-script.
+Réserve : la ressemblance des images générées avec des œuvres existantes n'est
+pas contrôlée. Le skin Kiki est désactivé par défaut ; un déploiement sensible
+peut garder les seuls dessins générés par script.

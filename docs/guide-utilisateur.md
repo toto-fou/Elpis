@@ -1247,7 +1247,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Chat** | Prompt système personnel, largeur de la zone de chat, masquer le raisonnement, terminal en direct, dictée et réponse vocale, notifications système, effacer les conversations |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
-| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) |
+| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés, puis *Mes habillages*), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) ; voir « Mes habillages » ci-dessous |
 | **Fonctionnalités** | Les modules **MCP** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
@@ -1257,6 +1257,16 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Archives** | Vos conversations archivées : restaurer ou supprimer |
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
 | **Connecteurs** | Vos accès aux forges Git |
+
+**Mes habillages** (Paramètres › Apparence). Chaque compte peut avoir ses propres habillages, visibles de lui seul
+(10 au plus par défaut). Cliquez sur **Créer avec l'assistant**, décrivez l'ambiance, les couleurs et la base claire
+ou sombre : l'assistant pose quelques questions dans le chat, puis répond par un bloc d'habillage. Une **carte** s'affiche
+sous le bloc et le vérifie toute seule : *Valide*, ou le nombre de problèmes (contraste insuffisant, jeton inconnu…).
+Vous pouvez alors **Prévisualiser** (une maquette d'Elpis en clair et en sombre, avec le tableau des contrastes),
+**Importer**, ou **Importer et appliquer**. L'import est toujours votre clic, jamais celui de l'assistant ; il est
+désactivé tant qu'il reste des problèmes, et **Demander une correction** les renvoie à l'assistant. Si l'identifiant
+existe déjà, Elpis propose de le remplacer. Dans la liste *Mes habillages*, **Aperçu** rouvre la maquette et **Supprimer**
+retire l'habillage après confirmation. La section disparaît si l'administrateur a coupé la fonction (console › Apparence).
 
 Vos serveurs MCP se gèrent depuis le [panneau MCP](#le-panneau-mcp).
 
@@ -1315,7 +1325,8 @@ Quelques actions notables :
   *Importer* un paquet `.zip` (`skin.json`, `skin.css`, `assets/` en png, jpg,
   webp ou gif) : il arrive désactivé. *Créer* part d'un skin existant, avec
   une vingtaine de couleurs en clair et en sombre et un aperçu en direct.
-  *Exporter* un intégré en fait un modèle à retoucher.
+  *Exporter* un intégré en fait un modèle à retoucher. *Habillages personnels* :
+  interrupteur (la section *Mes habillages* des Paramètres disparaît quand il est coupé) et plafond par compte.
 - **Changer de base de données** — « Simuler » vérifie la base cible et compte
   ce qui serait copié ; « Migrer et basculer » suspend les écritures, copie et
   vérifie les données, puis redémarre l'application sur la nouvelle base.

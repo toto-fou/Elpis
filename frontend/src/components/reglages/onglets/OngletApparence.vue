@@ -1,10 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres. -->
 <script setup lang="ts">
+import { onMounted } from "vue";
+
+import BoutonAssistant from "../../communs/BoutonAssistant.vue";
 import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
+onMounted(() => void rg.chargerSkinsPerso());
 </script>
 
 <template>
@@ -53,11 +57,59 @@ const rg = domaineReglages();
         :value="rg.settings.skin || ''"
         @change="rg.settings.skin = ($event.target as HTMLInputElement).value"
       >
-        <option v-for="sk in rg.APP_SKINS" :key="sk.id || 'defaut'" :value="sk.id">
-          {{ sk.label }}
-        </option>
+        <template v-if="rg.skinsPerso.length">
+          <optgroup label="Habillages de l'instance">
+            <option v-for="sk in rg.skinsInstance" :key="sk.id || 'defaut'" :value="sk.id">
+              {{ sk.label }}
+            </option>
+          </optgroup>
+          <optgroup label="Mes habillages">
+            <option v-for="sk in rg.skinsPerso" :key="sk.id" :value="sk.id">{{ sk.label }}</option>
+          </optgroup>
+        </template>
+        <template v-else>
+          <option v-for="sk in rg.APP_SKINS" :key="sk.id || 'defaut'" :value="sk.id">
+            {{ sk.label }}
+          </option>
+        </template>
       </select>
       <p class="text-xs text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
+    </div>
+
+    <div v-if="rg.persoDispo" id="set-mes-habillages">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="block text-xs font-medium text-slate-600 flex-1">
+          Mes habillages ({{ rg.skinsPerso.length }}/{{ rg.persoMax }})
+        </span>
+        <BoutonAssistant libelle="Créer avec l'assistant" @click="rg.ouvrirAssistant('apparence')" />
+      </div>
+      <p v-if="!rg.skinsPerso.length" class="text-xs text-slate-500 leading-snug">
+        Aucun habillage personnel. L'assistant te propose un habillage que tu prévisualises puis importes
+        toi-même.
+      </p>
+      <ul v-else class="space-y-1.5">
+        <li
+          v-for="sk in rg.skinsPerso"
+          :key="sk.id"
+          class="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2"
+        >
+          <span class="inline-flex gap-0.5" aria-hidden="true">
+            <span
+              v-for="(c, i) in sk.sw"
+              :key="i"
+              class="w-4 h-4 rounded-full border border-slate-300 inline-block"
+              :style="{ backgroundColor: c }"
+            ></span>
+          </span>
+          <span class="text-sm text-slate-800 flex-1 min-w-0 truncate">{{ sk.label }}</span>
+          <button type="button" class="skl-btn skl-btn--secondary" @click="rg.apercuHabillage(sk)">
+            Aperçu
+          </button>
+          <button type="button" class="skl-btn skl-btn--danger" @click="rg.supprimerHabillage(sk)">
+            Supprimer
+          </button>
+        </li>
+      </ul>
     </div>
 
     <div v-if="rg.mascottesOffertes">

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/assistants.ts — descripteurs des assistants de création (skill, routine) : cadrage, outils à cocher, skill épinglé et message d'amorce ; un nouvel assistant = un descripteur ici. */
+/** frontend/src/features/chat/coeur/assistants.ts — descripteurs des assistants de création (skill, routine, apparence) : cadrage, outils à cocher, skill épinglé et message d'amorce ; un nouvel assistant = un descripteur ici. */
 
 export interface ChampAssistant {
   cle: string;
@@ -108,6 +108,39 @@ export const ASSISTANTS: Readonly<Record<string, DescripteurAssistant>> = {
     amorce: "Je veux créer une nouvelle routine planifiée. Voici le cadrage initial :",
     consigne:
       "Mène l'entretien pour le reste avec ask_user (deux tours au plus), montre le brouillon complet, puis crée la routine (en pause) après mon accord.",
+  },
+  apparence: {
+    id: "apparence",
+    titre: "Créer un habillage avec l'assistant",
+    intro:
+      "Décris l'ambiance ici — l'assistant précisera par un questionnaire dans le chat, puis te proposera un habillage à prévisualiser et importer toi-même.",
+    champs: [
+      {
+        cle: "ambiance",
+        libelle: "Ambiance / inspiration",
+        type: "textarea",
+        requis: true,
+        placeholder: "Papier chaud et calme, comme un carnet de notes.",
+      },
+      { cle: "couleurs", libelle: "Couleurs", type: "input", placeholder: "Terre cuite, crème…", demi: true },
+      {
+        cle: "base",
+        libelle: "Base",
+        type: "choix",
+        options: ["claire", "sombre", "les deux"],
+        demi: true,
+      },
+    ],
+    bouton: "Commencer l'entretien",
+    categories: ["skill"],
+    manquantes: {
+      skill:
+        "Outils « Skills » indisponibles : l’assistant ne pourra pas lire les références du skill d’habillage",
+    },
+    skill: { name: "apparence", description: "Entretien guidé de création d'habillage personnel" },
+    amorce: "Je veux créer un habillage personnel. Voici le cadrage initial :",
+    consigne:
+      "Mène l'entretien pour le reste avec ask_user (deux tours au plus), puis envoie UN bloc elpis-skin : je le prévisualiserai et l'importerai moi-même.",
   },
 };
 

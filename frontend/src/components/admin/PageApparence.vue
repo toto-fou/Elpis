@@ -181,6 +181,65 @@ const adm = domaineAdmin();
       </table>
     </section>
 
+    <section id="skins-perso" class="adm-card">
+      <header class="adm-card__head">
+        <i class="ph ph-user-circle adm-card__icon" aria-hidden="true"></i>
+        <div>
+          <h3 class="adm-card__title">Habillages personnels</h3>
+          <span class="sr-only"
+            >Chaque compte peut créer ses propres habillages (jetons de couleur seuls, contraste
+            vérifié).</span
+          >
+        </div>
+      </header>
+      <div v-if="adm.configForm && adm.configForm.skins" class="adm-rows">
+        <div class="adm-row">
+          <div>
+            <label
+              class="adm-row__label"
+              title="Coupée, la section Mes habillages disparaît des Paramètres ; les habillages déjà créés restent sur les comptes."
+              for="cfg-skins-user-custom"
+              >Autoriser les habillages personnels</label
+            >
+            <span class="sr-only"
+              >Coupée, la section Mes habillages disparaît des Paramètres ; les habillages déjà créés restent
+              sur les comptes.</span
+            >
+          </div>
+          <label class="relative inline-flex items-center gap-2 cursor-pointer w-fit">
+            <input
+              id="cfg-skins-user-custom"
+              v-model="adm.configForm.skins.user_custom"
+              type="checkbox"
+              data-field="config:skins.user_custom"
+              class="sr-only peer"
+            />
+            <span class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></span>
+            <span class="text-sm text-slate-700">{{
+              adm.configForm.skins.user_custom ? "Activé" : "Désactivé"
+            }}</span>
+          </label>
+        </div>
+        <div class="adm-row">
+          <div>
+            <label class="adm-row__label" title="0 = aucun habillage par compte." for="cfg-skins-user-max"
+              >Plafond par compte</label
+            >
+            <span class="sr-only">0 = aucun habillage par compte.</span>
+          </div>
+          <input
+            id="cfg-skins-user-max"
+            v-model.number="adm.configForm.skins.user_max"
+            data-field="config:skins.user_max"
+            type="number"
+            min="0"
+            max="100"
+            class="set-input adm-num"
+          />
+        </div>
+      </div>
+    </section>
+
     <section v-if="adm.skinEd" id="skin-editor" class="adm-card">
       <header class="adm-card__head">
         <i class="ph ph-paint-brush adm-card__icon" aria-hidden="true"></i>

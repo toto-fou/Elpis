@@ -34,7 +34,8 @@ import {
 } from "@elpis/mcp";
 import { EncryptionUnavailable } from "@elpis/securite";
 
-import { defaultSkin, mascotIds, mascotsCatalogue, resolveUserSkin } from "../apparence/skins";
+import { resolveSkinCompte } from "../apparence/comptes-perso";
+import { defaultSkin, mascotIds, mascotsCatalogue } from "../apparence/skins";
 import { clampMaxRounds, clampThresholdPct, clampThresholdTokens } from "../contexte/porte-compaction";
 import { cleanPrefs, enabledIn, readyFor } from "../images/acces";
 import { getImageConfig } from "../images/config";
@@ -249,7 +250,7 @@ export async function lireReglages(base: Base, uid: number, journal: Journal): P
     poserCle(saved, "welcome_mascot", defautAdmin);
   poserCle(saved, "mascottes_actives", actives);
   poserCle(saved, "mascottes_catalogue", mascotsCatalogue());
-  poserCle(saved, "skin", resolveUserSkin(getOu(saved, "skin", null)));
+  poserCle(saved, "skin", resolveSkinCompte(uid, getOu(saved, "skin", null)));
   poserCle(saved, "mascottes_on", allumees);
   poserCle(saved, "sandbox_path_display", cheminSandbox((await getUsernameById(base, uid)) || "guest"));
   poserCle(saved, "enable_model_selector", selecteurDeModele());
@@ -416,7 +417,7 @@ export async function ecrireReglages(
   }
   if (a("compression_max_rounds"))
     poserCle(data, "compression_max_rounds", clampMaxRounds(data["compression_max_rounds"]));
-  if (a("skin")) poserCle(data, "skin", resolveUserSkin(data["skin"]));
+  if (a("skin")) poserCle(data, "skin", resolveSkinCompte(uid, data["skin"]));
   if (a("welcome_mascot")) {
     const [, actives] = reglageMascottes();
     const v = strPy(ouPy(data["welcome_mascot"], ""));

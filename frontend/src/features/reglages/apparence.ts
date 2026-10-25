@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/reglages/apparence.ts — apparence du compte : skins serveur, mode sombre (système, clair, sombre), classes posées sur le body et nom de marque du rail. */
+import { PREFIXE_PERSO } from "@elpis/contracts";
 import { getCurrentScope, onScopeDispose } from "vue";
 import type { Ref } from "vue";
 
 import { corpsJson, estObjet, liste, objet, texte } from "../../utils/lecture-json";
 import { rethemerVisuels as rethemerRendus } from "../chat/rendu/enrichissement";
 import type { Persistance } from "./persistance";
+import {
+  configurerSkinsPerso,
+  EVT_SKINS_PERSO,
+  listerSkinsPerso,
+  ouvrirApercuEnregistre,
+  supprimerSkinPerso,
+} from "./skins-perso";
 import type { CtxReglages, ReglagesApp, VueReglages } from "./types";
 
 export interface SkinApp {
@@ -17,7 +25,14 @@ export interface SkinApp {
   darkBase?: boolean;
   brand?: { name?: string; [cle: string]: unknown };
   css_url?: string;
+  /** Habillage personnel du compte (id `perso:<id>`). */
+  perso?: boolean;
   [cle: string]: unknown;
+}
+
+/** Nom de classe du body pour un id de skin ; un habillage personnel n'expose jamais son id dans la classe. */
+export function classeSkin(id: string): string {
+  return id.startsWith(PREFIXE_PERSO) ? "perso" : id;
 }
 
 export type ModeTheme = "system" | "light" | "dark";
@@ -79,7 +94,7 @@ export function creerApparence(
       Array.from(cls).forEach((c) => {
         if (c.indexOf("elpis-skin-") === 0) cls.remove(c);
       });
-      if (id) cls.add("elpis-skin-" + id);
+      if (id) cls.add("elpis-skin-" + classeSkin(id));
     } catch {
       /* DOM indisponible */
     }
@@ -167,6 +182,53 @@ export function creerApparence(
     { immediate: true },
   );
 
+  // ── Habillages personnels : liste du compte, disponibilité (403 = fonction coupée), suppression.
+  const persoDispo = ref(false);
+  const persoMax = ref(0);
+  const skinsInstance = computed(() => APP_SKINS.value.filter((k) => !k.perso));
+  const skinsPerso = computed(() => APP_SKINS.value.filter((k) => k.perso));
+  configurerSkinsPerso((url, init) => ctx.fetchAuth(url, init, true));
+
+  async function chargerSkinsPerso(): Promise<void> {
+    const d = await listerSkinsPerso();
+    persoDispo.value = d !== null;
+    persoMax.value = d?.max ?? 0;
+  }
+  /** Retire un habillage du compte après confirmation ; repasse au défaut s'il était actif. */
+  async function supprimerHabillage(skin: SkinApp): Promise<void> {
+    const ok = await ctx.openConfirm(
+      "Supprimer cet habillage ?",
+      `« ${skin.label} » sera retiré de votre compte.`,
+      true,
+    );
+    if (!ok) return;
+    const actif = settings.value.skin === skin.id;
+    if (!(await supprimerSkinPerso(skin.id.slice(PREFIXE_PERSO.length))))
+      return ctx.showToast("Suppression impossible", "error");
+    if (actif) await setAppSkin(skinsDefaut.value);
+    ctx.showToast("Habillage supprimé");
+  }
+  /** Aperçu d'un habillage enregistré, dans la modale du chat. */
+  async function apercuHabillage(skin: SkinApp): Promise<void> {
+    if (!(await ouvrirApercuEnregistre(skin))) ctx.showToast("Aperçu impossible", "error");
+  }
+  /** Import ou suppression : liste rechargée, et skin activé quand l'import le demandait. */
+  async function majSkinsPerso(ev: Event): Promise<boolean> {
+    await Promise.all([loadAppSkins(), chargerSkinsPerso()]);
+    const id = (ev as CustomEvent<{ appliquer?: string }>).detail?.appliquer;
+    const applique = !!id && (await setAppSkin(id));
+    if (applique) ctx.showToast("Habillage appliqué");
+    return applique;
+  }
+  const surSkinsPerso = (ev: Event): void => {
+    const detail = (ev as CustomEvent<{ promesse?: Promise<boolean> }>).detail;
+    const p = majSkinsPerso(ev);
+    if (detail) detail.promesse = p;
+  };
+  window.addEventListener(EVT_SKINS_PERSO, surSkinsPerso);
+  if (getCurrentScope() !== undefined)
+    onScopeDispose(() => window.removeEventListener(EVT_SKINS_PERSO, surSkinsPerso));
+
   const themeMode = computed<ModeTheme>(() =>
     settings.value.dark_mode_auto ? "system" : settings.value.dark_mode ? "dark" : "light",
   );
@@ -214,5 +276,12 @@ export function creerApparence(
     setThemeMode,
     toggleThemeMode,
     setAppSkin,
+    persoDispo,
+    persoMax,
+    skinsInstance,
+    skinsPerso,
+    chargerSkinsPerso,
+    supprimerHabillage,
+    apercuHabillage,
   };
 }

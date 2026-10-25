@@ -84,6 +84,7 @@ export interface CibleBureauConfig {
 }
 
 export interface ConfigAdmin {
+  skins: { user_custom: boolean; user_max: number; [cle: string]: unknown };
   welcome: {
     type: string;
     icon: string;

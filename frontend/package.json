@@ -10,6 +10,7 @@
     "test": "vitest run --project web"
   },
   "dependencies": {
+    "@elpis/commun": "0.1.1",
     "@elpis/contracts": "0.1.1",
     "@highlightjs/cdn-assets": "11.7.0",
     "@sgratzl/chartjs-chart-boxplot": "4.4.4",

@@ -128,14 +128,14 @@ function manifesteJson(norm: Dict): string {
 const suffixe = (): string => randomBytes(4).toString("hex");
 
 /** Dossier complet écrit à part puis mis en place par renommage ; vrai si un skin existait (écrasé). */
-async function ecrireNouveauDossier(
+export async function ecrireNouveauDossier(
   norm: Dict,
   css: string | null,
   images: ReadonlyMap<string, Buffer>,
   annexes: ReadonlyMap<string, Buffer>,
   ecraser: boolean,
+  racine: string = skinsDir(),
 ): Promise<boolean> {
-  const racine = skinsDir();
   mkdirSync(racine, { recursive: true });
   const id = norm["id"] as string;
   const dest = pyJoin(racine, id);

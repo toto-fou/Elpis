@@ -66,6 +66,16 @@ Le réglage est par utilisateur : `skin`, et le mode Système / Clair / Sombre
 (`dark_mode`, `dark_mode_auto`), dans les Paramètres comme dans le menu du
 compte de la console.
 
+**Habillages personnels.** Un compte peut définir ses propres habillages
+(`/api/skins/perso`), faits de jetons seuls : aucun CSS libre, aucune image.
+Le serveur n'admet qu'une liste blanche de jetons de `style.css` (fonds,
+surfaces, bordures, rampe de texte, accent, rail, lien de prose, code,
+`--radius`), exige le cœur en clair et en sombre, dérive le reste (famille
+accent, `--accent-fg` blanc ou noir par contraste, échelle des rayons), refuse
+tout texte sous 4,5:1 et tout élément d'interface sous 3:1, puis génère la
+feuille sous `body.elpis-skin-perso` (+ `.elpis-app-dark`). Même spécificité
+qu'un thème livré : la feuille se charge après `style.css`.
+
 Ajouter un thème : un fichier `frontend/css/skins/<id>.css` qui redéfinit les
 jetons sous `body.elpis-skin-<id>` (et `.elpis-app-dark` pour le sombre), une
 entrée dans le registre `frontend/css/skins/skins.json` (servi par `/api/skins`), le `<link>` dans `index.html` et

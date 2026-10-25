@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/historique/historique.ts — conversations enregistrées : liste, nouveau chat, chargement (jetons de chargement et de session), archivage, renommage, suppression annulable, actions groupées. */
-import { schemaResumeReveil } from "@elpis/contracts";
+import { schemaErreurTour, schemaMetaOutils, schemaResumeReveil } from "@elpis/contracts";
+import type { MetaOutils } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { copyImageFields } from "../../images/formats.ts";
@@ -182,20 +183,31 @@ function placerCompactions(msg: Message, compactions: readonly unknown[]): void 
   if (!(Array.isArray(msg.segTexts) && msg.segTexts.length)) msg.segTexts = segs;
 }
 
+/** Captures du navigateur restituées depuis `tool_meta` : l'image est relue sur le serveur (elle peut avoir expiré). */
+function capturesRestituees(etapes: readonly Message[], meta: MetaOutils): Message[] {
+  const out: Message[] = [];
+  etapes.forEach((st, i) => {
+    const m = typeof st.callId === "string" ? meta.steps[st.callId] : undefined;
+    if (!m?.shot) return;
+    out.push({
+      blobUrl: null,
+      serverUrl: m.shot,
+      tool: st.name,
+      stepIdx: i,
+      step: m.shot_step ?? out.length + 1,
+      pending: false,
+    });
+  });
+  return out;
+}
+
 /** Messages persistés → messages affichés, gelés (Vue ne les rend pas réactifs ; `_patch` remplace l'objet à son index). */
 export function construireMessages(
   bruts: readonly Message[],
   parseFileBlocks: DepsHistorique["_parseFileBlocks"],
 ): Message[] {
-  let dernierAssistant = -1;
-  for (let i = bruts.length - 1; i >= 0; i--) {
-    if (bruts[i]?.role === "assistant") {
-      dernierAssistant = i;
-      break;
-    }
-  }
   let historiquePrecedent: unknown = null;
-  return bruts.map((m, mi) => {
+  return bruts.map((m) => {
     const { contenu, images } = contenuEtImages(m);
     const fichiers = m.role === "user" ? parseFileBlocks(contenu) : {};
     const msg: Message = {
@@ -203,7 +215,7 @@ export function construireMessages(
       content: contenu,
       metrics: m.metrics,
       isError: m.isError,
-      thinking: mi === dernierAssistant ? m.thinking || "" : "",
+      thinking: m.role === "assistant" && typeof m.thinking === "string" ? m.thinking : "",
       thinkingOpen: false,
       files: fichiers.files,
       displayContent: fichiers.displayContent,
@@ -222,15 +234,29 @@ export function construireMessages(
     }
     if (m.tool_history) msg.tool_history = m.tool_history;
     if (m.tool_history_delta) msg.tool_history_delta = true;
+    const lue = m.role === "assistant" && m.tool_meta ? schemaMetaOutils.safeParse(m.tool_meta) : null;
+    const meta = lue?.success ? lue.data : null;
+    if (meta) {
+      msg.tool_meta = meta;
+      msg.thinking = meta.tail?.think ?? "";
+      if (typeof meta.tail?.think_ms === "number") msg._thinkingMs = meta.tail.think_ms;
+    }
     if (m.role === "assistant" && Array.isArray(m.tool_history) && m.tool_history.length) {
       const segs = parseToolHistorySegments(m.tool_history, {
         prevHistory: historiquePrecedent,
         delta: !!m.tool_history_delta,
         finalContent: (typeof contenu === "string" ? contenu : "") || "",
+        meta,
       });
       if (segs && segs.toolSteps.length) {
         msg.toolSteps = segs.toolSteps;
         msg.segTexts = segs.segTexts;
+        const captures = meta ? capturesRestituees(segs.toolSteps as unknown as Message[], meta) : [];
+        if (captures.length) {
+          msg.webScreenshots = captures;
+          msg.webScreenshotIdx = null;
+          msg.webScreenshotExpanded = false;
+        }
       }
       historiquePrecedent = m.tool_history;
     }
@@ -257,6 +283,13 @@ export function construireMessages(
       });
     }
     if (m.errorMessage) msg.errorMessage = m.errorMessage;
+    const erreur = m.role === "assistant" && m.error ? schemaErreurTour.safeParse(m.error) : null;
+    if (erreur?.success) {
+      msg.isError = true;
+      msg.errorMessage = erreur.data.text;
+      msg.errorDetail = erreur.data.detail;
+      msg.errorKind = erreur.data.kind;
+    }
     if (Array.isArray(m.files_changed) && m.files_changed.length) msg.files_changed = m.files_changed;
     if (Array.isArray(m.run_ids) && m.run_ids.length) msg.run_ids = m.run_ids;
     if (m.role === "assistant") {

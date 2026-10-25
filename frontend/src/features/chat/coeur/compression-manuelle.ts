@@ -144,9 +144,9 @@ export function creerCompressionManuelle(c: CoeurChat) {
         const raison = String((d && (d["detail"] || d["reason"] || d["error"])) || "");
         conclure({
           reason: raison.includes("generation")
-            ? "Génération en cours — réessaie après"
+            ? "Génération en cours — réessayez après"
             : raison.includes("chat_modified")
-              ? "Le chat a changé — réessaie"
+              ? "Le chat a changé — réessayez"
               : "Compression déjà en cours",
         });
       } else if (d && d["reason"]) conclure({ reason: comprSkipLabel(d["reason"]) });

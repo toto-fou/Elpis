@@ -19,7 +19,7 @@ export function garderPourPersistance(m: MessageChat | null | undefined): boolea
   );
 }
 
-/** Forme persistée d'un message (format aller-retour du backend : images en `parts`, notice structurée). */
+/** Forme persistée d'un message (format aller-retour du backend : images en `parts`, notice structurée, réflexion gardée). */
 export function projeterPourPersistance(m: MessageChat): Objet {
   if (m.role === "notice")
     return {
@@ -52,6 +52,10 @@ export function projeterPourPersistance(m: MessageChat): Objet {
     const { thinking: _t, tool_history: _h, ...pied } = m.metrics;
     o["metrics"] = pied;
   }
+  if (m.role === "assistant" && m.thinking) o["thinking"] = m.thinking;
+  if (m.role === "assistant" && m.tool_meta) o["tool_meta"] = m.tool_meta;
+  if (m.role === "assistant" && m.isError && m.errorMessage)
+    o["error"] = { text: m.errorMessage, detail: m.errorDetail || "", kind: m.errorKind || "" };
   if (m.isTruncated) o["isTruncated"] = true;
   if (m.thinkingTruncated && (m.resume_thinking || m.thinking)) {
     o["resume_thinking"] = m.resume_thinking || m.thinking;

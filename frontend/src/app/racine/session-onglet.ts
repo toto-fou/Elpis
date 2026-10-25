@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/app/racine/session-onglet.ts — reprise après rechargement de l'onglet (instantané de la conversation par compte) et retour vers une autorisation OAuth. */
+import { schemaMetaOutils } from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { copyImageFields } from "../../features/images/formats";
@@ -81,6 +82,11 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
             displayContent: m.displayContent,
             thinking: m.thinking,
             isError: m.isError,
+            errorMessage: m.errorMessage,
+            errorDetail: m.errorDetail,
+            errorKind: m.errorKind,
+            tool_meta: m.tool_meta,
+            _thinkingMs: m._thinkingMs,
             metrics: m.metrics,
             tool_history: m.tool_history,
             tool_history_delta: m.tool_history_delta,
@@ -155,12 +161,18 @@ export function creerSessionOnglet(dep: DependancesSessionOnglet) {
           isStreaming: false,
           isTruncated: !!m.isTruncated,
         };
+        // Instantané relu du navigateur : le méta des étapes est revalidé comme au chargement d'un chat.
+        const lue = m.role === "assistant" && m.tool_meta ? schemaMetaOutils.safeParse(m.tool_meta) : null;
+        const meta = lue?.success ? lue.data : null;
+        if (meta) msg.tool_meta = meta;
+        else delete msg.tool_meta;
         try {
           if (m.role === "assistant" && Array.isArray(m.tool_history) && m.tool_history.length) {
             const segs = segmentsOutils.parseToolHistorySegments(m.tool_history, {
               prevHistory: historiquePrecedent,
               delta: !!m.tool_history_delta,
               finalContent: (typeof m.content === "string" ? m.content : "") || "",
+              meta,
             });
             if (segs?.toolSteps.length) {
               // Étapes reconstruites : même forme que celles du flux (EtapeChat), typées à part par l'analyseur.

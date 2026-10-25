@@ -67,7 +67,26 @@ const adm = domaineAdmin();
         {{ adm.execHealthcheck.image_hint }}
       </div>
 
-      <section v-if="adm.adminTab === 'sandbox-limits'" id="sandbox-limits" class="adm-card scroll-mt-32">
+      <div
+        v-if="['sandbox-limits', 'sandbox-network'].includes(adm.adminTab) && !adm.execCharge"
+        class="adm-card"
+        aria-busy="true"
+      >
+        <span class="sr-only" role="status">Chargement des réglages de la sandbox…</span>
+        <div class="adm-card__head"><div class="adm-skeleton w-40"></div></div>
+        <div class="adm-rows">
+          <div v-for="m in 3" :key="'sbk' + m" class="adm-row">
+            <div class="adm-skeleton w-32"></div>
+            <div class="adm-skeleton w-full"></div>
+          </div>
+        </div>
+      </div>
+
+      <section
+        v-if="adm.adminTab === 'sandbox-limits' && adm.execCharge"
+        id="sandbox-limits"
+        class="adm-card scroll-mt-32"
+      >
         <header class="adm-card__head">
           <i class="ph ph-gauge adm-card__icon" aria-hidden="true"></i>
           <div>
@@ -158,7 +177,11 @@ const adm = domaineAdmin();
         </div>
       </section>
 
-      <section v-if="adm.adminTab === 'sandbox-limits'" id="sandbox-disk" class="adm-card scroll-mt-32">
+      <section
+        v-if="adm.adminTab === 'sandbox-limits' && adm.execCharge"
+        id="sandbox-disk"
+        class="adm-card scroll-mt-32"
+      >
         <header class="adm-card__head">
           <i class="ph ph-hard-drives adm-card__icon" aria-hidden="true"></i>
           <div>
@@ -233,7 +256,11 @@ const adm = domaineAdmin();
         </div>
       </section>
 
-      <section v-if="adm.adminTab === 'sandbox-limits'" id="sandbox-policy" class="adm-card scroll-mt-32">
+      <section
+        v-if="adm.adminTab === 'sandbox-limits' && adm.execCharge"
+        id="sandbox-policy"
+        class="adm-card scroll-mt-32"
+      >
         <header class="adm-card__head">
           <i class="ph ph-shield adm-card__icon" aria-hidden="true"></i>
           <div>
@@ -357,7 +384,11 @@ const adm = domaineAdmin();
         </div>
       </section>
 
-      <section v-if="adm.adminTab === 'sandbox-limits'" id="sandbox-jobs" class="adm-card scroll-mt-32">
+      <section
+        v-if="adm.adminTab === 'sandbox-limits' && adm.execCharge"
+        id="sandbox-jobs"
+        class="adm-card scroll-mt-32"
+      >
         <header class="adm-card__head">
           <i class="ph ph-timer adm-card__icon" aria-hidden="true"></i>
           <div>
@@ -584,7 +615,11 @@ const adm = domaineAdmin();
         </div>
       </section>
 
-      <section v-if="adm.adminTab === 'sandbox-network'" id="sandbox-network" class="adm-card scroll-mt-32">
+      <section
+        v-if="adm.adminTab === 'sandbox-network' && adm.execCharge"
+        id="sandbox-network"
+        class="adm-card scroll-mt-32"
+      >
         <header class="adm-card__head">
           <i class="ph ph-network adm-card__icon" aria-hidden="true"></i>
           <div class="min-w-0">

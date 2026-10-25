@@ -15,6 +15,28 @@ export type ResumeChat = z.infer<typeof schemaResumeChat>;
 export const schemaListeChats = z.object({ items: z.array(schemaResumeChat) });
 export type ListeChats = z.infer<typeof schemaListeChats>;
 
+/** Ce que le direct montre d'une étape et que la `tool_history` ne garde pas : durée, réflexion qui la précède, arrêt, capture. */
+export const schemaMetaEtape = z.object({
+  ms: entier.min(0).optional(),
+  think: z.string().optional(),
+  think_ms: entier.min(0).optional(),
+  state: z.literal("stopped").optional(),
+  shot: z.string().startsWith("/api/playwright/screenshot/").optional(),
+  shot_step: entier.min(0).optional(),
+});
+export type MetaEtape = z.infer<typeof schemaMetaEtape>;
+
+/** `tool_meta` d'un message assistant : étapes par `call_id`, réflexion d'après le dernier outil. */
+export const schemaMetaOutils = z.object({
+  steps: z.record(z.string(), schemaMetaEtape),
+  tail: z.object({ think: z.string(), think_ms: entier.min(0).optional() }).optional(),
+});
+export type MetaOutils = z.infer<typeof schemaMetaOutils>;
+
+/** `error` d'un message assistant dont le tour a échoué : message, détail technique, genre (`kind` de l'événement `error`). */
+export const schemaErreurTour = z.object({ text: z.string(), detail: z.string(), kind: z.string() });
+export type ErreurTour = z.infer<typeof schemaErreurTour>;
+
 /** Message tel que le front l'enregistre ; à valider un par un : le serveur garde tel quel ce qu'il reçoit. */
 export const schemaMessageStocke = z.looseObject({ role: z.string() });
 export type MessageStocke = z.infer<typeof schemaMessageStocke>;

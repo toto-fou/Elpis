@@ -35,6 +35,17 @@ export function revoquerCaptures(messages: readonly unknown[]): void {
 export function setupChatWebshot(_vue: unknown, refs: { messages: Ref<readonly unknown[]> }) {
   const { messages } = refs;
 
+  // Message rechargé (gelé) : remplacé à son index ; message du direct : modifié sur place.
+  function poser(msg: MessageCaptures, patch: Partial<MessageCaptures>): void {
+    if (!Object.isFrozen(msg)) {
+      Object.assign(msg, patch);
+      return;
+    }
+    const liste = messages.value as unknown[];
+    const i = liste.indexOf(msg);
+    if (i >= 0) liste[i] = Object.freeze({ ...msg, ...patch });
+  }
+
   function _revokeAllWebShotBlobs(): void {
     try {
       revoquerCaptures(messages.value);
@@ -47,22 +58,22 @@ export function setupChatWebshot(_vue: unknown, refs: { messages: Ref<readonly u
     const n = msg?.webScreenshots?.length;
     if (!msg || !n) return;
     const cur = msg.webScreenshotIdx ?? n - 1;
-    msg.webScreenshotIdx = (cur - 1 + n) % n;
+    poser(msg, { webScreenshotIdx: (cur - 1 + n) % n });
   }
 
   function webShotNext(msg: MessageCaptures | null | undefined): void {
     const n = msg?.webScreenshots?.length;
     if (!msg || !n) return;
     const cur = msg.webScreenshotIdx ?? n - 1;
-    msg.webScreenshotIdx = (cur + 1) % n;
+    poser(msg, { webScreenshotIdx: (cur + 1) % n });
   }
 
   function webShotToggleExpand(msg: MessageCaptures | null | undefined): void {
-    if (msg) msg.webScreenshotExpanded = !msg.webScreenshotExpanded;
+    if (msg) poser(msg, { webScreenshotExpanded: !msg.webScreenshotExpanded });
   }
 
   function webShotGoto(msg: MessageCaptures | null | undefined, i: number): void {
-    if (msg?.webScreenshots && i >= 0 && i < msg.webScreenshots.length) msg.webScreenshotIdx = i;
+    if (msg?.webScreenshots && i >= 0 && i < msg.webScreenshots.length) poser(msg, { webScreenshotIdx: i });
   }
 
   return { _revokeAllWebShotBlobs, webShotPrev, webShotNext, webShotToggleExpand, webShotGoto };

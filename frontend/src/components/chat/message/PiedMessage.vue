@@ -10,7 +10,9 @@ const fil = domaine(CLE_FIL);
 
 <template>
   <div
-    v-if="entry.msg.role === 'assistant' && !entry.msg.isStreaming && !entry.msg.isError"
+    v-if="
+      entry.msg.role === 'assistant' && !entry.msg.isStreaming && (!entry.msg.isError || !!entry.msg.content)
+    "
     class="mt-2 flex items-center justify-between gap-3"
   >
     <div
@@ -34,11 +36,11 @@ const fil = domaine(CLE_FIL);
       }}</span>
       <span v-if="entry.msg.metrics.duration && entry.msg.metrics.read_tps" class="text-slate-300">·</span>
       <span v-if="entry.msg.metrics.read_tps" title="Vitesse de prefill"
-        >↓ {{ entry.msg.metrics.read_tps }} tok/s</span
+        >↓ {{ entry.msg.metrics.read_tps }} jetons/s</span
       >
       <span v-if="entry.msg.metrics.read_tps && entry.msg.metrics.write_tps" class="text-slate-300">·</span>
       <span v-if="entry.msg.metrics.write_tps" title="Vitesse de génération"
-        >↑ {{ entry.msg.metrics.write_tps }} tok/s</span
+        >↑ {{ entry.msg.metrics.write_tps }} jetons/s</span
       >
       <span v-if="fil.thinkingTokensOf(entry.msg.metrics)" class="text-slate-300">·</span>
       <span
@@ -46,7 +48,7 @@ const fil = domaine(CLE_FIL);
         :title="
           'Raisonnement : ' +
           fil.fmtThinkingTokens(entry.msg.metrics) +
-          ' tokens sur les ' +
+          ' jetons sur les ' +
           (entry.msg.metrics.output_tokens || 0).toLocaleString('fr-FR') +
           ' générés' +
           (entry.msg.metrics.thinking_tokens_estimated
@@ -72,7 +74,7 @@ const fil = domaine(CLE_FIL);
           entry.msg.metrics.kv_cache.used +
           ' / ' +
           entry.msg.metrics.kv_cache.total +
-          ' tokens (' +
+          ' jetons (' +
           entry.msg.metrics.kv_cache.pct +
           '%)'
         "

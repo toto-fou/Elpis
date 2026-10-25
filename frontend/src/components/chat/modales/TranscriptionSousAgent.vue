@@ -7,12 +7,15 @@ import {
   classeStatutTache,
   fmtAppelsTache,
   fmtDureeTache,
+  libelleEtatRun,
   libelleStatutTache,
 } from "../../../features/chat/outils/bilan-tache";
 import { domaineModales } from "../../../features/chat/modales/domaine";
+import { interfaceApp } from "../../../features/reglages/interface";
 import DetailsSousAgent from "../outils/DetailsSousAgent.vue";
 
 const m = domaineModales();
+const ui = interfaceApp();
 // Run relu à chaque patch du message : le déroulé suit le direct.
 const run = computed(() => m.taskModalRun());
 const titre = computed(() => {
@@ -23,14 +26,13 @@ const titre = computed(() => {
 const meta = computed(() => {
   const r = run.value;
   if (!r) return "";
-  const etats: Record<string, string> = {
-    running: "en cours…",
-    completed: "terminé",
-    incomplete: "inachevé",
-  };
-  let t = r.harness ? libelleStatutTache(r.harness.status) : (etats[r.state] ?? r.state);
+  let t = r.harness
+    ? libelleStatutTache(r.harness.status)
+    : r.state === "running"
+      ? "en cours…"
+      : libelleEtatRun(r.state);
   if (r.steps_total) t += ` · ${r.steps_total} appel${r.steps_total > 1 ? "s" : ""}`;
-  if (typeof r.tokens === "number" && r.tokens > 0) t += ` · ${m.fmtTokens(r.tokens)} tokens`;
+  if (typeof r.tokens === "number" && r.tokens > 0) t += ` · ${m.fmtTokens(r.tokens)} jetons`;
   if (r.duration_ms) t += ` · ${m.fmtToolMs(r.duration_ms)}`;
   return t;
 });
@@ -40,7 +42,7 @@ const meta = computed(() => {
 <template>
   <Transition name="modal">
     <div
-      v-if="m.taskModal"
+      v-if="m.taskModal && ui.classique"
       data-a11y-modal
       role="dialog"
       aria-modal="true"

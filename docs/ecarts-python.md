@@ -579,6 +579,17 @@ Actions et éléments, service `browser-service/` et famille `browser` de l'hôt
 - Tests des mainteneurs : `apps/core/test/ecart-avatar-assistant.ts` (vecteurs des réglages rejoués avec l'écart), `comptes.test.ts`,
   `interface.test.ts`, `tests/frontend/reel/avatar-reel-verify.mjs`.
 
+## Apparence : contraste des skins livrés et préférence d'interface
+
+- **Jetons d'état et d'accent** relevés au contraste AA (texte 4,5:1, icônes 3:1) : vert d'Elpis (olive plus
+  foncé), bouton principal et texte d'accent de Parchemin, texte d'accent de Pingouins (clair ; le sombre garde le
+  rose éclairci). `GET /api/skins/<id>/skin.css` sert ces valeurs ; le reste des feuilles est inchangé.
+- **`classic_ui`** (propre au TS) : préférence « Interface classique » du compte, booléen accepté par
+  `PUT /api/settings` (aussi depuis la console) ; absente du document tant que le compte ne l'a pas choisie.
+  Présentation seulement : aucune route ni aucun droit n'en dépend.
+- Tests des mainteneurs : `apps/core/test/ecart-contraste-skins.ts` (vecteurs des skins rejoués avec l'écart),
+  `apps/core/test/interface-classique.test.ts`, `frontend/test/css/contraste.test.ts`.
+
 ## Sous-agents (`task`)
 
 Le Python donnait au sous-agent des familles d'outils entières, rendait son seul texte final (`state="completed"`

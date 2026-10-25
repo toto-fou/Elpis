@@ -57,17 +57,17 @@ function ouvert(e: Event): boolean {
           v-if="entry.msg.isStreaming && entry.msg.iterBudget && entry.msg.iterBudget.n > 1"
           class="text-[11px] font-normal shrink-0 tabular-nums"
           :class="
-            entry.msg.iterBudget.n >= entry.msg.iterBudget.max * 0.8 ? 'text-amber-600' : 'text-slate-400'
+            entry.msg.iterBudget.n >= entry.msg.iterBudget.max * 0.8 ? 'text-slate-600' : 'text-slate-400'
           "
           title="Itérations de la boucle d'outils : en cours / budget du tour"
-          >· tour {{ entry.msg.iterBudget.n }}/{{ entry.msg.iterBudget.max }}</span
+          >· étape {{ entry.msg.iterBudget.n }}/{{ entry.msg.iterBudget.max }}</span
         >
         <template v-if="!pl.running">
           <span v-if="pl.nTools > 0" class="text-[11px] text-slate-400 font-normal shrink-0"
             >· {{ pl.nTools }} outil{{ pl.nTools > 1 ? "s" : "" }}</span
           >
           <span v-if="pl.nComp > 0" class="text-[11px] text-slate-400 font-normal shrink-0"
-            >· {{ pl.nComp }} compression{{ pl.nComp > 1 ? "s" : "" }} du contexte</span
+            >· {{ pl.nComp }} compression{{ pl.nComp > 1 ? "s" : "" }}</span
           >
           <span
             v-if="(entry.msg.pruned ?? 0) > 0"

@@ -65,6 +65,7 @@ import {
   stopLoadWatch,
 } from "./evenements";
 import { CANCEL_PLACEHOLDER, compactionPourMessage, fcMerge } from "./historique";
+import { erreurPourMessage, JournalEtapes } from "./journal-etapes";
 import { RunJournal } from "./journal-run";
 import {
   CONTINUE_ADDITIVE_METRICS,
@@ -260,6 +261,7 @@ export function payloadFinal(
     ...(veritePy(msg["pruned"]) ? { pruned: msg["pruned"] } : {}),
     ...(veritePy(msg["tool_images"]) ? { tool_images: msg["tool_images"] } : {}),
     ...(veritePy(msg["rag_sources"]) ? { rag_sources: msg["rag_sources"] } : {}),
+    ...(veritePy(msg["tool_meta"]) ? { tool_meta: msg["tool_meta"] } : {}),
     chat_id: o.chatId,
     ...(o.planDone ? { plan_mode_done: true } : {}),
     ...(o.titleWasGenerated ? { title: o.finalTitle } : {}),
@@ -356,6 +358,8 @@ export async function* runTurn(
   const toursVus = { n: 0, arme: false };
   const raisonnementPartiel: string[] = [];
   let historiquePartiel: unknown[] = [];
+  const etapes = new JournalEtapes();
+  let erreurTour: Dict | null = null;
   let nouvelEtatCompression: Dict = {};
   let nouvellesClesElaguees: string[] = [];
   const suffixeTour = suffixeDeQuestion(plan.ragSuffix, plan.jobSuffix);
@@ -410,6 +414,7 @@ export async function* runTurn(
     }
     if ((t === "tool_result" || t === "task_step") && veritePy(ev["files"])) fcMerge(fichiers, ev["files"]);
     if (dropEventAfterCancel(t, isChatCancelled(uid, chatId), ev["status"])) return;
+    etapes.noter(ev);
     if (t === "tool_call" || t === "tool_result") drapeaux.outils = true;
     else if (t === "final") drapeaux.finalEnvoye = true;
     if (t === "content_token") {
@@ -694,6 +699,7 @@ export async function* runTurn(
         isContinue: plan.isContinue,
         toolImages: Array.isArray(imageSink["images"]) ? (imageSink["images"] as unknown[]) : null,
         ragSources: rag.outils?.numerotation.sources() ?? null,
+        toolMeta: etapes.versMessage(),
       });
       assistant = contenu;
       let full = await avecEtatCompression([...avant, msg, ...apres]);
@@ -850,6 +856,7 @@ export async function* runTurn(
           detail = "Le détail figure dans le journal du serveur.";
         }
         issueDuTour("error", kind);
+        erreurTour = erreurPourMessage(texte, detail, kind);
         await onEvent({ type: "error", text: texte, detail, kind });
       }
     } finally {
@@ -868,6 +875,7 @@ export async function* runTurn(
       }
       if ((annule || plante) && !finalAssistant && !tourPersiste) {
         try {
+          etapes.arreter();
           const p = messagePartiel(contenuPartiel, raisonnementPartiel, historiquePartiel, {
             execId: plan.execId,
             taskUsage,
@@ -877,6 +885,8 @@ export async function* runTurn(
             isContinue: plan.isContinue,
             toolImages: Array.isArray(imageSink["images"]) ? (imageSink["images"] as unknown[]) : null,
             ragSources: rag.outils?.numerotation.sources() ?? null,
+            toolMeta: etapes.versMessage(),
+            erreur: plante ? erreurTour : null,
           });
           let persiste = false;
           let erreur: string | null = null;
@@ -908,6 +918,7 @@ export async function* runTurn(
             run_ids: veritePy(p.message["run_ids"]) ? p.message["run_ids"] : [plan.execId],
             ...(veritePy(p.message["tool_images"]) ? { tool_images: p.message["tool_images"] } : {}),
             ...(veritePy(p.message["rag_sources"]) ? { rag_sources: p.message["rag_sources"] } : {}),
+            ...(veritePy(p.message["tool_meta"]) ? { tool_meta: p.message["tool_meta"] } : {}),
             chat_id: chatId,
             metrics: null,
             thinking: "thinking" in p.message ? p.message["thinking"] : p.raisonnement,

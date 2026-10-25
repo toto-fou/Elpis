@@ -144,6 +144,10 @@ export interface AccumulateursTour {
   readonly toolImages?: readonly unknown[] | null | undefined;
   /** Passages numérotés par les outils `rag_*` pendant le tour (sources du message). */
   readonly ragSources?: readonly SourceCiteeRag[] | null | undefined;
+  /** Durées, réflexions, captures et arrêts des étapes (`JournalEtapes.versMessage`). */
+  readonly toolMeta?: Dict | null | undefined;
+  /** Erreur d'un tour en échec (`erreurPourMessage`), gardée sur le partiel. */
+  readonly erreur?: Dict | null | undefined;
 }
 
 function champsDuTour(msg: Dict, a: AccumulateursTour): void {
@@ -152,6 +156,7 @@ function champsDuTour(msg: Dict, a: AccumulateursTour): void {
   if (a.compactions.length) msg["compactions"] = [...a.compactions];
   if (a.toolImages?.length) msg["tool_images"] = [...a.toolImages];
   if (a.ragSources?.length) msg["rag_sources"] = [...a.ragSources];
+  if (a.toolMeta) msg["tool_meta"] = a.toolMeta;
 }
 
 /** Sources du message marquées d'après sa réponse finale (renvois `[n]`). */
@@ -286,6 +291,7 @@ export function messagePartiel(
     mergeContinueToolHistory(prev, partialToolHistory.length ? [...partialToolHistory] : null, true),
   );
   champsDuTour(msg, a);
+  if (a.erreur) msg["error"] = a.erreur;
   if (Object.keys(prev).length) mergePrevSegmentLists(prev, msg);
   marquerSources(msg);
   return {

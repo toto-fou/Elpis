@@ -2,6 +2,7 @@
 /** packages/contracts/src/evenements.ts — charges utiles des 46 événements du flux NDJSON, relevées chez leurs émetteurs Python. */
 import { z } from "zod";
 
+import { schemaMetaOutils } from "./rest/chats";
 import { schemaOrigineTour, schemaResumeReveil } from "./rest/jobs";
 import { schemaSourceCiteeRag } from "./rest/rag";
 import type { StreamEventType } from "./stream-events.gen";
@@ -352,6 +353,7 @@ export const SCHEMAS_EVENEMENTS = {
     pruned: entier.optional(),
     tool_images: z.array(schemaImageRef).optional(),
     rag_sources: z.array(schemaSourceCiteeRag).optional(),
+    tool_meta: schemaMetaOutils.optional(),
     plan_mode_done: z.literal(true).optional(),
     generated_images: z.array(schemaImageRef).optional(),
     image: z.literal(true).optional(),

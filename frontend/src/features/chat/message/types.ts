@@ -25,7 +25,9 @@ export interface MetriquesMessage {
 
 export interface CaptureWeb {
   tool?: string;
-  blobUrl?: string;
+  blobUrl?: string | null;
+  /** Adresse de la capture sur le serveur (relue au rechargement, peut avoir expiré). */
+  serverUrl?: string;
   pending?: boolean;
 }
 
@@ -61,6 +63,8 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   /** Genre d'une notice du fil : « compaction » (défaut) ou « rag_search » (`/rag search`). */
   kind?: string;
   errorMessage?: string | null;
+  errorDetail?: string | null;
+  errorKind?: string | null;
   isTruncated?: boolean;
   toolLoopTruncated?: boolean;
   toolLoopStats?: StatsBoucle | null;
@@ -97,6 +101,13 @@ export interface MessageAffiche extends MessageMarkdown, MessageNarration, Messa
   /** Sources structurées du message (passages numérotés `[n]` par les outils `rag_*`), enregistrées avec lui. */
   rag_sources?: readonly SourceCiteeRag[] | null;
   toolSteps?: readonly EtapeOutil[] | null;
+  /** Narrations des segments du tour (texte écrit entre deux outils), dans l'ordre. */
+  segTexts?: readonly string[] | null;
+  /** Lignes dépliées du fil chronologique (réflexions, groupes d'étapes), par clé de bloc. */
+  _filOuverts?: Readonly<Record<string, boolean>> | null;
+  _thinkingMs?: number;
+  _thinkingStartedAt?: number;
+  _thinkingEndedAt?: number;
 }
 
 export interface EntreeMessage {

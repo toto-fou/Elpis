@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/formats.ts — formats et libellés purs du chat (portés d'`app-chat.js`) : métriques d'un message, statut vivant, pastilles d'outils, libellés de compression et de boucle d'outils, teintes des catégories. */
-import { fmtElapsed, fmtElapsedMs, tokenBreakdown } from "../../../utils/utils-purs.ts";
+import { fmtElapsed, fmtTokenCount, tokenBreakdown } from "../../../utils/utils-purs.ts";
+import { fmtDuree } from "../outils/format.ts";
 import type { DetailTokens } from "../../../utils/utils-purs.ts";
 import { libelleChargementModele } from "../affichage.ts";
 import type { EtapeChat, MessageChat, Objet } from "./types.ts";
@@ -32,7 +33,7 @@ const RAISONS_COMPRESSION: Readonly<Record<string, string>> = {
   max_rounds_reached: "Maximum de compressions atteint",
   threshold_not_reached: "Contexte encore trop court",
   gain_too_small: "Trop peu à compacter — reportée",
-  persist_failed: "Échec d'enregistrement — réessaie",
+  persist_failed: "Échec d'enregistrement — réessayez",
 };
 
 /** Libellé d'une compression tentée mais non appliquée. */
@@ -60,17 +61,13 @@ export function fmtNoticeTs(ts: unknown): string {
   }
 }
 
-/** Compte de tokens abrégé (« 1.2k », « 3M »). */
+/** Compte de jetons abrégé en français (« 1,2 k », « 3 M »). */
 export function fmtTokens(n: unknown): string {
-  const v = Number(n);
-  if (n == null || !v) return "0";
-  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  return String(Math.round(v));
+  return fmtTokenCount(n);
 }
 
 export function fmtToolMs(ms: unknown): string {
-  return fmtElapsedMs(ms, { precise: true });
+  return fmtDuree(Number(ms) || 0);
 }
 
 export function fmtCtxUsage(u: { used?: unknown; total?: unknown } | null | undefined): string {
@@ -116,7 +113,7 @@ export function cacheTitle(m: Objet | null | undefined): string {
   return (
     "Entrée : " +
     b.input.toLocaleString("fr-FR") +
-    " tokens, dont " +
+    " jetons, dont " +
     b.cache.toLocaleString("fr-FR") +
     " relus du cache et " +
     b.input_new.toLocaleString("fr-FR") +
@@ -138,7 +135,7 @@ export function metricsTooltip(m: Objet | null | undefined): string {
     if (b.cache) d.push("cache " + nb(b.cache) + " (" + b.cache_pct + " %)");
     d.push("utile " + nb(b.input_new));
     if (b.tools) d.push("outils ≈ " + nb(b.tools));
-    if (m["read_tps"]) d.push(String(m["read_tps"]) + " t/s");
+    if (m["read_tps"]) d.push(String(m["read_tps"]) + " jetons/s");
     lignes.push("Entrée " + nb(b.input) + " · " + d.join(" · "));
   }
   if (b.output) {
@@ -148,7 +145,7 @@ export function metricsTooltip(m: Objet | null | undefined): string {
       const rep = m["response_tokens"];
       d.push("réponse " + nb(typeof rep === "number" ? rep : b.response));
     }
-    if (m["write_tps"]) d.push(String(m["write_tps"]) + " t/s");
+    if (m["write_tps"]) d.push(String(m["write_tps"]) + " jetons/s");
     lignes.push("Sortie " + nb(b.output) + (d.length ? " · " + d.join(" · ") : ""));
   }
   if (nombre(m["cache_creation_input_tokens"]) > 0)
@@ -170,8 +167,9 @@ export function metricsTooltip(m: Objet | null | undefined): string {
 /** Durée du raisonnement d'un message, ou '' tant qu'elle n'est pas connue. */
 export function fmtThinkingMeta(msg: MessageChat | null | undefined): string {
   if (!msg || !msg.thinking) return "";
+  if (typeof msg._thinkingMs === "number") return fmtDuree(msg._thinkingMs);
   if (msg._thinkingStartedAt && msg._thinkingEndedAt)
-    return fmtElapsedMs(msg._thinkingEndedAt - msg._thinkingStartedAt);
+    return fmtDuree(msg._thinkingEndedAt - msg._thinkingStartedAt);
   return "";
 }
 

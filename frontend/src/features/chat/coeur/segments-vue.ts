@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/segments-vue.ts — segments texte/outils d'un message pour l'affichage (portés d'`app-chat.js`) : groupes par narration, console shell par segment, conteneur « Travail de l'assistant », sous-agents (modale « œil », annulation). */
-import { fmtElapsedMs } from "../../../utils/utils-purs.ts";
+import { fmtDuree } from "../outils/format.ts";
 import { getToolPillsFor, mdSnippet, toolKeyArg } from "./formats.ts";
 import type { Pastilles } from "./formats.ts";
 import type { CoeurChat, EntreeAffichee } from "./liens.ts";
@@ -49,9 +49,8 @@ function metaShell(runs: { step: EtapeChat; flat: number }[]): MetaShell {
   let puce = "";
   if (enCours) puce = "en cours…";
   else if (n === 1 && typeof dernier?.shellRc === "number")
-    puce = "code " + dernier.shellRc + " · " + fmtElapsedMs(totalMs, { precise: true });
-  else if (n > 1)
-    puce = echecs ? echecs + " échec" + (echecs > 1 ? "s" : "") : fmtElapsedMs(totalMs, { precise: true });
+    puce = "code " + dernier.shellRc + " · " + fmtDuree(totalMs);
+  else if (n > 1) puce = echecs ? echecs + " échec" + (echecs > 1 ? "s" : "") : fmtDuree(totalMs);
   return {
     n,
     running: enCours,

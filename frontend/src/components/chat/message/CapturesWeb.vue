@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/CapturesWeb.vue — carrousel des captures du navigateur d'un message : vignette, agrandie, navigation. -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 
-import type { EntreeMessage } from "../../../features/chat/message/types";
+import type { CaptureWeb, EntreeMessage } from "../../../features/chat/message/types";
 
 const props = defineProps<{ entry: EntreeMessage }>();
 const fil = domaine(CLE_FIL);
@@ -13,6 +13,20 @@ const fil = domaine(CLE_FIL);
 const captures = computed(() => props.entry.msg.webScreenshots ?? []);
 const courant = computed(() => props.entry.msg.webScreenshotIdx ?? captures.value.length - 1);
 const capture = computed(() => captures.value[courant.value]);
+const expirees = ref<ReadonlySet<string>>(new Set());
+// Capture rechargée : lue directement sur le serveur (même origine), tant qu'elle existe.
+function source(c: CaptureWeb | undefined): string {
+  if (!c) return "";
+  if (c.blobUrl) return c.blobUrl;
+  const u = c.serverUrl ?? "";
+  return u.startsWith("/api/playwright/screenshot/") && !expirees.value.has(u) ? u : "";
+}
+const image = computed(() => source(capture.value));
+const expiree = computed(() => !image.value && !!capture.value?.serverUrl && !capture.value.pending);
+function perdue(): void {
+  const u = capture.value?.serverUrl;
+  if (u && !capture.value?.blobUrl) expirees.value = new Set([...expirees.value, u]);
+}
 const enCapture = computed(() => {
   const n = captures.value.length;
   const i = props.entry.msg.webScreenshotIdx;
@@ -66,11 +80,19 @@ const enCapture = computed(() => {
         @click.stop="fil.webShotToggleExpand(entry.msg)"
       >
         <img
-          v-if="capture?.blobUrl"
-          :src="capture?.blobUrl"
+          v-if="image"
+          :src="image"
+          alt=""
           class="absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-200"
           loading="lazy"
+          @error="perdue"
         />
+        <span
+          v-else-if="expiree"
+          class="absolute inset-0 flex items-center justify-center text-[12px] text-slate-500"
+          data-capture-expiree
+          >Capture expirée</span
+        >
       </div>
 
       <div
@@ -79,12 +101,15 @@ const enCapture = computed(() => {
         style="min-height: 320px; max-height: 70dvh"
       >
         <img
-          v-if="capture?.blobUrl"
-          :src="capture?.blobUrl"
+          v-if="image"
+          :src="image"
+          alt=""
           class="max-w-full max-h-full w-auto h-auto object-contain transition-opacity duration-200"
           style="max-height: 70dvh"
           loading="lazy"
+          @error="perdue"
         />
+        <span v-else-if="expiree" class="text-[12px] text-slate-500">Capture expirée</span>
       </div>
 
       <div

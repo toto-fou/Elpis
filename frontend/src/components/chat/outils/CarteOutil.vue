@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/outils/CarteOutil.vue — carte détail d'une étape : statistiques de compression, ou paramètres et résultat d'un outil. -->
 <script setup lang="ts">
-import { fmtToolArgVal, formatToolResult } from "../../../features/chat/outils/format";
+import { fmtDuree, fmtToolArgVal, formatToolResult } from "../../../features/chat/outils/format";
+import { RESULTAT_RECHARGE_MAX } from "../../../features/chat/outils/segments";
 import type { EtapeOutil } from "../../../features/chat/outils/types";
-import { fmtElapsedMs } from "../../../utils/utils-purs";
 
 const props = defineProps<{ step: EtapeOutil; numero: number; compactOuvert: boolean }>();
 const emit = defineEmits<{ fermer: []; compact: [ouvert: boolean] }>();
@@ -32,12 +32,16 @@ function basculerCompact(ev: Event): void {
         style="font-size: 12px"
       ></i>
       <span class="font-mono font-semibold truncate text-slate-600">
-        <template v-if="step._kind === 'compression'">compression du contexte</template>
+        <template v-if="step._kind === 'compression'">Compression du contexte</template>
         <template v-else>{{ step.ragLabel || step.name }}</template>
       </span>
-      <span class="ml-auto text-[10px] text-slate-300 shrink-0">appel #{{ props.numero }}</span>
-      <button class="text-slate-300 hover:text-slate-500 ml-1 transition-colors" @click="emit('fermer')">
-        <i class="ph ph-x" style="font-size: 10px"></i>
+      <button
+        type="button"
+        class="ml-auto w-6 h-6 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+        aria-label="Fermer le détail"
+        @click="emit('fermer')"
+      >
+        <i class="ph ph-x" style="font-size: 11px" aria-hidden="true"></i>
       </button>
     </div>
 
@@ -64,14 +68,14 @@ function basculerCompact(ev: Event): void {
                 <template v-else-if="step.reason === 'overflow'">contexte dépassé</template>
                 <template v-else
                   >seuil atteint<template v-if="step.threshold">
-                    ({{ step.threshold }} tokens<template v-if="step.ctx_size">
+                    ({{ step.threshold }} jetons<template v-if="step.ctx_size">
                       sur {{ step.ctx_size }}</template
                     >)</template
                   ></template
                 >
               </span>
             </template>
-            <span class="text-slate-400 select-none">tokens</span>
+            <span class="text-slate-400 select-none">jetons</span>
             <span class="text-slate-700">
               <template v-if="step.stats">
                 {{ step.stats.tokens_before }}
@@ -109,7 +113,7 @@ function basculerCompact(ev: Event): void {
             <span class="text-slate-400 select-none">durée</span>
             <span class="text-slate-700 tabular-nums">
               <template v-if="step.stats && step.stats.duration_ms">
-                {{ fmtElapsedMs(step.stats.duration_ms) }}
+                {{ fmtDuree(step.stats.duration_ms) }}
               </template>
             </span>
 
@@ -149,7 +153,7 @@ function basculerCompact(ev: Event): void {
             <summary
               class="list-none flex items-center gap-1.5 cursor-pointer select-none w-fit py-0.5 text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <span class="text-[11px] font-medium">Vérifier le compact</span>
+              <span class="text-[11px] font-medium">Voir le résumé</span>
               <i
                 class="ph ph-caret-right text-slate-300 transition-transform group-open/compact:rotate-90 shrink-0"
                 style="font-size: 9px"
@@ -177,13 +181,22 @@ function basculerCompact(ev: Event): void {
 
       <div class="px-3 py-2">
         <div class="text-xs font-semibold text-slate-500 mb-1.5">Résultat</div>
-        <div v-if="step.status === 'running'" class="text-slate-300 italic flex items-center gap-1">
-          <i class="ph ph-spinner-gap animate-spin text-xs"></i> en cours...
+        <div v-if="step.status === 'running'" class="text-slate-500 flex items-center gap-1">
+          <i class="ph ph-spinner-gap animate-spin text-xs text-blue-500" aria-hidden="true"></i> en cours…
         </div>
+        <div v-else-if="step.status === 'stopped' && !step.result" class="text-slate-500">Arrêtée</div>
         <pre
           v-else
           class="font-mono text-slate-600 whitespace-pre-wrap break-all leading-relaxed max-h-48 overflow-y-auto custom-scrollbar m-0 bg-transparent"
           >{{ formatToolResult(step.result) }}</pre>
+        <p
+          v-if="step.resultLength"
+          class="mt-1.5 text-slate-500"
+          :title="'Résultat complet : ' + step.resultLength.toLocaleString('fr-FR') + ' caractères'"
+          data-resultat-tronque
+        >
+          Résultat tronqué à {{ RESULTAT_RECHARGE_MAX.toLocaleString("fr-FR") }} caractères
+        </p>
       </div>
     </template>
   </div>

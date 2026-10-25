@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/outils/format.ts — mise en forme des étapes d'outils : arguments, résultat, compression, console shell (sans Vue, chargeable par Node). */
 import { ansiToHtml, escapeHtml } from "../../../utils/ansi.ts";
+import { fmtTokenCount } from "../../../utils/utils-purs.ts";
 import type { EtapeOutil, GroupeSegment, StatsCompression } from "./types.ts";
 
 /** Une valeur d'argument : JSON indenté, chaîne JSON re-indentée, chaîne simple telle quelle (vrais retours à la ligne). */
@@ -73,12 +74,22 @@ export function formatToolResult(raw: unknown): string {
     .join("\n");
 }
 
-/** Abréviation k/M des compteurs de tokens des métriques du fil (« 32k », « 1.2M »). */
+const decimale = (x: number): string => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+
+/** Durée en français : « 0,4 s », « 1,2 s », « 18 s », « 1 min 22 s », « 2 h 05 min ». */
+export function fmtDuree(ms: number | null | undefined): string {
+  const s = Math.max(0, Number(ms) || 0) / 1000;
+  if (s < 0.1) return "< 0,1 s";
+  if (s < 10) return decimale(Math.floor(s * 10) / 10) + " s";
+  const n = Math.floor(s);
+  if (n < 60) return n + " s";
+  if (n < 3600) return Math.floor(n / 60) + " min " + String(n % 60).padStart(2, "0") + " s";
+  return Math.floor(n / 3600) + " h " + String(Math.floor((n % 3600) / 60)).padStart(2, "0") + " min";
+}
+
+/** Abréviation des compteurs de jetons du fil, en français (« 32 k », « 1,2 M »). */
 export function fmtTokensCourt(n: number | null | undefined): string {
-  if (n == null || n === 0) return "0";
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  return String(Math.round(n));
+  return fmtTokenCount(n);
 }
 
 export function fmtCompression(stats: StatsCompression | null | undefined): string {
@@ -87,7 +98,7 @@ export function fmtCompression(stats: StatsCompression | null | undefined): stri
   const after = fmtTokensCourt(stats.tokens_after || 0);
   const saved = stats.tokens_saved || 0;
   const pct = stats.tokens_before > 0 ? Math.round((saved / stats.tokens_before) * 100) : 0;
-  return pct > 0 ? `${before} → ${after} tokens (-${pct}%)` : `${before} → ${after} tokens`;
+  return pct > 0 ? `${before} → ${after} jetons (−${pct} %)` : `${before} → ${after} jetons`;
 }
 
 function commande(step: EtapeOutil): string {

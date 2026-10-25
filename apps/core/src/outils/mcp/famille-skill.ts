@@ -6,7 +6,7 @@ import goldenSkill from "@elpis/outils-mcp/goldens/skill.json" with { type: "jso
 import { py } from "@elpis/http";
 
 import type { Dict } from "../../python";
-import { askUser, skillAddFile, skillGet, skillReadFile, skillSave } from "../../skills/outils";
+import { skillAddFile, skillGet, skillReadFile, skillSave } from "../../skills/outils";
 import type { AppelSkill, ArgsSkillSave } from "../../skills/outils";
 
 const GOLDEN = goldenSkill as unknown as Golden;
@@ -20,7 +20,7 @@ function appelDe(ctx: ContexteAppel): AppelSkill {
   };
 }
 
-/** Les cinq outils de `register_library`, dans l'ordre d'enregistrement Python. */
+/** Les quatre outils de `register_library` (ask_user est un intégré du core), dans l'ordre d'enregistrement Python. */
 export function outilsSkill(): DefinitionOutil[] {
   return [
     outilDuGolden(GOLDEN, "skill_save", {
@@ -37,10 +37,6 @@ export function outilsSkill(): DefinitionOutil[] {
       signature: { name: py.str(), path: py.str(), content: py.str() },
       traiter: (a: Dict, ctx) =>
         skillAddFile(a as { name: string; path: string; content: string }, appelDe(ctx)),
-    }),
-    outilDuGolden(GOLDEN, "ask_user", {
-      signature: { questions: py.list(py.any()) },
-      traiter: (a: Dict, ctx) => askUser(a as { questions: unknown[] }, appelDe(ctx)),
     }),
     outilDuGolden(GOLDEN, "skill_get", {
       signature: { name: py.str() },

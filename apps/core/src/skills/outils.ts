@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/skills/outils.ts — corps des outils skill_save, skill_add_file, ask_user, skill_get et skill_read_file (llm_core/tools/skill_tools.py, register_library) sur la bibliothèque de skills. */
+/** apps/core/src/skills/outils.ts — corps des outils skill_save, skill_add_file, skill_get et skill_read_file (llm_core/tools/skill_tools.py, register_library) sur la bibliothèque de skills. */
 import { open, stat } from "node:fs/promises";
 
-import { estDict, messageErreurOs, reprPy, stripPy, veritePy } from "@elpis/commun";
+import { messageErreurOs, stripPy } from "@elpis/commun";
 import { config, safeSandboxName } from "@elpis/config";
 import { asList, asStr } from "@elpis/outils-mcp";
 import { fichierSousSkill, resoudreSkill as resoudreSkillVisible } from "@elpis/skills";
@@ -27,14 +27,10 @@ import { estErreurOs, nomDe, parentDe, pyJoin, resoudre, stemDe } from "./chemin
 
 /** Octets rendus au modèle par `skill_read_file`. */
 export const SKILL_FILE_READ_CAP = 256 * 1024;
-export const ASK_MAX_QUESTIONS = 8;
-export const ASK_MAX_OPTIONS = 12;
-export const ASK_MAX_Q_CHARS = 300;
-export const ASK_MAX_OPT_CHARS = 120;
 
 const UTF8_REMPLACEMENT = new TextDecoder("utf-8", { ignoreBOM: true });
 
-/** Ce que les cinq outils savent de l'appel : compte et notification `ctx.info`. */
+/** Ce que les quatre outils savent de l'appel : compte et notification `ctx.info`. */
 export interface AppelSkill {
   readonly username: string;
   /** Login reçu avant mise au nom sûr (jeton client ou `_meta.username`), pour retrouver le compte. */
@@ -51,7 +47,11 @@ export interface ArgsSkillSave {
 }
 
 /** `ErrEnvelope(...)` dumpé : tous les champs du modèle, dans son ordre. */
-function enveloppe(error: string, message: string, o: { fix?: string; retryable?: boolean } = {}): Dict {
+export function enveloppe(
+  error: string,
+  message: string,
+  o: { fix?: string; retryable?: boolean } = {},
+): Dict {
   return {
     ok: false,
     error,
@@ -154,51 +154,6 @@ export async function skillAddFile(
       `File bundled into skill '${nom}' (protected store, outside /work). ` +
       `At usage time: \`skill_read_file('${nom}', '${relatif}')\` to read it, ` +
       "`skill_run_script(...)` to execute it if it is a script.",
-  };
-}
-
-export async function askUser(args: { questions: unknown[] }, a: Pick<AppelSkill, "info">): Promise<Dict> {
-  const brut = asList(args.questions);
-  const items: Dict[] = [];
-  const coupes: string[] = [];
-  if (brut.length > ASK_MAX_QUESTIONS)
-    coupes.push(`${brut.length - ASK_MAX_QUESTIONS} question(s) dropped (max ${ASK_MAX_QUESTIONS})`);
-  for (const x of brut.slice(0, ASK_MAX_QUESTIONS)) {
-    if (!estDict(x)) continue;
-    const d: Dict = x;
-    const champ = (k: string): unknown => (Object.hasOwn(d, k) ? d[k] : undefined);
-    const qBrut = asStr(veritePy(champ("q")) ? champ("q") : champ("question"));
-    const q = stripPy(prefixePy(qBrut, ASK_MAX_Q_CHARS));
-    if (!q) continue;
-    if (longueurPy(qBrut) > ASK_MAX_Q_CHARS) coupes.push(`question text cut at ${ASK_MAX_Q_CHARS} chars`);
-    const optsBrutes = asList(champ("options"))
-      .map((o) => asStr(o))
-      .filter((o) => o);
-    if (optsBrutes.length > ASK_MAX_OPTIONS)
-      coupes.push(
-        `${optsBrutes.length - ASK_MAX_OPTIONS} option(s) dropped on ${reprPy(prefixePy(q, 40))} (max ${ASK_MAX_OPTIONS})`,
-      );
-    const options = optsBrutes.slice(0, ASK_MAX_OPTIONS).map((o) => prefixePy(o, ASK_MAX_OPT_CHARS));
-    items.push({ q, options, multi: veritePy(champ("multi")) });
-  }
-  if (items.length === 0)
-    return enveloppe("ask_user_rejected", "no valid question", {
-      fix: 'Pass questions=[{"q": "…", "options": ["…"], "multi": false}, …] (1 to 8 questions, non-empty q).',
-    });
-  await a.info(`ask_user: questionnaire of ${items.length} question(s) displayed`);
-  return {
-    ok: true,
-    displayed: true,
-    count: items.length,
-    note:
-      "Questionnaire displayed to the user above their prompt bar. " +
-      "End your turn NOW with one short sentence (e.g. « Answer the " +
-      "questionnaire below 👇 ») without repeating the " +
-      "questions; the answers arrive in the next user message.",
-    warning:
-      coupes.length > 0
-        ? `Input clipped before display — ${coupes.join("; ")}. Only what is listed in \`count\` was actually shown.`
-        : null,
   };
 }
 

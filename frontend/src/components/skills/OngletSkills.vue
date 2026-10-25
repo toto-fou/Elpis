@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/skills/OngletSkills.vue — onglet Skills des Paramètres : liste en arbre par portée, détail, formulaire, import (zip, dossier, SKILL.md) et dépôt de fichiers. -->
 <script setup lang="ts">
+import BoutonAssistant from "../communs/BoutonAssistant.vue";
 import { domaineSkills } from "../../features/skills/domaine";
 import NoeudSkill from "./NoeudSkill.vue";
 
@@ -55,13 +56,11 @@ function poserDeclencheur(el: unknown): void {
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <!-- Création guidée : ouvre un chat pré-configuré (skill « creer-un-skill » épinglé + outils skill/fs) où le LLM -->
-          <button
+          <BoutonAssistant
             title="Créer un skill en dialoguant : l'assistant pose les questions, rédige, embarque les scripts et enregistre"
-            class="skl-btn skl-btn--secondary"
-            @click="ks.startSkillAssistantChat"
-          >
-            <i class="ph ph-sparkle"></i> Assistant
-          </button>
+            classe="skl-btn skl-btn--secondary"
+            @click="ks.ouvrirAssistant('skill')"
+          />
           <button class="skl-btn bg-blue-600 text-white hover:bg-blue-700" @click="ks.startCreate">
             <i class="ph ph-plus"></i> Nouveau
           </button>
@@ -195,6 +194,27 @@ function poserDeclencheur(el: unknown): void {
       </div>
 
       <div class="flex-1 overflow-y-auto px-6 pb-4 custom-scrollbar">
+        <!-- aucun skill PERSONNEL (les globaux livrés existent toujours) : l'état qui ENSEIGNE les 3 portes d'entrée -->
+        <div
+          v-if="ks.aucunSkillPerso && !ks.skillsLoading && !ks.skillsError && !ks.skillsFilter.trim()"
+          class="text-center py-6 px-2"
+        >
+          <i class="ph ph-graduation-cap text-slate-300 text-3xl block mb-2"></i>
+          <p class="text-sm font-medium text-slate-600 mb-1">Aucun skill personnel pour l'instant</p>
+          <p class="text-xs text-slate-500 mb-3">
+            Créez votre premier skill, importez un dossier existant, ou laissez l'assistant le rédiger avec
+            vous.
+          </p>
+          <div class="flex items-center justify-center gap-2">
+            <button class="skl-btn bg-blue-600 text-white hover:bg-blue-700" @click="ks.startCreate">
+              Créer un skill
+            </button>
+            <BoutonAssistant classe="skl-btn skl-btn--secondary" @click="ks.ouvrirAssistant('skill')" />
+            <button class="skl-btn skl-btn--secondary" @click="ks.showSkillImportMenu = true">
+              Importer…
+            </button>
+          </div>
+        </div>
         <!-- premier chargement : squelette STATIQUE (registre calme, reduced-motion-proof) -->
         <div v-if="ks.skillsLoading && ks.totalSkillsCount === 0" aria-busy="true" class="pt-1 space-y-5">
           <span class="sr-only">Chargement des skills…</span>
@@ -211,23 +231,7 @@ function poserDeclencheur(el: unknown): void {
           <p class="text-sm text-slate-500">{{ ks.skillsError }}</p>
           <button class="skl-btn skl-btn--secondary mt-3" @click="ks.loadAllSkills()">Réessayer</button>
         </div>
-        <!-- bibliothèque vide : état qui ENSEIGNE les 3 portes d'entrée -->
-        <div v-else-if="ks.totalSkillsCount === 0" class="text-center py-10 px-2">
-          <i class="ph ph-graduation-cap text-slate-300 text-3xl block mb-2"></i>
-          <p class="text-sm font-medium text-slate-600 mb-1">Aucun skill pour l'instant</p>
-          <p class="text-xs text-slate-500 mb-3">
-            Créez votre premier skill, importez un dossier existant, ou laissez l'assistant le rédiger avec
-            vous.
-          </p>
-          <div class="flex items-center justify-center gap-2">
-            <button class="skl-btn bg-blue-600 text-white hover:bg-blue-700" @click="ks.startCreate">
-              Créer un skill
-            </button>
-            <button class="skl-btn skl-btn--secondary" @click="ks.showSkillImportMenu = true">
-              Importer…
-            </button>
-          </div>
-        </div>
+        <template v-else-if="ks.totalSkillsCount === 0"></template>
         <!-- filtre sans correspondance (distinct du vide : icône + sortie) -->
         <div v-else-if="ks.filteredTotalCount === 0" class="text-center py-10 px-2">
           <i class="ph ph-magnifying-glass text-slate-300 text-3xl block mb-2"></i>

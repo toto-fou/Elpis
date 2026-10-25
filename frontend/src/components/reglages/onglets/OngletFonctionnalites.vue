@@ -178,6 +178,23 @@ const rg = domaineReglages();
       </div>
     </div>
 
+    <div data-feat-routines>
+      <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Routines</div>
+      <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
+        <label
+          class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl last:rounded-b-xl"
+          title="Le modèle peut enregistrer une routine, toujours en pause, après votre accord (outil routine_save)."
+        >
+          <i class="ph ph-clock-countdown text-slate-400 text-lg w-5"></i>
+          <div class="flex-1 min-w-0 text-sm text-slate-800">Créer des routines</div>
+          <div class="relative inline-flex items-center shrink-0">
+            <input v-model="rg.settings.routine_tool_enabled" type="checkbox" class="sr-only peer" />
+            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+          </div>
+        </label>
+      </div>
+    </div>
+
     <template v-if="rg.settings.enable_editor">
       <div data-feat-editor-display>
         <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>

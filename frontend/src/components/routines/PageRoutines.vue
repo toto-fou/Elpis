@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/routines/PageRoutines.vue — page des routines : en-tête (retour, actions), liste, vue lecture ou formulaire. -->
 <script setup lang="ts">
+import BoutonAssistant from "../communs/BoutonAssistant.vue";
 import FormulaireRoutine from "./FormulaireRoutine.vue";
 import ListeRoutines from "./ListeRoutines.vue";
 import VueRoutine from "./VueRoutine.vue";
@@ -66,6 +67,10 @@ const rt = domaineRoutines();
         >
           <i class="ph ph-plus"></i> Nouvelle
         </button>
+        <BoutonAssistant
+          title="Créer une routine en dialoguant : l'assistant pose les questions et l'enregistre en pause"
+          @click="rt.ouvrirAssistant('routine')"
+        />
         <button
           title="Rafraîchir"
           class="w-9 h-9 rounded-md text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-center"
@@ -96,6 +101,7 @@ const rt = domaineRoutines();
             >
               Créer une routine
             </button>
+            <BoutonAssistant class="mt-2" @click="rt.ouvrirAssistant('routine')" />
           </template>
           <p v-else class="text-sm text-slate-500">
             Sélectionnez une routine à gauche pour voir ses exécutions.

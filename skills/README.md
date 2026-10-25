@@ -28,6 +28,8 @@ skills/
   _TEMPLATE.md             ← gabarit (ignoré par le loader)
   creer-un-skill/          ← assistant de création de skill (livré)
     SKILL.md
+  creer-une-routine/       ← assistant de création de routine (livré)
+    SKILL.md
   learned/                 ← SAS de curation admin (brouillons)
   <paquet>/                ← exemple de PACKAGE (dossier-skill, id "<paquet>")
     SKILL.md               ← aperçu du domaine + table d'orientation

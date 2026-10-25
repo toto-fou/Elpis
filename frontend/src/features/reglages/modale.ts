@@ -72,6 +72,7 @@ export function creerModale(
     d.memory_enabled ??= false;
     d.image_enabled ??= true;
     d.image_tool_enabled ??= true;
+    d.routine_tool_enabled ??= true;
     if (!estObjet(d.image_prefs)) d.image_prefs = { ratio: "1:1", side: 1024, n: 1, enhance: false };
     d.agents_enabled ??= false;
     if (!estObjet(d.opencode_mcp_families)) d.opencode_mcp_families = {};

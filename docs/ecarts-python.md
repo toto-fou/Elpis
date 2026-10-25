@@ -19,14 +19,15 @@ Pour revenir à la version Python : docs/exploitation.md, « Revenir à la versi
 ## Définitions d'outils publiées (goldens)
 
 Régénérer ces goldens depuis le Python effacerait les ajouts ci-dessous : le générateur `outils_mcp_golden_shell.py`
-n'est plus à rejouer pour la famille `shell`, et les entrées modifiées de `git.json`, `chart.json` et `browser.json` sont à
+n'est plus à rejouer pour la famille `shell`, et les entrées modifiées de `git.json`, `chart.json`, `browser.json` et `skill.json` sont à
 reporter à la main.
 
 | Golden | Outil | Écart |
 |---|---|---|
 | `shell.json` | `execute_shell` | paramètre `strict: bool = false` (commande lancée par `bash -euo pipefail -c`) |
 | `shell.json` | `execute_shell` | paramètre `on_timeout: "kill" \| "detach_and_wake"` (défaut `kill`), dans `inputSchema`, `fonctions` et la description ; `outputSchema` inchangé |
-| `shell.json` | `shell_job` | outil propre au TS (voir « Tâches de fond ») ; 90 outils au lieu de 89 |
+| `shell.json` | `shell_job` | outil propre au TS (voir « Tâches de fond ») ; 89 outils = 89 du Python + `shell_job` − `ask_user` (sorti vers les intégrés du tour) |
+| `skill.json` | `ask_user` | retiré du golden : l'outil est un intégré du core (voir « Skills » plus bas) ; à ne pas rétablir en régénérant |
 | `git.json` | `git_commit` | paramètre `allow_secrets: bool = false` ; la description dit la recherche de secrets et que les valeurs d'exemple de documentation sont ignorées |
 | `chart.json` | `chart_pie` | la description annonce 8 parts au plus (le Python disait 6, alors que son code regroupait déjà au-delà de 8) |
 | `browser.json` | `pw_observe`, `pw_a11y` | la description dit que chaque sélecteur rendu désigne un seul élément ; `target_dsl` toujours en `css=` |
@@ -181,6 +182,14 @@ reporter à la main.
 - **Skills** : un nom inconnu propose les 3 noms les plus proches (`Closest names: …`).
 - **Langue** : les textes renvoyés au modèle sont en anglais ; les routes de l'interface gardent les messages
   français (`SkillSaveError` porte les deux).
+- **`ask_user` hors de la famille skill** : l'outil devient un intégré du core (`outils/integres/question.ts`), proposé
+  dans tout chat dont les outils sont actifs, mode plan compris, jamais en routine ni en sous-agent. La famille
+  `skill` garde quatre outils (`skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`) ; schéma et
+  résultat sont inchangés (le scénario `ask_user` des vecteurs est rejoué sur le nouvel outil) et la description ne cite
+  plus « e.g. building a skill » (l'outil est générique) ; en revanche la
+  notification MCP `ask_user: questionnaire of N question(s) displayed` n'existe plus, et la catégorie « Skills »
+  ne le coupe plus.
+- **`routine_save`** (propre au TS) : outil intégré du tour, sans famille MCP ; réglage `routine_tool_enabled`.
 
 ## Contexte (élagage et compression)
 

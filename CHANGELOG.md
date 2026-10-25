@@ -8,6 +8,12 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Pour l'exploitant
 
+- **Outils intégrés `routine_save` et `ask_user`.** `routine_save` (réglage du
+  compte « Créer des routines », actif par défaut) crée une routine en pause avec
+  les mêmes contrôles que l'API ; il est absent en mode plan, dans le Studio, les
+  routines et les sous-agents. `ask_user` quitte la famille MCP `skill` et
+  devient un outil intégré du tour : un client MCP externe de la famille
+  `skill` ne le voit plus.
 - **Skills livrés : les assistants seulement.** Les paquets génériques ansible,
   python et robotframework ne sont plus livrés ; la bibliothèque intégrée garde
   les skills d'assistant (création de skill). Un compte ou un administrateur
@@ -37,6 +43,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Assistant de routine.** Bouton « Assistant » de la page Routines et commande
+  `/routine` : le modèle mène un court entretien, puis crée la routine avec
+  l'outil intégré `routine_save`, toujours en pause ; on la relit et l'active
+  depuis Routines. Cadrage, lanceur et bouton « Assistant » sont communs aux
+  assistants (skill, routine).
 - **Paramètres revus.** Rail en quatre groupes avec recherche ; chaque réglage
   s'enregistre à la modification, avec Annuler ; aide d'une ligne à la
   demande ; texte d'au moins 12 px et contraste AA dans tous les thèmes.

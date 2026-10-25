@@ -59,6 +59,8 @@ const reglagesEcrivables = {
   compression_max_rounds: z.number(),
   image_enabled: z.boolean(),
   image_tool_enabled: z.boolean(),
+  /** « Créer des routines » : outil routine_save du modèle ; absent = vrai. */
+  routine_tool_enabled: z.boolean(),
   image_prefs: dictionnaire,
   /** Défaut du compte de « Ne pas me réveiller » (tâches de fond) : absent = vrai (réveil actif). */
   jobs_wake: z.boolean(),

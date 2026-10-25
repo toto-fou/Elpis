@@ -295,6 +295,16 @@ export function creerNotifications(dep: DependancesNotifications) {
     else openNotifPanel();
   }
 
+  /** Ouvre la page Routines sur la routine `rid` ; toast si elle n'existe plus. */
+  async function ouvrirRoutine(rid: unknown): Promise<void> {
+    const routines = dep.routines();
+    if (!routines) return;
+    await routines.openRoutinesPage();
+    const trouvee = rid != null ? (routines.routines.value || []).find((r) => r.id === rid) : null;
+    if (trouvee) routines.viewRoutine(trouvee as never);
+    else if (rid != null) dep.showToast("Routine introuvable (supprimée ?)", "info");
+  }
+
   /** Clic sur une notification : marquée lue, puis lien vers sa source quand elle existe encore. */
   async function openNotifItem(n: Notification | null | undefined): Promise<void> {
     if (!n) return;
@@ -302,14 +312,9 @@ export function creerNotifications(dep: DependancesNotifications) {
     const rt = n.ref_type || "";
     const rid = n.ref_id != null ? n.ref_id : null;
     try {
-      const routines = dep.routines();
-      if (rt === "routine" && routines) {
+      if (rt === "routine" && dep.routines()) {
         showNotifPanel.value = false;
-        await routines.openRoutinesPage();
-        const liste = routines.routines.value || [];
-        const trouvee = rid != null ? liste.find((r) => r.id === rid) : null;
-        if (trouvee) routines.viewRoutine(trouvee as never);
-        else if (rid != null) dep.showToast("Routine introuvable (supprimée ?)", "info");
+        await ouvrirRoutine(rid);
       } else if (rt === "daily_report") {
         showNotifPanel.value = false;
         dep.goToAdmin("report");
@@ -535,6 +540,7 @@ export function creerNotifications(dep: DependancesNotifications) {
     deleteNotif,
     clearNotifs,
     openNotifItem,
+    ouvrirRoutine,
     toggleNotifReadState,
     notifTimeAgo,
     notifIcon,

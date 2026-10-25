@@ -148,6 +148,7 @@ export function setupChat(
         };
       },
       imageSlash: (raw: unknown) => envoi.runImageSlash(raw),
+      ouvrirAssistant: (id: string, pre?: Record<string, string>) => envoi.ouvrirAssistant(id, pre),
       get jobs() {
         return jobs.jobsSlash;
       },
@@ -522,6 +523,7 @@ export function setupChat(
     }
     runs.stopFollowRun();
     runs.oublierRuns();
+    e.assistantForm.value = { open: false, id: "", valeurs: {} };
     e.attachedFiles.value = [];
     inputMessage.value = "";
     composeurTyped.pinnedSkills.value = [];
@@ -761,9 +763,10 @@ export function setupChat(
     askUserNext: questionnaire.askUserNext,
     dismissAskUser: questionnaire.dismissAskUser,
     submitAskUser: questionnaire.submitAskUser,
-    startSkillAssistantChat: envoi.startSkillAssistantChat,
-    launchSkillAssistantChat: envoi.launchSkillAssistantChat,
-    skillAssistForm: e.skillAssistForm,
+    ouvrirAssistant: envoi.ouvrirAssistant,
+    lancerAssistant: envoi.lancerAssistant,
+    lancerAssistantForm: envoi.lancerAssistantForm,
+    assistantForm: e.assistantForm,
     renderMarkdown: renduChat.renderMarkdown,
     renderMarkdownHighlight: renduChat.renderMarkdownHighlight,
     handleMarkdownClick: renduChat.handleMarkdownClick,

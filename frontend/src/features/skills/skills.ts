@@ -116,6 +116,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
   const totalSkillsCount = computed(() =>
     PORTEES.reduce((n, p) => n + (skillsByScope.value[p] || []).length, 0),
   );
+  const aucunSkillPerso = computed(() => !(skillsByScope.value.user || []).length);
   const filteredTotalCount = computed(() =>
     PORTEES.reduce((n, p) => n + (filteredByScope.value[p] || []).length, 0),
   );
@@ -722,6 +723,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
     skillsByScope,
     filteredByScope,
     totalSkillsCount,
+    aucunSkillPerso,
     filteredTotalCount,
     skillEditMode,
     skillDetail,

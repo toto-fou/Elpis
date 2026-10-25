@@ -126,8 +126,8 @@ export type DomaineModalesChat = DomaineModalesCommunes &
     | "fmtToolMs"
     | "toolInfo"
     | "closeToolInfo"
-    | "skillAssistForm"
-    | "launchSkillAssistantChat"
+    | "assistantForm"
+    | "lancerAssistantForm"
     | "renderMarkdown"
     | "handleMarkdownClick"
     | "imageViewer"
@@ -195,8 +195,8 @@ const CLES_CHAT: Readonly<Record<Exclude<keyof DomaineModalesChat, keyof Domaine
   fmtToolMs: true,
   toolInfo: true,
   closeToolInfo: true,
-  skillAssistForm: true,
-  launchSkillAssistantChat: true,
+  assistantForm: true,
+  lancerAssistantForm: true,
   renderMarkdown: true,
   handleMarkdownClick: true,
   imageViewer: true,

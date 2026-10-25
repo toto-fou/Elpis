@@ -1,12 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/outils/CarteOutil.vue — carte détail d'une étape : statistiques de compression, ou paramètres et résultat d'un outil. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import { actionResultat, declencherAction } from "../../../features/chat/outils/actions-resultat";
 import { fmtDuree, fmtToolArgVal, formatToolResult } from "../../../features/chat/outils/format";
 import { RESULTAT_RECHARGE_MAX } from "../../../features/chat/outils/segments";
 import type { EtapeOutil } from "../../../features/chat/outils/types";
 
 const props = defineProps<{ step: EtapeOutil; numero: number; compactOuvert: boolean }>();
 const emit = defineEmits<{ fermer: []; compact: [ouvert: boolean] }>();
+const action = computed(() => actionResultat(props.step));
 
 function basculerCompact(ev: Event): void {
   emit("compact", (ev.target as HTMLDetailsElement).open);
@@ -197,6 +201,15 @@ function basculerCompact(ev: Event): void {
         >
           Résultat tronqué à {{ RESULTAT_RECHARGE_MAX.toLocaleString("fr-FR") }} caractères
         </p>
+        <button
+          v-if="action"
+          type="button"
+          class="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+          data-action-resultat
+          @click="declencherAction(action)"
+        >
+          <i class="ph" :class="action.icone"></i> {{ action.libelle }}
+        </button>
       </div>
     </template>
   </div>

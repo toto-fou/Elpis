@@ -109,6 +109,7 @@ export interface CtxSlash {
   openHelp?: () => unknown;
   setPlanMode?: (on: boolean) => unknown;
   imageSlash?: (raw: string) => Promise<ResultatCommande> | ResultatCommande;
+  ouvrirAssistant?: (id: string, pre?: Record<string, string>) => unknown;
   jobs?: JobsSlash;
   rag?: RagSlash | null;
 }
@@ -301,6 +302,19 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
       icon: "ph-graduation-cap",
       desc: "Parcourir et épingler un skill dans le prompt",
       mode: "skills",
+    },
+    {
+      name: "routine",
+      label: "Routine",
+      icon: "ph-clock-countdown",
+      desc: "Créer une routine avec l'assistant : /routine objectif",
+      when: (e) => !e.isStreaming,
+      whenLabel: "Hors génération",
+      run: async (_a, raw) => {
+        if (!ctx.ouvrirAssistant) return { ok: false, msg: "Assistant indisponible." };
+        ctx.ouvrirAssistant("routine", { objectif: raw.trim() });
+        return { ok: true, silent: true };
+      },
     },
     {
       name: "prompt",

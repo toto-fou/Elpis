@@ -35,7 +35,7 @@ import BarreLaterale from "../chat/page/BarreLaterale.vue";
 import PageChat from "../chat/page/PageChat.vue";
 import DetailsExecution from "../chat/modales/DetailsExecution.vue";
 import FicheOutil from "../chat/modales/FicheOutil.vue";
-import FormulaireAssistantSkill from "../chat/modales/FormulaireAssistantSkill.vue";
+import FormulaireAssistant from "../chat/modales/FormulaireAssistant.vue";
 import GalerieImages from "../chat/modales/GalerieImages.vue";
 import ModaleAPropos from "../chat/modales/ModaleAPropos.vue";
 import ModaleAide from "../chat/modales/ModaleAide.vue";
@@ -176,7 +176,7 @@ fournirDomaineModales(r, false);
   <GalerieImages />
   <ZoomImage />
   <ModaleAx />
-  <FormulaireAssistantSkill />
+  <FormulaireAssistant />
   <FicheOutil />
   <RemplissageTemplate />
 </template>

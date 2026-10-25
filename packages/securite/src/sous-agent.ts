@@ -15,8 +15,13 @@ export const TYPES_AGENTS_LIVRES = ["explore", "implement", "verify", "web", "pr
 export const TYPE_AGENT_PERSONNALISE = "custom";
 export const TYPES_AGENTS_REGLABLES: readonly string[] = [...TYPES_AGENTS_LIVRES, TYPE_AGENT_PERSONNALISE];
 
-/** Jamais offerts à un sous-agent : il ne peut ni être réveillé ni lancer de sous-agent. */
-export const OUTILS_JAMAIS_SOUS_AGENT: ReadonlySet<string> = new Set(["shell_job", "task"]);
+/** Jamais offerts à un sous-agent (ni réveil, ni sous-agent, ni question à l'humain, ni création de routine), registre ou non. */
+export const OUTILS_JAMAIS_SOUS_AGENT: ReadonlySet<string> = new Set([
+  "shell_job",
+  "task",
+  "ask_user",
+  "routine_save",
+]);
 
 const ECRITURE_FICHIERS = ["write_file", "edit_file", "manage_files"];
 const ECRITURE_GIT = [

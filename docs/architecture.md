@@ -2427,9 +2427,10 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `chart` (main) | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
 | `office` (worker Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
 | `memory` (main) | `memory` | `memory`, `session_search` |
-| `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`, `ask_user` |
+| `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script` |
 | `todo` (main) | `task` (cachée) | `todowrite` |
 | `task` (core) | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
+| `ask_user`, `routine_save` (core) | builtin | questionnaire au-dessus de la barre de saisie ; routine créée en pause (réglage `routine_tool_enabled`) — construits **par tour** |
 | `rag` (core) | builtin | `rag_search`, `rag_read`, `rag_list` (si une collection est active dans le chat), `rag_index` (écriture) |
 
 ### Fichiers (`fs`)
@@ -2605,8 +2606,8 @@ AT-SPI). Cycle : `desktop_session` → `desktop_observe` → `desktop_act` →
 - **`memory`** (main) — `memory` (add/replace/remove/rewrite avec ciblage par id
   court ou sous-chaîne normalisée) et `session_search` (FTS5 sur l'historique).
 - **`skill`** (main) et **`skill_run`** (hôte d'outils) — `skill_save`, `skill_add_file`, `skill_get`,
-  `skill_read_file`, `skill_run_script` (cwd `/work`, env propagé), plus
-  `ask_user` (question non bloquante ; **refusée** aux sous-agents).
+  `skill_read_file`, `skill_run_script` (cwd `/work`, env propagé). `ask_user` (question non
+  bloquante ; **refusée** aux sous-agents) est un outil intégré du core, hors de cette famille.
 - **`todo`** (main) — `todowrite` : todo-list de session, catégorie **cachée**,
   incluse d'office dès qu'un serveur d'outils est actif. Un
   `<todo_status>` éphémère est réinjecté par tour tant que des tâches sont
@@ -2778,9 +2779,20 @@ détruisait la bibliothèque.
 processus (`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
 critique.
 
-Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`) ; les
+Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`, `creer-une-routine`) ; les
 skills métier sont ceux des comptes ou de l'admin. ⚠ Ne pas bundler de `.md` orphelin ; purger les
 `__pycache__` avant packaging.
+
+**Assistants de création.** Côté front, `features/chat/coeur/assistants.ts` décrit chaque assistant (champs du
+cadrage, catégories d'outils, skill épinglé, amorce) ; un seul `FormulaireAssistant` et un seul `lancerAssistant`
+les servent. Côté core, `routine_save` et `ask_user` sont des **outils intégrés du tour** (comme `generate_image`,
+`task` et `rag_*`), sans famille MCP : `outils/integres/routine.ts` crée une routine **toujours en pause** par la
+validation partagée `routines/validation.ts` (celle du formulaire), avec les seules catégories locales connues et
+sans serveur externe ; `outils/integres/question.ts` affiche le questionnaire. `routine_save` est proposé quand les
+outils sont actifs, hors mode plan, et que le réglage `routine_tool_enabled` n'est pas décoché ; `ask_user` dès que
+les outils sont actifs, mode plan compris. Ni l'un ni l'autre n'est proposé à un tour éphémère (Studio). Ils sont
+refusés en dur, quel que soit le registre : `deniedForRoutine` les ajoute à la politique `deny_for`, et
+`OUTILS_JAMAIS_SOUS_AGENT` ainsi que la liste de refus des sous-agents les écartent.
 
 ---
 

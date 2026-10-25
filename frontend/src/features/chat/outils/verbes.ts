@@ -25,6 +25,7 @@ const VERBES: Readonly<Record<string, string>> = {
   pw_visual: "Capture",
   memory: "Consulte la mémoire",
   ask_user: "Demande",
+  routine_save: "Crée la routine",
   generate_image: "Génère",
 };
 

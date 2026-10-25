@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/envoi.ts — envoi d'un message (porté d'`app-chat.js`) : commande « / » tapée, mode Images, mode plan scellé, pièces jointes, commande /image et variantes, chats pré-configurés (assistant de skill, document), copie d'une réponse. */
+/** frontend/src/features/chat/coeur/envoi.ts — envoi d'un message (porté d'`app-chat.js`) : commande « / » tapée, mode Images, mode plan scellé, pièces jointes, commande /image et variantes, chats pré-configurés (assistants de skill et de routine, document), copie d'une réponse. */
 import { journal } from "../../../platform/journal";
 import { imageVariantRequest, parseImageCommand } from "../../images/formats";
 import type { SurfaceImages } from "../../images/images";
 import { nextTick } from "vue";
 
+import { ASSISTANTS, lignesCadrage, PREFIXE_REGLAGE, valeursInitiales } from "./assistants.ts";
 import type { CoeurChat } from "./liens.ts";
 import type { MessageChat, Objet } from "./types.ts";
 
@@ -243,18 +244,18 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     }
   }
 
-  function startSkillAssistantChat(): void {
-    e.skillAssistForm.value = { open: true, sujet: "", objectif: "", domaine: "", scripts: "" };
+  function ouvrirAssistant(id: string, pre: Record<string, string> = {}): void {
+    const d = ASSISTANTS[id];
+    if (d) e.assistantForm.value = { open: true, id, valeurs: valeursInitiales(d, pre) };
   }
 
-  // Chat neuf cadré : outils « skill » et « fs », skill de procédure épinglé, cadrage envoyé au premier message.
-  async function launchSkillAssistantChat(): Promise<void> {
-    const form = e.skillAssistForm.value;
-    if (!(form.sujet || "").trim()) {
-      ctx.showToast("Sujet requis", "error");
-      return;
-    }
-    e.skillAssistForm.value = { ...form, open: false };
+  // Chat neuf cadré : Paramètres fermés, catégories cochées, skill de procédure épinglé, cadrage envoyé au premier message.
+  async function lancerAssistant(o: {
+    categories: string[];
+    skill: { name: string; description: string };
+    lignes: string[];
+    manquantes?: Record<string, string>;
+  }): Promise<void> {
     try {
       void ctx.closeSettings?.(true);
       void ctx.loadSettingsData?.();
@@ -264,37 +265,35 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     r.currentView.value = "chat";
     await dep.startNewChat();
     const lt = { ...e.localTools.value };
-    const manquants: string[] = [];
-    for (const cat of ["skill", "fs"]) {
-      if (cat in lt) lt[cat] = true;
-      else manquants.push(cat);
+    for (const cat of o.categories) if (cat in lt) lt[cat] = true;
+    for (const [cle, message] of Object.entries(o.manquantes ?? {})) {
+      const reglage = cle.startsWith(PREFIXE_REGLAGE) ? cle.slice(PREFIXE_REGLAGE.length) : null;
+      const absent = reglage ? r.settings.value[reglage] === false : !(cle in lt);
+      if (absent) ctx.showToast(message, "info");
     }
     e.localTools.value = lt;
-    if (manquants.includes("skill"))
-      ctx.showToast(
-        "Outils « Skills » indisponibles : l’assistant rédigera le skill sans pouvoir l’enregistrer lui-même",
-        "info",
-      );
-    if (!dep.pinnedSkills.value.some((s) => s.name === "creer-un-skill"))
-      dep.pinnedSkills.value.push({
-        name: "creer-un-skill",
-        description: "Entretien guidé de création de skill",
-        domain: "",
-      });
-    const lignes = [
-      "Je veux créer un nouveau skill. Voici le cadrage initial :",
-      `**Sujet :** ${form.sujet.trim()}`,
-    ];
-    if ((form.objectif || "").trim())
-      lignes.push(`**Objectif / résultat attendu :** ${form.objectif.trim()}`);
-    if ((form.domaine || "").trim()) lignes.push(`**Domaine :** ${form.domaine.trim()}`);
-    if (form.scripts) lignes.push(`**Scripts à embarquer :** ${form.scripts}`);
-    lignes.push(
-      "",
-      "Mène l'entretien pour le reste en posant tes questions groupées et numérotées en texte (plusieurs à la fois), puis rédige, enregistre et vérifie le skill.",
-    );
-    r.inputMessage.value = lignes.join("  \n");
+    if (!dep.pinnedSkills.value.some((s) => s.name === o.skill.name))
+      dep.pinnedSkills.value.push({ name: o.skill.name, description: o.skill.description, domain: "" });
+    r.inputMessage.value = o.lignes.join("  \n");
     await sendMessage();
+  }
+
+  async function lancerAssistantForm(): Promise<void> {
+    const form = e.assistantForm.value;
+    const d = ASSISTANTS[form.id];
+    if (!d) return;
+    const manque = d.champs.find((c) => c.requis && !(form.valeurs[c.cle] || "").trim());
+    if (manque) {
+      ctx.showToast(`${manque.libelle} requis`, "error");
+      return;
+    }
+    e.assistantForm.value = { ...form, open: false };
+    await lancerAssistant({
+      categories: d.categories,
+      skill: d.skill,
+      lignes: lignesCadrage(d, form.valeurs),
+      manquantes: d.manquantes,
+    });
   }
 
   return {
@@ -304,7 +303,8 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     imageVariants,
     runImageSlash,
     copyAssistantMessage,
-    startSkillAssistantChat,
-    launchSkillAssistantChat,
+    ouvrirAssistant,
+    lancerAssistant,
+    lancerAssistantForm,
   };
 }

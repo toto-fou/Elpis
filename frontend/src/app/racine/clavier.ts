@@ -51,7 +51,7 @@ export function creerClavier(s: EtatClavier) {
       vrai(c?.taskModal) ||
       vrai(c?.toolInfo) ||
       vrai(c?.runDetails) ||
-      !!c?.skillAssistForm.value.open ||
+      !!c?.assistantForm.value.open ||
       vrai(a?.showAxModal) ||
       vrai(e?.showGitCloneModal) ||
       vrai(e?.showGitInitModal) ||
@@ -152,8 +152,8 @@ export function creerClavier(s: EtatClavier) {
       m.auth.showNewUserModal.value = false;
       return;
     }
-    if (c?.skillAssistForm.value.open) {
-      c.skillAssistForm.value.open = false;
+    if (c?.assistantForm.value.open) {
+      c.assistantForm.value.open = false;
       return;
     }
     if (c?.toolInfo.value) {

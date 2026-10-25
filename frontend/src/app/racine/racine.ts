@@ -31,6 +31,7 @@ import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
 import { creerOpencode } from "./opencode";
+import { EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
 import { pageConsole } from "../page";
 import { creerSessionOnglet } from "./session-onglet";
 import type { Modules } from "./types";
@@ -939,11 +940,14 @@ export function creerRacine(options: OptionsRacine = {}) {
 
   // ── Cycle de vie ────────────────────────────────────────────────────────
   const avantDechargement = (): void => so.sauverSession();
+  const surOuvrirRoutine = (ev: Event): void =>
+    void n.ouvrirRoutine((ev as CustomEvent<{ id?: unknown }>).detail?.id);
   onMounted(async () => {
     document.addEventListener("click", onGlobalClick);
     // Capture : avant les gestionnaires du navigateur et des composants (cascade d'Échap).
     document.addEventListener("keydown", clavier.onGlobalKeydown, { capture: true });
     window.addEventListener("beforeunload", avantDechargement);
+    window.addEventListener(EVT_OUVRIR_ROUTINE, surOuvrirRoutine);
     document.addEventListener("dragend", importBac.finDeGlisser);
     // Capture : avant tout stopPropagation des lignes de l'arbre.
     document.addEventListener("drop", importBac.finDeGlisser, true);
@@ -964,6 +968,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     document.removeEventListener("click", onGlobalClick);
     document.removeEventListener("keydown", clavier.onGlobalKeydown, { capture: true });
     window.removeEventListener("beforeunload", avantDechargement);
+    window.removeEventListener(EVT_OUVRIR_ROUTINE, surOuvrirRoutine);
     document.removeEventListener("dragend", importBac.finDeGlisser);
     document.removeEventListener("drop", importBac.finDeGlisser, true);
     document.removeEventListener("visibilitychange", n.appliquerBadgeTitre);

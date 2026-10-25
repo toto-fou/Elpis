@@ -10,7 +10,7 @@ export interface RacineSkills {
   settingsTab: string;
   renderMarkdown(source: string): string;
   handleMarkdownClick(ev: MouseEvent): unknown;
-  startSkillAssistantChat(): unknown;
+  ouvrirAssistant(id: string, pre?: Record<string, string>): unknown;
 }
 
 export type DomaineSkills = ShallowUnwrapRef<SurfaceSkills> & RacineSkills;
@@ -21,7 +21,7 @@ const CLES: Readonly<Record<keyof RacineSkills | "skillsByScope", true>> = {
   settingsTab: true,
   renderMarkdown: true,
   handleMarkdownClick: true,
-  startSkillAssistantChat: true,
+  ouvrirAssistant: true,
   skillsByScope: true,
 };
 

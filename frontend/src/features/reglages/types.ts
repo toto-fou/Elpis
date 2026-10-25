@@ -76,6 +76,7 @@ export interface ReglagesApp {
   memory_enabled?: boolean;
   image_enabled?: boolean;
   image_tool_enabled?: boolean;
+  routine_tool_enabled?: boolean;
   image_prefs?: PreferencesImage;
   agents_enabled?: boolean;
   opencode_mcp_families?: Record<string, boolean>;

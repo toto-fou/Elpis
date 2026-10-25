@@ -1,9 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/routines/FormulaireRoutine.vue — formulaire de création et de modification par onglets (général, planification, tâche, outils). -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import BoutonAssistant from "../communs/BoutonAssistant.vue";
 import { domaineRoutines } from "../../features/routines/domaine";
 
 const rt = domaineRoutines();
+
+// Seules les catégories qui ont au moins un outil sont offertes à une routine.
+const categoriesLocales = computed(() =>
+  (rt.mcpUserCategories || []).filter((c) => !Array.isArray(c["tools"]) || c["tools"].length > 0),
+);
+
+async function versAssistantSkill(): Promise<void> {
+  if (await rt.confirmerAbandon()) rt.ouvrirAssistant("skill");
+}
 </script>
 
 <template>
@@ -463,15 +475,12 @@ const rt = domaineRoutines();
               <!-- Outils locaux -->
               <div>
                 <div class="text-xs font-semibold text-slate-600 mb-1.5">Outils locaux</div>
-                <div
-                  v-if="(rt.mcpUserCategories || []).length === 0"
-                  class="text-[11px] text-slate-400 italic"
-                >
+                <div v-if="categoriesLocales.length === 0" class="text-[11px] text-slate-400 italic">
                   Aucune catégorie locale disponible.
                 </div>
                 <div v-else class="grid gap-0.5 sm:grid-cols-2" data-mcp-local>
                   <label
-                    v-for="cat in rt.mcpUserCategories"
+                    v-for="cat in categoriesLocales"
                     :key="cat.name"
                     class="relative flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer min-w-0"
                   >
@@ -531,6 +540,18 @@ const rt = domaineRoutines();
               <p class="text-[10px] text-slate-400 mb-1.5">
                 Cocher un paquet embarque tous ses skills ; cocher un skill dessous ne cible que lui.
               </p>
+              <p
+                v-if="rt.routineSkillsLoadedOk && rt.aucunSkillPerso"
+                class="text-[11px] text-slate-400 italic mb-1.5"
+              >
+                Aucun skill personnel. Créez-les depuis la page Skills ou
+                <BoutonAssistant
+                  lien
+                  libelle="créez-en un avec l'assistant"
+                  class="not-italic"
+                  @click="versAssistantSkill"
+                />.
+              </p>
               <div v-if="rt.routineSkillsLoading && !rt.routineSkills.length" class="text-center py-2">
                 <i class="ph ph-spinner animate-spin text-slate-300"></i>
               </div>
@@ -549,7 +570,7 @@ const rt = domaineRoutines();
                 </button>
               </div>
               <div v-else-if="!rt.routineSkills.length" class="text-[11px] text-slate-400 italic">
-                Aucun skill disponible. Créez-les depuis la page Skills.
+                Aucun skill disponible.
               </div>
               <!-- Arbre : racines (paquets dépliables via chevron) → sous-skills indentés. -->
               <div v-else class="max-h-[45vh] overflow-y-auto custom-scrollbar space-y-0.5">

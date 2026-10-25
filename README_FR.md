@@ -249,7 +249,6 @@ sudo ./elpis service install   # services systemd
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Faille de sécurité : signalement privé, voir [SECURITY.md](SECURITY.md).
 - Licence **MIT** ([LICENSE](LICENSE), [NOTICE](NOTICE)). Composants
-  tiers : [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Nom et logo :
-  [TRADEMARKS.md](TRADEMARKS.md).
+  tiers : [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Mainteneur et titulaire des droits : [toto-fou](https://github.com/toto-fou)
   ([AUTHORS](AUTHORS)).

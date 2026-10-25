@@ -256,7 +256,6 @@ Most of these documents are still in French.
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Security issue: report it privately, see [SECURITY.md](SECURITY.md).
 - **MIT** license ([LICENSE](LICENSE), [NOTICE](NOTICE)). Third-party
-  components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Name and
-  logo: [TRADEMARKS.md](TRADEMARKS.md).
+  components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Maintainer and copyright holder: [toto-fou](https://github.com/toto-fou)
   ([AUTHORS](AUTHORS)).

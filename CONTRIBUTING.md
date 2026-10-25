@@ -103,5 +103,4 @@ La participation au projet suppose le respect du
 ## Licence
 
 En contribuant, vous acceptez que votre contribution soit distribuée sous
-licence MIT (voir [LICENSE](LICENSE)). Le nom et le logo « Elpis » ne sont pas
-couverts par cette licence : voir [TRADEMARKS.md](TRADEMARKS.md).
+licence MIT (voir [LICENSE](LICENSE)).

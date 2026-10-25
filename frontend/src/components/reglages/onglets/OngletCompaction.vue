@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletCompaction.vue — onglet « compaction » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,19 +10,16 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Compaction</h3>
-      <p class="text-xs text-slate-500">
-        Quand l'assistant résume les anciens tours pour libérer du contexte.
-      </p>
-    </div>
+    <AideOnglet titre="Compaction"
+      >Quand l'assistant résume les anciens tours pour libérer du contexte.</AideOnglet
+    >
 
     <div class="bg-slate-50 rounded-xl">
       <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
         <i class="ph ph-arrows-in-line-horizontal text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Compaction automatique</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Désactivée par défaut. Une fois activée, l'assistant résume tout seul les anciens tours quand le
             contexte se remplit.
           </div>
@@ -49,15 +47,14 @@ const rg = domaineReglages();
         >
           <option value="auto">Auto</option>
           <option value="pct">Pourcentage</option>
-          <option value="tokens">Tokens</option>
+          <option value="tokens">Jetons</option>
         </select>
       </div>
 
       <div v-if="rg.compactionUnit === 'pct'" class="mt-3">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-[11px] text-slate-500">Part de la fenêtre</span>
-          <span
-            class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
+          <span class="text-xs text-slate-500">Part de la fenêtre</span>
+          <span class="text-xs font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
             >{{ rg.compactionPct }} %</span
           >
         </div>
@@ -74,9 +71,7 @@ const rg = domaineReglages();
       </div>
 
       <div v-else-if="rg.compactionUnit === 'tokens'" class="mt-3">
-        <label for="set-compact-tokens" class="block text-[11px] text-slate-500 mb-2"
-          >Tokens de contexte</label
-        >
+        <label for="set-compact-tokens" class="block text-xs text-slate-500 mb-2">Jetons de contexte</label>
         <div class="flex items-center gap-2">
           <input
             id="set-compact-tokens"
@@ -91,13 +86,13 @@ const rg = domaineReglages();
             @change="rg.persistCompactionThreshold()"
           />
           <span
-            class="text-[11px] font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
+            class="text-xs font-mono text-blue-600 bg-white px-2 py-0.5 rounded border border-slate-200"
             >{{ rg.compactionTokensLabel }}</span
           >
         </div>
       </div>
 
-      <p class="text-[11px] text-slate-500 mt-2">{{ rg.compactionThresholdHint }}</p>
+      <p class="text-xs text-slate-500 mt-2">{{ rg.compactionThresholdHint }}</p>
     </div>
 
     <div v-if="rg.settings.compression_enabled" class="bg-slate-50 rounded-lg p-3.5">
@@ -116,9 +111,7 @@ const rg = domaineReglages();
       </div>
 
       <div v-if="rg.compactionRoundsMode === 'custom'" class="mt-3">
-        <label for="set-compact-rounds-n" class="block text-[11px] text-slate-500 mb-2"
-          >Par conversation</label
-        >
+        <label for="set-compact-rounds-n" class="block text-xs text-slate-500 mb-2">Par conversation</label>
         <input
           id="set-compact-rounds-n"
           type="number"
@@ -133,18 +126,18 @@ const rg = domaineReglages();
         />
       </div>
 
-      <p class="text-[11px] text-slate-500 mt-2">{{ rg.compactionRoundsHint }}</p>
+      <p class="text-xs text-slate-500 mt-2">{{ rg.compactionRoundsHint }}</p>
     </div>
 
     <div class="bg-slate-50 rounded-lg px-3.5 py-3 space-y-2">
-      <div v-if="rg.settings.compression_enabled" class="flex gap-2.5 text-[11px] text-slate-500">
+      <div v-if="rg.settings.compression_enabled" class="flex gap-2.5 text-xs text-slate-500">
         <i class="ph ph-infinity text-slate-400 text-base shrink-0"></i>
         <span
           >La compaction s'intercale entre deux appels d'outils : une tâche de plusieurs heures tient sans
           jamais saturer la fenêtre.</span
         >
       </div>
-      <div class="flex gap-2.5 text-[11px] text-slate-500">
+      <div class="flex gap-2.5 text-xs text-slate-500">
         <i class="ph ph-terminal text-slate-400 text-base shrink-0"></i>
         <span
           >La commande <span class="font-mono">/compact</span> reste disponible dans tous les cas, seuil ou

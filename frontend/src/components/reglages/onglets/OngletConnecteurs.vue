@@ -1,21 +1,22 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletConnecteurs.vue — onglet « connectors » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
+import { interfaceApp } from "../../../features/reglages/interface";
 
 const rg = domaineReglages();
+const ui = interfaceApp();
+const titre = ui.classique ? "Connecteurs Git" : "Comptes Git";
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Connecteurs Git</h3>
-      <p class="text-xs text-slate-500">
-        Vos tokens Git (GitHub, GitLab, Bitbucket, Gitea), stockés côté serveur. Servent au push/pull et aux
-        PR/MR authentifiés.
-      </p>
-    </div>
+    <AideOnglet :titre="titre"
+      >Vos jetons Git (GitHub, GitLab, Bitbucket, Gitea), pour le push/pull et les PR
+      authentifiés.</AideOnglet
+    >
 
     <div v-if="rg.gitConnectors.length" class="space-y-2">
       <div v-for="c in rg.gitConnectors" :key="c.id" class="border border-slate-200 rounded-xl p-3.5">
@@ -25,13 +26,13 @@ const rg = domaineReglages();
             <div class="text-sm font-medium text-slate-800 truncate">
               {{ c.host }}<span v-if="c.label" class="text-slate-500 font-normal"> · {{ c.label }}</span>
             </div>
-            <div class="text-[11px] text-slate-500">
+            <div class="text-xs text-slate-500">
               {{ c.provider_type }}<span v-if="c.username"> · {{ c.username }}</span>
             </div>
           </div>
           <span
             v-if="rg.gitConnTest[c.id]"
-            class="text-[11px] shrink-0"
+            class="text-xs shrink-0"
             :class="
               rg.gitConnTest[c.id]?.testing
                 ? 'text-slate-500'
@@ -50,7 +51,7 @@ const rg = domaineReglages();
           </span>
           <button
             title="Tester la connexion"
-            class="px-2 py-1 text-[11px] rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
+            class="px-2 py-1 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
             @click="rg.testGitConnector(c)"
           >
             Tester
@@ -74,7 +75,7 @@ const rg = domaineReglages();
         </div>
         <p
           v-if="rg.gitConnTest[c.id] && rg.gitConnTest[c.id]?.hint && !rg.gitConnTest[c.id]?.ok"
-          class="text-[10.5px] text-amber-600 mt-2 leading-snug"
+          class="text-xs text-amber-600 mt-2 leading-snug"
         >
           {{ rg.gitConnTest[c.id]?.hint }}
         </p>
@@ -90,7 +91,7 @@ const rg = domaineReglages();
       </div>
 
       <div>
-        <label class="text-[11px] font-medium text-slate-500">Service</label>
+        <label class="text-xs font-medium text-slate-500">Service</label>
         <select
           v-model="rg.gitConnForm.provider_type"
           class="set-select w-full mt-0.5"
@@ -101,7 +102,7 @@ const rg = domaineReglages();
       </div>
 
       <div v-if="!rg.gitConnForm.id">
-        <label class="text-[11px] font-medium text-slate-500">URL du dépôt à cloner</label>
+        <label class="text-xs font-medium text-slate-500">URL du dépôt à cloner</label>
         <input
           v-model="rg.gitConnForm.repo_url"
           placeholder="https://git.example.lan/team/repo.git"
@@ -109,18 +110,18 @@ const rg = domaineReglages();
           @change="rg.parseGitRepoUrl()"
           @blur="rg.parseGitRepoUrl()"
         />
-        <p v-if="rg.gitConnForm.host" class="text-[10.5px] text-slate-500 mt-1">
+        <p v-if="rg.gitConnForm.host" class="text-xs text-slate-500 mt-1">
           Host détecté : <span class="font-mono text-slate-600">{{ rg.gitConnForm.host }}</span>
         </p>
       </div>
 
       <div class="grid grid-cols-2 gap-2.5">
         <div>
-          <label class="text-[11px] font-medium text-slate-500">Login</label>
+          <label class="text-xs font-medium text-slate-500">Login</label>
           <input v-model="rg.gitConnForm.username" placeholder="utilisateur" class="set-input mt-0.5" />
         </div>
         <div>
-          <label class="text-[11px] font-medium text-slate-500">{{
+          <label class="text-xs font-medium text-slate-500">{{
             rg.gitConnForm.provider_type === "github" ? "Token (PAT)" : "Mot de passe / token"
           }}</label>
           <input
@@ -145,14 +146,14 @@ const rg = domaineReglages();
 
       <button
         type="button"
-        class="text-[11px] text-slate-500 hover:text-slate-700 flex items-center gap-1"
+        class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
         @click="rg.gitConnAdvanced = !rg.gitConnAdvanced"
       >
         <i class="ph" :class="rg.gitConnAdvanced ? 'ph-minus' : 'ph-plus'"></i> Paramètres avancés
       </button>
       <div v-if="rg.gitConnAdvanced" class="space-y-2.5 pt-2 border-t border-blue-100">
         <div>
-          <label class="text-[11px] font-medium text-slate-500">host (override)</label>
+          <label class="text-xs font-medium text-slate-500">host (override)</label>
           <input
             v-model="rg.gitConnForm.host"
             placeholder="git.example.lan:3000 (host:port, sans http://)"
@@ -160,7 +161,7 @@ const rg = domaineReglages();
           />
         </div>
         <div>
-          <label class="text-[11px] font-medium text-slate-500">api_base (PR / test)</label>
+          <label class="text-xs font-medium text-slate-500">api_base (PR / test)</label>
           <input
             v-model="rg.gitConnForm.api_base"
             placeholder="http://git.example.lan:3000/api/v1 (Gitea/GitLab HTTP)"

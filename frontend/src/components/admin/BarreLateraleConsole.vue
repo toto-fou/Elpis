@@ -230,6 +230,23 @@ const adm = domaineAdmin();
               aria-hidden="true"
             ></i>
           </button>
+          <button
+            type="button"
+            class="adm-menu__item"
+            role="switch"
+            data-interface-classique
+            title="Revient à l'ancienne disposition du composeur, des menus, du fil de travail, des Paramètres et de la console."
+            :aria-checked="adm.settings && adm.settings.classic_ui === true ? 'true' : 'false'"
+            @click="adm.setClassicUi(!(adm.settings && adm.settings.classic_ui === true))"
+          >
+            <i class="ph ph-layout" aria-hidden="true"></i>
+            <span class="flex-1">Interface classique</span>
+            <i
+              v-if="adm.settings && adm.settings.classic_ui === true"
+              class="ph ph-check adm-menu__check"
+              aria-hidden="true"
+            ></i>
+          </button>
           <p class="adm-menu__note">Identique à vos Paramètres › Apparence.</p>
           <div class="adm-menu__sep" role="separator"></div>
           <button

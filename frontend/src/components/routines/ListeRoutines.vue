@@ -39,18 +39,21 @@ const rt = domaineRoutines();
         >
           <div class="flex items-center gap-2">
             <span class="font-medium text-sm text-slate-800 truncate flex-1">{{ r.name }}</span>
+            <span v-if="!r.enabled" class="text-xs font-semibold text-slate-700 shrink-0">En pause</span>
             <span
               class="w-2 h-2 rounded-full shrink-0"
               :class="r.enabled ? 'bg-emerald-400' : 'bg-slate-300'"
-              :title="r.enabled ? 'Active' : 'Désactivée'"
+              :title="r.enabled ? 'Active' : 'En pause'"
             ></span>
           </div>
-          <p class="text-[11px] text-slate-500 mt-0.5 font-mono truncate">{{ r.cron_expr }}</p>
+          <p class="text-xs text-slate-500 mt-0.5 truncate" :title="r.cron_expr">
+            {{ rt.cronLisible(r.cron_expr) }}
+          </p>
           <!-- Statut « d'un coup d'œil » de la dernière exécution (ou « en cours »). -->
           <div class="flex items-center gap-1.5 mt-1">
             <template v-if="r.running_count > 0">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
-              <span class="text-[10px] font-medium text-blue-600">En cours…</span>
+              <span class="text-xs font-medium text-blue-600">En cours…</span>
             </template>
             <template v-else-if="r.last_run">
               <span
@@ -62,12 +65,12 @@ const rt = domaineRoutines();
                   'bg-slate-400': r.last_run.status === 'cancelled',
                 }"
               ></span>
-              <span class="text-[10px] text-slate-500 truncate"
+              <span class="text-xs text-slate-500 truncate"
                 >{{ rt.runStatusLabel(r.last_run.status) }} · {{ rt.fmtRelTime(r.last_run.started_at) }}</span
               >
             </template>
             <template v-else>
-              <span class="text-[10px] text-slate-400 italic">Jamais exécutée</span>
+              <span class="text-xs text-slate-400 italic">Jamais exécutée</span>
             </template>
           </div>
         </button>

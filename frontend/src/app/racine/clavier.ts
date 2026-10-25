@@ -287,7 +287,7 @@ export function creerClavier(s: EtatClavier) {
     if (vue === "routines") {
       const ro = m.routines;
       // En pleine édition, Échap revient à la lecture (même geste que la flèche) au lieu de tout jeter.
-      if (ro?.routineIsEditing.value) ro.cancelRoutineEdit();
+      if (ro?.routineIsEditing.value) void ro.cancelRoutineEdit();
       else if (ro) ro.closeRoutinesPage();
       else s.currentView.value = "chat";
       return;

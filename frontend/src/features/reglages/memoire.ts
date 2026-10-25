@@ -83,7 +83,7 @@ export function setupMemoire(ctx: CtxMemoire | null | undefined, dep: Dependance
         : { day: "2-digit", month: "2-digit", year: "numeric" },
     );
     let label: string;
-    if (o.source === "settings") label = "Réglages";
+    if (o.source === "settings") label = "Paramètres";
     else if (o.source === "undo") label = "annulation";
     else if (o.chat_id && o.chat_title) label = "« " + o.chat_title + " »";
     else if (o.chat_id) label = "chat supprimé";

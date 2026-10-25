@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletSandbox.vue — onglet « sandbox » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -10,11 +11,10 @@ const rg = domaineReglages();
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="max-w-2xl">
     <div class="mb-4">
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Sandbox</h3>
-      <p class="text-xs text-slate-500">
-        Container Docker isolé pour Robot Framework, les scripts et le shell. Votre dossier de travail y est
-        monté sur <code class="font-mono">/work</code>.
-      </p>
+      <AideOnglet titre="Sandbox"
+        >Conteneur isolé pour les scripts et le shell ; votre dossier de travail y est monté sur
+        <code class="font-mono">/work</code>.</AideOnglet
+      >
     </div>
 
     <div v-if="rg.transitionState.active" class="set-block">
@@ -68,7 +68,7 @@ const rg = domaineReglages();
           Journal du container
         </summary>
         <pre
-          class="mt-1.5 bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] leading-relaxed overflow-x-auto max-h-48 whitespace-pre-wrap"
+          class="mt-1.5 bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-xs leading-relaxed overflow-x-auto max-h-48 whitespace-pre-wrap"
           >{{ rg.transitionState.containerLogs }}</pre>
       </details>
     </div>
@@ -89,7 +89,7 @@ const rg = domaineReglages();
 
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-slate-800">{{ rg.sandboxStatus.label }}</div>
-            <div v-if="rg.sandboxStatus.mono" class="font-mono text-[11px] text-slate-500 truncate">
+            <div v-if="rg.sandboxStatus.mono" class="font-mono text-xs text-slate-500 truncate">
               {{ rg.sandboxStatus.mono }}
             </div>
             <div v-else-if="rg.sandboxStatus.detail && !rg.sandboxTone.alert" class="text-xs text-slate-500">
@@ -252,12 +252,12 @@ const rg = domaineReglages();
             <span
               v-for="ip in (rg.activeNetProfile.ips || []).slice(0, 8)"
               :key="ip"
-              class="font-mono text-[11px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded"
+              class="font-mono text-xs px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded"
               >{{ ip }}</span
             >
             <span
               v-if="(rg.activeNetProfile.ips || []).length > 8"
-              class="text-[11px] text-slate-500 px-1 self-center"
+              class="text-xs text-slate-500 px-1 self-center"
               >+{{ (rg.activeNetProfile.ips || []).length - 8 }}</span
             >
           </div>
@@ -272,7 +272,7 @@ const rg = domaineReglages();
           <span class="w-2.5 shrink-0" aria-hidden="true"></span>
           <dl class="flex-1 min-w-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
             <dt class="text-slate-500">Image</dt>
-            <dd class="font-mono text-[11px] text-slate-700 truncate">
+            <dd class="font-mono text-xs text-slate-700 truncate">
               {{ rg.sandboxState.image }}
             </dd>
             <template v-if="rg.sandboxState.limits && rg.sandboxState.limits.memory_mb">

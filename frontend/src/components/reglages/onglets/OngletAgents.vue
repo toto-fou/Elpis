@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletAgents.vue — onglet « agents » des Paramètres. -->
 <script setup lang="ts">
+import AideLigne from "../AideLigne.vue";
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import CaseLectureSeuleAgent from "../CaseLectureSeuleAgent.vue";
 
@@ -10,17 +12,14 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-2xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Agents</h3>
-      <p class="text-xs text-slate-500">
-        Sous-missions déléguées à des agents éphémères via l'outil
-        <span class="font-mono">task</span>, et agents personnalisés façon OpenCode.
-      </p>
-    </div>
+    <AideOnglet titre="Agents"
+      >Sous-missions déléguées à des agents éphémères via l'outil <span class="font-mono">task</span>, et
+      agents personnalisés façon OpenCode.</AideOnglet
+    >
 
     <p
       v-if="!rg.features.agents"
-      class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+      class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
     >
       Sous-agents désactivés sur cette instance (réglage administrateur).
     </p>
@@ -29,7 +28,7 @@ const rg = domaineReglages();
         <i class="ph ph-users-three text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Activer les sous-agents</div>
-          <div class="text-[11px] text-slate-500">
+          <div class="text-xs text-slate-500">
             Désactivés par défaut. Une fois activés, l'assistant peut déléguer une sous-mission (explorer,
             implémenter, vérifier, chercher sur le web, ouvrir une PR) à un agent isolé via l'outil task.
           </div>
@@ -48,7 +47,7 @@ const rg = domaineReglages();
 
     <p
       v-if="rg.settings.agents_enabled && rg.agentBank.length && !rg.agentBank.some((a) => a.enabled)"
-      class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+      class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
       data-agents-none-active
     >
       Aucun agent actif : outil task indisponible.
@@ -60,12 +59,12 @@ const rg = domaineReglages();
           <i class="ph ph-users-three text-slate-400" aria-hidden="true"></i> Banque d'agents
         </div>
         <span
-          class="text-[11px] text-slate-400 font-mono"
+          class="text-xs text-slate-400 font-mono"
           title="Agents personnalisés (les modèles ne comptent pas)"
           >{{ rg.agentCustomCount }} / {{ rg.CUSTOM_AGENTS_MAX }}</span
         >
       </div>
-      <p id="agents-lecture-seule-aide" class="text-[11px] text-slate-500 mb-2">
+      <p id="agents-lecture-seule-aide" class="text-xs text-slate-500 mb-2">
         Lecture seule : l'agent n'écrit aucun fichier, ne fait aucun commit et ne lance ni tâche de fond ni
         shell ; il garde la lecture.
       </p>
@@ -91,27 +90,27 @@ const rg = domaineReglages();
                 <span class="text-sm font-mono font-medium text-slate-800 truncate">{{ a.name }}</span>
                 <span
                   v-if="a.template"
-                  class="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
+                  class="text-xs font-medium px-1.5 py-0.5 rounded shrink-0"
                   :class="a.modified ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'"
                   :title="a.modified ? 'Modèle livré, personnalisé' : 'Modèle livré'"
                   data-agent-badge
                   >{{ a.modified ? "modifié" : "modèle" }}</span
                 >
               </div>
-              <div class="text-[11px] text-slate-500 truncate">{{ a.description }}</div>
+              <div class="text-xs text-slate-500 truncate">{{ a.description }}</div>
             </div>
             <div class="flex items-center gap-1 shrink-0 max-w-[38%] overflow-hidden">
               <span
                 v-for="cat in a.tool_categories"
                 :key="cat"
-                class="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap"
+                class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap"
                 >{{ ((rg.mcpUserCategories || []).find((c) => c.name === cat) || {}).label || cat }}</span
               >
               <span
                 v-for="sid in a.mcp_server_ids"
                 :key="sid"
-                class="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap inline-flex items-center gap-1"
-                ><i class="ph ph-plug text-[10px]" aria-hidden="true"></i
+                class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 whitespace-nowrap inline-flex items-center gap-1"
+                ><i class="ph ph-plug text-xs" aria-hidden="true"></i
                 >{{ ((rg.agentMcpChoices || []).find((s) => s.id === sid) || {}).name || sid }}</span
               >
             </div>
@@ -193,7 +192,7 @@ const rg = domaineReglages();
         }}
       </div>
       <div>
-        <label class="text-[11px] font-medium text-slate-500">Nom</label>
+        <label class="text-xs font-medium text-slate-500">Nom</label>
 
         <div
           v-if="rg.agentForm._template"
@@ -208,16 +207,14 @@ const rg = domaineReglages();
           placeholder="docs-writer"
           class="set-input font-mono mt-0.5"
         />
-        <p class="text-[10.5px] text-slate-500 mt-1">
-          {{
-            rg.agentForm._template
-              ? "Modèle livré — dupliquez-le pour une variante sous un autre nom."
-              : "1-32 caractères : a-z, 0-9, tirets. C'est la valeur que le modèle passe à l'outil task."
-          }}
-        </p>
+        <AideLigne>{{
+          rg.agentForm._template
+            ? "Modèle livré — dupliquez-le pour une variante sous un autre nom."
+            : "1-32 caractères : a-z, 0-9, tirets. C'est la valeur que le modèle passe à l'outil task."
+        }}</AideLigne>
       </div>
       <div>
-        <label class="text-[11px] font-medium text-slate-500">Description</label>
+        <label class="text-xs font-medium text-slate-500">Description</label>
         <input
           v-model="rg.agentForm.description"
           maxlength="200"
@@ -228,16 +225,16 @@ const rg = domaineReglages();
           "
           class="set-input mt-0.5"
         />
-        <p class="text-[10.5px] text-slate-500 mt-1">Une ligne — sert au modèle pour choisir cet agent.</p>
+        <AideLigne>Une ligne — sert au modèle pour choisir cet agent.</AideLigne>
       </div>
       <div>
         <div class="flex items-center justify-between gap-2">
-          <label class="text-[11px] font-medium text-slate-500">Prompt système</label>
+          <label class="text-xs font-medium text-slate-500">Prompt système</label>
           <button
             v-if="rg.agentFormPromptDiffers"
             data-agent-prompt-restore
             title="Rendre la persona livrée avec ce modèle"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[11px] font-semibold transition-colors"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors"
             @click="rg.restoreTemplatePrompt()"
           >
             <i class="ph ph-arrow-counter-clockwise text-[13px]" aria-hidden="true"></i> Prompt livré
@@ -245,7 +242,7 @@ const rg = domaineReglages();
           <button
             v-else-if="!(rg.agentForm.prompt || '').trim()"
             title="Insère la structure des agents intégrés : rôle, objectif, guidage outil, méthode, effort, contraintes, rapport, exemples"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 text-[11px] font-semibold transition-colors"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 text-xs font-semibold transition-colors"
             @click="rg.insertAgentTemplate()"
           >
             <i class="ph ph-file-text text-[13px]" aria-hidden="true"></i> Gabarit
@@ -257,18 +254,16 @@ const rg = domaineReglages();
           placeholder="Tu es un spécialiste de… — bouton Gabarit pour la structure recommandée"
           class="set-textarea font-mono mt-0.5 w-full"
         ></textarea>
-        <p class="text-[10.5px] text-slate-500 mt-1">
-          {{
-            rg.agentForm._template
-              ? "Identique au livré = l'agent suit les mises à jour du modèle."
-              : "Remplace le prompt de base pour cet agent."
-          }}
-        </p>
+        <AideLigne>{{
+          rg.agentForm._template
+            ? "Identique au livré = l'agent suit les mises à jour du modèle."
+            : "Remplace le prompt de base pour cet agent."
+        }}</AideLigne>
       </div>
 
       <div>
-        <label class="text-[11px] font-medium text-slate-500">Outils locaux</label>
-        <div v-if="(rg.mcpUserCategories || []).length === 0" class="text-[11px] text-slate-400 italic mt-1">
+        <label class="text-xs font-medium text-slate-500">Outils locaux</label>
+        <div v-if="(rg.mcpUserCategories || []).length === 0" class="text-xs text-slate-400 italic mt-1">
           Aucune catégorie d'outils disponible.
         </div>
         <div v-else class="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1">
@@ -299,16 +294,14 @@ const rg = domaineReglages();
             </span>
           </label>
         </div>
-        <p class="text-[10.5px] text-slate-500 mt-1">
-          {{
-            rg.agentForm._template
-              ? "Catégories entières. Aucune sélection = celles du modèle."
-              : "Catégories entières. Aucune sélection = socle par défaut : Fichiers, Terminal, Git."
-          }}
-        </p>
+        <AideLigne>{{
+          rg.agentForm._template
+            ? "Catégories entières. Aucune sélection = celles du modèle."
+            : "Catégories entières. Aucune sélection = socle par défaut : Fichiers, Terminal, Git."
+        }}</AideLigne>
       </div>
       <div v-if="(rg.agentMcpChoices || []).length">
-        <label class="text-[11px] font-medium text-slate-500">Serveurs MCP</label>
+        <label class="text-xs font-medium text-slate-500">Serveurs MCP</label>
         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1">
           <label
             v-for="srv in rg.agentMcpChoices"
@@ -336,13 +329,13 @@ const rg = domaineReglages();
             </span>
           </label>
         </div>
-        <p class="text-[10.5px] text-slate-500 mt-1">
-          L'agent se connecte à ces serveurs en plus des outils locaux cochés — même s'ils ne sont pas actifs
-          dans le chat.
-        </p>
+        <AideLigne
+          >L'agent se connecte à ces serveurs en plus des outils locaux cochés — même s'ils ne sont pas actifs
+          dans le chat.</AideLigne
+        >
       </div>
       <div>
-        <label class="text-[11px] font-medium text-slate-500">Budget d'itérations</label>
+        <label class="text-xs font-medium text-slate-500">Budget d'itérations</label>
         <input
           v-model="rg.agentForm.max_iters"
           type="number"
@@ -353,9 +346,7 @@ const rg = domaineReglages();
           "
           class="set-input font-mono mt-0.5"
         />
-        <p class="text-[10.5px] text-slate-500 mt-1">
-          Nombre d'appels d'outils avant arrêt. Vide = valeur par défaut.
-        </p>
+        <AideLigne>Nombre d'appels d'outils avant arrêt. Vide = valeur par défaut.</AideLigne>
       </div>
       <div v-if="rg.agentFormError" class="text-xs text-red-600 bg-red-500/10 rounded-lg px-3 py-2">
         {{ rg.agentFormError }}

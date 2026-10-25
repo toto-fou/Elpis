@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,10 +10,7 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Apparence</h3>
-      <p class="text-xs text-slate-500">Identité visuelle de l'assistant dans le chat.</p>
-    </div>
+    <AideOnglet titre="Apparence">Identité visuelle de l'assistant dans le chat.</AideOnglet>
 
     <div class="bg-slate-50 rounded-xl">
       <div class="set-row">
@@ -45,6 +43,26 @@ const rg = domaineReglages();
           </button>
         </div>
       </div>
+      <label
+        class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl"
+        title="Revient à l'ancienne disposition du composeur, des menus, du fil de travail, des Paramètres et de la console."
+      >
+        <i class="ph ph-layout text-slate-400 text-lg w-5" aria-hidden="true"></i>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-slate-800">Interface classique</div>
+        </div>
+        <div class="relative inline-flex items-center shrink-0">
+          <input
+            type="checkbox"
+            role="switch"
+            class="sr-only peer"
+            data-interface-classique
+            :checked="rg.settings.classic_ui === true"
+            @change="rg.setClassicUi(($event.target as HTMLInputElement).checked)"
+          />
+          <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+        </div>
+      </label>
     </div>
 
     <div>
@@ -59,7 +77,7 @@ const rg = domaineReglages();
           {{ sk.label }}
         </option>
       </select>
-      <p class="text-[11px] text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
+      <p class="text-xs text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
     </div>
 
     <div v-if="rg.mascottesOffertes">
@@ -84,7 +102,7 @@ const rg = domaineReglages();
               class="mt-0.5 rounded border-slate-300 text-blue-600"
               @change="rg.settings.welcome_mascot_anime = ($event.target as HTMLInputElement).checked"
             />
-            <span class="text-[11px] text-slate-500 leading-snug">
+            <span class="text-xs text-slate-500 leading-snug">
               Animer l'accueil.
               <span v-if="rg.mouvementReduit" class="text-slate-400"
                 >Ton système demande moins de mouvement : décoche pour rendre la scène à l'arrêt.</span
@@ -143,7 +161,7 @@ const rg = domaineReglages();
           class="set-input font-medium text-slate-800"
         />
       </div>
-      <p class="text-[11px] text-slate-500 mt-1.5 leading-snug">
+      <p class="text-xs text-slate-500 mt-1.5 leading-snug">
         L'avatar de l'assistant est le logo de l'application, choisi par l'administrateur.
       </p>
     </div>

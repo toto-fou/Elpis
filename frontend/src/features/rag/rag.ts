@@ -436,6 +436,7 @@ export function creerRag(api: ApiRag, refs: RefsRag, ctx: CtxRag, dep: DepRag = 
     dialogueOuvert,
     sources,
     commande,
+    informer: (m: string): void => ctx.showToast(m, "info"),
     ouvrir,
     ouvrirSur,
     fermer,

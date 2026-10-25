@@ -100,9 +100,10 @@ function surClavierOnglets(e: KeyboardEvent): void {
             v-else-if="rg.estProprietaire"
             type="button"
             class="rag-link rag-desc"
+            title="L’assistant lit la description pour savoir quand chercher dans cette collection"
             @click="rg.choisirOnglet('reglages')"
           >
-            Ajouter une description : l’assistant la lit pour savoir quand chercher
+            Ajouter une description
           </button>
         </div>
         <div v-if="rg.estProprietaire" class="rag-actions">

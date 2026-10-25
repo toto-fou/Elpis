@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletUtilisation.vue — onglet « usage » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -10,10 +11,7 @@ const rg = domaineReglages();
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-2xl">
     <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h3 class="text-base font-semibold text-slate-800 mb-1">Utilisation</h3>
-        <p class="text-xs text-slate-500">Votre activité sur la période sélectionnée.</p>
-      </div>
+      <AideOnglet titre="Utilisation">Votre activité sur la période sélectionnée.</AideOnglet>
 
       <div class="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5 text-xs font-medium shrink-0">
         <button
@@ -51,8 +49,8 @@ const rg = domaineReglages();
         <div class="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
           <i class="ph ph-coins text-blue-500" aria-hidden="true"></i>
           <span
-            title="Tokens envoyés au modèle et générés par lui, toutes requêtes comprises (itérations d'outils, routines, sous-agents)"
-            >Tokens</span
+            title="Jetons envoyés au modèle et générés par lui, toutes requêtes comprises (itérations d'outils, routines, sous-agents)"
+            >Jetons</span
           >
           <span
             class="ml-auto text-xl font-bold text-slate-800 tabular-nums"
@@ -65,7 +63,7 @@ const rg = domaineReglages();
             v-for="b in rg.usageBars"
             :key="'ub-' + b.key"
             role="listitem"
-            class="flex items-center gap-2 text-[11px]"
+            class="flex items-center gap-2 text-xs"
             :title="b.title"
           >
             <span
@@ -94,7 +92,7 @@ const rg = domaineReglages();
           <div
             v-for="s in rg.usageData.tokens?.by_source"
             :key="'us-' + s.source"
-            class="flex items-center gap-2 text-[11px]"
+            class="flex items-center gap-2 text-xs"
             :title="rg.usageSourceTitle(s)"
           >
             <span class="w-20 shrink-0 truncate text-slate-500">{{ rg.usageSourceLabel(s.source) }}</span>
@@ -122,13 +120,13 @@ const rg = domaineReglages();
               <span class="text-xl font-bold text-slate-800 tabular-nums">{{
                 rg.usageData.chats?.active
               }}</span>
-              <span class="text-[11px] text-slate-500">actives</span>
+              <span class="text-xs text-slate-500">actives</span>
             </div>
             <div>
               <span class="text-xl font-bold text-slate-600 tabular-nums">{{
                 rg.usageData.chats?.archived
               }}</span>
-              <span class="text-[11px] text-slate-500">archivées</span>
+              <span class="text-xs text-slate-500">archivées</span>
             </div>
           </div>
         </div>
@@ -141,13 +139,13 @@ const rg = domaineReglages();
               <span class="text-xl font-bold text-slate-800 tabular-nums">{{
                 rg.usageData.messages?.sent
               }}</span>
-              <span class="text-[11px] text-slate-500">envoyés</span>
+              <span class="text-xs text-slate-500">envoyés</span>
             </div>
             <div>
               <span class="text-xl font-bold text-slate-600 tabular-nums">{{
                 rg.usageData.messages?.received
               }}</span>
-              <span class="text-[11px] text-slate-500">reçus</span>
+              <span class="text-xs text-slate-500">reçus</span>
             </div>
           </div>
         </div>
@@ -162,24 +160,24 @@ const rg = domaineReglages();
             <span class="text-xl font-bold text-slate-800 tabular-nums">{{
               rg.usageData.routines?.runs
             }}</span>
-            <span class="text-[11px] text-slate-500">exécutions</span>
+            <span class="text-xs text-slate-500">exécutions</span>
           </div>
           <div>
             <span class="text-base font-bold text-emerald-600 tabular-nums">{{
               rg.usageData.routines?.ok
             }}</span>
-            <span class="text-[11px] text-slate-500">ok</span>
+            <span class="text-xs text-slate-500">ok</span>
           </div>
           <div v-if="(rg.usageData.routines?.error ?? 0) > 0">
             <span class="text-base font-bold text-red-500 tabular-nums">{{
               rg.usageData.routines?.error
             }}</span>
-            <span class="text-[11px] text-slate-500">erreurs</span>
+            <span class="text-xs text-slate-500">erreurs</span>
           </div>
         </div>
       </div>
 
-      <p class="text-[11px] text-slate-500">Données agrégées localement, jamais transmises à l'extérieur.</p>
+      <p class="text-xs text-slate-500">Données agrégées localement, jamais transmises à l'extérieur.</p>
     </template>
   </div>
 </template>

@@ -24,6 +24,7 @@ import { fournirDomaineEditeur } from "../../features/editor/domaine";
 import { setupEditor } from "../../features/editor/editeur";
 import { fournirDomaineAdmin } from "../../features/admin/domaine";
 import { fournirDomaineReglages } from "../../features/reglages/domaine";
+import { fournirInterface } from "../../features/reglages/interface";
 import { fournirDomaineModales } from "../../features/chat/modales/domaine";
 import { fournirDomainesChat } from "../../features/chat/page/domaines";
 import { creerRacine } from "../../app/racine/racine";
@@ -108,6 +109,7 @@ const r = creerRacine({
 });
 
 fournirDomainesRacine(r);
+fournirInterface(() => r.settings.classic_ui);
 fournirDomainesChat(r);
 fournirDomaineEditeur(r);
 fournirDomaineRoutines(r);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/echantillonnage.ts — surcharges d'échantillonnage par chat (panneau « Réglages de génération »), paramètres effectifs du modèle et effort de réflexion. */
+/** frontend/src/features/reglages/echantillonnage.ts — surcharges d'échantillonnage par chat (panneau « Paramètres de génération »), paramètres effectifs du modèle et effort de réflexion. */
 import type { ParametresEffectifs } from "@elpis/contracts";
 import type * as Vue from "vue";
 import type { Ref } from "vue";

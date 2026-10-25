@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletModelesIA.vue — onglet « ai_models » des Paramètres. -->
 <script setup lang="ts">
+import AideOnglet from "../AideOnglet.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -9,13 +10,10 @@ const rg = domaineReglages();
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
   <div class="space-y-5 max-w-xl">
-    <div>
-      <h3 class="text-base font-semibold text-slate-800 mb-1">Modèles IA</h3>
-      <p class="text-xs text-slate-500">
-        Connectez des fournisseurs d'IA avec votre clé API : leurs modèles apparaissent dans le sélecteur de
-        modèle du chat. Votre clé est chiffrée côté serveur et n'est jamais réaffichée.
-      </p>
-    </div>
+    <AideOnglet titre="Modèles IA"
+      >Votre clé API ajoute les modèles d'un fournisseur au sélecteur du chat ; elle est chiffrée et jamais
+      réaffichée.</AideOnglet
+    >
 
     <div v-if="rg.llmConnShared.length" class="set-block">
       <div class="flex items-center gap-2 mb-2.5">
@@ -28,10 +26,10 @@ const rg = domaineReglages();
           <span class="font-medium text-slate-700 truncate">{{
             c.label || rg.llmPresetLabel(c.provider_type)
           }}</span>
-          <span class="text-[11px] text-slate-400">{{ rg.llmPresetLabel(c.provider_type) }}</span>
+          <span class="text-xs text-slate-400">{{ rg.llmPresetLabel(c.provider_type) }}</span>
           <span
             v-if="c.default_model"
-            class="ml-auto text-[11px] font-mono text-slate-400 truncate max-w-[45%]"
+            class="ml-auto text-xs font-mono text-slate-400 truncate max-w-[45%]"
             :title="c.default_model"
             >{{ c.default_model }}</span
           >
@@ -70,17 +68,17 @@ const rg = domaineReglages();
               <span class="text-sm font-medium text-slate-800 truncate">{{
                 c.label || rg.llmPresetLabel(c.provider_type)
               }}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{{
+              <span class="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{{
                 rg.llmPresetLabel(c.provider_type)
               }}</span>
               <span
                 v-if="'provider_allowed' in c && c.provider_allowed === false"
-                class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 shrink-0"
+                class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 shrink-0"
                 title="Ce fournisseur n'est plus ouvert aux comptes par l'administrateur : ce connecteur reste enregistré mais n'est pas utilisable."
                 >fermé par l'administrateur</span
               >
             </div>
-            <div class="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 min-w-0">
+            <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-400 min-w-0">
               <span v-if="c.default_model" class="font-mono truncate" :title="c.default_model">{{
                 c.default_model
               }}</span>
@@ -158,7 +156,7 @@ const rg = domaineReglages();
           }}</span>
         </div>
         <div v-if="!rg.llmConnForm.id">
-          <label class="text-[11px] font-medium text-slate-500 block mb-1">Fournisseur</label>
+          <label class="text-xs font-medium text-slate-500 block mb-1">Fournisseur</label>
           <select v-model="rg.llmConnForm.provider_type" class="set-select w-full">
             <option v-for="pt in rg.llmConnAllowed" :key="pt" :value="pt">
               {{ rg.llmPresetLabel(pt) }}
@@ -166,13 +164,13 @@ const rg = domaineReglages();
           </select>
           <p
             v-if="rg.llmConnPresets[rg.llmConnForm.provider_type]"
-            class="text-[11px] text-slate-400 mt-1 font-mono truncate"
+            class="text-xs text-slate-400 mt-1 font-mono truncate"
           >
             → {{ rg.llmConnPresets[rg.llmConnForm.provider_type]?.base_url }}
           </p>
         </div>
         <div>
-          <label class="text-[11px] font-medium text-slate-500 block mb-1">Clé API</label>
+          <label class="text-xs font-medium text-slate-500 block mb-1">Clé API</label>
           <input
             v-model="rg.llmConnForm.api_key"
             type="password"
@@ -182,7 +180,7 @@ const rg = domaineReglages();
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="text-[11px] font-medium text-slate-500 block mb-1"
+            <label class="text-xs font-medium text-slate-500 block mb-1"
               >Modèle par défaut <span class="text-slate-400 font-normal">(optionnel)</span></label
             >
             <input
@@ -192,7 +190,7 @@ const rg = domaineReglages();
             />
           </div>
           <div>
-            <label class="text-[11px] font-medium text-slate-500 block mb-1"
+            <label class="text-xs font-medium text-slate-500 block mb-1"
               >Nom <span class="text-slate-400 font-normal">(optionnel)</span></label
             >
             <input v-model="rg.llmConnForm.label" placeholder="ex. perso" class="set-input" />

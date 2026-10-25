@@ -71,8 +71,8 @@ body.elpis-skin-pingouins {
     --accent-fg:          #1a1030;   /* encre foncée du skin : 5,2:1 sur le rose
                                         fluo, contre 3,5:1 en blanc. Le rose est
                                         l'identité du skin, pas le blanc. */
-    --accent-text:        var(--tr-pink);
-    --accent-text-strong: #d6006e;
+    --accent-text:        #d6006e;
+    --accent-text-strong: #b0005a;
     --accent-surface:     #ffe3f3;
     --accent-surface-2:   #ffd0ec;
     --accent-border:      var(--tr-pink);
@@ -126,6 +126,7 @@ body.elpis-skin-pingouins.elpis-app-dark {
     --scrollbar-thumb-custom: var(--tr-cyan);
 
     /* Accent néon sur nuit violette : teintes translucides + texte éclairci. */
+    --accent-text:        var(--tr-pink);
     --accent-text-strong: #ff7ab8;
     --accent-surface:     rgba(255, 45, 149, 0.18);
     --accent-surface-2:   rgba(255, 45, 149, 0.25);

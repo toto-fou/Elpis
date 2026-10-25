@@ -67,7 +67,12 @@ export interface MonacoMinimal {
 }
 
 export interface CtxAutomatisationStudio {
-  showToast?: (message: string, type?: string) => void;
+  showToast?: (
+    message: string,
+    type?: string,
+    opts?: { duration?: number; actionLabel?: string; onAction?: () => void },
+  ) => void;
+  openConfirm?: (titre: string, texte: string, danger?: boolean) => Promise<boolean>;
   fetchAuth: (url: string, init?: RequestInit, soft?: boolean) => Promise<Response | null>;
   lireJson?: LecteurBureau;
   currentModelId?: () => string | null;
@@ -1578,8 +1583,43 @@ export function creerAutomatisationStudio(
       autoLoading.value = false;
     }
   }
+  async function copieScript(chemin: string): Promise<string | null> {
+    try {
+      const r = await fetchAuth(
+        `/api/sandbox/serve/${chemin.split("/").map(encodeURIComponent).join("/")}?t=${Date.now()}`,
+      );
+      return r && r.ok ? await r.text() : null;
+    } catch {
+      return null;
+    }
+  }
+  async function restaurerScript(chemin: string, contenu: string): Promise<void> {
+    try {
+      const r = await fetchAuth(
+        "/api/sandbox/save",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: chemin, content: contenu }),
+        },
+        true,
+      );
+      if (!(r && r.ok)) throw new Error("écriture refusée");
+      await autoRefreshList();
+    } catch {
+      toast("Restauration impossible", "error");
+    }
+  }
   async function autoDelete(item: ScriptSandbox | null | undefined): Promise<void> {
     if (!item) return;
+    const copie = await copieScript(item.path);
+    const modifie = autoCurrent.value === item.slug && autoDirty.value;
+    if ((copie === null || modifie) && ctx.openConfirm) {
+      const raison = modifie
+        ? "Les modifications non enregistrées seront perdues."
+        : "Cette suppression est définitive.";
+      if (!(await ctx.openConfirm("Supprimer ce script ?", raison, true))) return;
+    }
     try {
       await fetchAuth(
         `/api/sandbox/delete?path=${encodeURIComponent(`${DOSSIER}/${item.slug}.py`)}`,
@@ -1588,6 +1628,12 @@ export function creerAutomatisationStudio(
       );
       if (autoCurrent.value === item.slug) autoNew();
       await autoRefreshList();
+      if (copie !== null && ctx.showToast)
+        ctx.showToast(`Script « ${item.name} » supprimé`, "success", {
+          duration: 8000,
+          actionLabel: "Annuler",
+          onAction: () => void restaurerScript(`${DOSSIER}/${item.slug}.py`, copie),
+        });
     } catch {
       toast("Suppression impossible", "error");
     }

@@ -64,6 +64,7 @@ export interface ReglagesApp {
   hide_thinking?: boolean;
   live_shell_enabled?: boolean;
   jobs_wake?: boolean;
+  classic_ui?: boolean;
   voice_input_enabled?: boolean;
   voice_reply_enabled?: boolean;
   voice_reply_tools_enabled?: boolean;
@@ -125,7 +126,11 @@ export interface RefsReglages {
 
 /** Services de l'hôte (racine) que les réglages appellent. */
 export interface CtxReglages {
-  showToast(message: string, type?: string, options?: { duration?: number }): void;
+  showToast(
+    message: string,
+    type?: string,
+    options?: { duration?: number; actionLabel?: string; onAction?: () => void },
+  ): void;
   fetchAuth: FetchAuth;
   openConfirm(
     titre: string,
@@ -152,6 +157,7 @@ export interface CtxReglages {
 export interface OptionsPersistance {
   rollback?: () => void;
   okMsg?: string;
+  silencieux?: boolean;
 }
 
 export const clonerValeur = <T>(v: T): T => (v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T));

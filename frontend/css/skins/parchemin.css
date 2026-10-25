@@ -79,9 +79,9 @@ body.elpis-skin-parchemin {
     --accent-500:         var(--cl-clay);
     --accent-400:         #e08a6a;
     --accent-300:         #efa588;
-    --accent-fg:          var(--cl-clay-fg);
-    --accent-text:        var(--cl-clay-deep);
-    --accent-text-strong: #ad5034;
+    --accent-fg:          #1f1e1d;
+    --accent-text:        #ad5034;
+    --accent-text-strong: #8f3f26;
     --accent-surface:     rgba(217, 119, 87, 0.10);
     --accent-surface-2:   rgba(217, 119, 87, 0.16);
     --accent-border:      rgba(217, 119, 87, 0.35);

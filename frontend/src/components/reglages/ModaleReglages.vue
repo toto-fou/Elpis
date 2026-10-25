@@ -2,6 +2,7 @@
 <!-- frontend/src/components/reglages/ModaleReglages.vue — gabarit migré de includes/modals/settings.html. -->
 <script setup lang="ts">
 import { domaineReglages } from "../../features/reglages/domaine";
+import { interfaceApp } from "../../features/reglages/interface";
 import RecadrageImage from "../communs/RecadrageImage.vue";
 import OngletSkills from "../skills/OngletSkills.vue";
 import OngletAgents from "./onglets/OngletAgents.vue";
@@ -18,8 +19,10 @@ import OngletProfil from "./onglets/OngletProfil.vue";
 import OngletPrompts from "./onglets/OngletPrompts.vue";
 import OngletSandbox from "./onglets/OngletSandbox.vue";
 import OngletUtilisation from "./onglets/OngletUtilisation.vue";
+import RailParametres from "./RailParametres.vue";
 
 const rg = domaineReglages();
+const ui = interfaceApp();
 </script>
 
 <template>
@@ -44,12 +47,15 @@ const rg = domaineReglages();
         class="bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200 w-full max-w-4xl overflow-hidden flex flex-col h-[85vh] max-h-[780px] focus:outline-none"
       >
         <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
-          <h2 class="text-base font-semibold text-slate-800 flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-              <i class="ph ph-sliders text-base"></i>
-            </div>
-            Paramètres
-          </h2>
+          <div class="flex items-center gap-2.5">
+            <span
+              class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600"
+              aria-hidden="true"
+            >
+              <i class="ph ph-sliders text-base" aria-hidden="true"></i>
+            </span>
+            <h2 class="text-base font-semibold text-slate-800">Paramètres</h2>
+          </div>
           <button
             aria-label="Fermer les paramètres"
             class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors flex items-center justify-center"
@@ -59,11 +65,13 @@ const rg = domaineReglages();
           </button>
         </div>
 
-        <div class="flex flex-1 min-h-0 overflow-hidden">
+        <div class="flex flex-1 min-h-0 overflow-hidden" :class="ui.classique ? '' : 'flex-col md:flex-row'">
+          <RailParametres v-if="!ui.classique" />
           <aside
+            v-else
             class="w-52 shrink-0 bg-slate-50 border-r border-slate-200 overflow-y-auto custom-scrollbar p-3"
           >
-            <div class="text-[11px] font-semibold text-slate-500 px-2.5 mb-1.5 mt-1">Compte</div>
+            <div class="text-xs font-semibold text-slate-500 px-2.5 mb-1.5 mt-1">Compte</div>
             <button
               :aria-current="rg.settingsTab === 'profile' ? 'page' : undefined"
               :class="
@@ -76,6 +84,7 @@ const rg = domaineReglages();
             >
               <i
                 class="ph text-base"
+                aria-hidden="true"
                 :class="rg.settingsTab === 'profile' ? 'ph-user-circle' : 'ph-user'"
               ></i>
               Profil
@@ -90,7 +99,7 @@ const rg = domaineReglages();
               class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5"
               @click="rg.settingsTab = 'chat'"
             >
-              <i class="ph ph-chat-circle text-base"></i> Chat
+              <i class="ph ph-chat-circle text-base" aria-hidden="true"></i> Chat
             </button>
             <button
               :aria-current="rg.settingsTab === 'compaction' ? 'page' : undefined"
@@ -102,7 +111,7 @@ const rg = domaineReglages();
               class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5"
               @click="rg.settingsTab = 'compaction'"
             >
-              <i class="ph ph-arrows-in-line-horizontal text-base"></i> Compaction
+              <i class="ph ph-arrows-in-line-horizontal text-base" aria-hidden="true"></i> Compaction
             </button>
             <button
               :aria-current="rg.settingsTab === 'ai_models' ? 'page' : undefined"
@@ -117,7 +126,7 @@ const rg = domaineReglages();
                 rg.loadLlmConnectors();
               "
             >
-              <i class="ph ph-sparkle text-base"></i> Modèles IA
+              <i class="ph ph-sparkle text-base" aria-hidden="true"></i> Modèles IA
             </button>
             <button
               :aria-current="rg.settingsTab === 'appearance' ? 'page' : undefined"
@@ -129,7 +138,7 @@ const rg = domaineReglages();
               class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5"
               @click="rg.settingsTab = 'appearance'"
             >
-              <i class="ph ph-palette text-base"></i> Apparence
+              <i class="ph ph-palette text-base" aria-hidden="true"></i> Apparence
             </button>
             <button
               :aria-current="rg.settingsTab === 'features' ? 'page' : undefined"
@@ -141,7 +150,7 @@ const rg = domaineReglages();
               class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors mb-0.5"
               @click="rg.settingsTab = 'features'"
             >
-              <i class="ph ph-toggle-right text-base"></i> Fonctionnalités
+              <i class="ph ph-toggle-right text-base" aria-hidden="true"></i> Fonctionnalités
             </button>
             <button
               :aria-current="rg.settingsTab === 'usage' ? 'page' : undefined"
@@ -156,7 +165,7 @@ const rg = domaineReglages();
                 rg.loadUsageData();
               "
             >
-              <i class="ph ph-chart-line text-base"></i> Utilisation
+              <i class="ph ph-chart-line text-base" aria-hidden="true"></i> Utilisation
             </button>
             <button
               :aria-current="rg.settingsTab === 'connexions' ? 'page' : undefined"
@@ -171,10 +180,10 @@ const rg = domaineReglages();
                 rg.loadConnexions();
               "
             >
-              <i class="ph ph-key text-base"></i> Connexions
+              <i class="ph ph-key text-base" aria-hidden="true"></i> Connexions
             </button>
 
-            <div class="text-[11px] font-semibold text-slate-500 px-2.5 mt-4 mb-1.5">Données</div>
+            <div class="text-xs font-semibold text-slate-500 px-2.5 mt-4 mb-1.5">Données</div>
             <button
               :aria-current="rg.settingsTab === 'memory' ? 'page' : undefined"
               :class="
@@ -188,7 +197,7 @@ const rg = domaineReglages();
                 rg.loadUserMemory();
               "
             >
-              <i class="ph ph-brain text-base"></i> Mémoire
+              <i class="ph ph-brain text-base" aria-hidden="true"></i> Mémoire
             </button>
             <button
               :aria-current="rg.settingsTab === 'agents' ? 'page' : undefined"
@@ -204,7 +213,7 @@ const rg = domaineReglages();
                 rg.loadAgentTemplates();
               "
             >
-              <i class="ph ph-users-three text-base"></i> Agents
+              <i class="ph ph-users-three text-base" aria-hidden="true"></i> Agents
             </button>
             <button
               :aria-current="rg.settingsTab === 'prompts' ? 'page' : undefined"
@@ -220,7 +229,7 @@ const rg = domaineReglages();
                 rg.loadPromptTemplates();
               "
             >
-              <i class="ph ph-bookmarks-simple text-base"></i> Prompts
+              <i class="ph ph-bookmarks-simple text-base" aria-hidden="true"></i> Prompts
             </button>
             <button
               :aria-current="rg.settingsTab === 'skills' ? 'page' : undefined"
@@ -235,7 +244,7 @@ const rg = domaineReglages();
                 rg.openSkillsTab();
               "
             >
-              <i class="ph ph-graduation-cap text-base"></i> Skills
+              <i class="ph ph-graduation-cap text-base" aria-hidden="true"></i> Skills
             </button>
             <button
               :aria-current="rg.settingsTab === 'archives' ? 'page' : undefined"
@@ -250,7 +259,7 @@ const rg = domaineReglages();
                 rg.loadArchives && rg.loadArchives();
               "
             >
-              <i class="ph ph-archive text-base"></i> Archives
+              <i class="ph ph-archive text-base" aria-hidden="true"></i> Archives
             </button>
             <button
               :aria-current="rg.settingsTab === 'sandbox' ? 'page' : undefined"
@@ -265,7 +274,7 @@ const rg = domaineReglages();
                 rg.loadSandboxState();
               "
             >
-              <i class="ph ph-cube text-base"></i> Sandbox
+              <i class="ph ph-cube text-base" aria-hidden="true"></i> Sandbox
             </button>
             <button
               :aria-current="rg.settingsTab === 'connectors' ? 'page' : undefined"
@@ -280,7 +289,7 @@ const rg = domaineReglages();
                 rg.loadGitConnectors();
               "
             >
-              <i class="ph ph-git-fork text-base"></i> Connecteurs
+              <i class="ph ph-git-fork text-base" aria-hidden="true"></i> Connecteurs
             </button>
           </aside>
 
@@ -330,27 +339,17 @@ const rg = domaineReglages();
           <span
             v-if="rg.settingsDirty || rg.memoryDirty"
             role="status"
-            class="text-[11px] text-slate-500 flex items-center gap-1.5"
+            class="text-xs text-slate-500 flex items-center gap-1.5"
             ><span class="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-500" aria-hidden="true"></span>
             Modifications non enregistrées</span
           >
           <span v-else aria-hidden="true"></span>
-          <div class="flex items-center gap-2">
-            <button
-              class="px-4 py-1.5 text-slate-600 hover:bg-slate-200/60 rounded-lg font-medium text-sm transition-colors"
-              @click="rg.closeSettings()"
-            >
-              Fermer
-            </button>
-            <button
-              :disabled="rg.settingsSaving"
-              class="px-5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg font-medium text-sm transition-colors shadow-sm inline-flex items-center gap-2"
-              @click="rg.saveSettings()"
-            >
-              <i v-if="rg.settingsSaving" class="ph ph-spinner-gap animate-spin" aria-hidden="true"></i>
-              {{ rg.settingsSaving ? "Enregistrement…" : "Enregistrer" }}
-            </button>
-          </div>
+          <button
+            class="px-4 py-1.5 text-slate-600 hover:bg-slate-200/60 rounded-lg font-medium text-sm transition-colors"
+            @click="rg.closeSettings()"
+          >
+            Fermer
+          </button>
         </div>
       </div>
     </div>

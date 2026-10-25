@@ -26,6 +26,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   const persistance = creerPersistance(vue, settings, ctx, {
     closeSettings: (sauter) => liens.closeSettings(sauter),
   });
+  persistance.activerEnregistrementAuto(showSettingsModal);
   const apparence = creerApparence(vue, settings, ctx, persistance);
   const mcp = creerMcp(vue, settings, config, ctx, persistance);
   const { reinitialiserAFermeture: razPrompts, ...prompts } = creerPrompts(

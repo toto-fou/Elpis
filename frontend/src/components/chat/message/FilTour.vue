@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche, sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
+<!-- frontend/src/components/chat/message/FilTour.vue — le tour d'un message assistant en une liste chronologique : réflexions, textes à leur place, étapes groupées en ligne riche (et leurs captures, aperçu en direct pendant la navigation), sous-agents, tâches de fond, mémoire, compression, puis le texte qui s'écrit. -->
 <script setup lang="ts">
 import { computed, inject, onUnmounted, ref, watch } from "vue";
 
 import type { ResumeJob } from "@elpis/contracts";
 
+import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
 import { chronologieTour } from "../../../features/chat/message/chronologie";
 import type { BlocFil } from "../../../features/chat/message/chronologie";
 import type { EntreeMessage } from "../../../features/chat/message/types";
@@ -64,6 +65,26 @@ const vivant = computed(() => {
         _mdActiveHtml: m._ppActiveHtml ?? "",
       }
     : { content: texte };
+});
+
+const captures = computed(() => (fil.settings.hide_web_screenshots ? [] : capturesDuTour(props.entry.msg)));
+const visionneuse = computed(() => visionneuseCaptures(captures.value));
+
+function voirCapture(rang: number): void {
+  fil.openImageViewer(visionneuse.value.items, rang, { captures: true });
+}
+
+// Pendant la navigation : la dernière capture sous le dernier groupe d'étapes, tant que rien d'autre ne le suit.
+const apercu = computed(() => {
+  const c = captures.value[captures.value.length - 1];
+  if (!c || !props.entry.msg.isStreaming || !dernier.value || vivant.value) return null;
+  const i = blocs.value.findLastIndex((b) => b.k !== "reflexion");
+  const b = blocs.value[i];
+  if (b?.k !== "etapes") return null;
+  const lie = b.etapes.some(
+    (e) => e.flat === c.flat || (e.etape.status === "running" && (e.etape.name ?? "").startsWith("pw_")),
+  );
+  return lie ? { cle: b.cle, url: c.url, attente: c.attente } : null;
 });
 
 function basculer(cle: string): void {
@@ -132,17 +153,53 @@ function resumeCompression(s: EtapeOutil): string {
         @basculer="basculer(b.cle)"
         @repondre="fil.respondNow(entry.idx)"
       />
-      <LigneEtapes
-        v-else-if="b.k === 'etapes'"
-        :etapes="b.etapes"
-        :ouvert="!!ouverts[b.cle]"
-        :detail="detail"
-        :maintenant="maintenant"
-        :compact-ouvert="!!entry.msg._compactOpen"
-        @basculer="basculer(b.cle)"
-        @detail="basculerDetail"
-        @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
-      />
+      <template v-else-if="b.k === 'etapes'">
+        <LigneEtapes
+          :etapes="b.etapes"
+          :ouvert="!!ouverts[b.cle]"
+          :detail="detail"
+          :maintenant="maintenant"
+          :compact-ouvert="!!entry.msg._compactOpen"
+          :captures="visionneuse.parEtape"
+          @basculer="basculer(b.cle)"
+          @detail="basculerDetail"
+          @compact="(o: boolean) => fil.setMsgUi(entry, { _compactOpen: o })"
+          @capture="voirCapture"
+        />
+        <div v-if="apercu && apercu.cle === b.cle" class="pl-6 mb-1.5" data-apercu-direct>
+          <div
+            class="elpis-on-media elpis-media-canvas relative rounded-xl overflow-hidden ring-1 ring-slate-900/5"
+            style="width: 260px; max-width: 100%; aspect-ratio: 16 / 10"
+            role="img"
+            aria-label="Aperçu du navigateur en direct"
+          >
+            <img
+              v-if="apercu.url"
+              :src="apercu.url"
+              alt=""
+              class="absolute inset-0 w-full h-full object-cover object-top"
+            />
+            <span
+              class="absolute top-1.5 right-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 text-[10px] text-white/90"
+            >
+              <span class="relative flex h-1.5 w-1.5 shrink-0">
+                <span
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"
+                ></span>
+                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+              </span>
+              En direct
+            </span>
+            <div
+              v-if="apercu.attente"
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 shadow-lg border border-white/50"
+            >
+              <i class="ph ph-spinner-gap animate-spin text-blue-500" style="font-size: 10px"></i>
+              <span class="text-[10px] font-medium text-slate-700">capture...</span>
+            </div>
+          </div>
+        </div>
+      </template>
       <LignesAgents
         v-else-if="b.k === 'agents'"
         :agents="agentsDe(b)"

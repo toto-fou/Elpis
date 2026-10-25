@@ -62,6 +62,22 @@ const rg = domaineReglages();
 
     <div class="bg-slate-50 rounded-xl">
       <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
+        <i class="ph ph-browser text-slate-400 text-lg w-5"></i>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-slate-800">Masquer les captures web</div>
+          <div class="text-xs text-slate-500">
+            Cache les captures d'écran du navigateur dans les réponses. L'outil continue de les prendre.
+          </div>
+        </div>
+        <div class="relative inline-flex items-center shrink-0">
+          <input v-model="rg.settings.hide_web_screenshots" type="checkbox" class="sr-only peer" />
+          <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+        </div>
+      </label>
+    </div>
+
+    <div class="bg-slate-50 rounded-xl">
+      <label class="set-row cursor-pointer hover:bg-white/60 transition-colors rounded-xl">
         <i class="ph ph-terminal-window text-slate-400 text-lg w-5"></i>
         <div class="flex-1 min-w-0">
           <div class="text-sm text-slate-800">Terminal en direct</div>

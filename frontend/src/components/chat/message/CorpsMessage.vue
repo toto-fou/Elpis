@@ -270,7 +270,6 @@ function masquerBouton(e: Event): void {
       </span>
       <span class="text-[12.5px] font-medium truncate mem-wave">{{ phaseFil.label }}</span>
     </div>
-    <CapturesWeb :entry="entry" />
   </template>
 
   <PiedSources v-if="rag && entry.msg.role === 'assistant' && entry.msg.rag_sources?.length" :entry="entry" />

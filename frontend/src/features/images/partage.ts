@@ -19,6 +19,8 @@ export interface InfosVisionneuse {
   prompt?: string;
   revised?: string;
   meta?: { model?: string; duration_s?: number } | null;
+  /** Captures du navigateur : ni modification, ni copie, ni suppression. */
+  captures?: boolean;
 }
 
 export interface ApiPartageeImages {

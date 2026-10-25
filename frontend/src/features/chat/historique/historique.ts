@@ -184,7 +184,7 @@ function placerCompactions(msg: Message, compactions: readonly unknown[]): void 
 }
 
 /** Captures du navigateur restituées depuis `tool_meta` : l'image est relue sur le serveur (elle peut avoir expiré). */
-function capturesRestituees(etapes: readonly Message[], meta: MetaOutils): Message[] {
+export function capturesRestituees(etapes: readonly Message[], meta: MetaOutils): Message[] {
   const out: Message[] = [];
   etapes.forEach((st, i) => {
     const m = typeof st.callId === "string" ? meta.steps[st.callId] : undefined;

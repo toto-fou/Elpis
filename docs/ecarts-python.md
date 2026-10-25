@@ -587,6 +587,8 @@ Actions et éléments, service `browser-service/` et famille `browser` de l'hôt
 - **`classic_ui`** (propre au TS) : préférence « Interface classique » du compte, booléen accepté par
   `PUT /api/settings` (aussi depuis la console) ; absente du document tant que le compte ne l'a pas choisie.
   Présentation seulement : aucune route ni aucun droit n'en dépend.
+- **`hide_web_screenshots`** (propre au TS) : « Masquer les captures web » (Paramètres › Chat), même traitement ;
+  cache les captures du navigateur dans le fil, l'outil continue de les prendre.
 - Tests des mainteneurs : `apps/core/test/ecart-contraste-skins.ts` (vecteurs des skins rejoués avec l'écart),
   `apps/core/test/interface-classique.test.ts`, `frontend/test/css/contraste.test.ts`.
 

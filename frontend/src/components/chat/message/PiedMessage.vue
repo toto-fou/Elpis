@@ -1,11 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/message/PiedMessage.vue — pied d'une réponse terminée : métriques et actions (copier, détails, régénérer, lire) ; `texte` remplace le contenu copié ou lu (bulle regroupée). -->
+<!-- frontend/src/components/chat/message/PiedMessage.vue — pied d'une réponse terminée : métriques, captures du navigateur (nouvelle interface) et actions (copier, détails, régénérer, lire) ; `texte` remplace le contenu copié ou lu (bulle regroupée). -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import { capturesDuTour, visionneuseCaptures } from "../../../features/chat/message/captures-tour";
 import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
 import type { EntreeMessage } from "../../../features/chat/message/types";
+import { interfaceApp } from "../../../features/reglages/interface";
 
-defineProps<{ entry: EntreeMessage; texte?: string }>();
+const props = defineProps<{ entry: EntreeMessage; texte?: string }>();
 const fil = domaine(CLE_FIL);
+const ui = interfaceApp();
+const captures = computed(() =>
+  ui.classique || fil.settings.hide_web_screenshots
+    ? []
+    : visionneuseCaptures(capturesDuTour(props.entry.msg)).items,
+);
 </script>
 
 <template>
@@ -85,7 +95,18 @@ const fil = domaine(CLE_FIL);
         {{ fil.fmtKvCache(entry.msg.metrics) }}
       </span>
     </div>
-    <div v-else class="flex-1"></div>
+    <div v-else></div>
+
+    <button
+      v-if="captures.length"
+      type="button"
+      class="shrink-0 mr-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      data-voir-captures
+      @click="fil.openImageViewer(captures, 0, { captures: true })"
+    >
+      <i class="ph ph-images text-[13px]" aria-hidden="true"></i
+      >{{ captures.length > 1 ? captures.length + " captures" : "1 capture" }}
+    </button>
 
     <div
       class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0"

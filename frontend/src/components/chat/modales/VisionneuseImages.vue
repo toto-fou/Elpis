@@ -1,9 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/modales/VisionneuseImages.vue — visionneuse des images générées : navigation entre les images d'un résultat, description, actions (modifier, télécharger, copier, supprimer). -->
+<!-- frontend/src/components/chat/modales/VisionneuseImages.vue — visionneuse des images générées : navigation entre les images d'un résultat, description, actions (modifier, télécharger, copier, supprimer) ; aussi les captures du navigateur d'une réponse (étape, téléchargement). -->
 <script setup lang="ts">
+import { ref } from "vue";
+
 import { domaineModales } from "../../../features/chat/modales/domaine";
 
 const m = domaineModales();
+// Captures relues sur le serveur et disparues depuis (session du navigateur fermée).
+const perdues = ref<ReadonlySet<string>>(new Set());
+function perdue(url: string | undefined): void {
+  if (url && m.imageViewer?.captures) perdues.value = new Set([...perdues.value, url]);
+}
 </script>
 
 <template>
@@ -16,18 +23,26 @@ const m = domaineModales();
       class="elpis-img-viewer"
       role="dialog"
       aria-modal="true"
-      aria-label="Image générée"
+      :aria-label="m.imageViewer.captures ? 'Capture du navigateur' : 'Image générée'"
       tabindex="-1"
       data-image-viewer
       @click.self="m.closeImageViewer()"
       @keydown="m.imageViewerKeydown($event)"
     >
       <div class="elpis-img-viewer__stage" @click.self="m.closeImageViewer()">
+        <span
+          v-if="m.imageViewerCurrent.url && perdues.has(m.imageViewerCurrent.url)"
+          class="text-[13px] text-slate-300"
+          data-capture-expiree
+          >Capture expirée</span
+        >
         <img
+          v-else
           :src="m.imageViewerCurrent.url"
           :alt="m.imageViewerPrompt || 'Image générée'"
           :width="m.imageViewerCurrent.width || undefined"
           :height="m.imageViewerCurrent.height || undefined"
+          @error="perdue(m.imageViewerCurrent.url)"
         />
         <button
           v-if="m.imageViewer.items.length > 1"
@@ -67,7 +82,7 @@ const m = domaineModales();
         <p v-if="m.imageViewerInfo" class="elpis-img-viewer__meta">{{ m.imageViewerInfo }}</p>
         <div class="elpis-img-viewer__actions">
           <button
-            v-if="m.imageCanEdit"
+            v-if="m.imageCanEdit && !m.imageViewer.captures"
             type="button"
             class="elpis-img-btn"
             @click="
@@ -85,7 +100,7 @@ const m = domaineModales();
             <i class="ph ph-download-simple" aria-hidden="true"></i>Télécharger
           </button>
           <button
-            v-if="m.imageViewerPrompt"
+            v-if="m.imageViewerPrompt && !m.imageViewer.captures"
             type="button"
             class="elpis-img-btn"
             @click="m.copyImageText(m.imageViewerPrompt)"
@@ -101,7 +116,12 @@ const m = domaineModales();
           >
             <i class="ph ph-chat-circle-text" aria-hidden="true"></i>Conversation
           </button>
-          <button type="button" class="elpis-img-btn is-danger" @click="m.removeImage(m.imageViewerCurrent)">
+          <button
+            v-if="!m.imageViewer.captures"
+            type="button"
+            class="elpis-img-btn is-danger"
+            @click="m.removeImage(m.imageViewerCurrent)"
+          >
             <i class="ph ph-trash" aria-hidden="true"></i>Supprimer
           </button>
         </div>

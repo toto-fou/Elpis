@@ -205,6 +205,9 @@ reporter à la main.
 - Un tour qui finit après la suppression de sa conversation ne la recrée plus (`upsertChat` fait un UPDATE seul ;
   `store.upsert_chat` Python inchangé).
 - `wake_disabled` n'apparaît dans `GET /api/saved/chats/:id` que s'il est posé sur la conversation.
+- File du moteur en ordonnancement `optimized` avec outils : `queue_cleared` part quand le tour obtient son premier
+  créneau (son premier appel LLM), non plus dès son admission, qui ne tient que le modèle ; le bandeau « N requête(s)
+  en cours » reste donc affiché tant que le moteur est occupé (Python : effacé aussitôt après l'admission).
 
 ## Connecteurs LLM : fournisseurs cloud fermés par défaut
 

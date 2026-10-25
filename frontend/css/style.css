@@ -4018,6 +4018,26 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
   animation: elpis-caret-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes elpis-caret-pulse { 50% { opacity: 0.35; } }
+
+/* Fil du tour (nouvelle interface) : le dernier élément d'un texte rend sa marge,
+ * l'espacement entre réflexion, texte et étapes est celui du fil (FilTour.vue). */
+[data-fil-tour] > .markdown-body > :last-child,
+[data-fil-tour] > .markdown-body > div:last-child > :last-child { margin-bottom: 0; }
+
+/* Puce de contexte du composeur : le bloc « Contexte N % » est la jauge, rempli
+ * d'une teinte d'accent sous son texte ; ambre (et signe ⚠) dès 80 %. */
+.elpis-jauge-contexte { min-width: 3.25rem; }
+.elpis-jauge-contexte__plein {
+  background: color-mix(in srgb, var(--accent-500, #3b82f6) 20%, transparent);
+  transition: width 0.3s ease-out;
+}
+.elpis-jauge-contexte.is-alerte { color: var(--warn-text-strong, #92400e); border-color: var(--warn-border, #fde68a); }
+.elpis-jauge-contexte.is-alerte .elpis-jauge-contexte__plein {
+  background: color-mix(in srgb, var(--warn-soft, #f59e0b) 28%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .elpis-jauge-contexte__plein { transition: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .elpis-stream-caret { animation: none; }
 }

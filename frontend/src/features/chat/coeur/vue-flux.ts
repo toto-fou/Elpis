@@ -129,7 +129,14 @@ export function creerVueFlux(c: CoeurChat) {
     if (!(total > 0) || t.idx < 0) return;
     const cache = Math.min(Math.max(0, Number(t.data["cache"]) || 0), total);
     const utile = total - cache;
-    const fait = Math.max(0, (Number(t.data["processed"]) || 0) - cache);
+    const traites = Math.min(total, Math.max(0, Number(t.data["processed"]) || 0));
+    const fait = Math.max(0, traites - cache);
+    // Jauge du contexte : l'entrée déjà lue par le moteur est dans son cache ; les jetons générés avant y sont compris.
+    if (f.ctxLive && traites > 0) {
+      f.ctxLive.base = traites;
+      f.ctxLive.enCours = 0;
+      f.ctxLive.appel = 0;
+    }
     l.patch(t.idx, {
       _prefillPct: utile > 0 ? Math.min(100, Math.round((fait / utile) * 100)) : 100,
       _prefillCachePct: Math.round((cache / total) * 100),
@@ -357,7 +364,13 @@ export function creerVueFlux(c: CoeurChat) {
     l.stopThinkFlush();
     const cur = l.getStreamMsgs()[t.idx];
     const p: Objet = { thinking: t.data.text || "" };
-    if (cur && !cur._thinkingStartedAt) p["_thinkingStartedAt"] = Date.now();
+    if (cur && (!cur._thinkingStartedAt || cur._reflexionPosee))
+      Object.assign(p, {
+        _thinkingStartedAt: Date.now(),
+        _thinkingEndedAt: undefined,
+        _thinkingMs: undefined,
+        _reflexionPosee: false,
+      });
     l.patch(t.idx, p);
   }
 
@@ -655,11 +668,13 @@ export function creerVueFlux(c: CoeurChat) {
     const reflexionMs =
       reflexion && src._thinkingStartedAt
         ? Math.max(0, (src._thinkingEndedAt ?? Date.now()) - src._thinkingStartedAt)
-        : undefined;
+        : reflexion
+          ? src._thinkingMs
+          : undefined;
     const memoire =
       nom === "memory" && !!args && MUTANTS_MEMOIRE.includes(String(args["action"] || "").toLowerCase());
     const todo = nom === "todowrite";
-    // Étapes rendues hors liste (carte agent, lignes d'effets) : leur réflexion reste sur le message.
+    // Étapes rendues hors liste (carte agent, lignes d'effets) : leur réflexion reste aussi sur le message (interface classique).
     const reflexionSurMessage = tache || memoire || todo;
     steps.push({
       name: nom,
@@ -669,8 +684,8 @@ export function creerVueFlux(c: CoeurChat) {
       startedAt: Date.now(),
       callId: d.call_id || null,
       seg: segTexts.length - 1,
-      thinking: reflexionSurMessage ? "" : reflexion,
-      ...(reflexionSurMessage || reflexionMs === undefined ? {} : { thinkingMs: reflexionMs }),
+      thinking: reflexion,
+      ...(reflexionMs === undefined ? {} : { thinkingMs: reflexionMs }),
       thinkingOpen: false,
       isRag: false,
       ragLabel: libelleRag,
@@ -701,7 +716,11 @@ export function creerVueFlux(c: CoeurChat) {
       ...PRE_RENDER_CLEAR,
       _pendingToolThinking: "",
       thinking: reflexionSurMessage ? reflexion : "",
-      ...(reflexionSurMessage ? {} : { _thinkingStartedAt: undefined, _thinkingEndedAt: undefined }),
+      // Réflexion posée sur l'étape : la suivante repart de zéro (texte et durée).
+      _thinkingStartedAt: undefined,
+      _thinkingEndedAt: undefined,
+      _thinkingMs: reflexionSurMessage ? reflexionMs : undefined,
+      _reflexionPosee: reflexionSurMessage && !!reflexion,
       thinkingOpen: false,
       _liveThinkingOpen: undefined,
       _statusLine: rag ? libelleRag : memoire || todo || tache ? "" : nom,

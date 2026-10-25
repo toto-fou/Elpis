@@ -269,6 +269,8 @@ export interface StatsDirect {
   tokPerSec: number | null;
   ctxLabel?: string;
   pct: number;
+  /** Part précise de la fenêtre occupée (0 à 1), pour la jauge. */
+  part?: number;
 }
 
 export interface OccupationContexte {

@@ -60,24 +60,35 @@ export function chronologieTour(m: MessageFil, maintenant = Date.now()): BlocFil
   let numero = 0;
   let rangMemoire = 0;
   let rangAgent = 0;
+  let derniereReflexion = "";
+  // Position du bloc texte de chaque segment posé.
+  const posTexte = new Map<number, number>();
   // Textes des segments jusqu'à `seg` inclus, une seule fois, dans l'ordre.
   const textesJusqua = (seg: number): void => {
     for (; segSuivant <= seg && segSuivant < textes.length; segSuivant++) {
       const t = (textes[segSuivant] ?? "").trim();
-      if (t) blocs.push({ k: "texte", cle: "t:" + segSuivant, texte: textes[segSuivant] ?? "" });
+      if (!t) continue;
+      posTexte.set(segSuivant, blocs.length);
+      blocs.push({ k: "texte", cle: "t:" + segSuivant, texte: textes[segSuivant] ?? "" });
     }
   };
   steps.forEach((s, flat) => {
     const seg = Math.max(0, s.seg ?? 0);
     textesJusqua(seg - 1);
-    if (s.thinking)
-      blocs.push({
+    // Une réflexion n'est dite qu'une fois ; venue après le texte de son appel (outil hors liste avant elle), elle le précède.
+    if (s.thinking && s.thinking !== derniereReflexion) {
+      const bloc: BlocFil = {
         k: "reflexion",
         cle: "r:" + flat,
         texte: s.thinking,
         ms: s.thinkingMs ?? null,
         vivante: false,
-      });
+      };
+      const pos = posTexte.get(seg);
+      if (pos !== undefined && pos === blocs.length - 1) blocs.splice(pos, 0, bloc);
+      else blocs.push(bloc);
+      derniereReflexion = s.thinking;
+    }
     textesJusqua(seg);
     if (estTaches(s)) return;
     const dernier = blocs[blocs.length - 1];
@@ -98,7 +109,7 @@ export function chronologieTour(m: MessageFil, maintenant = Date.now()): BlocFil
     }
   });
   textesJusqua(textes.length - 1);
-  if (m.thinking) {
+  if (m.thinking && m.thinking !== derniereReflexion) {
     const vivante = !!m.isStreaming && !m.content && !m._pendingPreContent;
     blocs.push({
       k: "reflexion",

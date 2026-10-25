@@ -190,13 +190,22 @@ export function creerRenduFlux(c: CoeurChat) {
       f.thinkBuf = "";
       return;
     }
-    const fusion = (cur.thinking || "") + f.thinkBuf;
+    // Réflexion d'un appel précédent déjà posée sur son étape : celle-ci ne s'y ajoute pas.
+    const neuve = !!cur._reflexionPosee;
+    const fusion = (neuve ? "" : cur.thinking || "") + f.thinkBuf;
     f.thinkBuf = "";
     msgs[idx] = Object.assign(
       {},
       cur,
       { thinking: fusion },
-      cur._thinkingStartedAt ? {} : { _thinkingStartedAt: Date.now(), _thinkingEndedAt: undefined },
+      cur._thinkingStartedAt && !neuve
+        ? {}
+        : {
+            _thinkingStartedAt: Date.now(),
+            _thinkingEndedAt: undefined,
+            _thinkingMs: undefined,
+            _reflexionPosee: false,
+          },
     );
     e.statusText.value = l.thinkingTitle(fusion);
     scheduleStreamScroll();

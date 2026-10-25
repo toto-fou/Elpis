@@ -48,6 +48,15 @@ function commande(step: EtapeOutil): string {
 export function libelleEtape(step: EtapeOutil): LibelleEtape {
   const outil = step.name || "outil";
   if (outil.startsWith("rag_") && step.ragLabel) return { verbe: "", objet: step.ragLabel, outil };
+  // Graphique : « Trace » et son titre.
+  if (outil.startsWith("chart_")) {
+    const titre = String(step.args?.["title"] ?? "").trim();
+    return {
+      verbe: "Trace",
+      objet: titre.length > 60 ? titre.slice(0, 60) + "…" : titre || "un graphique",
+      outil,
+    };
+  }
   const verbe = VERBES[outil] ?? null;
   const objet = outil === "execute_shell" || outil === "shell_job" ? commande(step) : toolKeyArg(step);
   return { verbe, objet, outil };

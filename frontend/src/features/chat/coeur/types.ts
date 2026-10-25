@@ -167,6 +167,8 @@ export interface MessageChat {
   _thinkingEndedAt?: number;
   /** Durée de la réflexion finale relue de l'historique. */
   _thinkingMs?: number;
+  /** Réflexion de l’appel précédent déjà posée sur son étape (outil hors liste) : la suivante repart de zéro. */
+  _reflexionPosee?: boolean;
   _lastToolResultAt?: number | null;
   _modelLoad?: Objet | null;
   _imageTurn?: boolean;

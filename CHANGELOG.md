@@ -50,9 +50,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   évite celui du parent qui attend son résultat et garde son propre slot d'un
   appel à l'autre, y compris quand un frère termine ; sa compaction et sa
   synthèse de fin de budget suivent la même affinité (plus de `id_slot: -1` qui
-  pouvait prendre le slot du parent). `agents.max_parallel` est plafonné à
-  `total_slots − 1`. Lancez `llama-server` avec `-np 2` au moins, `--kv-unified`
-  et `--cache-ram`. Rien à changer avec vLLM et SGLang.
+  pouvait prendre le slot du parent). Le tour principal et les routines
+  préfèrent aussi leur dernier slot : un tour dévié par un autre chat ne revient
+  plus sur son slot de hachage (un tour non dévié ne change pas).
+  `agents.max_parallel` est plafonné à `total_slots − 1`. Lancez `llama-server`
+  avec `-np 2` au moins, `--kv-unified` et `--cache-ram`. Rien à changer avec
+  vLLM et SGLang.
 
 - **Sous-agents : tête système stable.** Le message système d'un sous-agent ne
   dépend plus des arguments de `task` : la date, le budget, la durée, la

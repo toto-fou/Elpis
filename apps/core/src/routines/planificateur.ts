@@ -809,6 +809,7 @@ export class Planificateur {
                 memoryEnabled: memoire,
                 denyToolNames: refuses,
                 slot,
+                slotPrefere: () => slotParent,
                 surSlot: (pris) => {
                   slotParent = pris;
                 },

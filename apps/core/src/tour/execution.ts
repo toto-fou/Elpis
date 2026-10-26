@@ -694,6 +694,7 @@ export async function* runTurn(
               readOnly: plan.planMode,
               userSuffixRoom: SUFFIXE_LLM_MAX - (suffixeTour ? longueurPy(suffixeTour) + 2 : 0),
               slot,
+              slotPrefere: () => slotParent,
               surSlot: (pris) => {
                 slotParent = pris;
               },

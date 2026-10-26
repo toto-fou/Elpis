@@ -1431,11 +1431,15 @@ sequenceDiagram
   (`compactionAvecSlot`) et la synthèse de fin de budget d'un enfant passent par
   la même affinité (clé, évitements, préférence, annonce du slot) au lieu d'un
   `id_slot` de -1 qui laissait le serveur prendre le slot du parent ou d'un
-  frère ; le tour principal n'a ni clé, ni évitement, ni préférence et garde son
-  comportement. Un fork neuf reprend le KV du parent : tant que ses requêtes
-  prolongent le préfixe du parent il ne l'évite pas et préfère son slot réel,
-  puis il le quitte (voir « Mode fork »). vLLM et SGLang ne reçoivent jamais
-  d'`id_slot`.
+  frère. Le tour principal (`tour/execution.ts`) et le planificateur de routines
+  n'ont ni clé ni évitement, mais préfèrent leur dernier slot réellement utilisé
+  (`slotPrefere` lit celui que `surSlot` a noté) : un tour dévié par un autre chat
+  garde le slot où est son KV au lieu de revenir sur son slot de hachage, un tour
+  non dévié est inchangé (le slot préféré est celui de hachage) et le relevé de
+  `/slots` ne coûte pas un appel de plus. Un fork neuf reprend le KV du parent :
+  tant que ses requêtes prolongent le préfixe du parent il ne l'évite pas et
+  préfère son slot réel, puis il le quitte (voir « Mode fork »). vLLM et SGLang
+  ne reçoivent jamais d'`id_slot`.
 - **Parallélisme effectif** : `agents.max_parallel` borne les `task` d'une même
   réponse lancés ensemble. Sur llama.cpp, `runToolBatch` le plafonne à
   `total_slots − 1`, au moins 1 (`plafondParSlots`) : un slot reste au parent,

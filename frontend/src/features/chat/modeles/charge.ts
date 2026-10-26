@@ -15,7 +15,7 @@ const nombre = (v: unknown): v is number => typeof v === "number" && Number.isFi
 const decimal = (v: number, chiffres: number): string =>
   v.toLocaleString("fr-FR", { maximumFractionDigits: chiffres });
 
-/** « 2 en cours · 1 en attente · 41,5 jetons/s · prefill 3 800 jetons/s · 1er jeton 0,8 s · cache 63 % » ; vide si le moteur n'expose rien. */
+/** « 2 en cours · 1 en attente · 41,5 jetons/s · prefill 3 800 jetons/s · 1er jeton 0,8 s · cache moteur 63 % » ; vide si le moteur n'expose rien. */
 export function resumeCharge(c: ChargeLue | null | undefined): string {
   if (!c) return "";
   const morceaux: string[] = [];
@@ -25,6 +25,6 @@ export function resumeCharge(c: ChargeLue | null | undefined): string {
   if (nombre(c.prefill_tps) && c.prefill_tps > 0)
     morceaux.push(`prefill ${decimal(c.prefill_tps, 0)} jetons/s`);
   if (nombre(c.ttft_s) && c.ttft_s > 0) morceaux.push(`1er jeton ${decimal(c.ttft_s, 1)} s`);
-  if (nombre(c.cache_prefixe_pct)) morceaux.push(`cache ${Math.round(c.cache_prefixe_pct)} %`);
+  if (nombre(c.cache_prefixe_pct)) morceaux.push(`cache moteur ${Math.round(c.cache_prefixe_pct)} %`);
   return morceaux.join(" · ");
 }

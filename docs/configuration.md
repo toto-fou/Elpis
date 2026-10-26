@@ -562,6 +562,11 @@ délai du premier jeton, cache de préfixe) viennent des métriques du moteur. L
 délai du premier jeton est la moyenne des requêtes finies entre deux lectures ;
 sans requête nouvelle, la dernière moyenne reste affichée.
 
+Avec vLLM et SGLang, le pied du menu des modèles du chat montre le contexte de
+la conversation ouverte (le pool KV du moteur, partagé entre toutes les
+conversations, reste dans l'infobulle) ; la part relue du cache par conversation
+exige `--enable-prompt-tokens-details` (vLLM) ou `--enable-cache-report` (SGLang).
+
 Lancements conseillés (options vérifiées dans le code de ces versions) :
 
 ```bash

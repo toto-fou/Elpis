@@ -60,8 +60,8 @@ const effortCourant = computed(() =>
 );
 const modifies = computed(() => clesModifiees(mod.samplingOverride).length);
 
-// Cache du moteur visé : l'intégré, ou le connecteur choisi s'il expose ses métriques.
-const jauge = computed(() => {
+// Pied du menu : moteur à pool KV partagé (vLLM, SGLang) -> contexte de la conversation ouverte ; sinon cache du moteur visé.
+const moteurKv = computed(() => {
   const kv = mod.selectedConnector
     ? mod.pickerConnState[mod.selectedConnector]?.kv
     : mod.builtinAllowed
@@ -69,11 +69,40 @@ const jauge = computed(() => {
       : null;
   return kv && kv.total > 0 ? kv : null;
 });
+const kvEstFenetre = computed(() => {
+  if (!mod.selectedConnector) return mod.llmHealth?.kvEstFenetre !== false;
+  const st = mod.pickerConnState[mod.selectedConnector];
+  return (st?.providerType || st?.moteur?.type) === "llamacpp";
+});
+const conversation = computed(() => {
+  const u = mod.ctxUsage;
+  return moteurKv.value && !kvEstFenetre.value && u && u.total > 0 ? u : null;
+});
+const jauge = computed(() => conversation.value ?? moteurKv.value);
+const nombre = (n: number): string => n.toLocaleString("fr-FR");
 const titreCache = computed(() => {
   const charge = resumeCharge(
     mod.selectedConnector ? mod.pickerConnState[mod.selectedConnector]?.charge : mod.llmHealth?.charge,
   );
-  return "Mémoire du moteur occupée par les conversations en cours" + (charge ? ` · ${charge}` : "");
+  const c = mod.cacheConversation;
+  const relus = c ? `${c.pct} % de l'entrée relus du cache` : "";
+  const kv = moteurKv.value;
+  if (!conversation.value) {
+    const moteur =
+      "Mémoire du moteur occupée par les conversations en cours" + (charge ? ` · ${charge}` : "");
+    return relus ? `${moteur}\nConversation : ${relus}` : moteur;
+  }
+  const u = conversation.value;
+  const lignes = [
+    `Contexte de cette conversation : ${nombre(u.used)} / ${nombre(u.total)} jetons` +
+      (relus ? ` · ${relus}` : ""),
+  ];
+  if (kv)
+    lignes.push(
+      `Moteur (toutes conversations) : ${nombre(kv.used)} / ${nombre(kv.total)} jetons` +
+        (charge ? ` · ${charge}` : ""),
+    );
+  return lignes.join("\n");
 });
 
 function basculer(): void {
@@ -522,7 +551,7 @@ const ITEM =
           data-cache-moteur
         >
           <template v-if="jauge">
-            <span>Cache</span>
+            <span>{{ conversation ? "Contexte" : "Cache" }}</span>
             <span class="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden" aria-hidden="true">
               <span
                 class="block h-full w-full rounded-full transition-transform duration-500 motion-reduce:transition-none"

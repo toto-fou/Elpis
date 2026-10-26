@@ -237,6 +237,8 @@ export interface SanteMoteur {
   kv_cache?: { used: number; total: number; pct: number } | null;
   props?: { n_ctx?: number; model?: unknown } | null;
   charge?: ChargeVisible | null;
+  /** La capacité de la jauge KV est la fenêtre d'une requête (llama.cpp) ; faux pour un pool partagé (vLLM, SGLang). */
+  kvEstFenetre?: boolean;
 }
 
 /** Profil du moteur déclaré, décrit par le serveur. */
@@ -336,6 +338,8 @@ export interface DomaineModeles {
   pickReasoningEffort(v: string | null): void;
   readonly liveGen: StatsDirect | null;
   readonly ctxUsage: OccupationContexte | null;
+  /** Cache repris (jetons relus, entrée totale, part) sur la conversation ouverte ; null sans mesure. */
+  readonly cacheConversation: { lu: number; entree: number; pct: number } | null;
   fmtCtxUsage(u: OccupationContexte): string;
 }
 

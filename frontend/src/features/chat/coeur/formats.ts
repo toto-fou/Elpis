@@ -108,6 +108,21 @@ export function cachePctOf(m: Objet | null | undefined): number {
   return postes(m).cache_pct;
 }
 
+/** Cache repris sur toute la conversation (messages assistant) ; null si aucun jeton relu. */
+export function cacheConversationDe(
+  messages: readonly MessageChat[],
+): { lu: number; entree: number; pct: number } | null {
+  let lu = 0;
+  let entree = 0;
+  for (const m of messages) {
+    if (m.role !== "assistant" || !m.metrics) continue;
+    const b = postes(m.metrics);
+    lu += b.cache;
+    entree += b.input;
+  }
+  return lu > 0 && entree > 0 ? { lu, entree, pct: Math.round((lu / entree) * 100) } : null;
+}
+
 export function cacheTitle(m: Objet | null | undefined): string {
   const b = postes(m);
   return (

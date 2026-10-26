@@ -32,6 +32,7 @@ import type { OptionsRun, TeteFigee } from "../../boucle/orchestrateur";
 import { dansPorteeExecution, fileLlm, tokenHex } from "../../boucle/ports";
 import type { SortieRun } from "../../boucle/sortie";
 import { resultIsToolFailure } from "../../boucle/contrat-resultat";
+import { toolMsgWeight } from "../../boucle/run";
 import { truncateHeadTail } from "../../contexte/elagage";
 import {
   TASK_CHILD_TIMEOUT_S,
@@ -43,6 +44,7 @@ import {
   TASK_MAX_ITERS_WEB,
   TASK_RESULT_PERSIST_CAP,
   TASK_RESUME_MAX,
+  TASK_RESUME_MAX_BYTES,
   TASK_RESUME_TTL_S,
 } from "../../llm/constantes";
 import { currentEngine } from "../../llm/moteurs";
@@ -125,13 +127,33 @@ export function cancelChild(username: string, childId: string): boolean {
   return actif;
 }
 
-/** Store de reprise : TTL depuis le plus ancien, cap d'entrées, puis le store disque. */
+const TAILLES = new WeakMap<Dict, number>();
+
+/** Taille JSON approchée d'un enregistrement de reprise : contenus, arguments d'appels et réflexion de ses messages. */
+function tailleReprise(rec: Dict): number {
+  const memo = TAILLES.get(rec);
+  if (memo !== undefined) return memo;
+  let n = 256;
+  for (const m of Array.isArray(rec["messages"]) ? rec["messages"] : [])
+    n += 64 + (estDict(m) ? toolMsgWeight(m) + longueurPy(strPy(m["reasoning_content"] ?? "")) : 0);
+  TAILLES.set(rec, n);
+  return n;
+}
+
+/** Store de reprise : TTL depuis le plus ancien, cap d'entrées, cap en octets de la mémoire (le dernier enregistrement reste), puis le store disque. */
 export function pruneResumeStore(maintenant = Date.now() / 1000): void {
   for (const [k, v] of REPRISES) {
     if (maintenant - Number(v["ts"] || 0) > TASK_RESUME_TTL_S) REPRISES.delete(k);
     else break;
   }
   while (REPRISES.size > TASK_RESUME_MAX) REPRISES.delete(REPRISES.keys().next().value as string);
+  let octets = 0;
+  for (const v of REPRISES.values()) octets += tailleReprise(v);
+  for (const [k, v] of REPRISES) {
+    if (octets <= TASK_RESUME_MAX_BYTES || REPRISES.size <= 1) break;
+    octets -= tailleReprise(v);
+    REPRISES.delete(k);
+  }
   try {
     Store.prune(TASK_RESUME_TTL_S, TASK_RESUME_MAX, maintenant);
   } catch {
@@ -671,7 +693,7 @@ function libelleDuree(timeoutS: number): string {
   return timeoutS >= 120 ? `${Math.floor(timeoutS / 60)} minutes` : `${Math.trunc(timeoutS)} seconds`;
 }
 
-/** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user : la tête système reste identique d'un appel à l'autre. */
+/** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user (de la consigne, pour un fork) : la tête système reste identique d'un appel à l'autre. */
 export function taskContextBlock(
   sa: SousAgent,
   o: { budget: number; timeoutS: number; champs?: readonly string[]; fork?: { outils: readonly string[] } },

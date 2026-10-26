@@ -487,8 +487,10 @@ Avec SGLang, la réflexion de chaque appel d'outil de l'enfant repart au moteur
 (comme « Raisonnement conservé » dans les réglages de génération, qui reste
 éteint pour l'agent principal) : le préfixe de l'enfant se prolonge d'un tour
 à l'autre et RadixAttention le réutilise ; la fenêtre de l'enfant se remplit
-d'autant plus vite. Cette réflexion n'est jamais enregistrée : une reprise par
-`task_id` repart sans elle. La description de l'outil `task` ne dit rien du mode :
+d'autant plus vite. Cette réflexion n'est pas enregistrée dans l'historique du
+chat, mais l'enregistrement de reprise de l'enfant la garde (`reasoning_content`
+de ses messages assistant) : une reprise par `task_id` renvoie au moteur le même
+préfixe. La description de l'outil `task` ne dit rien du mode :
 elle fait partie de la tête de l'agent principal et ne change pas avec ces réglages.
 
 **Sous-agent en fork (`task(context="fork")`).** Ces réglages ne s'appliquent pas :

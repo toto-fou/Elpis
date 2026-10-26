@@ -87,7 +87,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   « exécution NON confirmée » (l'outil a pu agir) : l'agent vérifie l'état avant
   de le relancer. Le message de reprise annonce le budget d'itérations et de
   temps de la reprise, et les chemins écrivables ou la lecture seule quand ils
-  ont changé. Le cache de préfixe du moteur survit à la reprise. Les anciens
+  ont changé. L'enregistrement garde le `reasoning_content` des assistants
+  (réflexion rendue au moteur avec SGLang) pour que le préfixe reparte à
+  l'identique. Le cache de préfixe du moteur survit à la reprise. La mémoire des
+  reprises est plafonnée à 32 Mio (le plus ancien est évincé, le disque le
+  garde) ; le dossier du store disque doit appartenir au compte système du core
+  et rester en 0700, sinon la reprise reste en mémoire. Les anciens
   enregistrements de reprise restent valides.
 
 - **Sous-agents : mode fork (`context: "fork"`).** L'enfant reprend la
@@ -190,7 +195,8 @@ selon [SemVer](https://semver.org/lang/fr/).
   `--reasoning-parser`. Activé, la réflexion de chaque appel d'outil du tour
   repart au moteur, comme l'attendent les gabarits Qwen3, GLM-4.5/4.6 et
   MiniMax-M2 ; le prompt d'un tour d'outils s'allonge d'autant et la question
-  suivante recalcule ces appels. Cette réflexion n'est jamais enregistrée.
+  suivante recalcule ces appels. Cette réflexion n'est pas enregistrée dans
+  l'historique du chat.
 
 ## 0.1.1 — 2026-10-22
 

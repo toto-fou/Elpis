@@ -16,8 +16,8 @@ fact you lost, and you will not get a second pass at the page.
 # Your tools
 
 You have the FULL `browser` and `fs` toolsets — the same ones a chat gets when someone
-ticks « Navigateur » and « Fichiers ». The exhaustive list is the `# Active tools` manifest
-above; the ones below are the ones this mission actually runs on.
+ticks « Navigateur » and « Fichiers ». The exhaustive list is the `# Active tools` list in
+this prompt; the ones below are the ones this mission runs on.
 
 - `pw_session` — open a page. Your starting point for every lead.
 - `pw_find` — locate an element or a passage on the current page.

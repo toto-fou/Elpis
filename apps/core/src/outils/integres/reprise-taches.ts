@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/reprise-taches.ts — store disque du travail partiel d'un sous-agent (reprise par `task_id`) : JSON 0600 atomique, TTL et cap sur la mtime. */
+/** apps/core/src/outils/integres/reprise-taches.ts — store disque du travail partiel d'un sous-agent (reprise par `task_id`) : dossier 0700 du compte système du core, JSON 0600 atomique par compte, TTL et cap sur la mtime. */
 import { createHash } from "node:crypto";
 import {
   chmodSync,
   closeSync,
+  constants,
+  lstatSync,
   mkdirSync,
   openSync,
   readdirSync,
@@ -51,24 +53,30 @@ function supprimer(chemin: string): void {
   }
 }
 
-function assurerDossier(): boolean {
+/** Dossier réel du compte système du core, sans droit d'écriture pour le groupe ni les autres (le défaut est sous `/tmp`, partagé : un dossier voisin laisserait remplacer un enregistrement) ; `creer` le crée en 0700 et resserre ses droits. */
+function dossierSur(creer: boolean): boolean {
+  const dossier = storeDir();
   try {
-    mkdirSync(storeDir(), { recursive: true });
+    if (creer) mkdirSync(dossier, { recursive: true, mode: 0o700 });
+    let st = lstatSync(dossier);
+    if (!st.isDirectory()) throw new Error("pas un dossier");
+    if (typeof process.getuid === "function" && st.uid !== process.getuid())
+      throw new Error("dossier d'un autre compte système");
+    if (creer && (st.mode & 0o077) !== 0) {
+      chmodSync(dossier, 0o700);
+      st = lstatSync(dossier);
+    }
+    if ((st.mode & 0o022) !== 0) throw new Error("dossier ouvert en écriture");
   } catch (e) {
-    log.warn(`[task_resume] ${storeDir()} inutilisable (${String(e)}) — reprise locale seule`);
+    if (creer) log.warn(`[task_resume] ${dossier} inutilisable (${String(e)}) — reprise locale seule`);
     return false;
-  }
-  try {
-    chmodSync(storeDir(), 0o700);
-  } catch {
-    // droits laissés tels quels
   }
   return true;
 }
 
 /** Persiste un enregistrement de reprise ; `true` s'il est écrit (mtime calée sur `ts`). */
 export function put(username: string, childId: string, record: Dict): boolean {
-  if (!assurerDossier()) return false;
+  if (!dossierSur(true)) return false;
   let blob: Buffer;
   try {
     blob = Buffer.from(pyJsonDumps(record, { ensureAscii: false }), "utf8");
@@ -85,7 +93,11 @@ export function put(username: string, childId: string, record: Dict): boolean {
   const p = cheminEnregistrement(username, childId);
   const tmp = p.replace(/\.json$/u, ".tmp");
   try {
-    const fd = openSync(tmp, "w", 0o600);
+    const fd = openSync(
+      tmp,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+      0o600,
+    );
     try {
       writeSync(fd, blob);
     } finally {
@@ -109,6 +121,7 @@ export function put(username: string, childId: string, record: Dict): boolean {
 
 /** Relit un enregistrement non périmé ; un fichier expiré ou illisible est retiré. */
 export function get(username: string, childId: string, ttlS: number): Dict | null {
+  if (!dossierSur(false)) return null;
   const p = cheminEnregistrement(username, childId);
   let octets: Buffer;
   try {
@@ -133,6 +146,7 @@ export function get(username: string, childId: string, ttlS: number): Dict | nul
 
 /** Horodatage de l'enregistrement sur disque sans le relire (la mtime) ; `null` s'il est absent. */
 export function peekTs(username: string, childId: string): number | null {
+  if (!dossierSur(false)) return null;
   try {
     return Number(statSync(cheminEnregistrement(username, childId), { bigint: true }).mtimeNs) / 1e9;
   } catch {
@@ -144,12 +158,14 @@ export function peekTs(username: string, childId: string): number | null {
 export function prune(ttlS: number, maxEntries: number, maintenant = Date.now() / 1000): void {
   let noms: string[];
   try {
-    noms = readdirSync(storeDir()).filter((n) => n.endsWith(".json"));
+    noms = readdirSync(storeDir());
   } catch {
     return;
   }
+  if (!dossierSur(false)) return;
   const survivants: [number, string][] = [];
   for (const n of noms) {
+    if (!n.endsWith(".json") && !n.endsWith(".tmp")) continue;
     const p = path.join(storeDir(), n);
     let mtime: number;
     try {
@@ -161,7 +177,7 @@ export function prune(ttlS: number, maxEntries: number, maintenant = Date.now() 
       supprimer(p);
       continue;
     }
-    survivants.push([mtime, p]);
+    if (n.endsWith(".json")) survivants.push([mtime, p]);
   }
   if (maxEntries > 0 && survivants.length > maxEntries) {
     survivants.sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1));

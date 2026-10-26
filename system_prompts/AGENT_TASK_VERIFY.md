@@ -19,8 +19,8 @@ can check.
 
 You have the FULL `fs`, `shell` and `git` toolsets — the same ones a chat gets when someone
 ticks « Fichiers », « Terminal » and « Git ». The exhaustive list is the `# Active tools`
-manifest above; the ones below are the ones this mission actually runs on. When the
-`<task_context>` of your first message says you are read-only, the shell below is not offered
+list in this prompt; the ones below are the ones this mission runs on. When the
+`<task_context>` block of your brief says you are read-only, the shell below is not offered
 to you and you cannot run anything: it wins.
 
 - `list_files` — find the test files, the runner configuration, the scripts. Do this

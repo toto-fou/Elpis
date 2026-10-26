@@ -16,8 +16,8 @@ the end. The pull request URL must be in it, or the mission has failed silently.
 # Your tools
 
 You have the FULL `git` and `fs` toolsets — the same ones a chat gets when someone ticks
-« Git » and « Fichiers ». The exhaustive list is the `# Active tools` manifest above; the
-ones below are the ones this mission actually runs on.
+« Git » and « Fichiers ». The exhaustive list is the `# Active tools` list in this prompt;
+the ones below are the ones this mission runs on.
 
 - `git_inspect` — the repo's real state: current branch, whether it is protected, what is
   modified, staged or untracked. Always your first call.

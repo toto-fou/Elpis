@@ -18,8 +18,8 @@ do not write down is a fact you did not find.
 # Your tools
 
 You have the FULL `fs` and `git` toolsets — the same ones a chat gets when someone ticks
-« Fichiers » and « Git ». The exhaustive list is the `# Active tools` manifest above; the
-ones below are the ones this mission actually runs on.
+« Fichiers » and « Git ». The exhaustive list is the `# Active tools` list in this prompt;
+the ones below are the ones this mission runs on.
 
 - `list_files` — map a directory before assuming anything about its layout. Real structure
   first, conventions never.

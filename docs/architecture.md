@@ -1327,7 +1327,15 @@ sequenceDiagram
 - **Isolation à deux couches** : `denyToolNames` s'applique aussi aux
   catégories cachées et aux builtins (contrairement à `allowedToolNames`).
 - **Reprise** : re-passer le `task_id` continue le **même** enfant avec son
-  historique (store partagé, TTL `TASK_RESUME_TTL_S`, cap `TASK_RESUME_MAX`).
+  historique (store partagé, TTL `TASK_RESUME_TTL_S`, cap `TASK_RESUME_MAX`). La
+  mémoire (`REPRISES`) est aussi plafonnée en octets, taille JSON approchée
+  (`TASK_RESUME_MAX_BYTES`, 32 Mio, plus ancien évincé d'abord, le dernier reste :
+  un enregistrement de fork porte toute la conversation du parent). Le store
+  disque (`reprise-taches.ts`) est confiné : dossier réel en 0700 appartenant au
+  compte système du core (sinon, ou si c'est un lien, reprise en mémoire seule ;
+  le défaut est sous `/tmp`, partagé), fichiers 0600 écrits sans suivre de lien,
+  nommés par le hachage du compte et le `child_id` assaini, donc illisibles d'un
+  autre compte ; un enregistrement de plus de 8 Mio reste en mémoire.
   Vaut aussi pour les runs interrompus (délai, annulation, échec, limite) :
   l'enveloppe porte le `task_id` à reprendre dès que l'enfant a obtenu un
   résultat d'outil. L'historique stocké est celui de la boucle, lu par
@@ -1344,7 +1352,10 @@ sequenceDiagram
   est retiré ; dans un lot interrompu, un résultat déjà obtenu est gardé (jamais
   rejoué) et un appel resté en vol reçoit `SENTINELLE` (`boucle/run.ts`, celle de
   `materializeInterruptedBatch`) : « exécution NON confirmée », l'outil a pu agir.
-  La réponse finale d'un run terminé ferme l'historique. Le préfixe que voit le moteur à la reprise est
+  Les assistants gardent leur `reasoning_content` quand la réflexion est rendue
+  au moteur (SGLang, « Raisonnement conservé ») : sans lui le préfixe rejoué ne
+  serait pas celui du moteur. La réponse finale d'un run terminé ferme
+  l'historique. Le préfixe que voit le moteur à la reprise est
   donc celui de son dernier appel (cache de préfixe), tant que le budget de
   contexte n'a rien retiré de sa vue ; un ancien enregistrement (historique de
   `tool_history`, ids `live_*`) se reprend sans changement.

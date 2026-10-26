@@ -257,7 +257,8 @@ aucune capacité n'est deviné.
   `supports_preserve_reasoning` quand `/server_info` annonce un parseur de réflexion, avec
   `preserve_reasoning_default: false` ; activé, la réflexion de chaque appel d'outil du tour repart au moteur dans le
   `reasoning_content` du message assistant, sans le balisage d'appel, comptée par `tokens.ts` pendant ce tour et jamais
-  enregistrée. Le Python ne la rendait à aucun moteur. Dans ce cas seulement, le jalon `<harness_status>` du budget
+  enregistrée dans l'historique du chat (seul l'enregistrement de reprise d'un sous-agent, propre au TS, la garde pour
+  que son préfixe reparte à l'identique). Le Python ne la rendait à aucun moteur. Dans ce cas seulement, le jalon `<harness_status>` du budget
   n'est pas un message `user` mi-tour (le gabarit retirerait la réflexion des assistants précédents) mais la fin du
   dernier résultat d'outil du lot, hors `tool_history`.
 - **`</think>` orphelin** (serveur sans `--reasoning-parser`, gabarit qui ouvre `<think>` dans le prompt) : le texte

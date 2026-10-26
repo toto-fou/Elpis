@@ -2,6 +2,7 @@
 /** frontend/src/features/chat/page/types.ts — domaines de la page de chat (en-tête, fil, composeur, modèles, images) lus et modifiés par ses composants. */
 import type { SurfaceChat } from "../coeur/chat";
 import type { PieceJointe } from "../composeur/composeur";
+import type { CacheConversation } from "../coeur/formats";
 import type { CollectionActiveChat } from "../../rag/collections-chat";
 import type { DonneesParametres, SurchargeEchantillonnage } from "../../reglages/echantillonnage";
 
@@ -339,7 +340,7 @@ export interface DomaineModeles {
   readonly liveGen: StatsDirect | null;
   readonly ctxUsage: OccupationContexte | null;
   /** Cache repris (jetons relus, entrée totale, part) sur la conversation ouverte ; null sans mesure. */
-  readonly cacheConversation: { lu: number; entree: number; pct: number } | null;
+  readonly cacheConversation: CacheConversation | null;
   fmtCtxUsage(u: OccupationContexte): string;
 }
 

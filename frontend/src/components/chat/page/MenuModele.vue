@@ -60,7 +60,7 @@ const effortCourant = computed(() =>
 );
 const modifies = computed(() => clesModifiees(mod.samplingOverride).length);
 
-// Pied du menu : moteur à pool KV partagé (vLLM, SGLang) -> contexte de la conversation ouverte ; sinon cache du moteur visé.
+// Pied du menu : moteur à pool KV partagé (vLLM, SGLang) → contexte de la conversation ouverte ; sinon cache du moteur visé.
 const moteurKv = computed(() => {
   const kv = mod.selectedConnector
     ? mod.pickerConnState[mod.selectedConnector]?.kv
@@ -85,23 +85,22 @@ const titreCache = computed(() => {
     mod.selectedConnector ? mod.pickerConnState[mod.selectedConnector]?.charge : mod.llmHealth?.charge,
   );
   const c = mod.cacheConversation;
-  const relus = c ? `${c.pct} % de l'entrée relus du cache` : "";
+  const relus = c ? `${c.pct} % de l'entrée relue du cache` : "";
   const kv = moteurKv.value;
-  if (!conversation.value) {
+  const u = conversation.value;
+  if (!u || !kv) {
     const moteur =
       "Mémoire du moteur occupée par les conversations en cours" + (charge ? ` · ${charge}` : "");
-    return relus ? `${moteur}\nConversation : ${relus}` : moteur;
+    return relus && !kvEstFenetre.value ? `${moteur}\nConversation : ${relus}` : moteur;
   }
-  const u = conversation.value;
   const lignes = [
     `Contexte de cette conversation : ${nombre(u.used)} / ${nombre(u.total)} jetons` +
       (relus ? ` · ${relus}` : ""),
   ];
-  if (kv)
-    lignes.push(
-      `Moteur (toutes conversations) : ${nombre(kv.used)} / ${nombre(kv.total)} jetons` +
-        (charge ? ` · ${charge}` : ""),
-    );
+  lignes.push(
+    `Moteur (toutes conversations) : ${nombre(kv.used)} / ${nombre(kv.total)} jetons` +
+      (charge ? ` · ${charge}` : ""),
+  );
   return lignes.join("\n");
 });
 
@@ -551,7 +550,7 @@ const ITEM =
           data-cache-moteur
         >
           <template v-if="jauge">
-            <span>{{ conversation ? "Contexte" : "Cache" }}</span>
+            <span>{{ conversation ? "Contexte" : kvEstFenetre ? "Cache" : "Moteur" }}</span>
             <span class="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden" aria-hidden="true">
               <span
                 class="block h-full w-full rounded-full transition-transform duration-500 motion-reduce:transition-none"

@@ -108,14 +108,22 @@ export function cachePctOf(m: Objet | null | undefined): number {
   return postes(m).cache_pct;
 }
 
-/** Cache repris sur toute la conversation (messages assistant) ; null si aucun jeton relu. */
+export interface CacheConversation {
+  lu: number;
+  entree: number;
+  pct: number;
+}
+
+/** Cache repris par le modèle choisi sur la conversation (tous les modèles si `modele` est vide) ; null si aucun jeton relu. */
 export function cacheConversationDe(
   messages: readonly MessageChat[],
-): { lu: number; entree: number; pct: number } | null {
+  modele: string,
+): CacheConversation | null {
   let lu = 0;
   let entree = 0;
   for (const m of messages) {
     if (m.role !== "assistant" || !m.metrics) continue;
+    if (modele && m.metrics["model"] !== modele) continue;
     const b = postes(m.metrics);
     lu += b.cache;
     entree += b.input;

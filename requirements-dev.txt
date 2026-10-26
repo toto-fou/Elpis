@@ -1,7 +1,7 @@
 # Outils de test et de développement — non installés en production.
 #   venv/bin/pip install -r requirements-dev.txt
 #   venv/bin/pytest            (parallèle par défaut : -n auto, cf. pytest.ini)
-pytest==9.0.3
+pytest==9.1.1
 pytest-asyncio==1.4.0         # exigé par pytest.ini (asyncio_mode = auto)
 pytest-xdist==3.8.0           # exécution parallèle (-n auto)
 mypy==2.3.1                   # typage (périmètre : [tool.mypy] de pyproject.toml)

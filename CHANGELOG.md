@@ -78,7 +78,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   l'agent principal. Avec SGLang, l'enfant garde la réflexion de ses tours
   d'outils (parseur de réflexion actif). Le bilan du harnais porte `thinking`
   (réflexion demandée) et l'étape finale `think_tokens` ; la carte n'affiche
-  « réflexion » que si des jetons de réflexion ont été mesurés.
+  « réflexion » que si des jetons de réflexion ont été mesurés. Rechargez les
+  onglets ouverts après la mise à jour : un onglet resté sur l'ancien bundle
+  rejette l'étape finale d'un sous-agent (schéma strict) jusqu'au rechargement.
 
 - **Sous-agents : reprise sur l'historique exact de la boucle.** Un sous-agent
   repris par `task_id` (après un délai, une annulation ou un échec comme après
@@ -94,10 +96,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   changé. L'enregistrement garde le `reasoning_content` des assistants
   (réflexion rendue au moteur avec SGLang) pour que le préfixe reparte à
   l'identique. Le cache de préfixe du moteur survit à la reprise. La mémoire des
-  reprises est plafonnée à 32 Mio (le plus ancien est évincé, le disque le
-  garde) ; le dossier du store disque doit appartenir au compte système du core
-  et rester en 0700, sinon la reprise reste en mémoire. Les anciens
-  enregistrements de reprise restent valides.
+  reprises est plafonnée à 32 Mio : le plus ancien est évincé de la mémoire et
+  ne se reprend plus que depuis le disque, où un enregistrement de plus de 8 Mio
+  n'est pas écrit ; le dossier du store disque doit appartenir au compte système
+  du core et rester en 0700, sinon la reprise reste en mémoire seule (signalé une
+  fois par dossier dans le journal). Les anciens enregistrements de reprise
+  restent valides.
 
 - **Appel interrompu : texte neutre.** Le résultat « exécution NON confirmée »
   d'un appel d'outil interrompu (Stop, délai du harnais, reprise d'un

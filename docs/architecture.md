@@ -1330,12 +1330,16 @@ sequenceDiagram
   historique (store partagé, TTL `TASK_RESUME_TTL_S`, cap `TASK_RESUME_MAX`). La
   mémoire (`REPRISES`) est aussi plafonnée en octets, taille JSON approchée
   (`TASK_RESUME_MAX_BYTES`, 32 Mio, plus ancien évincé d'abord, le dernier reste :
-  un enregistrement de fork porte toute la conversation du parent). Le store
+  un enregistrement de fork porte toute la conversation du parent) ; un
+  enregistrement évincé ne se reprend plus que depuis le disque, s'il y a été
+  écrit (voir ci-dessous). Le store
   disque (`reprise-taches.ts`) est confiné : dossier réel en 0700 appartenant au
   compte système du core (sinon, ou si c'est un lien, reprise en mémoire seule ;
   le défaut est sous `/tmp`, partagé), fichiers 0600 écrits sans suivre de lien,
   nommés par le hachage du compte et le `child_id` assaini, donc illisibles d'un
-  autre compte ; un enregistrement de plus de 8 Mio reste en mémoire.
+  autre compte ; un enregistrement de plus de 8 Mio n'est pas écrit (il ne se
+  reprend que tant qu'il est en mémoire : plus après son éviction ni un
+  redémarrage), et un dossier refusé n'est signalé qu'une fois par process.
   Vaut aussi pour les runs interrompus (délai, annulation, échec, limite) :
   l'enveloppe porte le `task_id` à reprendre dès que l'enfant a obtenu un
   résultat d'outil. L'historique stocké est celui de la boucle, lu par

@@ -204,7 +204,7 @@ export const TASK_CHILD_TIMEOUT_S = config.TASK_CHILD_TIMEOUT_S || 3600;
 export const TASK_SUBAGENT_DEPTH = maxPy(1, config.TASK_SUBAGENT_DEPTH || 1);
 export const TASK_RESUME_TTL_S = config.TASK_RESUME_TTL_S || 21600;
 export const TASK_RESUME_MAX = config.TASK_RESUME_MAX || 200;
-/** Plafond de la mémoire des reprises (taille JSON approchée) : un enregistrement de fork porte toute la conversation du parent ; au-delà, le plus ancien est évincé de la mémoire (le disque le garde). */
+/** Plafond de la mémoire des reprises (taille JSON approchée) : un enregistrement de fork porte toute la conversation du parent ; au-delà, le plus ancien est évincé de la mémoire et ne se reprend plus que depuis le disque, où il n'est écrit que s'il tient dans 8 Mio et si le dossier est accepté. */
 export const TASK_RESUME_MAX_BYTES = 32 * 1024 * 1024;
 export const TASK_MAX_ITERS_EXPLORE = maxPy(1, config.TASK_MAX_ITERS_EXPLORE || 60);
 export const TASK_MAX_ITERS_IMPLEMENT = maxPy(1, config.TASK_MAX_ITERS_IMPLEMENT || 100);

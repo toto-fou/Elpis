@@ -27,6 +27,9 @@ const log = journal("outils.reprise-taches");
 
 export const MAX_BYTES = 8 * 1024 * 1024;
 
+/** Dossiers refusés déjà signalés dans ce process : un seul avertissement par dossier, pas un par enregistrement. */
+const refusesSignales = new Set<string>();
+
 /** `runtime_path("task_resume", "ELPIS_TASK_RESUME_DIR", "/tmp/elpis_task_resume")`, relu à chaque appel. */
 export function storeDir(): string {
   const dedie = stripPy(process.env["ELPIS_TASK_RESUME_DIR"] ?? "");
@@ -68,7 +71,10 @@ function dossierSur(creer: boolean): boolean {
     }
     if ((st.mode & 0o022) !== 0) throw new Error("dossier ouvert en écriture");
   } catch (e) {
-    if (creer) log.warn(`[task_resume] ${dossier} inutilisable (${String(e)}) — reprise locale seule`);
+    if (creer && !refusesSignales.has(dossier)) {
+      refusesSignales.add(dossier);
+      log.warn(`[task_resume] ${dossier} inutilisable (${String(e)}) — reprise locale seule`);
+    }
     return false;
   }
   return true;

@@ -79,6 +79,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   boucle a compacté. Le cache de préfixe du moteur survit à la reprise. Les
   anciens enregistrements de reprise restent valides.
 
+- **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
+  Quand la réflexion des tours d'outils est rendue au moteur, la ligne
+  `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un
+  message utilisateur : le gabarit ne retire plus la réflexion déjà rendue et le
+  préfixe du cache survit aux jalons. Rien ne change pour llama.cpp et vLLM.
+
 ### Interface
 
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions

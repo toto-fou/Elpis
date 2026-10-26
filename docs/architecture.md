@@ -589,6 +589,20 @@ aiguillage de chaque tour, point d'étape budget (`<harness_status>`, message
 éphémère en queue). Même sur annulation, il purge la dernière capture d'écran
 et enregistre l'usage consommé.
 
+**Jalon du budget et réflexion rendue.** Quand la réflexion du tour est rendue au
+moteur (SGLang avec « Raisonnement conservé », décidé une fois par run dans
+`RunContext.reflexionRendue`) et que le lot vient du canal natif, le jalon est
+ajouté à la fin du dernier résultat d'outil du lot, séparé par une ligne vide
+(`jalonDansDernierResultat`), et non posé en message `user` : un nouveau `user`
+au milieu d'un tour d'outils fait retirer par les gabarits de type Qwen3
+(`last_query_index`) la réflexion des assistants précédents, ce qui cassait le
+préfixe du cache à chaque jalon. La ligne n'existe que dans les messages de
+travail : ni dans la `tool_history` enregistrée, ni dans le `tool_result`
+affiché ; l'élagage et le résumé lisent le résultat sans elle
+(`sansJalonHarnais`), et la reprise d'un sous-agent la stocke telle qu'envoyée.
+Un résultat qui n'est pas du texte, un lot sans résultat ou le canal texte
+gardent le message `user`, comme llama.cpp, vLLM et SGLang sans réflexion rendue.
+
 Le reste vit dans des modules de `apps/core/src/boucle/`. Aucun n'importe
 l'orchestrateur : c'est lui qui les importe.
 

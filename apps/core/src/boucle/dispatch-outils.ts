@@ -720,7 +720,9 @@ export async function openNativeRound(
   const round: Dict = { role: "assistant", content: o.iterClean || null, tool_calls: o.toolCalls };
   if (o.msg["_anthropic_thinking"]) round["_anthropic_thinking"] = o.msg["_anthropic_thinking"];
   const pensee = stripPy(stripToolCallMarkup(o.iterThinking || ""));
-  const rendue = pensee !== "" && reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride);
+  const rendue =
+    pensee !== "" &&
+    (ctx.c.reflexionRendue ?? reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride));
   workingMessages.push(rendue ? { ...round, reasoning_content: pensee } : round);
   rec.runToolHistory.push(round);
   const prepared: Dict[] = [];
@@ -955,6 +957,20 @@ async function avecEvenementsJobs(
     log.warn(`[jobs] événements non joints au résultat d'outil : ${String(e)}`);
     return contenu;
   }
+}
+
+/** Ajoute `ligne` (après une ligne vide) au contenu texte du dernier résultat d'outil du lot en queue de `messages` ; faux, rien n'est changé, sans tel résultat ou si son contenu n'est pas du texte. */
+export function jalonDansDernierResultat(messages: Dict[], ligne: string): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m["role"] === "assistant") return false;
+    if (m["role"] !== "tool") continue;
+    const contenu = m["content"];
+    if (typeof contenu !== "string") return false;
+    messages[i] = { ...m, content: stripPy(contenu) ? `${contenu}\n\n${ligne}` : ligne };
+    return true;
+  }
+  return false;
 }
 
 export interface BatchOutcome {

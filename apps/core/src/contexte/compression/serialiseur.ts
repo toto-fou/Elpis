@@ -6,7 +6,7 @@ import { resultIsError } from "../../boucle/contrat-resultat";
 import { toolTraits } from "../../outils/traits";
 import { BLANC_PY, estDict, lire, splitlinesPy } from "../../python";
 import type { Dict } from "../../python";
-import { chargerJson, cleHash, longueurCp, truncateHeadTail } from "../elagage";
+import { chargerJson, cleHash, longueurCp, sansJalonHarnais, truncateHeadTail } from "../elagage";
 import { tokensToChars } from "../tokens";
 
 export const LEDGER_START = "[ARTIFACTS v=1]";
@@ -105,7 +105,8 @@ export function extractArtifactLedger(messages: readonly unknown[]): ArtifactEnt
     if (veritePy(id) && typeof c === "string") resultById.set(cleHash(id), c);
   }
   const statut = (tcId: unknown): boolean | null => {
-    const raw = resultById.get(cleHash(veritePy(tcId) ? tcId : ""));
+    const brut = resultById.get(cleHash(veritePy(tcId) ? tcId : ""));
+    const raw = brut === undefined ? brut : sansJalonHarnais(brut);
     if (!raw || !chargerJson(raw).ok) return null;
     return !resultIsError(raw);
   };

@@ -16,7 +16,9 @@ import { assembleOperationalContext } from "../contexte/assemblage";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
 import { LLAMA_MAX_TOOL_ITERATIONS } from "../llm/constantes";
 import { resolveContextWindow } from "../llm/fenetre-contexte";
+import { currentEngine } from "../llm/moteurs";
 import type { Slot } from "../llm/ordonnanceur";
+import { reflexionDuTourRendue } from "../llm/parametres";
 import { verifyLlmAvailability } from "../llm/sante";
 import { journal } from "../journal";
 import type { SousAgent } from "@elpis/securite";
@@ -30,6 +32,7 @@ import { llamaChatCompaction } from "./appels-uniques";
 import {
   classifyTextReply,
   CycleGuard,
+  jalonDansDernierResultat,
   NATIF,
   openNativeRound,
   openTextRound,
@@ -332,8 +335,10 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
   let forcedStop = false;
   const resume = new ResumeState();
   let wallclockStop = false;
+  const reflexionRendue = reflexionDuTourRendue(currentEngine().profil, o.samplingOverride ?? null);
 
-  const injecterPointEtape = (): void => {
+  /** Jalon du budget : dans le dernier résultat d'outil du lot quand la réflexion est rendue au moteur (un message `user` mi-tour lui ferait retirer cette réflexion par le gabarit), sinon message éphémère. */
+  const injecterPointEtape = (natif: boolean): void => {
     const hardLeft = Math.max(0, capDur - hardIter);
     const u = (rec.lastRaw["usage"] || {}) as Dict;
     const occ = intPy(u["prompt_tokens"] || 0) + intPy(u["completion_tokens"] || 0);
@@ -351,7 +356,8 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     if (cle === dernierJalon) return;
     dernierJalon = cle;
     if (limitesSandbox && ligne.includes("Sandbox limits:")) limitesSandbox = "";
-    workingMessages.push(ephemeral("user", ligne));
+    if (!(reflexionRendue && natif && jalonDansDernierResultat(workingMessages, ligne)))
+      workingMessages.push(ephemeral("user", ligne));
     o.surPointEtape?.({
       texte: ligne,
       finDeBudget: estFinDeBudget(effectiveIter, budget, hardLeft),
@@ -366,6 +372,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     userId: o.userId ?? null,
     samplingOverride: o.samplingOverride ?? null,
     thinkingMode: o.thinkingMode ?? false,
+    reflexionRendue,
     isCancelled: o.isCancelled ?? null,
     signal,
     slot: o.slot ?? null,
@@ -548,7 +555,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       log.info(
         `[run_chat_multi_mcp] iter ${iteration} (${channel.name}) non productive — effective_iter reste à ${effectiveIter}/${budget} (hard ${hardIter}/${capDur})`,
       );
-    injecterPointEtape();
+    injecterPointEtape(channel === NATIF);
   }
   return finishOnLimit(ctx, rec, resume, deps, workingMessages, {
     effectiveIter,

@@ -159,8 +159,9 @@ function nombre(v: unknown): string | null {
 
 /** Statut et faits triviaux d'une sortie : JSON (`ok`, `error`, code retour, nombre de résultats) ou texte brut. */
 function statutEtFaits(content: string): [string, string[]] {
-  const debut = content.trimStart();
-  const lu = debut.startsWith("{") ? chargerJson(content) : ({ ok: false } as const);
+  const corps = sansJalonHarnais(content);
+  const debut = corps.trimStart();
+  const lu = debut.startsWith("{") ? chargerJson(corps) : ({ ok: false } as const);
   if (!lu.ok || !estDict(lu.valeur))
     return [/^(error|erreur|traceback|exception)\b/i.test(debut) ? "error" : "ok", []];
   const d = lu.valeur;
@@ -277,8 +278,10 @@ function estOutilEcriture(nom: unknown): boolean {
 
 /** Identité stable d'un tool_result : id | longueur | 48 premiers | 48 derniers points de code. */
 export function pruneKey(m: Dict): string | null {
-  const c = m["content"];
-  if (typeof c !== "string" || !c) return null;
+  const brut = m["content"];
+  if (typeof brut !== "string" || !brut) return null;
+  const c = sansJalonHarnais(brut);
+  if (!c) return null;
   const id = lire(m, "tool_call_id");
   const demi = /[\uD800-\uDFFF]/.test(c);
   const bords = demi ? `${prefixePy(c, 48)}|${suffixePy(c, 48)}` : `${c.slice(0, 48)}|${c.slice(-48)}`;
@@ -314,6 +317,14 @@ export function isEphemeral(m: unknown): boolean {
 
 export function ephemeral(role: string, content: string): Dict {
   return { role, content, _ephemeral: true };
+}
+
+/** Résultat d'outil sans la ligne `<harness_status>` que la boucle peut lui avoir ajoutée en queue (réflexion rendue au moteur) : sa clé d'élagage et son statut restent ceux du résultat. */
+export function sansJalonHarnais(content: string): string {
+  if (!content.endsWith("</harness_status>")) return content;
+  const debut = content.lastIndexOf("<harness_status>");
+  if (debut === 0) return "";
+  return debut > 1 && content.slice(debut - 2, debut) === "\n\n" ? content.slice(0, debut - 2) : content;
 }
 
 function aCleInterne(m: Dict): boolean {

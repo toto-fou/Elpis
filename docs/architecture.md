@@ -1319,6 +1319,35 @@ sequenceDiagram
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.
+- **Affinité de slot (llama.cpp)** : `llama-server` garde un cache KV par slot
+  et Elpis épingle chaque chat sur un slot (`id_slot`, hachage d'une clé,
+  `resolveSlotId` de `apps/core/src/llm/constantes.ts`). L'enfant garde son
+  `chatId` (`<chat>#task-<id>`, journal et traces) mais sa **clé d'affinité**
+  (`slotKey` de `OptionsRun`) est `<chat parent>#task-<type>` : deux enfants
+  successifs du même type, reprise par `task_id` comprise, retombent sur le même
+  slot et y retrouvent le préfixe persona + outils au lieu d'écraser un KV
+  chaud au hasard. Pendant que `task` s'exécute, le parent est inactif et son
+  slot paraît libre dans `/slots` : l'enfant évite donc le dernier slot que le
+  parent a réellement pris (`surSlot` de sa boucle, relu par `slotParent`) et
+  ceux de ses frères en cours (`slotAvoid`, relu à chaque choix), pour ne pas
+  lui faire reprefiller toute sa conversation au retour. S'il n'y a qu'un slot
+  ou qu'aucun autre n'est libre, rien n'est évité (slot préféré de la clé) ;
+  `--cache-ram` limite alors la casse (voir les modes de scheduling). Un futur
+  enfant qui devrait reprendre le KV du parent passerait sa clé sans `slotAvoid`.
+- **Parallélisme effectif** : `agents.max_parallel` borne les `task` d'une même
+  réponse lancés ensemble. Sur llama.cpp, `runToolBatch` le plafonne à
+  `total_slots − 1`, au moins 1 (`plafondParSlots`) : un slot reste au parent,
+  sinon des enfants aussi nombreux que les slots se volent le leur à chaque appel
+  et refont tout leur prefill ; `total_slots` inconnu, `max_parallel` tel quel.
+  vLLM et SGLang regroupent les requêtes (batching continu) et partagent un cache
+  de préfixe global (APC, RadixAttention) : aucun `id_slot` n'est envoyé et
+  `max_parallel` s'applique sans plafond. La description de l'outil
+  (« up to N at a time ») garde la valeur configurée : elle fait partie de la
+  tête du parent et reste identique d'un tour à l'autre.
+- **Lancer llama-server pour les sous-agents** : `-np 2` au moins (`--parallel`,
+  idéalement les sous-agents simultanés + 1), `--kv-unified` (un tampon KV
+  partagé par les slots) et `--cache-ram` (cache de prompts en RAM, qui restaure
+  un KV évincé). Rien à régler pour vLLM et SGLang.
 
 ---
 

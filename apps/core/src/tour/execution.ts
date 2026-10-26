@@ -622,6 +622,7 @@ export async function* runTurn(
                   signal: controleur.signal,
                 })
               : null;
+            let slotParent: number | null = null;
             const taskBuiltin = plan.agentsOn
               ? buildTaskBuiltinTool({
                   parentMcpConfigs: plan.activeMcpServers,
@@ -640,6 +641,7 @@ export async function* runTurn(
                     : [],
                   userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid),
                   userId: uid,
+                  slotParent: () => slotParent,
                 })
               : {};
             const imageBuiltin: Record<string, OutilIntegre> = plan.imageToolOn
@@ -691,6 +693,9 @@ export async function* runTurn(
               readOnly: plan.planMode,
               userSuffixRoom: SUFFIXE_LLM_MAX - (suffixeTour ? longueurPy(suffixeTour) + 2 : 0),
               slot,
+              surSlot: (pris) => {
+                slotParent = pris;
+              },
             });
             thinkingText =
               estDict(metrics) && typeof metrics["thinking"] === "string" ? metrics["thinking"] : "";

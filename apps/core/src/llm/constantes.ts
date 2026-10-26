@@ -34,12 +34,18 @@ function plage(n: number): number[] {
   return Array.from({ length: Math.max(0, n) }, (_, i) => i);
 }
 
-/** `id_slot` pour llama-server : hash stable du chat (KV chaud), dévié vers un slot libre si le sien est occupé ; -1 = au serveur de choisir. */
+/** Options du choix d'un slot : `avoidOwn` écarte celui que la clé préfère, `avoid` d'autres slots (parent en attente, frères en cours). */
+export interface OptionsSlot {
+  avoidOwn?: boolean;
+  avoid?: Iterable<number> | null;
+}
+
+/** `id_slot` pour llama-server : hash stable de la clé (KV chaud), dévié vers un slot libre si le sien est occupé ou évité ; -1 = au serveur de choisir. */
 export function resolveSlotId(
   chatId: unknown,
   totalSlots: number | null | undefined,
   busySlots: Iterable<number> | null = null,
-  options: { avoidOwn?: boolean } = {},
+  options: OptionsSlot = {},
 ): number {
   const repli = LLAMA_FORCE_IDLE_SLOT ? -1 : 0;
   if (!LLAMA_PIN_SLOT_BY_CHAT || totalSlots === null || totalSlots === undefined || totalSlots <= 1)
@@ -53,35 +59,57 @@ export function resolveSlotId(
   const preferred = Number.parseInt(digest.slice(0, 8), 16) % totalSlots;
   const second = Number.parseInt(digest.slice(8, 16), 16);
   const occupes = new Set(busySlots ?? []);
-  if (options.avoidOwn) {
-    const autres = plage(totalSlots).filter((s) => s !== preferred && !occupes.has(s));
-    return autres.length > 0 ? (autres[second % autres.length] ?? preferred) : preferred;
-  }
-  if (occupes.size === 0 || !occupes.has(preferred)) return preferred;
-  const libres = plage(totalSlots).filter((s) => !occupes.has(s));
+  const evites = new Set(options.avoid ?? []);
+  if (options.avoidOwn) evites.add(preferred);
+  if (!evites.has(preferred) && !occupes.has(preferred)) return preferred;
+  const libres = plage(totalSlots).filter((s) => !evites.has(s) && !occupes.has(s));
   return libres.length > 0 ? (libres[second % libres.length] ?? preferred) : preferred;
 }
 
-/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot. */
-export async function resolveSlotIdAsync(
-  chatId: unknown,
-  options: { avoidOwn?: boolean } = {},
-): Promise<number> {
-  let total: number;
+/** Options asynchrones : `avoid` est relu au moment du choix, `surSlot` rappelé dans la foulée avec le slot retenu (≥ 0). */
+export interface OptionsSlotAsync {
+  avoidOwn?: boolean;
+  avoid?: (() => Iterable<number>) | null;
+  surSlot?: ((slot: number) => void) | null;
+}
+
+/** `total_slots` du serveur visé (cache de l'intégré, sonde d'un connecteur) ; 0 si inconnu ou sans slots, ne lève jamais. */
+async function totalSlotsVises(): Promise<number> {
   try {
-    total = getCachedTotalSlots();
-    if (!currentEngine().isBuiltin) total = await getModelTotalSlots();
+    const total = getCachedTotalSlots();
+    return currentEngine().isBuiltin ? total : await getModelTotalSlots();
   } catch {
-    return LLAMA_FORCE_IDLE_SLOT ? -1 : 0;
+    return 0;
   }
-  if (total <= 1) return resolveSlotId(chatId, total || 0, null);
+}
+
+/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot. */
+export async function resolveSlotIdAsync(chatId: unknown, options: OptionsSlotAsync = {}): Promise<number> {
+  const total = await totalSlotsVises();
+  if (total <= 1) return resolveSlotId(chatId, total, null);
   let occupes: ReadonlySet<number> | null;
   try {
     occupes = await getBusySlotsSnapshot();
   } catch {
     occupes = null;
   }
-  return resolveSlotId(chatId, total, occupes, { avoidOwn: options.avoidOwn ?? false });
+  const slot = resolveSlotId(chatId, total, occupes, {
+    avoidOwn: options.avoidOwn ?? false,
+    avoid: options.avoid?.() ?? null,
+  });
+  if (slot >= 0) options.surSlot?.(slot);
+  return slot;
+}
+
+/** `demande` requêtes simultanées au plus : sur llama.cpp un slot reste au parent qui attend (`total_slots − 1`, au moins 1) ; sinon, ou total inconnu, `demande`. */
+export async function plafondParSlots(demande: number): Promise<number> {
+  try {
+    if (!currentEngine().profil.capacites.slots) return demande;
+    const total = await totalSlotsVises();
+    return total > 0 ? Math.min(demande, Math.max(1, total - 1)) : demande;
+  } catch {
+    return demande;
+  }
 }
 
 export const LLAMA_CACHE_PROMPT = interrupteurEnv("LLAMA_CACHE_PROMPT");

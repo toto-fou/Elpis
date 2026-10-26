@@ -366,6 +366,7 @@ export async function finishOnLimit(
           samplingOverride,
           thinkingMode: false,
           chatId,
+          ...ctx.optionsSlot(),
           toolChoice: "none",
         }),
       );

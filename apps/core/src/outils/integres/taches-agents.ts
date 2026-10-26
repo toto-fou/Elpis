@@ -705,6 +705,8 @@ export interface OptionsTache {
   userMcpConfigs?: readonly unknown[] | null;
   userId?: number | null;
   priority?: Priorite;
+  /** Dernier slot llama.cpp pris par le parent, qui attend le résultat de `task` : les enfants l'évitent ; absent ou `null`, rien à éviter. */
+  slotParent?: (() => number | null) | null;
   /** Point de substitution des tests : la boucle enfant. */
   runner?: (o: OptionsRun) => Promise<SortieRun>;
   /** Appels du harnais à l'hôte d'outils (santé du navigateur, rapport sauvé) ; tests : doublure. */
@@ -740,6 +742,13 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
   const hote = o.hote ?? hoteTacheParDefaut;
   const agentsMap = agentsRoster(o.customAgents);
   if (!agentsMap.size) return {};
+  /** Dernier slot de chaque enfant en cours, protégé par ses frères comme celui du parent. */
+  const slotsEnfants = new Map<string, number>();
+  const slotsAEviter = (moi: string): number[] => {
+    const parent = o.slotParent?.() ?? null;
+    const freres = [...slotsEnfants].filter(([id]) => id !== moi).map(([, slot]) => slot);
+    return parent === null ? freres : [parent, ...freres];
+  };
 
   const handleTask = async (args: Dict, appel?: AppelIntegre): Promise<string> => {
     const callId = appel?.callId ?? null;
@@ -872,6 +881,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const childId = resumed !== null ? taskId : `t${++compteur}-${tokenHex(3)}`;
     const childChatId = `${o.chatId || "chat"}#task-${childId}`;
+    const slotKey = `${o.chatId || "chat"}#task-${agentType}`;
     const k = cle(o.username, childId);
     const childIsCancelled = (): boolean => Boolean((o.isCancelled && o.isCancelled()) || ANNULES.has(k));
 
@@ -1362,6 +1372,11 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           isCancelled: childIsCancelled,
           signal: signalEnfant,
           chatId: childChatId,
+          slotKey,
+          slotAvoid: () => slotsAEviter(childId),
+          surSlot: (slot) => {
+            slotsEnfants.set(childId, slot);
+          },
           samplingOverride: childSampling,
           thinkingMode: false,
           allowedToolNames: childAllowed,
@@ -1442,6 +1457,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       }
     } finally {
       clearTimeout(minuterie);
+      slotsEnfants.delete(childId);
       if (ACTIFS.get(k)?.arret === arret) {
         ACTIFS.delete(k);
         ANNULES.delete(k);

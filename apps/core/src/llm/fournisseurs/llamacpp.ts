@@ -93,6 +93,11 @@ export interface OptionsPayload {
   reasoningEffort?: string | null;
   preserveReasoning?: boolean | null;
   slotAvoidOwn?: boolean;
+  /** Clé hachée pour choisir le slot (llama.cpp) ; absente, le chatId. */
+  slotKey?: string | null;
+  /** Slots à éviter, relus au moment du choix ; `surSlot` reçoit le slot retenu. */
+  slotAvoid?: (() => Iterable<number>) | null;
+  surSlot?: ((slot: number) => void) | null;
 }
 
 /** Corps COMMUN aux moteurs : squelette, cache KV, plafond adapté au n_ctx, kwargs de gabarit (llama.cpp, vLLM, SGLang), épinglage de slot. */
@@ -168,9 +173,11 @@ export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload
     }
   }
   if (o.localLlamacpp) {
-    const slot = o.slotAvoidOwn
-      ? await resolveSlotIdAsync(o.chatId, { avoidOwn: true })
-      : await resolveSlotIdAsync(o.chatId);
+    const slot = await resolveSlotIdAsync(o.slotKey || o.chatId, {
+      avoidOwn: o.slotAvoidOwn ?? false,
+      avoid: o.slotAvoid ?? null,
+      surSlot: o.surSlot ?? null,
+    });
     if (slot >= 0) payload["id_slot"] = slot;
     else if (LLAMA_FORCE_IDLE_SLOT) payload["id_slot"] = -1;
   }

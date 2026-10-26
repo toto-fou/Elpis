@@ -539,6 +539,7 @@ export async function callLlm(
         samplingOverride,
         thinkingMode,
         chatId,
+        ...ctx.optionsSlot(),
         resumeThink: resumeReq.think,
         resumeNativeOk: resumeReq.nativeOk,
         resumeContent: resumeReq.content,

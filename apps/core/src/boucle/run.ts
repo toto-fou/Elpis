@@ -177,6 +177,10 @@ export interface ChampsRun {
   /** Périmètre du sous-agent qui fait ce run, `null` pour un tour de premier niveau. */
   subagent?: SousAgent | null;
   wrapupSuffix?: string | null;
+  /** Affinité de slot llama.cpp du run (cf. `OptionsRun`). */
+  slotKey?: string | null;
+  slotAvoid?: (() => Iterable<number>) | null;
+  surSlot?: ((slot: number) => void) | null;
   startTime: number;
   modelHasVision: boolean;
   chatKeySuffix: string;
@@ -201,6 +205,16 @@ export class RunContext {
   /** Annulation demandée par l'appelant (Stop, client parti). */
   cancelled(): boolean {
     return Boolean((this.c.isCancelled && this.c.isCancelled()) || this.c.signal?.aborted);
+  }
+
+  /** Affinité de slot à joindre aux options de chaque appel au moteur du run. */
+  optionsSlot(): Pick<OptionsFlux, "slotKey" | "slotAvoid" | "surSlot"> {
+    const { slotKey, slotAvoid, surSlot } = this.c;
+    return {
+      ...(slotKey ? { slotKey } : {}),
+      ...(slotAvoid ? { slotAvoid } : {}),
+      ...(surSlot ? { surSlot } : {}),
+    };
   }
 
   /** Un appel au moteur dans le slot du tour (créneau repris puis rendu en optimized). */

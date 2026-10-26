@@ -31,7 +31,7 @@ import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
 import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
-import { LLAMA_TOOL_TIMEOUT_S } from "../llm/constantes";
+import { LLAMA_TOOL_TIMEOUT_S, plafondParSlots } from "../llm/constantes";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
 import { noterObservation } from "../llm/sonde-moteur";
@@ -962,6 +962,18 @@ export interface BatchOutcome {
   cycleHardStopped: boolean;
 }
 
+/** Sous-agents lancés ensemble par le lot : `agents.max_parallel`, plafonné par les slots du moteur quand le lot en lance plusieurs. */
+async function tachesSimultanees(prepared: readonly Dict[]): Promise<number> {
+  const voulu = reglagesAgents().max_parallel;
+  if (voulu <= 1 || prepared.filter((p) => strPy(p["tool_name"]) === "task").length < 2) return voulu;
+  const effectif = await plafondParSlots(voulu);
+  if (effectif < voulu)
+    log.info(
+      `[execute_tool_batch] sous-agents simultanés plafonnés à ${effectif} par les slots du moteur (max_parallel=${voulu})`,
+    );
+  return effectif;
+}
+
 /** Noyau commun aux deux canaux : annulation, `tool_call`, exécution (série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle. */
 export async function runToolBatch(
   channel: ChannelSpec,
@@ -991,8 +1003,10 @@ export async function runToolBatch(
     if (toolIsInternal(strPy(p["tool_name"]))) evt["internal"] = true;
     await emit(onEvent, evt);
   }
+  const resultsOut = rec.ouvrirLot(prepared);
+  const simultanees = await tachesSimultanees(prepared);
   const resultats = await executeToolBatch(prepared, {
-    resultsOut: rec.ouvrirLot(prepared),
+    resultsOut,
     executeSingle: (nom, args, r) =>
       ctx.c.subagent && nom === "task"
         ? Promise.resolve(
@@ -1013,7 +1027,7 @@ export async function runToolBatch(
     emitProgressLog: true,
     isCancelled: ctx.c.isCancelled,
     signal,
-    tachesSimultanees: reglagesAgents().max_parallel,
+    tachesSimultanees: simultanees,
   });
 
   const port = portVisionBureau();

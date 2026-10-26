@@ -166,6 +166,12 @@ export interface OptionsRun {
   surPointEtape?: ((p: { texte: string; finDeBudget: boolean }) => void) | null;
   /** Slot du tour (`withLLM(…, { outils: true })`) ; absent, les appels partent sans file. */
   slot?: Slot | null;
+  /** Clé d'affinité de slot llama.cpp, distincte du chatId (défaut : le chatId) : un sous-agent garde le même slot d'un lancement à l'autre. */
+  slotKey?: string | null;
+  /** Slots que les appels du run ne prennent pas si un autre est libre (parent en attente, frères en cours) ; absent, aucune exclusion. */
+  slotAvoid?: (() => Iterable<number>) | null;
+  /** Reçoit le slot retenu pour chaque appel (≥ 0) : le parent y note celui que ses sous-agents doivent éviter. */
+  surSlot?: ((slot: number) => void) | null;
   /** Points de substitution des tests (fonction de flux, métrique d'outil, résumé de compaction). */
   deps?: Partial<LoopDeps>;
 }
@@ -366,6 +372,9 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     liveShell: o.liveShell ?? false,
     subagent: o.subagent ?? null,
     wrapupSuffix: o.wrapupSuffix ?? null,
+    slotKey: o.slotKey ?? null,
+    slotAvoid: o.slotAvoid ?? null,
+    surSlot: o.surSlot ?? null,
     startTime,
     modelHasVision,
     chatKeySuffix,

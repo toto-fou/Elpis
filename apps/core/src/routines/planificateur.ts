@@ -752,6 +752,7 @@ export class Planificateur {
           memoire = false;
         }
         const usage: Dict = {};
+        let slotParent: number | null = null;
         let integres: Record<string, OutilIntegre> | null = null;
         if (veritePy(routine["agents_enabled"])) {
           if (veritePy(config.AGENTS_ENABLED)) {
@@ -773,6 +774,7 @@ export class Planificateur {
                 userMcpConfigs: serveursAgents,
                 userId: compte,
                 priority: "low",
+                slotParent: () => slotParent,
                 runner: this.runner,
               });
               integres = Object.keys(outils).length ? outils : null;
@@ -806,6 +808,9 @@ export class Planificateur {
                 memoryEnabled: memoire,
                 denyToolNames: refuses,
                 slot,
+                surSlot: (pris) => {
+                  slotParent = pris;
+                },
               });
             const file = fileLlm();
             sortie = file

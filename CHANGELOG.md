@@ -45,6 +45,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   base peut être distincte de celle du core : mettez à jour les hôtes distants
   avec le core. Un hôte qui n'a pas pu être purgé est signalé par la console.
 
+- **Sous-agents sur llama.cpp : slots ménagés.** Un sous-agent reprend le slot
+  des précédents du même type (clé `<chat>#task-<type>` au lieu d'un hasard) et
+  évite celui du parent qui attend son résultat ; `agents.max_parallel` est
+  plafonné à `total_slots − 1`. Lancez `llama-server` avec `-np 2` au moins,
+  `--kv-unified` et `--cache-ram`. Rien à changer avec vLLM et SGLang.
+
 ### Interface
 
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions

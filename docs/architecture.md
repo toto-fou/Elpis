@@ -1459,10 +1459,14 @@ sequenceDiagram
     `Context:` et la liste des outils permis), le rôle de l'agent en
     `<agent_role>` (la persona ne peut pas aller dans le système du parent), les
     `<subagent_rules>` communs (gabarit de rapport compris), puis le brief. Elle
-    est un message `user`, sauf quand la réflexion est rendue au moteur : un
-    `user` de plus ferait retirer par les gabarits de type Qwen3 la réflexion des
-    assistants précédents du tour et casserait le préfixe ; elle est alors
-    ajoutée au dernier résultat (comme le jalon `<harness_status>`).
+    est **toujours** un message `user`, jamais ajoutée à un résultat d'outil :
+    l'ancre de compaction (`pinTaskAnchor`) et l'élagage ne regardent que les
+    messages `user`, et une consigne dans un résultat serait perdue à la
+    première compaction de l'enfant. Coût : sur SGLang avec « Raisonnement
+    conservé », les gabarits de type Qwen3 retirent la réflexion rendue des
+    assistants du tour courant du parent derrière ce `user` de plus, donc le
+    cache du parent n'est réutilisé que jusqu'à ce tour et le reste est
+    recalculé une fois.
   - **Catalogue et tête figés.** `OptionsRun.teteFigee` porte le catalogue du
     parent (`toolsPayload`, `toolCfgMap`, `builtinHandlers`) et les messages
     sont déjà assemblés : ni `collectMcpTools`, ni `assembleOperationalContext`,
@@ -1518,7 +1522,12 @@ sequenceDiagram
     (`TASK_FORK_MAX_CONTEXT_RATIO`) du seuil de compaction du run
     (`compactionGate(...).triggerTokens` : plafond technique `usableWindow` ou
     seuil du compte s'il est plus bas) : l'enfant doit pouvoir travailler avant
-    sa propre compaction. Fenêtre inconnue : pas de contrôle. Un appel venu d'un
+    sa propre compaction. Fenêtre inconnue : pas de contrôle. Il l'est aussi si
+    l'ensemble des outils permis est vide ou n'a aucun outil d'une des catégories
+    du type (`raisonPerimetreInsuffisant` : `verify` sans shell, `explore` sans
+    fichiers) : l'enfant n'a que les outils que la conversation possède, et la
+    persona les annonce tous ; en lecture seule, une catégorie que la lecture
+    seule retire à dessein compte si le parent l'a. Un appel venu d'un
     sous-agent est déjà refusé. L'enfant garde compaction et élagage comme tout
     enfant. Une valeur de `context` autre que `fresh` ou `fork` rend `bad_args`.
   - **Reprise.** L'enregistrement porte `fork: true` et les messages de la boucle

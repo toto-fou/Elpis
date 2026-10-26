@@ -40,8 +40,6 @@ export interface ContexteParent {
   lectureSeule: ReadonlyMap<string, boolean>;
   thinkingMode: boolean;
   samplingOverride: Dict | null;
-  /** La réflexion des tours d'outils repart au moteur (`reasoning_content`). */
-  reflexionRendue: boolean;
   /** Jetons du contexte au dernier appel (entrée + complétion), mesurés par le moteur, sinon estimés. */
   jetons: number;
   /** Fenêtre du modèle ; 0 si inconnue. */

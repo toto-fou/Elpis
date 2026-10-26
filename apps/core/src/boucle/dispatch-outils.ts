@@ -1044,8 +1044,6 @@ function contexteParent(
     lectureSeule: ctx.c.lectureSeule ?? new Map<string, boolean>(),
     thinkingMode: ctx.c.thinkingMode,
     samplingOverride: ctx.c.samplingOverride,
-    reflexionRendue:
-      ctx.c.reflexionRendue ?? reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride),
     jetons: entree + intPy(usage["completion_tokens"] || 0),
     fenetre: rec.ctxSize,
     seuilCompaction: ctx.c.compactionThreshold ?? null,

@@ -75,7 +75,12 @@ import {
 import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
 import type { PortsHoteTache } from "./controles-taches";
-import { FIX_FORK_INDISPONIBLE, messagesFork, raisonForkImpossible } from "./fork-taches";
+import {
+  FIX_FORK_INDISPONIBLE,
+  messagesFork,
+  raisonForkImpossible,
+  raisonPerimetreInsuffisant,
+} from "./fork-taches";
 import {
   budgetReflexionEnfant,
   lectureSeuleEffective,
@@ -547,7 +552,9 @@ export function buildDefinition(
     "its mission and the context is not restated, and it is cheaper (the engine reuses the cached prefix). But it is " +
     "NOT isolated (it can be swayed by the discussion) and its context starts as large as this one. Fork for a " +
     "sub-mission that leans on much of the conversation; fresh for a self-contained job or an independent opinion. A " +
-    "fork is refused when this conversation is already large (use fresh then); a resumed agent keeps its own mode.";
+    "fork only has the tools of its agent type that this conversation also has: it is refused when this conversation " +
+    "is already large or when those tools cannot do the job (verify without a shell, explore without file tools); " +
+    "use fresh then. A resumed agent keeps its own mode.";
   return {
     type: "function",
     function: {
@@ -950,6 +957,16 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       ...b,
     });
 
+    const refuserFork = (raison: string): Promise<string> => {
+      const bilan = bilanRefus("unavailable", raison, "fork");
+      return refuser(
+        err("fork_unavailable", `context "fork" is unavailable: ${raison}`, {
+          fix: FIX_FORK_INDISPONIBLE,
+          harness: bilan,
+        }),
+        bilan,
+      );
+    };
     let parent: ContexteParent | null = null;
     if (modeFork) {
       parent = appel?.parent?.() ?? null;
@@ -959,16 +976,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           : resumed === null
             ? raisonForkImpossible(parent, callId)
             : null;
-      if (raison !== null) {
-        const bilan = bilanRefus("unavailable", raison, "fork");
-        return refuser(
-          err("fork_unavailable", `context "fork" is unavailable: ${raison}`, {
-            fix: FIX_FORK_INDISPONIBLE,
-            harness: bilan,
-          }),
-          bilan,
-        );
-      }
+      if (raison !== null) return refuserFork(raison);
     }
 
     if (agentType === "web") {
@@ -1060,6 +1068,14 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
               sousAgent: sa,
             }),
           };
+
+    if (parent !== null && teteFigee !== null && resumed === null) {
+      const insuffisant = raisonPerimetreInsuffisant(teteFigee.permis, s.filterCategories, {
+        lectureSeule: sa.read_only,
+        catalogue: [...parent.toolCfgMap.keys(), ...parent.builtinHandlers.keys()],
+      });
+      if (insuffisant !== null) return refuserFork(insuffisant);
+    }
 
     let childMessages: Dict[];
     if (resumed !== null)

@@ -460,10 +460,12 @@ peut aussi lancer un agent en **fork** : l'enfant part de toute la conversation
 telle qu'elle est (inutile de la lui redire) et réutilise le cache du moteur, donc
 démarre plus vite et coûte moins. En contrepartie, il n'est pas isolé (il voit
 tout ce qui a été dit et lu) et son contexte démarre aussi gros que le vôtre. Il a
-les mêmes outils et les mêmes limites que l'agent du même type à blanc (un agent en
-lecture seule le reste). Un fork est refusé quand la conversation est déjà longue
-(plus de la moitié du seuil de compaction) ; l'assistant retombe alors sur une
-page blanche. La carte indique « fork ».
+les limites de l'agent du même type à blanc (un agent en lecture seule le reste),
+mais seulement ceux de ses outils que la conversation possède aussi : un chat sans
+Terminal ne peut pas forker un agent `verify`, ni un chat sans Fichiers un agent
+`explore`. Un fork est refusé dans ce cas, et quand la conversation est déjà
+longue (plus de la moitié du seuil de compaction) ; l'assistant retombe alors sur
+une page blanche, qui a tous les outils du type. La carte indique « fork ».
 
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui

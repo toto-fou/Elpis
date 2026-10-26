@@ -91,10 +91,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   conversation du parent au lieu d'une page blanche : mêmes messages que le
   dernier appel du parent (cache de préfixe quasi total avec llama.cpp, vLLM et
   SGLang), mêmes définitions d'outils, réflexion et échantillonnage du parent.
-  Il n'exécute que les outils d'un enfant à blanc du même type (le reste est
-  refusé en JSON, y compris les serveurs MCP tiers et les outils intégrés).
-  Refusé (`fork_unavailable`) par le canal texte ou au-delà de la moitié du
-  seuil de compaction. Sur llama.cpp, le premier fork neuf prend le slot réel du dernier appel du
+  Il n'exécute que les outils d'un enfant à blanc du même type que la
+  conversation possède aussi (le reste est refusé en JSON, y compris les
+  serveurs MCP tiers et les outils intégrés). Refusé (`fork_unavailable`) par le
+  canal texte, au-delà de la moitié du seuil de compaction, ou quand ces outils
+  sont absents ou ne couvrent pas le type (`verify` sans shell, `explore` sans
+  fichiers). La consigne est toujours un message utilisateur (elle survit à la
+  compaction) : sur SGLang avec « Raisonnement conservé », la réflexion rendue
+  du tour courant du parent sort du préfixe de l'enfant, recalculé une fois. Sur llama.cpp, le premier fork neuf prend le slot réel du dernier appel du
   parent (pas son slot de hachage) ; un fork repris évite ce slot.
   Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
   `task` change une fois (cache de la tête du parent).

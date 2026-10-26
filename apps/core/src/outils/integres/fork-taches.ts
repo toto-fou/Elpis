@@ -6,6 +6,7 @@ import { compactionGate, resolveThreshold } from "../../contexte/porte-compactio
 import { TASK_FORK_MAX_CONTEXT_RATIO } from "../../llm/constantes";
 import type { Dict } from "../../python";
 import type { ContexteParent } from "../catalogue";
+import { categorize } from "../categories";
 
 export const FIX_FORK_INDISPONIBLE = "use context: fresh with a complete brief";
 
@@ -41,7 +42,7 @@ export function raisonForkImpossible(parent: ContexteParent, callId: string | nu
     : null;
 }
 
-/** Messages de l'enfant : dernier appel du parent, assistant porteur de `task`, un résultat par appel, puis la consigne (message `user`, ou fin du dernier résultat quand la réflexion est rendue au moteur : un `user` de plus la ferait retirer du préfixe). */
+/** Messages de l'enfant : dernier appel du parent, assistant porteur de `task`, un résultat par appel, puis la consigne en message `user` (jamais dans un résultat d'outil : l'ancre de compaction et l'élagage ne regardent que les `user`). */
 export function messagesFork(parent: ContexteParent, callId: string, consigne: string): Dict[] {
   const assistant = parent.assistant ?? {};
   const resultats: Dict[] = idsAppels(assistant).map((id) => ({
@@ -49,9 +50,22 @@ export function messagesFork(parent: ContexteParent, callId: string, consigne: s
     tool_call_id: id,
     content: id === callId ? RESULTAT_FORK : RESULTAT_FRERE,
   }));
-  const messages: Dict[] = [...parent.envoye, assistant, ...resultats];
-  if (!parent.reflexionRendue) return [...messages, { role: "user", content: consigne }];
-  const dernier = messages[messages.length - 1] ?? {};
-  messages[messages.length - 1] = { ...dernier, content: `${strPy(dernier["content"])}\n\n${consigne}` };
-  return messages;
+  return [...parent.envoye, assistant, ...resultats, { role: "user", content: consigne }];
+}
+
+/** Raison pour laquelle les outils permis ne suffisent pas au type (ensemble vide, ou une de ses catégories sans outil), `null` si le fork est utile ; en lecture seule, une catégorie retirée à dessein mais présente chez le parent ne compte pas. */
+export function raisonPerimetreInsuffisant(
+  permis: ReadonlySet<string>,
+  categories: readonly string[] | null,
+  o: { lectureSeule: boolean; catalogue: Iterable<string> },
+): string | null {
+  if (permis.size === 0) return "none of the parent's tools is available to this agent type";
+  const catalogue = [...o.catalogue];
+  const contient = (noms: Iterable<string>, categorie: string): boolean =>
+    [...noms].some((nom) => categorize(nom) === categorie);
+  for (const categorie of categories ?? []) {
+    if (contient(permis, categorie) || (o.lectureSeule && contient(catalogue, categorie))) continue;
+    return `the parent has no '${categorie}' tool this agent type could use`;
+  }
+  return null;
 }

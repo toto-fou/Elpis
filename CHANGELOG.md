@@ -58,6 +58,19 @@ selon [SemVer](https://semver.org/lang/fr/).
   même type réutilisent ainsi le préfixe du cache (llama.cpp, vLLM, SGLang).
   Les reprises par `task_id` d'avant la mise à jour continuent de fonctionner.
 
+- **Sous-agents : réflexion par agent.** Un sous-agent réfléchit dans son
+  contexte isolé et seul son rapport remonte. Section `agents` de config.json
+  (Console › Sandbox › Sous-agents) : `thinking.defaults.<type>` (`off`, `on` ou
+  `inherit`, le mode du tour de l'agent principal ; `implement` et `verify` `on`,
+  `explore`, `web` et `pr` `off`, `custom` `inherit`) et
+  `thinking_budget_tokens` (512 à 131072, défaut
+  `llama.thinking_budget_tokens`). Chaque agent du compte peut choisir le sien
+  (Paramètres › Agents, prioritaire). La réflexion n'est effective que si le
+  moteur l'honore (llama.cpp : gabarit du modèle ; vLLM et SGLang : toujours),
+  fixée au lancement de l'enfant. Avec SGLang, l'enfant garde la réflexion de
+  ses tours d'outils (parseur de réflexion actif). Le bilan du harnais porte
+  `thinking`.
+
 ### Interface
 
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions

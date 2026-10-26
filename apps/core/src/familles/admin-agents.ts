@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule des sous-agents par type (défaut, imposition) et sous-agents simultanés par tour, section `agents` de config.json. */
+/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion, sous-agents simultanés par tour, section `agents` de config.json. */
 import { estDict, getPy, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { auditEvent, TYPES_AGENTS_REGLABLES } from "@elpis/securite";
@@ -8,6 +8,7 @@ import type { FastifyRequest } from "fastify";
 import { lireConfigJson, modifierConfigJson } from "../administration/config-sous-verrou";
 import {
   assainirReglagesAgents,
+  BORNES_BUDGET_REFLEXION,
   BORNES_PARALLELE,
   reglagesAgentsDepuis,
 } from "../outils/integres/reglages-taches";
@@ -28,7 +29,7 @@ function vue(r: ReglagesAgents): Dict {
   return {
     config: r,
     types: [...TYPES_AGENTS_REGLABLES],
-    bounds: { max_parallel: [...BORNES_PARALLELE] },
+    bounds: { max_parallel: [...BORNES_PARALLELE], thinking_budget_tokens: [...BORNES_BUDGET_REFLEXION] },
   };
 }
 
@@ -45,7 +46,12 @@ async function enregistrer(dep: DependancesAdminAgents, req: FastifyRequest): Pr
     userId: req.utilisateur?.id ?? null,
     username: req.utilisateur?.username ?? null,
     action: "admin.agents.update",
-    details: { max_parallel: ecrit.max_parallel, forced: ecrit.read_only.forced },
+    details: {
+      max_parallel: ecrit.max_parallel,
+      forced: ecrit.read_only.forced,
+      thinking: ecrit.thinking.defaults,
+      thinking_budget_tokens: ecrit.thinking_budget_tokens,
+    },
   });
   dep.journal.info(`[admin] réglages des sous-agents enregistrés (max_parallel=${ecrit.max_parallel})`);
   return { ok: true, config: ecrit };

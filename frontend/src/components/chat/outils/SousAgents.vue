@@ -118,6 +118,13 @@ const lignes = computed(() =>
         >
         <span class="task-run-meta" data-task-duration>· {{ fmtDureeTache(bilan) }}</span>
         <span
+          v-if="bilan.thinking"
+          class="task-run-meta"
+          title="L'agent a réfléchi dans son contexte isolé"
+          data-task-thinking
+          >· réflexion</span
+        >
+        <span
           v-if="arretSurBudget(bilan)"
           class="task-run-meta"
           title="L'agent a conclu de lui-même après l'avertissement de fin de budget"

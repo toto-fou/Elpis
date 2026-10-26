@@ -774,6 +774,7 @@ export class Planificateur {
                 userMcpConfigs: serveursAgents,
                 userId: compte,
                 priority: "low",
+                thinkingMode: veritePy(routine["thinking_mode"]),
                 slotParent: () => slotParent,
                 runner: this.runner,
               });

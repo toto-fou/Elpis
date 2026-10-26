@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/agents.ts — console › Sandbox › Sous-agents : lecture seule par type (défaut, imposition) et sous-agents simultanés par tour, section `agents` de config.json (`/api/admin/agents`). */
+/** frontend/src/features/admin/agents.ts — console › Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés par tour, section `agents` de config.json (`/api/admin/agents`). */
 import {
+  BORNES_BUDGET_REFLEXION_AGENTS,
   BORNES_PARALLELE_AGENTS,
   schemaReponseReglagesAgents,
   schemaReponseReglagesAgentsEcrits,
@@ -18,6 +19,7 @@ export function creerAgentsAdmin(b: BaseAdmin) {
   const { vue, ctx, e, lien } = b;
   const { ref } = vue;
   const agentsBounds: Ref<readonly [number, number]> = ref([...BORNES_PARALLELE_AGENTS]);
+  const agentsBoundsReflexion: Ref<readonly [number, number]> = ref([...BORNES_BUDGET_REFLEXION_AGENTS]);
   const agentsSaving = ref(false);
 
   async function loadAgentsConfig(): Promise<void> {
@@ -26,13 +28,14 @@ export function creerAgentsAdmin(b: BaseAdmin) {
       if (!d) return;
       e.agentsConfig.value = d.config;
       agentsBounds.value = d.bounds.max_parallel;
+      agentsBoundsReflexion.value = d.bounds.thinking_budget_tokens;
       lien.markAdminStoreClean("agents");
     } catch (err) {
       journal.avertir("[admin] loadAgentsConfig failed", err);
     }
   }
 
-  /** Section entière envoyée ; un type inconnu ou un nombre hors bornes est refusé par le core (400). */
+  /** Section entière envoyée ; un type ou un mode inconnu, un nombre hors bornes est refusé par le core (400). */
   async function saveAgentsConfig(): Promise<boolean> {
     if (agentsSaving.value) return false;
     agentsSaving.value = true;
@@ -59,5 +62,12 @@ export function creerAgentsAdmin(b: BaseAdmin) {
     }
   }
 
-  return { agentsConfig: e.agentsConfig, agentsBounds, agentsSaving, loadAgentsConfig, saveAgentsConfig };
+  return {
+    agentsConfig: e.agentsConfig,
+    agentsBounds,
+    agentsBoundsReflexion,
+    agentsSaving,
+    loadAgentsConfig,
+    saveAgentsConfig,
+  };
 }

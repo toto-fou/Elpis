@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import AideLigne from "../AideLigne.vue";
 import AideOnglet from "../AideOnglet.vue";
+import { LIBELLES_REFLEXION } from "../../../features/reglages/agents";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import CaseLectureSeuleAgent from "../CaseLectureSeuleAgent.vue";
 
@@ -174,6 +175,10 @@ const rg = domaineReglages();
             aide="agents-lecture-seule-aide"
             @basculer="rg.toggleAgentReadOnly(a)"
           />
+          <p class="mt-1 pl-8 text-xs text-slate-400" :data-agent-thinking="a.name">
+            Réflexion : {{ LIBELLES_REFLEXION[a.thinking] }},
+            {{ a.thinking_source === "compte" ? "votre réglage" : "défaut de l'administrateur" }}
+          </p>
         </div>
       </div>
       <p v-if="!rg.agentBank.length && !rg.agentForm" class="text-sm text-slate-500 py-3 text-center">
@@ -347,6 +352,24 @@ const rg = domaineReglages();
           class="set-input font-mono mt-0.5"
         />
         <AideLigne>Nombre d'appels d'outils avant arrêt. Vide = valeur par défaut.</AideLigne>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500" for="agent-reflexion">Réflexion</label>
+        <select
+          id="agent-reflexion"
+          v-model="rg.agentForm.thinking"
+          class="set-select mt-0.5"
+          data-agent-thinking-select
+        >
+          <option value="">Défaut : {{ LIBELLES_REFLEXION[rg.agentReflexionDefaut] }}</option>
+          <option value="off">Désactivée</option>
+          <option value="on">Activée</option>
+          <option value="inherit">Celle du chat</option>
+        </select>
+        <AideLigne
+          >L'agent réfléchit dans son contexte isolé : seul son rapport remonte. « Celle du chat » suit le
+          mode de la conversation. Sans effet si le modèle ne réfléchit pas.</AideLigne
+        >
       </div>
       <div v-if="rg.agentFormError" class="text-xs text-red-600 bg-red-500/10 rounded-lg px-3 py-2">
         {{ rg.agentFormError }}

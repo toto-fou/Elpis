@@ -73,7 +73,7 @@ import { describeEffectiveParams, describeEffectiveParamsDegraded } from "../llm
 import { diffusion, ErreurPortAbsent } from "../llm/ports";
 import { profilDe, vuePubliqueProfil } from "../llm/profils";
 import { contexteAnnonce, getLlmHealth, setLoadedModelCache } from "../llm/sante";
-import { infosServeur } from "../llm/sonde-moteur";
+import { infosServeur, reflexionConservable } from "../llm/sonde-moteur";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import { corpsJson, entrees, ouvrirFlux, parametreRequete, py, reponseJsonPy } from "@elpis/http";
@@ -682,8 +682,11 @@ async function parametresEffectifs(
 /** Moteur qui rend la réflexion des tours d'outils (SGLang) : « Raisonnement conservé » offert si un parseur de réflexion la sépare, éteint par défaut. */
 export async function avecReflexionRenvoyee(eng: EngineRef, d: Dict): Promise<Dict> {
   if (!eng.profil.capacites.reflexionRenvoyee) return d;
-  const parseur = (await infosServeur(eng)).parseurReflexion;
-  return { ...d, supports_preserve_reasoning: parseur !== null, preserve_reasoning_default: false };
+  return {
+    ...d,
+    supports_preserve_reasoning: await reflexionConservable(eng),
+    preserve_reasoning_default: false,
+  };
 }
 
 // ── Cycle de vie ─────────────────────────────────────────────────────────────

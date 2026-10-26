@@ -1338,6 +1338,24 @@ sequenceDiagram
   qui porte `<task_env>` et les règles de lecture seule dans le système, se
   reprend sans changement) ; sa consigne (`consigneReprise`) ouvre le message
   de reprise.
+- **Réflexion de l'enfant** : la réflexion reste dans son contexte isolé, seul le
+  rapport remonte. Mode par type d'agent (`agents.thinking.defaults`, `off`, `on`
+  ou `inherit` = celui du tour parent, que `OptionsTache.thinkingMode` porte),
+  surchargé par le choix du compte (`thinking` d'une entrée de `custom_agents`,
+  `AgentSpec.thinkingUser`). Effectif = mode voulu ET moteur qui l'honore
+  (`reflexionPossible` : vLLM et SGLang acceptent toujours l'interrupteur,
+  llama.cpp suit le gabarit via `getThinkingSupport` sans charger le modèle,
+  les autres moteurs n'en ont pas ; échec = coupée). Calculé **une fois** au
+  lancement de l'enfant et passé à la boucle (`thinkingMode`) : le mode ne varie
+  jamais entre deux itérations d'un même enfant, ce qui garde la tête du prompt
+  stable. `agents.thinking_budget_tokens` (défaut `LLAMA_THINKING_BUDGET_TOKENS`)
+  part dans l'échantillonnage de l'enfant, sauf si le parent en impose un plus
+  bas. Sur SGLang, un enfant qui réfléchit reçoit `preserve_reasoning: true`
+  (la réflexion de ses tours d'outils repart au gabarit, `reflexionRenvoyee` et
+  parseur de réflexion actif), sauf `false` explicite du parent ; llama.cpp et
+  vLLM ne reçoivent pas la réflexion des tours d'outils, rien n'est posé. La
+  description de l'outil `task` ne cite pas le mode (tête du parent). Le bilan
+  `<task_meta>` et l'étape finale `task_step` portent `thinking`.
 - **Affinité de slot (llama.cpp)** : `llama-server` garde un cache KV par slot
   et Elpis épingle chaque chat sur un slot (`id_slot`, hachage d'une clé,
   `resolveSlotId` de `apps/core/src/llm/constantes.ts`). L'enfant garde son
@@ -2947,7 +2965,7 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
 - Les cinq intégrés (`AGENTS` dans `apps/core/src/outils/integres/taches-agents.ts`) sont des
   **modèles**. Une entrée de `settings.custom_agents` qui porte le nom de l'un
   d'eux est une **surcharge** champ par champ (prompt, catégories, budget,
-  serveurs MCP, `enabled`), jamais une collision : `RESERVED_AGENT_NAMES` ne
+  serveurs MCP, `enabled`, `read_only`, `thinking`), jamais une collision : `RESERVED_AGENT_NAMES` ne
   contient plus que `task`. ⚠ Une surcharge ne stocke **que les écarts** —
   prompt vide = persona livrée (qui suit ses mises à jour), catégories vides =
   celles du modèle — et une surcharge sans écart n'est pas écrite du tout

@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/agents.ts — Paramètres › Agents : banque d'agents (modèles livrés surchargeables) et agents personnalisés, case « Lecture seule » (défaut et imposition de l'administrateur), formulaire, validations miroir du serveur. */
+/** frontend/src/features/reglages/agents.ts — Paramètres › Agents : banque d'agents (modèles livrés surchargeables) et agents personnalisés, case « Lecture seule » (défaut et imposition de l'administrateur), réflexion (choix du compte, sinon défaut de l'administrateur), formulaire, validations miroir du serveur. */
 import {
   DEFAUTS_REGLAGES_AGENTS,
   schemaReponseModelesAgents,
   TYPES_AGENTS_REGLABLES,
 } from "@elpis/contracts";
-import type { LectureSeuleAgents, TypeAgentReglable } from "@elpis/contracts";
+import type {
+  LectureSeuleAgents,
+  ModeReflexionAgent,
+  ReflexionAgents,
+  TypeAgentReglable,
+} from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { BUILTIN_AGENTS, RESERVED_AGENT_NAMES } from "../../utils/utils-purs";
@@ -31,6 +36,15 @@ export interface ModeleAgent {
 /** D'où vient la lecture seule affichée : imposée par l'administrateur, case du compte, ou défaut de l'administrateur. */
 export type SourceLectureSeule = "imposee" | "compte" | "defaut";
 
+/** D'où vient la réflexion affichée : choix du compte, ou défaut de l'administrateur. */
+export type SourceReflexion = "compte" | "defaut";
+
+export const LIBELLES_REFLEXION: Readonly<Record<ModeReflexionAgent, string>> = {
+  off: "désactivée",
+  on: "activée",
+  inherit: "celle du chat",
+};
+
 export interface RangeeAgent {
   name: string;
   template: boolean;
@@ -46,6 +60,8 @@ export interface RangeeAgent {
   read_only: boolean;
   read_only_forced: boolean;
   read_only_source: SourceLectureSeule;
+  thinking: ModeReflexionAgent;
+  thinking_source: SourceReflexion;
   _tplPrompt?: string;
   _tplCats?: string[];
   _tplIters?: number;
@@ -65,6 +81,8 @@ export interface FormulaireAgent {
   max_iters: number | string;
   enabled: boolean;
   read_only?: boolean;
+  /** Choix du compte ; vide : défaut de l'administrateur. */
+  thinking: ModeReflexionAgent | "";
   _tplPrompt?: string;
   _tplCats?: string[];
   _tplIters?: number;
@@ -171,7 +189,8 @@ function surchargeVide(e: AgentPerso | null | undefined): boolean {
       !(e.mcp_server_ids ?? []).length &&
       !((e.max_iters ?? 0) > 0) &&
       e.enabled !== false &&
-      typeof e.read_only !== "boolean")
+      typeof e.read_only !== "boolean" &&
+      !e.thinking)
   );
 }
 
@@ -193,6 +212,7 @@ export function creerAgents(
   const agentForm: Ref<FormulaireAgent | null> = ref(null);
   const agentFormError = ref("");
   const agentReadOnlyPolicy: Ref<LectureSeuleAgents> = ref(clonerValeur(DEFAUTS_REGLAGES_AGENTS.read_only));
+  const agentThinkingPolicy: Ref<ReflexionAgents> = ref(clonerValeur(DEFAUTS_REGLAGES_AGENTS.thinking));
   let modelesCharges = false;
   const icones: Record<string, string> = {};
   BUILTIN_AGENTS.forEach((a) => {
@@ -210,6 +230,7 @@ export function creerAgents(
       if (d && d.templates.length) {
         agentTemplates.value = d.templates;
         agentReadOnlyPolicy.value = d.read_only_policy;
+        agentThinkingPolicy.value = d.thinking_policy;
         modelesCharges = true;
         return;
       }
@@ -246,6 +267,23 @@ export function creerAgents(
     return { read_only: p.defaults[type], read_only_forced: false, read_only_source: "defaut" };
   }
 
+  /** Choix du compte si posé, sinon défaut de l'administrateur pour le type. */
+  function reflexion(
+    type: TypeAgentReglable,
+    propre: ModeReflexionAgent | undefined,
+  ): Pick<RangeeAgent, "thinking" | "thinking_source"> {
+    if (propre) return { thinking: propre, thinking_source: "compte" };
+    return { thinking: agentThinkingPolicy.value.defaults[type], thinking_source: "defaut" };
+  }
+
+  /** Défaut de l'administrateur pour l'agent du formulaire (un modèle livré par son nom, tout autre sous `custom`). */
+  const agentReflexionDefaut = computed<ModeReflexionAgent>(() => {
+    const f = agentForm.value;
+    return agentThinkingPolicy.value.defaults[
+      f ? typeReglable(f.name.trim().toLowerCase(), f._template) : "custom"
+    ];
+  });
+
   /** Une seule liste : modèles surchargés en place, puis agents personnalisés, avec leurs valeurs effectives. */
   const agentBank = computed<RangeeAgent[]>(() => {
     const liste = settings.value.custom_agents ?? [];
@@ -268,6 +306,7 @@ export function creerAgents(
         mcp_server_ids: o.mcp_server_ids ?? [],
         max_iters: o.max_iters || t.max_iters || 0,
         ...lectureSeule(typeReglable(t.name, true), o.read_only),
+        ...reflexion(typeReglable(t.name, true), o.thinking),
         _tplPrompt: t.prompt || "",
         _tplCats: t.tool_categories || [],
         _tplIters: t.max_iters || 0,
@@ -291,6 +330,7 @@ export function creerAgents(
         mcp_server_ids: a.mcp_server_ids ?? [],
         max_iters: a.max_iters || 0,
         ...lectureSeule("custom", a.read_only),
+        ...reflexion("custom", a.thinking),
       });
     });
     return rangees;
@@ -315,6 +355,7 @@ export function creerAgents(
       mcp_server_ids: [],
       max_iters: "",
       enabled: true,
+      thinking: "",
       ...prefill,
     };
   }
@@ -333,6 +374,7 @@ export function creerAgents(
       mcp_server_ids: [...(row.mcp_server_ids || [])],
       max_iters: row.template ? (row._ownIters ?? "") : row.max_iters > 0 ? row.max_iters : "",
       enabled: row.enabled !== false,
+      thinking: row.thinking_source === "compte" ? row.thinking : "",
       _tplPrompt: row._tplPrompt || "",
       _tplCats: row._tplCats || [],
       _tplIters: row._tplIters || 0,
@@ -367,6 +409,8 @@ export function creerAgents(
     }
     const ro =
       row.read_only !== agentReadOnlyPolicy.value.defaults.custom ? { read_only: row.read_only } : {};
+    const th: Partial<FormulaireAgent> =
+      row.thinking !== agentThinkingPolicy.value.defaults.custom ? { thinking: row.thinking } : {};
     startCreateAgent({
       name,
       description: row.description || "",
@@ -375,6 +419,7 @@ export function creerAgents(
       mcp_server_ids: [...(row.mcp_server_ids || [])],
       max_iters: row.max_iters > 0 ? row.max_iters : "",
       ...ro,
+      ...th,
     });
   }
 
@@ -499,6 +544,7 @@ export function creerAgents(
         sur.max_iters = Math.min(iters, CUSTOM_ITERS_MAX);
       if (f.enabled === false) sur.enabled = false;
       if (typeof roPropre === "boolean") sur.read_only = roPropre;
+      if (f.thinking) sur.thinking = f.thinking;
       if (surchargeVide(sur)) {
         if (f._idx >= 0) liste.splice(f._idx, 1);
       } else if (f._idx >= 0) liste.splice(f._idx, 1, sur);
@@ -514,6 +560,7 @@ export function creerAgents(
       if (Number.isFinite(iters) && iters > 0) entree.max_iters = Math.min(iters, CUSTOM_ITERS_MAX);
       if (f.enabled === false) entree.enabled = false;
       if (typeof roPropre === "boolean") entree.read_only = roPropre;
+      if (f.thinking) entree.thinking = f.thinking;
       if (f._idx >= 0) liste.splice(f._idx, 1, entree);
       else liste.push(entree);
     }
@@ -540,6 +587,8 @@ export function creerAgents(
     agentFormError,
     agentTemplates,
     agentReadOnlyPolicy,
+    agentThinkingPolicy,
+    agentReflexionDefaut,
     loadAgentTemplates,
     agentBank,
     agentCustomCount,

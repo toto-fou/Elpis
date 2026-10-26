@@ -433,7 +433,7 @@ Sections :
 | `mcp` | `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
 | `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
-| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` vrai, les autres faux), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3 ; sur llama.cpp, plafonné à `total_slots − 1` pour laisser un slot au parent, cf. [Sous-agents](architecture.md#sous-agents-outil-task)). Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
+| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` vrai, les autres faux), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3 ; sur llama.cpp, plafonné à `total_slots − 1` pour laisser un slot au parent, cf. [Sous-agents](architecture.md#sous-agents-outil-task)). `thinking.defaults.<type>` (réflexion : `off`, `on` ou `inherit` = celle du tour de l'agent principal ; `implement` et `verify` `on`, `explore`, `web` et `pr` `off`, `custom` `inherit`), `thinking_budget_tokens` (budget de réflexion d'un sous-agent, 512 à 131072, défaut `llama.thinking_budget_tokens`, cf. [Réflexion des sous-agents](#réflexion-des-sous-agents-agentsthinking)). Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
 | `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (tâches de fond), `disk.warn_pct` / `disk.refuse_pct` (espace disque des bacs en %, 85 et 97 par défaut, relus à chaud : alerte des outils qui écrivent, puis refus des écritures et des nouvelles tâches ; Console › Sandbox › Limites) |
@@ -446,6 +446,46 @@ Sections :
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
+
+### Réflexion des sous-agents (`agents.thinking`)
+
+Un sous-agent (outil `task`) est le meilleur endroit pour réfléchir : sa réflexion
+reste dans son contexte isolé et seul son rapport remonte. Console › Sandbox ›
+Sous-agents règle le mode par type d'agent, et Paramètres › Agents le fait par
+agent du compte.
+
+- **Mode** : `off` (pas de réflexion), `on`, ou `inherit` (celle du tour de
+  l'agent principal : case « Réflexion » du chat, ou de la routine). Défauts
+  livrés : `implement` et `verify` `on`, `explore`, `web` et `pr` `off`,
+  `custom` (agents du compte) `inherit`.
+- **Priorité** : le choix du compte pour un agent (`thinking` d'une entrée de
+  `custom_agents`, agent personnel ou surcharge d'un livré), sinon le défaut de
+  l'administrateur pour son type.
+- **Effectif = mode voulu ET moteur qui l'honore.** Le mode est calculé une fois,
+  au lancement de l'enfant (reprise par `task_id` comprise) : il ne varie jamais
+  entre deux itérations d'un même enfant, la tête du prompt en dépend. Il ne
+  charge jamais de modèle et, au moindre échec, la réflexion est coupée. Le
+  bilan `<task_meta>` (`thinking`), l'étape finale `task_step` et la carte du
+  chat disent si l'enfant a réfléchi ; `think_tokens` du run compte ses jetons de
+  réflexion.
+- **`thinking_budget_tokens`** : budget de réflexion d'un enfant qui réfléchit
+  (512 à 131072, défaut `llama.thinking_budget_tokens` du moteur, 8192). Posé
+  dans l'échantillonnage de l'enfant (`thinking_budget_tokens`), sauf si l'agent
+  principal en impose déjà un plus bas.
+
+| | llama.cpp | vLLM | SGLang | generic, cloud |
+|---|---|---|---|---|
+| Interrupteur | `enable_thinking` du gabarit, si le gabarit du modèle déclare la réflexion (`/props`) | `enable_thinking` toujours accepté (sans effet sur un modèle qui ne raisonne pas) | idem vLLM | aucun : l'enfant ne réfléchit pas |
+| Budget | Elpis demande au moteur de fermer le raisonnement à ce seuil | non appliqué (Elpis ne sait pas le fermer) | non appliqué | — |
+| Raisonnement conservé | non (la réflexion des tours d'outils n'est pas renvoyée au moteur) | non | oui si un `--reasoning-parser` est actif, sauf refus explicite de l'agent principal | — |
+
+Avec SGLang, la réflexion de chaque appel d'outil de l'enfant repart au moteur
+(comme « Raisonnement conservé » dans les réglages de génération, qui reste
+éteint pour l'agent principal) : le préfixe de l'enfant se prolonge d'un tour
+à l'autre et RadixAttention le réutilise ; la fenêtre de l'enfant se remplit
+d'autant plus vite. Cette réflexion n'est jamais enregistrée : une reprise par
+`task_id` repart sans elle. La description de l'outil `task` ne dit rien du mode :
+elle fait partie de la tête de l'agent principal et ne change pas avec ces réglages.
 
 ### RAG (`rag`)
 

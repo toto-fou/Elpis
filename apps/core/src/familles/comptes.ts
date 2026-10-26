@@ -457,7 +457,11 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         traiter: async (req) => {
           utilisateur(req);
           const r = reglagesAgents();
-          return { templates: await agentTemplates(r), read_only_policy: r.read_only };
+          return {
+            templates: await agentTemplates(r),
+            read_only_policy: r.read_only,
+            thinking_policy: r.thinking,
+          };
         },
       },
       {

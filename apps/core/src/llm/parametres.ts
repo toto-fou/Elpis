@@ -387,6 +387,13 @@ export async function getThinkingSupport(
   return resultat;
 }
 
+/** Le moteur courant honore-t-il l'interrupteur de réflexion pour ce modèle ? vLLM et SGLang l'acceptent toujours, llama.cpp suit le gabarit (sans charger le modèle), les autres n'en ont pas. */
+export async function reflexionPossible(modelId: string | null | undefined): Promise<boolean> {
+  const { dialecte } = currentEngine().profil;
+  if (dialecte.etendu) return true;
+  return dialecte.natif && (await getThinkingSupport(modelId, { autoload: false }));
+}
+
 export const REASONING_EFFORT_KNOWN_VALUES = ["none", "minimal", "low", "medium", "high", "xhigh"];
 
 /** Valeurs `reasoning_effort` citées littéralement par le gabarit ; variable sans littéral → low, medium, high. */

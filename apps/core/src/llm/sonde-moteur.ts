@@ -163,6 +163,12 @@ export async function infosServeur(
   return valeur;
 }
 
+/** « Raisonnement conservé » est effectif : le moteur rend la réflexion des tours d'outils au gabarit (SGLang) et un parseur de réflexion la sépare de la réponse. */
+export async function reflexionConservable(engine: EngineRef): Promise<boolean> {
+  if (!engine.profil.capacites.reflexionRenvoyee) return false;
+  return (await infosServeur(engine)).parseurReflexion !== null;
+}
+
 /** Capacité du cache KV en jetons quand le moteur la donne hors métriques (SGLang : `max_total_num_tokens`) ; 0 sinon. */
 export async function capaciteKvConnue(engine: EngineRef): Promise<number> {
   if (engine.profil.type !== "sglang") return 0;

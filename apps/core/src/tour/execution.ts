@@ -641,6 +641,7 @@ export async function* runTurn(
                     : [],
                   userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid),
                   userId: uid,
+                  thinkingMode: plan.thinkingMode,
                   slotParent: () => slotParent,
                 })
               : {};

@@ -56,6 +56,8 @@ export interface Bilan {
   errors: number;
   read_only: boolean;
   read_only_source: "admin_forced" | "task" | "user" | "admin_default" | null;
+  /** L'agent a réfléchi : réglage voulu ET moteur qui l'honore, fixé au lancement. */
+  thinking: boolean;
   writable_paths?: string[];
   writable_paths_scope?: "file_tools_only";
   remaining_work?: string;

@@ -443,7 +443,16 @@ cochées** : il reçoit des catégories entières. Sa spécialisation vient de s
 d'une liste d'outils rognée.
 
 **Vos agents personnalisés.** Paramètres → Agents : nom, description, prompt
-système, catégories d'outils, serveurs MCP externes. Jusqu'à 10 agents.
+système, catégories d'outils, serveurs MCP externes, lecture seule et
+**réflexion**. Jusqu'à 10 agents.
+
+**La réflexion d'un agent.** Un agent peut réfléchir avant d'agir : sa réflexion
+reste dans son contexte isolé et seul son rapport remonte. Le formulaire d'un
+agent propose « Désactivée », « Activée » ou « Celle du chat » (le mode de la
+conversation) ; par défaut, l'administrateur fixe le mode de chaque type
+(`implement` et `verify` réfléchissent, `explore`, `web` et `pr` non). Sans effet
+si le modèle ne réfléchit pas ; la carte de l'agent indique « réflexion » quand
+il a réfléchi.
 
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui

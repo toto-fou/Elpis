@@ -47,6 +47,8 @@ import {
 } from "../../llm/constantes";
 import { currentEngine } from "../../llm/moteurs";
 import type { Priorite } from "../../llm/ordonnanceur";
+import { reflexionPossible, sanitizePreserveReasoning } from "../../llm/parametres";
+import { reflexionConservable } from "../../llm/sonde-moteur";
 import { journal } from "../../journal";
 import { buildSkillsIndexBlock, loadAgentPersona } from "../../prompts/systeme";
 import type { Dict } from "../../python";
@@ -72,8 +74,16 @@ import {
 import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
 import type { PortsHoteTache } from "./controles-taches";
-import { lectureSeuleEffective, reglagesAgents, typeReglable } from "./reglages-taches";
-import type { ReglagesAgents } from "./reglages-taches";
+import {
+  budgetReflexionEnfant,
+  lectureSeuleEffective,
+  modeReflexionEffectif,
+  modeReflexionLu,
+  MODES_REFLEXION,
+  reglagesAgents,
+  typeReglable,
+} from "./reglages-taches";
+import type { ModeReflexion, ReglagesAgents } from "./reglages-taches";
 import * as Store from "./reprise-taches";
 
 const log = journal("outils.taches-agents");
@@ -186,6 +196,8 @@ export interface AgentSpec {
   mcpServerIds: string[] | null;
   /** Case « Lecture seule » du compte pour cet agent ; `null` : défaut de l'administrateur. */
   readOnlyUser: boolean | null;
+  /** Réflexion choisie par le compte pour cet agent ; `null` : défaut de l'administrateur. */
+  thinkingUser: ModeReflexion | null;
 }
 
 function spec(
@@ -198,6 +210,7 @@ function spec(
     personaText: null,
     mcpServerIds: null,
     readOnlyUser: null,
+    thinkingUser: null,
     ...s,
   };
 }
@@ -383,6 +396,10 @@ export function validateCustomAgents(raw: unknown): Dict[] {
     if (ro !== undefined && ro !== null && typeof ro !== "boolean")
       erreurValeur(`agent ${i} (${name}) : read_only doit être un booléen.`);
     if (typeof ro === "boolean") canon["read_only"] = ro;
+    const th = e["thinking"];
+    if (th !== undefined && th !== null && modeReflexionLu(th) === null)
+      erreurValeur(`agent ${i} (${name}) : thinking doit valoir ${MODES_REFLEXION.join(", ")}.`);
+    if (th !== undefined && th !== null) canon["thinking"] = th;
     if (
       surcharge &&
       !canon["description"] &&
@@ -391,7 +408,8 @@ export function validateCustomAgents(raw: unknown): Dict[] {
       !mcpIds.length &&
       iters === null &&
       !("enabled" in canon) &&
-      !("read_only" in canon)
+      !("read_only" in canon) &&
+      !("thinking" in canon)
     )
       return;
     sortie.push(canon);
@@ -448,6 +466,7 @@ export function specsFromCustom(customAgents: readonly unknown[] | null | undefi
         personaText: prefixePy(prompt, CUSTOM_PROMPT_MAX),
         mcpServerIds: mcpIds,
         readOnlyUser: typeof e["read_only"] === "boolean" ? e["read_only"] : null,
+        thinkingUser: modeReflexionLu(e["thinking"]),
       });
     } catch (err) {
       if (!(err instanceof ErreurPython)) throw err;
@@ -480,6 +499,7 @@ export function agentsRoster(customAgents: readonly unknown[] | null | undefined
       maxIters: normMaxIters(entry["max_iters"]) || base.maxIters,
       mcpServerIds: mcpIds.length ? mcpIds : null,
       readOnlyUser: typeof entry["read_only"] === "boolean" ? entry["read_only"] : null,
+      thinkingUser: modeReflexionLu(entry["thinking"]),
     });
   }
   for (const [k, v] of specsFromCustom(customAgents)) roster.set(k, v);
@@ -686,6 +706,28 @@ function consigneReprise(sa: SousAgent, rec: Dict, champs: readonly string[]): s
   return notes.length ? `[harness] ${notes.join(" ")}\n\n` : "";
 }
 
+/** Réflexion effective d'un enfant, fixée à son lancement : réglage voulu ET moteur qui l'honore ; jamais de chargement de modèle, tout échec la coupe. */
+async function reflexionEnfant(mode: ModeReflexion, parent: boolean, model: string | null): Promise<boolean> {
+  if (!(mode === "inherit" ? parent : mode === "on")) return false;
+  try {
+    return await reflexionPossible(model);
+  } catch (e) {
+    if (estErreurAnnulation(e)) throw e;
+    return false;
+  }
+}
+
+/** « Raisonnement conservé » pour un enfant qui réfléchit : seulement là où le moteur le rend effectif, sauf refus explicite de l'agent principal. */
+async function conserveReflexion(sampling: Dict | null): Promise<boolean> {
+  if (sanitizePreserveReasoning(sampling) === false) return false;
+  try {
+    return await reflexionConservable(currentEngine());
+  } catch (e) {
+    if (estErreurAnnulation(e)) throw e;
+    return false;
+  }
+}
+
 const echecSur = (r: unknown): boolean => {
   try {
     return Boolean(resultIsToolFailure(r));
@@ -710,6 +752,8 @@ export interface OptionsTache {
   userMcpConfigs?: readonly unknown[] | null;
   userId?: number | null;
   priority?: Priorite;
+  /** Réflexion du tour de l'agent principal, suivie par les agents réglés sur `inherit`. */
+  thinkingMode?: boolean;
   /** Dernier slot llama.cpp pris par le parent, qui attend le résultat de `task` : les enfants l'évitent ; absent ou `null`, rien à éviter. */
   slotParent?: (() => number | null) | null;
   /** Point de substitution des tests : la boucle enfant. */
@@ -734,6 +778,7 @@ function bilanRefus(status: Statut, raison: string): Bilan {
     errors: 0,
     read_only: false,
     read_only_source: null,
+    thinking: false,
     report_chars: 0,
     reason: raison,
   };
@@ -840,6 +885,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const murS = Math.max(1, dureeMax - Math.min(60, Math.floor(dureeMax / 5)));
     const appelsAvant = intPy(resumed?.["tool_calls_total"] || 0);
     const compte = { username: o.username, userId: o.userId ?? null, chatId: o.chatId, signal: o.signal };
+    let reflexion = false;
     const bilanDe = (b: Partial<Bilan> & Pick<Bilan, "status">): Bilan => ({
       tool_calls: 0,
       tool_calls_total: appelsAvant,
@@ -853,6 +899,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       errors: 0,
       read_only: sa.read_only,
       read_only_source: ro.source,
+      thinking: reflexion,
       ...(sa.writable_paths !== null
         ? {
             writable_paths: sa.writable_paths.map(toContainer),
@@ -962,7 +1009,18 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         { role: "user", content: `${contexte}\n\n${prompt}` },
       ];
     }
+    const modeReflexion = modeReflexionEffectif(typeReglable(agentType), s.thinkingUser);
+    reflexion = await reflexionEnfant(modeReflexion, o.thinkingMode ?? false, o.model);
     const childSampling: Dict = { ...(o.samplingOverride ?? {}), max_tool_iterations: budget };
+    if (reflexion) {
+      childSampling["thinking_budget_tokens"] = budgetReflexionEnfant(
+        childSampling["thinking_budget_tokens"],
+      );
+      if (await conserveReflexion(o.samplingOverride)) childSampling["preserve_reasoning"] = true;
+    }
+    log.info(
+      `[task_tool] agent '${agentType}' ${childId} : réflexion ${reflexion ? "activée" : "coupée"} (réglage ${modeReflexion})`,
+    );
 
     let pas = 0;
     const nonce = tokenHex(3);
@@ -1378,7 +1436,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             slotsEnfants.set(childId, slot);
           },
           samplingOverride: childSampling,
-          thinkingMode: false,
+          thinkingMode: reflexion,
           allowedToolNames: childAllowed,
           memoryEnabled: childMemory,
           denyToolNames: childDeny,

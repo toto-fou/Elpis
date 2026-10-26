@@ -2,7 +2,7 @@
 /** packages/contracts/src/rest/reglages.ts — réglages du compte (`/api/settings`), avatars, modèles de sous-agents, aide en ligne. */
 import { z } from "zod";
 
-import { schemaLectureSeuleAgents } from "./admin-agents";
+import { modeReflexionAgent, schemaLectureSeuleAgents, schemaReflexionAgents } from "./admin-agents";
 import { dictionnaire, entier } from "./commun";
 
 const reglagesEcrivables = {
@@ -148,7 +148,7 @@ export type Reglages = z.infer<typeof schemaReglages>;
 export const schemaReponseAvatar = z.object({ ok: z.literal(true), avatar: z.string() });
 export type ReponseAvatar = z.infer<typeof schemaReponseAvatar>;
 
-/** Entrée canonique de `custom_agents` : agent personnel, ou surcharge d'un livré (même nom) ; `read_only` : case « Lecture seule » du compte, absente = défaut de l'administrateur pour le type (`custom` pour un agent personnel). */
+/** Entrée canonique de `custom_agents` : agent personnel, ou surcharge d'un livré (même nom) ; `read_only` : case « Lecture seule » du compte, `thinking` : réflexion de l'agent, absents = défaut de l'administrateur pour le type (`custom` pour un agent personnel). */
 export const schemaEntreeAgentCompte = z.looseObject({
   name: z.string(),
   description: z.string(),
@@ -158,6 +158,7 @@ export const schemaEntreeAgentCompte = z.looseObject({
   max_iters: entier.optional(),
   enabled: z.literal(false).optional(),
   read_only: z.boolean().optional(),
+  thinking: modeReflexionAgent.optional(),
 });
 export type EntreeAgentCompte = z.infer<typeof schemaEntreeAgentCompte>;
 
@@ -171,10 +172,11 @@ export const schemaModeleAgent = z.object({
   read_only_default: z.boolean(),
   read_only_forced: z.boolean(),
 });
-/** `read_only_policy` : défauts et impositions par type, `custom` valant pour les agents personnels. */
+/** `read_only_policy` et `thinking_policy` : réglages de l'administrateur par type, `custom` valant pour les agents personnels. */
 export const schemaReponseModelesAgents = z.object({
   templates: z.array(schemaModeleAgent),
   read_only_policy: schemaLectureSeuleAgents,
+  thinking_policy: schemaReflexionAgents,
 });
 export type ReponseModelesAgents = z.infer<typeof schemaReponseModelesAgents>;
 

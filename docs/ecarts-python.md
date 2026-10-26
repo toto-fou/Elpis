@@ -699,6 +699,13 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   et le shell décrits par la persona ne sont pas offerts, et qu'un besoin de changement ou de commande se
   décrit sous `## Left open` avec `Status: blocked` ; les personas `implement` et `verify` renvoient à ce bloc, celle
   de `pr` ne dit plus que les outils d'écriture sont toujours dans le manifeste.
+- **Réflexion des sous-agents** (propre au TS) : réglée par type
+  (`agents.thinking.defaults`, `off` / `on` / `inherit`, défauts `implement` et `verify` `on`, `custom` `inherit`),
+  par agent du compte (`thinking` d'une entrée de `custom_agents`, prioritaire) et la borne par
+  `agents.thinking_budget_tokens` ; elle n'est effective que si le moteur l'honore (llama.cpp : gabarit du modèle ;
+  vLLM et SGLang : toujours), est calculée une fois au lancement de l'enfant, et pose `preserve_reasoning` pour
+  l'enfant seulement avec SGLang. Le bilan `<task_meta>` porte `thinking` ; `GET /api/settings/agent-templates`
+  rend `thinking_policy`.
 - **`GET /api/settings/agent-templates`** rend en plus `read_only_default` et `read_only_forced` par modèle et
   `read_only_policy` ; les personas `system_prompts/AGENT_TASK_*.md` ne disent plus que les outils d'écriture sont
   dans le manifeste (le différentiel des réglages compare les en-têtes et la forme de cette route, plus son corps).

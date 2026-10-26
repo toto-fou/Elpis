@@ -85,6 +85,11 @@ const LIBELLES_ARRET: Readonly<Record<string, string>> = {
 /** Cause d'arrêt en français ; une cause inconnue reste telle quelle. */
 export const libelleArretTache = (r: string): string => LIBELLES_ARRET[r] ?? r;
 
+/** « réflexion » de la carte : des jetons de réflexion mesurés (> 0) quand le run porte la mesure, sinon la réflexion demandée au lancement (anciens runs). */
+export function aReflechi(run: { think_tokens?: number | null }, b: BilanTache): boolean {
+  return typeof run.think_tokens === "number" ? run.think_tokens > 0 : b.thinking === true;
+}
+
 /** Mention compacte de la ligne : l'agent a conclu de lui-même sur l'avertissement de fin de budget. */
 export const arretSurBudget = (b: BilanTache): boolean => b.stop_reason === "budget_wrap_up";
 

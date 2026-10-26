@@ -1389,9 +1389,14 @@ sequenceDiagram
   bas. Sur SGLang, un enfant qui réfléchit reçoit `preserve_reasoning: true`
   (la réflexion de ses tours d'outils repart au gabarit, `reflexionRenvoyee` et
   parseur de réflexion actif), sauf `false` explicite du parent ; llama.cpp et
-  vLLM ne reçoivent pas la réflexion des tours d'outils, rien n'est posé. La
-  description de l'outil `task` ne cite pas le mode (tête du parent). Le bilan
-  `<task_meta>` et l'étape finale `task_step` portent `thinking`.
+  vLLM ne reçoivent pas la réflexion des tours d'outils, rien n'est posé. Un
+  enfant qui ne réfléchit pas perd `reasoning_effort`, `thinking_budget_tokens`
+  et `preserve_reasoning` hérités du parent (`REGLAGES_REFLEXION`), sauf en fork.
+  La description de l'outil `task` ne cite pas le mode (tête du parent). Le
+  bilan `<task_meta>` et l'étape finale `task_step` portent `thinking`, qui dit
+  « réflexion demandée » (réglage et moteur), et `think_tokens` (jetons mesurés) :
+  la carte du chat affiche « réflexion » si `think_tokens` > 0, sinon, sans
+  mesure, d'après `thinking`.
 - **Affinité de slot (llama.cpp)** : `llama-server` garde un cache KV par slot
   et Elpis épingle chaque chat sur un slot (`id_slot`, hachage d'une clé,
   `resolveSlotId` de `apps/core/src/llm/constantes.ts`). L'enfant garde son

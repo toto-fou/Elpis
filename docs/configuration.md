@@ -464,10 +464,14 @@ agent du compte.
 - **Effectif = mode voulu ET moteur qui l'honore.** Le mode est calculé une fois,
   au lancement de l'enfant (reprise par `task_id` comprise) : il ne varie jamais
   entre deux itérations d'un même enfant, la tête du prompt en dépend. Il ne
-  charge jamais de modèle et, au moindre échec, la réflexion est coupée. Le
-  bilan `<task_meta>` (`thinking`), l'étape finale `task_step` et la carte du
-  chat disent si l'enfant a réfléchi ; `think_tokens` du run compte ses jetons de
-  réflexion.
+  charge jamais de modèle et, au moindre échec, la réflexion est coupée. Un
+  enfant qui ne réfléchit pas ne reçoit ni `reasoning_effort`, ni
+  `thinking_budget_tokens`, ni `preserve_reasoning` de l'agent principal (le
+  fork garde l'échantillonnage du parent à l'identique). Le bilan `<task_meta>`
+  (`thinking`) dit que la réflexion était **demandée** (réglage ET moteur), pas
+  que l'enfant a réfléchi : `think_tokens` de l'étape finale `task_step` et du
+  run compte ses jetons de réflexion, et la carte du chat n'affiche
+  « réflexion » que s'ils sont mesurés (> 0).
 - **`thinking_budget_tokens`** : budget de réflexion d'un enfant qui réfléchit
   (512 à 131072, défaut `llama.thinking_budget_tokens` du moteur, 8192). Posé
   dans l'échantillonnage de l'enfant (`thinking_budget_tokens`), sauf si l'agent

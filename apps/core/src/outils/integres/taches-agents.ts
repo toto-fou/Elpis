@@ -770,6 +770,9 @@ async function conserveReflexion(sampling: Dict | null): Promise<boolean> {
   }
 }
 
+/** Réglages d'échantillonnage propres à la réflexion, retirés à un enfant qui ne réfléchit pas (le mode `off` du type ne garde rien de ceux de l'agent principal). */
+const REGLAGES_REFLEXION = ["reasoning_effort", "thinking_budget_tokens", "preserve_reasoning"] as const;
+
 const echecSur = (r: unknown): boolean => {
   try {
     return Boolean(resultIsToolFailure(r));
@@ -1136,7 +1139,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           childSampling["thinking_budget_tokens"],
         );
         if (await conserveReflexion(o.samplingOverride)) childSampling["preserve_reasoning"] = true;
-      }
+      } else for (const cle of REGLAGES_REFLEXION) delete childSampling[cle];
       log.info(
         `[task_tool] agent '${agentType}' ${childId} : réflexion ${reflexion ? "activée" : "coupée"} (réglage ${modeReflexion})`,
       );
@@ -1679,6 +1682,7 @@ async function emitFinalStep(
       context_tokens: Math.trunc(o.contextTokens || 0),
       input_tokens: intPy((metrics || {})["input_tokens"] || 0),
       output_tokens: intPy((metrics || {})["output_tokens"] || 0),
+      think_tokens: intPy((metrics || {})["thinking_tokens"] || 0),
       duration_ms: Math.trunc((Date.now() / 1000 - t0) * 1000),
       transcript: o.transcript ?? [],
       result: o.result || "",

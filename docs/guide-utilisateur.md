@@ -452,7 +452,7 @@ agent propose « Désactivée », « Activée » ou « Celle du chat » (le mode
 conversation) ; par défaut, l'administrateur fixe le mode de chaque type
 (`implement` et `verify` réfléchissent, `explore`, `web` et `pr` non). Sans effet
 si le modèle ne réfléchit pas ; la carte de l'agent indique « réflexion » quand
-il a réfléchi.
+des jetons de réflexion ont été mesurés.
 
 **Page blanche ou fork.** Par défaut, un agent démarre à blanc : l'assistant lui
 écrit un brief complet, et l'enfant reste isolé de la discussion. L'assistant

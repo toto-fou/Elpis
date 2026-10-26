@@ -114,6 +114,8 @@ export interface ExecutionSousAgent {
   tokens?: number | null;
   progress?: { step?: number; max_steps?: number | null } | null;
   steps_total?: number | null;
+  /** Jetons de réflexion mesurés (étape finale, run persisté) ; absent sur les anciens runs. */
+  think_tokens?: number | null;
   transcript?: readonly unknown[] | null;
   cancelRequested?: boolean;
   /** Bloc du harnais validé à la réception ; absent sur les anciens runs. */

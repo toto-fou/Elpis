@@ -70,9 +70,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   `llama.thinking_budget_tokens`). Chaque agent du compte peut choisir le sien
   (Paramètres › Agents, prioritaire). La réflexion n'est effective que si le
   moteur l'honore (llama.cpp : gabarit du modèle ; vLLM et SGLang : toujours),
-  fixée au lancement de l'enfant. Avec SGLang, l'enfant garde la réflexion de
-  ses tours d'outils (parseur de réflexion actif). Le bilan du harnais porte
-  `thinking`.
+  fixée au lancement de l'enfant. Un enfant qui ne réfléchit pas ne reçoit ni
+  `reasoning_effort`, ni budget de réflexion, ni « Raisonnement conservé » de
+  l'agent principal. Avec SGLang, l'enfant garde la réflexion de ses tours
+  d'outils (parseur de réflexion actif). Le bilan du harnais porte `thinking`
+  (réflexion demandée) et l'étape finale `think_tokens` ; la carte n'affiche
+  « réflexion » que si des jetons de réflexion ont été mesurés.
 
 - **Sous-agents : reprise sur l'historique exact de la boucle.** Un sous-agent
   repris par `task_id` (après un délai, une annulation ou un échec comme après

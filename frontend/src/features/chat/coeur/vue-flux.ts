@@ -1107,6 +1107,7 @@ export function creerVueFlux(c: CoeurChat) {
     run.steps_total = Number(d["steps_total"]) || 0;
     run.input_tokens = Number(d["input_tokens"]) || 0;
     run.output_tokens = Number(d["output_tokens"]) || 0;
+    if (typeof d["think_tokens"] === "number") run.think_tokens = d["think_tokens"];
     run.duration_ms = Number(d["duration_ms"]) || 0;
     run.tokens =
       Number(d["context_tokens"]) > 0

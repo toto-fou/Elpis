@@ -96,7 +96,7 @@ export const schemaBilanTache = z.strictObject({
   errors: entier,
   read_only: z.boolean(),
   read_only_source: z.enum(["admin_forced", "task", "user", "admin_default"]).nullable(),
-  /** L'agent a réfléchi (réglage du type ou du compte ET modèle capable) ; absent sur les anciens runs. */
+  /** Réflexion demandée à l'agent (réglage du type ou du compte ET moteur capable, fixée au lancement), pas la preuve qu'il a réfléchi : voir `think_tokens` de l'étape finale ; absent sur les anciens runs. */
   thinking: z.boolean().optional(),
   /** Contexte de départ de l'agent : la conversation du parent (`fork`) ou une page blanche (`fresh`) ; absent sur les anciens runs. */
   context: z.enum(["fork", "fresh"]).optional(),
@@ -149,6 +149,8 @@ const taskStep = z.discriminatedUnion("status", [
     context_tokens: entier,
     input_tokens: entier,
     output_tokens: entier,
+    /** Jetons de réflexion mesurés (ou estimés) de l'enfant ; absent sur les anciens runs. */
+    think_tokens: entier.optional(),
     duration_ms: entier,
     transcript: z.array(
       z.union([

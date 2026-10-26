@@ -56,7 +56,7 @@ export interface Bilan {
   errors: number;
   read_only: boolean;
   read_only_source: "admin_forced" | "task" | "user" | "admin_default" | null;
-  /** L'agent a réfléchi : réglage voulu ET moteur qui l'honore, fixé au lancement. */
+  /** Réflexion demandée à l'agent : réglage voulu ET moteur qui l'honore, fixé au lancement ; pas la preuve qu'il a réfléchi (jetons mesurés : `think_tokens` de l'étape finale). */
   thinking: boolean;
   /** Contexte de départ : la conversation du parent (`fork`) ou une page blanche (`fresh`). */
   context?: "fork" | "fresh";

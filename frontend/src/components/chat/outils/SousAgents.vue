@@ -4,6 +4,7 @@
 import { computed, ref, useId } from "vue";
 
 import {
+  aReflechi,
   arretSurBudget,
   classeStatutTache,
   detailsTache,
@@ -118,9 +119,9 @@ const lignes = computed(() =>
         >
         <span class="task-run-meta" data-task-duration>· {{ fmtDureeTache(bilan) }}</span>
         <span
-          v-if="bilan.thinking"
+          v-if="aReflechi(run, bilan)"
           class="task-run-meta"
-          title="L'agent a réfléchi dans son contexte isolé"
+          title="L'agent a réfléchi avant d'agir ; sa réflexion ne remonte pas dans le chat"
           data-task-thinking
           >· réflexion</span
         >

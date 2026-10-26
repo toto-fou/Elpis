@@ -106,9 +106,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   sont absents ou ne couvrent pas le type (`verify` sans shell, `explore` sans
   fichiers). La consigne est toujours un message utilisateur (elle survit à la
   compaction) : sur SGLang avec « Raisonnement conservé », la réflexion rendue
-  du tour courant du parent sort du préfixe de l'enfant, recalculé une fois. Sur llama.cpp, le premier fork neuf prend le slot réel du dernier appel du
-  parent (pas son slot de hachage) ; un fork repris évite ce slot.
-  Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
+  du tour courant du parent sort du préfixe de l'enfant, recalculé une fois. Sur
+  llama.cpp, le premier fork neuf prend le slot réel du dernier appel du parent
+  (pas son slot de hachage) tant que ses requêtes prolongent le préfixe du
+  parent ; dès qu'il compacte ou que l'ajustement au contexte lui retire des
+  messages, il quitte ce slot et ne l'écrase plus (le parent y retrouve son
+  cache). Un fork repris évite ce slot. Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
   `task` change une fois (cache de la tête du parent).
 
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**

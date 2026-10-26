@@ -1432,8 +1432,9 @@ sequenceDiagram
   la même affinité (clé, évitements, préférence, annonce du slot) au lieu d'un
   `id_slot` de -1 qui laissait le serveur prendre le slot du parent ou d'un
   frère ; le tour principal n'a ni clé, ni évitement, ni préférence et garde son
-  comportement. Un fork neuf reprend le KV du parent : il ne l'évite pas et
-  préfère son slot réel (voir « Mode fork »). vLLM et SGLang ne reçoivent jamais
+  comportement. Un fork neuf reprend le KV du parent : tant que ses requêtes
+  prolongent le préfixe du parent il ne l'évite pas et préfère son slot réel,
+  puis il le quitte (voir « Mode fork »). vLLM et SGLang ne reçoivent jamais
   d'`id_slot`.
 - **Parallélisme effectif** : `agents.max_parallel` borne les `task` d'une même
   réponse lancés ensemble. Sur llama.cpp, `runToolBatch` le plafonne à
@@ -1524,10 +1525,19 @@ sequenceDiagram
     préfixe. Plusieurs forks simultanés : le premier prend le slot du parent, les
     suivants évitent ceux des frères en cours (registre de
     `buildTaskBuiltinTool`) et refont donc le prefill de leur préfixe sur un
-    autre slot (ou le restaurent par `--cache-ram`). Un fork **repris** n'a plus
-    le préfixe du parent (il repart de son historique stocké) : il évite son slot
-    comme un enfant `fresh`. Ensuite chaque fork garde son propre slot d'un appel
-    à l'autre, sa compaction comprise.
+    autre slot (ou le restaurent par `--cache-ram`). Le fork neuf ne reste sur le
+    slot du parent que tant que ses requêtes prolongent le préfixe du parent
+    (drapeau `surPrefixeParent`). Il passe à faux, pour de bon, à l'événement
+    `compression_start` de l'enfant (émis avant l'appel de résumé, qui part donc
+    déjà ailleurs) et dès que `OptionsRun.surDivergence` signale que l'envoi
+    retire ou réécrit un message repris du parent (`fitContext` : ajustement à la
+    fenêtre, marques d'élagage, images anciennes ; aplatissement de l'historique) :
+    sans cela le résumé et les appels suivants de l'enfant écrasaient le KV du
+    parent, qui refaisait son prefill à son retour. Ensuite l'enfant évite le slot
+    du parent comme un `fresh` et ne préfère son dernier slot que s'il en diffère.
+    Un fork **repris** n'a plus le préfixe du parent (il repart de son historique
+    stocké) : il évite son slot dès le départ. Chaque fork garde son propre slot
+    d'un appel à l'autre, sa compaction comprise.
     vLLM, SGLang : aucun `id_slot`, le cache de préfixe global sert aussi les
     forks parallèles.
   - **Garde-fous.** Un fork est refusé en JSON, sans lancer d'enfant

@@ -154,6 +154,13 @@ export function flattenToolMessages(messages: readonly unknown[]): Dict[] {
   return [...systems, ...body];
 }
 
+/** Rang du premier message de l'envoi qui n'est plus celui de la liste de travail (retiré ou réécrit), -1 si l'envoi la reprend telle quelle. */
+function premierEcart(envoye: readonly unknown[], travail: readonly unknown[]): number {
+  const n = Math.min(envoye.length, travail.length);
+  for (let i = 0; i < n; i++) if (envoye[i] !== travail[i]) return i;
+  return envoye.length === travail.length ? -1 : n;
+}
+
 /** État privé des tours LLM d'un run : mesure du contexte, compactions, séries de récupération. */
 export class LLMTurnState {
   runCompactionMax: number;
@@ -505,6 +512,10 @@ export async function callLlm(
     rec.budgetDropFloor = intPy(fitStats["drop_floor"] || 0);
     st.fitDropped =
       Boolean(fitStats["dropped"]) || rec.budgetDropFloor > 0 || compacted.length !== workingMessages.length;
+    if (ctx.c.surDivergence) {
+      const rang = premierEcart(compacted, workingMessages);
+      if (rang >= 0) ctx.c.surDivergence(rang);
+    }
     if (fitStats["over_budget"] && !st.overBudgetWarned) {
       st.overBudgetWarned = true;
       const est = fitStats["estimated"];
@@ -633,6 +644,7 @@ export async function callLlm(
         text: "Historique de conversation incompatible avec le moteur — récupération automatique en cours (les détails d'outils des tours précédents sont simplifiés en texte).",
       });
       workingMessages = flattenToolMessages(workingMessages);
+      ctx.c.surDivergence?.(0);
       rec.travail = workingMessages;
       rec.budgetDropFloor = 0;
       st.realCtxMsgCount = null;

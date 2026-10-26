@@ -188,6 +188,8 @@ export interface OptionsRun {
   slotPrefere?: (() => number | null) | null;
   /** Reçoit le slot retenu pour chaque appel (≥ 0) : le parent y note celui que ses sous-agents doivent éviter. */
   surSlot?: ((slot: number) => void) | null;
+  /** Appelé avec le rang du premier message de la liste de travail que l'envoi au moteur retire ou réécrit (ajustement à la fenêtre, sorties effacées) : le préfixe du moteur diverge à partir de là. */
+  surDivergence?: ((rang: number) => void) | null;
   /** Reçoit, une fois le contexte assemblé, le lecteur des messages de travail courants en forme canonique (tête brute, ce que le moteur a vu, paires appel/résultat complètes) : reprise d'un sous-agent. */
   exposerTravail?: ((lire: () => Dict[]) => void) | null;
   /** Catalogue et tête figés (sous-agent `fork`) : `mcpConfigs`, `builtinTools`, `allowedToolNames`, `denyToolNames` et `memoryEnabled` sont sans effet, `messages` est déjà la tête assemblée du parent. */
@@ -417,6 +419,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     slotAvoid: o.slotAvoid ?? null,
     slotPrefere: o.slotPrefere ?? null,
     surSlot: o.surSlot ?? null,
+    surDivergence: o.surDivergence ?? null,
     compactionThreshold: o.compactionThreshold ?? null,
     outilsPermis: figee ? figee.permis : null,
     lectureSeule,

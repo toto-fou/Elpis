@@ -956,6 +956,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const modeFork = resumed !== null ? resumed["fork"] === true : lus.contexte === "fork";
     /** Fork lancé à l'instant : son préfixe est celui du parent, dont il prend le slot (un fork repris n'a plus ce préfixe). */
     const forkNeuf = modeFork && resumed === null;
+    /** Vrai tant que les requêtes de l'enfant prolongent le préfixe du parent (compaction, retrait de messages : il le quitte pour de bon) ; il partage alors le slot du parent. */
+    let surPrefixeParent = forkNeuf;
     let reflexion = false;
     const bilanDe = (b: Partial<Bilan> & Pick<Bilan, "status">): Bilan => ({
       tool_calls: 0,
@@ -1145,6 +1147,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         ];
       }
     }
+    /** Messages d'un fork neuf qui sont ceux du parent (tous sauf la consigne) : les retirer ou les réécrire fait diverger son préfixe. */
+    const reprisDuParent = forkNeuf ? childMessages.length - 1 : 0;
     let childSampling: Dict;
     if (parent !== null) {
       reflexion = parent.thinkingMode;
@@ -1213,6 +1217,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const surEvenementEnfant = async (ev: Dict): Promise<void> => {
       if (!estDict(ev)) return;
       const t = ev["type"];
+      if (t === "compression_start") surPrefixeParent = false;
       if (t === "kv_cache") {
         const used = intPy(ev["used"] || 0);
         if (used > 0) {
@@ -1510,8 +1515,15 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           signal: signalEnfant,
           chatId: childChatId,
           slotKey,
-          slotAvoid: () => slotsAEviter(childId, !forkNeuf),
-          slotPrefere: () => slotsEnfants.get(childId) ?? (forkNeuf ? (o.slotParent?.() ?? null) : null),
+          slotAvoid: () => slotsAEviter(childId, !surPrefixeParent),
+          slotPrefere: () => {
+            const dernier = slotsEnfants.get(childId) ?? null;
+            if (surPrefixeParent) return dernier ?? o.slotParent?.() ?? null;
+            return dernier !== null && dernier !== (o.slotParent?.() ?? null) ? dernier : null;
+          },
+          surDivergence: (rang) => {
+            if (rang < reprisDuParent) surPrefixeParent = false;
+          },
           surSlot: (slot) => {
             slotsEnfants.set(childId, slot);
           },

@@ -185,6 +185,7 @@ export interface ChampsRun {
   slotAvoid?: (() => Iterable<number>) | null;
   slotPrefere?: (() => number | null) | null;
   surSlot?: ((slot: number) => void) | null;
+  surDivergence?: ((rang: number) => void) | null;
   /** Seuil de compaction du run, tel que reçu ; `null` : celui de l'instance. */
   compactionThreshold?: CompactionThreshold | null;
   /** Outils que le run peut exécuter (catalogue figé d'un enfant `fork`) ; tout autre appel est refusé sans s'exécuter. `null` : tout le catalogue. */

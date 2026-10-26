@@ -97,6 +97,8 @@ export interface OptionsPayload {
   slotKey?: string | null;
   /** Slots à éviter, relus au moment du choix ; `surSlot` reçoit le slot retenu. */
   slotAvoid?: (() => Iterable<number>) | null;
+  /** Slot que l'appelant veut retrouver (son dernier), relu au moment du choix. */
+  slotPrefere?: (() => number | null) | null;
   surSlot?: ((slot: number) => void) | null;
 }
 
@@ -176,6 +178,7 @@ export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload
     const slot = await resolveSlotIdAsync(o.slotKey || o.chatId, {
       avoidOwn: o.slotAvoidOwn ?? false,
       avoid: o.slotAvoid ?? null,
+      prefere: o.slotPrefere ?? null,
       surSlot: o.surSlot ?? null,
     });
     if (slot >= 0) payload["id_slot"] = slot;

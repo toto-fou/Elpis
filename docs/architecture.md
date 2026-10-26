@@ -1405,8 +1405,20 @@ sequenceDiagram
   ceux de ses frères en cours (`slotAvoid`, relu à chaque choix), pour ne pas
   lui faire reprefiller toute sa conversation au retour. S'il n'y a qu'un slot
   ou qu'aucun autre n'est libre, rien n'est évité (slot préféré de la clé) ;
-  `--cache-ram` limite alors la casse (voir les modes de scheduling). Un futur
-  enfant qui devrait reprendre le KV du parent passerait sa clé sans `slotAvoid`.
+  `--cache-ram` limite alors la casse (voir les modes de scheduling).
+  Chaque enfant **retrouve son dernier slot** (`slotPrefere`, option `prefere`
+  de `resolveSlotId` : retenu avant le hachage s'il est dans `[0, total)`, libre
+  et non évité) : sans cela, quand un frère termine son slot cesse d'être évité
+  et les autres migrent dessus en perdant le KV de leur historique. Un slot
+  préféré que le cache de `/slots` (2 s) dit occupé est revérifié sur un relevé
+  frais, le cache gardant le dernier appel de l'enfant lui-même. La compaction
+  (`compactionAvecSlot`) et la synthèse de fin de budget d'un enfant passent par
+  la même affinité (clé, évitements, préférence, annonce du slot) au lieu d'un
+  `id_slot` de -1 qui laissait le serveur prendre le slot du parent ou d'un
+  frère ; le tour principal n'a ni clé, ni évitement, ni préférence et garde son
+  comportement. Un fork neuf reprend le KV du parent : il ne l'évite pas et
+  préfère son slot réel (voir « Mode fork »). vLLM et SGLang ne reçoivent jamais
+  d'`id_slot`.
 - **Parallélisme effectif** : `agents.max_parallel` borne les `task` d'une même
   réponse lancés ensemble. Sur llama.cpp, `runToolBatch` le plafonne à
   `total_slots − 1`, au moins 1 (`plafondParSlots`) : un slot reste au parent,
@@ -1485,11 +1497,17 @@ sequenceDiagram
     est le budget de l'enfant, comme en fresh. Le bilan porte `thinking` (celui
     du parent) et `context: "fork"`.
   - **Slot.** llama.cpp : la clé d'affinité de l'enfant est celle du parent
-    (`ContexteParent.slotKey`) et le slot du parent n'est pas évité : le parent
-    attend le résultat, son slot porte exactement le préfixe. Plusieurs forks
-    simultanés : le premier prend le slot du parent, les suivants évitent ceux
-    des frères en cours (registre de `buildTaskBuiltinTool`) et refont donc le
-    prefill de leur préfixe sur un autre slot (ou le restaurent par `--cache-ram`).
+    (`ContexteParent.slotKey`). Un fork **neuf** préfère le slot **réel** du
+    dernier appel du parent (`slotParent`, passé en `slotPrefere`), pas le slot
+    de hachage de la clé, dont le parent a pu être dévié par un autre chat, et
+    ne l'évite pas : le parent attend le résultat, son slot porte exactement le
+    préfixe. Plusieurs forks simultanés : le premier prend le slot du parent, les
+    suivants évitent ceux des frères en cours (registre de
+    `buildTaskBuiltinTool`) et refont donc le prefill de leur préfixe sur un
+    autre slot (ou le restaurent par `--cache-ram`). Un fork **repris** n'a plus
+    le préfixe du parent (il repart de son historique stocké) : il évite son slot
+    comme un enfant `fresh`. Ensuite chaque fork garde son propre slot d'un appel
+    à l'autre, sa compaction comprise.
     vLLM, SGLang : aucun `id_slot`, le cache de préfixe global sert aussi les
     forks parallèles.
   - **Garde-fous.** Un fork est refusé en JSON, sans lancer d'enfant

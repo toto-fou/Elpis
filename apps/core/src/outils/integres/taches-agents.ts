@@ -828,7 +828,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
   const hote = o.hote ?? hoteTacheParDefaut;
   const agentsMap = agentsRoster(o.customAgents);
   if (!agentsMap.size) return {};
-  /** Dernier slot de chaque enfant en cours, protégé par ses frères comme celui du parent. */
+  /** Dernier slot de chaque enfant en cours : il le préfère à chaque appel, ses frères l'évitent comme celui du parent. */
   const slotsEnfants = new Map<string, number>();
   const slotsAEviter = (moi: string, avecParent = true): number[] => {
     const parent = avecParent ? (o.slotParent?.() ?? null) : null;
@@ -922,6 +922,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const appelsAvant = intPy(resumed?.["tool_calls_total"] || 0);
     const compte = { username: o.username, userId: o.userId ?? null, chatId: o.chatId, signal: o.signal };
     const modeFork = resumed !== null ? resumed["fork"] === true : lus.contexte === "fork";
+    /** Fork lancé à l'instant : son préfixe est celui du parent, dont il prend le slot (un fork repris n'a plus ce préfixe). */
+    const forkNeuf = modeFork && resumed === null;
     let reflexion = false;
     const bilanDe = (b: Partial<Bilan> & Pick<Bilan, "status">): Bilan => ({
       tool_calls: 0,
@@ -1467,7 +1469,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           signal: signalEnfant,
           chatId: childChatId,
           slotKey,
-          slotAvoid: () => slotsAEviter(childId, parent === null),
+          slotAvoid: () => slotsAEviter(childId, !forkNeuf),
+          slotPrefere: () => slotsEnfants.get(childId) ?? (forkNeuf ? (o.slotParent?.() ?? null) : null),
           surSlot: (slot) => {
             slotsEnfants.set(childId, slot);
           },

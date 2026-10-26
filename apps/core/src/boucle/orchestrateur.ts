@@ -29,7 +29,7 @@ import type { OutilIntegre } from "../outils/catalogue";
 import { debutBoucle } from "../outils/integres/bilan-taches";
 import { renderChecklist } from "../outils/integres/format-todo";
 import type { Dict } from "../python";
-import { llamaChatCompaction } from "./appels-uniques";
+import { compactionAvecSlot, llamaChatCompaction } from "./appels-uniques";
 import {
   classifyTextReply,
   CycleGuard,
@@ -184,6 +184,8 @@ export interface OptionsRun {
   slotKey?: string | null;
   /** Slots que les appels du run ne prennent pas si un autre est libre (parent en attente, frères en cours) ; absent, aucune exclusion. */
   slotAvoid?: (() => Iterable<number>) | null;
+  /** Slot que les appels du run préfèrent s'il est libre et non évité (le dernier du sous-agent, le slot du parent pour un fork neuf), relu à chaque choix. */
+  slotPrefere?: (() => number | null) | null;
   /** Reçoit le slot retenu pour chaque appel (≥ 0) : le parent y note celui que ses sous-agents doivent éviter. */
   surSlot?: ((slot: number) => void) | null;
   /** Reçoit, une fois le contexte assemblé, le lecteur des messages de travail courants en forme canonique (tête brute, ce que le moteur a vu, paires appel/résultat complètes) : reprise d'un sous-agent. */
@@ -413,6 +415,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     wrapupSuffix: o.wrapupSuffix ?? null,
     slotKey: o.slotKey ?? null,
     slotAvoid: o.slotAvoid ?? null,
+    slotPrefere: o.slotPrefere ?? null,
     surSlot: o.surSlot ?? null,
     compactionThreshold: o.compactionThreshold ?? null,
     outilsPermis: figee ? figee.permis : null,
@@ -434,7 +437,8 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     recordMetric:
       o.deps?.recordMetric ??
       ((...a: unknown[]) => recordToolCallMetricSafe(...(a as Parameters<typeof recordToolCallMetricSafe>))),
-    llamaChat: o.deps?.llamaChat ?? llamaChatCompaction,
+    llamaChat:
+      o.deps?.llamaChat ?? (ctx.c.subagent ? compactionAvecSlot(ctx.optionsSlot()) : llamaChatCompaction),
   };
 
   o.exposerTravail?.(() => travailCanonique(ctx, rec, o.messages));

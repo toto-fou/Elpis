@@ -46,10 +46,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   avec le core. Un hôte qui n'a pas pu être purgé est signalé par la console.
 
 - **Sous-agents sur llama.cpp : slots ménagés.** Un sous-agent reprend le slot
-  des précédents du même type (clé `<chat>#task-<type>` au lieu d'un hasard) et
-  évite celui du parent qui attend son résultat ; `agents.max_parallel` est
-  plafonné à `total_slots − 1`. Lancez `llama-server` avec `-np 2` au moins,
-  `--kv-unified` et `--cache-ram`. Rien à changer avec vLLM et SGLang.
+  des précédents du même type (clé `<chat>#task-<type>` au lieu d'un hasard),
+  évite celui du parent qui attend son résultat et garde son propre slot d'un
+  appel à l'autre, y compris quand un frère termine ; sa compaction et sa
+  synthèse de fin de budget suivent la même affinité (plus de `id_slot: -1` qui
+  pouvait prendre le slot du parent). `agents.max_parallel` est plafonné à
+  `total_slots − 1`. Lancez `llama-server` avec `-np 2` au moins, `--kv-unified`
+  et `--cache-ram`. Rien à changer avec vLLM et SGLang.
 
 - **Sous-agents : tête système stable.** Le message système d'un sous-agent ne
   dépend plus des arguments de `task` : la date, le budget, la durée, la
@@ -91,7 +94,8 @@ selon [SemVer](https://semver.org/lang/fr/).
   Il n'exécute que les outils d'un enfant à blanc du même type (le reste est
   refusé en JSON, y compris les serveurs MCP tiers et les outils intégrés).
   Refusé (`fork_unavailable`) par le canal texte ou au-delà de la moitié du
-  seuil de compaction. Sur llama.cpp, le premier fork prend le slot du parent.
+  seuil de compaction. Sur llama.cpp, le premier fork neuf prend le slot réel du dernier appel du
+  parent (pas son slot de hachage) ; un fork repris évite ce slot.
   Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
   `task` change une fois (cache de la tête du parent).
 

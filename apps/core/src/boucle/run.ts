@@ -183,6 +183,7 @@ export interface ChampsRun {
   /** Affinité de slot llama.cpp du run (cf. `OptionsRun`). */
   slotKey?: string | null;
   slotAvoid?: (() => Iterable<number>) | null;
+  slotPrefere?: (() => number | null) | null;
   surSlot?: ((slot: number) => void) | null;
   /** Seuil de compaction du run, tel que reçu ; `null` : celui de l'instance. */
   compactionThreshold?: CompactionThreshold | null;
@@ -217,11 +218,12 @@ export class RunContext {
   }
 
   /** Affinité de slot à joindre aux options de chaque appel au moteur du run. */
-  optionsSlot(): Pick<OptionsFlux, "slotKey" | "slotAvoid" | "surSlot"> {
-    const { slotKey, slotAvoid, surSlot } = this.c;
+  optionsSlot(): Pick<OptionsFlux, "slotKey" | "slotAvoid" | "slotPrefere" | "surSlot"> {
+    const { slotKey, slotAvoid, slotPrefere, surSlot } = this.c;
     return {
       ...(slotKey ? { slotKey } : {}),
       ...(slotAvoid ? { slotAvoid } : {}),
+      ...(slotPrefere ? { slotPrefere } : {}),
       ...(surSlot ? { surSlot } : {}),
     };
   }

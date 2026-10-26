@@ -93,9 +93,10 @@ export interface OptionsFlux {
   /** Profil d'échantillonnage (`chat` pour les appels uniques sans outils, sinon `tools`/`thinking`). */
   samplingTask?: string;
   slotAvoidOwn?: boolean;
-  /** Affinité de slot llama.cpp : clé hachée (défaut : le chatId), slots à éviter, observateur du slot retenu. */
+  /** Affinité de slot llama.cpp : clé hachée (défaut : le chatId), slots à éviter, slot préféré (le dernier de l'appelant), observateur du slot retenu. */
   slotKey?: string | null;
   slotAvoid?: (() => Iterable<number>) | null;
+  slotPrefere?: (() => number | null) | null;
   surSlot?: ((slot: number) => void) | null;
 }
 
@@ -528,6 +529,7 @@ export async function llamaChatWithToolsStream(
       slotAvoidOwn: o.slotAvoidOwn ?? false,
       slotKey: o.slotKey ?? null,
       slotAvoid: o.slotAvoid ?? null,
+      slotPrefere: o.slotPrefere ?? null,
       surSlot: o.surSlot ?? null,
     });
     Object.assign(p, drapeaux);

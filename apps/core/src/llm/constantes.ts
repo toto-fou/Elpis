@@ -34,13 +34,14 @@ function plage(n: number): number[] {
   return Array.from({ length: Math.max(0, n) }, (_, i) => i);
 }
 
-/** Options du choix d'un slot : `avoidOwn` écarte celui que la clé préfère, `avoid` d'autres slots (parent en attente, frères en cours). */
+/** Options du choix d'un slot : `avoidOwn` écarte celui que la clé préfère, `avoid` d'autres slots (parent en attente, frères en cours), `prefere` le slot que l'appelant veut retrouver (son dernier). */
 export interface OptionsSlot {
   avoidOwn?: boolean;
   avoid?: Iterable<number> | null;
+  prefere?: number | null;
 }
 
-/** `id_slot` pour llama-server : hash stable de la clé (KV chaud), dévié vers un slot libre si le sien est occupé ou évité ; -1 = au serveur de choisir. */
+/** `id_slot` pour llama-server : le slot préféré s'il est libre et non évité, sinon hash stable de la clé (KV chaud) dévié vers un slot libre si le sien est occupé ou évité ; -1 = au serveur de choisir. */
 export function resolveSlotId(
   chatId: unknown,
   totalSlots: number | null | undefined,
@@ -61,15 +62,27 @@ export function resolveSlotId(
   const occupes = new Set(busySlots ?? []);
   const evites = new Set(options.avoid ?? []);
   if (options.avoidOwn) evites.add(preferred);
+  const voulu = options.prefere;
+  if (
+    voulu !== null &&
+    voulu !== undefined &&
+    Number.isInteger(voulu) &&
+    voulu >= 0 &&
+    voulu < totalSlots &&
+    !evites.has(voulu) &&
+    !occupes.has(voulu)
+  )
+    return voulu;
   if (!evites.has(preferred) && !occupes.has(preferred)) return preferred;
   const libres = plage(totalSlots).filter((s) => !evites.has(s) && !occupes.has(s));
   return libres.length > 0 ? (libres[second % libres.length] ?? preferred) : preferred;
 }
 
-/** Options asynchrones : `avoid` est relu au moment du choix, `surSlot` rappelé dans la foulée avec le slot retenu (≥ 0). */
+/** Options asynchrones : `avoid` et `prefere` sont relus au moment du choix, `surSlot` rappelé dans la foulée avec le slot retenu (≥ 0). */
 export interface OptionsSlotAsync {
   avoidOwn?: boolean;
   avoid?: (() => Iterable<number>) | null;
+  prefere?: (() => number | null) | null;
   surSlot?: ((slot: number) => void) | null;
 }
 
@@ -83,19 +96,22 @@ async function totalSlotsVises(): Promise<number> {
   }
 }
 
-/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot. */
+/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot ; un slot préféré vu occupé est revérifié sur un relevé frais (le cache de 2 s garde le dernier appel de l'appelant). */
 export async function resolveSlotIdAsync(chatId: unknown, options: OptionsSlotAsync = {}): Promise<number> {
   const total = await totalSlotsVises();
   if (total <= 1) return resolveSlotId(chatId, total, null);
+  const prefere = options.prefere?.() ?? null;
   let occupes: ReadonlySet<number> | null;
   try {
     occupes = await getBusySlotsSnapshot();
+    if (prefere !== null && occupes?.has(prefere)) occupes = await getBusySlotsSnapshot({ frais: true });
   } catch {
     occupes = null;
   }
   const slot = resolveSlotId(chatId, total, occupes, {
     avoidOwn: options.avoidOwn ?? false,
     avoid: options.avoid?.() ?? null,
+    prefere,
   });
   if (slot >= 0) options.surSlot?.(slot);
   return slot;

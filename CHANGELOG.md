@@ -85,15 +85,22 @@ selon [SemVer](https://semver.org/lang/fr/).
   outils déjà exécutés conservés (jamais rejoués), forme compactée si la boucle a
   compacté. Un appel resté en vol à l'interruption est gardé avec le résultat
   « exécution NON confirmée » (l'outil a pu agir) : l'agent vérifie l'état avant
-  de le relancer. Le message de reprise annonce le budget d'itérations et de
-  temps de la reprise, et les chemins écrivables ou la lecture seule quand ils
-  ont changé. L'enregistrement garde le `reasoning_content` des assistants
+  de le relancer. Le message de reprise annonce le budget
+  d'itérations et de temps de la reprise (celui du `task_context` et des jalons
+  ne vaut plus), et les chemins écrivables ou la lecture seule quand ils ont
+  changé. L'enregistrement garde le `reasoning_content` des assistants
   (réflexion rendue au moteur avec SGLang) pour que le préfixe reparte à
   l'identique. Le cache de préfixe du moteur survit à la reprise. La mémoire des
   reprises est plafonnée à 32 Mio (le plus ancien est évincé, le disque le
   garde) ; le dossier du store disque doit appartenir au compte système du core
   et rester en 0700, sinon la reprise reste en mémoire. Les anciens
   enregistrements de reprise restent valides.
+
+- **Appel interrompu : texte neutre.** Le résultat « exécution NON confirmée »
+  d'un appel d'outil interrompu (Stop, délai du harnais, reprise d'un
+  sous-agent) dit « interrompu avant la fin » au lieu de « interrompu par
+  l'utilisateur », le reste du texte est inchangé. Les résultats déjà
+  enregistrés dans un chat gardent l'ancien texte.
 
 - **Sous-agents : mode fork (`context: "fork"`).** L'enfant reprend la
   conversation du parent au lieu d'une page blanche : mêmes messages que le

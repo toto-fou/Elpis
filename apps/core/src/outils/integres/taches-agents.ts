@@ -675,11 +675,8 @@ export function subagentRulesBlock(fork = false): string {
       `execute_shell stops a command after ${SHELL_SOUS_AGENT_DELAI_DEFAUT_S} s by default; pass timeout_sec up to ` +
       `${SHELL_SOUS_AGENT_DELAI_MAX_S} for a long test suite, otherwise split the work or return Status: blocked.`,
     "- Never quote more than 4 characters of a secret (key, token, password, private key), in prose or in a diff.",
-    (fork
-      ? "- The <task_context> block in the last message"
-      : "- The first user message opens with a <task_context> block") +
-      " (date, budget, read-only mode or writable paths, required report fields) that binds you like these rules; " +
-      "the mission follows it.",
+    "- The <task_context> block of your brief (date, budget, read-only mode or writable paths, required report " +
+      "fields) binds you like these rules; the mission follows it.",
     "- Report format (it replaces any other report format given above), in this order:",
     "  Status: done | partial | blocked",
     "  ## Answer",
@@ -740,7 +737,7 @@ export const CONSIGNE_CLOTURE =
   "You are a sub-agent: write your final report in the common format with `Status: partial`, and list precisely " +
   "under `## Left open` the work that remains, so the parent can resume you (task_id) or hand it over.";
 
-/** Tête du message de reprise : budget de cette reprise (celui du premier message ne vaut plus), périmètre durci ou modifié, outils d'un fork changés, champs exigés rappelés. */
+/** Tête du message de reprise : budget de cette reprise (celui du `task_context` et des jalons ne vaut plus), périmètre durci ou modifié, outils d'un fork changés, champs exigés rappelés. */
 function consigneReprise(
   sa: SousAgent,
   rec: Dict,
@@ -748,7 +745,7 @@ function consigneReprise(
 ): string {
   const notes = [
     `Budget for this run: ${o.budget} tool iterations, up to ${libelleDuree(o.timeoutS)} wall-clock, counted from this ` +
-      "message; the budget in your first message no longer applies.",
+      "message; the budget given earlier (task_context, harness_status) no longer applies.",
   ];
   if (sa.read_only && rec["read_only"] !== true)
     notes.push(

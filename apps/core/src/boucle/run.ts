@@ -239,7 +239,7 @@ export class RunContext {
 export const SENTINELLE = pyJsonDumps(
   {
     error:
-      "interrompu par l'utilisateur avant la fin — exécution NON confirmée (l'outil a pu agir en partie) : vérifier l'état avant de le relancer",
+      "interrompu avant la fin — exécution NON confirmée (l'outil a pu agir en partie) : vérifier l'état avant de le relancer",
   },
   { ensureAscii: false },
 );

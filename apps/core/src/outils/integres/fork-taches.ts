@@ -28,7 +28,7 @@ export function categorieCoeur(type: string, categories: readonly string[] | nul
 
 /** Résultat de l'appel `task` qui a lancé l'enfant : ce contexte est désormais le sien. */
 export const RESULTAT_FORK =
-  "[harness] Sub-agent started: from here on, this conversation is the sub-agent's context. Its role, rules and mission are in the last message.";
+  "[harness] Sub-agent started: from here on, this conversation is the sub-agent's context. Its role, rules and mission are in the user message that follows.";
 
 /** Résultat des autres appels du même lot : exécutés par le parent. */
 export const RESULTAT_FRERE = "[harness] Run by the parent agent: its result is not visible in this context.";

@@ -1319,6 +1319,25 @@ sequenceDiagram
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.
+- **Tête de l'enfant stable** : le message `system` ne porte que ce qui est fixe
+  pour (type d'agent, compte), du plus stable au moins stable : persona, partie
+  commune de `<subagent_rules>` (statut, pas de réveil, délai du shell, secrets,
+  gabarit de rapport, renvoi à `<task_context>`), index des skills. La boucle y
+  ajoute le manifeste des outils, `<runtime_context>` et les fragments de
+  capacité, puis le moteur rend les définitions d'outils, que la plupart des
+  gabarits placent après le système. Tout ce qui dépend de l'appel (date, budget
+  d'itérations, durée, lecture seule ou chemins écrivables, champs exigés
+  d'`output_schema`) tient dans un bloc unique `<task_context>`, en tête du
+  premier message `user`, suivi du brief : `max_iterations`, `max_seconds`,
+  `writable_paths` ou `output_schema` différents ne changent pas un octet du
+  préfixe, que le cache de llama.cpp (KV du slot), de vLLM (APC) et de SGLang
+  (RadixAttention) réutilisent tant que les tokens sont identiques. Seul un
+  jeu d'outils différent (`task(read_only=true)` sur un agent qui écrit)
+  change le manifeste et les définitions, donc la fin du préfixe. Une reprise
+  par `task_id` garde la tête stockée telle quelle (un ancien enregistrement,
+  qui porte `<task_env>` et les règles de lecture seule dans le système, se
+  reprend sans changement) ; sa consigne (`consigneReprise`) ouvre le message
+  de reprise.
 - **Affinité de slot (llama.cpp)** : `llama-server` garde un cache KV par slot
   et Elpis épingle chaque chat sur un slot (`id_slot`, hachage d'une clé,
   `resolveSlotId` de `apps/core/src/llm/constantes.ts`). L'enfant garde son

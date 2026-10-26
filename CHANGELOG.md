@@ -51,6 +51,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   plafonné à `total_slots − 1`. Lancez `llama-server` avec `-np 2` au moins,
   `--kv-unified` et `--cache-ram`. Rien à changer avec vLLM et SGLang.
 
+- **Sous-agents : tête système stable.** Le message système d'un sous-agent ne
+  dépend plus des arguments de `task` : la date, le budget, la durée, la
+  lecture seule, les chemins écrivables et les champs exigés passent dans un bloc
+  `<task_context>` en tête du premier message utilisateur. Deux sous-agents du
+  même type réutilisent ainsi le préfixe du cache (llama.cpp, vLLM, SGLang).
+  Les reprises par `task_id` d'avant la mise à jour continuent de fonctionner.
+
 ### Interface
 
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions

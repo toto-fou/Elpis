@@ -685,16 +685,19 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   `task_unavailable` sans lancer l'agent ; un sous-agent `pr` voit `git_start_work` et `git_commit` refuser
   (`no_remote`) un dépôt sans `origin`, avant de brancher ou de committer.
 - **Consignes et rapport** : bloc `<subagent_rules>` dans le prompt système (sous-agent, réveil impossible, délai du
-  shell 120 s par défaut et 300 s au plus, lecture seule ou chemins écrivables, 4 caractères d'un secret au plus,
-  gabarit commun Status / Answer / Evidence / Changes / Left open) ; `verify` lance son shell avec
+  shell 120 s par défaut et 300 s au plus, 4 caractères d'un secret au plus, gabarit commun Status / Answer /
+  Evidence / Changes / Left open), identique d'un appel à l'autre ; la lecture seule ou les chemins écrivables, la
+  date, le budget et les champs exigés vont dans `<task_context>`, en tête du premier message user (écart au Python,
+  qui les mettait dans le système : tête byte-stable, cf. [architecture](architecture.md#sous-agents-outil-task)) ;
+  `verify` lance son shell avec
   `PYTHONDONTWRITEBYTECODE=1` et `PYTEST_ADDOPTS="-p no:cacheprovider"`, `implement` avec
   `PYTHONDONTWRITEBYTECODE=1` seul (N9 : plus de `__pycache__` laissé en important un module) ; le `fix` d'un délai dépassé n'oriente plus
   vers `shell_job` ; `disk_warning` retiré des résultats vus par un sous-agent ; secrets du rapport masqués par la
   recherche de `git_commit` (déplacée dans `@elpis/securite`) ; rapport rendu plafonné à 8 000 caractères, texte
   complet sauvé dans `/work/.tool-output/task-<id>.md`.
-- **Persona et lecture seule** (N8) : en lecture seule, `<subagent_rules>` dit que les outils d'écriture, de commit
-  et le shell décrits plus haut (par la persona) ne sont pas offerts, et qu'un besoin de changement ou de commande se
-  décrit sous `## Left open` avec `Status: blocked` ; les personas `implement` et `verify` renvoient à ces règles, celle
+- **Persona et lecture seule** (N8) : en lecture seule, `<task_context>` dit que les outils d'écriture, de commit
+  et le shell décrits par la persona ne sont pas offerts, et qu'un besoin de changement ou de commande se
+  décrit sous `## Left open` avec `Status: blocked` ; les personas `implement` et `verify` renvoient à ce bloc, celle
   de `pr` ne dit plus que les outils d'écriture sont toujours dans le manifeste.
 - **`GET /api/settings/agent-templates`** rend en plus `read_only_default` et `read_only_forced` par modèle et
   `read_only_policy` ; les personas `system_prompts/AGENT_TASK_*.md` ne disent plus que les outils d'écriture sont

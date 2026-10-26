@@ -614,20 +614,9 @@ function dateLocale(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function childEnvBlock(s: AgentSpec, timeoutS: number, budget = s.maxIters): string {
-  const duree = timeoutS >= 120 ? `${Math.floor(timeoutS / 60)} minutes` : `${Math.trunc(timeoutS)} seconds`;
-  return (
-    "<task_env>\n" +
-    `Date: ${dateLocale()}\n` +
-    `Budget: ${budget} tool iterations, up to ${duree} wall-clock. Finish with a clean ` +
-    "final report BEFORE the budget runs out.\n" +
-    "</task_env>"
-  );
-}
-
-/** Consigne commune de tout sous-agent : statut, réveil impossible, délai du shell, secrets, périmètre, gabarit de rapport. */
-export function subagentRulesBlock(sa: SousAgent, champs: readonly string[] = []): string {
-  const lignes = [
+/** Consigne commune de tout sous-agent, identique d'un appel à l'autre (tête système stable) : statut, réveil impossible, délai du shell, secrets, gabarit de rapport. */
+export function subagentRulesBlock(): string {
+  return [
     "<subagent_rules>",
     "You are a sub-agent launched by a parent agent through the `task` tool. Only your final report reaches it: " +
       "nobody reads your intermediate steps and nobody answers questions, so decide and state your assumptions.",
@@ -635,33 +624,49 @@ export function subagentRulesBlock(sa: SousAgent, champs: readonly string[] = []
       'no execute_shell background=true, no on_timeout="detach_and_wake"). ' +
       `execute_shell stops a command after ${SHELL_SOUS_AGENT_DELAI_DEFAUT_S} s by default; pass timeout_sec up to ` +
       `${SHELL_SOUS_AGENT_DELAI_MAX_S} for a long test suite, otherwise split the work or return Status: blocked.`,
-  ];
-  if (sa.read_only)
-    lignes.push(
-      "- You are READ-ONLY for this run: the write, commit and shell tools described above are NOT offered to you, " +
-        "whatever the role text says (no job tool either). If the mission needs a change or a command, do not work " +
-        "around it: describe it precisely under `## Left open` and return Status: blocked.",
-    );
-  else if (sa.writable_paths !== null)
-    lignes.push(
-      "- The file tools (write_file, edit_file, manage_files, git_write) may only write under: " +
-        (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
-        ". The shell is NOT bounded by this list: never use it to write anywhere else.",
-    );
-  lignes.push(
     "- Never quote more than 4 characters of a secret (key, token, password, private key), in prose or in a diff.",
+    "- The first user message opens with a <task_context> block (date, budget, read-only mode or writable paths, " +
+      "required report fields) that binds you like these rules; the mission follows it.",
     "- Report format (it replaces any other report format given above), in this order:",
     "  Status: done | partial | blocked",
     "  ## Answer",
     "  ## Evidence",
     '  ## Changes (files you changed, or "none")',
     '  ## Left open (what remains to be done, or "nothing")',
-  );
-  if (champs.length)
+    "</subagent_rules>",
+  ].join("\n");
+}
+
+/** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user : la tête système reste identique d'un appel à l'autre. */
+export function taskContextBlock(
+  sa: SousAgent,
+  o: { budget: number; timeoutS: number; champs?: readonly string[] },
+): string {
+  const duree =
+    o.timeoutS >= 120 ? `${Math.floor(o.timeoutS / 60)} minutes` : `${Math.trunc(o.timeoutS)} seconds`;
+  const lignes = [
+    "<task_context>",
+    `Date: ${dateLocale()}`,
+    `Budget: ${o.budget} tool iterations, up to ${duree} wall-clock. Finish with a clean ` +
+      "final report BEFORE the budget runs out.",
+  ];
+  if (sa.read_only)
     lignes.push(
-      `- Required fields: your report must also contain each of these as a line "<field>: <value>": ${champs.join(", ")}.`,
+      "Mode: READ-ONLY for this run. The write, commit and shell tools named in your role description are NOT " +
+        "offered to you, whatever it says (no job tool either). If the mission needs a change or a command, do " +
+        "not work around it: describe it precisely under `## Left open` and return Status: blocked.",
     );
-  lignes.push("</subagent_rules>");
+  else if (sa.writable_paths !== null)
+    lignes.push(
+      "Writable paths: the file tools (write_file, edit_file, manage_files, git_write) may only write under: " +
+        (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
+        ". The shell is NOT bounded by this list: never use it to write anywhere else.",
+    );
+  if (o.champs?.length)
+    lignes.push(
+      `Required fields: your report must also contain each of these as a line "<field>: <value>": ${o.champs.join(", ")}.`,
+    );
+  lignes.push("</task_context>");
   return lignes.join("\n");
 }
 
@@ -939,13 +944,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     else {
       const persona = s.personaText !== null ? s.personaText : await loadAgentPersona(s.personaStem);
       if (!persona) log.warn(`[task_tool] persona '${s.personaStem}' introuvable — enfant sans tête dédiée`);
-      let systeme = stripPy(
-        persona +
-          "\n\n" +
-          childEnvBlock(s, dureeMax, budget) +
-          "\n\n" +
-          subagentRulesBlock(sa, lus.outputSchema),
-      );
+      let systeme = stripPy(persona + "\n\n" + subagentRulesBlock());
       if (o.userId !== null && o.userId !== undefined && (s.filterCategories ?? []).includes("skill")) {
         let index: string | null;
         try {
@@ -957,9 +956,10 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         }
         if (index) systeme = `${systeme}\n\n${index}`;
       }
+      const contexte = taskContextBlock(sa, { budget, timeoutS: dureeMax, champs: lus.outputSchema });
       childMessages = [
         { role: "system", content: systeme },
-        { role: "user", content: prompt },
+        { role: "user", content: `${contexte}\n\n${prompt}` },
       ];
     }
     const childSampling: Dict = { ...(o.samplingOverride ?? {}), max_tool_iterations: budget };

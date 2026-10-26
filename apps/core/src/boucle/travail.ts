@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/boucle/travail.ts — messages de travail d'un run en forme canonique (ce que le moteur a vu, tête brute, paires appel/résultat complètes) : reprise d'un sous-agent, futur fork. */
+/** apps/core/src/boucle/travail.ts — messages de travail d'un run en forme canonique (ce que le moteur a vu, tête brute, paires appel/résultat complètes) : reprise d'un sous-agent. */
 import { config } from "@elpis/config";
 import { estDict, strPy, stripPy } from "@elpis/commun";
 
-import { applyPruneMarks, prepareToolResultForModel, stripInternalKeys } from "../contexte/elagage";
+import {
+  applyPruneMarks,
+  isEphemeral,
+  prepareToolResultForModel,
+  stripInternalKeys,
+} from "../contexte/elagage";
 import { isSummaryCarrier } from "../contexte/etat-compression";
 import type { Dict } from "../python";
 import { sansAlerteDisque } from "./dispatch-outils";
-import { contentText } from "./run";
+import { contentText, SENTINELLE } from "./run";
 import type { RunContext, RunRecord } from "./run";
 
 function appelsDe(m: Dict): Dict[] {
@@ -15,7 +20,7 @@ function appelsDe(m: Dict): Dict[] {
   return Array.isArray(appels) ? appels.filter(estDict) : [];
 }
 
-/** Résultats déjà obtenus du lot interrompu (la boucle ne les a pas encore rendus au modèle), mis en forme comme ceux de `runToolBatch`. */
+/** Résultats du lot interrompu que la boucle n'a pas rendus au modèle : celui obtenu, sinon la sentinelle « exécution NON confirmée » (l'appel a pu agir, la reprise ne le rejoue pas). */
 function resultatsDuLotInterrompu(ctx: RunContext, rec: RunRecord, messages: readonly Dict[]): Dict[] {
   let dernier = -1;
   messages.forEach((m, i) => {
@@ -27,8 +32,12 @@ function resultatsDuLotInterrompu(ctx: RunContext, rec: RunRecord, messages: rea
   const sortie: Dict[] = [];
   rec.batchPrepared.forEach((p, i) => {
     const id = strPy(p["call_id"] ?? "");
+    if (!id || !demandes.has(id) || presents.has(id)) return;
     const brut = rec.batchPartial.get(i);
-    if (!id || brut === undefined || !demandes.has(id) || presents.has(id)) return;
+    if (brut === undefined) {
+      sortie.push({ role: "tool", tool_call_id: p["call_id"], content: SENTINELLE });
+      return;
+    }
     const vu = ctx.c.subagent ? sansAlerteDisque(brut) : brut;
     const model = ctx.c.model || config.LLAMA_MODEL || null;
     sortie.push({
@@ -40,7 +49,7 @@ function resultatsDuLotInterrompu(ctx: RunContext, rec: RunRecord, messages: rea
   return sortie;
 }
 
-/** Appels sans résultat retirés (jamais un appel sans sa réponse), assistant vidé de ses appels gardé s'il porte du texte, résultats orphelins retirés. */
+/** Appels d'un lot jamais ouvert retirés (jamais un appel sans sa réponse), assistant vidé de ses appels gardé s'il porte du texte, résultats orphelins retirés. */
 function appelsRepondus(messages: readonly Dict[]): Dict[] {
   const repondus = new Set(messages.filter((m) => m["role"] === "tool").map((m) => strPy(m["tool_call_id"])));
   const gardes = new Set<string>();
@@ -81,11 +90,14 @@ function sansTeteAssemblee(messages: readonly Dict[]): Dict[] {
   return messages.filter((m, i) => i >= fin || isSummaryCarrier(m));
 }
 
-/** Messages de travail courants sous forme rejouable : `[tête brute de l'entrée, ce que le moteur a vu après la tête assemblée]` (jalons et suffixe fusionné compris, marques d'élagage appliquées, sans clés `_…`), copie indépendante de la boucle. */
+/** Messages de travail courants sous forme rejouable : `[tête brute de l'entrée, ce que le moteur a vu après la tête assemblée]` (jalons et suffixe fusionné compris, marques d'élagage appliquées, sans clés `_…` hors `_ephemeral` : un jalon ne devient pas un tour), copie indépendante de la boucle. */
 export function travailCanonique(ctx: RunContext, rec: RunRecord, entree: readonly unknown[]): Dict[] {
   const brut = rec.travail.filter(estDict);
   const complet = [...brut, ...resultatsDuLotInterrompu(ctx, rec, brut)];
   const vue = applyPruneMarks(complet, rec.runPruneKeys) as Dict[];
-  const propres = stripInternalKeys(appelsRepondus(vue)) as Dict[];
+  const retenus = appelsRepondus(vue);
+  const propres = (stripInternalKeys(retenus) as Dict[]).map((m, i) =>
+    isEphemeral(retenus[i]) ? { ...m, _ephemeral: true } : m,
+  );
   return structuredClone([...teteBrute(entree), ...sansTeteAssemblee(propres)]);
 }

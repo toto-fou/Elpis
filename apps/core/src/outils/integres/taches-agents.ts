@@ -659,17 +659,20 @@ export function subagentRulesBlock(fork = false): string {
   ].join("\n");
 }
 
+/** Durée du budget de temps, en minutes à partir de deux minutes, sinon en secondes. */
+function libelleDuree(timeoutS: number): string {
+  return timeoutS >= 120 ? `${Math.floor(timeoutS / 60)} minutes` : `${Math.trunc(timeoutS)} seconds`;
+}
+
 /** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user : la tête système reste identique d'un appel à l'autre. */
 export function taskContextBlock(
   sa: SousAgent,
   o: { budget: number; timeoutS: number; champs?: readonly string[]; fork?: { outils: readonly string[] } },
 ): string {
-  const duree =
-    o.timeoutS >= 120 ? `${Math.floor(o.timeoutS / 60)} minutes` : `${Math.trunc(o.timeoutS)} seconds`;
   const lignes = [
     "<task_context>",
     `Date: ${dateLocale()}`,
-    `Budget: ${o.budget} tool iterations, up to ${duree} wall-clock. Finish with a clean ` +
+    `Budget: ${o.budget} tool iterations, up to ${libelleDuree(o.timeoutS)} wall-clock. Finish with a clean ` +
       "final report BEFORE the budget runs out.",
   ];
   if (sa.read_only)
@@ -706,15 +709,36 @@ export const CONSIGNE_CLOTURE =
   "You are a sub-agent: write your final report in the common format with `Status: partial`, and list precisely " +
   "under `## Left open` the work that remains, so the parent can resume you (task_id) or hand it over.";
 
-/** Tête du message de reprise : périmètre durci et champs exigés rappelés. */
-function consigneReprise(sa: SousAgent, rec: Dict, champs: readonly string[]): string {
-  const notes: string[] = [];
+/** Tête du message de reprise : budget de cette reprise (celui du premier message ne vaut plus), périmètre durci ou modifié, champs exigés rappelés. */
+function consigneReprise(
+  sa: SousAgent,
+  rec: Dict,
+  o: { budget: number; timeoutS: number; champs: readonly string[] },
+): string {
+  const notes = [
+    `Budget for this run: ${o.budget} tool iterations, up to ${libelleDuree(o.timeoutS)} wall-clock, counted from this ` +
+      "message; the budget in your first message no longer applies.",
+  ];
   if (sa.read_only && rec["read_only"] !== true)
     notes.push(
       "You are now READ-ONLY: no write, commit, job or shell tool is available; describe any needed change under `## Left open`.",
     );
-  if (champs.length) notes.push(`Required fields in your report: ${champs.join(", ")}.`);
-  return notes.length ? `[harness] ${notes.join(" ")}\n\n` : "";
+  else if (sa.writable_paths !== null && !memesChemins(sa.writable_paths, rec["writable_paths"]))
+    notes.push(
+      "Writable paths changed: the file tools (write_file, edit_file, manage_files, git_write) may now only write under: " +
+        (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
+        ". The shell is NOT bounded by this list.",
+    );
+  if (o.champs.length) notes.push(`Required fields in your report: ${o.champs.join(", ")}.`);
+  return `[harness] ${notes.join(" ")}\n\n`;
+}
+
+/** Les chemins écrivables d'une reprise sont ceux de l'enregistrement (même ensemble, sans l'ordre). */
+function memesChemins(actuels: readonly string[], avant: unknown): boolean {
+  if (!Array.isArray(avant)) return false;
+  const a = [...new Set(actuels)].sort();
+  const b = [...new Set(avant.map(strPy))].sort();
+  return a.length === b.length && a.every((c, i) => c === b[i]);
 }
 
 /** Réflexion effective d'un enfant, fixée à son lancement : réglage voulu ET moteur qui l'honore ; jamais de chargement de modèle, tout échec la coupe. */
@@ -1039,7 +1063,11 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     if (resumed !== null)
       childMessages = [
         ...((resumed["messages"] as Dict[]) ?? []),
-        { role: "user", content: consigneReprise(sa, resumed, lus.outputSchema) + prompt },
+        {
+          role: "user",
+          content:
+            consigneReprise(sa, resumed, { budget, timeoutS: dureeMax, champs: lus.outputSchema }) + prompt,
+        },
       ];
     else {
       const persona = s.personaText !== null ? s.personaText : await loadAgentPersona(s.personaStem);

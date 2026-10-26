@@ -74,10 +74,15 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Sous-agents : reprise sur l'historique exact de la boucle.** Un sous-agent
   repris par `task_id` (après un délai, une annulation ou un échec comme après
   un run terminé) repart des messages de travail que la boucle avait envoyés au
-  moteur : jalons `<harness_status>` et suffixe de la question compris, résultats
-  des outils déjà exécutés conservés (jamais rejoués), forme compactée si la
-  boucle a compacté. Le cache de préfixe du moteur survit à la reprise. Les
-  anciens enregistrements de reprise restent valides.
+  moteur : jalons `<harness_status>` et suffixe de la question compris (les
+  jalons restent des messages de contrôle, jamais des tours), résultats des
+  outils déjà exécutés conservés (jamais rejoués), forme compactée si la boucle a
+  compacté. Un appel resté en vol à l'interruption est gardé avec le résultat
+  « exécution NON confirmée » (l'outil a pu agir) : l'agent vérifie l'état avant
+  de le relancer. Le message de reprise annonce le budget d'itérations et de
+  temps de la reprise, et les chemins écrivables ou la lecture seule quand ils
+  ont changé. Le cache de préfixe du moteur survit à la reprise. Les anciens
+  enregistrements de reprise restent valides.
 
 - **Sous-agents : mode fork (`context: "fork"`).** L'enfant reprend la
   conversation du parent au lieu d'une page blanche : mêmes messages que le

@@ -232,7 +232,8 @@ export class RunContext {
   }
 }
 
-const SENTINELLE = pyJsonDumps(
+/** Résultat d'un appel dont l'exécution a été interrompue sans confirmation (matérialisation du lot, reprise d'un sous-agent). */
+export const SENTINELLE = pyJsonDumps(
   {
     error:
       "interrompu par l'utilisateur avant la fin — exécution NON confirmée (l'outil a pu agir en partie) : vérifier l'état avant de le relancer",

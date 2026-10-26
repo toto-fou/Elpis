@@ -1337,10 +1337,14 @@ sequenceDiagram
   c'est-à-dire le premier message `user` avec le suffixe fusionné (mémoire AX de
   l'agent web), assistants, résultats d'outils et jalons `<harness_status>` rendus
   en messages ordinaires, sous forme compactée si la boucle a compacté, marques
-  d'élagage appliquées, sans clés internes `_…`. Seules les paires appel/résultat
-  complètes sont gardées : un appel sans résultat est retiré, un résultat déjà
-  obtenu d'un lot interrompu est gardé (jamais rejoué). La réponse finale d'un
-  run terminé ferme l'historique. Le préfixe que voit le moteur à la reprise est
+  d'élagage appliquées, sans clés internes `_…` sauf `_ephemeral`, gardée sur les
+  jalons et les autres messages de contrôle pour qu'ils ne comptent pas comme des
+  tours (tous les chemins d'envoi au moteur retirent les clés `_…`). Seules les
+  paires appel/résultat complètes sont gardées : un appel d'un lot jamais ouvert
+  est retiré ; dans un lot interrompu, un résultat déjà obtenu est gardé (jamais
+  rejoué) et un appel resté en vol reçoit `SENTINELLE` (`boucle/run.ts`, celle de
+  `materializeInterruptedBatch`) : « exécution NON confirmée », l'outil a pu agir.
+  La réponse finale d'un run terminé ferme l'historique. Le préfixe que voit le moteur à la reprise est
   donc celui de son dernier appel (cache de préfixe), tant que le budget de
   contexte n'a rien retiré de sa vue ; un ancien enregistrement (historique de
   `tool_history`, ids `live_*`) se reprend sans changement.
@@ -1367,7 +1371,9 @@ sequenceDiagram
   par `task_id` garde la tête stockée telle quelle (un ancien enregistrement,
   qui porte `<task_env>` et les règles de lecture seule dans le système, se
   reprend sans changement) ; sa consigne (`consigneReprise`) ouvre le message
-  de reprise.
+  de reprise : budget d'itérations et de temps de la reprise (celui du premier
+  message ne vaut plus, le compteur repart de zéro), lecture seule nouvelle ou
+  chemins écrivables modifiés, champs exigés.
 - **Réflexion de l'enfant** : la réflexion reste dans son contexte isolé, seul le
   rapport remonte. Mode par type d'agent (`agents.thinking.defaults`, `off`, `on`
   ou `inherit` = celui du tour parent, que `OptionsTache.thinkingMode` porte),

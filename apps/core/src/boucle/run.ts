@@ -14,6 +14,7 @@ import type { SousAgent } from "@elpis/securite";
 import type { OutilIntegre } from "../outils/catalogue";
 
 import type { LlamaChatFn } from "../contexte/compresseur";
+import type { CompactionThreshold } from "../contexte/porte-compaction";
 import type { OptionsFlux } from "./flux-llm";
 
 const log = journal("boucle.run");
@@ -183,6 +184,12 @@ export interface ChampsRun {
   slotKey?: string | null;
   slotAvoid?: (() => Iterable<number>) | null;
   surSlot?: ((slot: number) => void) | null;
+  /** Seuil de compaction du run, tel que reçu ; `null` : celui de l'instance. */
+  compactionThreshold?: CompactionThreshold | null;
+  /** Outils que le run peut exécuter (catalogue figé d'un enfant `fork`) ; tout autre appel est refusé sans s'exécuter. `null` : tout le catalogue. */
+  outilsPermis?: ReadonlySet<string> | null;
+  /** Trait « lecture seule » des outils du catalogue. */
+  lectureSeule?: ReadonlyMap<string, boolean>;
   startTime: number;
   modelHasVision: boolean;
   chatKeySuffix: string;
@@ -240,6 +247,8 @@ export class RunRecord {
   runToolHistory: Dict[] = [];
   /** Liste de travail courante de la boucle (tête assemblée comprise), posée à chaque remplacement : compaction, aplatissement. */
   travail: Dict[] = [];
+  /** Messages envoyés au dernier appel du moteur (forme d'entrée du flux, après élagage et ajustement au contexte), copie de la liste : un `fork` repart de là. */
+  envoye: Dict[] = [];
   allThinking: string[] = [];
   lastRaw: Dict = {};
   cumulIn = 0;

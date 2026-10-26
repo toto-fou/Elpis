@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/taches-agents.ts — outil intégré `task` : sous-agents éphémères à contexte isolé (boucle enfant dans la file LLM), agents du compte, reprise par `task_id`, annulation ciblée. */
+/** apps/core/src/outils/integres/taches-agents.ts — outil intégré `task` : sous-agents éphémères à contexte isolé ou en fork du parent (boucle enfant dans la file LLM), agents du compte, reprise par `task_id`, annulation ciblée. */
 import {
   CancelledError,
   ErreurPython,
@@ -28,7 +28,7 @@ import type { SousAgent } from "@elpis/securite";
 import { emit } from "../../boucle/evenements";
 import type { SurEvenement } from "../../boucle/evenements";
 import { runChatMultiMcp } from "../../boucle/orchestrateur";
-import type { OptionsRun } from "../../boucle/orchestrateur";
+import type { OptionsRun, TeteFigee } from "../../boucle/orchestrateur";
 import { dansPorteeExecution, fileLlm, tokenHex } from "../../boucle/ports";
 import type { SortieRun } from "../../boucle/sortie";
 import { resultIsToolFailure } from "../../boucle/contrat-resultat";
@@ -52,7 +52,8 @@ import { reflexionConservable } from "../../llm/sonde-moteur";
 import { journal } from "../../journal";
 import { buildSkillsIndexBlock, loadAgentPersona } from "../../prompts/systeme";
 import type { Dict } from "../../python";
-import type { AppelIntegre, OutilIntegre } from "../catalogue";
+import { perimetreEnfant } from "../catalogue";
+import type { AppelIntegre, ContexteParent, OutilIntegre } from "../catalogue";
 import { toolsDeniedFor } from "../categories";
 import { err } from "../erreur-outil";
 import { manifesteMcp } from "../ports";
@@ -74,6 +75,7 @@ import {
 import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
 import type { PortsHoteTache } from "./controles-taches";
+import { FIX_FORK_INDISPONIBLE, messagesFork, raisonForkImpossible } from "./fork-taches";
 import {
   budgetReflexionEnfant,
   lectureSeuleEffective,
@@ -524,9 +526,9 @@ export function buildDefinition(
     "Available agent types (subagent_type):\n" +
     `${roster}\n\n` +
     "Usage notes:\n" +
-    "1. Fresh context by default: without task_id the agent starts blank, so the prompt MUST be a complete, autonomous " +
-    "brief — include all needed context and state EXPLICITLY what the final report must contain (paths, line numbers, " +
-    "quotes, links, values).\n" +
+    '1. Fresh context by default (context="fork": note 7): without task_id the agent starts blank, so the prompt ' +
+    "MUST be a complete, autonomous brief — include all needed context and state EXPLICITLY what the final report " +
+    "must contain (paths, line numbers, quotes, links, values).\n" +
     "2. The result carries an id: pass it back as task_id to CONTINUE the same agent with its previous context " +
     "(follow-up questions, refinements). This also works after a timeout/failure/cancellation when the error envelope " +
     "carries a task_id — the agent resumes from its partial work. Best effort — if it expired, you get an error and " +
@@ -539,7 +541,13 @@ export function buildDefinition(
     "6. The result starts with a <task_meta> JSON block written by the harness, not by the agent: status (done, " +
     "partial, blocked, budget_exhausted, timeout, unavailable, error, cancelled), tool_calls, files_changed " +
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
-    "uncertain), git, errors, remaining_work. Trust it over the report's own claims.";
+    "uncertain), git, errors, remaining_work. Trust it over the report's own claims.\n" +
+    '7. context: "fresh" (default) starts the agent blank and isolated, as in note 1. context: "fork" starts it from ' +
+    "this whole conversation as it stands: it sees everything said and every result so far, so the prompt only states " +
+    "its mission and the context is not restated, and it is cheaper (the engine reuses the cached prefix). But it is " +
+    "NOT isolated (it can be swayed by the discussion) and its context starts as large as this one. Fork for a " +
+    "sub-mission that leans on much of the conversation; fresh for a self-contained job or an independent opinion. A " +
+    "fork is refused when this conversation is already large (use fresh then); a resumed agent keeps its own mode.";
   return {
     type: "function",
     function: {
@@ -570,6 +578,12 @@ export function buildDefinition(
 
 /** Paramètres propres au TS (écart voulu au Python) : périmètre et budgets fixés par l'agent principal. */
 export const PARAMETRES_TS: Readonly<Dict> = {
+  context: {
+    type: "string",
+    enum: ["fresh", "fork"],
+    description:
+      'Starting context of a NEW agent: "fresh" (default) = blank, the prompt must be self-contained; "fork" = this whole conversation as it stands, the prompt is only the mission. Ignored with task_id.',
+  },
   read_only: {
     type: "boolean",
     description:
@@ -619,18 +633,22 @@ function dateLocale(): string {
 }
 
 /** Consigne commune de tout sous-agent, identique d'un appel à l'autre (tête système stable) : statut, réveil impossible, délai du shell, secrets, gabarit de rapport. */
-export function subagentRulesBlock(): string {
+export function subagentRulesBlock(fork = false): string {
   return [
     "<subagent_rules>",
     "You are a sub-agent launched by a parent agent through the `task` tool. Only your final report reaches it: " +
       "nobody reads your intermediate steps and nobody answers questions, so decide and state your assumptions.",
-    "- You cannot launch sub-agents (no task tool), and you cannot be woken: nothing may outlive you (no shell_job, " +
+    `- You cannot launch sub-agents (${fork ? "the task tool is refused" : "no task tool"}), and you cannot be woken: ` +
+      "nothing may outlive you (no shell_job, " +
       'no execute_shell background=true, no on_timeout="detach_and_wake"). ' +
       `execute_shell stops a command after ${SHELL_SOUS_AGENT_DELAI_DEFAUT_S} s by default; pass timeout_sec up to ` +
       `${SHELL_SOUS_AGENT_DELAI_MAX_S} for a long test suite, otherwise split the work or return Status: blocked.`,
     "- Never quote more than 4 characters of a secret (key, token, password, private key), in prose or in a diff.",
-    "- The first user message opens with a <task_context> block (date, budget, read-only mode or writable paths, " +
-      "required report fields) that binds you like these rules; the mission follows it.",
+    (fork
+      ? "- The <task_context> block in the last message"
+      : "- The first user message opens with a <task_context> block") +
+      " (date, budget, read-only mode or writable paths, required report fields) that binds you like these rules; " +
+      "the mission follows it.",
     "- Report format (it replaces any other report format given above), in this order:",
     "  Status: done | partial | blocked",
     "  ## Answer",
@@ -644,7 +662,7 @@ export function subagentRulesBlock(): string {
 /** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user : la tête système reste identique d'un appel à l'autre. */
 export function taskContextBlock(
   sa: SousAgent,
-  o: { budget: number; timeoutS: number; champs?: readonly string[] },
+  o: { budget: number; timeoutS: number; champs?: readonly string[]; fork?: { outils: readonly string[] } },
 ): string {
   const duree =
     o.timeoutS >= 120 ? `${Math.floor(o.timeoutS / 60)} minutes` : `${Math.trunc(o.timeoutS)} seconds`;
@@ -656,9 +674,10 @@ export function taskContextBlock(
   ];
   if (sa.read_only)
     lignes.push(
-      "Mode: READ-ONLY for this run. The write, commit and shell tools named in your role description are NOT " +
-        "offered to you, whatever it says (no job tool either). If the mission needs a change or a command, do " +
-        "not work around it: describe it precisely under `## Left open` and return Status: blocked.",
+      `Mode: READ-ONLY for this run. ${o.fork ? "Calls to the" : "The"} write, commit and shell tools named in your ` +
+        `role description ${o.fork ? "are refused" : "are NOT offered to you"}, whatever it says (no job tool ` +
+        "either). If the mission needs a change or a command, do not work around it: describe it precisely under " +
+        "`## Left open` and return Status: blocked.",
     );
   else if (sa.writable_paths !== null)
     lignes.push(
@@ -669,6 +688,14 @@ export function taskContextBlock(
   if (o.champs?.length)
     lignes.push(
       `Required fields: your report must also contain each of these as a line "<field>: <value>": ${o.champs.join(", ")}.`,
+    );
+  if (o.fork)
+    lignes.push(
+      "Context: you are a fork of your parent agent. The conversation above is the parent's, up to the `task` call " +
+        "that started you: it is background. You are not the parent: do not answer the user, do not carry on the " +
+        "parent's plan and do not redo what it already did. The system prompt, the tool manifest and the tool " +
+        "definitions are the parent's too: only these tools work in this run, any other call is refused: " +
+        `${o.fork.outils.join(", ")}.`,
     );
   lignes.push("</task_context>");
   return lignes.join("\n");
@@ -747,7 +774,7 @@ export interface OptionsTache {
 }
 
 /** Bloc d'un refus avant lancement (aucune boucle, aucun appel) ; `reason` dit pourquoi. */
-function bilanRefus(status: Statut, raison: string): Bilan {
+function bilanRefus(status: Statut, raison: string, context?: "fork"): Bilan {
   return {
     status,
     tool_calls: 0,
@@ -763,6 +790,7 @@ function bilanRefus(status: Statut, raison: string): Bilan {
     read_only: false,
     read_only_source: null,
     thinking: false,
+    ...(context ? { context } : {}),
     report_chars: 0,
     reason: raison,
   };
@@ -778,8 +806,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
   if (!agentsMap.size) return {};
   /** Dernier slot de chaque enfant en cours, protégé par ses frères comme celui du parent. */
   const slotsEnfants = new Map<string, number>();
-  const slotsAEviter = (moi: string): number[] => {
-    const parent = o.slotParent?.() ?? null;
+  const slotsAEviter = (moi: string, avecParent = true): number[] => {
+    const parent = avecParent ? (o.slotParent?.() ?? null) : null;
     const freres = [...slotsEnfants].filter(([id]) => id !== moi).map(([, slot]) => slot);
     return parent === null ? freres : [parent, ...freres];
   };
@@ -869,6 +897,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const murS = Math.max(1, dureeMax - Math.min(60, Math.floor(dureeMax / 5)));
     const appelsAvant = intPy(resumed?.["tool_calls_total"] || 0);
     const compte = { username: o.username, userId: o.userId ?? null, chatId: o.chatId, signal: o.signal };
+    const modeFork = resumed !== null ? resumed["fork"] === true : lus.contexte === "fork";
     let reflexion = false;
     const bilanDe = (b: Partial<Bilan> & Pick<Bilan, "status">): Bilan => ({
       tool_calls: 0,
@@ -884,6 +913,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       read_only: sa.read_only,
       read_only_source: ro.source,
       thinking: reflexion,
+      context: modeFork ? "fork" : "fresh",
       ...(sa.writable_paths !== null
         ? {
             writable_paths: sa.writable_paths.map(toContainer),
@@ -893,6 +923,27 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       report_chars: 0,
       ...b,
     });
+
+    let parent: ContexteParent | null = null;
+    if (modeFork) {
+      parent = appel?.parent?.() ?? null;
+      const raison =
+        parent === null
+          ? "the parent's context is not available to this call"
+          : resumed === null
+            ? raisonForkImpossible(parent, callId)
+            : null;
+      if (raison !== null) {
+        const bilan = bilanRefus("unavailable", raison, "fork");
+        return refuser(
+          err("fork_unavailable", `context "fork" is unavailable: ${raison}`, {
+            fix: FIX_FORK_INDISPONIBLE,
+            harness: bilan,
+          }),
+          bilan,
+        );
+      }
+    }
 
     if (agentType === "web") {
       let raison: string | null;
@@ -917,7 +968,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const childId = resumed !== null ? taskId : `t${++compteur}-${tokenHex(3)}`;
     const childChatId = `${o.chatId || "chat"}#task-${childId}`;
-    const slotKey = `${o.chatId || "chat"}#task-${agentType}`;
+    const slotKey = parent?.slotKey || `${o.chatId || "chat"}#task-${agentType}`;
     const k = cle(o.username, childId);
     const childIsCancelled = (): boolean => Boolean((o.isCancelled && o.isCancelled()) || ANNULES.has(k));
 
@@ -966,6 +1017,24 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       ...s.denyExtra,
     ]);
 
+    const teteFigee: TeteFigee | null =
+      parent === null
+        ? null
+        : {
+            toolsPayload: parent.toolsPayload,
+            toolCfgMap: parent.toolCfgMap,
+            builtinHandlers: parent.builtinHandlers,
+            lectureSeule: parent.lectureSeule,
+            permis: perimetreEnfant(parent, {
+              configs: childMcpConfigs,
+              integres: childBuiltins === null ? null : new Set(Object.keys(childBuiltins)),
+              allowedToolNames: childAllowed,
+              denyToolNames: childDeny,
+              memoryEnabled: childMemory,
+              sousAgent: sa,
+            }),
+          };
+
     let childMessages: Dict[];
     if (resumed !== null)
       childMessages = [
@@ -975,36 +1044,57 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     else {
       const persona = s.personaText !== null ? s.personaText : await loadAgentPersona(s.personaStem);
       if (!persona) log.warn(`[task_tool] persona '${s.personaStem}' introuvable — enfant sans tête dédiée`);
-      let systeme = stripPy(persona + "\n\n" + subagentRulesBlock());
-      if (o.userId !== null && o.userId !== undefined && (s.filterCategories ?? []).includes("skill")) {
-        let index: string | null;
-        try {
-          index = await buildSkillsIndexBlock(o.userId);
-        } catch (e) {
-          if (estErreurAnnulation(e)) throw e;
-          log.warn(`[task_tool] index skills non construit (${String(e)})`);
-          index = null;
+      if (parent !== null && teteFigee !== null) {
+        const contexte = taskContextBlock(sa, {
+          budget,
+          timeoutS: dureeMax,
+          champs: lus.outputSchema,
+          fork: { outils: [...teteFigee.permis].sort() },
+        });
+        const role = stripPy(persona) ? `<agent_role>\n${stripPy(persona)}\n</agent_role>` : "";
+        const consigne = [contexte, role, subagentRulesBlock(true), prompt].filter(Boolean).join("\n\n");
+        childMessages = messagesFork(parent, callId ?? "", consigne);
+      } else {
+        let systeme = stripPy(persona + "\n\n" + subagentRulesBlock());
+        if (o.userId !== null && o.userId !== undefined && (s.filterCategories ?? []).includes("skill")) {
+          let index: string | null;
+          try {
+            index = await buildSkillsIndexBlock(o.userId);
+          } catch (e) {
+            if (estErreurAnnulation(e)) throw e;
+            log.warn(`[task_tool] index skills non construit (${String(e)})`);
+            index = null;
+          }
+          if (index) systeme = `${systeme}\n\n${index}`;
         }
-        if (index) systeme = `${systeme}\n\n${index}`;
+        const contexte = taskContextBlock(sa, { budget, timeoutS: dureeMax, champs: lus.outputSchema });
+        childMessages = [
+          { role: "system", content: systeme },
+          { role: "user", content: `${contexte}\n\n${prompt}` },
+        ];
       }
-      const contexte = taskContextBlock(sa, { budget, timeoutS: dureeMax, champs: lus.outputSchema });
-      childMessages = [
-        { role: "system", content: systeme },
-        { role: "user", content: `${contexte}\n\n${prompt}` },
-      ];
     }
-    const modeReflexion = modeReflexionEffectif(typeReglable(agentType), s.thinkingUser);
-    reflexion = await reflexionEnfant(modeReflexion, o.thinkingMode ?? false, o.model);
-    const childSampling: Dict = { ...(o.samplingOverride ?? {}), max_tool_iterations: budget };
-    if (reflexion) {
-      childSampling["thinking_budget_tokens"] = budgetReflexionEnfant(
-        childSampling["thinking_budget_tokens"],
+    let childSampling: Dict;
+    if (parent !== null) {
+      reflexion = parent.thinkingMode;
+      childSampling = { ...(parent.samplingOverride ?? {}), max_tool_iterations: budget };
+      log.info(
+        `[task_tool] agent '${agentType}' ${childId} : fork, réflexion ${reflexion ? "activée" : "coupée"} (celle du parent)`,
       );
-      if (await conserveReflexion(o.samplingOverride)) childSampling["preserve_reasoning"] = true;
+    } else {
+      const modeReflexion = modeReflexionEffectif(typeReglable(agentType), s.thinkingUser);
+      reflexion = await reflexionEnfant(modeReflexion, o.thinkingMode ?? false, o.model);
+      childSampling = { ...(o.samplingOverride ?? {}), max_tool_iterations: budget };
+      if (reflexion) {
+        childSampling["thinking_budget_tokens"] = budgetReflexionEnfant(
+          childSampling["thinking_budget_tokens"],
+        );
+        if (await conserveReflexion(o.samplingOverride)) childSampling["preserve_reasoning"] = true;
+      }
+      log.info(
+        `[task_tool] agent '${agentType}' ${childId} : réflexion ${reflexion ? "activée" : "coupée"} (réglage ${modeReflexion})`,
+      );
     }
-    log.info(
-      `[task_tool] agent '${agentType}' ${childId} : réflexion ${reflexion ? "activée" : "coupée"} (réglage ${modeReflexion})`,
-    );
 
     let pas = 0;
     let appelsVus = 0;
@@ -1201,6 +1291,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           tool_calls_total: appelsAvant + appelsVus,
           read_only: sa.read_only,
           ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
+          ...(modeFork ? { fork: true } : {}),
         };
         memoriserReprise(o.username, childId, rec);
         try {
@@ -1348,7 +1439,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           signal: signalEnfant,
           chatId: childChatId,
           slotKey,
-          slotAvoid: () => slotsAEviter(childId),
+          slotAvoid: () => slotsAEviter(childId, parent === null),
           surSlot: (slot) => {
             slotsEnfants.set(childId, slot);
           },
@@ -1366,6 +1457,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           exposerTravail: (lire) => {
             lireTravail = lire;
           },
+          teteFigee,
           surPointEtape: ({ texte, finDeBudget }) => {
             if (avertissements.length < BUDGET_WARNINGS_MAX)
               avertissements.push({ at: appelsVus, text: texteAvertissement(texte) });

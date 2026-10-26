@@ -79,6 +79,17 @@ selon [SemVer](https://semver.org/lang/fr/).
   boucle a compacté. Le cache de préfixe du moteur survit à la reprise. Les
   anciens enregistrements de reprise restent valides.
 
+- **Sous-agents : mode fork (`context: "fork"`).** L'enfant reprend la
+  conversation du parent au lieu d'une page blanche : mêmes messages que le
+  dernier appel du parent (cache de préfixe quasi total avec llama.cpp, vLLM et
+  SGLang), mêmes définitions d'outils, réflexion et échantillonnage du parent.
+  Il n'exécute que les outils d'un enfant à blanc du même type (le reste est
+  refusé en JSON, y compris les serveurs MCP tiers et les outils intégrés).
+  Refusé (`fork_unavailable`) par le canal texte ou au-delà de la moitié du
+  seuil de compaction. Sur llama.cpp, le premier fork prend le slot du parent.
+  Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
+  `task` change une fois (cache de la tête du parent).
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

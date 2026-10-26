@@ -125,6 +125,13 @@ const lignes = computed(() =>
           >· réflexion</span
         >
         <span
+          v-if="bilan.context === 'fork'"
+          class="task-run-meta"
+          title="L'agent est parti de toute la conversation (contexte du parent), sans page blanche"
+          data-task-fork
+          >· fork</span
+        >
+        <span
           v-if="arretSurBudget(bilan)"
           class="task-run-meta"
           title="L'agent a conclu de lui-même après l'avertissement de fin de budget"

@@ -21,6 +21,7 @@ import type { Slot } from "../llm/ordonnanceur";
 import { reflexionDuTourRendue } from "../llm/parametres";
 import { verifyLlmAvailability } from "../llm/sante";
 import { journal } from "../journal";
+import type { ConfigMcp } from "@elpis/mcp";
 import type { SousAgent } from "@elpis/securite";
 
 import { collectMcpTools } from "../outils/catalogue";
@@ -132,6 +133,15 @@ export async function todoStatusReminder(username: string, chatId: string | null
   );
 }
 
+/** Catalogue et tête déjà prêts d'un enfant `fork` : ni collecte des outils ni assemblage de la tête, `messages` part tel quel ; seuls les outils de `permis` s'exécutent. */
+export interface TeteFigee {
+  toolsPayload: readonly Dict[];
+  toolCfgMap: ReadonlyMap<string, ConfigMcp>;
+  builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>;
+  lectureSeule: ReadonlyMap<string, boolean>;
+  permis: ReadonlySet<string>;
+}
+
 export interface OptionsRun {
   messages: readonly unknown[];
   mcpConfigs?: readonly unknown[] | null;
@@ -178,6 +188,8 @@ export interface OptionsRun {
   surSlot?: ((slot: number) => void) | null;
   /** Reçoit, une fois le contexte assemblé, le lecteur des messages de travail courants en forme canonique (tête brute, ce que le moteur a vu, paires appel/résultat complètes) : reprise d'un sous-agent. */
   exposerTravail?: ((lire: () => Dict[]) => void) | null;
+  /** Catalogue et tête figés (sous-agent `fork`) : `mcpConfigs`, `builtinTools`, `allowedToolNames`, `denyToolNames` et `memoryEnabled` sont sans effet, `messages` est déjà la tête assemblée du parent. */
+  teteFigee?: TeteFigee | null;
   /** Points de substitution des tests (fonction de flux, métrique d'outil, résumé de compaction). */
   deps?: Partial<LoopDeps>;
 }
@@ -245,40 +257,56 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     modelHasVision = false;
   }
   const chatKeySuffix = chatId || "default";
-  const catalogue = await collectMcpTools(o.mcpConfigs ?? [], o.builtinTools ?? null, onEvent, {
-    allowedToolNames: o.allowedToolNames ?? null,
-    memoryEnabled: o.memoryEnabled ?? true,
-    denyToolNames: o.denyToolNames ?? null,
-    readOnly: o.readOnly ?? false,
-    sousAgent: o.subagent ?? null,
-    signal,
-  });
-  const { toolCfgMap, toolsPayload, builtinHandlers, connectedServerNames } = catalogue;
-  const allowed = [...new Set([...toolCfgMap.keys(), ...builtinHandlers.keys()])].sort();
-  if (onEvent && connectedServerNames.length)
-    await emit(onEvent, {
-      type: "mode",
-      text: `Connecté : ${connectedServerNames.join(", ")} (${toolsPayload.length} outil(s))`,
+  const figee = o.teteFigee ?? null;
+  let toolCfgMap: ReadonlyMap<string, ConfigMcp>;
+  let toolsPayload: Dict[];
+  let builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>;
+  let lectureSeule: ReadonlyMap<string, boolean>;
+  let allowed: string[];
+  if (figee) {
+    ({ toolCfgMap, builtinHandlers, lectureSeule } = figee);
+    toolsPayload = [...figee.toolsPayload];
+    allowed = [...figee.permis].sort();
+  } else {
+    const catalogue = await collectMcpTools(o.mcpConfigs ?? [], o.builtinTools ?? null, onEvent, {
+      allowedToolNames: o.allowedToolNames ?? null,
+      memoryEnabled: o.memoryEnabled ?? true,
+      denyToolNames: o.denyToolNames ?? null,
+      readOnly: o.readOnly ?? false,
+      sousAgent: o.subagent ?? null,
+      signal,
     });
-  const [assemble, ax] = await assembleOperationalContext(o.messages, {
-    allowedToolNames: allowed,
-    username,
-  });
-  let workingMessages = assemble as Dict[];
-  const rappel = allowed.includes("todowrite") ? await todoStatusReminder(username, chatId) : null;
-  const brut = [rappel, ax].filter(Boolean).join("\n\n");
-  const room = o.userSuffixRoom;
-  const suffixe = room === null || room === undefined ? brut : prefixePy(brut, Math.max(0, room));
-  if (suffixe) {
-    const queue = workingMessages[workingMessages.length - 1];
-    if (estDict(queue) && queue["role"] === "user") {
-      workingMessages[workingMessages.length - 1] = {
-        ...queue,
-        content: mergeUserSuffix(queue["content"], suffixe),
-      };
-      await emit(onEvent, { type: "llm_user_suffix", text: suffixe });
-    } else if (!(estDict(queue) && queue["role"] === "assistant"))
-      workingMessages.push(ephemeral("user", suffixe));
+    ({ toolCfgMap, toolsPayload, builtinHandlers, lectureSeule } = catalogue);
+    allowed = [...new Set([...toolCfgMap.keys(), ...builtinHandlers.keys()])].sort();
+    if (onEvent && catalogue.connectedServerNames.length)
+      await emit(onEvent, {
+        type: "mode",
+        text: `Connecté : ${catalogue.connectedServerNames.join(", ")} (${toolsPayload.length} outil(s))`,
+      });
+  }
+  let workingMessages: Dict[];
+  if (figee) workingMessages = o.messages.filter(estDict);
+  else {
+    const [assemble, ax] = await assembleOperationalContext(o.messages, {
+      allowedToolNames: allowed,
+      username,
+    });
+    workingMessages = assemble as Dict[];
+    const rappel = allowed.includes("todowrite") ? await todoStatusReminder(username, chatId) : null;
+    const brut = [rappel, ax].filter(Boolean).join("\n\n");
+    const room = o.userSuffixRoom;
+    const suffixe = room === null || room === undefined ? brut : prefixePy(brut, Math.max(0, room));
+    if (suffixe) {
+      const queue = workingMessages[workingMessages.length - 1];
+      if (estDict(queue) && queue["role"] === "user") {
+        workingMessages[workingMessages.length - 1] = {
+          ...queue,
+          content: mergeUserSuffix(queue["content"], suffixe),
+        };
+        await emit(onEvent, { type: "llm_user_suffix", text: suffixe });
+      } else if (!(estDict(queue) && queue["role"] === "assistant"))
+        workingMessages.push(ephemeral("user", suffixe));
+    }
   }
   const rec = new RunRecord();
   rec.usageAcc = acc;
@@ -386,6 +414,9 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     slotKey: o.slotKey ?? null,
     slotAvoid: o.slotAvoid ?? null,
     surSlot: o.surSlot ?? null,
+    compactionThreshold: o.compactionThreshold ?? null,
+    outilsPermis: figee ? figee.permis : null,
+    lectureSeule,
     startTime,
     modelHasVision,
     chatKeySuffix,

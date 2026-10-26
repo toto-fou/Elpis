@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/outils/catalogue.ts — catalogue d'outils d'un tour : outils de tous les serveurs MCP et outils intégrés, filtrés (refus, catégories, lecture seule, mémoire). */
 import { strPy, veritePy } from "@elpis/commun";
-import { BUILTIN_SENTINEL, builtinClientCfgs, raisonAnnulation, sharedId } from "@elpis/mcp";
+import { BUILTIN_SENTINEL, builtinClientCfgs, makeKey, raisonAnnulation, sharedId } from "@elpis/mcp";
 import type { ConfigMcp, OutilMcp, PoolMcp } from "@elpis/mcp";
 import { outilPermisSousAgent } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
+import type { CompactionThreshold } from "../contexte/porte-compaction";
 import { journal } from "../journal";
 import { estDict, iterPy, lire } from "../python";
 import type { Dict } from "../python";
@@ -22,12 +23,43 @@ export const MEMORY_TOOL_NAMES: ReadonlySet<string> = new Set(["memory", "sessio
 export type Evenement = Dict;
 export type SurEvenement = ((e: Evenement) => unknown) | null | undefined;
 
-/** Outil intégré construit pour l'appel (RAG, sous-agents…) : définition `tools[]` et gestionnaire. */
+/** Le run qui appelle un outil intégré, tel qu'un sous-agent `fork` doit le reprendre : instantané lu à la demande, valable le temps de l'appel. */
+export interface ContexteParent {
+  /** Appel venu du canal natif ; faux : appel lu dans le texte (identifiants synthétiques). */
+  natif: boolean;
+  /** Le run est lui-même celui d'un sous-agent. */
+  sousAgent: boolean;
+  /** Messages envoyés au dernier appel du moteur (forme d'entrée du flux : élagage et ajustement au contexte appliqués), copie ; vide sans appel. */
+  envoye: Dict[];
+  /** Message assistant porteur des appels du lot, tel que posé dans les messages de travail ; `null` s'il manque. */
+  assistant: Dict | null;
+  toolsPayload: readonly Dict[];
+  toolCfgMap: ReadonlyMap<string, ConfigMcp>;
+  builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>;
+  /** Trait « lecture seule » de chaque outil du catalogue. */
+  lectureSeule: ReadonlyMap<string, boolean>;
+  thinkingMode: boolean;
+  samplingOverride: Dict | null;
+  /** La réflexion des tours d'outils repart au moteur (`reasoning_content`). */
+  reflexionRendue: boolean;
+  /** Jetons du contexte au dernier appel (entrée + complétion), mesurés par le moteur, sinon estimés. */
+  jetons: number;
+  /** Fenêtre du modèle ; 0 si inconnue. */
+  fenetre: number;
+  /** Seuil de compaction du run ; `null` : celui de l'instance. */
+  seuilCompaction: CompactionThreshold | null;
+  /** Clé d'affinité de slot llama.cpp du run (chatId par défaut). */
+  slotKey: string | null;
+}
+
 /** Ce que la boucle sait de l'appel d'un outil intégré. */
 export interface AppelIntegre {
   callId: string | null;
+  /** Contexte du run appelant, lu à la demande ; la boucle ne le transmet qu'à `task` (un `fork` s'en sert). */
+  parent?: (() => ContexteParent) | null;
 }
 
+/** Outil intégré construit pour l'appel (RAG, sous-agents…) : définition `tools[]` et gestionnaire. */
 export interface OutilIntegre {
   definition: Dict;
   handler: (args: Dict, appel?: AppelIntegre) => unknown;
@@ -144,7 +176,108 @@ export interface Catalogue {
   toolCfgMap: Map<string, ConfigMcp>;
   toolsPayload: Dict[];
   builtinHandlers: Map<string, OutilIntegre["handler"]>;
+  /** Trait « lecture seule » de chaque outil retenu (annotation de l'outil listé, sinon registre). */
+  lectureSeule: Map<string, boolean>;
   connectedServerNames: string[];
+}
+
+type RegleOutils = Pick<OptionsCatalogue, "readOnly" | "sousAgent">;
+
+/** Règle commune à tout enfant (collecte d'un `fresh`, périmètre d'un `fork`) : refus par nom, lecture seule du tour, périmètre du sous-agent. */
+function retenuParRegle(
+  nom: string,
+  r: RegleOutils,
+  refus: ReadonlySet<string>,
+  lecture: boolean,
+  integre: boolean,
+): boolean {
+  if (refus.has(nom)) return false;
+  if (r.readOnly && !lecture) return false;
+  return !r.sousAgent || outilPermisSousAgent(r.sousAgent, nom, lecture, integre);
+}
+
+/** Liste permise (`allowedToolNames`) : une catégorie cachée passe toujours. */
+function dansListePermise(
+  nom: string,
+  permis: ReadonlySet<string> | null | undefined,
+  cachees: ReadonlySet<unknown>,
+): boolean {
+  return permis === null || permis === undefined || permis.has(nom) || cachees.has(categorize(nom));
+}
+
+/** Catégories d'un serveur : celles demandées, les cachées, et la mémoire si son interrupteur est posé. */
+function ensembleCategories(
+  permises: unknown,
+  cachees: ReadonlySet<unknown>,
+  memoire: boolean,
+): Set<unknown> {
+  const ensemble = new Set<unknown>([...iterer(permises), ...cachees]);
+  if (memoire) ensemble.add("memory");
+  return ensemble;
+}
+
+/** Deux configs désignent le même serveur : l'entrée intégrée de même clé de pool, sinon l'`id` du serveur tiers. */
+function memeServeur(a: ConfigMcp, b: ConfigMcp): boolean {
+  try {
+    if (serveurIntegre(a) || serveurIntegre(b))
+      return serveurIntegre(a) && serveurIntegre(b) && makeKey(a) === makeKey(b);
+    const ida = strPy(lire(a, "id") ?? "");
+    return ida !== "" ? ida === strPy(lire(b, "id") ?? "") : makeKey(a) === makeKey(b);
+  } catch {
+    return false;
+  }
+}
+
+/** Vue du catalogue d'un run qui sert à borner un enfant `fork`. */
+export interface VueCatalogue {
+  toolCfgMap: ReadonlyMap<string, ConfigMcp>;
+  builtinHandlers: ReadonlyMap<string, unknown>;
+  lectureSeule: ReadonlyMap<string, boolean>;
+}
+
+/** Ce qu'un enfant `fresh` du même type recevrait : configs MCP, intégrés fournis, filtres de `collectMcpTools`. */
+export interface ProfilEnfant extends RegleOutils {
+  allowedToolNames?: ReadonlySet<string> | null;
+  denyToolNames?: Iterable<string> | null;
+  configs: readonly unknown[];
+  /** Noms des outils intégrés passés à l'enfant ; `null` : aucun. */
+  integres: ReadonlySet<string> | null;
+  memoryEnabled: boolean;
+}
+
+/** Outils du catalogue d'un run qu'un enfant `fresh` de ce profil aurait reçus, par la règle même de `collectMcpTools` : un `fork` garde le catalogue du parent et n'exécute que cet ensemble. */
+export function perimetreEnfant(vue: VueCatalogue, enfant: ProfilEnfant): Set<string> {
+  const refus = new Set(enfant.denyToolNames ?? []);
+  const registreOk = manifestSource() !== "empty";
+  const cachees = new Set(getHiddenCategories());
+  const sources = expandBuiltinConfigs(enfant.configs);
+  const retenus = new Set<string>();
+  for (const [nom, cfg] of vue.toolCfgMap) {
+    const source = sources.find((s) => memeServeur(s, cfg));
+    if (source === undefined) continue;
+    const permises = lire(source, "filter_categories");
+    if (
+      permises !== null &&
+      permises !== undefined &&
+      registreOk &&
+      !ensembleCategories(permises, cachees, enfant.memoryEnabled).has(categorize(nom))
+    )
+      continue;
+    if (applyMemoryGate([{ name: nom }], enfant.memoryEnabled, categorize).length === 0) continue;
+    if (!retenuParRegle(nom, enfant, refus, vue.lectureSeule.get(nom) ?? false, serveurIntegre(cfg)))
+      continue;
+    if (!CTX.toolEnabled(nom) || !dansListePermise(nom, enfant.allowedToolNames, cachees)) continue;
+    retenus.add(nom);
+  }
+  for (const nom of vue.builtinHandlers.keys()) {
+    if (enfant.integres === null || !enfant.integres.has(nom)) continue;
+    if (
+      !retenuParRegle(nom, { ...enfant, readOnly: false }, refus, vue.lectureSeule.get(nom) ?? false, false)
+    )
+      continue;
+    if (CTX.toolEnabled(nom)) retenus.add(nom);
+  }
+  return retenus;
 }
 
 function typePy(v: unknown): string {
@@ -189,6 +322,7 @@ export async function collectMcpTools(
   const refus = new Set(options.denyToolNames ?? []);
   const memoire = options.memoryEnabled ?? true;
   const toolCfgMap = new Map<string, ConfigMcp>();
+  const lectureSeule = new Map<string, boolean>();
   let toolsPayload: Dict[] = [];
   const connectes: string[] = [];
   let cachees = new Set(getHiddenCategories());
@@ -226,8 +360,7 @@ export async function collectMcpTools(
       const registreOk = manifestSource() !== "empty";
       cachees = new Set(getHiddenCategories());
       if (permises !== null && permises !== undefined && registreOk) {
-        const ensemble = new Set<unknown>([...iterer(permises), ...cachees]);
-        if (memoire) ensemble.add("memory");
+        const ensemble = ensembleCategories(permises, cachees, memoire);
         outils = outils.filter((t) => ensemble.has(categorize(nomOutil(t))));
       } else if (permises !== null && permises !== undefined && !registreOk) {
         log.warn(
@@ -239,24 +372,13 @@ export async function collectMcpTools(
       const explicites = new Set<unknown>(veritePy(permises) ? iterer(permises) : []);
       for (const t of outils) {
         const nom = nomOutil(t);
-        if (refus.has(nom)) continue;
-        if (options.readOnly && !toolTraits(nom, t).readOnly) continue;
-        if (
-          options.sousAgent &&
-          !outilPermisSousAgent(options.sousAgent, nom, toolTraits(nom, t).readOnly, serveurIntegre(cfg))
-        )
-          continue;
+        const lecture = toolTraits(nom, t).readOnly;
+        if (!retenuParRegle(nom, options, refus, lecture, serveurIntegre(cfg))) continue;
         if (masque(nom, explicites)) {
           masquesParPorte++;
           continue;
         }
-        if (
-          options.allowedToolNames !== null &&
-          options.allowedToolNames !== undefined &&
-          !options.allowedToolNames.has(nom) &&
-          !cachees.has(categorize(nom))
-        )
-          continue;
+        if (!dansListePermise(nom, options.allowedToolNames, cachees)) continue;
         const deja = toolCfgMap.get(nom);
         if (deja !== undefined) {
           log.warn(
@@ -266,6 +388,7 @@ export async function collectMcpTools(
           continue;
         }
         toolCfgMap.set(nom, cfg);
+        lectureSeule.set(nom, lecture);
         const def = mcpToolToOpenai(t);
         toolsPayload.push(options.sousAgent ? pourSousAgent(nom, def) : def);
       }
@@ -303,9 +426,8 @@ export async function collectMcpTools(
 
   const builtinHandlers = new Map<string, OutilIntegre["handler"]>();
   for (const [nom, info] of integres) {
-    if (refus.has(nom)) continue;
-    if (options.sousAgent && !outilPermisSousAgent(options.sousAgent, nom, toolTraits(nom).readOnly))
-      continue;
+    const lecture = toolTraits(nom).readOnly;
+    if (!retenuParRegle(nom, { ...options, readOnly: false }, refus, lecture, false)) continue;
     if (masque(nom)) {
       masquesParPorte++;
       continue;
@@ -321,8 +443,9 @@ export async function collectMcpTools(
     }
     toolsPayload.push(info.definition);
     builtinHandlers.set(nom, info.handler);
+    lectureSeule.set(nom, lecture);
   }
   if (masquesParPorte > 0)
     log.info(`tool_gating: ${masquesParPorte} outil(s) masqué(s) (hors profil actif ce tour)`);
-  return { toolCfgMap, toolsPayload, builtinHandlers, connectedServerNames: connectes };
+  return { toolCfgMap, toolsPayload, builtinHandlers, lectureSeule, connectedServerNames: connectes };
 }

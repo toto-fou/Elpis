@@ -519,6 +519,7 @@ export async function callLlm(
       });
     }
 
+    rec.envoye = compacted.filter(estDict);
     resumeReq = resume.take();
     resumeConsumed = true;
     const t0 = performance.now();

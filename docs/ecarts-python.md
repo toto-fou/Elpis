@@ -638,6 +638,10 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   inchangée) ; l'hôte d'outils refuse ce qui sort du périmètre (`read_only_subagent`, `not_available_for_subagent`,
   `not_available_here`, `path_not_writable`) avant d'exécuter l'outil, puis vérifie `writable_paths` sur le chemin
   résolu par l'agent du bac (liens internes suivis, ancien rangement `git_repos/` de `git_write`).
+- **Mode fork** (propre au TS) : paramètre `context` (`fresh` par défaut, `fork`) et note 7 de la description
+  publiée. Le fork reprend les messages du dernier appel du parent et son catalogue d'outils (mêmes définitions,
+  même ordre) : les restrictions de l'enfant sont appliquées à l'exécution (`perimetreEnfant`), pas par le
+  manifeste. Détail : [architecture](architecture.md#sous-agents-outil-task).
 - **Paramètres de `task`** : `read_only`, `max_iterations` (borné par le type), `max_seconds` (arrêt propre avec
   synthèse avant la limite), `writable_paths` (préfixes du bac, appliqués par `write_file`, `edit_file`,
   `manage_files` et `git_write` ; le shell n'est pas borné, le bloc le dit : `writable_paths_scope:

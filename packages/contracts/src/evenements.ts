@@ -98,6 +98,8 @@ export const schemaBilanTache = z.strictObject({
   read_only_source: z.enum(["admin_forced", "task", "user", "admin_default"]).nullable(),
   /** L'agent a réfléchi (réglage du type ou du compte ET modèle capable) ; absent sur les anciens runs. */
   thinking: z.boolean().optional(),
+  /** Contexte de départ de l'agent : la conversation du parent (`fork`) ou une page blanche (`fresh`) ; absent sur les anciens runs. */
+  context: z.enum(["fork", "fresh"]).optional(),
   writable_paths: z.array(z.string()).optional(),
   /** Seuls write_file, edit_file, manage_files et git_write sont bornés ; le shell ne l'est pas. */
   writable_paths_scope: z.literal("file_tools_only").optional(),

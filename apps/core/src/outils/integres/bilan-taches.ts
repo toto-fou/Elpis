@@ -58,6 +58,8 @@ export interface Bilan {
   read_only_source: "admin_forced" | "task" | "user" | "admin_default" | null;
   /** L'agent a réfléchi : réglage voulu ET moteur qui l'honore, fixé au lancement. */
   thinking: boolean;
+  /** Contexte de départ : la conversation du parent (`fork`) ou une page blanche (`fresh`). */
+  context?: "fork" | "fresh";
   writable_paths?: string[];
   writable_paths_scope?: "file_tools_only";
   remaining_work?: string;
@@ -70,6 +72,7 @@ export interface Bilan {
 
 /** Paramètres facultatifs de `task` validés ; `erreur` : refus à rendre tel quel. */
 export interface ArgsTache {
+  contexte: "fresh" | "fork";
   readOnly: boolean;
   maxIterations: number | null;
   maxSeconds: number | null;
@@ -91,6 +94,12 @@ export function lireArgsTache(
   const ro = args["read_only"];
   if (ro !== undefined && ro !== null && typeof ro !== "boolean")
     return { erreur: "read_only must be a boolean", fix: "pass read_only=true or omit it" };
+  const contexte = args["context"];
+  if (contexte !== undefined && contexte !== null && contexte !== "fresh" && contexte !== "fork")
+    return {
+      erreur: 'context must be "fresh" or "fork"',
+      fix: 'pass context="fork", context="fresh" or omit it',
+    };
   const it = entierPositif(args["max_iterations"]);
   if (Number.isNaN(it))
     return { erreur: "max_iterations must be a positive integer", fix: `pass 1..${o.maxIters} or omit it` };
@@ -131,6 +140,7 @@ export function lireArgsTache(
     champs = [...new Set((os as string[]).map((c) => c.trim()))];
   }
   return {
+    contexte: contexte === "fork" ? "fork" : "fresh",
     readOnly: ro === true,
     maxIterations: it === null ? null : Math.min(it, o.maxIters),
     maxSeconds: sec === null ? null : Math.min(sec, o.maxSecondsCap),

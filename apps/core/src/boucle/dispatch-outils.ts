@@ -26,17 +26,18 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { ConfigMcp } from "@elpis/mcp";
-import { REFUS_TACHE_SOUS_AGENT, sousAgentEnDict } from "@elpis/securite";
+import { REFUS_TACHE_SOUS_AGENT, refusSousAgent, sousAgentEnDict } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
 import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
+import { measuredPromptTokens } from "../contexte/tokens";
 import { LLAMA_TOOL_TIMEOUT_S, plafondParSlots } from "../llm/constantes";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
 import { noterObservation } from "../llm/sonde-moteur";
 import { journal } from "../journal";
-import type { OutilIntegre } from "../outils/catalogue";
+import type { ContexteParent, OutilIntegre } from "../outils/catalogue";
 import { categorize, isHidden, toolPolicy } from "../outils/categories";
 import { err } from "../outils/erreur-outil";
 import {
@@ -452,7 +453,10 @@ export async function executeSingleToolCall(
     try {
       o.signal?.throwIfAborted();
       const t0 = performance.now();
-      const bh: unknown = handler(finalArgs, { callId: o.callId ?? null });
+      const bh: unknown = handler(finalArgs, {
+        callId: o.callId ?? null,
+        ...(o.parent ? { parent: o.parent } : {}),
+      });
       if (bh instanceof Promise) {
         const reste = Math.max(0.5, bto - (performance.now() - t0) / 1000);
         const r = await borne(bh, reste, o.signal);
@@ -990,6 +994,65 @@ async function tachesSimultanees(prepared: readonly Dict[]): Promise<number> {
   return effectif;
 }
 
+/** Liste des outils permis rendue au modèle dans le `fix` d'un refus (bornée). */
+function listeOutils(permis: ReadonlySet<string>): string {
+  const noms = [...permis].sort();
+  return noms.length > 80 ? `${noms.slice(0, 80).join(", ")}, …` : noms.join(", ");
+}
+
+/** Appel hors du périmètre d'un run au catalogue figé (enfant `fork`) : erreur JSON sans exécution, la liste des outils permis dans `fix` ; `null` si l'outil est permis. */
+function refusHorsPerimetre(ctx: RunContext, nom: string): string | null {
+  const permis = ctx.c.outilsPermis;
+  if (!permis || permis.has(nom)) return null;
+  const sa = ctx.c.subagent ?? null;
+  const base = refusSousAgent(
+    sa && { ...sa, writable_paths: null },
+    nom,
+    {},
+    ctx.c.lectureSeule?.get(nom) ?? false,
+    isLocalTool(ctx.c.toolCfgMap, nom),
+  );
+  const message = base?.message ?? `${nom} is not part of the '${sa?.type ?? "sub-agent"}' sub-agent profile`;
+  const suite = base?.fix ?? "Leave this step to the parent: list it under 'Left open' in your report.";
+  return pyJsonDumps(
+    err(base?.code ?? "not_available_for_subagent", message, {
+      fix: `Only these tools work in this run: ${listeOutils(permis)}. ${suite}`,
+    }),
+  );
+}
+
+/** Instantané du run pour un outil intégré qui lance un enfant `fork` (cf. `ContexteParent`). */
+function contexteParent(
+  channel: ChannelSpec,
+  ctx: RunContext,
+  rec: RunRecord,
+  assistant: Dict | null,
+): ContexteParent {
+  const usage = (rec.lastRaw["usage"] ?? {}) as Dict;
+  const modele = ctx.c.model || config.LLAMA_MODEL || null;
+  const entree =
+    intPy(usage["prompt_tokens"] || 0) ||
+    measuredPromptTokens(rec.envoye, { modelId: modele, extraFixed: rec.toolsTokCounted?.[0] ?? 0 });
+  return {
+    natif: channel === NATIF,
+    sousAgent: Boolean(ctx.c.subagent),
+    envoye: structuredClone(rec.envoye),
+    assistant: assistant === null ? null : structuredClone(assistant),
+    toolsPayload: ctx.c.toolsPayload,
+    toolCfgMap: ctx.c.toolCfgMap,
+    builtinHandlers: ctx.c.builtinHandlers,
+    lectureSeule: ctx.c.lectureSeule ?? new Map<string, boolean>(),
+    thinkingMode: ctx.c.thinkingMode,
+    samplingOverride: ctx.c.samplingOverride,
+    reflexionRendue:
+      ctx.c.reflexionRendue ?? reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride),
+    jetons: entree + intPy(usage["completion_tokens"] || 0),
+    fenetre: rec.ctxSize,
+    seuilCompaction: ctx.c.compactionThreshold ?? null,
+    slotKey: ctx.c.slotKey || ctx.c.chatId || null,
+  };
+}
+
 /** Noyau commun aux deux canaux : annulation, `tool_call`, exécution (série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle. */
 export async function runToolBatch(
   channel: ChannelSpec,
@@ -1021,18 +1084,28 @@ export async function runToolBatch(
   }
   const resultsOut = rec.ouvrirLot(prepared);
   const simultanees = await tachesSimultanees(prepared);
+  const dernier = workingMessages[workingMessages.length - 1];
+  const assistantDuLot =
+    dernier?.["role"] === "assistant" && Array.isArray(dernier["tool_calls"]) ? dernier : null;
+  const lecteurParent = (): ContexteParent => contexteParent(channel, ctx, rec, assistantDuLot);
   const resultats = await executeToolBatch(prepared, {
     resultsOut,
-    executeSingle: (nom, args, r) =>
-      ctx.c.subagent && nom === "task"
-        ? Promise.resolve(
-            pyJsonDumps(
-              err(REFUS_TACHE_SOUS_AGENT.code, REFUS_TACHE_SOUS_AGENT.message, {
-                fix: REFUS_TACHE_SOUS_AGENT.fix,
-              }),
-            ),
-          )
-        : executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, r),
+    executeSingle: (nom, args, r) => {
+      if (ctx.c.subagent && nom === "task")
+        return Promise.resolve(
+          pyJsonDumps(
+            err(REFUS_TACHE_SOUS_AGENT.code, REFUS_TACHE_SOUS_AGENT.message, {
+              fix: REFUS_TACHE_SOUS_AGENT.fix,
+            }),
+          ),
+        );
+      const hors = refusHorsPerimetre(ctx, nom);
+      if (hors !== null) return Promise.resolve(hors);
+      return executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, {
+        ...r,
+        ...(nom === "task" ? { parent: lecteurParent } : {}),
+      });
+    },
     recordMetric: deps.recordMetric,
     isToolFailure: resultIsToolFailure,
     onEvent,

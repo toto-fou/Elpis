@@ -14,6 +14,7 @@ import {
 
 import { LLAMA_TOOL_PARALLELISM } from "../llm/constantes";
 import { journal } from "../journal";
+import type { ContexteParent } from "../outils/catalogue";
 import { categorize } from "../outils/categories";
 import { flattenExceptionMessage } from "../outils/mcp/clients";
 import { toolTraits } from "../outils/traits";
@@ -37,6 +38,8 @@ export interface RappelsOutil {
   meta?: Dict | null;
   /** Id de l'appel du modèle : les `task_step` d'un sous-agent le portent. */
   callId?: string | null;
+  /** Contexte du run appelant, transmis à l'outil intégré (un `task` en `fork`). */
+  parent?: (() => ContexteParent) | null;
   onProgress?: ((p: Progression) => void | Promise<void>) | null;
   onLog?: ((params: Dict) => void | Promise<void>) | null;
   signal?: AbortSignal | undefined;

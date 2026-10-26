@@ -584,7 +584,8 @@ flowchart TB
 outils jusqu'au budget d'itérations ; c'est la seule fonction de chat (un
 tour sans outil passe par le même chemin). Le mode `optimized` rend le créneau
 LLM pendant les outils. L'**orchestrateur** tient : prélude (vision, catalogue
-d'outils, assemblage de la tête système, rappel todo), boucle et compteurs,
+d'outils, assemblage de la tête système, rappel todo ; sautés par `OptionsRun.teteFigee`
+pour un sous-agent en fork), boucle et compteurs,
 aiguillage de chaque tour, point d'étape budget (`<harness_status>`, message
 éphémère en queue). Même sur annulation, il purge la dernière capture d'écran
 et enregistre l'usage consommé.
@@ -608,13 +609,13 @@ l'orchestrateur : c'est lui qui les importe.
 
 | Module (`apps/core/src/boucle/`) | Rôle | Interface |
 |---|---|---|
-| `run.ts` | état d'un run | `RunContext` (constantes du run), `RunRecord` (trace : événements, delta de l'historique d'outils, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées) |
-| `apps/core/src/outils/catalogue.ts` | outils du tour | `collectMcpTools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) |
+| `run.ts` | état d'un run | `RunContext` (constantes du run), `RunRecord` (trace : événements, delta de l'historique d'outils, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage, messages envoyés au dernier appel du moteur), `LoopDeps` (dépendances injectées) |
+| `apps/core/src/outils/catalogue.ts` | outils du tour | `collectMcpTools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) ; `perimetreEnfant` : les outils qu'un enfant `fresh` aurait reçus, par la même règle (restrictions d'un `fork`) ; `ContexteParent`, lu par `task` |
 | `tour-llm.ts` | un tour LLM | `callLlm(…) → LLMTurn` (mesure du contexte, compactions, séries de récupération) |
 | `flux-llm.ts` | transport d'un appel | flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur, disjoncteur |
 | `texte-direct.ts` | émission directe | `LiveText` : fenêtre de retenue et portail anti-balisage |
 | `reprise.ts`, `reprise-raisonnement.ts` | reprises automatiques | `ResumeState` (`take`, `restore`, `resetChain`, `plan`) |
-| `dispatch-outils.ts` | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
+| `dispatch-outils.ts` | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome` (refus hors périmètre d'un run au catalogue figé, contexte du parent transmis à `task`), `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
 | `execution-outils.ts` | ordonnancement d'un lot | `executeToolBatch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
 | `sortie.ts` | sorties du run | `finishOk`, `finishOnLimit`, `finishOnError` |
 | `travail.ts` | messages de travail du run | `travailCanonique` : forme rejouable des messages courants (`OptionsRun.exposerTravail`) |
@@ -1414,6 +1415,101 @@ sequenceDiagram
   idéalement les sous-agents simultanés + 1), `--kv-unified` (un tampon KV
   partagé par les slots) et `--cache-ram` (cache de prompts en RAM, qui restaure
   un KV évincé). Rien à régler pour vLLM et SGLang.
+- **Mode fork (`context: "fork"`)** : paramètre de `task` (`"fresh"` par défaut,
+  requêtes inchangées à l'octet). L'enfant reprend la conversation du parent au
+  lieu d'une page blanche : le brief n'a plus à la redire, et son préfixe est
+  celui que le moteur a déjà en cache (KV du slot de llama.cpp, APC de vLLM,
+  RadixAttention de SGLang : seul un préfixe de tokens identique est réutilisé).
+  Il ne s'applique qu'à un agent neuf : une reprise par `task_id` garde le mode de
+  son enregistrement (`fork: true`) et ignore l'argument. Code :
+  `apps/core/src/outils/integres/fork-taches.ts`, `perimetreEnfant` de
+  `apps/core/src/outils/catalogue.ts`, `OptionsRun.teteFigee`.
+  - **Préfixe exact.** Les messages de l'enfant sont : (1) ceux du dernier appel
+    moteur du parent, tels qu'ils sont partis (`RunRecord.envoye`, copie de la
+    liste que `callLlm` passe au flux, prise juste avant l'appel) : tête assemblée
+    (manifeste, `<runtime_context>`, fragments), marques d'élagage, images et
+    ajustement au contexte déjà appliqués ; ni la forme canonique d'`exposerTravail`
+    (tête brute, faite pour être ré-assemblée), ni les messages de travail, qui
+    continuent de grandir. Les clés internes `_…` sont gardées : le flux de
+    l'enfant les retire comme celui du parent, et le chemin Anthropic garde
+    `_anthropic_thinking`. (2) Le message assistant porteur de `task`, tel que
+    `openNativeRound` l'a posé (avec `reasoning_content` s'il est rendu au moteur).
+    (3) Un résultat pour chaque appel de ce message : « Sub-agent started… » pour
+    l'appel `task` qui lance l'enfant, « Run by the parent agent… » pour les
+    appels frères du même lot, dont le résultat n'existe pas encore. (4) La
+    consigne : `<task_context>` (même fonction que le mode fresh, avec la ligne
+    `Context:` et la liste des outils permis), le rôle de l'agent en
+    `<agent_role>` (la persona ne peut pas aller dans le système du parent), les
+    `<subagent_rules>` communs (gabarit de rapport compris), puis le brief. Elle
+    est un message `user`, sauf quand la réflexion est rendue au moteur : un
+    `user` de plus ferait retirer par les gabarits de type Qwen3 la réflexion des
+    assistants précédents du tour et casserait le préfixe ; elle est alors
+    ajoutée au dernier résultat (comme le jalon `<harness_status>`).
+  - **Catalogue et tête figés.** `OptionsRun.teteFigee` porte le catalogue du
+    parent (`toolsPayload`, `toolCfgMap`, `builtinHandlers`) et les messages
+    sont déjà assemblés : ni `collectMcpTools`, ni `assembleOperationalContext`,
+    ni suffixe mémoire AX ou `<todo_status>`. La liste d'outils envoyée est celle
+    du parent, mêmes définitions dans le même ordre (le flux les trie par nom
+    comme pour le parent). La tête système est celle du parent, sans la persona.
+  - **Restrictions à l'exécution.** La liste envoyée ne peut pas être filtrée
+    sans changer la tête : `perimetreEnfant` calcule l'ensemble des outils du
+    catalogue qu'un enfant `fresh` du même type aurait reçus, par la **même
+    règle** que `collectMcpTools` (fonctions partagées `retenuParRegle`,
+    `ensembleCategories`, `dansListePermise`, mêmes entrées que le lancement
+    d'un `fresh` : catégories du type, `mcpServerIds`, `denyExtra`, refus de base
+    `task`/`todowrite`/`ask_user`/`routine_save`, `toolsDeniedFor("subagent")`,
+    `OUTILS_JAMAIS_SOUS_AGENT`, profils par type, lecture seule effective,
+    mémoire coupée, aucun outil intégré du parent : RAG, images, routine,
+    question). Tout appel hors de cet ensemble rend une erreur JSON sans
+    s'exécuter (`runToolBatch`, `refusHorsPerimetre`) : `not_available_here`,
+    `read_only_subagent` ou `not_available_for_subagent` (codes de l'hôte
+    d'outils), la liste des outils permis dans `fix`. `subagent: {type,
+    read_only, writable_paths}` reste porté au `_meta` des appels locaux :
+    l'hôte d'outils applique donc toujours la lecture seule, les chemins
+    écrivables, les profils par type et les limites du shell, sans dépendre du
+    filtrage du manifeste. Les catégories du type, elles, ne sont connues que du
+    core. Les serveurs MCP tiers du compte ne passent pas par l'hôte d'outils
+    (pas de `_meta`) : le refus du core est leur seule barrière, il les couvre
+    (un tiers n'est permis que si son `id` est dans `mcpServerIds` du type).
+  - **Réflexion et échantillonnage.** L'enfant prend le `thinkingMode` et le
+    `samplingOverride` du parent, `preserve_reasoning` compris : le rendu de
+    l'historique (réflexion renvoyée ou non au gabarit) doit rester celui du
+    parent. Le réglage de réflexion par agent, `agents.thinking_budget_tokens` et
+    `preserve_reasoning` imposé aux enfants fresh sont ignorés. `max_tool_iterations`
+    est le budget de l'enfant, comme en fresh. Le bilan porte `thinking` (celui
+    du parent) et `context: "fork"`.
+  - **Slot.** llama.cpp : la clé d'affinité de l'enfant est celle du parent
+    (`ContexteParent.slotKey`) et le slot du parent n'est pas évité : le parent
+    attend le résultat, son slot porte exactement le préfixe. Plusieurs forks
+    simultanés : le premier prend le slot du parent, les suivants évitent ceux
+    des frères en cours (registre de `buildTaskBuiltinTool`) et refont donc le
+    prefill de leur préfixe sur un autre slot (ou le restaurent par `--cache-ram`).
+    vLLM, SGLang : aucun `id_slot`, le cache de préfixe global sert aussi les
+    forks parallèles.
+  - **Garde-fous.** Un fork est refusé en JSON, sans lancer d'enfant
+    (`fork_unavailable`, `fix` « use context: fresh with a complete brief », bloc
+    `status: unavailable`) si le parent a appelé `task` par le canal texte, si
+    son dernier appel n'est pas disponible, ou si son contexte mesuré
+    (entrée + complétion du dernier appel, estimé sinon) dépasse 50 %
+    (`TASK_FORK_MAX_CONTEXT_RATIO`) du seuil de compaction du run
+    (`compactionGate(...).triggerTokens` : plafond technique `usableWindow` ou
+    seuil du compte s'il est plus bas) : l'enfant doit pouvoir travailler avant
+    sa propre compaction. Fenêtre inconnue : pas de contrôle. Un appel venu d'un
+    sous-agent est déjà refusé. L'enfant garde compaction et élagage comme tout
+    enfant. Une valeur de `context` autre que `fresh` ou `fork` rend `bad_args`.
+  - **Reprise.** L'enregistrement porte `fork: true` et les messages de la boucle
+    (préfixe du parent compris : un enregistrement de fork est gros, plafond de
+    8 Mo du store disque, mémoire seule au-delà). La reprise rejoue ces messages
+    avec le catalogue **courant** du parent, sans réassembler la tête, et recalcule
+    les restrictions ; si les outils ont changé depuis, le préfixe diffère
+    (au mieux). Les enregistrements fresh ne changent pas.
+  - **Routines.** `buildTaskBuiltinTool` est le même : la boucle d'une routine
+    publie le même contexte, le fork y marche (mêmes refus, canal natif requis).
+  - **Limites.** Un fork n'est pas isolé : il voit toute la conversation et les
+    résultats d'outils du parent, peut s'en laisser influencer, et son contexte
+    démarre aussi gros que celui du parent. La description de `task` (tête du
+    parent) gagne le paramètre `context` et la note 7, constantes d'un tour à
+    l'autre ; une seule invalidation du cache à la mise à jour.
 
 ---
 

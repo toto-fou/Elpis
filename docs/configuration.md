@@ -487,6 +487,12 @@ d'autant plus vite. Cette réflexion n'est jamais enregistrée : une reprise par
 `task_id` repart sans elle. La description de l'outil `task` ne dit rien du mode :
 elle fait partie de la tête de l'agent principal et ne change pas avec ces réglages.
 
+**Sous-agent en fork (`task(context="fork")`).** Ces réglages ne s'appliquent pas :
+l'enfant prend la réflexion (`thinkingMode`) et l'échantillonnage de l'agent
+principal, « Raisonnement conservé » compris, pour que l'historique qu'il reprend
+soit rendu au gabarit comme le parent le rend. Seul `max_tool_iterations` est le
+budget de l'enfant. Voir [Sous-agents](architecture.md#sous-agents-outil-task).
+
 ### RAG (`rag`)
 
 Relue à chaque appel par le core (`packages/config/src/rag.ts`) : un

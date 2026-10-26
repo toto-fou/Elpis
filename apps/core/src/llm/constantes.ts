@@ -199,6 +199,9 @@ export const TASK_MAX_ITERS_CUSTOM = maxPy(1, config.TASK_MAX_ITERS_CUSTOM || it
 /** Garde-fou du résultat final d'un sous-agent persisté pour la modale « œil » (pas une troncature d'affichage). */
 export const TASK_RESULT_PERSIST_CAP = 256 * 1024;
 
+/** Part du seuil de compaction du parent au-delà de laquelle `task(context="fork")` est refusé : le reste est la place de travail de l'enfant. */
+export const TASK_FORK_MAX_CONTEXT_RATIO = 0.5;
+
 /** Capacité vision par modèle (`/v1/models`), vidée avec les caches de modèles. */
 export const VISION_CAPABILITY_CACHE = new Map<string, boolean>();
 

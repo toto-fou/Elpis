@@ -103,15 +103,20 @@ selon [SemVer](https://semver.org/lang/fr/).
   conversation possède aussi (le reste est refusé en JSON, y compris les
   serveurs MCP tiers et les outils intégrés). Refusé (`fork_unavailable`) par le
   canal texte, au-delà de la moitié du seuil de compaction, ou quand ces outils
-  sont absents ou ne couvrent pas le type (`verify` sans shell, `explore` sans
-  fichiers). La consigne est toujours un message utilisateur (elle survit à la
-  compaction) : sur SGLang avec « Raisonnement conservé », la réflexion rendue
-  du tour courant du parent sort du préfixe de l'enfant, recalculé une fois. Sur
-  llama.cpp, le premier fork neuf prend le slot réel du dernier appel du parent
-  (pas son slot de hachage) tant que ses requêtes prolongent le préfixe du
-  parent ; dès qu'il compacte ou que l'ajustement au contexte lui retire des
-  messages, il quitte ce slot et ne l'écrase plus (le parent y retrouve son
-  cache). Un fork repris évite ce slot. Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
+  sont absents ou ne couvrent pas le métier du type (un seul outil de sa
+  catégorie principale suffit : Terminal pour `verify`, Fichiers pour `explore`
+  et `implement`, Git pour `pr`, Navigateur pour `web` ; un agent du compte n'est
+  refusé que si aucun outil ne lui est permis). Un fork repris est soumis au
+  même contrôle (refus `fork_unavailable`, l'enregistrement reste intact) et son
+  message de reprise annonce la liste des outils permis quand elle a changé. La
+  consigne est toujours un message utilisateur (elle survit à la compaction) :
+  sur SGLang avec « Raisonnement conservé », la réflexion rendue du tour courant
+  du parent sort du préfixe de l'enfant, recalculé une fois. Sur llama.cpp, le
+  premier fork neuf prend le slot réel du dernier appel du parent (pas son slot
+  de hachage) tant que ses requêtes prolongent le préfixe du parent ; dès qu'il
+  compacte ou que l'ajustement au contexte lui retire des messages, il quitte ce
+  slot et ne l'écrase plus (le parent y retrouve son cache). Un fork repris
+  évite ce slot. Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
   `task` change une fois (cache de la tête du parent).
 
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**

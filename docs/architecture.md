@@ -1549,11 +1549,14 @@ sequenceDiagram
     (`compactionGate(...).triggerTokens` : plafond technique `usableWindow` ou
     seuil du compte s'il est plus bas) : l'enfant doit pouvoir travailler avant
     sa propre compaction. Fenêtre inconnue : pas de contrôle. Il l'est aussi si
-    l'ensemble des outils permis est vide ou n'a aucun outil d'une des catégories
-    du type (`raisonPerimetreInsuffisant` : `verify` sans shell, `explore` sans
-    fichiers) : l'enfant n'a que les outils que la conversation possède, et la
-    persona les annonce tous ; en lecture seule, une catégorie que la lecture
-    seule retire à dessein compte si le parent l'a. Un appel venu d'un
+    l'ensemble des outils permis est vide ou n'a aucun outil de la catégorie
+    cœur d'un type livré (`categorieCoeur`, `raisonPerimetreInsuffisant` :
+    `explore` et `implement` fs, `verify` shell, `pr` git, `web` browser ; les
+    autres catégories du type ne sont pas exigées, et un agent du compte, sans
+    catégorie cœur, n'est refusé que sur l'ensemble vide) : l'enfant n'a que les
+    outils que la conversation possède, et la persona les annonce tous ; en
+    lecture seule, la catégorie cœur que la lecture seule retire à dessein compte
+    si le parent l'a. Un appel venu d'un
     sous-agent est déjà refusé. L'enfant garde compaction et élagage comme tout
     enfant. Une valeur de `context` autre que `fresh` ou `fork` rend `bad_args`.
   - **Reprise.** L'enregistrement porte `fork: true` et les messages de la boucle
@@ -1561,7 +1564,11 @@ sequenceDiagram
     8 Mo du store disque, mémoire seule au-delà). La reprise rejoue ces messages
     avec le catalogue **courant** du parent, sans réassembler la tête, et recalcule
     les restrictions ; si les outils ont changé depuis, le préfixe diffère
-    (au mieux). Les enregistrements fresh ne changent pas.
+    (au mieux). Le contrôle de périmètre des garde-fous s'applique aussi à la
+    reprise (refus `fork_unavailable`, `fix` « omit task_id and start a fresh
+    agent… », enregistrement intact), et l'enregistrement garde la liste des
+    outils permis (`fork_outils`) : le message de reprise l'annonce quand elle
+    a changé. Les enregistrements fresh ne changent pas.
   - **Routines.** `buildTaskBuiltinTool` est le même : la boucle d'une routine
     publie le même contexte, le fork y marche (mêmes refus, canal natif requis).
   - **Limites.** Un fork n'est pas isolé : il voit toute la conversation et les

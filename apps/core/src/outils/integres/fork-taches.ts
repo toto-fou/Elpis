@@ -9,6 +9,22 @@ import type { ContexteParent } from "../catalogue";
 import { categorize } from "../categories";
 
 export const FIX_FORK_INDISPONIBLE = "use context: fresh with a complete brief";
+export const FIX_FORK_REPRISE = "omit task_id and start a fresh agent with a complete, autonomous brief";
+
+/** Catégorie dont un type livré ne peut se passer (son métier) : les autres catégories du type ne font que le compléter. */
+const CATEGORIE_COEUR: ReadonlyMap<string, string> = new Map([
+  ["explore", "fs"],
+  ["implement", "fs"],
+  ["verify", "shell"],
+  ["pr", "git"],
+  ["web", "browser"],
+]);
+
+/** Catégorie cœur d'un type livré, `null` pour un agent du compte ou si le compte l'a retirée des catégories du type. */
+export function categorieCoeur(type: string, categories: readonly string[] | null): string | null {
+  const coeur = CATEGORIE_COEUR.get(type);
+  return coeur !== undefined && (categories === null || categories.includes(coeur)) ? coeur : null;
+}
 
 /** Résultat de l'appel `task` qui a lancé l'enfant : ce contexte est désormais le sien. */
 export const RESULTAT_FORK =
@@ -53,19 +69,15 @@ export function messagesFork(parent: ContexteParent, callId: string, consigne: s
   return [...parent.envoye, assistant, ...resultats, { role: "user", content: consigne }];
 }
 
-/** Raison pour laquelle les outils permis ne suffisent pas au type (ensemble vide, ou une de ses catégories sans outil), `null` si le fork est utile ; en lecture seule, une catégorie retirée à dessein mais présente chez le parent ne compte pas. */
+/** Raison pour laquelle les outils permis ne suffisent pas au type (ensemble vide, ou aucun outil de sa catégorie cœur), `null` si le fork est utile ; en lecture seule, la catégorie cœur retirée à dessein mais présente chez le parent compte. */
 export function raisonPerimetreInsuffisant(
   permis: ReadonlySet<string>,
-  categories: readonly string[] | null,
+  coeur: string | null,
   o: { lectureSeule: boolean; catalogue: Iterable<string> },
 ): string | null {
   if (permis.size === 0) return "none of the parent's tools is available to this agent type";
-  const catalogue = [...o.catalogue];
-  const contient = (noms: Iterable<string>, categorie: string): boolean =>
-    [...noms].some((nom) => categorize(nom) === categorie);
-  for (const categorie of categories ?? []) {
-    if (contient(permis, categorie) || (o.lectureSeule && contient(catalogue, categorie))) continue;
-    return `the parent has no '${categorie}' tool this agent type could use`;
-  }
-  return null;
+  if (coeur === null) return null;
+  const contient = (noms: Iterable<string>): boolean => [...noms].some((nom) => categorize(nom) === coeur);
+  if (contient(permis) || (o.lectureSeule && contient(o.catalogue))) return null;
+  return `the parent has no '${coeur}' tool this agent type could use`;
 }

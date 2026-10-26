@@ -78,7 +78,9 @@ import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
 import type { PortsHoteTache } from "./controles-taches";
 import {
+  categorieCoeur,
   FIX_FORK_INDISPONIBLE,
+  FIX_FORK_REPRISE,
   messagesFork,
   raisonForkImpossible,
   raisonPerimetreInsuffisant,
@@ -738,11 +740,11 @@ export const CONSIGNE_CLOTURE =
   "You are a sub-agent: write your final report in the common format with `Status: partial`, and list precisely " +
   "under `## Left open` the work that remains, so the parent can resume you (task_id) or hand it over.";
 
-/** Tête du message de reprise : budget de cette reprise (celui du premier message ne vaut plus), périmètre durci ou modifié, champs exigés rappelés. */
+/** Tête du message de reprise : budget de cette reprise (celui du premier message ne vaut plus), périmètre durci ou modifié, outils d'un fork changés, champs exigés rappelés. */
 function consigneReprise(
   sa: SousAgent,
   rec: Dict,
-  o: { budget: number; timeoutS: number; champs: readonly string[] },
+  o: { budget: number; timeoutS: number; champs: readonly string[]; outilsFork?: readonly string[] | null },
 ): string {
   const notes = [
     `Budget for this run: ${o.budget} tool iterations, up to ${libelleDuree(o.timeoutS)} wall-clock, counted from this ` +
@@ -752,18 +754,23 @@ function consigneReprise(
     notes.push(
       "You are now READ-ONLY: no write, commit, job or shell tool is available; describe any needed change under `## Left open`.",
     );
-  else if (sa.writable_paths !== null && !memesChemins(sa.writable_paths, rec["writable_paths"]))
+  else if (sa.writable_paths !== null && !memeEnsemble(sa.writable_paths, rec["writable_paths"]))
     notes.push(
       "Writable paths changed: the file tools (write_file, edit_file, manage_files, git_write) may now only write under: " +
         (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
         ". The shell is NOT bounded by this list.",
     );
+  if (o.outilsFork && !memeEnsemble(o.outilsFork, rec["fork_outils"]))
+    notes.push(
+      "The tools of this run changed (the list in your task_context no longer applies): only these tools work, any " +
+        `other call is refused: ${o.outilsFork.join(", ")}.`,
+    );
   if (o.champs.length) notes.push(`Required fields in your report: ${o.champs.join(", ")}.`);
   return `[harness] ${notes.join(" ")}\n\n`;
 }
 
-/** Les chemins écrivables d'une reprise sont ceux de l'enregistrement (même ensemble, sans l'ordre). */
-function memesChemins(actuels: readonly string[], avant: unknown): boolean {
+/** Deux listes de noms sont le même ensemble (sans l'ordre) ; `avant` doit être une liste, sinon faux. */
+function memeEnsemble(actuels: readonly string[], avant: unknown): boolean {
   if (!Array.isArray(avant)) return false;
   const a = [...new Set(actuels)].sort();
   const b = [...new Set(avant.map(strPy))].sort();
@@ -986,9 +993,13 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const refuserFork = (raison: string): Promise<string> => {
       const bilan = bilanRefus("unavailable", raison, "fork");
+      const message =
+        resumed === null
+          ? `context "fork" is unavailable: ${raison}`
+          : `this fork cannot be resumed from this conversation: ${raison}`;
       return refuser(
-        err("fork_unavailable", `context "fork" is unavailable: ${raison}`, {
-          fix: FIX_FORK_INDISPONIBLE,
+        err("fork_unavailable", message, {
+          fix: resumed === null ? FIX_FORK_INDISPONIBLE : FIX_FORK_REPRISE,
           harness: bilan,
         }),
         bilan,
@@ -1096,14 +1107,19 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             }),
           };
 
-    if (parent !== null && teteFigee !== null && resumed === null) {
-      const insuffisant = raisonPerimetreInsuffisant(teteFigee.permis, s.filterCategories, {
-        lectureSeule: sa.read_only,
-        catalogue: [...parent.toolCfgMap.keys(), ...parent.builtinHandlers.keys()],
-      });
+    if (parent !== null && teteFigee !== null) {
+      const insuffisant = raisonPerimetreInsuffisant(
+        teteFigee.permis,
+        categorieCoeur(agentType, s.filterCategories),
+        {
+          lectureSeule: sa.read_only,
+          catalogue: [...parent.toolCfgMap.keys(), ...parent.builtinHandlers.keys()],
+        },
+      );
       if (insuffisant !== null) return refuserFork(insuffisant);
     }
 
+    const outilsFork = (): string[] | null => (teteFigee === null ? null : [...teteFigee.permis].sort());
     let childMessages: Dict[];
     if (resumed !== null)
       childMessages = [
@@ -1111,7 +1127,12 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         {
           role: "user",
           content:
-            consigneReprise(sa, resumed, { budget, timeoutS: dureeMax, champs: lus.outputSchema }) + prompt,
+            consigneReprise(sa, resumed, {
+              budget,
+              timeoutS: dureeMax,
+              champs: lus.outputSchema,
+              outilsFork: outilsFork(),
+            }) + prompt,
         },
       ];
     else {
@@ -1122,7 +1143,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           budget,
           timeoutS: dureeMax,
           champs: lus.outputSchema,
-          fork: { outils: [...teteFigee.permis].sort() },
+          fork: { outils: outilsFork() ?? [] },
         });
         const role = stripPy(persona) ? `<agent_role>\n${stripPy(persona)}\n</agent_role>` : "";
         const consigne = [contexte, role, subagentRulesBlock(true), prompt].filter(Boolean).join("\n\n");
@@ -1367,7 +1388,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           tool_calls_total: appelsAvant + appelsVus,
           read_only: sa.read_only,
           ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
-          ...(modeFork ? { fork: true } : {}),
+          ...(modeFork ? { fork: true, fork_outils: outilsFork() ?? [] } : {}),
         };
         memoriserReprise(o.username, childId, rec);
         try {

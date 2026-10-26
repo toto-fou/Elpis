@@ -71,6 +71,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   ses tours d'outils (parseur de réflexion actif). Le bilan du harnais porte
   `thinking`.
 
+- **Sous-agents : reprise sur l'historique exact de la boucle.** Un sous-agent
+  repris par `task_id` (après un délai, une annulation ou un échec comme après
+  un run terminé) repart des messages de travail que la boucle avait envoyés au
+  moteur : jalons `<harness_status>` et suffixe de la question compris, résultats
+  des outils déjà exécutés conservés (jamais rejoués), forme compactée si la
+  boucle a compacté. Le cache de préfixe du moteur survit à la reprise. Les
+  anciens enregistrements de reprise restent valides.
+
 ### Interface
 
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions

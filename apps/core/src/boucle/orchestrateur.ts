@@ -50,6 +50,7 @@ import type { LoopDeps } from "./run";
 import { finishOk, finishOnError, finishOnLimit } from "./sortie";
 import type { SortieRun } from "./sortie";
 import { callLlm, LLMTurnState } from "./tour-llm";
+import { travailCanonique } from "./travail";
 
 const log = journal("boucle.orchestrateur");
 
@@ -172,6 +173,8 @@ export interface OptionsRun {
   slotAvoid?: (() => Iterable<number>) | null;
   /** Reçoit le slot retenu pour chaque appel (≥ 0) : le parent y note celui que ses sous-agents doivent éviter. */
   surSlot?: ((slot: number) => void) | null;
+  /** Reçoit, une fois le contexte assemblé, le lecteur des messages de travail courants en forme canonique (tête brute, ce que le moteur a vu, paires appel/résultat complètes) : reprise d'un sous-agent. */
+  exposerTravail?: ((lire: () => Dict[]) => void) | null;
   /** Points de substitution des tests (fonction de flux, métrique d'outil, résumé de compaction). */
   deps?: Partial<LoopDeps>;
 }
@@ -276,6 +279,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
   }
   const rec = new RunRecord();
   rec.usageAcc = acc;
+  rec.travail = workingMessages;
 
   let maxIter = LLAMA_MAX_TOOL_ITERATIONS;
   const plafondUi = Math.max(500, LLAMA_MAX_TOOL_ITERATIONS * 4);
@@ -395,6 +399,8 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     llamaChat: o.deps?.llamaChat ?? llamaChatCompaction,
   };
 
+  o.exposerTravail?.(() => travailCanonique(ctx, rec, o.messages));
+
   while (effectiveIter < budget && hardIter < capDur && !forcedStop) {
     await rec.guardCancel(onEvent, Promise.resolve(), signal);
     if (ctx.cancelled()) {
@@ -426,6 +432,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
 
     const turn = await callLlm(ctx, rec, st, resume, deps, workingMessages, { iteration, effectiveIter });
     workingMessages = turn.messages;
+    rec.travail = workingMessages;
     if (turn.outcome === "retry") continue;
     if (turn.outcome === "retry_counted") {
       hardIter += 1;

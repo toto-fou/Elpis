@@ -434,6 +434,7 @@ export async function callLlm(
           }),
         );
         workingMessages = messages;
+        rec.travail = workingMessages;
         if (stats["reason"] === "max_rounds_reached") st.comprCapped = true;
         const nouvel = stats["new_state"];
         if (estDict(nouvel))
@@ -595,6 +596,7 @@ export async function callLlm(
         if (estErreurAnnulation(e) || signal?.aborted) await rec.emitPartialSnapshot(onEvent);
         throw e;
       }
+      rec.travail = workingMessages;
       if (stats["compressed"]) {
         st.compactionsThisRun += 1;
         rec.budgetDropFloor = 0;
@@ -630,6 +632,7 @@ export async function callLlm(
         text: "Historique de conversation incompatible avec le moteur — récupération automatique en cours (les détails d'outils des tours précédents sont simplifiés en texte).",
       });
       workingMessages = flattenToolMessages(workingMessages);
+      rec.travail = workingMessages;
       rec.budgetDropFloor = 0;
       st.realCtxMsgCount = null;
       st.occAnchorTok = null;

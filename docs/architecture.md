@@ -603,6 +603,7 @@ l'orchestrateur : c'est lui qui les importe.
 | `dispatch-outils.ts` | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
 | `execution-outils.ts` | ordonnancement d'un lot | `executeToolBatch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
 | `sortie.ts` | sorties du run | `finishOk`, `finishOnLimit`, `finishOnError` |
+| `travail.ts` | messages de travail du run | `travailCanonique` : forme rejouable des messages courants (`OptionsRun.exposerTravail`) |
 | `contrat-resultat.ts` | échecs d'outil | `resultIsError`, `resultIsToolFailure` |
 | `@elpis/contracts` (`stream-events.gen.ts`) | registre du flux NDJSON | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
 
@@ -1312,8 +1313,22 @@ sequenceDiagram
   catégories cachées et aux builtins (contrairement à `allowedToolNames`).
 - **Reprise** : re-passer le `task_id` continue le **même** enfant avec son
   historique (store partagé, TTL `TASK_RESUME_TTL_S`, cap `TASK_RESUME_MAX`).
-  Vaut aussi pour les runs interrompus : le travail partiel est reconstruit
-  depuis les events et l'enveloppe d'erreur porte le `task_id` à reprendre.
+  Vaut aussi pour les runs interrompus (délai, annulation, échec, limite) :
+  l'enveloppe porte le `task_id` à reprendre dès que l'enfant a obtenu un
+  résultat d'outil. L'historique stocké est celui de la boucle, lu par
+  `OptionsRun.exposerTravail` (`travailCanonique`, `boucle/travail.ts`) et non
+  reconstruit depuis les événements : la tête système brute d'origine (l'assemblage
+  refusionne le manifeste), puis ce que le moteur a vu après la tête assemblée,
+  c'est-à-dire le premier message `user` avec le suffixe fusionné (mémoire AX de
+  l'agent web), assistants, résultats d'outils et jalons `<harness_status>` rendus
+  en messages ordinaires, sous forme compactée si la boucle a compacté, marques
+  d'élagage appliquées, sans clés internes `_…`. Seules les paires appel/résultat
+  complètes sont gardées : un appel sans résultat est retiré, un résultat déjà
+  obtenu d'un lot interrompu est gardé (jamais rejoué). La réponse finale d'un
+  run terminé ferme l'historique. Le préfixe que voit le moteur à la reprise est
+  donc celui de son dernier appel (cache de préfixe), tant que le budget de
+  contexte n'a rien retiré de sa vue ; un ancien enregistrement (historique de
+  `tool_history`, ids `live_*`) se reprend sans changement.
 - **Annulation par-enfant** : `POST /api/chat/task-cancel` annule UN
   sous-agent sans toucher au tour parent (`outils/integres/taches-agents.ts`).
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit

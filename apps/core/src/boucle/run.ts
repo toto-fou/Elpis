@@ -236,6 +236,8 @@ export class RunRecord {
   usageAcc: Dict | null = null;
   events: Dict[] = [];
   runToolHistory: Dict[] = [];
+  /** Liste de travail courante de la boucle (tête assemblée comprise), posée à chaque remplacement : compaction, aplatissement. */
+  travail: Dict[] = [];
   allThinking: string[] = [];
   lastRaw: Dict = {};
   cumulIn = 0;

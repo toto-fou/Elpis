@@ -32,7 +32,7 @@ import type { OptionsRun } from "../../boucle/orchestrateur";
 import { dansPorteeExecution, fileLlm, tokenHex } from "../../boucle/ports";
 import type { SortieRun } from "../../boucle/sortie";
 import { resultIsToolFailure } from "../../boucle/contrat-resultat";
-import { emitCapChars, truncateHeadTail } from "../../contexte/elagage";
+import { truncateHeadTail } from "../../contexte/elagage";
 import {
   TASK_CHILD_TIMEOUT_S,
   TASK_MAX_ITERS_CUSTOM,
@@ -162,22 +162,6 @@ function memoriserReprise(username: string, childId: string, rec: Dict): void {
   const k = cle(username, childId);
   REPRISES.delete(k);
   REPRISES.set(k, rec);
-}
-
-/** `tool_history` de la boucle → messages assistant(tool_calls)/tool/user. */
-export function expandChildHistory(hist: unknown): Dict[] {
-  const sortie: Dict[] = [];
-  for (const h of Array.isArray(hist) ? hist : []) {
-    if (!estDict(h)) continue;
-    const r = h["role"];
-    if (r !== "assistant" && r !== "tool" && r !== "user") continue;
-    const m: Dict = { role: r };
-    if (Object.hasOwn(h, "content")) m["content"] = h["content"] ?? null;
-    if (r === "assistant" && veritePy(h["tool_calls"])) m["tool_calls"] = h["tool_calls"];
-    if (r === "tool" && h["tool_call_id"]) m["tool_call_id"] = h["tool_call_id"];
-    sortie.push(m);
-  }
-  return sortie;
 }
 
 // ── Types d'agents ───────────────────────────────────────────────────────────
@@ -1023,7 +1007,6 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     );
 
     let pas = 0;
-    const nonce = tokenHex(3);
     let appelsVus = 0;
     const iters = { n: 0, max: budget };
     const tok = { v: 0, reel: false };
@@ -1033,9 +1016,6 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const transcript: Dict[] = [];
     const chat: Dict[] = [];
     let tampon = "";
-    const histLive: Dict[] = [];
-    const liveParAppel = new Map<string, string>();
-    const liveEnAttente = new Map<string, string[]>();
     const debutsAppels = new Map<string, number>();
 
     const flushChat = async (emettre = true, dejaRendu = ""): Promise<void> => {
@@ -1115,26 +1095,6 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             status: "running",
             result_preview: "",
           });
-        const liveId = `live_${nonce}_${step}`;
-        const brut = ev["args"];
-        let argsTexte: string;
-        try {
-          argsTexte = typeof brut === "string" ? brut : pyJsonDumps(brut || {}, { ensureAscii: false });
-        } catch {
-          argsTexte = "{}";
-        }
-        histLive.push({
-          role: "assistant",
-          content: null,
-          tool_calls: [
-            { id: liveId, type: "function", function: { name: ev["name"] || "", arguments: argsTexte } },
-          ],
-        });
-        if (cid) liveParAppel.set(strPy(cid), liveId);
-        else {
-          const nom = texteOu(ev["name"], "");
-          liveEnAttente.set(nom, [...(liveEnAttente.get(nom) ?? []), liveId]);
-        }
         if (o.onEvent)
           await o.onEvent({
             type: "task_step",
@@ -1176,28 +1136,6 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             chat[i]!["result_preview"] = apercu;
             break;
           }
-        let rid: string | null = null;
-        if (cid) {
-          rid = liveParAppel.get(cid) ?? null;
-          liveParAppel.delete(cid);
-        }
-        if (rid === null) {
-          const file = liveEnAttente.get(texteOu(ev["name"], ""));
-          if (file && file.length) rid = file.shift()!;
-        }
-        if (rid !== null) {
-          let rc = ev["result"];
-          if (typeof rc !== "string")
-            try {
-              rc = pyJsonDumps(rc, { ensureAscii: false });
-            } catch {
-              rc = strPy(rc);
-            }
-          const cap = emitCapChars(null);
-          let texte = rc as string;
-          if (longueurPy(texte) > cap) texte = truncateHeadTail(texte, cap, "live history bound");
-          histLive.push({ role: "tool", tool_call_id: rid, content: texte });
-        }
         if (o.onEvent)
           await o.onEvent({
             type: "task_step",
@@ -1216,45 +1154,6 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       }
     };
 
-    /** Historique live remis en forme canonique : une vague = UN assistant et ses réponses dans l'ordre de ses appels. */
-    const resumableLiveHistory = (): Dict[] => {
-      const repondus = new Map<string, Dict>();
-      for (const m of histLive)
-        if (m["role"] === "tool" && m["tool_call_id"]) repondus.set(strPy(m["tool_call_id"]), m);
-      const sortie: Dict[] = [];
-      let i = 0;
-      while (i < histLive.length) {
-        const m = histLive[i]!;
-        if (m["role"] === "assistant" && Array.isArray(m["tool_calls"]) && m["tool_calls"].length) {
-          const appels: Dict[] = [];
-          let j = i;
-          while (
-            j < histLive.length &&
-            histLive[j]!["role"] === "assistant" &&
-            Array.isArray(histLive[j]!["tool_calls"]) &&
-            (histLive[j]!["tool_calls"] as unknown[]).length
-          ) {
-            appels.push(...(histLive[j]!["tool_calls"] as Dict[]));
-            j++;
-          }
-          const gardes = appels.filter((c) => repondus.has(texteOu((c ?? {})["id"], "")));
-          if (gardes.length) {
-            sortie.push({ role: "assistant", content: null, tool_calls: gardes });
-            for (const c of gardes) sortie.push(repondus.get(strPy(c["id"]))!);
-          }
-          i = j;
-          continue;
-        }
-        if (m["role"] === "tool") {
-          i++;
-          continue;
-        }
-        sortie.push(m);
-        i++;
-      }
-      return sortie;
-    };
-
     const t0 = Date.now() / 1000;
     let etat = "completed";
     let finalText = "";
@@ -1263,18 +1162,36 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     let stopReason: string | null = null;
     let erreurMessage = "";
 
+    let lireTravail: (() => Dict[]) | null = null;
+    let travailFige: Dict[] | null = null;
+    /** Historique de reprise = messages de travail de la boucle (la boucle est finie, lu une fois) ; sans lecteur, l'entrée seule. */
+    const historique = (): Dict[] => {
+      if (travailFige !== null) return travailFige;
+      let lu: Dict[] | null = null;
+      try {
+        lu = lireTravail ? lireTravail() : null;
+      } catch (e) {
+        log.warn(`[task_tool] messages de travail illisibles pour la reprise (${String(e)})`);
+      }
+      travailFige = lu ?? [...childMessages];
+      return travailFige;
+    };
+    const dejaRepondus = new Set(
+      childMessages.filter((m) => m["role"] === "tool").map((m) => m["tool_call_id"]),
+    );
+    /** Vrai si CE run a obtenu au moins un résultat d'outil (hors historique repris). */
+    const echange = (): boolean =>
+      historique().some((m) => m["role"] === "tool" && !dejaRepondus.has(m["tool_call_id"]));
+
     const storeResumeState = (): void => {
-      const hist = estDict(childMetrics) ? childMetrics["tool_history"] : null;
+      const fini = etat === "completed" || etat === "incomplete";
       let suivants: Dict[] | null = null;
-      if (
-        (etat === "completed" || etat === "incomplete") &&
-        (finalText || (Array.isArray(hist) && hist.length))
-      ) {
-        suivants = [...childMessages, ...expandChildHistory(hist ?? [])];
-        if (finalText) suivants.push({ role: "assistant", content: finalText });
-      } else if (["timeout", "failed", "cancelled"].includes(etat)) {
-        const live = resumableLiveHistory();
-        if (live.length) suivants = [...childMessages, ...live];
+      if (echange() || (fini && finalText)) {
+        suivants = [...historique()];
+        const dernier = suivants[suivants.length - 1];
+        const dejaLa =
+          dernier?.["role"] === "assistant" && !dernier["tool_calls"] && dernier["content"] === finalText;
+        if (fini && finalText && !dejaLa) suivants.push({ role: "assistant", content: finalText });
       }
       if (suivants !== null) {
         const rec: Dict = {
@@ -1324,7 +1241,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         harness: bilan,
       });
     };
-    const avecReprise = (): boolean => resumed !== null || resumableLiveHistory().length > 0;
+    const avecReprise = (): boolean => resumed !== null || echange();
     const traceParent = `${o.username}:${o.chatId || ""}`;
 
     /** Bloc du harnais une fois l'enfant terminé (rapport masqué, plafonné et sauvé dans le bac s'il déborde). */
@@ -1446,6 +1363,9 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           subagent: sa,
           wallclockS: murS,
           wrapupSuffix: CONSIGNE_CLOTURE,
+          exposerTravail: (lire) => {
+            lireTravail = lire;
+          },
           surPointEtape: ({ texte, finDeBudget }) => {
             if (avertissements.length < BUDGET_WARNINGS_MAX)
               avertissements.push({ at: appelsVus, text: texteAvertissement(texte) });
@@ -1522,10 +1442,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       }
     }
     const { bilan, rapport } = await conclure();
-    const reprise = (suite: string): Dict =>
-      avecReprise() || (Array.isArray(childMetrics["tool_history"]) && childMetrics["tool_history"].length)
-        ? { task_id: childId, nextAction: suite }
-        : {};
+    const reprise = (suite: string): Dict => (avecReprise() ? { task_id: childId, nextAction: suite } : {});
     let out: string;
     if (etat === "completed") out = rendreTache(childId, "completed", bilan, rapport);
     else if (etat === "incomplete")

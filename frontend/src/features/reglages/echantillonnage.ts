@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/echantillonnage.ts — surcharges d'échantillonnage par chat (panneau « Paramètres de génération »), paramètres effectifs du modèle et effort de réflexion. */
+/** frontend/src/features/reglages/echantillonnage.ts — réglages du panneau « Génération », rangés sur le compte : échantillonnage, longueur, réflexion, paramètres effectifs du modèle et place dans la fenêtre. */
 import type { ParametresEffectifs } from "@elpis/contracts";
 import type * as Vue from "vue";
 import type { Ref } from "vue";
@@ -8,15 +8,10 @@ import { journal } from "../../platform/journal.ts";
 
 const BUDGET_REFLEXION_DEFAUT = 8192;
 const EFFORTS_CONNUS: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh"];
+/** Ancienne place des réglages (navigateur) : relue une fois pour les porter sur le compte. */
 const CLE_STOCKAGE = "sampling_override";
-const SPECIFIQUES_LLAMACPP: readonly string[] = [
-  "top_k",
-  "min_p",
-  "repeat_penalty",
-  "thinking_budget_tokens",
-];
-/** vLLM et SGLang acceptent `top_k`, `min_p` et la pénalité de répétition ; seul le budget de réflexion reste propre à llama.cpp. */
-const DIALECTE_ETENDU: readonly string[] = ["vllm", "sglang"];
+const LONGUEUR_LIMITE_DEFAUT = 8192;
+const DELAI_ENREGISTREMENT_MS = 600;
 
 export interface SurchargeEchantillonnage {
   temperature: number | null;
@@ -47,12 +42,27 @@ export interface RefsEchantillonnage {
   activeModelIds: Ref<string[]>;
   selectedConnector: Ref<string>;
   selectedEngineMeta: Ref<MetaMoteur | null>;
+  /** Document de réglages du compte ; remplacé en bloc à chaque lecture du serveur. */
+  settings: Ref<{ sampling_override?: unknown }>;
+  /** Occupation du contexte du chat ouvert (dernier tour). */
+  ctxUsage: Ref<{ used: number; total: number } | null>;
+}
+
+export type ModeLongueur = "auto" | "limit";
+
+/** Place dans la fenêtre du modèle, en jetons ; `compaction` vaut 0 quand elle est coupée. */
+export interface PlaceFenetre {
+  total: number;
+  utilise: number;
+  reserve: number;
+  marge: number;
+  compaction: number;
 }
 
 export interface CtxEchantillonnage {
   fetchAuth(url: string, init: RequestInit, silencieux: boolean): Promise<Response | null>;
-  /** Stockage des surcharges ; `localStorage` du navigateur par défaut. */
-  stockage?: Pick<Storage, "getItem" | "removeItem" | "setItem">;
+  /** Ancien stockage des réglages, relu pour la migration ; `localStorage` du navigateur par défaut. */
+  stockage?: Pick<Storage, "getItem" | "removeItem">;
   showToast?(
     message: string,
     type?: string,
@@ -97,6 +107,30 @@ export function clesModifiees(o: Partial<SurchargeEchantillonnage>): CleSurcharg
     if (v === null || v === undefined || v === "") return false;
     return !(k === "thinking_budget_tokens" && v === BUDGET_REFLEXION_DEFAUT);
   });
+}
+
+/** Relit les seules clés connues, nombres finis ou valeurs listées : une valeur corrompue n'injecte rien. */
+export function lireSurcharge(brut: unknown): SurchargeEchantillonnage {
+  const cible = vide();
+  if (!estObjet(brut)) return cible;
+  const effort = brut["reasoning_effort"];
+  if (typeof effort === "string" && EFFORTS_CONNUS.includes(effort)) cible.reasoning_effort = effort;
+  const conserve = brut["preserve_reasoning"];
+  if (typeof conserve === "boolean") cible.preserve_reasoning = conserve;
+  for (const k of CLES_NOMBRE) {
+    const v = brut[k];
+    if (typeof v === "number" && Number.isFinite(v)) cible[k] = v;
+  }
+  return cible;
+}
+
+/** Clés renseignées seulement (le moteur garde sa valeur pour les autres) ; `null` si rien. */
+export function compacter(o: SurchargeEchantillonnage): SurchargeCompacte | null {
+  const sortie: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (v !== null && v !== undefined && (v as unknown) !== "") sortie[k] = v;
+  }
+  return Object.keys(sortie).length > 0 ? (sortie as SurchargeCompacte) : null;
 }
 
 /** Valeur du modèle (ou défaut de l'agent) donnée en indication ; `null` quand le serveur ne la dit pas. */
@@ -144,7 +178,32 @@ export function lireParametres(brut: unknown): DonneesParametres | null {
       thinking_budget_tokens: nombre(defauts["thinking_budget_tokens"]),
     };
   }
+  const ignores = brut["ignored_keys"];
+  sortie.ignored_keys = Array.isArray(ignores)
+    ? ignores.filter((k): k is string => typeof k === "string")
+    : [];
+  sortie.engine_label = typeof brut["engine_label"] === "string" ? brut["engine_label"] : undefined;
+  sortie.context_window = lireFenetre(brut["context_window"]);
   return sortie;
+}
+
+type Fenetre = NonNullable<ParametresEffectifs["context_window"]>;
+
+/** `context_window` relu : entiers positifs, paires chat et réflexion complètes ; sinon absent. */
+function lireFenetre(brut: unknown): Fenetre | undefined {
+  if (!estObjet(brut)) return undefined;
+  const n = (v: unknown): number =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0;
+  const paire = (v: unknown): { chat: number; thinking: number } | null =>
+    estObjet(v) ? { chat: n(v["chat"]), thinking: n(v["thinking"]) } : null;
+  const reserve = paire(brut["output_reserve"]);
+  if (!reserve) return undefined;
+  return {
+    ctx_size: n(brut["ctx_size"]),
+    buffer_tokens: n(brut["buffer_tokens"]),
+    output_reserve: reserve,
+    compaction_at: paire(brut["compaction_at"]),
+  };
 }
 
 function repliDegrade(id: string): DonneesParametres {
@@ -168,66 +227,108 @@ export function setupEchantillonnage(
   ctx: CtxEchantillonnage,
 ) {
   const { computed, ref, watch } = vue;
-  const { selectedModel, activeModelIds, selectedConnector, selectedEngineMeta } = refs;
+  const { selectedModel, activeModelIds, selectedConnector, selectedEngineMeta, settings, ctxUsage } = refs;
   const stockage = (): NonNullable<CtxEchantillonnage["stockage"]> => ctx.stockage ?? localStorage;
   const meta = (): MetaMoteur | null => selectedEngineMeta.value;
   const viaConnecteur = (): boolean => !!selectedConnector.value;
-  const connecteurNonLlama = (): boolean => viaConnecteur() && !meta()?.llamacpp;
 
   const dernierBudget = ref(BUDGET_REFLEXION_DEFAUT);
   const showSamplingPanel = ref(false);
   const samplingOverride: Ref<SurchargeEchantillonnage> = ref(vide());
   const effectiveParamsData: Ref<DonneesParametres | null> = ref(null);
   const effectiveParamsLoading = ref(false);
+  /** « Limiter » choisi : le champ reste affiché pendant qu'on le vide pour retaper une valeur. */
+  const limiteChoisie = ref(false);
 
-  /** Relit les seules clés connues, nombres finis ou valeurs listées : un stockage corrompu n'injecte rien. */
-  function restaurer(): void {
+  /** Valeur de l'ancien stockage du navigateur, `null` s'il est vide ou illisible. */
+  function ancienStockage(): SurchargeCompacte | null {
     try {
-      const brut: unknown = JSON.parse(stockage().getItem(CLE_STOCKAGE) || "null");
-      if (!brut || typeof brut !== "object") return;
-      const sauve = brut as Record<string, unknown>;
-      const cible = samplingOverride.value;
-      const effort = sauve["reasoning_effort"];
-      if (typeof effort === "string" && EFFORTS_CONNUS.includes(effort)) cible.reasoning_effort = effort;
-      const conserve = sauve["preserve_reasoning"];
-      if (typeof conserve === "boolean") cible.preserve_reasoning = conserve;
-      for (const k of CLES_NOMBRE) {
-        const v = sauve[k];
-        if (typeof v === "number" && Number.isFinite(v)) cible[k] = v;
-      }
+      return compacter(lireSurcharge(JSON.parse(stockage().getItem(CLE_STOCKAGE) || "null")));
     } catch {
-      /* stockage illisible : valeurs par défaut */
+      return null;
     }
   }
-  restaurer();
+  const migration = ancienStockage();
+  if (migration) samplingOverride.value = lireSurcharge(migration);
 
-  /** Clés renseignées seulement (le moteur garde sa valeur pour les autres) ; `null` si rien. */
-  function _cleanSamplingOverride(): SurchargeCompacte | null {
-    const sortie: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(samplingOverride.value)) {
-      if (v !== null && v !== undefined && (v as unknown) !== "") sortie[k] = v;
-    }
-    return Object.keys(sortie).length > 0 ? (sortie as SurchargeCompacte) : null;
-  }
-
-  function persister(): void {
+  function oublierAncienStockage(): void {
     try {
-      const propre = _cleanSamplingOverride();
-      if (propre) stockage().setItem(CLE_STOCKAGE, JSON.stringify(propre));
-      else stockage().removeItem(CLE_STOCKAGE);
+      stockage().removeItem(CLE_STOCKAGE);
     } catch {
       /* stockage indisponible */
     }
   }
-  watch(samplingOverride, persister, { deep: true });
+
+  function _cleanSamplingOverride(): SurchargeCompacte | null {
+    return compacter(samplingOverride.value);
+  }
+
+  let minuterie: ReturnType<typeof setTimeout> | null = null;
+  let derniereEcrite = "";
+  /** Rien n'est écrit avant la lecture du document du compte : une valeur locale n'écrase pas le compte. */
+  let compteLu = false;
+
+  /** Écrit la seule clé `sampling_override` du compte (le serveur fusionne) et la reporte dans le document chargé. */
+  async function enregistrer(): Promise<void> {
+    minuterie = null;
+    const propre = _cleanSamplingOverride() ?? {};
+    const texte = JSON.stringify(propre);
+    if (texte === derniereEcrite) return;
+    derniereEcrite = texte;
+    settings.value.sampling_override = propre;
+    const res = await ctx.fetchAuth(
+      "/api/settings",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sampling_override: propre }),
+      },
+      true,
+    );
+    if (res?.ok) oublierAncienStockage();
+    else {
+      derniereEcrite = "";
+      ctx.showToast?.("Génération : réglages non enregistrés.", "error");
+    }
+  }
+  watch(
+    samplingOverride,
+    () => {
+      if (!compteLu) return;
+      if (minuterie) clearTimeout(minuterie);
+      minuterie = setTimeout(() => void enregistrer(), DELAI_ENREGISTREMENT_MS);
+    },
+    { deep: true },
+  );
+
+  /** Document du compte relu : ses réglages font foi, sauf une saisie pas encore écrite ; vide, il reçoit l'ancien stockage du navigateur. */
+  watch(
+    () => settings.value,
+    (doc) => {
+      const premiere = !compteLu;
+      compteLu = true;
+      if (minuterie) return;
+      const compte = compacter(lireSurcharge(doc.sampling_override));
+      if (compte || doc.sampling_override !== undefined || !premiere || !migration) {
+        derniereEcrite = JSON.stringify(compte ?? {});
+        samplingOverride.value = lireSurcharge(compte);
+        limiteChoisie.value = false;
+        if (effectiveParamsData.value) appliquerDefauts(effectiveParamsData.value);
+        if (premiere && migration) oublierAncienStockage();
+      } else void enregistrer();
+    },
+  );
 
   const ignoredByEngine = computed<readonly string[]>(() => {
-    if (!connecteurNonLlama()) return [];
-    return DIALECTE_ETENDU.includes(meta()?.providerType ?? "")
-      ? ["thinking_budget_tokens"]
-      : SPECIFIQUES_LLAMACPP;
+    const d = effectiveParamsData.value;
+    return d && d.model_id === selectedModel.value ? (d.ignored_keys ?? []) : [];
   });
   const isIgnoredByEngine = (cle: string): boolean => ignoredByEngine.value.includes(cle);
+  /** Raison affichée sous un réglage que le moteur n'applique pas. */
+  const raisonIgnore = (cle: string): string | null =>
+    isIgnoredByEngine(cle)
+      ? `Non appliqué par ${effectiveParamsData.value?.engine_label || "ce moteur"}`
+      : null;
 
   /** Valeurs du modèle indisponibles : connecteur cloud, ou modèle local non chargé (lire /props le chargerait). */
   function estDegradePour(id: string): boolean {
@@ -294,6 +395,7 @@ export function setupEchantillonnage(
 
   function resetSamplingOverride(): void {
     samplingOverride.value = vide();
+    limiteChoisie.value = false;
     if (effectiveParamsData.value?.supports_thinking) {
       samplingOverride.value.thinking_budget_tokens = BUDGET_REFLEXION_DEFAUT;
     }
@@ -414,6 +516,46 @@ export function setupEchantillonnage(
     showSamplingPanel.value = false;
   };
 
+  /** Auto : la clé `max_tokens` reste absente, le moteur prend le reste de la fenêtre. */
+  const modeLongueur = computed<ModeLongueur>(() =>
+    limiteChoisie.value || samplingOverride.value.max_tokens ? "limit" : "auto",
+  );
+  let derniereLimite = 0;
+  watch(
+    () => samplingOverride.value.max_tokens,
+    (v) => {
+      if (typeof v === "number" && v > 0) derniereLimite = v;
+    },
+    { immediate: true },
+  );
+  function choisirModeLongueur(mode: ModeLongueur): void {
+    limiteChoisie.value = mode === "limit";
+    if (mode === "auto") {
+      samplingOverride.value.max_tokens = null;
+      return;
+    }
+    if (samplingOverride.value.max_tokens) return;
+    const reserve = effectiveParamsData.value?.context_window?.output_reserve;
+    const parDefaut = (thinkingEnabled.value ? reserve?.thinking : reserve?.chat) || LONGUEUR_LIMITE_DEFAUT;
+    samplingOverride.value.max_tokens = derniereLimite || parDefaut;
+  }
+
+  /** Fenêtre du modèle choisi, réserve et compaction du mode de réflexion courant ; `null` si la fenêtre est inconnue. */
+  const placeFenetre = computed<PlaceFenetre | null>(() => {
+    const d = effectiveParamsData.value;
+    const f = d && d.model_id === selectedModel.value ? d.context_window : undefined;
+    if (!f || !(f.ctx_size > 0)) return null;
+    const mode = thinkingEnabled.value ? "thinking" : "chat";
+    const usage = ctxUsage.value;
+    return {
+      total: f.ctx_size,
+      utilise: usage && usage.used > 0 ? Math.min(usage.used, f.ctx_size) : 0,
+      reserve: f.output_reserve[mode],
+      marge: f.buffer_tokens,
+      compaction: f.compaction_at?.[mode] ?? 0,
+    };
+  });
+
   return {
     showSamplingPanel,
     samplingOverride,
@@ -422,6 +564,10 @@ export function setupEchantillonnage(
     effectiveParamsLoading,
     ignoredByEngine,
     isIgnoredByEngine,
+    raisonIgnore,
+    modeLongueur,
+    choisirModeLongueur,
+    placeFenetre,
     _cleanSamplingOverride,
     clampThinkingBudget,
     loadEffectiveParams,

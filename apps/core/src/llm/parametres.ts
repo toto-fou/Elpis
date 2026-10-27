@@ -468,6 +468,30 @@ export function sanitizePreserveReasoning(samplingOverride: unknown): boolean | 
   return typeof v === "boolean" ? v : null;
 }
 
+const ECHANTILLONNAGE_COMPTE = ["temperature", "top_p", "top_k", "min_p", "repeat_penalty", "max_tokens"];
+const BORNES_COMPTE: Readonly<Record<string, readonly [number, number]>> = {
+  max_tool_iterations: [1, 500],
+  thinking_budget_tokens: [0, 131072],
+};
+
+/** Surcharge du panneau Génération gardée sur le compte : clés du panneau seulement, valeurs validées et bornées. */
+export function sanitizeStoredOverride(brut: unknown): Dict {
+  if (!estDict(brut)) return {};
+  const ech = sanitizeOverride(brut);
+  const sortie: Dict = {};
+  for (const k of ECHANTILLONNAGE_COMPTE) if (Object.hasOwn(ech, k)) sortie[k] = ech[k];
+  if (typeof sortie["max_tokens"] === "number" && sortie["max_tokens"] <= 0) delete sortie["max_tokens"];
+  for (const [k, [min, max]] of Object.entries(BORNES_COMPTE)) {
+    const v = brut[k];
+    if (typeof v === "number" && Number.isFinite(v)) sortie[k] = Math.min(max, Math.max(min, Math.trunc(v)));
+  }
+  const effort = sanitizeReasoningEffort(brut);
+  if (effort) sortie["reasoning_effort"] = effort;
+  const conserve = sanitizePreserveReasoning(brut);
+  if (conserve !== null) sortie["preserve_reasoning"] = conserve;
+  return sortie;
+}
+
 /** Réflexion des tours d'outils rendue au moteur : profil qui la transmet au gabarit (SGLang) et « Raisonnement conservé » activé explicitement (éteint par défaut). */
 export function reflexionDuTourRendue(profil: ProfilMoteur, samplingOverride: unknown): boolean {
   return profil.capacites.reflexionRenvoyee && sanitizePreserveReasoning(samplingOverride) === true;
@@ -484,6 +508,19 @@ function agentDefaults(): Dict {
 export function effortsDuDialecte(providerType: string | null | undefined): string[] | null {
   const efforts = profilDuType(providerType || "").dialecte.efforts;
   return efforts === null ? null : [...efforts];
+}
+
+const SPECIFIQUES_LLAMACPP = ["top_k", "min_p", "repeat_penalty", "thinking_budget_tokens"];
+
+/** Réglages du panneau que ce moteur n'applique pas : le dialecte étendu (vLLM, SGLang) prend l'échantillonnage étendu mais pas le budget de réflexion, le standard OpenAI aucun des deux. */
+export function reglagesIgnores(providerType: string | null | undefined): Dict {
+  const p = profilDuType(providerType || "");
+  const cles = p.dialecte.natif
+    ? []
+    : p.dialecte.etendu
+      ? ["thinking_budget_tokens"]
+      : [...SPECIFIQUES_LLAMACPP];
+  return { ignored_keys: cles, engine_label: p.libelle };
 }
 
 /** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur. */
@@ -507,6 +544,7 @@ export function describeEffectiveParamsDegraded(
     effective: { ...tache },
     param_sources: Object.fromEntries(Object.keys(tache).map((k) => [k, "task_profile"])),
     agent_defaults: agentDefaults(),
+    ...reglagesIgnores(providerType),
   };
 }
 
@@ -553,6 +591,7 @@ export async function describeEffectiveParams(
     effective: effectif,
     param_sources: sources,
     agent_defaults: agentDefaults(),
+    ...reglagesIgnores(currentEngine().providerType),
   };
 }
 

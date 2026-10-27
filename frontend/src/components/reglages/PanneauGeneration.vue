@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/PanneauGeneration.vue — panneau « Génération » du chat : sections Réponse, Réflexion, Outils et Avancé, valeurs du modèle en indication, réglages modifiés signalés et rétablissables. -->
+<!-- frontend/src/components/reglages/PanneauGeneration.vue — panneau « Génération » du chat : place dans la fenêtre, sections Sortie, Réflexion, Outils et Avancé, valeurs du modèle en indication, réglages modifiés signalés et rétablissables. -->
 <script setup lang="ts">
 import { computed, useId } from "vue";
 
@@ -7,7 +7,7 @@ import { nomLisible } from "../../features/chat/page/menu-modele";
 import { libelleEffort } from "../../features/chat/page/puces";
 import { domaineReglages } from "../../features/reglages/domaine";
 import { clesModifiees, valeurReference } from "../../features/reglages/echantillonnage";
-import type { CleNombre, CleSurcharge } from "../../features/reglages/echantillonnage";
+import type { CleNombre, CleSurcharge, ModeLongueur } from "../../features/reglages/echantillonnage";
 import LigneGeneration from "./LigneGeneration.vue";
 
 interface Champ {
@@ -19,23 +19,17 @@ interface Champ {
   aide?: string;
 }
 
-const REPONSE: readonly Champ[] = [
-  {
-    cle: "temperature",
-    libelle: "Température",
-    min: 0,
-    max: 2,
-    pas: 0.05,
-    aide: "Plus haut : réponses plus variées",
-  },
-  {
-    cle: "max_tokens",
-    libelle: "Longueur max",
-    min: 1,
-    max: 24576,
-    pas: 128,
-    aide: "Limite de la réponse en jetons, plafonnée par la fenêtre de contexte",
-  },
+const TEMPERATURE: Champ = {
+  cle: "temperature",
+  libelle: "Température",
+  min: 0,
+  max: 2,
+  pas: 0.05,
+  aide: "Plus haut : réponses plus variées",
+};
+const LONGUEURS: readonly { mode: ModeLongueur; libelle: string }[] = [
+  { mode: "auto", libelle: "Auto" },
+  { mode: "limit", libelle: "Limiter" },
 ];
 const BUDGET: Champ = {
   cle: "thinking_budget_tokens",
@@ -48,7 +42,7 @@ const BUDGET: Champ = {
 const OUTILS: readonly Champ[] = [
   {
     cle: "max_tool_iterations",
-    libelle: "Tours d'outils max",
+    libelle: "Tours d'outils",
     min: 1,
     max: 500,
     pas: 1,
@@ -71,8 +65,34 @@ const compteur = computed(() => {
   return n === 0 ? "Valeurs du modèle" : n === 1 ? "1 modifié" : `${n} modifiés`;
 });
 const sousTitre = computed(() =>
-  d.value?.model_id ? `Pour ce chat · ${nomLisible(d.value.model_id)}` : "Pour ce chat",
+  d.value?.model_id ? `Vos réglages · ${nomLisible(d.value.model_id)}` : "Vos réglages",
 );
+const noteLongueur = computed(() =>
+  rg.modeLongueur === "auto"
+    ? "Choisie par Elpis selon la fenêtre, réflexion comprise."
+    : "Réflexion comprise. Si la fenêtre manque de place, Elpis réduit la valeur à l'envoi.",
+);
+
+const kilo = (n: number): string =>
+  n >= 1000 ? `${Math.round(n / 1000).toLocaleString("fr-FR")} k` : String(n);
+const pourcent = (n: number, total: number): string =>
+  `${Math.min(100, Math.max(0, (n * 100) / total)).toFixed(2)}%`;
+const jauge = computed(() => {
+  const f = rg.placeFenetre;
+  if (!f) return null;
+  const garde = Math.min(f.total, f.reserve + f.marge);
+  return {
+    rempli: pourcent(f.utilise, f.total),
+    garde: pourcent(f.total - garde, f.total),
+    repere: f.compaction > 0 ? pourcent(f.compaction, f.total) : null,
+    gauche: f.utilise > 0 ? `${kilo(f.utilise)} sur ${kilo(f.total)}` : `Fenêtre de ${kilo(f.total)}`,
+    droite: f.compaction > 0 ? `Compaction à ${kilo(f.compaction)}` : "Compaction coupée",
+    legende: `Hachures : place gardée pour la sortie (${kilo(f.reserve)}) et la marge (${kilo(f.marge)}).`,
+    libelle:
+      `${f.utilise > 0 ? `${kilo(f.utilise)} utilisés sur ${kilo(f.total)}` : `Fenêtre de ${kilo(f.total)}`}` +
+      `${f.compaction > 0 ? ` ; compaction à ${kilo(f.compaction)}` : ""} ; sortie et marge ${kilo(garde)}`,
+  };
+});
 const reflexion = computed(
   () => !!d.value && (!!d.value.supports_thinking || (!!d.value.degraded && !!rg.selectedConnector)),
 );
@@ -94,34 +114,42 @@ function reference(c: Champ): string {
   const v = valeurReference(d.value, c.cle);
   return v === null ? "auto" : nombre(v);
 }
-const ignore = (c: CleNombre): string | undefined =>
-  rg.isIgnoredByEngine(c) ? "Ignoré par ce moteur : réglage propre à llama.cpp" : undefined;
-
-function choisirEffort(v: string | null): void {
-  rg.pickReasoningEffort(v);
-}
+const ignore = (c: CleNombre): string | undefined => rg.raisonIgnore(c) ?? undefined;
 
 // Groupe radio : les flèches déplacent le choix et le focus.
-function surToucheEffort(e: KeyboardEvent): void {
+function naviguerRadio<T>(e: KeyboardEvent, liste: readonly T[], courant: T, choisir: (v: T) => void): void {
   const pas =
     e.key === "ArrowRight" || e.key === "ArrowDown"
       ? 1
       : e.key === "ArrowLeft" || e.key === "ArrowUp"
         ? -1
         : 0;
-  if (!pas) return;
+  if (!pas || !liste.length) return;
   e.preventDefault();
-  const liste = efforts.value;
-  const i = liste.indexOf(rg.samplingOverride.reasoning_effort ?? null);
-  const suivant = liste[(i + pas + liste.length) % liste.length] ?? null;
-  choisirEffort(suivant);
-  const groupe = (e.currentTarget as HTMLElement | null) ?? null;
-  groupe?.querySelectorAll<HTMLElement>('[role="radio"]')[liste.indexOf(suivant)]?.focus();
+  const i = (liste.indexOf(courant) + pas + liste.length) % liste.length;
+  const suivant = liste[i] as T;
+  choisir(suivant);
+  (e.currentTarget as HTMLElement | null)?.querySelectorAll<HTMLElement>('[role="radio"]')[i]?.focus();
 }
+const surToucheEffort = (e: KeyboardEvent): void =>
+  naviguerRadio(e, efforts.value, rg.samplingOverride.reasoning_effort ?? null, (v) =>
+    rg.pickReasoningEffort(v),
+  );
+const surToucheLongueur = (e: KeyboardEvent): void =>
+  naviguerRadio(
+    e,
+    LONGUEURS.map((l) => l.mode),
+    rg.modeLongueur,
+    (m) => rg.choisirModeLongueur(m),
+  );
 
 const CHAMP =
-  "w-16 h-7 px-1.5 rounded-md border border-slate-200 bg-white text-xs text-right text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 disabled:cursor-not-allowed";
+  "w-16 h-7 px-1.5 rounded-md border border-slate-200 bg-white text-xs text-right text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
 const SECTION = "pt-3 pb-1 text-xs font-semibold text-slate-500";
+const SEGMENTS = "flex gap-0.5 p-0.5 rounded-lg bg-slate-100";
+const SEGMENT = "flex-1 px-1.5 h-6 rounded-md text-xs font-medium transition-colors";
+const SEGMENT_ACTIF = "bg-white text-slate-800 shadow-sm";
+const SEGMENT_INACTIF = "text-slate-600 hover:text-slate-800";
 </script>
 
 <template>
@@ -177,29 +205,98 @@ const SECTION = "pt-3 pb-1 text-xs font-semibold text-slate-500";
       </div>
 
       <template v-else-if="d">
-        <section :aria-labelledby="`${id}-reponse`">
-          <h4 :id="`${id}-reponse`" :class="SECTION">Réponse</h4>
+        <section v-if="jauge" :aria-labelledby="`${id}-contexte`" class="pt-3" data-place-fenetre>
+          <div class="flex items-baseline justify-between">
+            <h4 :id="`${id}-contexte`" class="pb-2 text-xs font-semibold text-slate-500">Contexte</h4>
+            <button
+              type="button"
+              class="text-xs font-medium text-blue-600 hover:text-blue-700 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              title="Seuil de compaction, dans les Paramètres"
+              @click="rg.openSettingsTab('compaction')"
+            >
+              Régler
+            </button>
+          </div>
+          <div
+            role="img"
+            :aria-label="jauge.libelle"
+            class="relative h-2 rounded bg-slate-200 overflow-hidden"
+          >
+            <div class="absolute inset-y-0 left-0 bg-blue-600" :style="{ width: jauge.rempli }"></div>
+            <div class="absolute inset-y-0 right-0 jauge-hachures" :style="{ left: jauge.garde }"></div>
+          </div>
+          <div class="relative h-2.5" aria-hidden="true">
+            <div
+              v-if="jauge.repere"
+              class="absolute -top-3 w-0.5 h-3.5 -ml-px rounded-sm bg-slate-700"
+              :style="{ left: jauge.repere }"
+            ></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-700">
+            <span>{{ jauge.gauche }}</span>
+            <span>{{ jauge.droite }}</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">{{ jauge.legende }}</p>
+        </section>
+
+        <section :aria-labelledby="`${id}-sortie`">
+          <h4 :id="`${id}-sortie`" :class="SECTION">Sortie</h4>
           <LigneGeneration
-            v-for="c in REPONSE"
-            :key="c.cle"
-            :libelle="c.libelle"
-            :identifiant="c.cle"
-            :pour="`${id}-${c.cle}`"
-            :modifie="modifiees.has(c.cle)"
-            :reference="reference(c)"
-            :aide="c.aide"
-            @retablir="rg.retablirCle(c.cle)"
+            :libelle="TEMPERATURE.libelle"
+            :identifiant="TEMPERATURE.cle"
+            :pour="`${id}-${TEMPERATURE.cle}`"
+            :modifie="modifiees.has(TEMPERATURE.cle)"
+            :reference="reference(TEMPERATURE)"
+            :aide="TEMPERATURE.aide"
+            @retablir="rg.retablirCle(TEMPERATURE.cle)"
           >
             <input
-              :id="`${id}-${c.cle}`"
-              v-model.number="rg.samplingOverride[c.cle]"
+              :id="`${id}-${TEMPERATURE.cle}`"
+              v-model.number="rg.samplingOverride.temperature"
               type="number"
-              :min="c.min"
-              :max="c.max"
-              :step="c.pas"
-              :placeholder="reference(c)"
+              :min="TEMPERATURE.min"
+              :max="TEMPERATURE.max"
+              :step="TEMPERATURE.pas"
+              :placeholder="reference(TEMPERATURE)"
               :class="CHAMP"
             />
+          </LigneGeneration>
+          <LigneGeneration
+            libelle="Longueur"
+            identifiant="max_tokens"
+            :modifie="modifiees.has('max_tokens')"
+            reference="Auto"
+            dessous
+            :note="noteLongueur"
+            @retablir="rg.choisirModeLongueur('auto')"
+          >
+            <span role="radiogroup" aria-label="Longueur" :class="SEGMENTS" @keydown="surToucheLongueur">
+              <button
+                v-for="l in LONGUEURS"
+                :key="l.mode"
+                type="button"
+                role="radio"
+                :aria-checked="rg.modeLongueur === l.mode ? 'true' : 'false'"
+                :tabindex="rg.modeLongueur === l.mode ? 0 : -1"
+                :class="[SEGMENT, rg.modeLongueur === l.mode ? SEGMENT_ACTIF : SEGMENT_INACTIF]"
+                @click="rg.choisirModeLongueur(l.mode)"
+              >
+                {{ l.libelle }}
+              </button>
+            </span>
+            <span v-if="rg.modeLongueur === 'limit'" class="flex items-center gap-1.5">
+              <label :for="`${id}-max_tokens`" class="text-xs text-slate-700">Au plus</label>
+              <input
+                :id="`${id}-max_tokens`"
+                v-model.number="rg.samplingOverride.max_tokens"
+                type="number"
+                min="1"
+                :max="rg.placeFenetre?.total || undefined"
+                step="256"
+                :class="[CHAMP, 'w-24']"
+              />
+              <span class="text-xs text-slate-500">jetons</span>
+            </span>
           </LigneGeneration>
         </section>
 
@@ -229,7 +326,7 @@ const SECTION = "pt-3 pb-1 text-xs font-semibold text-slate-500";
             <span
               role="radiogroup"
               aria-label="Effort"
-              class="flex-1 flex flex-wrap gap-0.5 p-0.5 rounded-lg bg-slate-100"
+              :class="[SEGMENTS, 'flex-wrap']"
               @keydown="surToucheEffort"
             >
               <button
@@ -240,13 +337,11 @@ const SECTION = "pt-3 pb-1 text-xs font-semibold text-slate-500";
                 :aria-checked="(rg.samplingOverride.reasoning_effort ?? null) === v ? 'true' : 'false'"
                 :tabindex="(rg.samplingOverride.reasoning_effort ?? null) === v ? 0 : -1"
                 :title="v ?? undefined"
-                class="flex-1 px-1.5 h-6 rounded-md text-xs font-medium transition-colors"
-                :class="
-                  (rg.samplingOverride.reasoning_effort ?? null) === v
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-800'
-                "
-                @click="choisirEffort(v)"
+                :class="[
+                  SEGMENT,
+                  (rg.samplingOverride.reasoning_effort ?? null) === v ? SEGMENT_ACTIF : SEGMENT_INACTIF,
+                ]"
+                @click="rg.pickReasoningEffort(v)"
               >
                 {{ v ? libelleEffort(v) : "Auto" }}
               </button>

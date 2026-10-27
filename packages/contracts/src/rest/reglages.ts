@@ -76,6 +76,8 @@ const reglagesEcrivables = {
   footer_metrics: z.enum(["full", "essential", "hidden"]),
   /** Densité du fil : confortable (défaut), compacte. */
   thread_density: z.enum(["comfortable", "compact"]),
+  /** Réglages du panneau Génération (échantillonnage, longueur, réflexion, tours d'outils), communs à tous les chats du compte. */
+  sampling_override: dictionnaire,
 };
 
 /** Corps du PUT : clés connues de la liste blanche, toutes facultatives ; le serveur ignore les autres. */

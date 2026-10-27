@@ -186,3 +186,31 @@ export function compactionGate(
 export function gateTokens(gate: CompactionGate): number {
   return gate.triggerTokens;
 }
+
+export interface ResumeFenetre {
+  ctx_size: number;
+  buffer_tokens: number;
+  output_reserve: { chat: number; thinking: number };
+  /** Point de compaction automatique par mode ; `null` si elle est coupée pour le compte. */
+  compaction_at: { chat: number; thinking: number } | null;
+}
+
+/** Fenêtre vue par le panneau Génération : réserve de sortie, marge et point de compaction, avec et sans réflexion. */
+export function resumeFenetre(
+  ctxSize: number,
+  threshold: CompactionThreshold,
+  compactionOn: boolean,
+): ResumeFenetre {
+  const ctx = maxPy(0, intPy(ctxSize || 0));
+  const point = (thinkingMode: boolean): number =>
+    compactionGate(ctx, { thinkingMode, threshold }).triggerTokens;
+  return {
+    ctx_size: ctx,
+    buffer_tokens: ctx > 0 ? bufferTokens(ctx) : 0,
+    output_reserve: {
+      chat: ctx > 0 ? effectiveGenerationCap(false, ctx) : 0,
+      thinking: ctx > 0 ? effectiveGenerationCap(true, ctx) : 0,
+    },
+    compaction_at: compactionOn && ctx > 0 ? { chat: point(false), thinking: point(true) } : null,
+  };
+}

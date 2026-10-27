@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/llm.ts — `/api/llm` : connecteurs du compte, modèles et propriétés, santé, chargement, infill sous l'ordonnanceur, file (shared_infra/llm/routes*.py). */
 
-import { ligneUtilisateur, revaliderFlux } from "@elpis/auth";
+import { getUserSettings, ligneUtilisateur, revaliderFlux } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import {
   arrondiPy,
   ErreurPython,
   estDict,
   FlottantPy,
+  getOu,
   getPy,
   intPy,
   HttpError,
@@ -20,11 +21,13 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { readConfigJson } from "@elpis/config";
+import { config, readConfigJson } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { auditEvent } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { resolveThreshold, resumeFenetre } from "../contexte/porte-compaction";
+import type { ResumeFenetre } from "../contexte/porte-compaction";
 import { ABANDON, DELAI, FileAttente } from "../evenements/file";
 import type { Journal } from "../journal";
 import {
@@ -64,7 +67,7 @@ import { engineCaps } from "../llm/fournisseurs/llama-capacites";
 import { invalidateStatuses, modelStatuses, watchLoad } from "../llm/fournisseurs/llama-modeles";
 import { llmInfill } from "../llm/infill";
 import { getAdminClient, llamaBaseUrl, llamaGet } from "../llm/llama-http";
-import { autoloadSuffix } from "../llm/modeles";
+import { autoloadSuffix, getModelContextSize } from "../llm/modeles";
 import { builtinEngine, resolveEngineForUser, useEngine } from "../llm/moteurs";
 import type { EngineRef } from "../llm/moteurs";
 import { LLMCircuitOpen, LLMQueueAborted } from "../llm/ordonnanceur";
@@ -669,14 +672,38 @@ async function parametresEffectifs(
       throw new HttpError(500, `Erreur résolution params : ${e instanceof Error ? e.message : String(e)}`);
     }
   };
-  if (!eng.isBuiltin) {
-    if (degrade || !eng.profil.capacites.props)
-      return avecReflexionRenvoyee(eng, describeEffectiveParamsDegraded(modelId, task, eng.providerType));
-    return resoudre(eng);
+  const moteur = eng.isBuiltin ? null : eng;
+  const sansReseau = degrade || (eng.isBuiltin ? !estModeleLocal(modelId) : !eng.profil.capacites.props);
+  const vue = sansReseau
+    ? await avecReflexionRenvoyee(eng, describeEffectiveParamsDegraded(modelId, task, eng.providerType))
+    : eng.isBuiltin
+      ? await avecReflexionRenvoyee(eng, await resoudre(null))
+      : await resoudre(eng);
+  // Un modèle local non chargé n'est pas sondé (lire sa fenêtre le chargerait) ; `/v1/models` se lit sans risque.
+  const sonder = !sansReseau || eng.profil.capacites.contexte === "modeles";
+  return { ...vue, context_window: await fenetreDuCompte(dep, uid, moteur, sonder ? modelId : null) };
+}
+
+/** Réserve, marge et point de compaction de ce compte pour la fenêtre du modèle (0 si inconnue). */
+async function fenetreDuCompte(
+  dep: DependancesLlm,
+  uid: number,
+  moteur: EngineRef | null,
+  modelId: string | null,
+): Promise<ResumeFenetre> {
+  let ctx = 0;
+  if (modelId) {
+    try {
+      ctx = await useEngine(moteur, () => getModelContextSize(modelId));
+    } catch {
+      ctx = 0;
+    }
   }
-  if (degrade || !estModeleLocal(modelId))
-    return avecReflexionRenvoyee(eng, describeEffectiveParamsDegraded(modelId, task, eng.providerType));
-  return avecReflexionRenvoyee(eng, await resoudre(null));
+  const lus = await getUserSettings(dep.base, uid);
+  const settings: Dict = estDict(lus) ? lus : {};
+  const actif =
+    Boolean(config.COMPRESSION_ENABLED) && veritePy(getOu(settings, "compression_enabled", false));
+  return resumeFenetre(ctx, resolveThreshold(settings), actif);
 }
 
 /** Moteur qui rend la réflexion des tours d'outils (SGLang) : « Raisonnement conservé » offert si un parseur de réflexion la sépare, éteint par défaut. */

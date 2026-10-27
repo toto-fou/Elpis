@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/LigneGeneration.vue — ligne du panneau Génération : libellé français et identifiant, point et « Revenir à… » si la valeur est modifiée, grisée si le moteur l'ignore. -->
+<!-- frontend/src/components/reglages/LigneGeneration.vue — ligne du panneau Génération : libellé français et identifiant, point et « Revenir à… » si la valeur est modifiée, raison affichée si le moteur l'ignore, note sous le réglage. -->
 <script setup lang="ts">
 defineProps<{
   libelle: string;
@@ -10,6 +10,7 @@ defineProps<{
   ignore?: string;
   aide?: string;
   dessous?: boolean;
+  note?: string;
 }>();
 defineEmits<{ retablir: [] }>();
 </script>
@@ -17,8 +18,7 @@ defineEmits<{ retablir: [] }>();
 <template>
   <div
     class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-1.5 border-b border-slate-100"
-    :class="ignore ? 'opacity-50' : ''"
-    :title="ignore || aide || undefined"
+    :title="aide || undefined"
     :data-reglage="identifiant || libelle"
     :data-modifie="modifie ? '' : undefined"
   >
@@ -28,8 +28,14 @@ defineEmits<{ retablir: [] }>();
         class="absolute left-0 top-[7px] w-1.5 h-1.5 rounded-full bg-blue-600"
         aria-hidden="true"
       ></span>
-      <span class="text-[13px] text-slate-800 truncate">{{ libelle }}</span>
-      <span v-if="identifiant" class="font-mono text-xs text-slate-500 truncate">{{ identifiant }}</span>
+      <span class="text-[13px] truncate" :class="ignore ? 'text-slate-500' : 'text-slate-800'">{{
+        libelle
+      }}</span>
+      <span v-if="ignore" class="flex items-center gap-1 text-xs text-slate-500" data-ignore>
+        <i class="ph ph-info shrink-0" aria-hidden="true"></i>
+        <span class="truncate">{{ ignore }}</span>
+      </span>
+      <span v-else-if="identifiant" class="font-mono text-xs text-slate-500 truncate">{{ identifiant }}</span>
     </label>
     <span class="flex items-center justify-end gap-1.5">
       <button
@@ -45,6 +51,7 @@ defineEmits<{ retablir: [] }>();
       </button>
       <slot v-if="!dessous"></slot>
     </span>
-    <span v-if="dessous" class="col-span-2 flex mt-1"><slot></slot></span>
+    <span v-if="dessous" class="col-span-2 flex flex-col gap-2 mt-1"><slot></slot></span>
+    <p v-if="note" class="col-span-2 mt-1 text-xs text-slate-500">{{ note }}</p>
   </div>
 </template>

@@ -2118,6 +2118,11 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
  *  skins (ex. llamacpp monochrome) continuent de les remapper.
  * ================================================================ */
 
+/* Hachures de jauge : place réservée (sortie et marge) dans la fenêtre du modèle. */
+.jauge-hachures {
+    background: repeating-linear-gradient(135deg, var(--surface-5) 0 3px, var(--surface-4) 3px 6px);
+}
+
 /* Interrupteur (toggle) — la piste + la pastille en une classe. Le markup
    garde ``peer-checked:bg-blue-600 peer-checked:border-blue-600`` (accent,
    skin/dark déjà câblés) ; .set-switch-track ne porte QUE le neutre. */

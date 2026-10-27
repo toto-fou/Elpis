@@ -1384,6 +1384,24 @@ sequenceDiagram
   continue comme un job). Un détachement du client (onglet fermé) n'est pas un
   abandon : le run se détache et son signal n'est pas touché. Valable pour le
   tour principal : un Stop arrête la commande au premier plan.
+- **Publication (`git_submit`)** : seul outil git qui sorte de la machine
+  (`OUTILS_PUBLICATION` de `packages/securite/src/sous-agent.ts` : poussée de la
+  branche et pull request ; `git_action` ne pousse pas, `git_clone` et `fetch` ne
+  font que lire). Il est refusé à **tout** sous-agent (`submit_not_allowed`, JSON avec
+  `fix`) sauf si l'appel `task` porte `allow_submit: true`, que l'agent principal ne
+  pose que si l'utilisateur a demandé la publication dans ce tour (sinon il lui
+  demande d'abord, `ask_user`). Même règle des deux côtés : `refusSousAgent`, dans la
+  garde centrale de l'hôte d'outils (`_meta.subagent.allow_submit`), et
+  `refusPublicationSousAgent` dans `runToolBatch` du core, pour les seuls outils du
+  serveur local, donc aussi pour un fork (dont la liste d'outils est celle du parent)
+  et pour un agent du compte. L'outil reste dans le manifeste de l'enfant, que
+  `allow_submit` ne fait pas varier (cache de préfixe) ; le refus explique quoi faire.
+  L'autorisation vaut pour l'appel : une reprise par `task_id` ne la reprend pas.
+  `<task_meta>` porte `allow_submit: true` et le détail de la carte écrit « Publication
+  autorisée ». La persona `pr` prépare alors la branche et le commit, puis rend
+  `Status: blocked` avec l'appel `git_submit` à lancer. Le shell n'est pas couvert
+  (voir `writable_paths`) : un agent du compte qui a le terminal pousse comme le
+  profil réseau du bac le permet.
 - **Échéances d'un enfant** : fixées au début du gestionnaire de `task`, en
   temps absolu (prélude, vérification du navigateur de `web`, attente de slot
   comprises), pour un `max_seconds` borné par `TASK_CHILD_TIMEOUT_S` (`D`).
@@ -1607,10 +1625,10 @@ sequenceDiagram
     s'exécuter (`runToolBatch`, `refusHorsPerimetre`) : `not_available_here`,
     `read_only_subagent` ou `not_available_for_subagent` (codes de l'hôte
     d'outils), la liste des outils permis dans `fix`. `subagent: {type,
-    read_only, writable_paths, id, browser_session}` reste porté au `_meta` des appels locaux :
-    l'hôte d'outils applique donc toujours la lecture seule, les chemins
-    écrivables, les profils par type et les limites du shell, sans dépendre du
-    filtrage du manifeste. Les catégories du type, elles, ne sont connues que du
+    read_only, writable_paths, id, browser_session, deadline_ms, allow_submit}` reste porté au
+    `_meta` des appels locaux : l'hôte d'outils applique donc toujours la lecture seule, les
+    chemins écrivables, les profils par type, la publication et les limites du shell, sans
+    dépendre du filtrage du manifeste. Les catégories du type, elles, ne sont connues que du
     core. Les serveurs MCP tiers du compte ne passent pas par l'hôte d'outils
     (pas de `_meta`) : le refus du core est leur seule barrière, il les couvre
     (un tiers n'est permis que si son `id` est dans `mcpServerIds` du type).
@@ -2876,7 +2894,9 @@ que par commande : interrogation (`git_query`, `git_inspect`), écriture
 (`git_write`, `git_rf`), flux de travail (`git_start_work` → `git_commit` →
 `git_submit` / `git_abandon`), et `git_clone` / `git_set_credential`.
 
-`git_submit` ouvre la PR/MR via le provider résolu depuis le connecteur Git.
+`git_submit` ouvre la PR/MR via le provider résolu depuis le connecteur Git. Un
+sous-agent ne l'appelle que si l'appel `task` porte `allow_submit: true`
+(voir « Sous-agents »).
 Timeout des commandes locales : `APP_GIT_TOOL_TIMEOUT_S` (60 s) ; les commandes
 réseau ont leur propre budget (120 s).
 

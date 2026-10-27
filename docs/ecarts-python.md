@@ -638,10 +638,10 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   `git_submit`, `git_start_work` et `git_abandon`, mais ne tient pas face au shell : `git commit` y reste possible
   et seule la consigne l'interdit. Le bac à sable du compte reste la vraie frontière de sécurité ; ni shell borné ni
   hook git ne sont posés.
-- **Défense en profondeur** : le core porte `subagent: {type, read_only, writable_paths, id, browser_session}` dans le `_meta` des appels
+- **Défense en profondeur** : le core porte `subagent: {type, read_only, writable_paths, id, browser_session, deadline_ms, allow_submit}` dans le `_meta` des appels
   locaux (champ facultatif de l'enveloppe d'identité, absent pour un tour de premier niveau : forme signée
   inchangée) ; l'hôte d'outils refuse ce qui sort du périmètre (`read_only_subagent`, `not_available_for_subagent`,
-  `not_available_here`, `path_not_writable`) avant d'exécuter l'outil, puis vérifie `writable_paths` sur le chemin
+  `not_available_here`, `path_not_writable`, `submit_not_allowed`) avant d'exécuter l'outil, puis vérifie `writable_paths` sur le chemin
   résolu par l'agent du bac (liens internes suivis, ancien rangement `git_repos/` de `git_write`).
 - **Mode fork** (propre au TS) : paramètre `context` (`fresh` par défaut, `fork`) et note 7 de la description
   publiée. Le fork reprend les messages du dernier appel du parent et son catalogue d'outils (mêmes définitions,
@@ -654,8 +654,10 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   `manage_files` et `git_write` ; le shell n'est pas borné, le bloc le dit : `writable_paths_scope:
   "file_tools_only"`), `output_schema` (champs exigés dans le rapport ; manquants : `status: partial`),
   `browser_session` (`isolated` par défaut : session de navigateur propre à l'enfant, fermée par le harnais ; `user` :
-  celle du compte, voir [architecture](architecture.md#sous-agents-outil-task)). Définition
-  publiée : note 5 (parallélisme) remplacée, note 6 (bloc du harnais) ajoutée ; déclaré dans
+  celle du compte, voir [architecture](architecture.md#sous-agents-outil-task)), `allow_submit` (autorise
+  `git_submit` pour cet appel ; sans lui la publication est refusée à tout sous-agent, `submit_not_allowed`, le
+  Python n'avait rien de tel). Définition publiée : note 5 (parallélisme, écrivains sérialisés) remplacée, note 6
+  (bloc du harnais) ajoutée, note 8 (publication) ; déclaré dans
   `apps/core/test/outils/integres/ecart-tache.ts`.
 - **Bloc du harnais** (`schemaBilanTache`) : `<task_meta>{…}</task_meta>` avant `<task_result>`, ou champ `harness`
   des enveloppes d'erreur ; aussi à l'étape finale `task_step` et dans `task_runs[]` du message. Le JSON du bloc

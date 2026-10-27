@@ -102,6 +102,8 @@ export const schemaBilanTache = z.strictObject({
   context: z.enum(["fork", "fresh"]).optional(),
   /** Session du navigateur d'un agent qui a des outils `pw_*` : la sienne (`isolated`, fermée à la fin du run) ou celle de l'utilisateur (`user`) ; absent sur les anciens runs et pour un agent sans navigateur. */
   browser_session: z.enum(["isolated", "user"]).optional(),
+  /** L'appel `task` a autorisé `git_submit` (publication hors de la machine) pour ce lancement ; absent : refusée. */
+  allow_submit: z.literal(true).optional(),
   writable_paths: z.array(z.string()).optional(),
   /** Seuls write_file, edit_file, manage_files et git_write sont bornés ; le shell ne l'est pas. */
   writable_paths_scope: z.literal("file_tools_only").optional(),

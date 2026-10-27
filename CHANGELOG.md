@@ -223,6 +223,19 @@ selon [SemVer](https://semver.org/lang/fr/).
   de la description de `task` le dit (une seule invalidation du cache du parent à
   la mise à jour).
 
+- **Sous-agents : `git_submit` demande l'accord de l'utilisateur.** Un sous-agent
+  `pr` (ou un agent du compte qui a Git) pouvait pousser une branche et ouvrir une
+  pull request, visibles hors de la machine, sans que l'utilisateur l'ait demandé.
+  `git_submit`, seul outil git qui publie, est refusé à tout sous-agent
+  (`submit_not_allowed`, avec `fix`) sauf si l'appel `task` porte
+  `allow_submit: true`, que l'assistant ne pose que si la publication a été
+  demandée dans le tour (sinon il le demande d'abord). Même règle dans le core
+  et dans l'hôte d'outils (`_meta.subagent.allow_submit`), donc aussi en fork ;
+  `<task_meta>` et la carte le montrent, la reprise par `task_id` ne le reprend
+  pas. La persona `pr` prépare alors la branche et le commit et rend
+  `Status: blocked` avec l'appel à lancer. Description de `task` : paramètre et
+  note 8 (une seule invalidation du cache du parent à la mise à jour).
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

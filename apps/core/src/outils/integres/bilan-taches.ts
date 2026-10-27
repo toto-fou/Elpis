@@ -62,6 +62,8 @@ export interface Bilan {
   context?: "fork" | "fresh";
   /** Session du navigateur de l'agent ; posée seulement pour un agent qui a des outils `pw_*`. */
   browser_session?: SessionNavigateur;
+  /** Posé quand l'appel a autorisé `git_submit` (publication hors de la machine). */
+  allow_submit?: true;
   writable_paths?: string[];
   writable_paths_scope?: "file_tools_only";
   remaining_work?: string;
@@ -78,6 +80,8 @@ export interface ArgsTache {
   readOnly: boolean;
   /** `null` : non demandée (isolée, ou celle de l'enregistrement repris). */
   browserSession: SessionNavigateur | null;
+  /** `git_submit` autorisé pour ce lancement seulement (jamais repris d'un enregistrement). */
+  allowSubmit: boolean;
   maxIterations: number | null;
   maxSeconds: number | null;
   writablePaths: string[] | null;
@@ -110,6 +114,9 @@ export function lireArgsTache(
       erreur: 'browser_session must be "isolated" or "user"',
       fix: 'pass browser_session="isolated" (the default), "user" or omit it',
     };
+  const as = args["allow_submit"];
+  if (as !== undefined && as !== null && typeof as !== "boolean")
+    return { erreur: "allow_submit must be a boolean", fix: "pass allow_submit=true or omit it" };
   const it = entierPositif(args["max_iterations"]);
   if (Number.isNaN(it))
     return { erreur: "max_iterations must be a positive integer", fix: `pass 1..${o.maxIters} or omit it` };
@@ -153,6 +160,7 @@ export function lireArgsTache(
     contexte: contexte === "fork" ? "fork" : "fresh",
     readOnly: ro === true,
     browserSession: bs === undefined || bs === null ? null : (bs as SessionNavigateur),
+    allowSubmit: as === true,
     maxIterations: it === null ? null : Math.min(it, o.maxIters),
     maxSeconds: sec === null ? null : Math.min(sec, o.maxSecondsCap),
     writablePaths: chemins,

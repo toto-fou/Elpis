@@ -128,6 +128,7 @@ export function detailsTache(b: BilanTache): boolean {
     b.git.commits.length ||
     b.git.pr_url ||
     b.read_only ||
+    b.allow_submit ||
     b.browser_session === "user" ||
     b.writable_paths?.length ||
     b.remaining_work ||

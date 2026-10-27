@@ -26,7 +26,12 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { ConfigMcp } from "@elpis/mcp";
-import { REFUS_TACHE_SOUS_AGENT, refusSousAgent, sousAgentEnDict } from "@elpis/securite";
+import {
+  REFUS_TACHE_SOUS_AGENT,
+  refusPublicationSousAgent,
+  refusSousAgent,
+  sousAgentEnDict,
+} from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
@@ -1099,6 +1104,13 @@ export async function runToolBatch(
         );
       const hors = refusHorsPerimetre(ctx, nom);
       if (hors !== null) return Promise.resolve(hors);
+      const publication = isLocalTool(ctx.c.toolCfgMap, nom)
+        ? refusPublicationSousAgent(ctx.c.subagent, nom)
+        : null;
+      if (publication !== null)
+        return Promise.resolve(
+          pyJsonDumps(err(publication.code, publication.message, { fix: publication.fix })),
+        );
       return executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, {
         ...r,
         ...(nom === "task" ? { parent: lecteurParent } : {}),

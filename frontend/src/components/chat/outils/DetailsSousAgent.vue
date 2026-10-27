@@ -77,12 +77,19 @@ const reprise = computed(
       </dd>
     </template>
     <template
-      v-if="props.bilan.read_only || (props.bilan.writable_paths && props.bilan.writable_paths.length)"
+      v-if="
+        props.bilan.read_only ||
+        props.bilan.allow_submit ||
+        (props.bilan.writable_paths && props.bilan.writable_paths.length)
+      "
     >
       <dt>Droits</dt>
       <dd>
         <div v-if="props.bilan.read_only" data-task-bilan-ro>
           {{ lectureSeule }}
+        </div>
+        <div v-if="props.bilan.allow_submit" data-task-bilan-publication>
+          Publication autorisée : la branche peut être poussée et la demande de fusion ouverte
         </div>
         <div v-if="props.bilan.writable_paths && props.bilan.writable_paths.length">
           Écriture limitée à

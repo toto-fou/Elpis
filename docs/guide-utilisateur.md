@@ -490,6 +490,14 @@ connectée (`browser_session: "user"`) que si la mission exige votre compte et q
 vous l'avez demandé : la carte indique alors « votre session web », et l'agent ne
 peut pas la fermer.
 
+**Publier une branche.** `git_submit` (pousser la branche et ouvrir la demande de
+fusion) est visible hors de votre machine : aucun agent ne peut l'appeler sans que
+l'assistant l'ait autorisé pour cette mission, et il ne le fait que si vous avez
+demandé la publication dans ce tour, sinon il vous pose d'abord la question. Sans
+cette autorisation, l'agent `pr` prépare la branche et le commit, puis rend la main
+avec l'appel à lancer. La carte indique « Publication autorisée » dans les droits
+quand c'était le cas.
+
 **Plusieurs agents à la fois.** Quand l'assistant lance plusieurs agents dans le
 même message, ceux qui ne font que lire (`explore`, `web`, ou toute mission en
 lecture seule) partent ensemble. Deux agents qui **écrivent** dans les mêmes

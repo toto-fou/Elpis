@@ -593,7 +593,11 @@ export function buildDefinition(
     "sub-mission that leans on much of the conversation; fresh for a self-contained job or an independent opinion. A " +
     "fork only has the tools of its agent type that this conversation also has: it is refused when this conversation " +
     "is already large or when those tools cannot do the job (verify without a shell, explore without file tools); " +
-    "use fresh then. A resumed agent keeps its own mode.";
+    "use fresh then. A resumed agent keeps its own mode.\n" +
+    "8. git_submit (push and pull request, visible outside the machine) is refused to every agent unless the call " +
+    "passes allow_submit=true. Pass it only if the user asked for the publication in this turn, otherwise ask the " +
+    "user first (ask_user). A refused agent prepares the branch and the commit and reports blocked with the " +
+    "command to run.";
   return {
     type: "function",
     function: {
@@ -643,6 +647,13 @@ export const PARAMETRES_TS: Readonly<Dict> = {
       'Browser session of the agent\'s pw_* tools. "isolated" (default): its own private session, with an empty ' +
       "profile (none of the user's cookies or logins), closed when the agent ends. \"user\": the user's own signed-in " +
       'session, shared with the user. Use "user" ONLY when the mission needs the user\'s account AND the user asked for it.',
+  },
+  allow_submit: {
+    type: "boolean",
+    description:
+      "Let the agent run git_submit (push the branch and open a pull request, visible outside the machine). Pass " +
+      "true ONLY if the user asked for the publication in this turn; otherwise ask the user first (ask_user). " +
+      "Applies to this run only.",
   },
   max_iterations: {
     type: "integer",
@@ -1037,6 +1048,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       read_only: ro.read_only,
       writable_paths: ro.read_only ? null : cheminsDeLAppel(lus, resumed),
       browser_session: sessionNavigateur,
+      ...(lus.allowSubmit ? { allow_submit: true } : {}),
     };
     /** L'agent a des outils `pw_*` : catégorie `browser` de son type (un fork : ceux de son périmètre, posé plus bas). */
     let aNavigateur = s.filterCategories === null || s.filterCategories.includes("browser");
@@ -1072,6 +1084,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       thinking: reflexion,
       context: modeFork ? "fork" : "fresh",
       ...(aNavigateur ? { browser_session: sessionNavigateur } : {}),
+      ...(sa.allow_submit ? { allow_submit: true as const } : {}),
       ...(sa.writable_paths !== null
         ? {
             writable_paths: sa.writable_paths.map(toContainer),

@@ -18,6 +18,8 @@ export interface SousAgent {
   readonly browser_session?: SessionNavigateur;
   /** Échéance souple (epoch ms, horloge du core) : une commande du shell ne court pas au-delà ; absente, aucune borne. */
   readonly deadline_ms?: number;
+  /** L'appel `task` autorise la publication hors de la machine (`git_submit`) ; absent ou faux : refusée. */
+  readonly allow_submit?: boolean;
 }
 
 export const TYPES_AGENTS_LIVRES = ["explore", "implement", "verify", "web", "pr"] as const;
@@ -50,6 +52,9 @@ export const OUTILS_RETIRES_PAR_TYPE: Readonly<Record<string, ReadonlySet<string
   verify: new Set([...ECRITURE_FICHIERS, ...ECRITURE_GIT]),
   implement: new Set(["git_commit", "git_submit", "git_start_work", "git_abandon"]),
 };
+
+/** Outils qui publient hors de la machine (poussée de la branche et pull request) : refusés à un sous-agent que l'appel `task` n'a pas autorisé. */
+export const OUTILS_PUBLICATION: ReadonlySet<string> = new Set(["git_submit"]);
 
 export const SHELL_SOUS_AGENT_DELAI_DEFAUT_S = 120;
 export const SHELL_SOUS_AGENT_DELAI_MAX_S = 300;
@@ -89,6 +94,24 @@ export const REFUS_FOND_SOUS_AGENT: RefusSousAgent = {
   fix: FIX_SOUS_AGENT,
 };
 
+/** `git_submit` d'un sous-agent que l'appel `task` n'a pas autorisé (`allow_submit`) : la publication reste à l'utilisateur. */
+export const REFUS_PUBLICATION_SOUS_AGENT: RefusSousAgent = {
+  code: "submit_not_allowed",
+  message:
+    "git_submit is not available to this sub-agent: it publishes outside the machine and the parent did not allow it for this run",
+  fix:
+    "Stop after the commit: return Status: blocked with the exact git_submit call (repo, title, body) " +
+    "for the parent to run or to confirm with the user.",
+};
+
+/** Refus de la publication par un sous-agent non autorisé, `null` sinon (hors sous-agent, outil sans publication, `allow_submit`). */
+export function refusPublicationSousAgent(
+  sa: SousAgent | null | undefined,
+  nom: string,
+): RefusSousAgent | null {
+  return sa && OUTILS_PUBLICATION.has(nom) && sa.allow_submit !== true ? REFUS_PUBLICATION_SOUS_AGENT : null;
+}
+
 /** `background` d'`execute_shell` demandé (forme stricte ou souple de Pydantic). */
 function fondDemande(v: unknown): boolean {
   return v === true || v === 1 || (typeof v === "string" && /^\s*(?:1|t|true|y|yes|on)\s*$/iu.test(v));
@@ -122,6 +145,7 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
   }
   const id = typeof d["id"] === "string" && ID_ENFANT.test(d["id"]) ? { id: d["id"] } : {};
   const session: SessionNavigateur = d["browser_session"] === "user" ? "user" : "isolated";
+  const autorise = d["allow_submit"] === true ? { allow_submit: true } : {};
   const fin = d["deadline_ms"];
   const echeance =
     typeof fin === "number" && Number.isFinite(fin) && fin > 0 ? { deadline_ms: Math.trunc(fin) } : {};
@@ -132,6 +156,7 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
     ...id,
     browser_session: session,
     ...echeance,
+    ...autorise,
   };
 }
 
@@ -144,6 +169,7 @@ export function sousAgentEnDict(sa: SousAgent): Record<string, unknown> {
     ...(sa.id === undefined ? {} : { id: sa.id }),
     ...(sa.browser_session === undefined ? {} : { browser_session: sa.browser_session }),
     ...(sa.deadline_ms === undefined ? {} : { deadline_ms: sa.deadline_ms }),
+    ...(sa.allow_submit === true ? { allow_submit: true } : {}),
   };
 }
 
@@ -217,6 +243,8 @@ export function refusSousAgent(
       fix: "Leave this step to the parent: list it under 'Left open' in your report.",
     };
   }
+  const publication = refusPublicationSousAgent(sa, nom);
+  if (publication !== null) return publication;
   if (nom === "execute_shell" && fondDemande(args["background"])) return REFUS_FOND_SOUS_AGENT;
   if (sa.writable_paths === null) return null;
   for (const c of cheminsEcrits(nom, args) ?? []) {

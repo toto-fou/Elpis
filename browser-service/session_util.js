@@ -205,26 +205,56 @@ export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs, keep } 
 }
 
 
+// Quotas de sessions, lus de l'environnement : `BROWSER_MAX_SESSIONS` (tout le service), `BROWSER_MAX_SESSIONS_PER_OWNER`
+// (un propriétaire) et `BROWSER_MAX_SESSIONS_PER_GROUP` (le compte et ses sous-agents, jamais sous le quota d'un propriétaire).
+export function quotasSessions(env = process.env) {
+    const lire = (nom, defaut) => Math.max(1, parseInt(env[nom] || String(defaut), 10) || defaut);
+    const maxPerOwner = lire('BROWSER_MAX_SESSIONS_PER_OWNER', 3);
+    return {
+        maxTotal: lire('BROWSER_MAX_SESSIONS', 10),
+        maxPerOwner,
+        maxPerGroup: Math.max(maxPerOwner, lire('BROWSER_MAX_SESSIONS_PER_GROUP', 4)),
+    };
+}
+
+// Sessions d'un groupe : celles du compte (propriétaire = groupe) et celles de ses sous-agents à session isolée.
+export function occupationGroupe(sessions, group) {
+    let compte = 0;
+    let enfants = 0;
+    for (const s of sessions.values()) {
+        if (!s || (s.group || s.owner) !== group) continue;
+        if (s.owner === group) compte += 1;
+        else enfants += 1;
+    }
+    return { compte, enfants };
+}
+
+// Places que les sous-agents se partagent : le groupe moins la session du compte, ou la place qui lui reste réservée
+// tant qu'il n'en a pas (le chat n'est jamais refusé parce que ses enfants occupent tout).
+export function placesEnfants(occupation, maxPerGroup) {
+    return Math.max(0, maxPerGroup - Math.max(1, occupation.compte));
+}
+
 // Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
 // JAMAIS celle d'un autre propriétaire : au quota du propriétaire, ou du
 // GROUPE (le compte et ses sous-agents, chacun a son propriétaire dérivé),
 // sa plus ancienne session cède la place ; sans session à céder, le plafond
 // du groupe ou le plafond global refuse. Un sous-agent n'évince donc ni la
-// session du compte ni celle d'un frère.
+// session du compte ni celle d'un frère, et une place du groupe reste au compte.
 // → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
 export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, now = Date.now() } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
     const own = [];
     let total = 0;
-    let dansGroupe = 0;
     for (const [sid, s] of sessions) {
         total += 1;
-        if (!s) continue;
-        if (s.owner === owner) own.push([sid, age(s)]);
-        if ((s.group || s.owner) === group) dansGroupe += 1;
+        if (s && s.owner === owner) own.push([sid, age(s)]);
     }
     own.sort((a, b) => a[1] - b[1]);
-    const groupePlein = dansGroupe >= maxPerGroup;
+    const occupation = occupationGroupe(sessions, group);
+    const groupePlein = owner === group
+        ? occupation.compte + occupation.enfants >= maxPerGroup
+        : occupation.enfants >= placesEnfants(occupation, maxPerGroup);
     if (own.length >= maxPerOwner || ((total >= maxTotal || groupePlein) && own.length)) {
         return { evict: own[0][0], refuse: false };
     }

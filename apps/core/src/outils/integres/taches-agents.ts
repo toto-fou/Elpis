@@ -1215,18 +1215,22 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     }
 
     if (agentType === "web") {
-      let raison: string | null;
+      let sante: Awaited<ReturnType<PortsHoteTache["santeNavigateur"]>>;
       try {
-        raison = await hote.santeNavigateur(compte);
+        sante = await hote.santeNavigateur({ ...compte, isolee: sessionNavigateur === "isolated" });
       } catch (e) {
         if (estErreurAnnulation(e)) throw e;
-        raison = `health check failed: ${prefixePy(String(e), 200)}`;
+        sante = `health check failed: ${prefixePy(String(e), 200)}`;
       }
-      if (raison !== null) {
+      if (sante !== null) {
+        const raison = typeof sante === "string" ? sante : sante.raison;
         const bilan = bilanDe({ status: "unavailable", reason: raison });
         return refuser(
           err("task_unavailable", `sub-agent 'web' is unavailable: ${raison}`, {
-            fix: "do not launch it again now: answer without the browser, or tell the user the browser service is down",
+            fix:
+              typeof sante === "string"
+                ? "do not launch it again now: answer without the browser, or tell the user the browser service is down"
+                : sante.fix,
             harness: bilan,
           }),
           bilan,

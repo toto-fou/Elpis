@@ -490,7 +490,9 @@ courante. La carte indique « fork ».
 dans **sa propre session**, à profil vide : il ne voit ni vos connexions ni vos
 cookies, ne touche pas à vos onglets ni à ceux d'un autre agent, et sa session est
 fermée à la fin de sa mission, quelle qu'en soit l'issue. Des agents `web`
-simultanés ont chacun la leur. L'assistant ne lui confie **votre** session
+simultanés ont chacun la leur, dans la limite de quatre sessions par compte (la vôtre
+comprise, réglable par l'administrateur) : au-delà, l'agent n'est pas lancé et
+l'assistant le sait. L'assistant ne lui confie **votre** session
 connectée (`browser_session: "user"`) que si la mission exige votre compte et que
 vous l'avez demandé : la carte indique alors « votre session web », et l'agent ne
 peut pas la fermer.

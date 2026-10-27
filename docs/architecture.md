@@ -1511,15 +1511,26 @@ sequenceDiagram
   du compte ou d'un frère répond `session_not_found`. Une dérivation plutôt que
   `isolated: true` sous le propriétaire du compte, qui partagerait `pw_session list`,
   le quota (une session de plus ferme la plus ancienne, qui peut être celle de
-  l'utilisateur) et `cleanup`. Le **quota** (`BROWSER_MAX_SESSIONS_PER_OWNER`, 3) se
-  compte par **groupe** : l'hôte joint au `/start` d'un enfant isolé le propriétaire
-  du compte (`group`), et le service plafonne l'ensemble compte + enfants au même
-  nombre qu'un compte seul avant les sous-agents (`planSessionSlot`,
-  `browser-service/session_util.js`) ; au plafond, la plus ancienne session du
-  *demandeur* cède la place, jamais celle du compte, d'un frère ou d'un autre
-  compte : un enfant sans session à lui est refusé proprement, de même le compte
-  quand ses enfants occupent tout le quota. Avant, un propriétaire par enfant faisait
-  que 10 enfants d'un seul compte occupaient les 10 places du service. Le harnais
+  l'utilisateur) et `cleanup`. Le **quota** se compte à deux niveaux :
+  `BROWSER_MAX_SESSIONS_PER_OWNER` (3) borne un propriétaire (le compte, ou un enfant), et
+  `BROWSER_MAX_SESSIONS_PER_GROUP` (4 : `agents.max_parallel` par défaut + la session
+  du chat, jamais sous le quota d'un propriétaire) borne le **groupe** : l'hôte joint au
+  `/start` d'un enfant isolé le propriétaire du compte (`group`), et le service plafonne
+  l'ensemble compte + enfants (`planSessionSlot`, `quotasSessions`,
+  `browser-service/session_util.js`). Une place du groupe **reste au compte** (la
+  session du chat n'est jamais refusée parce que ses enfants occupent tout) : les enfants
+  se partagent `groupe − max(1, sessions du compte)` places (`placesEnfants`). Au
+  plafond, la plus ancienne session du *demandeur* cède la place, jamais celle du compte,
+  d'un frère ou d'un autre compte ; un enfant sans session à lui est refusé. Le refus
+  est une erreur structurée que le modèle lit, en anglais : `{error: "browser_quota",
+  message, fix}` (plafond global : `browser_saturated`), rendue telle quelle par
+  `pw_session(start)` ; le `fix` dit de fermer une session ou d'attendre qu'un agent
+  `web` termine, et à un sous-agent de rendre `Status: blocked`. Le harnais refuse aussi
+  le lancement d'un `web` à session isolée quand le groupe est plein (`task_unavailable`
+  avec ce `fix`, d'après `child_slots_left` de `/health` : `santeNavigateur`) au lieu de
+  laisser l'enfant échouer ; un service plus ancien, qui n'annonce pas ce champ, ne
+  déclenche pas ce refus. Avant, un propriétaire par enfant faisait que 10 enfants d'un
+  seul compte occupaient les 10 places du service. Le harnais
   ferme les sessions de l'enfant dans le `finally` de son run
   (`PortsHoteTache.fermerNavigateur` : `pw_session(action="cleanup_own")` sous
   l'identité de l'enfant), quel que soit l'état (terminé, échec, limite, délai,

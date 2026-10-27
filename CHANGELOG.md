@@ -154,14 +154,21 @@ selon [SemVer](https://semver.org/lang/fr/).
   `cleanup` du compte, qui fermerait les sessions de l'utilisateur et des frères),
   et le service ramasse les sessions inactives au bout de 15 minutes. Mettez l'hôte
   à jour avec le core. La description de `task` change une fois (cache de la tête
-  du parent). Service navigateur : chaque enfant a sa session, mais le quota par
-  compte (`BROWSER_MAX_SESSIONS_PER_OWNER`, 3) se compte pour l'ensemble du compte
-  et de ses enfants (le groupe) : un enfant sans session ne prend la place de personne
-  et est refusé au quota, la session du compte n'est jamais évincée par un enfant, et
-  10 enfants d'un compte n'occupent plus les 10 places du service
-  (`BROWSER_MAX_SESSIONS`, désormais réglable). Pour lancer N agents `web` en
-  parallèle à côté de la session du chat, relevez
-  `BROWSER_MAX_SESSIONS_PER_OWNER` à N + 1. Un compte dont le nom est exactement
+  du parent). Service navigateur : chaque enfant a sa session, mais le quota se compte
+  aussi pour l'ensemble du compte et de ses enfants (le groupe), par un réglage à part du
+  quota par propriétaire (`BROWSER_MAX_SESSIONS_PER_OWNER`, 3) : `BROWSER_MAX_SESSIONS_PER_GROUP`
+  (4, c'est-à-dire les trois agents `web` que `agents.max_parallel` lance par défaut + la
+  session du chat ; jamais sous le quota par propriétaire). Une place du groupe reste au
+  compte : ses enfants n'ont que le reste, donc la session du chat n'est jamais refusée
+  parce qu'ils occupent tout, un enfant sans session ne prend la place de personne, la
+  session du compte n'est jamais évincée par un enfant, et 10 enfants d'un compte
+  n'occupent plus les 10 places du service (`BROWSER_MAX_SESSIONS`, désormais
+  réglable). Le refus est une erreur structurée que le modèle lit
+  (`{error: "browser_quota", message, fix}`, en anglais ; `browser_saturated` au plafond
+  global), et le harnais refuse le lancement d'un `web` à session isolée quand le groupe
+  est plein (`task_unavailable` avec le même conseil) au lieu de le laisser échouer. Pour
+  lancer N agents `web` en parallèle à côté de la session du chat, relevez
+  `BROWSER_MAX_SESSIONS_PER_GROUP` à N + 1. Un compte dont le nom est exactement
   `s_`, `u_` ou `r_` suivi de 32 caractères hexadécimaux minuscules change
   d'identité côté navigateur (ces formes sont réservées aux propriétaires dérivés) ;
   aucun autre compte n'est touché. Une reprise immédiate du même `task_id` après un

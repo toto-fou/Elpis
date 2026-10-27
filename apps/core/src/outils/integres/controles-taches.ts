@@ -11,14 +11,20 @@ import { executerOutilMcp } from "../mcp/clients";
 
 /** Ce que le harnais demande à l'hôte d'outils (doublé par les tests). */
 export interface PortsHoteTache {
-  /** Cause d'indisponibilité du service navigateur, `null` s'il répond. */
-  santeNavigateur(o: CompteTache): Promise<string | null>;
+  /** Cause d'indisponibilité du service navigateur, `null` s'il répond ; un quota de sessions atteint porte son propre `fix`. `isolee` : l'enfant aura sa session (faux : celle du compte, aucune place à prendre). */
+  santeNavigateur(o: CompteTache & { isolee?: boolean }): Promise<string | IndisponibiliteNavigateur | null>;
   /** Ferme les sessions de navigateur PRIVÉES de l'enfant par `cleanup_own`, que seul l'hôte à jour connaît (un ancien hôte répond « unknown action » et ne ferme rien : jamais le `cleanup` du compte) ; vrai si l'hôte l'a confirmé, faux sans erreur sinon. */
   fermerNavigateur(o: CompteTache & { enfant: SousAgent }): Promise<boolean>;
   /** Texte écrit dans le bac du compte à `chemin` (relatif à /work) ; vrai si l'outil l'a confirmé. */
   sauverRapport(o: CompteTache & { chemin: string; texte: string }): Promise<boolean>;
   /** Branche courante du dépôt `repo` (relatif à /work), lue sans écriture ; `null` si la lecture échoue. */
   brancheCourante(o: CompteTache & { repo: string }): Promise<string | null>;
+}
+
+/** Navigateur joignable mais sans place pour un enfant : la cause et ce que le modèle doit faire. */
+export interface IndisponibiliteNavigateur {
+  raison: string;
+  fix: string;
 }
 
 export interface CompteTache {
@@ -97,6 +103,11 @@ export const hoteTacheParDefaut: PortsHoteTache = {
     if (r === "absent") return "browser tools (pw_*) are not served by this tool host";
     if (r["ok"] === false || r["error"])
       return prefixePy(`${strPy(r["error"] || "error")}: ${strPy(r["message"] || r["fix"] || "")}`, 300);
+    if (o.isolee !== false && typeof r["child_slots_left"] === "number" && r["child_slots_left"] <= 0)
+      return {
+        raison: `browser session quota reached for this account (${strPy(r["max_sessions_per_group"] ?? "?")} sessions, sub-agents included)`,
+        fix: "wait for a running browser sub-agent to finish and launch this one again, or launch fewer browser agents at once; if nothing is running, close a browser session with pw_session(action='stop')",
+      };
     return null;
   },
   async fermerNavigateur(o) {

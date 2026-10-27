@@ -2,6 +2,7 @@
 /** apps/core/src/jobs/rendu.ts — événements d'un job : charge reçue assainie et bornée, texte `<job_event>` remis au modèle (cadre de donnée, journal échappé, 3 Ko par événement, 8 Ko par lot ; JB-14, JB-15), résumés en français. */
 import { estDict, FlottantPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 export const ETATS_JOB = ["starting", "running", "exited", "killed", "lost", "failed"] as const;
 export type EtatJob = (typeof ETATS_JOB)[number];
@@ -160,9 +161,9 @@ function attribut(v: string): string {
   return v.replace(/&/gu, "&amp;").replace(/"/gu, "&quot;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
 }
 
-/** Balise `job_event` (ouvrante ou fermante) neutralisée dans un texte non sûr (JB-14). */
+/** Balise `job_event` (ouvrante ou fermante) et marqueurs de tour des gabarits neutralisés dans un texte non sûr (JB-14). */
 export function echapper(s: string): string {
-  return s.replace(/<(\/?)(job_event)/giu, "<\\$1$2");
+  return neutraliserMarqueursTour(s.replace(/<(\/?)(job_event)/giu, "<\\$1$2"));
 }
 
 export function cheminJournal(jobId: string): string {

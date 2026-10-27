@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { REGLAGE_RAG_CHAT_DEFAUT, schemaReglageRagChat } from "@elpis/contracts";
 import type { ReglageRagChat } from "@elpis/contracts";
 import type { Base, Executeur } from "@elpis/db";
+import { neutraliserJetonsRole } from "@elpis/securite";
 
 import { mergeMetaJson } from "../chats/stockage";
 import { userSuffixSig } from "../contexte/elagage";
@@ -123,17 +124,9 @@ export async function collectionsActivesRag(
   return sortie;
 }
 
-/** Jetons de rôle sans chevrons (`[INST]`, `[/INST]`, `[SYSTEM_PROMPT]`, `[TOOL_CALLS]`…) : un gluon invisible après `[` les empêche d'être lus comme jetons spéciaux. */
-const JETON_CROCHETS = /\[(?=\/?[A-Z][A-Z0-9_]{1,31}\])/gu;
-
-/** Texte d'un document rendu inerte face aux gabarits de chat : jetons de rôle entre crochets neutralisés (les chevrons sont échappés à part). */
-export function neutraliserJetonsRag(texte: string): string {
-  return texte.replace(JETON_CROCHETS, "[\u2060");
-}
-
 /** Texte d'un tiers rendu inerte dans un bloc balisé : ni balise, ni jeton de rôle, ni caractère de contrôle, ni retour à la ligne. */
 export function echapperRag(texte: string): string {
-  return neutraliserJetonsRag(texte)
+  return neutraliserJetonsRole(texte)
     .replace(/[\p{Cc}\u2028\u2029]+/gu, " ")
     .replace(/&/gu, "&amp;")
     .replace(/</gu, "&lt;")

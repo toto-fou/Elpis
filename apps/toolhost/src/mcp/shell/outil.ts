@@ -29,6 +29,7 @@ import {
   lexicalRel,
   lireSousAgent,
   REFUS_FOND_SOUS_AGENT,
+  restaurerMarqueursArgs,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
   toContainer,
   userIdFor,
@@ -568,7 +569,8 @@ export function outilsShell(a: AppuisShell): DefinitionOutil[] {
   return [
     outilDuGolden(goldenShell as Golden, "execute_shell", {
       signature: SIGNATURE,
-      traiter: (valeurs, ctx) => executeShell(valeurs as unknown as ArgsShell, ctx, a),
+      traiter: (valeurs, ctx) =>
+        executeShell(restaurerMarqueursArgs(valeurs) as unknown as ArgsShell, ctx, a),
     }),
     outilDuGolden(goldenShell as Golden, "shell_job", {
       signature: SIGNATURE_JOB,

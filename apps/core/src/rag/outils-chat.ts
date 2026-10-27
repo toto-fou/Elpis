@@ -7,12 +7,13 @@ import { configRag } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { ClientQdrant, normaliserExt, rechercher } from "@elpis/rag";
 import type { ClientEmbeddings, ClientReranker, CollectionCible, FiltreRag, PassageTrouve } from "@elpis/rag";
+import { neutraliserJetonsRole } from "@elpis/securite";
 
 import { journal } from "../journal";
 import type { OutilIntegre } from "../outils/catalogue";
 import { err } from "../outils/erreur-outil";
 import type { Dict } from "../python";
-import { collectionsActivesRag, lireReglageRagChat, neutraliserJetonsRag } from "./chat";
+import { collectionsActivesRag, lireReglageRagChat } from "./chat";
 import type { CollectionActiveRag } from "./chat";
 import { ragActif } from "./depot";
 import { RefusIndexationRag } from "./erreurs-indexation";
@@ -157,7 +158,7 @@ export const DEFINITIONS_OUTILS_RAG: Readonly<Record<(typeof NOMS_OUTILS_RAG)[nu
 
 /** Résultat d'outil en JSON sans `<` ni `>` ni jeton de rôle entre crochets : un document ne peut ni fermer une balise ni imiter un tour du dialogue. */
 export function jsonOutilRag(v: unknown): string {
-  return neutraliserJetonsRag(pyJsonDumps(v, { ensureAscii: false }))
+  return neutraliserJetonsRole(pyJsonDumps(v, { ensureAscii: false }))
     .replace(/</gu, "\\u003c")
     .replace(/>/gu, "\\u003e");
 }

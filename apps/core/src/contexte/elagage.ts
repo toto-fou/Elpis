@@ -24,6 +24,7 @@ import {
 } from "@elpis/commun";
 import { config } from "@elpis/config";
 import { contenuElide } from "@elpis/outils-mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { toolPolicy } from "../outils/categories";
@@ -698,7 +699,7 @@ function compactFilesChanged(content: string): string {
   return pyJsonDumps(d, { ensureAscii: false });
 }
 
-/** Vue modèle d'un résultat d'outil à l'émission : desktop compacté, diff retiré, cap dérivé du n_ctx. */
+/** Vue modèle d'un résultat d'outil à l'émission : desktop compacté, diff retiré, marqueurs de tour des gabarits rendus inertes (page, fichier, sortie ou rapport tiers), cap dérivé du n_ctx. */
 export function prepareToolResultForModel(
   toolName: string,
   content: unknown,
@@ -719,6 +720,7 @@ export function prepareToolResultForModel(
   } else if (prune === "diff" || (!prune && (toolName === "edit_file" || toolName === "write_file"))) {
     texte = stripModelDiff(texte);
   }
+  texte = neutraliserMarqueursTour(texte);
   const longueur = texte.length > cap ? longueurCp(texte) : texte.length;
   if (longueur > cap) {
     if (prune === "head_tail" || toolName === "task" || (!prune && toolName === "execute_shell")) {

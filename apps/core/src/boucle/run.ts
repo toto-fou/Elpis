@@ -10,6 +10,7 @@ import type { Dict } from "../python";
 import { resultIsToolFailure } from "./contrat-resultat";
 import type { SurEvenement } from "./evenements";
 import type { ConfigMcp } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 import type { OutilIntegre } from "../outils/catalogue";
 
@@ -346,13 +347,16 @@ export class RunRecord {
       const prev = deja.get(cid);
       if (prev !== undefined) {
         if (res !== undefined && prev["content"] === SENTINELLE) {
-          prev["content"] = res;
+          prev["content"] = neutraliserMarqueursTour(res);
           reels++;
         }
         return;
       }
       if (res === undefined) res = SENTINELLE;
-      else reels++;
+      else {
+        res = neutraliserMarqueursTour(res);
+        reels++;
+      }
       this.runToolHistory.push({ role: "tool", tool_call_id: cid, content: res });
     });
     if (reels)

@@ -281,6 +281,21 @@ selon [SemVer](https://semver.org/lang/fr/).
   source est non confirmée). La tête des enfants (personas, règles) et la description
   de `task` changent une fois : un seul recalcul du préfixe du cache.
 
+- **Sous-agents : plafonds par tour.** Rien ne bornait ce qu'un tour pouvait
+  déléguer. Deux réglages de la section `agents` de config.json (Console › Sandbox ›
+  Sous-agents › Plafonds par tour, relus à chaud) : `max_tasks_per_turn`
+  (lancements `task` par tour de l'agent principal, neufs, forks et reprises
+  compris, 1 à 100, défaut 12) et `max_child_tokens_per_turn` (jetons d'entrée et
+  de sortie cumulés des enfants du tour, `0` ou 10 000 à 50 000 000, défaut `0` :
+  sans plafond). Au-delà, un nouveau lancement est refusé avant de démarrer
+  (`task_budget_exhausted`, `fix` « finish with what you have, or ask the user »,
+  étape finale `task_step` comme les autres refus) ; les enfants déjà lancés ne sont
+  pas arrêtés. Les compteurs sont ceux de l'instance de l'outil, construite par tour
+  (chat et routines), sans état de module. La description de `task` n'annonce pas
+  ces valeurs. Un tour qui délègue plus de 12 fois (par exemple une routine qui
+  boucle sur des dizaines d'agents) est maintenant refusé : relevez
+  `max_tasks_per_turn` si c'est voulu.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

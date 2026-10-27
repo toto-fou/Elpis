@@ -506,6 +506,14 @@ le second attend la fin du premier, dans l'ordre demandé, pour ne pas écrire p
 dessus lui. Un `verify` attend ainsi l'écrivain qui le précède, car ses tests lisent
 tout le projet. Rien n'est refusé, la carte du second apparaît quand il démarre.
 
+**Les plafonds d'un tour.** Pour qu'un tour ne délègue pas sans fin, l'administrateur
+règle (Console › Sandbox › Sous-agents) le nombre de lancements d'agents par tour (12
+par défaut, reprises et forks compris) et, s'il le souhaite, un plafond de jetons
+consommés par les agents d'un tour (aucun par défaut). Au plafond, l'assistant ne
+peut plus en lancer : il termine avec ce que ses agents ont rapporté, ou vous
+demande comment continuer ; les agents déjà lancés vont jusqu'au bout. Les routines
+ont les mêmes plafonds.
+
 **La durée d'un agent.** L'assistant peut borner une mission (`max_seconds`, au
 plus le délai de l'administrateur, 1 heure par défaut). Le décompte part dès
 l'entrée dans la délégation. L'agent reçoit une échéance un peu plus courte :

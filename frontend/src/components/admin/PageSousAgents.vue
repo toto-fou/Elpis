@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/admin/PageSousAgents.vue — page Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés par tour. -->
+<!-- frontend/src/components/admin/PageSousAgents.vue — page Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés et plafonds par tour. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
 
@@ -477,6 +477,105 @@ const adm = domaineAdmin();
           >
             <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
             Un nombre entier de {{ adm.agentsBounds[0] }} à {{ adm.agentsBounds[1] }}.
+          </p>
+        </div>
+      </section>
+
+      <section id="sandbox-agents-plafonds" class="adm-card scroll-mt-32">
+        <header class="adm-card__head">
+          <i class="ph ph-gauge adm-card__icon" aria-hidden="true"></i>
+          <div>
+            <h3 class="adm-card__title">Plafonds par tour</h3>
+            <p class="adm-card__hint">
+              Limites de délégation d'un tour de l'agent principal, chat ou routine. Au-delà, un nouveau
+              lancement est refusé avant de démarrer : l'agent principal termine avec ce qu'il a, ou vous
+              interroge. Les agents déjà lancés continuent.
+            </p>
+          </div>
+        </header>
+        <div class="adm-rows">
+          <div class="adm-row">
+            <div>
+              <label
+                class="adm-row__label"
+                title="Lancements de sous-agents au plus par tour : agents neufs, forks et reprises."
+                for="ag-taches-tour"
+                >Lancements par tour</label
+              >
+              <span class="sr-only"
+                >Lancements de sous-agents au plus par tour : agents neufs, forks et reprises.</span
+              >
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                id="ag-taches-tour"
+                v-model.number="adm.agentsConfig.max_tasks_per_turn"
+                data-field="agents:max_tasks_per_turn"
+                type="number"
+                :min="adm.agentsBoundsTaches[0]"
+                :max="adm.agentsBoundsTaches[1]"
+                class="set-input adm-num font-mono"
+              />
+              <span class="adm-unit"
+                >de {{ adm.agentsBoundsTaches[0] }} à {{ adm.agentsBoundsTaches[1] }}</span
+              >
+            </div>
+          </div>
+          <p
+            v-if="
+              !Number.isInteger(adm.agentsConfig.max_tasks_per_turn) ||
+              adm.agentsConfig.max_tasks_per_turn < adm.agentsBoundsTaches[0] ||
+              adm.agentsConfig.max_tasks_per_turn > adm.agentsBoundsTaches[1]
+            "
+            role="alert"
+            class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
+          >
+            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+            Un nombre entier de {{ adm.agentsBoundsTaches[0] }} à {{ adm.agentsBoundsTaches[1] }}.
+          </p>
+          <div class="adm-row">
+            <div>
+              <label
+                class="adm-row__label"
+                title="Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour ; 0 : sans plafond."
+                for="ag-jetons-tour"
+                >Jetons des agents par tour</label
+              >
+              <span class="sr-only"
+                >Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour ; 0 : sans
+                plafond.</span
+              >
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                id="ag-jetons-tour"
+                v-model.number="adm.agentsConfig.max_child_tokens_per_turn"
+                data-field="agents:max_child_tokens_per_turn"
+                type="number"
+                min="0"
+                :max="adm.agentsBoundsJetons[1]"
+                step="1000"
+                class="set-input adm-num font-mono"
+              />
+              <span class="adm-unit"
+                >0 (sans plafond) ou de {{ adm.agentsBoundsJetons[0] }} à
+                {{ adm.agentsBoundsJetons[1] }}</span
+              >
+            </div>
+          </div>
+          <p
+            v-if="
+              !Number.isInteger(adm.agentsConfig.max_child_tokens_per_turn) ||
+              (adm.agentsConfig.max_child_tokens_per_turn !== 0 &&
+                (adm.agentsConfig.max_child_tokens_per_turn < adm.agentsBoundsJetons[0] ||
+                  adm.agentsConfig.max_child_tokens_per_turn > adm.agentsBoundsJetons[1]))
+            "
+            role="alert"
+            class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
+          >
+            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+            0 (sans plafond) ou un nombre entier de {{ adm.agentsBoundsJetons[0] }} à
+            {{ adm.agentsBoundsJetons[1] }}.
           </p>
         </div>
       </section>

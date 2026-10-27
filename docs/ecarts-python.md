@@ -689,6 +689,9 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   lui, jamais au premier run sans id) ; un refus avant lancement (`task_unavailable`, `bad_args`, type inconnu…)
   émet une étape finale (`state: "failed"`, `child_id` vide, bloc `status: unavailable` ou `error` avec `reason`)
   qui ferme la ligne, et le run est gardé dans `task_runs[]`.
+- **Plafonds par tour** (propre au TS) : `agents.max_tasks_per_turn` (lancements, défaut 12, 1 à 100) et
+  `agents.max_child_tokens_per_turn` (jetons des enfants finis, défaut 0 = sans plafond) ; au-delà, `task_budget_exhausted`
+  avant tout lancement (le Python n'avait aucun plafond par tour), chat et routines ; non annoncés dans la description.
 - **Parallélisme** : les `task` consécutifs d'une même réponse partent ensemble, `agents.max_parallel` à la fois (1
   à 10, défaut 3, relu à chaud, plafonné à `total_slots − 1` sur llama.cpp ; `LLAMA_TOOL_PARALLELISM` ne les bride pas),
   sauf deux écrivains dont les `writable_paths` se recouvrent (ou dont l'un n'en a pas, ou un `verify`) : l'un après

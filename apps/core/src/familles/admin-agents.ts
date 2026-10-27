@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion, sous-agents simultanés par tour, section `agents` de config.json. */
+/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion, sous-agents simultanés et plafonds par tour, section `agents` de config.json. */
 import { estDict, getPy, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { auditEvent, TYPES_AGENTS_REGLABLES } from "@elpis/securite";
@@ -9,7 +9,9 @@ import { lireConfigJson, modifierConfigJson } from "../administration/config-sou
 import {
   assainirReglagesAgents,
   BORNES_BUDGET_REFLEXION,
+  BORNES_JETONS_ENFANTS,
   BORNES_PARALLELE,
+  BORNES_TACHES_PAR_TOUR,
   reglagesAgentsDepuis,
 } from "../outils/integres/reglages-taches";
 import type { ReglagesAgents } from "../outils/integres/reglages-taches";
@@ -29,7 +31,12 @@ function vue(r: ReglagesAgents): Dict {
   return {
     config: r,
     types: [...TYPES_AGENTS_REGLABLES],
-    bounds: { max_parallel: [...BORNES_PARALLELE], thinking_budget_tokens: [...BORNES_BUDGET_REFLEXION] },
+    bounds: {
+      max_parallel: [...BORNES_PARALLELE],
+      max_tasks_per_turn: [...BORNES_TACHES_PAR_TOUR],
+      max_child_tokens_per_turn: [...BORNES_JETONS_ENFANTS],
+      thinking_budget_tokens: [...BORNES_BUDGET_REFLEXION],
+    },
   };
 }
 
@@ -48,12 +55,16 @@ async function enregistrer(dep: DependancesAdminAgents, req: FastifyRequest): Pr
     action: "admin.agents.update",
     details: {
       max_parallel: ecrit.max_parallel,
+      max_tasks_per_turn: ecrit.max_tasks_per_turn,
+      max_child_tokens_per_turn: ecrit.max_child_tokens_per_turn,
       forced: ecrit.read_only.forced,
       thinking: ecrit.thinking.defaults,
       thinking_budget_tokens: ecrit.thinking_budget_tokens,
     },
   });
-  dep.journal.info(`[admin] réglages des sous-agents enregistrés (max_parallel=${ecrit.max_parallel})`);
+  dep.journal.info(
+    `[admin] réglages des sous-agents enregistrés (max_parallel=${ecrit.max_parallel}, max_tasks_per_turn=${ecrit.max_tasks_per_turn}, max_child_tokens_per_turn=${ecrit.max_child_tokens_per_turn})`,
+  );
   return { ok: true, config: ecrit };
 }
 

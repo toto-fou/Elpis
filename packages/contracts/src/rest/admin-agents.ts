@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/admin-agents.ts — console : sous-agents (`task`), lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés par tour ; section `agents` de config.json. */
+/** packages/contracts/src/rest/admin-agents.ts — console : sous-agents (`task`), lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés et plafonds par tour ; section `agents` de config.json. */
 import { z } from "zod";
 
 import { entier } from "./commun";
@@ -39,10 +39,12 @@ const parMode = z.strictObject({
 export const schemaReflexionAgents = z.object({ defaults: parMode });
 export type ReflexionAgents = z.infer<typeof schemaReflexionAgents>;
 
-/** `max_parallel` : sous-agents d'un même tour lancés ensemble, de 1 à 10 ; `thinking_budget_tokens` : budget de réflexion d'un sous-agent qui réfléchit, de 512 à 131072. */
+/** `max_parallel` : sous-agents d'un même tour lancés ensemble, de 1 à 10 ; `max_tasks_per_turn` : lancements `task` au plus par tour (neufs, forks et reprises), de 1 à 100 ; `max_child_tokens_per_turn` : jetons d'entrée et de sortie cumulés au plus des enfants d'un tour, 0 (sans plafond) ou de 10000 à 50000000 ; `thinking_budget_tokens` : budget de réflexion d'un sous-agent qui réfléchit, de 512 à 131072. */
 export const schemaReglagesAgents = z.object({
   read_only: schemaLectureSeuleAgents,
   max_parallel: entier,
+  max_tasks_per_turn: entier,
+  max_child_tokens_per_turn: entier,
   thinking: schemaReflexionAgents,
   thinking_budget_tokens: entier,
 });
@@ -50,12 +52,17 @@ export type ReglagesAgents = z.infer<typeof schemaReglagesAgents>;
 
 export const BORNES_PARALLELE_AGENTS = [1, 10] as const;
 export const BORNES_BUDGET_REFLEXION_AGENTS = [512, 131072] as const;
+export const BORNES_TACHES_PAR_TOUR_AGENTS = [1, 100] as const;
+/** Bornes d'un plafond posé ; 0 reste permis (sans plafond). */
+export const BORNES_JETONS_ENFANTS_AGENTS = [10000, 50000000] as const;
 export const DEFAUTS_REGLAGES_AGENTS: ReglagesAgents = {
   read_only: {
     defaults: { explore: true, implement: false, verify: false, web: true, pr: false, custom: false },
     forced: { explore: false, implement: false, verify: false, web: false, pr: false, custom: false },
   },
   max_parallel: 3,
+  max_tasks_per_turn: 12,
+  max_child_tokens_per_turn: 0,
   thinking: {
     defaults: {
       explore: "off",
@@ -75,18 +82,22 @@ export const schemaReponseReglagesAgents = z.object({
   types: z.array(z.enum(TYPES_AGENTS_REGLABLES)),
   bounds: z.object({
     max_parallel: z.tuple([entier, entier]),
+    max_tasks_per_turn: z.tuple([entier, entier]),
+    max_child_tokens_per_turn: z.tuple([entier, entier]),
     thinking_budget_tokens: z.tuple([entier, entier]),
   }),
 });
 export type ReponseReglagesAgents = z.infer<typeof schemaReponseReglagesAgents>;
 
-/** Corps du `POST` : toute clé absente garde sa valeur ; type ou mode inconnu, non-booléen, `max_parallel` ou budget de réflexion hors bornes : 400. */
+/** Corps du `POST` : toute clé absente garde sa valeur ; type ou mode inconnu, non-booléen, `max_parallel`, plafonds par tour ou budget de réflexion hors bornes : 400. */
 export const schemaCorpsReglagesAgents = z.object({
   agents: z.object({
     read_only: z
       .object({ defaults: parType.partial().optional(), forced: parType.partial().optional() })
       .optional(),
     max_parallel: entier.optional(),
+    max_tasks_per_turn: entier.optional(),
+    max_child_tokens_per_turn: entier.optional(),
     thinking: z.object({ defaults: parMode.partial().optional() }).optional(),
     thinking_budget_tokens: entier.optional(),
   }),

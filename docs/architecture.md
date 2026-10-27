@@ -1591,6 +1591,26 @@ sequenceDiagram
   `max_parallel` s'applique sans plafond. La description de l'outil
   (« up to N at a time ») garde la valeur configurée : elle fait partie de la
   tête du parent et reste identique d'un tour à l'autre.
+- **Plafonds par tour** : `agents.max_tasks_per_turn` (défaut 12, 1 à 100) et
+  `agents.max_child_tokens_per_turn` (défaut 0 : sans plafond ; sinon 10 000 à
+  50 000 000) bornent ce qu'un tour de l'agent principal délègue. Les compteurs
+  vivent dans l'instance de `buildTaskBuiltinTool`, construite par tour (chat,
+  tour de réveil des jobs et routine, via `planificateur.ts`) : aucun état de
+  module. Un lancement est compté quand l'enfant part, qu'il soit neuf, fork ou
+  repris par `task_id` (les refus d'arguments, de fork ou `task_busy` ne
+  consomment rien). Les jetons sont la somme `input_tokens + output_tokens` des
+  enfants **finis** du tour, lue dans `usageSink` (compteur propre de l'instance
+  sans `usageSink`) : un enfant en cours n'y est pas encore. Les réglages sont relus
+  à chaud (`reglagesAgents()`) à chaque lancement. Au plafond, `task` rend l'erreur
+  JSON `task_budget_exhausted` (`fix` : « finish with what you have, or ask the
+  user »), ferme la ligne par une étape finale `task_step` (`failed`, bilan
+  `unavailable`) comme les autres refus et ne lance rien ; les enfants déjà partis
+  ne sont pas arrêtés. Le contrôle se fait deux fois : tôt (avant la sonde du
+  navigateur de `web`, la persona, la réflexion) et, sans `await` entre le contrôle
+  et l'enregistrement dans `ACTIFS`, au moment de partir, pour que des `task`
+  d'un même lot ne dépassent pas le plafond. La description de l'outil ne cite
+  ni l'un ni l'autre (réglages vifs, tête du parent identique d'un tour à
+  l'autre) : le refus suffit. Console › Sandbox › Sous-agents › Plafonds par tour.
 - **Écrivains d'un même lot** : le parallélisme ne vaut que pour des enfants qui
   ne se marchent pas dessus. Avant de lancer un lot, `executeToolBatch` classe
   chaque appel dont l'outil intégré porte un `classerLot` (`OutilIntegre.classerLot`,

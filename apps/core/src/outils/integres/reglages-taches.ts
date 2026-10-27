@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/reglages-taches.ts — réglages des sous-agents (section `agents` de config.json) : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés par tour, lecture vivante et règles de priorité. */
+/** apps/core/src/outils/integres/reglages-taches.ts — réglages des sous-agents (section `agents` de config.json) : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés et plafonds par tour, lecture vivante et règles de priorité. */
 import { estDict, getPy, HttpError, intPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { configView } from "@elpis/config";
@@ -17,12 +17,22 @@ export const MODES_REFLEXION: readonly ModeReflexion[] = ["off", "on", "inherit"
 export interface ReglagesAgents {
   readonly read_only: { readonly defaults: ParType; readonly forced: ParType };
   readonly max_parallel: number;
+  /** Lancements `task` (neufs, forks, reprises) au plus par tour de l'agent principal. */
+  readonly max_tasks_per_turn: number;
+  /** Jetons d'entrée + sortie cumulés au plus des enfants d'un tour ; 0 : sans plafond. */
+  readonly max_child_tokens_per_turn: number;
   readonly thinking: { readonly defaults: ParMode };
   readonly thinking_budget_tokens: number;
 }
 
 export const BORNES_PARALLELE: readonly [number, number] = [1, 10];
 export const BORNES_BUDGET_REFLEXION: readonly [number, number] = [512, 131072];
+export const BORNES_TACHES_PAR_TOUR: readonly [number, number] = [1, 100];
+/** Bornes d'un plafond de jetons posé ; 0 reste permis (sans plafond). */
+export const BORNES_JETONS_ENFANTS: readonly [number, number] = [10_000, 50_000_000];
+
+const jetonsValides = (n: number): boolean =>
+  Number.isInteger(n) && (n === 0 || (n >= BORNES_JETONS_ENFANTS[0] && n <= BORNES_JETONS_ENFANTS[1]));
 
 const parTypeDe = <T>(f: (t: string) => T): Record<string, T> =>
   Object.fromEntries(TYPES_AGENTS_REGLABLES.map((t) => [t, f(t)]));
@@ -39,6 +49,8 @@ const borneBudget = (n: number): number =>
 export const DEFAUTS_AGENTS: ReglagesAgents = {
   read_only: { defaults: parTypeDe((t) => t === "explore" || t === "web"), forced: parTypeDe(() => false) },
   max_parallel: 3,
+  max_tasks_per_turn: 12,
+  max_child_tokens_per_turn: 0,
   thinking: { defaults: parTypeDe((t) => DEFAUT_REFLEXION[t] ?? "off") },
   thinking_budget_tokens: borneBudget(LLAMA_THINKING_BUDGET_TOKENS),
 };
@@ -80,6 +92,18 @@ export function reglagesAgentsDepuis(brut: unknown): ReglagesAgents {
   } catch {
     budget = DEFAUTS_AGENTS.thinking_budget_tokens;
   }
+  let taches: number;
+  try {
+    taches = intPy(getPy(src, "max_tasks_per_turn", DEFAUTS_AGENTS.max_tasks_per_turn));
+  } catch {
+    taches = DEFAUTS_AGENTS.max_tasks_per_turn;
+  }
+  let jetons: number;
+  try {
+    jetons = intPy(getPy(src, "max_child_tokens_per_turn", DEFAUTS_AGENTS.max_child_tokens_per_turn));
+  } catch {
+    jetons = DEFAUTS_AGENTS.max_child_tokens_per_turn;
+  }
   return {
     read_only: {
       defaults: parTypeLu(ro["defaults"], DEFAUTS_AGENTS.read_only.defaults),
@@ -89,6 +113,11 @@ export function reglagesAgentsDepuis(brut: unknown): ReglagesAgents {
       Number.isInteger(n) && n >= BORNES_PARALLELE[0] && n <= BORNES_PARALLELE[1]
         ? n
         : DEFAUTS_AGENTS.max_parallel,
+    max_tasks_per_turn:
+      taches >= BORNES_TACHES_PAR_TOUR[0] && taches <= BORNES_TACHES_PAR_TOUR[1]
+        ? taches
+        : DEFAUTS_AGENTS.max_tasks_per_turn,
+    max_child_tokens_per_turn: jetonsValides(jetons) ? jetons : DEFAUTS_AGENTS.max_child_tokens_per_turn,
     thinking: { defaults: parModeLu(th["defaults"], DEFAUTS_AGENTS.thinking.defaults) },
     thinking_budget_tokens:
       budget >= BORNES_BUDGET_REFLEXION[0] && budget <= BORNES_BUDGET_REFLEXION[1]
@@ -145,6 +174,30 @@ export function assainirReglagesAgents(brut: unknown, courant: ReglagesAgents): 
       );
     n = v;
   }
+  let taches = courant.max_tasks_per_turn;
+  if (brut["max_tasks_per_turn"] !== undefined) {
+    const v = brut["max_tasks_per_turn"];
+    if (typeof v !== "number" || !Number.isInteger(v))
+      throw new HttpError(400, "agents.max_tasks_per_turn doit être un entier");
+    if (v < BORNES_TACHES_PAR_TOUR[0] || v > BORNES_TACHES_PAR_TOUR[1])
+      throw new HttpError(
+        400,
+        `agents.max_tasks_per_turn doit être entre ${BORNES_TACHES_PAR_TOUR[0]} et ${BORNES_TACHES_PAR_TOUR[1]}`,
+      );
+    taches = v;
+  }
+  let jetons = courant.max_child_tokens_per_turn;
+  if (brut["max_child_tokens_per_turn"] !== undefined) {
+    const v = brut["max_child_tokens_per_turn"];
+    if (typeof v !== "number" || !Number.isInteger(v))
+      throw new HttpError(400, "agents.max_child_tokens_per_turn doit être un entier");
+    if (!jetonsValides(v))
+      throw new HttpError(
+        400,
+        `agents.max_child_tokens_per_turn doit valoir 0 (sans plafond) ou être entre ${BORNES_JETONS_ENFANTS[0]} et ${BORNES_JETONS_ENFANTS[1]}`,
+      );
+    jetons = v;
+  }
   const th = brut["thinking"];
   if (th !== undefined && th !== null && !estDict(th))
     throw new HttpError(400, "agents.thinking doit être un objet");
@@ -167,6 +220,8 @@ export function assainirReglagesAgents(brut: unknown, courant: ReglagesAgents): 
       forced: parTypeEcrit(roD["forced"], courant.read_only.forced, "forced"),
     },
     max_parallel: n,
+    max_tasks_per_turn: taches,
+    max_child_tokens_per_turn: jetons,
     thinking: { defaults: parModeEcrit(thD["defaults"], courant.thinking.defaults) },
     thinking_budget_tokens: budget,
   };

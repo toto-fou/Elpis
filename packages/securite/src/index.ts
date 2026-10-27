@@ -104,7 +104,7 @@ export {
   restaurerArgsOutil,
   restaurerMarqueursArgs,
   restaurerMarqueursTour,
-} from "@elpis/commun/marqueurs-tour";
+} from "./marqueurs-tour";
 export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {

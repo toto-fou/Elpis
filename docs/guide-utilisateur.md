@@ -444,7 +444,12 @@ d'une liste d'outils rognée.
 
 **Vos agents personnalisés.** Paramètres → Agents : nom, description, prompt
 système, catégories d'outils, serveurs MCP externes, lecture seule et
-**réflexion**. Jusqu'à 10 agents.
+**réflexion**. Jusqu'à 10 agents. Attention : l'autorisation de publier d'une mission
+ne protège que `git_submit`, l'outil Git d'Elpis. Un agent à qui vous attachez un
+serveur MCP externe capable de publier (le serveur GitHub, par exemple : créer une
+pull request, pousser des fichiers) publie **sans** demander, comme le ferait
+l'assistant : ne lui attachez que des serveurs dont vous acceptez qu'il se serve
+seul, ou désactivez leurs outils d'écriture dans le panneau MCP.
 
 **Lecture seule.** `explore` et `web` sont livrés en lecture seule : ils lisent
 (fichiers, pages web) mais n'écrivent rien dans votre bac ; un agent `web` garde
@@ -532,11 +537,17 @@ reprendre (`task_id`) avec l'historique déjà fait.
 **Arrêter ou redémarrer en plein travail.** Si vous arrêtez le tour pendant qu'un
 agent travaille, puis cliquez sur « Continuer », l'assistant retrouve l'identifiant
 de l'agent (`task_id`) et peut le reprendre là où il en était. Pendant son travail,
-l'agent garde un point de reprise (en mémoire après chaque série d'appels, sur le
-disque toutes les 10 secondes au plus, sans ralentir le serveur) : si le serveur
-redémarre en plein travail, l'agent se reprend depuis ce point. Au plus quelques
-secondes de travail sont à refaire, et l'agent est prévenu de vérifier l'état des
-fichiers avant de répéter une écriture ou une commande.
+l'agent garde un point de reprise, pris au début de chaque étape qui suit une série
+d'appels terminée (en mémoire tout de suite, sur le disque toutes les 10 secondes au
+plus, sans ralentir le serveur) : si le serveur redémarre brutalement en plein
+travail, l'agent se reprend depuis ce point. Ce qui était en cours à cet instant est
+perdu : la réponse que le modèle était en train d'écrire et la série d'appels en vol
+(une commande de plusieurs minutes comprise, qui a pu agir sans laisser de trace),
+plus les dix dernières secondes si leur point n'était pas encore écrit. L'agent est
+prévenu de vérifier l'état des fichiers avant de répéter une écriture ou une
+commande. Au premier message que vous envoyez ensuite dans la conversation,
+l'assistant reçoit la liste des agents interrompus (leur identifiant et leur
+mission) : dites-lui « reprends » ou « continue » pour qu'il les relance.
 
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui

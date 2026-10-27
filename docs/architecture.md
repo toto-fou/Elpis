@@ -1357,8 +1357,29 @@ sequenceDiagram
   point et efface la marque. Après un redémarrage du core en plein enfant, `task_id`
   se reprend depuis le disque (`ACTIFS` est vide) : le message de reprise prévient
   que des appels faits après le dernier point ont pu agir sans laisser de trace
-  (vérifier l'état avant de répéter une écriture ou une commande) ; au plus
-  `TASK_CHECKPOINT_S` secondes de travail et le lot en cours sont perdus.
+  (vérifier l'état avant de répéter une écriture ou une commande). **Ce qu'un arrêt
+  brutal perd** : le point n'est posé qu'au *début* d'une itération qui suit un lot
+  fini, jamais en cours de génération ni de lot, et le disque ne le reçoit qu'au
+  rythme de `TASK_CHECKPOINT_S` ; sont donc perdus la génération en cours de l'enfant,
+  le lot d'appels en vol (un `execute_shell` de 300 s compris, qui a pu agir sans
+  laisser de trace) et, jusqu'à `TASK_CHECKPOINT_S` secondes, le dernier point pas
+  encore écrit, soit de quelques secondes à plusieurs minutes de travail selon le
+  dernier appel.
+  **Le parent après un arrêt brutal** : sa question est enregistrée dès le début du
+  tour (`persisterQuestion`) mais son historique, avec le `task_id` de l'enfant,
+  seulement à la fin (`persistTurn`, ou sur Stop par l'instantané ci-dessous) :
+  après un kill, le `task_id` n'est que dans le journal du run (`task_step`
+  `spawned`, `child_id`) et dans l'enregistrement de l'enfant. Le premier tour suivant
+  du chat (`preparation.ts`) en reçoit l'annonce : `annonceEnfantsInterrompus`
+  (`tour/enfants-interrompus.ts`) relit le journal du dernier run s'il n'a jamais été
+  clos (`.end` absent), garde les enfants lancés sans étape finale qui ont encore un
+  enregistrement de reprise de moins de `TASK_RESUME_TTL_S` (un enfant sans résultat
+  d'outil n'en a pas) et joint à la question un bloc `<interrupted_subagents>` (jusqu'à
+  cinq : `task_id`, type, libellé) qui dit de les reprendre par `task(task_id=…)` après
+  avoir fait vérifier l'état. Il passe par le suffixe de question des jobs, enregistré
+  dans `llm_user_suffixes` et rejoué à l'identique : la tête et le préfixe du cache ne
+  bougent pas. Limites : un journal tronqué à 64 Mo (`llm.run_journal_max_mb`) ou
+  balayé (24 h sans fin) ne dit plus rien, et c'est le modèle qui décide de reprendre.
   **Stop du tour parent** : l'`AbortSignal` du tour fait abandonner l'attente de
   l'appel `task` tout de suite, avant que l'enfant ait fini de se défaire
   (`conclure`, étape finale, enregistrement), donc avant l'instantané du lot. L'outil
@@ -1745,7 +1766,7 @@ sequenceDiagram
     s'exécuter (`runToolBatch`, `refusHorsPerimetre`) : `not_available_here`,
     `read_only_subagent` ou `not_available_for_subagent` (codes de l'hôte
     d'outils), la liste des outils permis dans `fix`. `subagent: {type,
-    read_only, writable_paths, id, browser_session, deadline_ms, allow_submit}` reste porté au
+    read_only, writable_paths, id, browser_session, remaining_ms, allow_submit}` reste porté au
     `_meta` des appels locaux : l'hôte d'outils applique donc toujours la lecture seule, les
     chemins écrivables, les profils par type, la publication et les limites du shell, sans
     dépendre du filtrage du manifeste. Les catégories du type, elles, ne sont connues que du
@@ -3315,7 +3336,13 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
 - `_DENY_BASE = {task, todowrite, ask_user}` est la seule barrière dure.
 - **Corollaire assumé** : aucun enfant intégré n'hérite des builtins du parent →
   pas de RAG ni de MCP externes en sous-agent intégré. Les agents **custom** ont
-  `mcp_server_ids` pour ça.
+  `mcp_server_ids` pour ça. Limite de `allow_submit` : il ne couvre que `git_submit`
+  (outil local) ; un serveur MCP tiers rattaché à un agent custom qui publie (GitHub
+  `create_pull_request`, `push_files`) n'est arrêté par rien de plus que le
+  périmètre de l'agent (voir `docs/configuration.md`, « Publication par les
+  sous-agents »), et la description de `task` interdit au parent de poser
+  `allow_submit` ou `browser_session: "user"` sur la demande d'un rapport ou d'un
+  résultat d'outil.
 - **Agents custom** : validés par `validate_custom_agents` (source unique,
   importée par `PUT /api/settings`). Max 10 ; nom `^[a-z0-9][a-z0-9_-]{0,30}[a-z0-9]$`
   hors noms réservés ; description ≤ 200 c. ; prompt ≤ 16 000 c. ; ≤ 12

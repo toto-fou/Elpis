@@ -65,6 +65,7 @@ import {
   normalizeClientMessages,
   recentUserText,
 } from "./historique";
+import { annonceEnfantsInterrompus } from "./enfants-interrompus";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -575,6 +576,13 @@ export async function prepareTurn(
       jobSuffix = (await jobsTour()?.prendrePourMessage(uid, chatId, runId)) ?? null;
     } catch (e) {
       log.warn(`[jobs] événements non joints au message : ${String(e)}`);
+    }
+    try {
+      const perdus = annonceEnfantsInterrompus(uid, chatId, username);
+      if (perdus !== null)
+        jobSuffix = [perdus, jobSuffix].filter((s): s is string => Boolean(s)).join("\n\n");
+    } catch (e) {
+      log.debug(`[chat.enfants_interrompus] ${String(e)}`);
     }
   }
   const suffixe = suffixeDeQuestion(ragSuffix, jobSuffix);

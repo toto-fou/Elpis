@@ -447,6 +447,23 @@ Sections :
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
 
+### Publication par les sous-agents (`allow_submit`)
+
+`git_submit` (pousser la branche et ouvrir la pull request, visibles hors de la
+machine) est refusé à tout sous-agent (`submit_not_allowed`) sauf si l'appel `task`
+porte `allow_submit: true`, que l'assistant ne pose que si l'utilisateur a demandé la
+publication dans le tour ; la description de l'outil lui interdit de le poser parce
+qu'un rapport d'agent, une page ou un résultat d'outil le réclame, ou de confier
+`browser_session: "user"` sur ce motif. **Cette barrière ne couvre que l'outil
+`git_submit` d'Elpis.** Un agent du compte auquel vous attachez un serveur MCP tiers
+(`mcp_server_ids` d'une entrée de `custom_agents`) qui sait publier (le serveur
+GitHub : `create_pull_request`, `push_files`, `merge_pull_request`…) publie **sans**
+`allow_submit`, comme le ferait l'assistant lui-même : ces serveurs ne passent pas par
+l'hôte d'outils, Elpis ne sait pas ce que fait un outil tiers, et le shell d'un agent
+qui l'a pousse comme le profil réseau du bac le permet. Ne rattachez à un agent que les
+serveurs dont vous acceptez qu'il se serve seul, ou désactivez leurs outils d'écriture
+dans le panneau MCP.
+
 ### Réflexion des sous-agents (`agents.thinking`)
 
 Un sous-agent (outil `task`) est le meilleur endroit pour réfléchir : sa réflexion
@@ -799,7 +816,7 @@ comme absente.
 
 | Variable | Clé JSON | Défaut |
 |---|---|---|
-| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — délai **dur** d'un sous-agent, plafond du `max_seconds` de `task`, compté dès l'entrée dans `task` ; l'agent doit finir avant son échéance souple, `délai − réserve` (réserve : 360 s au plus, un tiers du délai pour un petit `max_seconds`), et ses commandes shell sont bornées au temps restant |
+| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — délai **dur** d'un sous-agent, plafond du `max_seconds` de `task`, compté dès l'entrée dans `task` ; l'agent doit finir avant son échéance souple, `délai − réserve` (réserve : la marge de synthèse, 60 s au plus et un tiers du délai pour un petit `max_seconds`), et ses commandes shell sont bornées au temps restant par l'hôte d'outils à jour (un ancien hôte ne borne pas : le délai dur interrompt alors l'agent) |
 | `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **sans effet** en TS : un sous-agent ne lance jamais de sous-agent (lu pour la compatibilité de `config.json`) |
 | `APP_TASK_RESUME_TTL_S` | `llm.task.resume_ttl_s` | `21600` |
 | `APP_TASK_RESUME_MAX` | `llm.task.resume_max` | `200` |

@@ -638,7 +638,7 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   `git_submit`, `git_start_work` et `git_abandon`, mais ne tient pas face au shell : `git commit` y reste possible
   et seule la consigne l'interdit. Le bac à sable du compte reste la vraie frontière de sécurité ; ni shell borné ni
   hook git ne sont posés.
-- **Défense en profondeur** : le core porte `subagent: {type, read_only, writable_paths, id, browser_session, deadline_ms, allow_submit}` dans le `_meta` des appels
+- **Défense en profondeur** : le core porte `subagent: {type, read_only, writable_paths, id, browser_session, remaining_ms, allow_submit}` dans le `_meta` des appels
   locaux (champ facultatif de l'enveloppe d'identité, absent pour un tour de premier niveau : forme signée
   inchangée) ; l'hôte d'outils refuse ce qui sort du périmètre (`read_only_subagent`, `not_available_for_subagent`,
   `not_available_here`, `path_not_writable`, `submit_not_allowed`) avant d'exécuter l'outil, puis vérifie `writable_paths` sur le chemin
@@ -648,8 +648,8 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   même ordre) : les restrictions de l'enfant sont appliquées à l'exécution (`perimetreEnfant`), pas par le
   manifeste. Détail : [architecture](architecture.md#sous-agents-outil-task).
 - **Paramètres de `task`** : `read_only`, `max_iterations` (borné par le type), `max_seconds` (arrêt propre avec
-  synthèse avant la limite : échéance absolue comptée dès l'entrée dans `task`, réserve `min(360 s, ⅓ du délai)` ;
-  `_meta.subagent.deadline_ms` borne le `timeout_sec` du shell de l'enfant au temps restant ; au délai dur,
+  synthèse avant la limite : échéance absolue comptée dès l'entrée dans `task`, réserve `min(60 s, ⅓ du délai)` ;
+  `_meta.subagent.remaining_ms` (durée restante recalculée à chaque appel) borne le `timeout_sec` du shell de l'enfant au temps restant ; au délai dur,
   `partial_report` rendu sans appel au moteur, le Python rendait une enveloppe sans texte), `writable_paths` (préfixes du bac, appliqués par `write_file`, `edit_file`,
   `manage_files` et `git_write` ; le shell n'est pas borné, le bloc le dit : `writable_paths_scope:
   "file_tools_only"`), `output_schema` (champs exigés dans le rapport ; manquants : `status: partial`),

@@ -170,9 +170,7 @@ export interface OptionsRun {
   userId?: number | null;
   /** Périmètre d'un sous-agent (`task`) : manifeste filtré, porté au `_meta` des appels locaux, sans alerte disque. */
   subagent?: SousAgent | null;
-  /** Budget de temps de la boucle (s), plus court que `LLAMA_TOOL_LOOP_MAX_S` : arrêt propre avec synthèse. */
-  wallclockS?: number | null;
-  /** Échéance souple absolue (epoch ms) fixée par l'appelant, prélude et attente de slot compris (un sous-agent : début de `task`) : jalons et arrêt propre avec synthèse s'y mesurent ; absente, seuls `wallclockS` et `LLAMA_TOOL_LOOP_MAX_S` jouent. */
+  /** Échéance souple absolue (epoch ms) fixée par l'appelant, prélude et attente de slot compris (un sous-agent : début de `task`) : jalons et arrêt propre avec synthèse s'y mesurent ; absente, seul `LLAMA_TOOL_LOOP_MAX_S` joue. */
   echeanceMs?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
   wrapupSuffix?: string | null;
@@ -357,8 +355,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     maxIter,
   });
   let emptyChoicesStop = false;
-  const murGlobal = Number(config.LLAMA_TOOL_LOOP_MAX_S || 0);
-  const murS = o.wallclockS && o.wallclockS > 0 ? Math.min(o.wallclockS, murGlobal || Infinity) : murGlobal;
+  const murS = Number(config.LLAMA_TOOL_LOOP_MAX_S || 0);
   const debutBoucle = performance.now() / 1000;
   const echeanceMs = o.echeanceMs && o.echeanceMs > 0 ? o.echeanceMs : null;
   /** Temps restant (s) avant le mur de la boucle, le plus proche de l'échéance absolue et du mur relatif ; `null` sans mur. */

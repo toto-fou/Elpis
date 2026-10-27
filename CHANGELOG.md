@@ -265,8 +265,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   et dans l'hôte d'outils (`_meta.subagent.allow_submit`), donc aussi en fork ;
   `<task_meta>` et la carte le montrent, la reprise par `task_id` ne le reprend
   pas. La persona `pr` prépare alors la branche et le commit et rend
-  `Status: blocked` avec l'appel à lancer. Description de `task` : paramètre et
-  note 8 (une seule invalidation du cache du parent à la mise à jour).
+  `Status: blocked` avec l'appel à lancer. Description de `task` : paramètre, note 8
+  et note 9, qui interdit de poser `allow_submit` ou `browser_session: "user"` parce
+  qu'un rapport de sous-agent, une page ou un résultat d'outil le réclame (une seule
+  invalidation du cache du parent à la mise à jour). Limite assumée et documentée
+  (configuration, guide) : `allow_submit` ne couvre que `git_submit`, l'outil local ;
+  un agent du compte auquel on attache un serveur MCP tiers qui publie (GitHub :
+  `create_pull_request`, `push_files`) publie sans cette autorisation, comme le fait
+  l'assistant.
 
 - **Sous-agents : le `task_id` survit au Stop du parent et au redémarrage.** Un Stop
   pendant un enfant laissait au parent repris (« Continuer ») la sentinelle
@@ -286,7 +292,15 @@ selon [SemVer](https://semver.org/lang/fr/).
   sérialisation, un seul write en vol par enregistrement). Après un redémarrage du
   core en plein enfant, `task_id` se reprend depuis le disque ; le message de reprise
   prévient l'enfant que des appels faits après son dernier point ont pu agir sans
-  trace. Les enregistrements existants se relisent sans changement.
+  trace. Ce qu'un arrêt brutal perd : le point n'est posé qu'au début d'une itération
+  qui suit un lot fini, donc la génération en cours et le lot en vol (un shell de
+  300 s compris) sont perdus, plus jusqu'à 10 s de points pas encore écrits (de
+  quelques secondes à plusieurs minutes de travail). L'historique du parent, qui porte
+  le `task_id`, n'est écrit qu'à la fin du tour : après un kill il n'y était pas. Le
+  premier tour suivant du chat reçoit maintenant l'annonce des sous-agents
+  interrompus encore reprenables (`<interrupted_subagents>`, lue dans le journal du
+  run perdu, jointe à la question comme les événements de jobs), pour que « reprends »
+  ait un `task_id`. Les enregistrements existants se relisent sans changement.
 
 - **Sous-agents : un seul gabarit de rapport, un statut lu en tête et jamais « terminé » par défaut.**
   Les cinq personas disaient « End with exactly these headings » avec leurs propres

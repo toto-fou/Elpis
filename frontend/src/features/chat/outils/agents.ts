@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/outils/agents.ts — un sous-agent dit comme une étape : ce qu'il fait, son bilan court, son état en français, et sa chronologie (narrations et étapes groupées) pour le volet de l'agent. */
 import type { EtapeNumerotee } from "../message/chronologie.ts";
-import { libelleEtatRun, libelleStatutTache, resumeDetailsTache, statutReserve } from "./bilan-tache.ts";
+import { libelleEtatRun, libelleReserve, resumeDetailsTache, statutReserve } from "./bilan-tache.ts";
 import type { EtapeOutil, ExecutionSousAgent } from "./types.ts";
 import { texteEtape } from "./verbes.ts";
 
@@ -71,7 +71,7 @@ export function etapeCouranteAgent(run: ExecutionSousAgent): string {
   return "Étape " + n + " · " + texteEtape(etapeDeroule(e));
 }
 
-/** Bilan court d'un agent fini (« 2 fichiers · 1 commit », « 14 appels ») précédé de son état, ou de son statut s'il est terminé sans réussite déclarée. */
+/** Bilan court d'un agent fini (« 2 fichiers · 1 commit », « 14 appels ») précédé de son état, ou de sa réserve s'il est terminé sans réussite déclarée. */
 export function bilanCourtAgent(run: ExecutionSousAgent): string {
   const h = run.harness;
   const bilan = h
@@ -81,7 +81,7 @@ export function bilanCourtAgent(run: ExecutionSousAgent): string {
       : "";
   const reserve = statutReserve(run);
   if (run.state === "completed" && reserve === null) return bilan || "terminé";
-  return [reserve === null ? libelleEtatRun(run.state) : libelleStatutTache(reserve), bilan]
+  return [reserve === null ? libelleEtatRun(run.state) : libelleReserve(reserve), bilan]
     .filter(Boolean)
     .join(" · ");
 }

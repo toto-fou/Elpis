@@ -7,12 +7,14 @@ import {
   aReflechi,
   arretSurBudget,
   classeStatutTache,
+  classeVerdictTache,
   detailsTache,
   fmtAppelsTache,
   fmtDureeTache,
   libelleEtatRun,
   libelleSourceLectureSeule,
   libelleStatutTache,
+  libelleVerdictTache,
   resumeDetailsTache,
   signeEtatRun,
   statutReserve,
@@ -115,6 +117,14 @@ const lignes = computed(() =>
         <span class="task-run-badge" :class="classeStatutTache(bilan.status)" data-task-status>{{
           libelleStatutTache(bilan.status)
         }}</span>
+        <span
+          v-if="bilan.verdict"
+          class="task-run-badge"
+          :class="classeVerdictTache(bilan.verdict)"
+          title="Verdict déclaré par l'agent de vérification"
+          data-task-verdict
+          >{{ libelleVerdictTache(bilan.verdict) }}</span
+        >
         <span class="task-run-meta" title="Appels d'outils de ce lancement sur son budget" data-task-calls
           >{{ fmtAppelsTache(bilan) }} appels</span
         >

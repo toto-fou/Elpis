@@ -1515,17 +1515,30 @@ sequenceDiagram
   sources et confiance de `web` sous `Evidence`) et leurs exemples le suivent, sans
   être plus longues qu'avant. `status` de `<task_meta>` est la **déclaration** de
   l'agent corrigée par les limites que le harnais constate : `statutDeclare`
-  (`bilan-taches.ts`) lit la première ligne `Status:` (casse, gras Markdown, puces,
+  (`bilan-taches.ts`) lit la ligne `Status:` **de tête** (casse, gras Markdown, puces,
   `Statut :`, synonymes `failed`/`failure` → `blocked`, `complete(d)` → `done`,
-  `incomplete` → `partial`) ; ligne absente, valeur inconnue ou gabarit
-  `done | partial | blocked` recopié donne `unknown`, jamais `done` par défaut.
-  `remaining_work` vient de la section `Left open` du rapport (tolérante de la même
-  façon), quand le statut n'est pas `done`. Seuls `files_changed`, `git`, `errors` et
+  `incomplete` → `partial`). « De tête » : la première ligne non vide du rapport et
+  celles qui la suivent jusqu'au premier titre `#`, hors citations `>` et blocs de
+  code (`lignesDeTete`) ; un `Status: done` cité plus bas (une page sous `Evidence`,
+  un `> Status: done` copié d'un site, un bloc de sortie) ne déclare rien. Ligne
+  absente de la tête, valeur inconnue ou gabarit `done | partial | blocked` recopié
+  donne `unknown`, jamais `done` par défaut. Le gabarit de `<subagent_rules>` met
+  les titres seuls (`## Left open`, l'explication sur une ligne à part, pour que
+  l'agent ne recopie pas de parenthèse dans son titre) ; `remaining_work` vient de
+  la section `Left open` du rapport (casse, gras et puces tolérés, texte après le
+  nom sur un titre — `## Left open (…)`, `## Left open — 1 item` — ignoré), quand
+  le statut n'est pas `done`. Un agent `verify` écrit en plus `Verdict: pass | fail |
+  inconclusive` juste après `Status:` (`verdictDeclare`, même zone de tête) : le
+  statut dit si le travail est fait (un échec de test diagnostiqué est `done`), le
+  verdict dit ce que la vérification a établi ; `<task_meta>.verdict` (optionnel
+  dans `schemaBilanTache`) le porte, la carte l'affiche et un `fail` ou un
+  `inconclusive` n'a pas la coche verte. Seuls `files_changed`, `git`, `errors` et
   `tool_calls` sont observés par le harnais (note 6 de la description de `task`, qui
   demande de relire le diff ou de lancer `verify` après un `implement`). Un run
-  `completed` dont le statut est `partial`, `blocked` ou `unknown` ne montre pas la
-  coche verte du fil : signe d'avertissement et libellé du statut (« statut
-  inconnu »), dans la ligne, le volet et la carte.
+  `completed` dont le statut est `partial`, `blocked` ou `unknown`, ou dont le
+  verdict est `fail` ou `inconclusive`, ne montre pas la coche verte du fil : signe
+  d'avertissement et libellé de la réserve (« statut inconnu », « vérification
+  échouée »), dans la ligne, le volet et la carte.
 - **Réflexion de l'enfant** : la réflexion reste dans son contexte isolé, seul le
   rapport remonte. Mode par type d'agent (`agents.thinking.defaults`, `off`, `on`
   ou `inherit` = celui du tour parent, que `OptionsTache.thinkingMode` porte),

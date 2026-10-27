@@ -74,6 +74,7 @@ import {
   SuiviOutils,
   texteAvertissement,
   travailRestant,
+  verdictDeclare,
 } from "./bilan-taches";
 import type { ArgsTache, AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
@@ -587,7 +588,8 @@ export function buildDefinition(
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
     "uncertain), git, errors and tool_calls are observed by the harness. status is the agent's own declaration " +
     "corrected by the harness limits (done, partial, blocked, unknown if it declared none; budget_exhausted, " +
-    "timeout, unavailable, error, cancelled), and remaining_work comes from its report. After an implement, " +
+    "timeout, unavailable, error, cancelled), remaining_work comes from its report, and a verify also declares " +
+    "verdict (pass, fail, inconclusive: a diagnosed failure is status done, verdict fail). After an implement, " +
     "re-read the diff or run verify before saying it is done; a claim backed by a single source is unconfirmed.\n" +
     '7. context: "fresh" (default) starts the agent blank and isolated, as in note 1. context: "fork" starts it from ' +
     "this whole conversation as it stands: it sees everything said and every result so far, so the prompt only states " +
@@ -722,11 +724,12 @@ export function subagentRulesBlock(fork = false): string {
     "  Status: done | partial | blocked",
     "  ## Answer",
     "  ## Evidence",
-    '  ## Changes (files you changed, or "none")',
-    '  ## Left open (what remains to be done, or "nothing")',
+    "  ## Changes",
+    "  ## Left open",
     "  Write exactly one of the three words after Status: done = the whole mission is done, partial = something " +
       "remains (list it under Left open), blocked = you could not do it. The harness records unknown if the line " +
-      "is missing or unreadable.",
+      "is missing or unreadable, and reads only the first lines (before the first heading). Under Changes list " +
+      'the files you changed, or write "none"; under Left open what remains to be done, or write "nothing".',
     "</subagent_rules>",
   ].join("\n");
 }
@@ -1741,6 +1744,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       if (statut === "partial" && etat === "completed" && finDeBudgetAnnoncee && stopReason === null)
         stopReason = "budget_wrap_up";
       const reste = statut !== "done" ? travailRestant(prepare.complet) : null;
+      const verdict = verdictDeclare(finalText);
       const candidats = suivi.fichiersCandidats();
       const bilan = bilanDe({
         status: statut,
@@ -1758,6 +1762,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         git: suivi.git(),
         errors: suivi.erreurs,
         ...(reste ? { remaining_work: reste } : {}),
+        ...(verdict ? { verdict } : {}),
         ...(manquants.length && lus.outputSchema.length ? { missing_fields: manquants } : {}),
         report_chars: longueurPy(prepare.complet),
         ...(sauve ? { report_saved_to: sauve } : {}),

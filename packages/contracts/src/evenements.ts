@@ -58,6 +58,10 @@ export const STATUTS_TACHE = [
 ] as const;
 export type StatutTache = (typeof STATUTS_TACHE)[number];
 
+/** Issue d'une vérification (agent `verify`) déclarée sur la ligne `Verdict:` de tête de son rapport ; `Status` dit seulement si le travail est fait. */
+export const VERDICTS_TACHE = ["pass", "fail", "inconclusive"] as const;
+export type VerdictTache = (typeof VERDICTS_TACHE)[number];
+
 export const schemaFichierTache = z.strictObject({
   path: z.string(),
   change: z.string(),
@@ -109,6 +113,8 @@ export const schemaBilanTache = z.strictObject({
   /** Seuls write_file, edit_file, manage_files et git_write sont bornés ; le shell ne l'est pas. */
   writable_paths_scope: z.literal("file_tools_only").optional(),
   remaining_work: z.string().optional(),
+  /** Ligne `Verdict:` de tête d'un rapport `verify` (`fail` : un test ou une commande a échoué, même si le travail est `done`) ; absent si l'agent n'en a pas écrit de lisible. */
+  verdict: z.enum(VERDICTS_TACHE).optional(),
   /** Champs d'`output_schema` absents du rapport final (`status: partial`). */
   missing_fields: z.array(z.string()).optional(),
   report_chars: entier,

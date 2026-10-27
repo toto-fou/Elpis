@@ -256,7 +256,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   prévient l'enfant que des appels faits après son dernier point ont pu agir sans
   trace. Les enregistrements existants se relisent sans changement.
 
-- **Sous-agents : un seul gabarit de rapport, un statut jamais « terminé » par défaut.**
+- **Sous-agents : un seul gabarit de rapport, un statut lu en tête et jamais « terminé » par défaut.**
   Les cinq personas disaient « End with exactly these headings » avec leurs propres
   titres, contre le gabarit commun de `<subagent_rules>` (`Status:`, `## Answer`,
   `## Evidence`, `## Changes`, `## Left open`) : un petit modèle suivait les exemples,
@@ -266,20 +266,34 @@ selon [SemVer](https://semver.org/lang/fr/).
   `web` sous `Evidence`, branche et commits de `pr` sous `Changes`…) et leurs exemples
   suivent le squelette avec une ligne `Status:` juste (un « rien livré » est
   `blocked` ou `partial`, avec `Left open` rempli) ; aucune n'est plus longue
-  qu'avant. `statutDeclare` tolère la casse, les espaces, le gras Markdown, les puces
-  et `Statut :`, et lit `failed`/`failure` comme `blocked`, `complete(d)` comme
-  `done`, `incomplete` comme `partial` ; une ligne absente, une valeur inconnue ou le
-  gabarit `done | partial | blocked` recopié donne le nouveau statut **`unknown`**
-  (contrat `schemaBilanTache`, carte, volet et docs : « statut inconnu »). La ligne
-  du fil, le volet et la carte ne montrent plus la coche verte pour un agent
-  `partial`, `blocked` ou `unknown`. `travailRestant` (section `Left open`) est
-  tolérant de la même façon. Le bloc `<subagent_rules>` définit les trois valeurs et
-  annonce `unknown`. La note 6 de la description de `task` dit que `status` est la
-  déclaration de l'agent corrigée par les limites du harnais et que seuls
-  `files_changed`, `git`, `errors` et `tool_calls` sont observés, et demande de relire
-  le diff ou de lancer `verify` après un `implement` (une affirmation d'une seule
-  source est non confirmée). La tête des enfants (personas, règles) et la description
-  de `task` changent une fois : un seul recalcul du préfixe du cache.
+  qu'avant, en octets comme en caractères (la persona `pr` en tête : un exemple du
+  cas `submit_not_allowed`, désormais le chemin par défaut). `statutDeclare` lit la
+  ligne `Status:` **de tête** seulement : la première ligne non vide du rapport et
+  celles qui la suivent jusqu'au premier titre `#`, hors citations `>` et blocs de
+  code. Un `Status: done` recopié d'une page sous `## Evidence`, d'une citation ou
+  d'un bloc de sortie ne décide plus du statut (la première version prenait la
+  première ligne `Status:` n'importe où). Casse, espaces, gras Markdown, puces et
+  `Statut :` restent tolérés, `failed`/`failure` valent `blocked`, `complete(d)`
+  `done`, `incomplete` `partial` ; une ligne absente de la tête, une valeur inconnue
+  ou le gabarit `done | partial | blocked` recopié donne le nouveau statut
+  **`unknown`** (contrat `schemaBilanTache`, carte, volet et docs : « statut
+  inconnu »). `travailRestant` (section `Left open`) tolère la casse, le gras, les
+  puces, `**Left open:**` et un suffixe après le nom du titre (`## Left open (…)`,
+  `## Left open — 1 item`) ; le gabarit de `<subagent_rules>` ne met plus de
+  parenthèse explicative dans ses titres (l'explication tient sur une ligne à part).
+  Un agent `verify` écrit aussi `Verdict: pass | fail | inconclusive` juste après
+  `Status:` : un échec de test diagnostiqué reste `Status: done` (le travail est
+  fait), le verdict dit ce que la vérification a établi. `<task_meta>.verdict`
+  (optionnel dans `schemaBilanTache`) le porte et la carte l'affiche ; un `fail` ou
+  un `inconclusive` n'a pas la coche verte. La ligne du fil, le volet et la carte ne
+  montrent plus la coche verte pour un agent `partial`, `blocked` ou `unknown`. Le
+  bloc `<subagent_rules>` définit les trois valeurs et annonce `unknown`. La note 6 de
+  la description de `task` dit que `status` est la déclaration de l'agent corrigée
+  par les limites du harnais, que seuls `files_changed`, `git`, `errors` et
+  `tool_calls` sont observés, qu'un `verify` déclare aussi `verdict`, et demande de
+  relire le diff ou de lancer `verify` après un `implement` (une affirmation d'une
+  seule source est non confirmée). La tête des enfants (personas, règles) et la
+  description de `task` changent une fois : un seul recalcul du préfixe du cache.
 
 - **Sous-agents : plafonds par tour.** Rien ne bornait ce qu'un tour pouvait
   déléguer. Deux réglages de la section `agents` de config.json (Console › Sandbox ›

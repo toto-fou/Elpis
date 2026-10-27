@@ -75,6 +75,8 @@ export interface Bilan {
   writable_paths?: string[];
   writable_paths_scope?: "file_tools_only";
   remaining_work?: string;
+  /** Issue de la vérification déclarée par un agent `verify` (ligne `Verdict:` de tête) ; absente sinon. */
+  verdict?: Verdict;
   missing_fields?: string[];
   report_chars: number;
   report_saved_to?: string;
@@ -281,14 +283,15 @@ export class SuiviOutils {
   }
 }
 
-/** Ligne de titre ou de champ `nom` en tête de ligne, tolérante à la casse, au gras, aux puces et aux `#` ; un blanc, `_` ou `-` du nom s'écrit comme l'un des trois. */
-const TITRE = (nom: string): RegExp =>
-  new RegExp(
-    `^[ \\t]{0,3}(?:(?:[-*+>]|#{1,6})[ \\t]*)?[*_\`]*${nom
-      .replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")
-      .replace(/[ _-]/gu, "[ \\t_-]")}[*_\`]*[ \\t]*(?::[*_\`]*|$)`,
+/** Titre `## nom` (un suffixe qui ne commence pas par un mot, `(…)` ou `— 1 item`, peut suivre le nom ; il n'est pas lu) ou ligne de champ `nom:`, tolérants à la casse, au gras, aux puces et aux `#` ; un blanc, `_` ou `-` du nom s'écrit comme l'un des trois. */
+const TITRE = (nom: string): RegExp => {
+  const n = nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/[ _-]/gu, "[ \\t_-]");
+  return new RegExp(
+    `^[ \\t]{0,3}(?:#{1,6}[ \\t]*[*_\`]*${n}(?![*_\`]*[:\\p{L}\\p{N}_])(?![ \\t]+\\p{L})[^\\n]*` +
+      `|(?:(?:[-*+>]|#{1,6})[ \\t]*)?[*_\`]*${n}[*_\`]*[ \\t]*(?::[*_\`]*|$))`,
     "imu",
   );
+};
 
 /** Valeurs de la ligne `Status:` lues sans équivoque (le reste n'est pas lu) ; les synonymes d'échec valent `blocked`, jamais `done`. */
 const STATUTS_LUS: ReadonlyMap<string, "done" | "partial" | "blocked"> = new Map([
@@ -309,16 +312,71 @@ const STATUTS_LUS: ReadonlyMap<string, "done" | "partial" | "blocked"> = new Map
 ]);
 
 const LIGNE_STATUT =
-  /^[ \t]{0,3}(?:(?:[-*+>]|#{1,6})[ \t]*)?[*_`]*(?:status|statut)[*_`]*[ \t]*:[ \t]*[*_`]*([^\n]*)/imu;
+  /^[ \t]{0,3}(?:(?:[-*+]|#{1,6})[ \t]*)?[*_`]*(?:status|statut)[*_`]*[ \t]*:[ \t]*[*_`]*(.*)$/iu;
+const LIGNE_VERDICT =
+  /^[ \t]{0,3}(?:(?:[-*+]|#{1,6})[ \t]*)?[*_`]*(?:verdict)[*_`]*[ \t]*:[ \t]*[*_`]*(.*)$/iu;
+const LIGNE_TITRE = /^[ \t]{0,3}#{1,6}[ \t]/u;
+const LIGNE_CLOTURE = /^[ \t]{0,3}(?:`{3,}|~{3,})/u;
+const LIGNE_CITATION = /^[ \t]{0,3}>/u;
 
-/** Statut déclaré par la première ligne `Status:` du rapport (casse, gras, puces et synonymes tolérés) ; `unknown` si elle manque, si sa valeur n'est pas lue ou si c'est le gabarit recopié (`done | partial | blocked`) : jamais `done` par défaut. */
+/** Lignes de tête du rapport où une déclaration est lue : la première ligne non vide et celles qui la suivent jusqu'au premier titre `#` (ce titre compris), hors citations `>` et blocs de code ; une page citée plus bas ne déclare rien. */
+export function lignesDeTete(rapport: string): string[] {
+  const tete: string[] = [];
+  let code = false;
+  for (const ligne of rapport.split(/\r?\n/u)) {
+    if (LIGNE_CLOTURE.test(ligne)) {
+      code = !code;
+      continue;
+    }
+    if (code || !ligne.trim()) continue;
+    if (!LIGNE_CITATION.test(ligne)) tete.push(ligne);
+    if (LIGNE_TITRE.test(ligne)) break;
+  }
+  return tete;
+}
+
+/** Valeur de la première ligne de tête qui déclare `motif` (`Status:`, `Verdict:`), `null` si aucune. */
+function valeurDeclaree(rapport: string, motif: RegExp): string | null {
+  for (const ligne of lignesDeTete(rapport)) {
+    const m = motif.exec(ligne);
+    if (m) return m[1] ?? "";
+  }
+  return null;
+}
+
+/** Statut déclaré par la ligne `Status:` de tête du rapport (casse, gras, puces et synonymes tolérés) ; `unknown` si elle manque, si sa valeur n'est pas lue ou si c'est le gabarit recopié (`done | partial | blocked`) : jamais `done` par défaut, et jamais lu dans une citation, un bloc de code ou sous un titre (`Evidence` cite des pages). */
 export function statutDeclare(rapport: string): "done" | "partial" | "blocked" | "unknown" {
-  const valeur = LIGNE_STATUT.exec(rapport)?.[1] ?? "";
+  const valeur = valeurDeclaree(rapport, LIGNE_STATUT) ?? "";
   const mots = valeur.toLowerCase().match(/[\p{L}_]+/gu) ?? [];
   const lus = mots.map((m) => STATUTS_LUS.get(m));
   const premier = lus[0];
   if (premier === undefined) return "unknown";
   if (valeur.includes("|") && new Set(lus.filter(Boolean)).size > 1) return "unknown";
+  return premier;
+}
+
+export type Verdict = "pass" | "fail" | "inconclusive";
+
+const VERDICTS_LUS: ReadonlyMap<string, Verdict> = new Map([
+  ["pass", "pass"],
+  ["passed", "pass"],
+  ["passes", "pass"],
+  ["fail", "fail"],
+  ["failed", "fail"],
+  ["fails", "fail"],
+  ["failing", "fail"],
+  ["failure", "fail"],
+  ["inconclusive", "inconclusive"],
+]);
+
+/** Verdict déclaré par la ligne `Verdict:` de tête (agent `verify`) : `pass`, `fail` ou `inconclusive` ; `null` si elle manque, si sa valeur n'est pas lue ou si c'est le gabarit recopié. */
+export function verdictDeclare(rapport: string): Verdict | null {
+  const valeur = valeurDeclaree(rapport, LIGNE_VERDICT);
+  if (valeur === null) return null;
+  const lus = (valeur.toLowerCase().match(/[\p{L}_]+/gu) ?? []).map((m) => VERDICTS_LUS.get(m));
+  const premier = lus[0];
+  if (premier === undefined) return null;
+  if (valeur.includes("|") && new Set(lus.filter(Boolean)).size > 1) return null;
   return premier;
 }
 

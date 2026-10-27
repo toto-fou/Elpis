@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/outils/bilan-tache.ts — bloc du harnais d'un sous-agent (`harness` de l'étape finale de `task` et du run persisté) : lecture validée et libellés français de la carte. */
 import { schemaBilanTache } from "@elpis/contracts";
-import type { BilanTache, StatutTache } from "@elpis/contracts";
+import type { BilanTache, StatutTache, VerdictTache } from "@elpis/contracts";
 import { z } from "zod";
 
 import { fmtElapsed } from "../../../utils/utils-purs";
@@ -52,16 +52,44 @@ const LIBELLES_ETAT_RUN: Readonly<Record<string, string>> = {
 /** État d'un run de sous-agent en français ; un état inconnu reste tel quel. */
 export const libelleEtatRun = (s: string | undefined): string => (s ? (LIBELLES_ETAT_RUN[s] ?? s) : "");
 
-/** Statut du harnais d'un run terminé qui n'est pas une réussite déclarée (partiel, bloqué, inconnu) ; `null` sinon. */
-export function statutReserve(run: { state?: string; harness?: BilanTache | null }): StatutTache | null {
-  const s = run.harness?.status;
-  return run.state === "completed" && (s === "partial" || s === "blocked" || s === "unknown") ? s : null;
+const LIBELLES_VERDICT: Readonly<Record<VerdictTache, string>> = {
+  pass: "vérifié",
+  fail: "vérification échouée",
+  inconclusive: "non concluant",
+};
+
+export const libelleVerdictTache = (v: VerdictTache): string => LIBELLES_VERDICT[v];
+
+/** Ton du badge de verdict : vert si la vérification a réussi, rouge si elle a échoué, orange si elle n'a rien établi. */
+export function classeVerdictTache(v: VerdictTache): "is-ok" | "is-warn" | "is-error" {
+  return v === "pass" ? "is-ok" : v === "fail" ? "is-error" : "is-warn";
 }
 
-/** Signe d'un run fini : réussite, échec, incomplet ou arrêt (seul le signe porte la couleur) ; terminé sans réussite déclarée (`statut`), il reste incomplet. */
+/** Réserve d'un run terminé : statut non abouti (partiel, bloqué, inconnu) ou verdict `verify` qui n'est pas une réussite. */
+export type ReserveRun = "partial" | "blocked" | "unknown" | "verdict_fail" | "verdict_inconclusive";
+
+/** Réserve d'un run terminé sans réussite déclarée (statut, ou verdict d'un `verify` terminé) ; `null` sinon. */
+export function statutReserve(run: { state?: string; harness?: BilanTache | null }): ReserveRun | null {
+  if (run.state !== "completed") return null;
+  const s = run.harness?.status;
+  if (s === "partial" || s === "blocked" || s === "unknown") return s;
+  const v = run.harness?.verdict;
+  return v === "fail" ? "verdict_fail" : v === "inconclusive" ? "verdict_inconclusive" : null;
+}
+
+/** Libellé court d'une réserve (statut du harnais, ou verdict). */
+export function libelleReserve(r: ReserveRun): string {
+  return r === "verdict_fail"
+    ? LIBELLES_VERDICT.fail
+    : r === "verdict_inconclusive"
+      ? LIBELLES_VERDICT.inconclusive
+      : LIBELLES_STATUT[r];
+}
+
+/** Signe d'un run fini : réussite, échec, incomplet ou arrêt (seul le signe porte la couleur) ; terminé avec une réserve (`statut`), il reste incomplet. */
 export function signeEtatRun(
   s: string | undefined,
-  statut: StatutTache | null = null,
+  statut: ReserveRun | null = null,
 ): "ok" | "echec" | "incomplet" | "arret" {
   if (s === "completed") return statut === null ? "ok" : "incomplet";
   if (s === "failed" || s === "timeout") return "echec";

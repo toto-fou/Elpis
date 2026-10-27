@@ -7,10 +7,13 @@ import { domaineModales } from "../../../features/chat/modales/domaine";
 import { bilanCourtAgent, chronologieAgent } from "../../../features/chat/outils/agents";
 import {
   classeStatutTache,
+  classeVerdictTache,
   fmtAppelsTache,
   fmtDureeTache,
   libelleEtatRun,
+  libelleReserve,
   libelleStatutTache,
+  libelleVerdictTache,
   statutReserve,
 } from "../../../features/chat/outils/bilan-tache";
 import { fmtDuree } from "../../../features/chat/outils/format";
@@ -71,7 +74,7 @@ const etat = computed(() => {
   if (!r) return "";
   if (r.state === "running") return r.id ? "en cours" : "en attente";
   const reserve = statutReserve(r);
-  if (reserve !== null) return libelleStatutTache(reserve);
+  if (reserve !== null) return libelleReserve(reserve);
   return r.state === "completed" ? "fini" : libelleEtatRun(r.state);
 });
 const infobulle = computed(() => {
@@ -207,6 +210,13 @@ async function copierRendu(): Promise<void> {
           <span class="task-run-badge" :class="classeStatutTache(run.harness.status)">{{
             libelleStatutTache(run.harness.status)
           }}</span>
+          <span
+            v-if="run.harness.verdict"
+            class="task-run-badge"
+            :class="classeVerdictTache(run.harness.verdict)"
+            data-task-verdict
+            >{{ libelleVerdictTache(run.harness.verdict) }}</span
+          >
           <span class="font-mono text-slate-500"
             >{{ fmtAppelsTache(run.harness) }} appels · {{ fmtDureeTache(run.harness) }}</span
           >

@@ -665,10 +665,11 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   des enveloppes d'erreur ; aussi à l'étape finale `task_step` et dans `task_runs[]` du message. Le JSON du bloc
   n'a ni `<` ni `>` (échappés en `\u003c`, `\u003e`) et les balises `<task…>` du rapport sont neutralisées
   (`&lt;task_meta`) : le sous-agent ne peut pas imiter le bloc. Statuts `done`,
-  `partial`, `blocked`, `unknown` (lus sur la ligne `Status:` du rapport, casse, gras, puces et synonymes
-  `failed`/`failure` → `blocked`, `complete(d)` → `done`, `incomplete` → `partial` tolérés ; ligne absente, valeur
-  inconnue ou gabarit `done | partial | blocked` recopié : `unknown`, jamais `done` par défaut ; le Python rendait
-  `done` faute de ligne), `budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled` ; appels comptés par le harnais, cumul sur les reprises (`tool_calls_total`) et budget remis à
+  `partial`, `blocked`, `unknown` (lus sur la ligne `Status:` de tête du rapport, hors citations et blocs de code, casse,
+  gras, puces et synonymes `failed`/`failure` → `blocked`, `complete(d)` → `done`, `incomplete` → `partial` tolérés ;
+  ligne absente, valeur inconnue ou gabarit `done | partial | blocked` recopié : `unknown`, jamais `done` par défaut ;
+  le Python rendait `done` faute de ligne), `verdict` (`pass`, `fail`, `inconclusive`, ligne `Verdict:` d'un agent
+  `verify`, propre au TS), `budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled` ; appels comptés par le harnais, cumul sur les reprises (`tool_calls_total`) et budget remis à
   zéro (`budget_reset`) ; fichiers modifiés, branche, commits et PR relevés sur les résultats d'outils ; branche
   relue en fin de run quand l'agent a appelé le shell ou un outil git (N2 : une branche créée par `git checkout -b`
   au shell n'était pas vue) : un seul `git_query(action="branches")` en lecture, sur le dépôt du dernier outil git

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/coeur/envoi.ts — envoi d'un message (porté d'`app-chat.js`) : commande « / » tapée, mode Images, mode plan scellé, pièces jointes, commande /image et variantes, chats pré-configurés (assistants de skill et de routine, document), copie d'une réponse. */
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 import { journal } from "../../../platform/journal";
 import { imageVariantRequest, parseImageCommand } from "../../images/formats";
 import type { SurfaceImages } from "../../images/images";
@@ -233,8 +234,9 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     return { ok: true, silent: true };
   }
 
-  async function copyAssistantMessage(content: string | null | undefined): Promise<void> {
-    if (!content) return;
+  async function copyAssistantMessage(contenu: string | null | undefined): Promise<void> {
+    if (!contenu) return;
+    const content = restaurerMarqueursTour(contenu);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(content);
       else {

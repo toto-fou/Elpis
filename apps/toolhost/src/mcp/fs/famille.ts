@@ -6,7 +6,7 @@ import { py } from "@elpis/http";
 import { getUsername, outilDuGolden } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenFs from "@elpis/outils-mcp/goldens/fs.json" with { type: "json" };
-import { cheminsEcrits, restaurerMarqueursArgs } from "@elpis/securite";
+import { cheminsEcrits } from "@elpis/securite";
 
 import { gardeDisque, politiqueFs, sousGardeDisque } from "../disque";
 import type { GardeDisque } from "../disque";
@@ -147,21 +147,13 @@ export function outilsFs(disque: GardeDisque | null = null): DefinitionOutil[] {
     }),
     outilDuGolden(g, "write_file", {
       signature: ECRITURE,
-      traiter: async (brut, ctx) => {
-        const v = restaurerMarqueursArgs(brut);
-        return enrichirErreur(
-          await garde("write_file", v, ctx, () => writeFile(v as unknown as ArgsEcriture, ctx)),
-        );
-      },
+      traiter: async (v, ctx) =>
+        enrichirErreur(await garde("write_file", v, ctx, () => writeFile(v as unknown as ArgsEcriture, ctx))),
     }),
     outilDuGolden(g, "edit_file", {
       signature: EDITION,
-      traiter: async (brut, ctx) => {
-        const v = restaurerMarqueursArgs(brut);
-        return enrichirErreur(
-          await garde("edit_file", v, ctx, () => editFile(v as unknown as ArgsEdition, ctx)),
-        );
-      },
+      traiter: async (v, ctx) =>
+        enrichirErreur(await garde("edit_file", v, ctx, () => editFile(v as unknown as ArgsEdition, ctx))),
     }),
     outilDuGolden(g, "list_files", {
       signature: LISTE,

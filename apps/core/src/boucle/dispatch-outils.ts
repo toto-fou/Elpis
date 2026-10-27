@@ -30,6 +30,7 @@ import {
   REFUS_TACHE_SOUS_AGENT,
   refusPublicationSousAgent,
   refusSousAgent,
+  restaurerArgsOutil,
   sousAgentEnDict,
 } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
@@ -458,7 +459,7 @@ export async function executeSingleToolCall(
     try {
       o.signal?.throwIfAborted();
       const t0 = performance.now();
-      const bh: unknown = handler(finalArgs, {
+      const bh: unknown = handler(restaurerArgsOutil(toolName, finalArgs), {
         callId: o.callId ?? null,
         ...(o.parent ? { parent: o.parent } : {}),
         ...(o.rendreSiAnnule ? { rendreSiAnnule: o.rendreSiAnnule } : {}),
@@ -474,14 +475,19 @@ export async function executeSingleToolCall(
       return pyJsonDumps({ error: flattenExceptionMessage(e) }, { ensureAscii: false });
     }
   }
-  return executerOutilMcp(toolCfgMap, toolName, finalArgs, {
-    meta: o.meta ?? null,
-    onProgress: o.onProgress ?? null,
-    onLog: o.onLog ?? null,
-    timeoutS: toolTimeoutS(toolName),
-    queueTimeoutS: TOOL_QUEUE_WAIT_S,
-    signal: o.signal,
-  });
+  return executerOutilMcp(
+    toolCfgMap,
+    toolName,
+    isLocalTool(toolCfgMap, toolName) ? finalArgs : restaurerArgsOutil(toolName, finalArgs),
+    {
+      meta: o.meta ?? null,
+      onProgress: o.onProgress ?? null,
+      onLog: o.onLog ?? null,
+      timeoutS: toolTimeoutS(toolName),
+      queueTimeoutS: TOOL_QUEUE_WAIT_S,
+      signal: o.signal,
+    },
+  );
 }
 
 /** Actif d'un hôte d'outils DISTANT rapatrié par le relais à `chemin` ; vrai s'il est présent. */

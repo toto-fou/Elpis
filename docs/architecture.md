@@ -2923,23 +2923,41 @@ Gemma, `[INST]`, `<think>`…) que llama.cpp, vLLM et SGLang lisent comme de vra
 jetons spéciaux une fois le gabarit rendu : un document pourrait fermer le tour de
 l'outil et en ouvrir un `system`. `prepareToolResultForModel`
 (`contexte/elagage.ts`), point unique avant le plafond d'émission, passe tout
-résultat par `neutraliserMarqueursTour` (`packages/securite/src/marqueurs-tour.ts`) :
-un joint de mots U+2060 (sans largeur) après le premier signe du marqueur
-(`<` U+2060 `|im_end|>`), rien d'autre. Le texte reste lisible ; les `<` ordinaires (code, HTML, génériques) et les
-`[INFO]` des journaux ne sont pas touchés ; la fonction est déterministe et
-idempotente (le cache de préfixe du moteur en dépend) ; la `tool_history`
-enregistrée est la version que le moteur a reçue, l'interface montre le texte
-d'origine ; les résultats d'un lot interrompu et les événements de jobs passent par
-la même fonction. Le comptage de jetons voit le texte envoyé (un caractère de plus
-par marqueur, `contexte/tokens.ts` n'a rien à changer). `read_file` est neutralisé
-comme le reste (un dépôt cloné est la voie d'injection la plus courante), et
-`write_file`, `edit_file`, `git_write` et `execute_shell` retirent le joint des
-seuls marqueurs avant d'agir (`restaurerMarqueursArgs`) : un `old_str` recopié de
-la lecture ou d'un `grep` retrouve son texte et le fichier garde le marqueur
-d'origine. Les résultats déjà enregistrés gardent leur texte. Le RAG garde sa
-neutralisation propre (`neutraliserJetonsRole`, crochets larges, chevrons échappés).
-`task`, `memory` et `skill_*` ne restaurent rien : ce qu'ils écrivent finit dans le
-prompt d'un autre tour.
+résultat par `neutraliserMarqueursTour` (`packages/commun/src/marqueurs-tour.ts`,
+réexporté par `@elpis/securite` ; sans dépendance, l'interface en reprend la
+restauration) : un joint de mots U+2060 (sans largeur) après le premier signe du
+marqueur (`<` U+2060 `|im_end|>`), rien d'autre. La liste est **fermée, aux familles
+courantes** : ChatML et dérivés, Harmony, Llama 2/3/4, Mistral, Phi, Cohere, DeepSeek,
+Gemma (dont FunctionGemma et Gemma 4), Qwen/Hermes, GLM (`[gMASK]`, `<arg_key>`),
+MiniMax-M2 (`]~!b[`, `]~b]`, `[e~[`, `<minimax:tool_call>`), Seed-OSS (`<seed:…>`),
+Nemotron (`<extra_id_N>`, `<SPECIAL_N>`, `<TOOLCALL>`) ; un gabarit d'une autre
+famille n'est pas couvert tant qu'on ne l'a pas ajouté. Le texte reste lisible ; les
+`<` ordinaires (code, HTML, génériques) et les `[INFO]` des journaux ne sont pas
+touchés ; la fonction est déterministe et idempotente (le cache de préfixe du moteur
+en dépend). La `tool_history` enregistrée est la version que le moteur a reçue ;
+l'interface montre le texte d'origine en direct, et **après rechargement** elle
+retire le joint des seuls marqueurs à l'affichage et au copier
+(`restaurerMarqueursTour`, `features/chat/outils/segments.ts`, copie d'une réponse et
+d'un bloc de code). Les résultats d'un lot interrompu et les événements de jobs
+passent par la même fonction. Le comptage de jetons voit le texte envoyé (un caractère
+de plus par marqueur, `contexte/tokens.ts` n'a rien à changer). `read_file` est
+neutralisé comme le reste (un dépôt cloné est la voie d'injection la plus courante).
+**Restauration des arguments** : ce que le modèle recopie d'un résultat vers un outil
+doit retrouver son texte, sinon le fichier, la commande ou la page écrits portent un
+joint invisible. Elle se fait dans la garde centrale de l'hôte d'outils
+(`ServeurOutils.appeler`, `packages/outils-mcp/src/serveur.ts`) pour **tous** les
+outils locaux (`read_file`, `execute_shell`, `shell_job`, `git_*`, `docx_edit`,
+`pptx_edit`, `desktop_*`, `pw_*`, `manage_files`, `skill_run_script`…), **avant**
+`refusSousAgent` (qui contrôle les chemins et les actions réellement exécutés), puis
+sur les valeurs validées ; les outils n'ont plus à le faire. Dans le core,
+`executeSingleToolCall` restaure aussi les arguments des **outils MCP tiers** et des
+intégrés (`rag_*`, `generate_image`, `ask_user`) avant envoi. Seuls
+`OUTILS_SANS_RESTAURATION` gardent le joint, parce que ce qu'ils écrivent finit dans le
+prompt d'un autre tour : `memory`, `skill_save` et `skill_add_file` (skills), `todowrite`
+(rappel de tâches en début de tour), `task` (brief d'un sous-agent) et `routine_save`
+(prompt de la routine) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
+Les résultats déjà enregistrés gardent leur texte. Le RAG garde sa neutralisation
+propre (`neutraliserJetonsRole`, crochets larges, chevrons échappés).
 
 **Catalogue** (~55 outils exposés) :
 

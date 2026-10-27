@@ -8,7 +8,7 @@ import { py } from "@elpis/http";
 import { getUsername, outilDuGolden } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenGit from "@elpis/outils-mcp/goldens/git.json" with { type: "json" };
-import { lireSousAgent, restaurerMarqueursArgs } from "@elpis/securite";
+import { lireSousAgent } from "@elpis/securite";
 
 import { refusEcritureResolue, sousAgentBorne } from "../ecriture-sous-agent";
 import { brancherRappelProfil, Espace } from "../espace";
@@ -191,10 +191,10 @@ export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
     }),
     outilDuGolden(g, "git_write", {
       signature: ECRITURE,
-      traiter: surCompte(async (c, brut, ctx) => {
-        const a = restaurerMarqueursArgs(brut);
-        return (await refusGitWriteResolu(c, a, ctx)) ?? gitWrite(c, a as unknown as ArgsEcritureGit);
-      }),
+      traiter: surCompte(
+        async (c, a, ctx) =>
+          (await refusGitWriteResolu(c, a, ctx)) ?? gitWrite(c, a as unknown as ArgsEcritureGit),
+      ),
     }),
     outilDuGolden(g, "git_action", {
       signature: ACTION,

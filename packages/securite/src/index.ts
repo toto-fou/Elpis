@@ -100,9 +100,11 @@ export {
   GLUON,
   neutraliserJetonsRole,
   neutraliserMarqueursTour,
+  OUTILS_SANS_RESTAURATION,
+  restaurerArgsOutil,
   restaurerMarqueursArgs,
   restaurerMarqueursTour,
-} from "./marqueurs-tour";
+} from "@elpis/commun/marqueurs-tour";
 export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {

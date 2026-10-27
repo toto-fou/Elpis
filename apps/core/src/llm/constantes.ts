@@ -208,6 +208,8 @@ export const TASK_RESUME_MAX = config.TASK_RESUME_MAX || 200;
 export const TASK_RESUME_MAX_BYTES = 32 * 1024 * 1024;
 /** Écart minimal (s) entre deux écritures disque du point de reprise d'un sous-agent en cours : la mémoire suit chaque lot d'outils, le disque au plus à ce rythme (la dernière demande part à l'échéance), pour qu'un redémarrage du core ne perde que ces secondes de travail. */
 export const TASK_CHECKPOINT_S = 10;
+/** Reprises d'un même `task_id` au plus par tour de l'agent principal : une reprise ne compte pas dans `max_tasks_per_turn`, mais un agent repris en boucle est refusé au-delà. */
+export const TASK_RESUMES_MAX_PAR_TOUR = 3;
 export const TASK_MAX_ITERS_EXPLORE = maxPy(1, config.TASK_MAX_ITERS_EXPLORE || 60);
 export const TASK_MAX_ITERS_IMPLEMENT = maxPy(1, config.TASK_MAX_ITERS_IMPLEMENT || 100);
 export const TASK_MAX_ITERS_VERIFY = maxPy(1, config.TASK_MAX_ITERS_VERIFY || 60);

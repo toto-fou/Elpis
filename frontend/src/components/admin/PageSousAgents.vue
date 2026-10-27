@@ -489,7 +489,8 @@ const adm = domaineAdmin();
             <p class="adm-card__hint">
               Limites de délégation d'un tour de l'agent principal, chat ou routine. Au-delà, un nouveau
               lancement est refusé avant de démarrer : l'agent principal termine avec ce qu'il a, ou vous
-              interroge. Les agents déjà lancés continuent.
+              interroge. Les agents déjà lancés continuent. Un même agent est repris trois fois au plus par
+              tour, hors de ces lancements.
             </p>
           </div>
         </header>
@@ -498,12 +499,13 @@ const adm = domaineAdmin();
             <div>
               <label
                 class="adm-row__label"
-                title="Lancements de sous-agents au plus par tour : agents neufs, forks et reprises."
+                title="Lancements de sous-agents au plus par tour : agents neufs et forks (une reprise par task_id n'y compte pas)."
                 for="ag-taches-tour"
                 >Lancements par tour</label
               >
               <span class="sr-only"
-                >Lancements de sous-agents au plus par tour : agents neufs, forks et reprises.</span
+                >Lancements de sous-agents au plus par tour : agents neufs et forks (une reprise par task_id
+                n'y compte pas).</span
               >
             </div>
             <div class="flex items-center gap-2">
@@ -537,13 +539,13 @@ const adm = domaineAdmin();
             <div>
               <label
                 class="adm-row__label"
-                title="Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour ; 0 : sans plafond."
+                title="Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour, en cours compris au mieux de ce qui est connu ; 0 : sans plafond."
                 for="ag-jetons-tour"
                 >Jetons des agents par tour</label
               >
               <span class="sr-only"
-                >Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour ; 0 : sans
-                plafond.</span
+                >Jetons d'entrée et de sortie cumulés au plus des sous-agents d'un tour, en cours compris au
+                mieux de ce qui est connu ; 0 : sans plafond.</span
               >
             </div>
             <div class="flex items-center gap-2">

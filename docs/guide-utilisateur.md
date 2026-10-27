@@ -503,13 +503,18 @@ même message, ceux qui ne font que lire (`explore`, `web`, ou toute mission en
 lecture seule) partent ensemble. Deux agents qui **écrivent** dans les mêmes
 dossiers, ou dont l'un n'a pas de dossiers réservés, ne partent pas ensemble :
 le second attend la fin du premier, dans l'ordre demandé, pour ne pas écrire par
-dessus lui. Un `verify` attend ainsi l'écrivain qui le précède, car ses tests lisent
-tout le projet. Rien n'est refusé, la carte du second apparaît quand il démarre.
+dessus lui. Un agent qui a le **terminal** (`implement`, `verify`, un agent à vous
+qui l'a) compte comme écrivant partout, même avec des dossiers réservés : ses
+commandes et ses tests ne sont bornés par aucun dossier. Seuls des agents aux outils
+de fichiers seuls partent ensemble sur des dossiers distincts. Rien n'est refusé,
+la carte du second apparaît quand il démarre.
 
 **Les plafonds d'un tour.** Pour qu'un tour ne délègue pas sans fin, l'administrateur
 règle (Console › Sandbox › Sous-agents) le nombre de lancements d'agents par tour (12
-par défaut, reprises et forks compris) et, s'il le souhaite, un plafond de jetons
-consommés par les agents d'un tour (aucun par défaut). Au plafond, l'assistant ne
+par défaut, agents neufs et forks ; un même agent n'est repris que trois fois au plus
+par tour, en plus) et, s'il le souhaite, un plafond de jetons consommés par les
+agents d'un tour, ceux qui travaillent encore compris au mieux de ce qui est connu
+(aucun par défaut). Au plafond, l'assistant ne
 peut plus en lancer : il termine avec ce que ses agents ont rapporté, ou vous
 demande comment continuer ; les agents déjà lancés vont jusqu'au bout. Les routines
 ont les mêmes plafonds.

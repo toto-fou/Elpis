@@ -149,7 +149,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   du sous-agent indique « votre session web »). **Un hôte d'outils distant plus
   ancien que le core** ignore `_meta.subagent` : ses sous-agents partagent la
   session du compte (comme avant), `user_session_protected` n'existe pas, il ne borne
-  pas `execute_shell` à l'échéance du sous-agent et il répond
+  pas `execute_shell` à l'échéance du sous-agent (`remaining_ms`) et il répond
   « unknown action » à `cleanup_own` : le harnais n'y ferme rien (jamais le
   `cleanup` du compte, qui fermerait les sessions de l'utilisateur et des frères),
   et le service ramasse les sessions inactives au bout de 15 minutes. Mettez l'hôte
@@ -225,12 +225,16 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Sous-agents : échéance absolue, réserve, délai dur avec rapport.** Le délai
   d'un enfant est fixé à l'entrée dans `task` (prélude et attente de slot
   compris) au lieu du début de sa boucle. Son échéance souple laisse une réserve
-  de `min(300 s de shell + 60 s de synthèse, un tiers du délai)` avant le délai
-  dur (60 s au plus avant : un `execute_shell` de 300 s la dépassait). La
+  de `min(60 s de synthèse, un tiers du délai)` avant le délai dur (60 s au plus
+  avant : un `execute_shell` de 300 s la dépassait). La
   boucle reçoit l'échéance (`OptionsRun.echeanceMs`), `<task_context>` annonce la
   durée de travail et « Wall-clock remaining » se mesure à l'échéance. Elle part
-  aussi à l'hôte d'outils (`_meta.subagent.deadline_ms`) qui borne le
-  `timeout_sec` d'`execute_shell` au temps restant ; un enfant sans échéance
+  aussi à l'hôte d'outils, en durée restante recalculée à chaque appel
+  (`_meta.subagent.remaining_ms`, convertie à réception : aucune dépendance aux
+  horloges du core et de l'hôte), qui borne le `timeout_sec` d'`execute_shell` au
+  temps restant : la réserve n'a donc plus à contenir la plus longue commande. Un
+  hôte plus ancien ne borne pas et peut dépasser l'échéance souple (c'est alors le
+  délai dur qui interrompt l'enfant) ; un enfant sans échéance
   garde le comportement d'avant. Au délai dur, l'enveloppe `task_timeout`
   porte `partial_report` (dernier texte de l'enfant, sans appel au moteur), le
   bilan (`status: timeout`) et le `task_id` de la reprise. Le tour principal ne
@@ -240,13 +244,16 @@ selon [SemVer](https://semver.org/lang/fr/).
   `implement` (ou un `implement` et un `verify`) lancés ensemble écrivaient et
   testaient dans le même `/work` en même temps. Chaque appel `task` est classé
   avant le lot : lecteur (lecture seule effective, même règle que le lancement) ou
-  écrivain de ses `writable_paths` (`null` : tout `/work`, ce que compte aussi un
-  `verify`). Les lecteurs restent parallèles ; deux écrivains aux chemins qui se
-  recouvrent, ou dont l'un est sans borne, partent l'un après l'autre dans l'ordre
-  du lot, sans refus. Interface optionnelle `OutilIntegre.classerLot` (pas de cas
-  du nom `task` dans la boucle) ; ordre et types des événements inchangés. La note 5
-  de la description de `task` le dit (une seule invalidation du cache du parent à
-  la mise à jour).
+  écrivain de ses `writable_paths` ; tout agent dont le profil effectif offre le
+  **shell** (`implement`, `verify`, un agent du compte qui l'a) compte comme
+  écrivain de tout `/work` (`null`), `writable_paths` ou non : ses commandes et ses
+  tests ne sont bornés par aucun chemin (deux `implement` aux dossiers disjoints
+  partaient sinon ensemble avec leurs tests). Les lecteurs restent parallèles ; deux
+  écrivains aux chemins qui se recouvrent, ou dont l'un est sans borne, partent
+  l'un après l'autre dans l'ordre du lot, sans refus. Interface optionnelle
+  `OutilIntegre.classerLot` (pas de cas du nom `task` dans la boucle) ; ordre et
+  types des événements inchangés. La note 5 de la description de `task` le dit (une
+  seule invalidation du cache du parent à la mise à jour).
 
 - **Sous-agents : `git_submit` demande l'accord de l'utilisateur.** Un sous-agent
   `pr` (ou un agent du compte qui a Git) pouvait pousser une branche et ouvrir une
@@ -323,10 +330,13 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Sous-agents : plafonds par tour.** Rien ne bornait ce qu'un tour pouvait
   déléguer. Deux réglages de la section `agents` de config.json (Console › Sandbox ›
   Sous-agents › Plafonds par tour, relus à chaud) : `max_tasks_per_turn`
-  (lancements `task` par tour de l'agent principal, neufs, forks et reprises
-  compris, 1 à 100, défaut 12) et `max_child_tokens_per_turn` (jetons d'entrée et
+  (lancements `task` par tour de l'agent principal, neufs et forks, 1 à 100, défaut
+  12 ; une reprise par `task_id` n'y compte pas mais est limitée à 3 par agent et par
+  tour) et `max_child_tokens_per_turn` (jetons d'entrée et
   de sortie cumulés des enfants du tour, `0` ou 10 000 à 50 000 000, défaut `0` :
-  sans plafond). Au-delà, un nouveau lancement est refusé avant de démarrer
+  sans plafond), qui compte aussi, au mieux, l'usage déjà connu des enfants en
+  cours (cumul publié à chaque itération de l'enfant ; la requête en vol n'y est
+  pas encore) et pas seulement des enfants finis. Au-delà, un nouveau lancement est refusé avant de démarrer
   (`task_budget_exhausted`, `fix` « finish with what you have, or ask the user »,
   étape finale `task_step` comme les autres refus) ; les enfants déjà lancés ne sont
   pas arrêtés. Les compteurs sont ceux de l'instance de l'outil, construite par tour

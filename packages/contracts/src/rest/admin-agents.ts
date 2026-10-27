@@ -39,7 +39,7 @@ const parMode = z.strictObject({
 export const schemaReflexionAgents = z.object({ defaults: parMode });
 export type ReflexionAgents = z.infer<typeof schemaReflexionAgents>;
 
-/** `max_parallel` : sous-agents d'un même tour lancés ensemble, de 1 à 10 ; `max_tasks_per_turn` : lancements `task` au plus par tour (neufs, forks et reprises), de 1 à 100 ; `max_child_tokens_per_turn` : jetons d'entrée et de sortie cumulés au plus des enfants d'un tour, 0 (sans plafond) ou de 10000 à 50000000 ; `thinking_budget_tokens` : budget de réflexion d'un sous-agent qui réfléchit, de 512 à 131072. */
+/** `max_parallel` : sous-agents d'un même tour lancés ensemble, de 1 à 10 ; `max_tasks_per_turn` : lancements `task` au plus par tour (neufs et forks ; une reprise par `task_id` a son plafond de 3 par agent et par tour), de 1 à 100 ; `max_child_tokens_per_turn` : jetons d'entrée et de sortie cumulés au plus des enfants d'un tour, 0 (sans plafond) ou de 10000 à 50000000 ; `thinking_budget_tokens` : budget de réflexion d'un sous-agent qui réfléchit, de 512 à 131072. */
 export const schemaReglagesAgents = z.object({
   read_only: schemaLectureSeuleAgents,
   max_parallel: entier,

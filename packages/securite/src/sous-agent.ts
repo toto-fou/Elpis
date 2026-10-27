@@ -16,7 +16,7 @@ export interface SousAgent {
   readonly id?: string;
   /** Absent ou illisible : `isolated` (le défaut ne donne jamais la session du compte). */
   readonly browser_session?: SessionNavigateur;
-  /** Échéance souple (epoch ms, horloge du core) : une commande du shell ne court pas au-delà ; absente, aucune borne. */
+  /** Échéance souple (epoch ms, horloge du processus qui la porte) : une commande du shell ne court pas au-delà ; absente, aucune borne. Sur le fil, jamais en epoch : `remaining_ms` (durée restante à l'envoi), que le récepteur convertit à l'arrivée, donc sans dépendre de l'accord des horloges du core et de l'hôte. */
   readonly deadline_ms?: number;
   /** L'appel `task` autorise la publication hors de la machine (`git_submit`) ; absent ou faux : refusée. */
   readonly allow_submit?: boolean;
@@ -120,8 +120,8 @@ function fondDemande(v: unknown): boolean {
 const NOM_TYPE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 const ID_ENFANT = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
-/** Champ reçu (meta ou enveloppe) lu en fermant : présent mais mal formé, il vaut lecture seule. */
-export function lireSousAgent(brut: unknown): SousAgent | null {
+/** Champ reçu (meta ou enveloppe) lu en fermant : présent mais mal formé, il vaut lecture seule ; `remaining_ms` devient l'échéance de l'horloge locale (`maintenantMs`). */
+export function lireSousAgent(brut: unknown, maintenantMs: number = Date.now()): SousAgent | null {
   if (brut === null || brut === undefined) return null;
   if (typeof brut !== "object" || Array.isArray(brut))
     return {
@@ -146,9 +146,11 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
   const id = typeof d["id"] === "string" && ID_ENFANT.test(d["id"]) ? { id: d["id"] } : {};
   const session: SessionNavigateur = d["browser_session"] === "user" ? "user" : "isolated";
   const autorise = d["allow_submit"] === true ? { allow_submit: true } : {};
-  const fin = d["deadline_ms"];
+  const reste = d["remaining_ms"];
   const echeance =
-    typeof fin === "number" && Number.isFinite(fin) && fin > 0 ? { deadline_ms: Math.trunc(fin) } : {};
+    typeof reste === "number" && Number.isFinite(reste) && reste >= 0
+      ? { deadline_ms: maintenantMs + Math.trunc(reste) }
+      : {};
   return {
     type,
     read_only: d["read_only"] !== false,
@@ -160,15 +162,17 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
   };
 }
 
-/** Forme transmise (clés stables, chemins normalisés). */
-export function sousAgentEnDict(sa: SousAgent): Record<string, unknown> {
+/** Forme transmise (clés stables, chemins normalisés) ; l'échéance part en durée restante à `maintenantMs`, recalculée à chaque appel. */
+export function sousAgentEnDict(sa: SousAgent, maintenantMs: number = Date.now()): Record<string, unknown> {
   return {
     type: sa.type,
     read_only: sa.read_only,
     ...(sa.writable_paths === null ? {} : { writable_paths: [...sa.writable_paths] }),
     ...(sa.id === undefined ? {} : { id: sa.id }),
     ...(sa.browser_session === undefined ? {} : { browser_session: sa.browser_session }),
-    ...(sa.deadline_ms === undefined ? {} : { deadline_ms: sa.deadline_ms }),
+    ...(sa.deadline_ms === undefined
+      ? {}
+      : { remaining_ms: Math.max(0, Math.trunc(sa.deadline_ms - maintenantMs)) }),
     ...(sa.allow_submit === true ? { allow_submit: true } : {}),
   };
 }

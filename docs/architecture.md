@@ -1433,18 +1433,28 @@ sequenceDiagram
   temps absolu (prélude, vérification du navigateur de `web`, attente de slot
   comprises), pour un `max_seconds` borné par `TASK_CHILD_TIMEOUT_S` (`D`).
   *Délai dur* = `D` : minuterie qui annule l'enfant. *Échéance souple* = `D − R`
-  (`OptionsRun.echeanceMs`), où la **réserve** `R = min(300 + 60, D / 3)`
-  (`reserveSouple` : plus longue commande du shell d'un sous-agent,
-  `SHELL_SOUS_AGENT_DELAI_MAX_S`, plus 60 s de synthèse, au plus un tiers du délai
-  pour un petit `max_seconds` : 10 s pour 30 s, 100 s pour 300 s, 360 s dès 1 080 s).
+  (`OptionsRun.echeanceMs`), où la **réserve** `R = min(60, D / 3)` est la marge de
+  synthèse (`reserveSouple`, `MARGE_SYNTHESE_S` : une requête sans outil, un long
+  préremplissage et un rapport de quelques milliers de jetons), au plus un tiers du
+  délai pour un petit `max_seconds` : 10 s pour 30 s, 60 s dès 180 s. Elle ne compte
+  plus la plus longue commande du shell : l'hôte d'outils à jour borne le
+  `timeout_sec` d'`execute_shell` au temps restant, aucune commande ne dépasse donc
+  l'échéance souple ; un ancien hôte, sans cette borne, peut la dépasser (une
+  commande de 300 s lancée à l'échéance), et c'est alors le délai dur qui interrompt
+  l'enfant et rend son dernier texte.
   À l'échéance souple, testée au début de chaque itération, la boucle fait sa
   synthèse (`Status: partial`, statut `timeout`, `stop_reason: wallclock`).
   `<task_context>` annonce la durée de travail `D − R`, et « Wall-clock remaining »
   des jalons `<harness_status>` se mesure à l'échéance souple. L'échéance est portée
-  à l'hôte d'outils par `_meta.subagent.deadline_ms` (epoch ms, horloge du core :
-  un hôte d'outils distant doit avoir une horloge à quelques secondes près) :
-  `execute_shell` y borne `timeout_sec` au temps restant (1 s au moins, et le
-  `fix` d'un délai raccourci le dit) ; sans `deadline_ms`, rien ne change. Au
+  à l'hôte d'outils par `_meta.subagent.remaining_ms`, une **durée restante**
+  recalculée à chaque appel (`sousAgentEnDict`, dans `buildCallMeta`) : l'hôte
+  la convertit en échéance à réception, avec sa propre horloge, donc sans exiger que
+  les horloges du core et d'un hôte distant s'accordent ; elle ne tient pas compte de
+  l'attente en file du pool MCP entre la construction du `_meta` et l'envoi (5 s pour
+  les appels du harnais, jusqu'à 120 s pour un appel saturé), au pire un surplus
+  d'autant. `execute_shell` y borne `timeout_sec` au temps restant (1 s au moins, et
+  le `fix` d'un délai raccourci le dit) ; sans `remaining_ms` (hôte plus ancien),
+  rien ne change. Au
   délai dur, aucun appel au moteur n'est fait : le rapport est le dernier texte de
   l'assistant de l'enfant (le texte de la génération interrompue s'il y en a un,
   sinon le dernier texte complet), rendu dans `partial_report` de l'enveloppe
@@ -1629,12 +1639,19 @@ sequenceDiagram
   50 000 000) bornent ce qu'un tour de l'agent principal délègue. Les compteurs
   vivent dans l'instance de `buildTaskBuiltinTool`, construite par tour (chat,
   tour de réveil des jobs et routine, via `planificateur.ts`) : aucun état de
-  module. Un lancement est compté quand l'enfant part, qu'il soit neuf, fork ou
-  repris par `task_id` (les refus d'arguments, de fork ou `task_busy` ne
-  consomment rien). Les jetons sont la somme `input_tokens + output_tokens` des
-  enfants **finis** du tour, lue dans `usageSink` (compteur propre de l'instance
-  sans `usageSink`) : un enfant en cours n'y est pas encore. Les réglages sont relus
-  à chaud (`reglagesAgents()`) à chaque lancement. Au plafond, `task` rend l'erreur
+  module. Un lancement neuf ou fork est compté quand l'enfant part (les refus
+  d'arguments, de fork ou `task_busy` ne consomment rien). Une **reprise** par
+  `task_id` n'y compte plus (reprendre un agent n'est pas en lancer un autre) : elle a
+  son propre plafond, `TASK_RESUMES_MAX_PAR_TOUR` (3 reprises d'un même `task_id` par
+  tour, constante), au-delà de quoi `task` rend le même refus JSON. Les jetons sont la
+  somme `input_tokens + output_tokens` des enfants **finis** du tour (lue dans
+  `usageSink`, compteur propre de l'instance sans `usageSink`) plus l'usage **déjà
+  connu des enfants en cours** : chaque itération d'un enfant publie son cumul
+  (`tokens_used` de l'événement `iteration`, appels moteur terminés), l'instance le
+  garde par enfant et le retire quand l'enfant est compté fini. C'est au mieux : la
+  requête moteur en vol d'un enfant n'y est pas encore, et un enfant qui passe le
+  plafond n'est pas arrêté (seuls les lancements suivants sont refusés). Les réglages
+  sont relus à chaud (`reglagesAgents()`) à chaque lancement. Au plafond, `task` rend l'erreur
   JSON `task_budget_exhausted` (`fix` : « finish with what you have, or ask the
   user »), ferme la ligne par une étape finale `task_step` (`failed`, bilan
   `unavailable`) comme les autres refus et ne lance rien ; les enfants déjà partis
@@ -1651,10 +1668,15 @@ sequenceDiagram
   *lecteur* (lecture seule effective, calculée par la **même** fonction que le
   lancement, `lectureSeuleDeLAppel` : défaut ou imposition de l'administrateur,
   case du compte, `read_only` de l'appel, enregistrement d'une reprise) ou
-  *écrivain* de ses `writable_paths` (`null` : tout `/work`). Un `verify` compte
-  toujours comme écrivain de tout `/work` : il n'écrit pas par les outils de
-  fichiers mais son shell lance des tests, qui lisent l'état que l'autre écrivain
-  change ; de même un agent sans `writable_paths`. Les lecteurs restent parallèles
+  *écrivain* de ses `writable_paths` (`null` : tout `/work`). Tout agent dont le
+  **profil effectif offre le shell** (`offreLeShell` : catégorie `shell` ou
+  configuration du parent, `execute_shell` ni retiré par le type, la console ni
+  l'agent) compte comme écrivain de tout `/work`, `writable_paths` ou non : ses
+  commandes ne sont bornées par aucun chemin et ses tests lisent l'état que l'autre
+  écrivain change (`implement`, `verify`, un agent du compte qui a le shell, un fork
+  d'un tel type) ; de même un agent sans `writable_paths`. Seuls des agents aux
+  outils de fichiers seuls (`pr`, un agent du compte sans le shell) partagent le
+  lot sur des `writable_paths` disjoints. Les lecteurs restent parallèles
   entre eux et avec les écrivains ; deux écrivains dont les chemins s'emboîtent
   (`src` et `src/x`) ou dont l'un est sans borne partent l'un après l'autre, dans
   l'ordre du lot (`ecrituresEnConflit`), sans refus : le second attend la fin du
@@ -1664,8 +1686,8 @@ sequenceDiagram
   événements NDJSON gardent leur ordre et leurs types (`tool_call` de tout le lot,
   puis `tool_result` dans l'ordre), chaque appel garde son résultat ; seul le
   `task_step` `spawned` du second arrive plus tard. Limite : `writable_paths` ne
-  borne que les outils de fichiers, pas le shell (description du paramètre), et un
-  lecteur peut lire un état à moitié écrit.
+  borne que les outils de fichiers, pas le shell (description du paramètre, d'où la
+  règle ci-dessus), et un lecteur peut lire un état à moitié écrit.
 - **Lancer llama-server pour les sous-agents** : `-np 2` au moins (`--parallel`,
   idéalement les sous-agents simultanés + 1), `--kv-unified` (un tampon KV
   partagé par les slots) et `--cache-ram` (cache de prompts en RAM, qui restaure

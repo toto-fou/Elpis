@@ -19,6 +19,7 @@ import {
 } from "@elpis/commun";
 import {
   masquerSecretsTexte,
+  OUTILS_RETIRES_PAR_TYPE,
   SHELL_SOUS_AGENT_DELAI_DEFAUT_S,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
   toContainer,
@@ -47,6 +48,7 @@ import {
   TASK_RESUME_MAX,
   TASK_RESUME_MAX_BYTES,
   TASK_RESUME_TTL_S,
+  TASK_RESUMES_MAX_PAR_TOUR,
 } from "../../llm/constantes";
 import { currentEngine } from "../../llm/moteurs";
 import type { Priorite } from "../../llm/ordonnanceur";
@@ -210,17 +212,36 @@ function memoriserReprise(username: string, childId: string, rec: Dict): void {
 
 const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save"];
 
+/** Outils refusés à un enfant de ce type : fixes, réglage de la console pour les sous-agents, retraits propres à l'agent. */
+function outilsRefusesEnfant(s: AgentSpec): Set<string> {
+  return new Set([
+    "task",
+    "ask_user",
+    "routine_save",
+    ...toolsDeniedFor("subagent", DENY_BASE),
+    ...s.denyExtra,
+  ]);
+}
+
+/** Le profil EFFECTIF de l'agent offre `execute_shell` : catégorie `shell` (ou configuration du parent), ni retiré par le type, la console ou l'agent ; le shell n'est borné par aucun `writable_paths`. */
+function offreLeShell(type: string, s: AgentSpec): boolean {
+  if (!s.inheritConfig && s.filterCategories !== null && !s.filterCategories.includes("shell")) return false;
+  if (s.allowedToolNames !== null && s.allowedToolNames.size > 0 && !s.allowedToolNames.has("execute_shell"))
+    return false;
+  return !outilsRefusesEnfant(s).has("execute_shell") && !OUTILS_RETIRES_PAR_TYPE[type]?.has("execute_shell");
+}
+
 /** Attente au plus de la fermeture du navigateur privé d'un enfant : le run ne dépend pas d'un hôte qui ne répond pas. */
 const DELAI_FERMETURE_NAVIGATEUR_S = 20;
 
-/** Marge (s) de la synthèse finale derrière la plus longue commande du shell d'un enfant. */
+/** Marge (s) de la synthèse finale derrière l'échéance souple : une requête au moteur sans outil, le temps d'un long préremplissage et d'un rapport de quelques milliers de jetons. */
 export const MARGE_SYNTHESE_S = 60;
 /** Part du délai dur que la réserve ne dépasse jamais (petit `max_seconds`). */
 export const PART_RESERVE_MAX = 1 / 3;
 
-/** Réserve (s) entre l'échéance souple d'un enfant et son délai dur : la plus longue commande du shell plus la marge de synthèse, au plus un tiers du délai. */
+/** Réserve (s) entre l'échéance souple d'un enfant et son délai dur : la marge de synthèse seule (60 s, au plus un tiers du délai), car l'hôte d'outils à jour borne `timeout_sec` d'`execute_shell` au temps restant (`remaining_ms`) ; un ancien hôte, sans borne, peut dépasser l'échéance, le délai dur interrompt alors l'enfant. */
 export function reserveSouple(dureeMaxS: number): number {
-  return Math.min(SHELL_SOUS_AGENT_DELAI_MAX_S + MARGE_SYNTHESE_S, Math.floor(dureeMaxS * PART_RESERVE_MAX));
+  return Math.min(MARGE_SYNTHESE_S, Math.floor(dureeMaxS * PART_RESERVE_MAX));
 }
 
 export interface AgentSpec {
@@ -591,8 +612,9 @@ export function buildDefinition(
     "interaction mid-task.\n" +
     `5. Several independent tasks requested in one message run IN PARALLEL (up to ${Math.trunc(enParallele)} at a time); ` +
     "agents that write run one after the other, in the order of your calls, when their writable_paths overlap or are " +
-    "not given (a verify counts as writing everywhere: its tests read the whole tree). Give parallel writers " +
-    "disjoint writable_paths, and check overlaps in their results.\n" +
+    "not given. An agent that has the shell (implement, verify) counts as writing everywhere, since neither its " +
+    "commands nor its tests are bounded by writable_paths: only writers with file tools alone run together on " +
+    "disjoint writable_paths. Check overlaps in their results.\n" +
     "6. The result starts with a <task_meta> JSON block written by the harness. Only files_changed " +
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
     "uncertain), git, errors and tool_calls are observed by the harness. status is the agent's own declaration " +
@@ -988,17 +1010,31 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
   const hote = o.hote ?? hoteTacheParDefaut;
   const agentsMap = agentsRoster(o.customAgents);
   if (!agentsMap.size) return {};
-  /** Compteurs du tour (cette instance est construite par tour, routine comprise) : lancements acceptés, et jetons des enfants finis quand il n'y a pas de `usageSink`. */
-  const tour = { lancements: 0, jetons: 0 };
+  /** Compteurs du tour (cette instance est construite par tour, routine comprise) : lancements neufs acceptés (forks compris, reprises à part), reprises par `task_id`, jetons des enfants finis quand il n'y a pas de `usageSink`, et jetons déjà connus des enfants en cours (usage cumulé à chaque itération de l'enfant). */
+  const tour = {
+    lancements: 0,
+    jetons: 0,
+    reprises: new Map<string, number>(),
+    enCours: new Map<string, number>(),
+  };
   const jetonsEnfants = (): number => {
     const sink = o.usageSink;
-    return sink ? intPy(sink["input_tokens"] || 0) + intPy(sink["output_tokens"] || 0) : tour.jetons;
+    const finis = sink ? intPy(sink["input_tokens"] || 0) + intPy(sink["output_tokens"] || 0) : tour.jetons;
+    let enCours = 0;
+    for (const n of tour.enCours.values()) enCours += n;
+    return finis + enCours;
   };
-  /** Pourquoi un nouveau lancement est refusé (plafonds du tour relus à chaud dans la console), `null` s'il peut partir. */
-  const plafondAtteint = (): string | null => {
+  /** Pourquoi un lancement est refusé (plafonds du tour relus à chaud dans la console), `null` s'il peut partir ; `repris` : le `task_id` d'une reprise, qui ne compte pas dans les lancements mais a son propre plafond. */
+  const plafondAtteint = (repris: string | null = null): string | null => {
     const r = reglagesAgents();
-    if (tour.lancements >= r.max_tasks_per_turn)
-      return `this turn already launched ${tour.lancements} sub-agents (limit ${r.max_tasks_per_turn} per turn)`;
+    if (repris === null) {
+      if (tour.lancements >= r.max_tasks_per_turn)
+        return `this turn already launched ${tour.lancements} sub-agents (limit ${r.max_tasks_per_turn} per turn)`;
+    } else {
+      const n = tour.reprises.get(repris) ?? 0;
+      if (n >= TASK_RESUMES_MAX_PAR_TOUR)
+        return `agent '${repris}' was already resumed ${n} times this turn (limit ${TASK_RESUMES_MAX_PAR_TOUR} resumptions per agent and per turn)`;
+    }
     const pris = jetonsEnfants();
     if (r.max_child_tokens_per_turn > 0 && pris >= r.max_child_tokens_per_turn)
       return `the sub-agents of this turn already used ${pris} tokens (limit ${r.max_child_tokens_per_turn} per turn)`;
@@ -1087,7 +1123,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       });
     const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
     if ("erreur" in lus) return refusSimple("bad_args", lus.erreur, { fix: lus.fix });
-    const plein = plafondAtteint();
+    const plein = plafondAtteint(resumed === null ? null : taskId);
     if (plein !== null) return refusBudget(plein);
     const ro = lectureSeuleDeLAppel(agentType, s, lus, resumed);
     const sessionNavigateur: SessionNavigateur =
@@ -1236,13 +1272,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       childBuiltins = null;
       childMemory = false;
     }
-    const childDeny = new Set([
-      "task",
-      "ask_user",
-      "routine_save",
-      ...toolsDeniedFor("subagent", DENY_BASE),
-      ...s.denyExtra,
-    ]);
+    const childDeny = outilsRefusesEnfant(s);
 
     const teteFigee: TeteFigee | null =
       parent === null
@@ -1414,6 +1444,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           await tick();
         }
       } else if (t === "iteration") {
+        const cumul = intPy(ev["tokens_used"] || 0);
+        if (cumul > 0) tour.enCours.set(childId, cumul);
         try {
           pointDeReprise();
         } catch (e) {
@@ -1667,6 +1699,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const recordRun = (bilan: Bilan): void => {
       const entree = intPy(childMetrics["input_tokens"] || 0);
       const sortie = intPy(childMetrics["output_tokens"] || 0);
+      tour.enCours.delete(childId);
       tour.jetons += entree + sortie;
       const sink = o.usageSink;
       if (!sink) return;
@@ -1784,9 +1817,10 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       return refusSimple("task_busy", `agent '${childId}' is still running`, {
         fix: "wait for its result or start a fresh agent",
       });
-    const pleinAuDepart = plafondAtteint();
+    const pleinAuDepart = plafondAtteint(resumed === null ? null : taskId);
     if (pleinAuDepart !== null) return refusBudget(pleinAuDepart);
-    tour.lancements++;
+    if (resumed === null) tour.lancements++;
+    else tour.reprises.set(taskId, (tour.reprises.get(taskId) ?? 0) + 1);
     const arret = new AbortController();
     ACTIFS.set(k, { agent: agentType, chatId: o.chatId, t0: Date.now() / 1000, arret });
     marquerDernier(k, arret);
@@ -1996,7 +2030,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     return out;
   };
 
-  /** Écrivain ou lecteur d'un appel avant son lot : lecture seule effective comme au lancement ; sinon écrivain de ses `writable_paths`, et de tout /work pour `verify` (son shell lance des tests qui lisent l'état) ou sans borne ; `null` si l'appel sera refusé. */
+  /** Écrivain ou lecteur d'un appel avant son lot : lecture seule effective comme au lancement ; sinon écrivain de tout /work si le profil effectif offre le shell (ses commandes et ses tests ne sont bornés par aucun `writable_paths`), de ses `writable_paths` sinon (outils de fichiers seuls) ; `null` si l'appel sera refusé. */
   const classerLot = (args: Dict): ClasseLot | null => {
     if (!estDict(args)) return null;
     const taskId = stripPy(texteOu(args["task_id"], ""));
@@ -2009,7 +2043,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
     if ("erreur" in lus) return null;
     if (lectureSeuleDeLAppel(agentType, s, lus, resumed).read_only) return { ecrit: false, chemins: [] };
-    return { ecrit: true, chemins: agentType === "verify" ? null : cheminsDeLAppel(lus, resumed) };
+    return { ecrit: true, chemins: offreLeShell(agentType, s) ? null : cheminsDeLAppel(lus, resumed) };
   };
 
   return {

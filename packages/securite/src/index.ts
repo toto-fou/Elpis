@@ -110,10 +110,13 @@ export type { Trouvaille } from "./secrets";
 export {
   bornerDelaiShell,
   cheminsEcrits,
+  ecritHorsBorne,
   envShellSousAgent,
   FIX_SOUS_AGENT,
   lireSousAgent,
   outilPermisSousAgent,
+  OUTILS_ECRITURE_BORNES,
+  OUTILS_ECRITURE_LIBRE,
   OUTILS_JAMAIS_SOUS_AGENT,
   OUTILS_PUBLICATION,
   OUTILS_RETIRES_PAR_TYPE,

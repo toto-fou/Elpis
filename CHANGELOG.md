@@ -259,11 +259,15 @@ selon [SemVer](https://semver.org/lang/fr/).
   `implement` (ou un `implement` et un `verify`) lancés ensemble écrivaient et
   testaient dans le même `/work` en même temps. Chaque appel `task` est classé
   avant le lot : lecteur (lecture seule effective, même règle que le lancement) ou
-  écrivain de ses `writable_paths` ; tout agent dont le profil effectif offre le
-  **shell** (`implement`, `verify`, un agent du compte qui l'a) compte comme
-  écrivain de tout `/work` (`null`), `writable_paths` ou non : ses commandes et ses
-  tests ne sont bornés par aucun chemin (deux `implement` aux dossiers disjoints
-  partaient sinon ensemble avec leurs tests). Les lecteurs restent parallèles ; deux
+  écrivain de ses `writable_paths` ; seuls `write_file`, `edit_file`, `manage_files` et
+  `git_write` sont bornés par ces chemins (`OUTILS_ECRITURE_BORNES`), donc tout agent
+  dont le profil effectif offre un autre outil qui écrit dans le bac (le **shell**,
+  `git_commit`, `git_action`, `git_start_work`, `git_abandon`, `git_clone`, les outils
+  Office, `skill_run_script` : `implement`, `verify`, `pr`, un agent du compte qui en a
+  un) compte comme écrivain de tout `/work` (`null`), `writable_paths` ou non : ses
+  commandes, ses commits et ses tests ne sont bornés par aucun chemin (deux `implement`
+  aux dossiers disjoints partaient sinon ensemble avec leurs tests). Les lecteurs restent
+  parallèles ; deux
   écrivains aux chemins qui se recouvrent, ou dont l'un est sans borne, partent
   l'un après l'autre dans l'ordre du lot, sans refus. Interface optionnelle
   `OutilIntegre.classerLot` (pas de cas du nom `task` dans la boucle) ; ordre et

@@ -47,6 +47,30 @@ const ECRITURE_GIT = [
   "git_set_credential",
 ];
 
+/** Outils dont l'écriture dans le bac est bornée par `writable_paths` : `cheminsEcrits` rend les chemins qu'ils modifient. */
+export const OUTILS_ECRITURE_BORNES: ReadonlySet<string> = new Set([...ECRITURE_FICHIERS, "git_write"]);
+
+/** Outils livrés qui écrivent dans le bac sans cette borne (commit, bascule de branche, shell, Office, script de skill), par catégorie d'outils. */
+export const OUTILS_ECRITURE_LIBRE: Readonly<Record<string, readonly string[]>> = {
+  shell: ["execute_shell"],
+  git: ECRITURE_GIT.filter((n) => !OUTILS_ECRITURE_BORNES.has(n)),
+  office: ["docx_create", "docx_edit", "pptx_create", "pptx_edit", "office_export"],
+  skill: ["skill_run_script"],
+};
+
+/** Vrai si un profil d'outils offre un outil qui écrit dans le bac hors de la borne `writable_paths` ; `categories` : celles du profil (`null` : toutes, ou catalogue du parent inconnu), `retires` : refusés par le type, la console ou l'agent, `permis` : liste d'outils permise (`null` ou vide : sans restriction). */
+export function ecritHorsBorne(
+  categories: readonly string[] | null,
+  retires: ReadonlySet<string>,
+  permis: ReadonlySet<string> | null,
+): boolean {
+  return Object.entries(OUTILS_ECRITURE_LIBRE).some(
+    ([categorie, outils]) =>
+      (categories === null || categories.includes(categorie)) &&
+      outils.some((n) => !retires.has(n) && (permis === null || permis.size === 0 || permis.has(n))),
+  );
+}
+
 /** Outils retirés par type livré, lecture seule mise à part. */
 export const OUTILS_RETIRES_PAR_TYPE: Readonly<Record<string, ReadonlySet<string>>> = {
   verify: new Set([...ECRITURE_FICHIERS, ...ECRITURE_GIT]),
@@ -204,13 +228,13 @@ function texte(v: unknown): string {
 
 /** Chemins qu'un outil de fichiers modifierait ; `null` pour un outil hors de la borne `writable_paths`. */
 export function cheminsEcrits(nom: string, args: Readonly<Record<string, unknown>>): string[] | null {
-  if (nom === "write_file" || nom === "edit_file") return [texte(args["path"])];
+  if (!OUTILS_ECRITURE_BORNES.has(nom)) return null;
   if (nom === "git_write") {
     const repo = stripWorkPrefix(texte(args["repo"])).replace(/\/+$/u, "");
     const p = texte(args["path"]).replace(/^\/+/u, "");
     return [repo ? `${repo}/${p}` : p];
   }
-  if (nom !== "manage_files") return null;
+  if (nom !== "manage_files") return [texte(args["path"])];
   const action = texte(args["action"]);
   if (action === "copy") return [texte(args["dest"])];
   if (action === "move") return [texte(args["path"]), texte(args["dest"])];

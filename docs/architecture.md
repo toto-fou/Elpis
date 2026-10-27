@@ -1707,15 +1707,21 @@ sequenceDiagram
   *lecteur* (lecture seule effective, calculée par la **même** fonction que le
   lancement, `lectureSeuleDeLAppel` : défaut ou imposition de l'administrateur,
   case du compte, `read_only` de l'appel, enregistrement d'une reprise) ou
-  *écrivain* de ses `writable_paths` (`null` : tout `/work`). Tout agent dont le
-  **profil effectif offre le shell** (`offreLeShell` : catégorie `shell` ou
-  configuration du parent, `execute_shell` ni retiré par le type, la console ni
-  l'agent) compte comme écrivain de tout `/work`, `writable_paths` ou non : ses
-  commandes ne sont bornées par aucun chemin et ses tests lisent l'état que l'autre
-  écrivain change (`implement`, `verify`, un agent du compte qui a le shell, un fork
-  d'un tel type) ; de même un agent sans `writable_paths`. Seuls des agents aux
-  outils de fichiers seuls (`pr`, un agent du compte sans le shell) partagent le
-  lot sur des `writable_paths` disjoints. Les lecteurs restent parallèles
+  *écrivain* de ses `writable_paths` (`null` : tout `/work`). Seuls quatre outils sont
+  bornés par `writable_paths` (`OUTILS_ECRITURE_BORNES` de
+  `packages/securite/src/sous-agent.ts`, source unique de `cheminsEcrits` et du
+  classement : `write_file`, `edit_file`, `manage_files`, `git_write`). Tout agent dont le
+  **profil effectif offre un autre outil qui écrit dans `/work`** compte comme écrivain
+  de tout `/work`, `writable_paths` ou non (`ecritHorsBorne`, `OUTILS_ECRITURE_LIBRE` : le
+  shell, `git_action`, `git_start_work`, `git_commit`, `git_abandon`, `git_clone`, les
+  outils Office, `skill_run_script`, par catégorie ; le profil est celui du type, de la
+  console et de l'agent, moins les outils retirés, ou toutes les catégories pour la
+  configuration du parent) : leurs écritures ne sont bornées par aucun chemin et leurs
+  tests lisent l'état que l'autre écrivain change (`implement`, `verify`, `pr`, un agent du
+  compte qui a le shell, Git ou Office, un fork d'un tel type) ; de même un agent sans
+  `writable_paths`. Seuls des agents aux outils de fichiers seuls (un agent du compte
+  avec la seule catégorie `fs`) partagent le lot sur des `writable_paths` disjoints. Les
+  lecteurs restent parallèles
   entre eux et avec les écrivains ; deux écrivains dont les chemins s'emboîtent
   (`src` et `src/x`) ou dont l'un est sans borne partent l'un après l'autre, dans
   l'ordre du lot (`ecrituresEnConflit`), sans refus : le second attend la fin du
@@ -1725,8 +1731,8 @@ sequenceDiagram
   événements NDJSON gardent leur ordre et leurs types (`tool_call` de tout le lot,
   puis `tool_result` dans l'ordre), chaque appel garde son résultat ; seul le
   `task_step` `spawned` du second arrive plus tard. Limite : `writable_paths` ne
-  borne que les outils de fichiers, pas le shell (description du paramètre, d'où la
-  règle ci-dessus), et un lecteur peut lire un état à moitié écrit.
+  borne que les quatre outils ci-dessus, ni le shell ni les commits (description du
+  paramètre, d'où la règle ci-dessus), et un lecteur peut lire un état à moitié écrit.
 - **Lancer llama-server pour les sous-agents** : `-np 2` au moins (`--parallel`,
   idéalement les sous-agents simultanés + 1), `--kv-unified` (un tampon KV
   partagé par les slots) et `--cache-ram` (cache de prompts en RAM, qui restaure

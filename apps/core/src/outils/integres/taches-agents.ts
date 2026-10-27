@@ -18,6 +18,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import {
+  ecritHorsBorne,
   masquerSecretsTexte,
   neutraliserMarqueursTour,
   OUTILS_RETIRES_PAR_TYPE,
@@ -224,12 +225,10 @@ function outilsRefusesEnfant(s: AgentSpec): Set<string> {
   ]);
 }
 
-/** Le profil EFFECTIF de l'agent offre `execute_shell` : catégorie `shell` (ou configuration du parent), ni retiré par le type, la console ou l'agent ; le shell n'est borné par aucun `writable_paths`. */
-function offreLeShell(type: string, s: AgentSpec): boolean {
-  if (!s.inheritConfig && s.filterCategories !== null && !s.filterCategories.includes("shell")) return false;
-  if (s.allowedToolNames !== null && s.allowedToolNames.size > 0 && !s.allowedToolNames.has("execute_shell"))
-    return false;
-  return !outilsRefusesEnfant(s).has("execute_shell") && !OUTILS_RETIRES_PAR_TYPE[type]?.has("execute_shell");
+/** Le profil EFFECTIF de l'agent (catégories ou configuration du parent, moins les outils retirés par le type, la console et l'agent) offre un outil qui écrit dans le bac hors de la borne `writable_paths`. */
+function ecritHorsBorneDeProfil(type: string, s: AgentSpec): boolean {
+  const retires = new Set([...outilsRefusesEnfant(s), ...(OUTILS_RETIRES_PAR_TYPE[type] ?? [])]);
+  return ecritHorsBorne(s.inheritConfig ? null : s.filterCategories, retires, s.allowedToolNames);
 }
 
 /** Attente au plus de la fermeture du navigateur privé d'un enfant : le run ne dépend pas d'un hôte qui ne répond pas. */
@@ -618,9 +617,9 @@ export function buildDefinition(
     "interaction mid-task.\n" +
     `5. Several independent tasks requested in one message run IN PARALLEL (up to ${Math.trunc(enParallele)} at a time); ` +
     "agents that write run one after the other, in the order of your calls, when their writable_paths overlap or are " +
-    "not given. An agent that has the shell (implement, verify) counts as writing everywhere, since neither its " +
-    "commands nor its tests are bounded by writable_paths: only writers with file tools alone run together on " +
-    "disjoint writable_paths. Check overlaps in their results.\n" +
+    "not given. An agent that has the shell, can commit or switch branches, or writes Office files (implement, " +
+    "verify, pr) counts as writing everywhere, since none of these is bounded by writable_paths: only writers with " +
+    "file tools alone run together on disjoint writable_paths. Check overlaps in their results.\n" +
     "6. The result starts with a <task_meta> JSON block written by the harness. Only files_changed " +
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
     "uncertain), git, errors and tool_calls are observed by the harness. status is the agent's own declaration " +
@@ -2048,7 +2047,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     return out;
   };
 
-  /** Écrivain ou lecteur d'un appel avant son lot : lecture seule effective comme au lancement ; sinon écrivain de tout /work si le profil effectif offre le shell (ses commandes et ses tests ne sont bornés par aucun `writable_paths`), de ses `writable_paths` sinon (outils de fichiers seuls) ; `null` si l'appel sera refusé. */
+  /** Écrivain ou lecteur d'un appel avant son lot : lecture seule effective comme au lancement ; sinon écrivain de tout /work si le profil effectif offre un outil que `writable_paths` ne borne pas (shell, commit, Office…), de ses `writable_paths` sinon (outils de fichiers seuls) ; `null` si l'appel sera refusé. */
   const classerLot = (args: Dict): ClasseLot | null => {
     if (!estDict(args)) return null;
     const taskId = stripPy(texteOu(args["task_id"], ""));
@@ -2061,7 +2060,10 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
     if ("erreur" in lus) return null;
     if (lectureSeuleDeLAppel(agentType, s, lus, resumed).read_only) return { ecrit: false, chemins: [] };
-    return { ecrit: true, chemins: offreLeShell(agentType, s) ? null : cheminsDeLAppel(lus, resumed) };
+    return {
+      ecrit: true,
+      chemins: ecritHorsBorneDeProfil(agentType, s) ? null : cheminsDeLAppel(lus, resumed),
+    };
   };
 
   return {

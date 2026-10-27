@@ -173,6 +173,19 @@ selon [SemVer](https://semver.org/lang/fr/).
   réservée au chat principal) : leur tête système change une fois, puis reste
   identique d'un appel à l'autre.
 
+- **Sous-agents : `web` en lecture seule par défaut.** Un agent `web` ne fait
+  que lire (pages, fichiers du bac) : `agents.read_only.defaults.web` passe à
+  `true`, comme `explore`. Il garde tout son navigateur (`pw_*`, captures
+  comprises) ; seuls `write_file`, `edit_file` et `manage_files` lui sont
+  retirés, et sa persona n'en attend plus aucun. Le rapport trop long reste
+  sauvé dans le bac par le harnais, pas par l'agent. Une instance dont
+  l'administrateur a enregistré la page Console › Sandbox › Sous-agents avant la
+  mise à jour garde la valeur écrite dans `config.json` (`web` en écriture) :
+  cochez « Lecture seule par défaut » pour `web` si vous voulez le nouveau
+  défaut. Un compte qui décoche « Lecture seule » pour son agent `web` (ou qui
+  en crée un) garde son choix. La persona `web` change une fois (tête des
+  enfants `web`).
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

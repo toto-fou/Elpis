@@ -17,7 +17,8 @@ const adm = domaineAdmin();
             <p class="adm-card__hint">
               Un sous-agent en lecture seule n'écrit aucun fichier, ne fait aucun commit et ne lance ni tâche
               de fond ni shell. Par défaut : le compte peut la lever dans Paramètres › Agents. Imposée : ni le
-              compte ni l'agent principal ne la lèvent.
+              compte ni l'agent principal ne la lèvent. Livrés en lecture seule : explore et web (le
+              navigateur de web reste complet, seules les écritures dans le bac sont retirées).
             </p>
           </div>
         </header>

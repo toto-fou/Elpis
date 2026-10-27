@@ -434,7 +434,7 @@ paragraphes de conclusion au lieu de 40 000 tokens de fouille.
 | `explore` | Exploration en lecture seule : localiser, lire, juger, remonter l'historique Git | Fichiers, Git |
 | `implement` | Écrire le changement dans la sandbox et le vérifier (ne commite pas) | Fichiers, Terminal, Git |
 | `verify` | Lancer les tests et les commandes, diagnostiquer les échecs, ne rien modifier | Terminal, Fichiers, Git |
-| `web` | Recherche web en pilotant un vrai navigateur | Navigateur, Fichiers |
+| `web` | Recherche web en pilotant un vrai navigateur, en lecture seule par défaut | Navigateur, Fichiers |
 | `pr` | Brancher, commiter, ouvrir la pull request du travail déjà en place | Git, Fichiers |
 
 Un sous-agent est **un chat dont les cases du panneau MCP sont déjà
@@ -445,6 +445,14 @@ d'une liste d'outils rognée.
 **Vos agents personnalisés.** Paramètres → Agents : nom, description, prompt
 système, catégories d'outils, serveurs MCP externes, lecture seule et
 **réflexion**. Jusqu'à 10 agents.
+
+**Lecture seule.** `explore` et `web` sont livrés en lecture seule : ils lisent
+(fichiers, pages web) mais n'écrivent rien dans votre bac ; un agent `web` garde
+tout son navigateur, seules les écritures de fichiers lui sont retirées.
+L'administrateur règle ce défaut pour chaque type (Console › Sandbox ›
+Sous-agents), chaque agent a sa case « Lecture seule » dans Paramètres › Agents
+(votre choix l'emporte sur le défaut, sauf si l'administrateur l'impose) et
+l'assistant peut la demander pour une mission.
 
 **La réflexion d'un agent.** Un agent peut réfléchir avant d'agir : sa réflexion
 reste dans son contexte isolé et seul son rapport remonte. Le formulaire d'un

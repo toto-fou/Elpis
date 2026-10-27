@@ -52,7 +52,7 @@ export const BORNES_PARALLELE_AGENTS = [1, 10] as const;
 export const BORNES_BUDGET_REFLEXION_AGENTS = [512, 131072] as const;
 export const DEFAUTS_REGLAGES_AGENTS: ReglagesAgents = {
   read_only: {
-    defaults: { explore: true, implement: false, verify: false, web: false, pr: false, custom: false },
+    defaults: { explore: true, implement: false, verify: false, web: true, pr: false, custom: false },
     forced: { explore: false, implement: false, verify: false, web: false, pr: false, custom: false },
   },
   max_parallel: 3,

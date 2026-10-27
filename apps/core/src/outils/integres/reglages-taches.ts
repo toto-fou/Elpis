@@ -37,7 +37,7 @@ const borneBudget = (n: number): number =>
   Math.min(Math.max(n, BORNES_BUDGET_REFLEXION[0]), BORNES_BUDGET_REFLEXION[1]);
 
 export const DEFAUTS_AGENTS: ReglagesAgents = {
-  read_only: { defaults: parTypeDe((t) => t === "explore"), forced: parTypeDe(() => false) },
+  read_only: { defaults: parTypeDe((t) => t === "explore" || t === "web"), forced: parTypeDe(() => false) },
   max_parallel: 3,
   thinking: { defaults: parTypeDe((t) => DEFAUT_REFLEXION[t] ?? "off") },
   thinking_budget_tokens: borneBudget(LLAMA_THINKING_BUDGET_TOKENS),

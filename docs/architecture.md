@@ -3082,6 +3082,16 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
 - Une persona en lecture seule **nomme explicitement** les outils d'écriture
   qu'elle s'interdit — sinon elle contredirait le manifeste `# Active tools`,
   qui liste ce que l'agent a *vraiment*.
+- **Lecture seule par défaut : `explore` et `web`** (`agents.read_only.defaults`,
+  `DEFAUTS_AGENTS` de `reglages-taches.ts` et `DEFAUTS_REGLAGES_AGENTS` des
+  contrats). Un agent `web` ne touche pas au bac : la lecture seule lui retire
+  `write_file`, `edit_file` et `manage_files` et lui garde les `pw_*` de l'hôte
+  d'outils intégré (`outilPermisSousAgent` : même ceux que le serveur n'annote pas
+  `readOnlyHint`, comme `pw_session`, `pw_act` ou `pw_page`), qui n'écrivent jamais
+  dans `/work`, et `read_file`, `list_files` et `code`. Le rapport trop long est
+  sauvé par le harnais, pas par l'agent. Valeur écrite par la console ou case du
+  compte (`read_only` d'une entrée de `custom_agents`, posée seulement si elle
+  diffère du défaut) l'emportent sur le défaut ; l'imposée l'emporte sur tout.
 - `_DENY_BASE = {task, todowrite, ask_user}` est la seule barrière dure.
 - **Corollaire assumé** : aucun enfant intégré n'hérite des builtins du parent →
   pas de RAG ni de MCP externes en sous-agent intégré. Les agents **custom** ont

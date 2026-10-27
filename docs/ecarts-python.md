@@ -625,7 +625,7 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   à 300 s. L'agent principal garde `background`.
 - **Lecture seule** : seuls les outils annotés `readOnlyHint` (et les `pw_*` du seul serveur d'outils intégré, pas
   ceux d'un serveur MCP tiers) restent ; ni écriture, ni commit, ni job, ni shell. Effective = imposée par l'administrateur, OU `task(read_only=true)`, OU case du compte (si posée,
-  sinon défaut de l'administrateur : `explore` vrai). Réglages : section `agents` de config.json,
+  sinon défaut de l'administrateur : `explore` et `web` vrais). Réglages : section `agents` de config.json,
   `GET/POST /api/admin/agents`, `read_only` d'une entrée de `custom_agents`.
 - **Limite assumée : le shell n'est pas borné.** La lecture seule retire le shell entier : un `verify` en lecture
   seule ne lance aucun test (il décrit ce qu'il aurait lancé sous « Left open », `Status: blocked`). `writable_paths`

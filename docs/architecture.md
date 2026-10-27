@@ -1508,6 +1508,24 @@ sequenceDiagram
   de reprise : budget d'itérations et de temps de la reprise (celui du premier
   message ne vaut plus, le compteur repart de zéro), lecture seule nouvelle ou
   chemins écrivables modifiés, champs exigés.
+- **Rapport et statut** : le seul gabarit de rapport est celui de `<subagent_rules>`
+  (`Status:`, `## Answer`, `## Evidence`, `## Changes`, `## Left open`) ; les cinq
+  personas y rangent leurs sections propres (verdict de `verify` sous `Answer`,
+  commandes et sorties sous `Evidence`, branche et commits de `pr` sous `Changes`,
+  sources et confiance de `web` sous `Evidence`) et leurs exemples le suivent, sans
+  être plus longues qu'avant. `status` de `<task_meta>` est la **déclaration** de
+  l'agent corrigée par les limites que le harnais constate : `statutDeclare`
+  (`bilan-taches.ts`) lit la première ligne `Status:` (casse, gras Markdown, puces,
+  `Statut :`, synonymes `failed`/`failure` → `blocked`, `complete(d)` → `done`,
+  `incomplete` → `partial`) ; ligne absente, valeur inconnue ou gabarit
+  `done | partial | blocked` recopié donne `unknown`, jamais `done` par défaut.
+  `remaining_work` vient de la section `Left open` du rapport (tolérante de la même
+  façon), quand le statut n'est pas `done`. Seuls `files_changed`, `git`, `errors` et
+  `tool_calls` sont observés par le harnais (note 6 de la description de `task`, qui
+  demande de relire le diff ou de lancer `verify` après un `implement`). Un run
+  `completed` dont le statut est `partial`, `blocked` ou `unknown` ne montre pas la
+  coche verte du fil : signe d'avertissement et libellé du statut (« statut
+  inconnu »), dans la ligne, le volet et la carte.
 - **Réflexion de l'enfant** : la réflexion reste dans son contexte isolé, seul le
   rapport remonte. Mode par type d'agent (`agents.thinking.defaults`, `off`, `on`
   ou `inherit` = celui du tour parent, que `OptionsTache.thinkingMode` porte),

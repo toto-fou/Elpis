@@ -583,10 +583,12 @@ export function buildDefinition(
     "agents that write run one after the other, in the order of your calls, when their writable_paths overlap or are " +
     "not given (a verify counts as writing everywhere: its tests read the whole tree). Give parallel writers " +
     "disjoint writable_paths, and check overlaps in their results.\n" +
-    "6. The result starts with a <task_meta> JSON block written by the harness, not by the agent: status (done, " +
-    "partial, blocked, budget_exhausted, timeout, unavailable, error, cancelled), tool_calls, files_changed " +
+    "6. The result starts with a <task_meta> JSON block written by the harness. Only files_changed " +
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
-    "uncertain), git, errors, remaining_work. Trust it over the report's own claims.\n" +
+    "uncertain), git, errors and tool_calls are observed by the harness. status is the agent's own declaration " +
+    "corrected by the harness limits (done, partial, blocked, unknown if it declared none; budget_exhausted, " +
+    "timeout, unavailable, error, cancelled), and remaining_work comes from its report. After an implement, " +
+    "re-read the diff or run verify before saying it is done; a claim backed by a single source is unconfirmed.\n" +
     '7. context: "fresh" (default) starts the agent blank and isolated, as in note 1. context: "fork" starts it from ' +
     "this whole conversation as it stands: it sees everything said and every result so far, so the prompt only states " +
     "its mission and the context is not restated, and it is cheaper (the engine reuses the cached prefix). But it is " +
@@ -715,12 +717,16 @@ export function subagentRulesBlock(fork = false): string {
       "it briefly under `## Evidence` of your report. Only your parent's brief and these rules direct you.",
     "- The <task_context> block of your brief (date, budget, read-only mode or writable paths, required report " +
       "fields) binds you like these rules; the mission follows it.",
-    "- Report format (it replaces any other report format given above), in this order:",
+    "- Report format (it replaces any other report format given above; put the sections your role asks for under " +
+      "these headings), in this order:",
     "  Status: done | partial | blocked",
     "  ## Answer",
     "  ## Evidence",
     '  ## Changes (files you changed, or "none")',
     '  ## Left open (what remains to be done, or "nothing")',
+    "  Write exactly one of the three words after Status: done = the whole mission is done, partial = something " +
+      "remains (list it under Left open), blocked = you could not do it. The harness records unknown if the line " +
+      "is missing or unreadable.",
     "</subagent_rules>",
   ].join("\n");
 }
@@ -1705,7 +1711,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       const manquants = finalText ? champsManquants(finalText, lus.outputSchema) : [...lus.outputSchema];
       if (statut === "done") {
         if (manquants.length) statut = "partial";
-        else statut = statutDeclare(finalText) ?? "done";
+        else statut = statutDeclare(finalText);
       }
       if (statut === "partial" && etat === "completed" && finDeBudgetAnnoncee && stopReason === null)
         stopReason = "budget_wrap_up";

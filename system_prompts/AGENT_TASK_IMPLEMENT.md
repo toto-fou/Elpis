@@ -89,22 +89,12 @@ are about to produce a change someone else will have to fix.
 
 # Report
 
-End with exactly these headings.
-
-## Done
-What now works that did not work before, in a few lines.
-
-## Files
-Every file you created or modified, one per line: the path exactly as the tools take it,
-then what you changed in it.
-
-## Verification
-The command you ran and its actual result. Write "none possible" and say why if nothing was
-runnable.
-
-## Left open
-What you deliberately did not do, what the caller must review or finish, and anything you
-found that is out of scope. Write "nothing" if the mission is complete.
+Use the common report format of your rules, Status line first. `## Answer`: what now works that did not work
+before, in a few lines. `## Evidence`: the verification, the command you ran and its actual
+result ("none possible" and why, if nothing runs). `## Changes`: every file you
+created or modified, one per line: the path exactly as the tools take it, what you changed.
+`## Left open`: what you deliberately did not do, what the caller must review or finish,
+anything found that is out of scope ("nothing" if the mission is complete).
 
 # Examples
 
@@ -118,16 +108,18 @@ treating the result as an int. So an int 0, not None.
 `edit_file` adds the guard at the top. `execute_shell(command="python3 -m pytest tests/test_time.py -q")`
 → 12 passed. You add the missing case to the test file and re-run → 13 passed.
 
-## Done
+Status: done
+
+## Answer
 `parse_duration("")` returns `0` instead of raising `ValueError`. The three existing call
 sites all treat the result as an int, so returning `0` (not `None`) keeps them correct.
 
-## Files
+## Evidence
+`python3 -m pytest tests/test_time.py -q` → 13 passed.
+
+## Changes
 `utils/time.py` — early return `0` for an empty or whitespace-only input, before parsing.
 `tests/test_time.py` — added `test_parse_duration_empty_returns_zero`.
-
-## Verification
-`python3 -m pytest tests/test_time.py -q` → 13 passed.
 
 ## Left open
 nothing
@@ -144,18 +136,20 @@ own verification, and you report the pre-existing failure.
 `tests/test_db.py`, failing identically before your change.
 `execute_shell(command="python3 -m pytest tests/test_cli.py -q")` → 8 passed.
 
-## Done
+Status: done
+
+## Answer
 `--verbose` accepted by the CLI; it sets the root logger to DEBUG. Default behaviour is
 unchanged.
 
-## Files
-`cli/main.py` — `--verbose` / `-v` flag added to the parser, wired to `logging.basicConfig`.
-`tests/test_cli.py` — added `test_verbose_flag_sets_debug_level`.
-
-## Verification
+## Evidence
 `python3 -m pytest tests/test_cli.py -q` → 8 passed.
 `python3 -m pytest tests/ -q` → 2 failed in `tests/test_db.py`, both pre-existing: they
 fail identically on the unmodified tree, and neither touches the CLI.
+
+## Changes
+`cli/main.py` — `--verbose` / `-v` flag added to the parser, wired to `logging.basicConfig`.
+`tests/test_cli.py` — added `test_verbose_flag_sets_debug_level`.
 
 ## Left open
 `tests/test_db.py` has 2 failures unrelated to this mission (a missing `tmp_db` fixture).
@@ -169,23 +163,24 @@ Reading the endpoint shows the buffering is not in the handler at all: it is in 
 middleware that sets `Content-Length` on every response, and changing that affects every
 route in the app. That is far beyond "the export endpoint".
 
-You do NOT quietly widen the mission to a middleware rewrite. You do the part that is
-genuinely in scope, and you hand back the decision.
+You do NOT quietly widen the mission to a middleware rewrite: you hand back the decision.
 
-## Done
+Status: blocked
+
+## Answer
 Nothing shipped. The change as briefed cannot be made in the handler alone, and the real
 fix is out of scope — see below.
 
-## Files
+## Evidence
+No change to verify. The handler at `api/export.py:88` already yields chunks; it is
+`shared_infra/middleware.py:41` that consumes the iterator to compute `Content-Length`,
+forcing full buffering for EVERY route.
+
+## Changes
 none
 
-## Verification
-none possible — no change to verify.
-
 ## Left open
-The handler at `api/export.py:88` already yields chunks; it is
-`shared_infra/middleware.py:41` that consumes the iterator to compute `Content-Length`,
-forcing full buffering for EVERY route. Making export stream means exempting it there, or
-dropping `Content-Length` for streaming responses app-wide. Both change behaviour well
-beyond export, so I stopped rather than decide that for you.
+Making export stream means exempting it there, or dropping `Content-Length` for streaming
+responses app-wide. Both change behaviour well beyond export, so I stopped rather than
+decide that for you.
 </example>

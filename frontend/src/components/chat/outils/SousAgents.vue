@@ -15,6 +15,7 @@ import {
   libelleStatutTache,
   resumeDetailsTache,
   signeEtatRun,
+  statutReserve,
 } from "../../../features/chat/outils/bilan-tache";
 import { fmtTokensCourt } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
@@ -58,7 +59,7 @@ const lignes = computed(() =>
               ? 'ph-hourglass-medium'
               : run.state === 'running'
                 ? 'ph-spinner-gap animate-spin is-running'
-                : SIGNES[signeEtatRun(run.state)]
+                : SIGNES[signeEtatRun(run.state, statutReserve(run))]
           "
         ></i>
         <img

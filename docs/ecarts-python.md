@@ -657,14 +657,18 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   celle du compte, voir [architecture](architecture.md#sous-agents-outil-task)), `allow_submit` (autorise
   `git_submit` pour cet appel ; sans lui la publication est refusée à tout sous-agent, `submit_not_allowed`, le
   Python n'avait rien de tel). Définition publiée : note 5 (parallélisme, écrivains sérialisés) remplacée, note 6
-  (bloc du harnais) ajoutée, note 8 (publication) ; déclaré dans
+  (bloc du harnais : seuls `files_changed`, `git`, `errors` et `tool_calls` sont observés, `status` est la
+  déclaration de l'agent corrigée par les limites du harnais, relire le diff ou lancer `verify` après un `implement`)
+  ajoutée, note 8 (publication) ; déclaré dans
   `apps/core/test/outils/integres/ecart-tache.ts`.
 - **Bloc du harnais** (`schemaBilanTache`) : `<task_meta>{…}</task_meta>` avant `<task_result>`, ou champ `harness`
   des enveloppes d'erreur ; aussi à l'étape finale `task_step` et dans `task_runs[]` du message. Le JSON du bloc
   n'a ni `<` ni `>` (échappés en `\u003c`, `\u003e`) et les balises `<task…>` du rapport sont neutralisées
   (`&lt;task_meta`) : le sous-agent ne peut pas imiter le bloc. Statuts `done`,
-  `partial`, `blocked` (lus sur la ligne `Status:` du rapport), `budget_exhausted`, `timeout`, `unavailable`,
-  `error`, `cancelled` ; appels comptés par le harnais, cumul sur les reprises (`tool_calls_total`) et budget remis à
+  `partial`, `blocked`, `unknown` (lus sur la ligne `Status:` du rapport, casse, gras, puces et synonymes
+  `failed`/`failure` → `blocked`, `complete(d)` → `done`, `incomplete` → `partial` tolérés ; ligne absente, valeur
+  inconnue ou gabarit `done | partial | blocked` recopié : `unknown`, jamais `done` par défaut ; le Python rendait
+  `done` faute de ligne), `budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled` ; appels comptés par le harnais, cumul sur les reprises (`tool_calls_total`) et budget remis à
   zéro (`budget_reset`) ; fichiers modifiés, branche, commits et PR relevés sur les résultats d'outils ; branche
   relue en fin de run quand l'agent a appelé le shell ou un outil git (N2 : une branche créée par `git checkout -b`
   au shell n'était pas vue) : un seul `git_query(action="branches")` en lecture, sur le dépôt du dernier outil git
@@ -705,7 +709,8 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   (`no_remote`) un dépôt sans `origin`, avant de brancher ou de committer.
 - **Consignes et rapport** : bloc `<subagent_rules>` dans le prompt système (sous-agent, réveil impossible, délai du
   shell 120 s par défaut et 300 s au plus, 4 caractères d'un secret au plus, gabarit commun Status / Answer /
-  Evidence / Changes / Left open), identique d'un appel à l'autre ; la lecture seule ou les chemins écrivables, la
+  Evidence / Changes / Left open, seul gabarit : les cinq personas rangent leurs sections propres sous ces titres
+  et leurs exemples le suivent, avec une ligne `Status:` juste), identique d'un appel à l'autre ; la lecture seule ou les chemins écrivables, la
   date, le budget et les champs exigés vont dans `<task_context>`, en tête du premier message user (écart au Python,
   qui les mettait dans le système : tête byte-stable, cf. [architecture](architecture.md#sous-agents-outil-task)) ;
   `verify` lance son shell avec

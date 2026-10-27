@@ -4,6 +4,7 @@
 import { computed } from "vue";
 
 import { bilanCourtAgent, etapeCouranteAgent, resumeAgents } from "../../../features/chat/outils/agents";
+import { statutReserve } from "../../../features/chat/outils/bilan-tache";
 import { fmtDuree } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
 import { fmtTokenCount } from "../../../utils/utils-purs";
@@ -33,7 +34,8 @@ function horloge(r: ExecutionSousAgent): string {
 function icone(r: ExecutionSousAgent): string {
   if (r.state === "running")
     return r.id ? "ph-spinner-gap animate-spin text-blue-500" : "ph-hourglass-medium text-slate-400";
-  if (r.state === "completed") return "ph-check text-emerald-600";
+  if (r.state === "completed")
+    return statutReserve(r) === null ? "ph-check text-emerald-600" : "ph-warning-circle text-amber-600";
   if (r.state === "failed" || r.state === "timeout") return "ph-x-circle text-red-500";
   if (r.state === "cancelled") return "ph-stop-circle text-slate-400";
   return "ph-warning-circle text-amber-600";

@@ -11,6 +11,7 @@ import {
   fmtDureeTache,
   libelleEtatRun,
   libelleStatutTache,
+  statutReserve,
 } from "../../../features/chat/outils/bilan-tache";
 import { fmtDuree } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
@@ -69,6 +70,8 @@ const etat = computed(() => {
   const r = run.value;
   if (!r) return "";
   if (r.state === "running") return r.id ? "en cours" : "en attente";
+  const reserve = statutReserve(r);
+  if (reserve !== null) return libelleStatutTache(reserve);
   return r.state === "completed" ? "fini" : libelleEtatRun(r.state);
 });
 const infobulle = computed(() => {
@@ -131,7 +134,14 @@ async function copierRendu(): Promise<void> {
           class="ph ph-spinner-gap animate-spin text-blue-500"
           aria-hidden="true"
         ></i>
-        <i v-else-if="run.state === 'completed'" class="ph ph-check text-emerald-600" aria-hidden="true"></i>
+        <i
+          v-else-if="run.state === 'completed'"
+          class="ph"
+          :class="
+            statutReserve(run) === null ? 'ph-check text-emerald-600' : 'ph-warning-circle text-amber-600'
+          "
+          aria-hidden="true"
+        ></i>
         {{ etat }}<template v-if="horloge"> · {{ horloge }}</template>
       </span>
       <button

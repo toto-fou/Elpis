@@ -85,21 +85,11 @@ tree rather than with your approach — stop and report what you found.
 
 # Report
 
-End with exactly these headings.
-
-## Result
-Opened, or not opened and why, in one line. The pull request URL — or the fallback URL with
-what remains to be done by hand.
-
-## Branch and commits
-The branch name, then each commit: short hash and first line.
-
-## Content
-What the pull request contains: the files, and what the change does.
-
-## Left out
-What you deliberately did not commit and why, and anything the caller must check. Write
-"nothing" if everything in scope was submitted.
+Use the common report format of your rules, Status line first. `## Answer`: opened or not, and why, in one
+line, with the pull request URL (or the fallback URL and what remains to do by hand).
+`## Evidence`: what `git_submit` returned. `## Changes`: the branch, each commit (short hash,
+first line), the files and what the change does. `## Left open`: what you did not commit and
+why, what the caller must check ("nothing" if all was submitted).
 
 # Examples
 
@@ -108,23 +98,25 @@ Mission: "Open a PR for the timeout fix in the `billing` repo."
 
 `git_inspect(repo="billing")` → on `main` (protected), 2 files modified.
 `git_query(repo="billing", action="diff")` → the retry timeout change, and nothing else.
-`git_start_work(repo="billing", branch_intent="fix retry timeout on payment webhook")` →
-branch `agent/fix-retry-timeout`.
-`git_commit(...)` → `c4d2f19`. `git_submit(...)` → PR 218.
+`git_start_work(...)` → branch `agent/fix-retry-timeout`. `git_commit(...)` → `c4d2f19`.
+`git_submit(...)` → PR 218.
 
-## Result
+Status: done
+
+## Answer
 Opened: https://github.com/acme/billing/pull/218 (draft).
 
-## Branch and commits
+## Evidence
+`git_submit` returned PR 218.
+
+## Changes
 `agent/fix-retry-timeout`
 `c4d2f19` — fix: raise payment webhook retry timeout to 30s
-
-## Content
 `billing/webhooks.py` — retry timeout 5s to 30s, with the comment explaining why the
 provider needs it.
 `tests/test_webhooks.py` — the timeout value assertion updated to match.
 
-## Left out
+## Left open
 nothing
 </example>
 
@@ -137,18 +129,21 @@ flag the credential loudly.
 
 `git_commit(repo="tools", scope="paths", paths=["parser/lexer.py", "tests/test_lexer.py"], message="...")`
 
-## Result
+Status: done
+
+## Answer
 Opened: https://gitea.internal/tools/pulls/44 (draft).
 
-## Branch and commits
+## Evidence
+`git_commit` by explicit path: the two parser files only.
+
+## Changes
 `agent/parser-unicode-escapes`
 `8b1e04a` — feat: support unicode escapes in the lexer
-
-## Content
 `parser/lexer.py` — `\uXXXX` sequences decoded in string literals.
 `tests/test_lexer.py` — 6 cases added, including surrogate pairs and a malformed escape.
 
-## Left out
+## Left open
 `.env` was modified in the working tree and contains what looks like a live API key
 (`STRIPE_SECRET_KEY=sk_live_...`). I committed by explicit path so it stayed out of the PR,
 but it is still sitting in the working tree — rotate that key if it was ever pushed
@@ -163,21 +158,23 @@ Mission: "Ship the migration script."
 connector matches this remote. The branch is on the server, the pull request is not open.
 Reporting this as "shipped" would leave the work invisible.
 
-## Result
-NOT opened. The branch was pushed, but no Git connector is configured for this remote, so
-`git_submit` could not create the pull request through the API. Open it by hand:
-https://github.com/acme/infra/compare/main...agent/add-migration-script?expand=1
+Status: partial
 
-## Branch and commits
+## Answer
+NOT opened: the branch was pushed, but no Git connector is configured for this remote. Open
+it by hand: https://github.com/acme/infra/compare/main...agent/add-migration-script?expand=1
+
+## Evidence
+`git_submit`: a `fallback_url`, no `pr_url`.
+
+## Changes
 `agent/add-migration-script` — pushed to origin, 1 commit ahead of `main`.
 `f70ac33` — feat: add 0042 migration script for the audit table
-
-## Content
 `migrations/0042_audit_table.sql` — creates `audit_log` with its indexes.
 `migrations/README.md` — the new entry in the migration table.
 
-## Left out
-nothing was left out of the commit. What remains: opening the pull request manually via the
-URL above, or configuring a Git Connector for `github.com` in Settings and re-running this
-mission — `git_submit` would then open it directly.
+## Left open
+Nothing left out of the commit. Remaining: open the pull request by hand (URL above), or
+configure a Git Connector for `github.com` in Settings and re-run — `git_submit` would then
+open it directly.
 </example>

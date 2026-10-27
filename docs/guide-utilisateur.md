@@ -530,6 +530,16 @@ avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qu
 ouvre le déroulé complet de l'enfant (ses appels d'outils, son rapport). Une
 croix annule *un* sous-agent sans tuer le tour en cours.
 
+**Le statut d'un agent.** Le badge de la carte reprend la ligne `Status:` que
+l'agent écrit en tête de son rapport (terminé, partiel, bloqué), corrigée par ce
+que le harnais constate (budget épuisé, délai dépassé, erreur, annulé). Un agent
+qui n'écrit pas de ligne lisible reçoit **« statut inconnu »** : ce n'est jamais
+compté comme terminé. Seuls les fichiers modifiés, les commits, les erreurs et le
+nombre d'appels sont relevés par le harnais lui-même ; la coche verte du fil ne
+s'affiche que pour un agent déclaré terminé, un agent partiel, bloqué ou au
+statut inconnu a un signe d'avertissement. Vérifiez le travail d'un agent qui
+écrit (relire le diff, ou lancer un agent `verify`) avant de le tenir pour fait.
+
 > Les sous-agents sont **désactivés par défaut** (Paramètres → Agents). Un
 > enfant ne peut pas déléguer à son tour, n'a pas de todo-list propre et ne peut
 > pas vous poser de question — il n'a pas d'interface.

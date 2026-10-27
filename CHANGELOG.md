@@ -256,6 +256,31 @@ selon [SemVer](https://semver.org/lang/fr/).
   prévient l'enfant que des appels faits après son dernier point ont pu agir sans
   trace. Les enregistrements existants se relisent sans changement.
 
+- **Sous-agents : un seul gabarit de rapport, un statut jamais « terminé » par défaut.**
+  Les cinq personas disaient « End with exactly these headings » avec leurs propres
+  titres, contre le gabarit commun de `<subagent_rules>` (`Status:`, `## Answer`,
+  `## Evidence`, `## Changes`, `## Left open`) : un petit modèle suivait les exemples,
+  le harnais ne trouvait ni `Status:` ni `Left open` et rendait `done`, même pour
+  « Verdict: Fail » ou « Status: failed ». Les personas rangent maintenant leurs
+  sections sous les titres communs (verdict de `verify` sous `Answer`, sources de
+  `web` sous `Evidence`, branche et commits de `pr` sous `Changes`…) et leurs exemples
+  suivent le squelette avec une ligne `Status:` juste (un « rien livré » est
+  `blocked` ou `partial`, avec `Left open` rempli) ; aucune n'est plus longue
+  qu'avant. `statutDeclare` tolère la casse, les espaces, le gras Markdown, les puces
+  et `Statut :`, et lit `failed`/`failure` comme `blocked`, `complete(d)` comme
+  `done`, `incomplete` comme `partial` ; une ligne absente, une valeur inconnue ou le
+  gabarit `done | partial | blocked` recopié donne le nouveau statut **`unknown`**
+  (contrat `schemaBilanTache`, carte, volet et docs : « statut inconnu »). La ligne
+  du fil, le volet et la carte ne montrent plus la coche verte pour un agent
+  `partial`, `blocked` ou `unknown`. `travailRestant` (section `Left open`) est
+  tolérant de la même façon. Le bloc `<subagent_rules>` définit les trois valeurs et
+  annonce `unknown`. La note 6 de la description de `task` dit que `status` est la
+  déclaration de l'agent corrigée par les limites du harnais et que seuls
+  `files_changed`, `git`, `errors` et `tool_calls` sont observés, et demande de relire
+  le diff ou de lancer `verify` après un `implement` (une affirmation d'une seule
+  source est non confirmée). La tête des enfants (personas, règles) et la description
+  de `task` changent une fois : un seul recalcul du préfixe du cache.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

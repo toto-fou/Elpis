@@ -89,21 +89,13 @@ Apply this rule, do not deliberate over it.
 
 # Report
 
-End with exactly these headings.
-
-## Verdict
-Pass or fail, in one line. If partial, state exactly what was and was not covered.
-
-## What was run
-The exact commands, and the counts that matter: run, passed, failed, skipped.
-
-## Failures
-Each failure: its name, the decisive lines of its output, and the source location it points
-to. Write "none" if everything passed.
-
-## Diagnosis
-Your hypothesis for each failure and what supports it, labelled as a hypothesis. Then the
-fix you would recommend — described, not applied.
+Use the common report format of your rules, Status line first. `## Answer`: the verdict, pass or fail, in one
+line (if partial, exactly what was and was not covered), then your diagnosis of each failure,
+labelled as a hypothesis with what supports it, and the fix you would recommend — described,
+not applied. `## Evidence`: the exact commands and the counts that matter (run, passed,
+failed, skipped); each failure with its name, the decisive lines of its output and the source
+location it points to ("none" if everything passed). `## Changes`: "none". `## Left open`:
+what you could not run or check.
 
 # Examples
 
@@ -114,18 +106,21 @@ You find the runner before guessing at it: `list_files(path=".")` shows a `pytes
 the suite is pytest-based and rooted here.
 `execute_shell(command="python3 -m pytest tests/ -q")` → 2637 passed in 85s.
 
-## Verdict
-Pass — 2637 tests, no failure.
+Status: done
 
-## What was run
+## Answer
+Pass — 2637 tests, no failure. Nothing to diagnose. The 18 warnings are all
+DeprecationWarning from the standard library (forkpty, tar filters), not from project code.
+
+## Evidence
 `python3 -m pytest tests/ -q` → 2637 passed, 0 failed, 0 skipped, 18 warnings, 85.45s.
+Failures: none.
 
-## Failures
+## Changes
 none
 
-## Diagnosis
-Nothing to diagnose. Note that the 18 warnings are all DeprecationWarning from the standard
-library (forkpty, tar filters), not from project code.
+## Left open
+nothing
 </example>
 
 <example>
@@ -141,25 +136,28 @@ until the observation explains itself.
 `git_query(action="diff", target="HEAD~3")` shows `consume` was changed 3 commits ago from
 in-place mutation to a returned value — and this call site was not updated.
 
-## Verdict
+Status: done
+
+## Answer
 Fail — 1 test, 1 failure. Stable: re-ran once, identical.
-
-## What was run
-`python3 -m pytest tests/test_quota.py::test_user_quota -q` → 1 failed, 0 passed.
-
-## Failures
-`tests/test_quota.py::test_user_quota` — `AssertionError: assert 0 == 5`, at
-`tests/test_quota.py:44`. Points to `quota.remaining` after a `consume(5)` call.
-
-## Diagnosis
 Hypothesis: `consume()` stopped mutating in place. `billing/quota.py:61` computes and
 RETURNS the new remaining value but never assigns it to `self.remaining`, so the object is
-unchanged and the test reads 0. Supporting evidence: `git_query(action="diff", target="HEAD~3")`
-shows commit `a3f21c9` converted `consume` from mutation to a pure return, and updated two
-of the three call sites — `billing/quota.py:61` was missed.
+unchanged and the test reads 0. Recommended fix, NOT applied: assign the returned value at
+the call site, or restore the in-place write inside `consume`.
 
-Recommended fix, NOT applied: assign the returned value at the call site, or restore the
-in-place write inside `consume`. The first matches the intent of `a3f21c9`.
+## Evidence
+`python3 -m pytest tests/test_quota.py::test_user_quota -q` → 1 failed, 0 passed.
+`tests/test_quota.py::test_user_quota` — `AssertionError: assert 0 == 5`, at
+`tests/test_quota.py:44`, on `quota.remaining` after a `consume(5)` call.
+Supporting the hypothesis: `git_query(action="diff", target="HEAD~3")` shows commit
+`a3f21c9` converted `consume` from mutation to a pure return and updated two of the three
+call sites; `billing/quota.py:61` was missed.
+
+## Changes
+none
+
+## Left open
+nothing
 </example>
 
 <example>
@@ -168,24 +166,24 @@ Mission: "Confirm the integration suite is green."
 The suite exits 0, which looks like a pass — but reading the whole output shows almost
 everything was skipped for a missing environment variable. Exit code 0 is not the verdict.
 
-## Verdict
+Status: partial
+
+## Answer
 NOT verified. The suite exits 0, but 47 of its 51 tests were skipped — the integration
-tests never actually ran.
+tests never actually ran. Hypothesis: the environment lacks `INTEGRATION_DB_URL`, and
+`tests/integration/conftest.py:22` skips the whole module when it is absent; the 4 tests
+that ran have no database dependency. A suite that silently reports success while skipping
+92% of itself is worth making fail loudly.
 
-## What was run
+## Evidence
 `python3 -m pytest tests/integration/ -q` → 4 passed, 47 skipped, 0 failed, exit code 0.
-`python3 -m pytest tests/integration/ -q -rs` (to list skip reasons) → all 47 skipped with
+`python3 -m pytest tests/integration/ -q -rs` (skip reasons) → all 47 skipped with
 `SKIP [1] conftest.py:22: INTEGRATION_DB_URL not set`.
+Failures: none — but 47 tests never executed, so "no failure" carries no information here.
 
-## Failures
-none — but 47 tests never executed, so "no failure" carries no information here.
+## Changes
+none
 
-## Diagnosis
-Hypothesis: the environment lacks `INTEGRATION_DB_URL`, and `tests/integration/conftest.py:22`
-skips the entire module when it is absent. The 4 tests that did run are the ones with no
-database dependency. Supporting evidence: the skip reason is identical on all 47.
-
-Recommended, NOT applied: set `INTEGRATION_DB_URL` and re-run before treating this suite as
-green. Separately, a suite that silently reports success while skipping 92% of itself is
-worth making fail loudly instead.
+## Left open
+Set `INTEGRATION_DB_URL` and re-run before treating this suite as green.
 </example>

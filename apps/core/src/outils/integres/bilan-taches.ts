@@ -13,7 +13,15 @@ export const OUTPUT_SCHEMA_MAX = 20;
 const CHAMP_RE = /^[A-Za-z][A-Za-z0-9 _-]{0,47}$/u;
 
 export type Statut =
-  "done" | "partial" | "blocked" | "budget_exhausted" | "timeout" | "unavailable" | "error" | "cancelled";
+  | "done"
+  | "partial"
+  | "blocked"
+  | "unknown"
+  | "budget_exhausted"
+  | "timeout"
+  | "unavailable"
+  | "error"
+  | "cancelled";
 
 export interface FichierBilan {
   path: string;
@@ -273,27 +281,55 @@ export class SuiviOutils {
   }
 }
 
+/** Ligne de titre ou de champ `nom` en tête de ligne, tolérante à la casse, au gras, aux puces et aux `#` ; un blanc, `_` ou `-` du nom s'écrit comme l'un des trois. */
 const TITRE = (nom: string): RegExp =>
   new RegExp(
-    `^\\s{0,3}(?:#{1,6}\\s*|\\*\\*)?${nom.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:\\*\\*)?\\s*(?::|$)`,
+    `^[ \\t]{0,3}(?:(?:[-*+>]|#{1,6})[ \\t]*)?[*_\`]*${nom
+      .replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+      .replace(/[ _-]/gu, "[ \\t_-]")}[*_\`]*[ \\t]*(?::[*_\`]*|$)`,
     "imu",
   );
 
-/** Statut déclaré par la ligne `Status:` du rapport (`blocked`, `partial`), sinon `null`. */
-export function statutDeclare(rapport: string): "blocked" | "partial" | null {
-  const m = /^\s{0,3}(?:\*\*)?status(?:\*\*)?\s*:\s*(?:\*+\s*)?([a-z_]+)/imu.exec(rapport);
-  const v = m?.[1]?.toLowerCase();
-  return v === "blocked" || v === "partial" ? v : null;
+/** Valeurs de la ligne `Status:` lues sans équivoque (le reste n'est pas lu) ; les synonymes d'échec valent `blocked`, jamais `done`. */
+const STATUTS_LUS: ReadonlyMap<string, "done" | "partial" | "blocked"> = new Map([
+  ["done", "done"],
+  ["complete", "done"],
+  ["completed", "done"],
+  ["terminé", "done"],
+  ["termine", "done"],
+  ["partial", "partial"],
+  ["incomplete", "partial"],
+  ["partiel", "partial"],
+  ["blocked", "blocked"],
+  ["failed", "blocked"],
+  ["failure", "blocked"],
+  ["fail", "blocked"],
+  ["bloqué", "blocked"],
+  ["bloque", "blocked"],
+]);
+
+const LIGNE_STATUT =
+  /^[ \t]{0,3}(?:(?:[-*+>]|#{1,6})[ \t]*)?[*_`]*(?:status|statut)[*_`]*[ \t]*:[ \t]*[*_`]*([^\n]*)/imu;
+
+/** Statut déclaré par la première ligne `Status:` du rapport (casse, gras, puces et synonymes tolérés) ; `unknown` si elle manque, si sa valeur n'est pas lue ou si c'est le gabarit recopié (`done | partial | blocked`) : jamais `done` par défaut. */
+export function statutDeclare(rapport: string): "done" | "partial" | "blocked" | "unknown" {
+  const valeur = LIGNE_STATUT.exec(rapport)?.[1] ?? "";
+  const mots = valeur.toLowerCase().match(/[\p{L}_]+/gu) ?? [];
+  const lus = mots.map((m) => STATUTS_LUS.get(m));
+  const premier = lus[0];
+  if (premier === undefined) return "unknown";
+  if (valeur.includes("|") && new Set(lus.filter(Boolean)).size > 1) return "unknown";
+  return premier;
 }
 
-/** Section `## Left open` du rapport (travail restant), bornée ; `null` si absente ou vide. */
+/** Section `Left open` du rapport (travail restant), bornée ; `null` si absente ou vide. */
 export function travailRestant(rapport: string): string | null {
   const m = TITRE("left open").exec(rapport);
   if (!m) return null;
   const reste = rapport.slice(m.index + m[0].length);
   const fin = /^\s{0,3}#{1,6}\s/mu.exec(reste);
   const t = stripPy(fin ? reste.slice(0, fin.index) : reste);
-  if (!t || /^(?:nothing|none|rien|aucun)\.?$/iu.test(t)) return null;
+  if (!t || /^[-*`\s]*(?:nothing|none|n\/a|rien|aucun|aucune)[`*\s.!]*$/iu.test(t)) return null;
   return longueurPy(t) > 2000 ? prefixePy(t, 1999) + "…" : t;
 }
 

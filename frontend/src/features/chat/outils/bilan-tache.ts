@@ -22,6 +22,7 @@ const LIBELLES_STATUT: Readonly<Record<StatutTache, string>> = {
   done: "terminé",
   partial: "partiel",
   blocked: "bloqué",
+  unknown: "statut inconnu",
   budget_exhausted: "budget épuisé",
   timeout: "délai dépassé",
   unavailable: "indisponible",
@@ -51,9 +52,18 @@ const LIBELLES_ETAT_RUN: Readonly<Record<string, string>> = {
 /** État d'un run de sous-agent en français ; un état inconnu reste tel quel. */
 export const libelleEtatRun = (s: string | undefined): string => (s ? (LIBELLES_ETAT_RUN[s] ?? s) : "");
 
-/** Signe d'un run fini : réussite, échec, incomplet ou arrêt (seul le signe porte la couleur). */
-export function signeEtatRun(s: string | undefined): "ok" | "echec" | "incomplet" | "arret" {
-  if (s === "completed") return "ok";
+/** Statut du harnais d'un run terminé qui n'est pas une réussite déclarée (partiel, bloqué, inconnu) ; `null` sinon. */
+export function statutReserve(run: { state?: string; harness?: BilanTache | null }): StatutTache | null {
+  const s = run.harness?.status;
+  return run.state === "completed" && (s === "partial" || s === "blocked" || s === "unknown") ? s : null;
+}
+
+/** Signe d'un run fini : réussite, échec, incomplet ou arrêt (seul le signe porte la couleur) ; terminé sans réussite déclarée (`statut`), il reste incomplet. */
+export function signeEtatRun(
+  s: string | undefined,
+  statut: StatutTache | null = null,
+): "ok" | "echec" | "incomplet" | "arret" {
+  if (s === "completed") return statut === null ? "ok" : "incomplet";
   if (s === "failed" || s === "timeout") return "echec";
   if (s === "cancelled") return "arret";
   return "incomplet";

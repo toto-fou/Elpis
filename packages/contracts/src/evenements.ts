@@ -44,11 +44,12 @@ const erreurImage = {
   retryable: z.boolean(),
 };
 
-/** Issue d'un sous-agent vue par le harnais (jamais déclarée par l'agent, sauf `blocked`/`partial` lus sur sa ligne `Status:`). */
+/** Issue d'un sous-agent : la déclaration de sa ligne `Status:` (`done`, `partial`, `blocked`, ou `unknown` s'il n'en a pas écrit de lisible) corrigée par les limites que le harnais constate (`budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled`). */
 export const STATUTS_TACHE = [
   "done",
   "partial",
   "blocked",
+  "unknown",
   "budget_exhausted",
   "timeout",
   "unavailable",

@@ -68,7 +68,7 @@ import {
 } from "./evenements";
 import { CANCEL_PLACEHOLDER, compactionPourMessage, fcMerge } from "./historique";
 import { erreurPourMessage, JournalEtapes } from "./journal-etapes";
-import { RunJournal } from "./journal-run";
+import { marquerAnnonce, RunJournal } from "./journal-run";
 import {
   CONTINUE_ADDITIVE_METRICS,
   messageAssistant,
@@ -815,7 +815,10 @@ export async function* runTurn(
             suffixDropFromRank: rangSuffixe,
           });
           planDone = ok && planOff;
-          if (suffixes) issueJobs.suffixe = ok;
+          if (suffixes) {
+            issueJobs.suffixe = ok;
+            if (ok) for (const run of plan.runsAnnonces ?? []) marquerAnnonce(uid, chatId, run);
+          }
         } catch (e) {
           log.debug(`[chat.worker.4] ${String(e)}`);
         }

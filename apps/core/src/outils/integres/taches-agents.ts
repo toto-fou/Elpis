@@ -117,11 +117,18 @@ const REPRISES = new Map<string, Dict>();
 const DERNIER = new Map<string, AbortController>();
 const DERNIER_MAX = 1000;
 
+/** Pose le dernier run de `k` ; au-delà du plafond, les plus anciens partent, sauf une clé encore active (un run long garde sa place). */
 function marquerDernier(k: string, arret: AbortController): void {
   DERNIER.delete(k);
   DERNIER.set(k, arret);
-  if (DERNIER.size > DERNIER_MAX) DERNIER.delete(DERNIER.keys().next().value as string);
+  for (const ancienne of DERNIER.keys()) {
+    if (DERNIER.size <= DERNIER_MAX) break;
+    if (!ACTIFS.has(ancienne)) DERNIER.delete(ancienne);
+  }
 }
+
+/** Ce run est-il le dernier de sa clé ? Une clé absente (évincée après sa fin, aucun run plus récent) vaut oui. */
+const estLeDernier = (k: string, arret: AbortController): boolean => (DERNIER.get(k) ?? arret) === arret;
 
 const cle = (username: string, childId: string): string =>
   JSON.stringify([String(username), String(childId)]);
@@ -1652,7 +1659,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const storeResumeState = async (): Promise<void> => {
       clorePoints();
-      if (DERNIER.get(k) !== arret) return;
+      if (!estLeDernier(k, arret)) return;
       const fini = etat === "completed" || etat === "incomplete";
       let suivants: Dict[] | null = null;
       if (echange() || (fini && finalText)) {
@@ -1707,7 +1714,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       const lu = travailCourant();
       const obtenu = lu !== null && aEchange(lu);
       if (resumed === null && !obtenu) return null;
-      if (obtenu && DERNIER.get(k) === arret) memoriserReprise(o.username, childId, enregistrement(lu, true));
+      if (obtenu && estLeDernier(k, arret)) memoriserReprise(o.username, childId, enregistrement(lu, true));
       return enveloppeAnnulee(bilanInstantane("cancelled"), true, true);
     };
     const recordRun = (bilan: Bilan): void => {
@@ -1745,7 +1752,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const avecReprise = (): boolean => resumed !== null || echange();
     /** Session de navigateur privée de l'enfant fermée à la fin du run, quel qu'en soit l'état ; jamais celle du compte, jamais d'échec. */
     const fermerNavigateur = async (): Promise<void> => {
-      if (sessionNavigateur !== "isolated" || !navigateurUtilise || DERNIER.get(k) !== arret) return;
+      if (sessionNavigateur !== "isolated" || !navigateurUtilise || !estLeDernier(k, arret)) return;
       try {
         const delai = new Promise<false>((fin) =>
           setTimeout(() => fin(false), DELAI_FERMETURE_NAVIGATEUR_S * 1000).unref(),
@@ -1765,7 +1772,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     /** Bloc du harnais une fois l'enfant terminé (rapport masqué, plafonné et sauvé dans le bac s'il déborde). */
     const conclure = async (): Promise<{ bilan: Bilan; rapport: string }> => {
-      const avec = DERNIER.get(k) === arret ? finTrace(o.username, childId) : [];
+      const avec = estLeDernier(k, arret) ? finTrace(o.username, childId) : [];
       const depot = suivi.depotARelire();
       if (suivi.gitOuShell && depot !== null && etat !== "cancelled" && !o.signal?.aborted) {
         let relue: string | null;

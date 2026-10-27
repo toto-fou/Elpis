@@ -316,10 +316,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   300 s compris) sont perdus, plus jusqu'à 10 s de points pas encore écrits (de
   quelques secondes à plusieurs minutes de travail). L'historique du parent, qui porte
   le `task_id`, n'est écrit qu'à la fin du tour : après un kill il n'y était pas. Le
-  premier tour suivant du chat reçoit maintenant l'annonce des sous-agents
-  interrompus encore reprenables (`<interrupted_subagents>`, lue dans le journal du
-  run perdu, jointe à la question comme les événements de jobs), pour que « reprends »
-  ait un `task_id`. Les enregistrements existants se relisent sans changement.
+  premier tour d'utilisateur suivant du chat reçoit maintenant l'annonce des sous-agents
+  interrompus encore reprenables (`<interrupted_subagents>`, lue dans les journaux du chat
+  restés sans fin, jointe à la question comme les événements de jobs), pour que « reprends »
+  ait un `task_id` : ni un réveil de job, ni un tour Images, ni « Continuer » ne la
+  perdent, et une marque posée une fois la question enregistrée l'empêche de revenir à
+  chaque tour (client sans `resumable` compris). Les enregistrements existants se relisent
+  sans changement.
 
 - **Sous-agents : un seul gabarit de rapport, un statut lu en tête et jamais « terminé » par défaut.**
   Les cinq personas disaient « End with exactly these headings » avec leurs propres
@@ -335,7 +338,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   cas `submit_not_allowed`, désormais le chemin par défaut). `statutDeclare` lit la
   ligne `Status:` **de tête** seulement : la première ligne non vide du rapport et
   celles qui la suivent jusqu'au premier titre `#`, hors citations `>` et blocs de
-  code. Un `Status: done` recopié d'une page sous `## Evidence`, d'une citation ou
+  code (un titre de niveau 1 qui précède aussitôt la ligne `Status:` n'y compte pas, et un
+  rapport entier dans un seul bloc ```markdown est lu à l'intérieur). Un `Status: done`
+  recopié d'une page sous `## Evidence`, d'une citation ou
   d'un bloc de sortie ne décide plus du statut (la première version prenait la
   première ligne `Status:` n'importe où). Casse, espaces, gras Markdown, puces et
   `Statut :` restent tolérés, `failed`/`failure` valent `blocked`, `complete(d)`

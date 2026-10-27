@@ -1370,16 +1370,25 @@ sequenceDiagram
   seulement à la fin (`persistTurn`, ou sur Stop par l'instantané ci-dessous) :
   après un kill, le `task_id` n'est que dans le journal du run (`task_step`
   `spawned`, `child_id`) et dans l'enregistrement de l'enfant. Le premier tour suivant
-  du chat (`preparation.ts`) en reçoit l'annonce : `annonceEnfantsInterrompus`
-  (`tour/enfants-interrompus.ts`) relit le journal du dernier run s'il n'a jamais été
-  clos (`.end` absent), garde les enfants lancés sans étape finale qui ont encore un
-  enregistrement de reprise de moins de `TASK_RESUME_TTL_S` (un enfant sans résultat
-  d'outil n'en a pas) et joint à la question un bloc `<interrupted_subagents>` (jusqu'à
-  cinq : `task_id`, type, libellé) qui dit de les reprendre par `task(task_id=…)` après
-  avoir fait vérifier l'état. Il passe par le suffixe de question des jobs, enregistré
-  dans `llm_user_suffixes` et rejoué à l'identique : la tête et le préfixe du cache ne
-  bougent pas. Limites : un journal tronqué à 64 Mo (`llm.run_journal_max_mb`) ou
-  balayé (24 h sans fin) ne dit plus rien, et c'est le modèle qui décide de reprendre.
+  d'utilisateur du chat (`preparation.ts`) en reçoit l'annonce : `preparerAnnonceEnfants`
+  (`tour/enfants-interrompus.ts`) relit les journaux du dossier du chat restés sans
+  `.end` ni marque d'annonce (le run qui commence exclu ; au plus 8, les plus récemment
+  écrits, 32 Mio de lecture en tout), garde les enfants lancés sans étape finale qui
+  ont encore un enregistrement de reprise de moins de `TASK_RESUME_TTL_S` (un enfant
+  sans résultat d'outil n'en a pas) et joint à la question un bloc
+  `<interrupted_subagents>` (jusqu'à cinq : `task_id`, type, libellé) qui dit de les
+  reprendre par `task(task_id=…)` après avoir fait vérifier l'état. Un réveil de job,
+  un tour Images ou « Continuer » n'annoncent rien et ne retirent pas le journal
+  interrompu (l'ouverture d'un run ne supprime que les journaux clos) : le premier
+  tour d'utilisateur l'annonce. L'annonce passe par le suffixe de question des jobs,
+  enregistré dans `llm_user_suffixes` et rejoué à l'identique : la tête et le préfixe
+  du cache ne bougent pas, et aucun événement NDJSON n'est ajouté. Une fois la
+  question enregistrée avec ce suffixe, `marquerAnnonce` (`tour/journal-run.ts`) pose
+  `<run>.annonce` à côté du journal : l'annonce ne revient pas aux tours suivants, y
+  compris pour un client sans `resumable`, qui n'ouvre aucun journal (le balayage retire
+  la marque avec le journal). Limites : l'écriture d'un journal s'arrête à 64 Mo
+  (`llm.run_journal_max_mb`) et sa relecture à 32 Mio ; un journal balayé (24 h sans
+  fin) ne dit plus rien, et c'est le modèle qui décide de reprendre.
   **Stop du tour parent** : l'`AbortSignal` du tour fait abandonner l'attente de
   l'appel `task` tout de suite, avant que l'enfant ait fini de se défaire
   (`conclure`, étape finale, enregistrement), donc avant l'instantané du lot. L'outil
@@ -1542,8 +1551,9 @@ sequenceDiagram
   y fermerait les sessions du compte et de ses autres enfants. Une reprise
   immédiate du même `task_id` après un Stop ne se fait pas fermer son navigateur
   par l'ancien run, qui finit en retard : `DERNIER` (par clé, gardé après la sortie
-  d'`ACTIFS`) dit quel run est le dernier lancé, et seul celui-là ferme le navigateur
-  et écrit l'enregistrement de reprise. Le plafond global du service
+  d'`ACTIFS`, plafonné à 1000 clés sans jamais évincer celle d'un run encore actif) dit
+  quel run est le dernier lancé, et seul celui-là ferme le navigateur et écrit
+  l'enregistrement de reprise (une clé absente, évincée après sa fin, vaut « dernier »). Le plafond global du service
   (`BROWSER_MAX_SESSIONS`, 10) compte les sessions des enfants : au plafond, un `start`
   est refusé proprement.
   `browser_session: "user"` (seulement si la mission exige le compte de

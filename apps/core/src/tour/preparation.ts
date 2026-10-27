@@ -65,7 +65,7 @@ import {
   normalizeClientMessages,
   recentUserText,
 } from "./historique";
-import { annonceEnfantsInterrompus } from "./enfants-interrompus";
+import { preparerAnnonceEnfants } from "./enfants-interrompus";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -122,6 +122,8 @@ export interface TurnPlan {
   readonly depth?: number;
   /** Événements de jobs joints à la question (suffixe persisté, rejoué octet pour octet). */
   readonly jobSuffix?: string | null;
+  /** Runs interrompus dont l'annonce est dans ce suffixe : marqués « annoncés » une fois la question enregistrée. */
+  readonly runsAnnonces?: readonly string[];
   /** Bloc `<rag_context>` joint à la question, devant les événements de jobs (même suffixe persisté). */
   readonly ragSuffix?: string | null;
   /** Instantané sans secret ni adresse, porté par le registre des tours pendant le tour. */
@@ -570,6 +572,7 @@ export async function prepareTurn(
     }
   }
   let jobSuffix: string | null = null;
+  let runsAnnonces: string[] = [];
   if (!ephemeral && reveil === null) jobsTour()?.tourUtilisateur(uid, chatId);
   if (!ephemeral && !isContinue && reveil === null) {
     try {
@@ -578,9 +581,11 @@ export async function prepareTurn(
       log.warn(`[jobs] événements non joints au message : ${String(e)}`);
     }
     try {
-      const perdus = annonceEnfantsInterrompus(uid, chatId, username);
-      if (perdus !== null)
-        jobSuffix = [perdus, jobSuffix].filter((s): s is string => Boolean(s)).join("\n\n");
+      const perdus = preparerAnnonceEnfants(uid, chatId, username, runId);
+      if (perdus !== null) {
+        jobSuffix = [perdus.texte, jobSuffix].filter((s): s is string => Boolean(s)).join("\n\n");
+        runsAnnonces = perdus.runs;
+      }
     } catch (e) {
       log.debug(`[chat.enfants_interrompus] ${String(e)}`);
     }
@@ -632,6 +637,7 @@ export async function prepareTurn(
     wake: reveil?.wake ?? null,
     depth: reveil?.depth ?? 0,
     jobSuffix,
+    runsAnnonces,
     ragSuffix,
     instantane: {
       run_id: runId,

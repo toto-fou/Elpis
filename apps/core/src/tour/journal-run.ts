@@ -295,7 +295,8 @@ export class RunJournal {
     for (const nom of readdirSync(this.dir)) {
       if (!nom.endsWith(".end")) continue;
       const rid = nom.slice(0, -4);
-      if (rid !== this.runId) for (const s of [".jsonl", ".end"]) supprimer(join(this.dir, `${rid}${s}`));
+      if (rid !== this.runId)
+        for (const s of [".jsonl", ".end", ".annonce"]) supprimer(join(this.dir, `${rid}${s}`));
     }
     closeSync(openSync(this.path, "w", 0o600));
     ecrireJsonAtomique(join(this.dir, "current.json"), {
@@ -429,6 +430,39 @@ export function currentRun(userId: number, chatId: string): Dict | null {
   return data;
 }
 
+/** Runs du chat dont le journal n'a ni marque de fin ni marque d'annonce (process mort sans l'avoir clos), les plus récemment écrits d'abord, `max` au plus ; `exclure` : le run qui commence. */
+export function runsSansFin(userId: number, chatId: string, exclure = "", max = 8): string[] {
+  if (!baseOk(false)) return [];
+  const d = chatDir(userId, chatId);
+  const trouves: [string, number][] = [];
+  try {
+    for (const nom of readdirSync(d)) {
+      if (!nom.endsWith(".jsonl")) continue;
+      const rid = nom.slice(0, -6);
+      if (!rid || safeRunId(rid) !== rid || rid === exclure) continue;
+      if (existsSync(join(d, `${rid}.end`)) || existsSync(join(d, `${rid}.annonce`))) continue;
+      trouves.push([rid, statSync(join(d, nom)).mtimeMs]);
+    }
+  } catch {
+    return [];
+  }
+  return trouves
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([rid]) => rid);
+}
+
+/** Pose la marque « annoncé » d'un run interrompu : ses sous-agents ne sont plus annoncés aux tours suivants ; best-effort. */
+export function marquerAnnonce(userId: number, chatId: string, runId: string): void {
+  const rid = safeRunId(runId);
+  if (!rid || !baseOk(false)) return;
+  try {
+    closeSync(openSync(join(chatDir(userId, chatId), `${rid}.annonce`), "w", 0o600));
+  } catch {
+    // la marque manque : l'annonce sera répétée, sans autre effet
+  }
+}
+
 export function journalPath(userId: number, chatId: string, runId: string): string | null {
   const rid = safeRunId(runId);
   return rid ? join(chatDir(userId, chatId), `${rid}.jsonl`) : null;
@@ -535,6 +569,7 @@ export function sweep(now: number = reglages.maintenant()): number {
         if (expire) {
           supprimer(jl);
           supprimer(fin);
+          supprimer(join(d, `${nom.slice(0, -6)}.annonce`));
           supprimes += 1;
         }
       }

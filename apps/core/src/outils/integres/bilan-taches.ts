@@ -319,17 +319,48 @@ const LIGNE_TITRE = /^[ \t]{0,3}#{1,6}[ \t]/u;
 const LIGNE_CLOTURE = /^[ \t]{0,3}(?:`{3,}|~{3,})/u;
 const LIGNE_CITATION = /^[ \t]{0,3}>/u;
 
-/** Lignes de tête du rapport où une déclaration est lue : la première ligne non vide et celles qui la suivent jusqu'au premier titre `#` (ce titre compris), hors citations `>` et blocs de code ; une page citée plus bas ne déclare rien. */
+const OUVERTURE_CODE = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*[\w-]*[ \t]*$/u;
+const FERMETURE_CODE = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/u;
+const LIGNE_TITRE_1 = /^[ \t]{0,3}#[ \t]/u;
+
+/** Rapport tout entier dans un seul bloc de code (```markdown … ```) : son contenu ; tel quel si le bloc ne couvre pas tout, ou se referme avant la fin. */
+function deballer(rapport: string): string {
+  const lignes = rapport.split(/\r?\n/u);
+  const utiles = lignes.map((l, i) => (l.trim() ? i : -1)).filter((i) => i >= 0);
+  if (utiles.length < 2) return rapport;
+  const debut = utiles[0]!;
+  const fin = utiles[utiles.length - 1]!;
+  const ouvre = OUVERTURE_CODE.exec(lignes[debut]!);
+  const ferme = FERMETURE_CODE.exec(lignes[fin]!);
+  if (!ouvre || !ferme || ferme[1]![0] !== ouvre[1]![0] || ferme[1]!.length < ouvre[1]!.length)
+    return rapport;
+  const interieur = lignes.slice(debut + 1, fin);
+  const referme = interieur.some((l) => {
+    const m = FERMETURE_CODE.exec(l);
+    return m !== null && m[1]![0] === ouvre[1]![0] && m[1]!.length >= ouvre[1]!.length;
+  });
+  return referme ? rapport : interieur.join("\n");
+}
+
+/** Lignes de tête du rapport où une déclaration est lue : la première ligne non vide et celles qui la suivent jusqu'au premier titre `#` (ce titre compris), hors citations `>` et blocs de code ; une page citée plus bas ne déclare rien. Le rapport entier dans un bloc de code est lu à l'intérieur, et un titre de niveau 1 en tête n'y compte pas quand la ligne `Status:` ou `Verdict:` le suit aussitôt. */
 export function lignesDeTete(rapport: string): string[] {
   const tete: string[] = [];
   let code = false;
-  for (const ligne of rapport.split(/\r?\n/u)) {
+  let titreEnTete = false;
+  for (const ligne of deballer(rapport).split(/\r?\n/u)) {
     if (LIGNE_CLOTURE.test(ligne)) {
       code = !code;
       continue;
     }
-    if (code || !ligne.trim()) continue;
-    if (!LIGNE_CITATION.test(ligne)) tete.push(ligne);
+    if (code || !ligne.trim() || LIGNE_CITATION.test(ligne)) continue;
+    const declare = LIGNE_STATUT.test(ligne) || LIGNE_VERDICT.test(ligne);
+    if (titreEnTete && !declare) break;
+    if (tete.length === 0 && !titreEnTete && !declare && LIGNE_TITRE_1.test(ligne)) {
+      titreEnTete = true;
+      continue;
+    }
+    titreEnTete = false;
+    tete.push(ligne);
     if (LIGNE_TITRE.test(ligne)) break;
   }
   return tete;

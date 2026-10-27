@@ -29,7 +29,7 @@ import { userIdFor } from "@elpis/securite";
 
 import { uidFor, WorkChanges } from "../changements";
 import { brancherRappelProfil } from "../espace";
-import { PontExec, strErreur } from "../shell/pont";
+import { enveloppeAnnulee, PontExec, strErreur } from "../shell/pont";
 import type { OptionsShell } from "../shell/pont";
 import type { ReleveCommande } from "../shell/outil";
 import { archiverDossier, ErreurArchive, tailleDossier } from "./archive";
@@ -261,8 +261,10 @@ export async function skillRunScript(
       auditKind: "tools.skill_run",
       ctx,
       streamLive: live,
+      signal: ctx.signal,
     });
   } catch (e) {
+    if (ctx.signal?.aborted) return enveloppeAnnulee("skill_run_script");
     return enveloppe("skill_run_failed", `execution failed: ${strErreur(e)}`, { retryable: true });
   } finally {
     await wc.fin();

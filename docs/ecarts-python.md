@@ -431,6 +431,10 @@ Le Python n'a pas d'équivalent : son mode `background` lançait un processus d�
 - **Stop pendant un appel à l'hôte d'outils intégré** : le core envoie `notifications/cancelled` (le Python n'en
   envoyait à aucun serveur ; les serveurs MCP externes restent ainsi). `execute_shell(on_timeout="detach_and_wake")`
   cesse alors d'attendre : la commande continue comme un job ordinaire, sans que son résultat soit marqué livré.
+  Une commande de premier plan (`execute_shell`, `skill_run_script`) est au contraire **tuée dans le conteneur** :
+  tuer le client `docker exec` ne l'arrête pas, l'hôte lance donc un second `docker exec` qui tue les processus
+  marqués `ELPIS_EXEC_ID` de CET exec (TERM, 5 s, KILL ; les descendants sortis du groupe par `setsid` compris),
+  puis rend `cancelled` (la commande a pu agir en partie). Le Python la laissait finir à son délai.
 - **Conversation supprimée** : ses tâches sont arrêtées et retirées des listes (`kill_by=chat_deleted`) ; leurs
   fichiers sont purgés par le balayage de rétention, réessayé jusqu'à réussir.
 - **Limites connues** : une entrée de `wake_on` est bornée à 300 caractères ; le quota horaire de réveils,

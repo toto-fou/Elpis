@@ -186,6 +186,17 @@ selon [SemVer](https://semver.org/lang/fr/).
   en crée un) garde son choix. La persona `web` change une fois (tête des
   enfants `web`).
 
+- **Shell : la commande de premier plan s'arrête avec son appel.** Le Stop du
+  tour, l'annulation d'un sous-agent et son délai abandonnent la requête MCP ;
+  l'hôte d'outils tuait le client `docker exec` mais laissait la commande
+  tourner dans le conteneur jusqu'à son délai, à écrire dans `/work`. Il la tue
+  maintenant (second `docker exec` : processus marqués `ELPIS_EXEC_ID` de cet exec,
+  TERM puis KILL après 5 s, `setsid` compris) et rend `cancelled` en JSON (la
+  commande a pu agir en partie). Vaut pour le tour principal, `execute_shell` et
+  `skill_run_script`. Jamais tuées : `execute_shell(background=true)`,
+  `shell_job`, `on_timeout="detach_and_wake"`, ni un run détaché par la
+  déconnexion du client.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

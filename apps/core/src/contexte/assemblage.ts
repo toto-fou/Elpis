@@ -2,6 +2,7 @@
 /** apps/core/src/contexte/assemblage.ts — message système de tête byte-stable : socle, runtime_context, manifeste et fragments de capacité ; mémoire AX rendue à part (suffixe de la question). */
 import { comparePointsDeCode, estErreurAnnulation, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { categorize } from "../outils/categories";
@@ -155,7 +156,7 @@ export function buildActiveToolsManifest(allowedToolNames: Iterable<unknown>): s
 
 class SautAx extends Error {}
 
-/** Connaissance d'interface des sites connus (mémoire AX), texte du suffixe de la question ; "" sans site ni tête system, best-effort. */
+/** Connaissance d'interface des sites connus (mémoire AX), texte du suffixe de la question, marqueurs de tour inertes (noms de la page, arguments `pw_act`) ; "" sans site ni tête system, best-effort. */
 export async function buildAxMemoryBlock(workingMessages: readonly unknown[], owner = ""): Promise<string> {
   try {
     const port = portMemoireAx();
@@ -192,7 +193,7 @@ export async function buildAxMemoryBlock(workingMessages: readonly unknown[], ow
         iteration,
         owner,
       });
-      if (block) blocks.push(block);
+      if (block) blocks.push(neutraliserMarqueursTour(block));
     }
     if (!blocks.length) return "";
     const header = stripPy(config.SYSTEM_PROMPT_AX_MEMORY_HEADER || "");

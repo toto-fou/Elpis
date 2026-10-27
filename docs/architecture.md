@@ -3001,7 +3001,22 @@ prompt d'un autre tour : `memory`, `skill_save` et `skill_add_file` (skills), `t
 (prompt de la routine) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
 Les résultats déjà enregistrés gardent leur texte. Le RAG garde sa neutralisation
 propre (`neutraliserJetonsRole`, crochets larges, chevrons échappés).
-
+**Neutralisation au rendu** : la restauration des arguments laisse les magasins que le
+modèle alimente par ses arguments (ou qu'une page alimente par ses noms) porter le texte
+brut ; chaque rendu qui réinjecte un tel magasin dans un prompt neutralise donc ses
+marqueurs (même fonction, idempotente et déterministe : le préfixe ne bouge pas) :
+la mémoire AX apprise de `pw_act`/`pw_chain` et des pages (`buildAxMemoryBlock`, suffixe de
+la question), la mémoire (`MarkdownMemoryProvider`), l'index et les corps des skills
+(`blocSkills`, aussi pour les enfants et les routines), le rappel `<todo_status>`, le résumé
+et le registre de compaction (`formatSummaryAsSystemMessage`) et leur entrée
+(`serializeForCompression`), le brief d'un sous-agent (`task`), le prompt et le contexte
+d'une routine (dont la sortie d'une routine amont et l'événement déclencheur), l'entrée
+du titre d'un chat. Les événements de jobs, les résultats d'outils (dont `pw_memory`,
+`session_search`, `skill_get`) et les rapports de sous-agents passent déjà par
+`prepareToolResultForModel` ; les ancres de la mémoire du bureau (`desktop_*`, requête vers
+identifiant d'élément) ne sont jamais rendues en texte dans un prompt. Limite : les
+arguments d'appel que le modèle a lui-même écrits et qui reviennent dans l'historique
+renvoyé au moteur restent tels qu'il les a émis.
 **Catalogue** (~55 outils exposés) :
 
 | Famille (servie par) | Catégorie | Outils |

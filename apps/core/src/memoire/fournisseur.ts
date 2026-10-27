@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/memoire/fournisseur.ts — fournisseurs de mémoire (interface et fournisseur intégré Markdown au bloc figé par tour), port de _provider.py et _builtin_provider.py. */
+import { neutraliserMarqueursTour } from "@elpis/securite";
+
 import { storeFor } from "./portee";
 
 /** Stratégie de mémoire branchable ; ses crochets ne doivent pas lever (la mémoire ne bloque jamais la conversation). */
@@ -44,7 +46,7 @@ export interface ReglagesFournisseur {
   userLimit: number;
 }
 
-/** USER.md (par compte) et MEMORY.md (par portée) rendus en un bloc, capturé une fois à `initialize` puis figé. */
+/** USER.md (par compte) et MEMORY.md (par portée) rendus en un bloc aux marqueurs de tour inertes, capturé une fois à `initialize` puis figé. */
 export class MarkdownMemoryProvider extends MemoryProvider {
   readonly name = "builtin";
   private readonly username: string | null;
@@ -81,6 +83,8 @@ export class MarkdownMemoryProvider extends MemoryProvider {
     const parties = [await magasin("user").renderBlock(), await magasin("memory").renderBlock()].filter(
       (p) => p,
     );
-    return parties.length === 0 ? "" : `# Memory (snapshot)\n\n${parties.join("\n\n")}`;
+    return parties.length === 0
+      ? ""
+      : neutraliserMarqueursTour(`# Memory (snapshot)\n\n${parties.join("\n\n")}`);
   }
 }

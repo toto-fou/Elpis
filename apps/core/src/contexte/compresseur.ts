@@ -15,6 +15,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import { config, reloadCompressionConfigFromDisk } from "@elpis/config";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { currentTarget } from "../llm/cible";
@@ -536,10 +537,9 @@ export class ConversationCompressor {
     const ledgerBlock = renderArtifactLedger(
       mergeLedgerLines(prevLedger, extractArtifactLedger(toCompress).map(renderEntry)),
     );
-    const conversationText = serializeForCompression(toCompress, {
-      maxCharsPerMsg: serBudget,
-      maxTotalChars: serTotal,
-    });
+    const conversationText = neutraliserMarqueursTour(
+      serializeForCompression(toCompress, { maxCharsPerMsg: serBudget, maxTotalChars: serTotal }),
+    );
     const userPayload = prevSummary
       ? `<anchored_summary>\n${prevSummary}\n</anchored_summary>\n\n` +
         "Update the anchored summary above: merge in the facts from the new turns below, keep still-relevant " +

@@ -22,6 +22,7 @@ import { reflexionDuTourRendue } from "../llm/parametres";
 import { verifyLlmAvailability } from "../llm/sante";
 import { journal } from "../journal";
 import type { ConfigMcp } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { classeursIntegres, collectMcpTools } from "../outils/catalogue";
@@ -109,7 +110,7 @@ export function harnessStatusLine(
   return `<harness_status>${corps}</harness_status>`;
 }
 
-/** Bloc `<todo_status>` de début de tour quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
+/** Bloc `<todo_status>` de début de tour (contenus aux marqueurs de tour inertes) quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
 export async function todoStatusReminder(username: string, chatId: string | null): Promise<string | null> {
   if (!chatId || chatId === "default") return null;
   const port = portTodos();
@@ -126,7 +127,7 @@ export async function todoStatusReminder(username: string, chatId: string | null
   if (!ouvertes) return null;
   return (
     `<todo_status>Your session todo list from previous turns still has ${ouvertes} open task(s):\n` +
-    renderChecklist(todos) +
+    neutraliserMarqueursTour(renderChecklist(todos)) +
     "\nUnless the user's latest message changes the plan, resume this work: set the task you start to in_progress, " +
     "mark each task completed as soon as it is done (or cancelled if obsolete) — always via todowrite with the FULL " +
     "updated list, every item with its content (copied verbatim) and its status.</todo_status>"

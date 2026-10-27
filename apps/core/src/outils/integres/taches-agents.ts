@@ -19,6 +19,7 @@ import {
 } from "@elpis/commun";
 import {
   masquerSecretsTexte,
+  neutraliserMarqueursTour,
   OUTILS_RETIRES_PAR_TYPE,
   SHELL_SOUS_AGENT_DELAI_DEFAUT_S,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
@@ -1308,6 +1309,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     if (teteFigee !== null) aNavigateur = [...teteFigee.permis].some((n) => n.startsWith("pw_"));
     const outilsFork = (): string[] | null => (teteFigee === null ? null : [...teteFigee.permis].sort());
+    const brief = neutraliserMarqueursTour(prompt);
     let childMessages: Dict[];
     if (resumed !== null)
       childMessages = [
@@ -1321,7 +1323,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
               champs: lus.outputSchema,
               outilsFork: outilsFork(),
               navigateur: aNavigateur && historiqueNavigateur(resumed["messages"]),
-            }) + prompt,
+            }) + brief,
         },
       ];
     else {
@@ -1336,7 +1338,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           navigateur: aNavigateur,
         });
         const role = stripPy(persona) ? `<agent_role>\n${stripPy(persona)}\n</agent_role>` : "";
-        const consigne = [contexte, role, subagentRulesBlock(true), prompt].filter(Boolean).join("\n\n");
+        const consigne = [contexte, role, subagentRulesBlock(true), brief].filter(Boolean).join("\n\n");
         childMessages = messagesFork(parent, callId ?? "", consigne);
       } else {
         let systeme = stripPy(persona + "\n\n" + subagentRulesBlock());
@@ -1359,7 +1361,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         });
         childMessages = [
           { role: "system", content: systeme },
-          { role: "user", content: `${contexte}\n\n${prompt}` },
+          { role: "user", content: `${contexte}\n\n${brief}` },
         ];
       }
     }

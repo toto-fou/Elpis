@@ -10,6 +10,7 @@ import {
   strPy,
   stripPy,
 } from "@elpis/commun";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import type { LlamaChatFn } from "../contexte/compresseur";
 import type { Priorite } from "../llm/ordonnanceur";
@@ -216,7 +217,9 @@ export async function generateChatTitle(
       { role: "system", content: TITLE_PROMPT },
       {
         role: "user",
-        content: question + (reponse ? `\n\n[the assistant's reply was about: ${reponse}]` : ""),
+        content: neutraliserMarqueursTour(
+          question + (reponse ? `\n\n[the assistant's reply was about: ${reponse}]` : ""),
+        ),
       },
     ];
     const arret = new AbortController();

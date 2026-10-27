@@ -5,6 +5,7 @@ import { readdir, stat } from "node:fs/promises";
 import { comparePointsDeCode, strPy, stripPy } from "@elpis/commun";
 import { config, racineDepot } from "@elpis/config";
 import { FAMILY_CATEGORY, load as chargerManifeste } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
 import { journal } from "../journal";
@@ -89,7 +90,7 @@ function surcharge(chemin: string, defaut: string): string {
 
 // ── Bloc des skills ──────────────────────────────────────────────────────
 
-/** Index (garde-fou anti mauvais matching) puis corps des skills épinglés, sous `SKILLS_CHAR_BUDGET` ; `null` si rien. */
+/** Index (garde-fou anti mauvais matching) puis corps des skills épinglés, sous `SKILLS_CHAR_BUDGET`, marqueurs de tour inertes ; `null` si rien. */
 async function blocSkills(
   uid: number | null,
   epingles: readonly unknown[] | null,
@@ -156,7 +157,7 @@ async function blocSkills(
       parties.push(blocs.join("\n\n"));
     }
   }
-  return parties.length > 0 ? parties.join("\n\n") : null;
+  return parties.length > 0 ? neutraliserMarqueursTour(parties.join("\n\n")) : null;
 }
 
 // ── Assemblage ───────────────────────────────────────────────────────────

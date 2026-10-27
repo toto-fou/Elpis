@@ -36,6 +36,7 @@ import {
   resolveForAgents,
   sharedId,
 } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { extractThinking } from "../boucle/chat-commun";
 import { runChatMultiMcp } from "../boucle/orchestrateur";
@@ -717,11 +718,14 @@ export class Planificateur {
         o.surMoteur?.(currentEngine().key);
         const messages: Dict[] = [];
         if (veritePy(routine["system_prompt"]))
-          messages.push({ role: "system", content: routine["system_prompt"] });
+          messages.push({
+            role: "system",
+            content: neutraliserMarqueursTour(strPy(routine["system_prompt"])),
+          });
         let contenu = strPy(ouPy(routine["task_prompt"], ""));
         if (veritePy(o.context))
           contenu = contenu ? `${contenu}\n\n### Événement déclencheur\n${o.context}` : strPy(o.context);
-        messages.push({ role: "user", content: contenu });
+        messages.push({ role: "user", content: neutraliserMarqueursTour(contenu) });
         const skills = ouPy(routine["skills"], []);
         if (veritePy(skills)) {
           let bloc: string | null;

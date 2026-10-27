@@ -490,6 +490,16 @@ connectée (`browser_session: "user"`) que si la mission exige votre compte et q
 vous l'avez demandé : la carte indique alors « votre session web », et l'agent ne
 peut pas la fermer.
 
+**La durée d'un agent.** L'assistant peut borner une mission (`max_seconds`, au
+plus le délai de l'administrateur, 1 heure par défaut). Le décompte part dès
+l'entrée dans la délégation. L'agent reçoit une échéance un peu plus courte :
+elle laisse la place de sa plus longue commande (5 minutes) et de son rapport
+(pour une mission courte, au plus un tiers du délai). Il y arrive en rédigeant son
+rapport, et ses commandes du terminal sont limitées au temps qui lui reste. Si le
+délai dur tombe quand même, aucun nouvel appel n'est fait au modèle : la carte
+garde le dernier message de l'agent comme rapport partiel, et l'assistant peut le
+reprendre (`task_id`) avec l'historique déjà fait.
+
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui
 ouvre le déroulé complet de l'enfant (ses appels d'outils, son rapport). Une

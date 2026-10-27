@@ -23,6 +23,7 @@ import { err, getUsername, outilDuGolden, readMetaField } from "@elpis/outils-mc
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenShell from "@elpis/outils-mcp/goldens/shell.json" with { type: "json" };
 import {
+  bornerDelaiShell,
   envShellSousAgent,
   ErreurCheminBac,
   FIX_SOUS_AGENT,
@@ -270,7 +271,8 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
     }
     for (const [k, v] of Object.entries(envShellSousAgent(sousAgent))) if (!(k in envExtra)) envExtra[k] = v;
     const plafond = sousAgent ? SHELL_SOUS_AGENT_DELAI_MAX_S : MAX_TIMEOUT_S;
-    const timeout = Math.max(1, Math.min(intPy(args.timeout_sec || DEFAULT_TIMEOUT_S), plafond));
+    const voulu = Math.max(1, Math.min(intPy(args.timeout_sec || DEFAULT_TIMEOUT_S), plafond));
+    const timeout = bornerDelaiShell(sousAgent, voulu);
     let tokens: string[];
     let delai: number;
     let journalFond = "";
@@ -438,7 +440,8 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
         : "Command not found (127). Check the name, or install it (`pip install --user …` / `npm install -g …`).";
     } else if (result["error"] === "timeout" && sousAgent !== null) {
       result["fix"] = stripPy(
-        `${veritePy(result["hint"]) ? strPy(result["hint"]) : ""} Killed after ${timeout}s. ${FIX_SOUS_AGENT}`,
+        `${veritePy(result["hint"]) ? strPy(result["hint"]) : ""} Killed after ${timeout}s` +
+          `${timeout < voulu ? " (the time left in your budget)" : ""}. ${FIX_SOUS_AGENT}`,
       );
     } else if (result["error"] === "timeout") {
       result["fix"] = stripPy(

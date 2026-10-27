@@ -799,7 +799,7 @@ comme absente.
 
 | Variable | Clé JSON | Défaut |
 |---|---|---|
-| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` |
+| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — délai **dur** d'un sous-agent, plafond du `max_seconds` de `task`, compté dès l'entrée dans `task` ; l'agent doit finir avant son échéance souple, `délai − réserve` (réserve : 360 s au plus, un tiers du délai pour un petit `max_seconds`), et ses commandes shell sont bornées au temps restant |
 | `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **sans effet** en TS : un sous-agent ne lance jamais de sous-agent (lu pour la compatibilité de `config.json`) |
 | `APP_TASK_RESUME_TTL_S` | `llm.task.resume_ttl_s` | `21600` |
 | `APP_TASK_RESUME_MAX` | `llm.task.resume_max` | `200` |

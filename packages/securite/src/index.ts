@@ -106,6 +106,7 @@ export {
 export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {
+  bornerDelaiShell,
   cheminsEcrits,
   envShellSousAgent,
   FIX_SOUS_AGENT,

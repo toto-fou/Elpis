@@ -202,6 +202,16 @@ const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save"];
 /** Attente au plus de la fermeture du navigateur privé d'un enfant : le run ne dépend pas d'un hôte qui ne répond pas. */
 const DELAI_FERMETURE_NAVIGATEUR_S = 20;
 
+/** Marge (s) de la synthèse finale derrière la plus longue commande du shell d'un enfant. */
+export const MARGE_SYNTHESE_S = 60;
+/** Part du délai dur que la réserve ne dépasse jamais (petit `max_seconds`). */
+export const PART_RESERVE_MAX = 1 / 3;
+
+/** Réserve (s) entre l'échéance souple d'un enfant et son délai dur : la plus longue commande du shell plus la marge de synthèse, au plus un tiers du délai. */
+export function reserveSouple(dureeMaxS: number): number {
+  return Math.min(SHELL_SOUS_AGENT_DELAI_MAX_S + MARGE_SYNTHESE_S, Math.floor(dureeMaxS * PART_RESERVE_MAX));
+}
+
 export interface AgentSpec {
   personaStem: string;
   summary: string;
@@ -928,6 +938,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
   };
 
   const handleTask = async (args: Dict, appel?: AppelIntegre): Promise<string> => {
+    const debutMs = Date.now();
     const callId = appel?.callId ?? null;
     const brut = estDict(args) ? args : {};
     let agentType = stripPy(texteOu(brut["subagent_type"], ""));
@@ -1014,7 +1025,12 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     let aNavigateur = s.filterCategories === null || s.filterCategories.includes("browser");
     const budget = lus.maxIterations ?? s.maxIters;
     const dureeMax = Math.min(TASK_CHILD_TIMEOUT_S, lus.maxSeconds ?? TASK_CHILD_TIMEOUT_S);
-    const murS = Math.max(1, dureeMax - Math.min(60, Math.floor(dureeMax / 5)));
+    /** Échéances absolues, comptées depuis l'entrée dans `task` (prélude et attente de slot compris) : délai dur, puis échéance souple qui laisse la réserve à la synthèse. */
+    const echeanceDureMs = debutMs + dureeMax * 1000;
+    const reserveS = reserveSouple(dureeMax);
+    const echeanceSoupleMs = echeanceDureMs - reserveS * 1000;
+    /** Durée de travail annoncée à l'enfant : celle qui précède l'échéance souple. */
+    const travailS = dureeMax - reserveS;
     const appelsAvant = intPy(resumed?.["tool_calls_total"] || 0);
     const compte = { username: o.username, userId: o.userId ?? null, chatId: o.chatId, signal: o.signal };
     const modeFork = resumed !== null ? resumed["fork"] === true : lus.contexte === "fork";
@@ -1098,7 +1114,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const childId = resumed !== null ? taskId : `t${++compteur}-${tokenHex(3)}`;
     /** Périmètre porté aux outils : l'identifiant de l'enfant désigne sa session de navigateur privée. */
-    const saRun: SousAgent = { ...sa, id: childId };
+    const saRun: SousAgent = { ...sa, id: childId, deadline_ms: echeanceSoupleMs };
     const childChatId = `${o.chatId || "chat"}#task-${childId}`;
     const slotKey = parent?.slotKey || `${o.chatId || "chat"}#task-${agentType}`;
     const k = cle(o.username, childId);
@@ -1190,7 +1206,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           content:
             consigneReprise(sa, resumed, {
               budget,
-              timeoutS: dureeMax,
+              timeoutS: travailS,
               champs: lus.outputSchema,
               outilsFork: outilsFork(),
               navigateur: aNavigateur && historiqueNavigateur(resumed["messages"]),
@@ -1203,7 +1219,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       if (parent !== null && teteFigee !== null) {
         const contexte = taskContextBlock(sa, {
           budget,
-          timeoutS: dureeMax,
+          timeoutS: travailS,
           champs: lus.outputSchema,
           fork: { outils: outilsFork() ?? [] },
           navigateur: aNavigateur,
@@ -1226,7 +1242,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         }
         const contexte = taskContextBlock(sa, {
           budget,
-          timeoutS: dureeMax,
+          timeoutS: travailS,
           champs: lus.outputSchema,
           navigateur: aNavigateur,
         });
@@ -1270,6 +1286,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const transcript: Dict[] = [];
     const chat: Dict[] = [];
     let tampon = "";
+    /** Dernier texte complet de l'assistant de l'enfant : rapport partiel d'un délai dur, rendu sans nouvel appel au moteur. */
+    let dernierTexte = "";
     const debutsAppels = new Map<string, number>();
     let navigateurUtilise = false;
 
@@ -1281,6 +1299,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         const [a, b] = [stripPy(t), stripPy(dejaRendu)];
         if (a && b && (b.includes(a) || a.includes(b))) return;
       }
+      dernierTexte = t;
       if (longueurPy(t) > 1500) t = truncateHeadTail(t, 1500, "task transcript bound");
       if (chat.length < 120) chat.push({ text: t });
       if (emettre)
@@ -1607,10 +1626,13 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
     debutTrace(o.username, traceParent, childId, saRun);
     let delaiDepasse = false;
-    const minuterie = setTimeout(() => {
-      delaiDepasse = true;
-      arret.abort(new CancelledError("sub-agent timeout"));
-    }, dureeMax * 1000);
+    const minuterie = setTimeout(
+      () => {
+        delaiDepasse = true;
+        arret.abort(new CancelledError("sub-agent timeout"));
+      },
+      Math.ceil(Math.max(0, echeanceDureMs - Date.now()) / 1000) * 1000,
+    );
     minuterie.unref();
     try {
       const boucle = (slot: OptionsRun["slot"]): Promise<SortieRun> =>
@@ -1646,7 +1668,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           userId: o.userId ?? null,
           slot: slot ?? null,
           subagent: saRun,
-          wallclockS: murS,
+          echeanceMs: echeanceSoupleMs,
           wrapupSuffix: CONSIGNE_CLOTURE,
           exposerTravail: (lire) => {
             lireTravail = lire;
@@ -1691,6 +1713,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         etat = "timeout";
         statut = "timeout";
         stopReason = "wallclock_hard";
+        finalText = stripPy(tampon) || dernierTexte;
       } else if (estErreurAnnulation(e) || signalEnfant.aborted) {
         etat = "cancelled";
         statut = "cancelled";
@@ -1750,6 +1773,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         err("task_timeout", `sub-agent '${agentType}' exceeded ${dureeMax}s`, {
           fix: "split the mission into smaller, more targeted tasks",
           ...reprise("pass task_id to resume this agent from its partial work, with a narrower brief"),
+          ...(finalText ? { partial_report: rapport } : {}),
           harness: bilan,
         }),
       );

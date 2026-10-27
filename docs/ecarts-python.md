@@ -648,7 +648,9 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   même ordre) : les restrictions de l'enfant sont appliquées à l'exécution (`perimetreEnfant`), pas par le
   manifeste. Détail : [architecture](architecture.md#sous-agents-outil-task).
 - **Paramètres de `task`** : `read_only`, `max_iterations` (borné par le type), `max_seconds` (arrêt propre avec
-  synthèse avant la limite), `writable_paths` (préfixes du bac, appliqués par `write_file`, `edit_file`,
+  synthèse avant la limite : échéance absolue comptée dès l'entrée dans `task`, réserve `min(360 s, ⅓ du délai)` ;
+  `_meta.subagent.deadline_ms` borne le `timeout_sec` du shell de l'enfant au temps restant ; au délai dur,
+  `partial_report` rendu sans appel au moteur, le Python rendait une enveloppe sans texte), `writable_paths` (préfixes du bac, appliqués par `write_file`, `edit_file`,
   `manage_files` et `git_write` ; le shell n'est pas borné, le bloc le dit : `writable_paths_scope:
   "file_tools_only"`), `output_schema` (champs exigés dans le rapport ; manquants : `status: partial`),
   `browser_session` (`isolated` par défaut : session de navigateur propre à l'enfant, fermée par le harnais ; `user` :

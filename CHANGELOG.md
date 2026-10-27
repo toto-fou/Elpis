@@ -197,6 +197,20 @@ selon [SemVer](https://semver.org/lang/fr/).
   `shell_job`, `on_timeout="detach_and_wake"`, ni un run détaché par la
   déconnexion du client.
 
+- **Sous-agents : échéance absolue, réserve, délai dur avec rapport.** Le délai
+  d'un enfant est fixé à l'entrée dans `task` (prélude et attente de slot
+  compris) au lieu du début de sa boucle. Son échéance souple laisse une réserve
+  de `min(300 s de shell + 60 s de synthèse, un tiers du délai)` avant le délai
+  dur (60 s au plus avant : un `execute_shell` de 300 s la dépassait). La
+  boucle reçoit l'échéance (`OptionsRun.echeanceMs`), `<task_context>` annonce la
+  durée de travail et « Wall-clock remaining » se mesure à l'échéance. Elle part
+  aussi à l'hôte d'outils (`_meta.subagent.deadline_ms`) qui borne le
+  `timeout_sec` d'`execute_shell` au temps restant ; un enfant sans échéance
+  garde le comportement d'avant. Au délai dur, l'enveloppe `task_timeout`
+  porte `partial_report` (dernier texte de l'enfant, sans appel au moteur), le
+  bilan (`status: timeout`) et le `task_id` de la reprise. Le tour principal ne
+  change pas.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

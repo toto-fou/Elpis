@@ -172,6 +172,8 @@ export interface OptionsRun {
   subagent?: SousAgent | null;
   /** Budget de temps de la boucle (s), plus court que `LLAMA_TOOL_LOOP_MAX_S` : arrêt propre avec synthèse. */
   wallclockS?: number | null;
+  /** Échéance souple absolue (epoch ms) fixée par l'appelant, prélude et attente de slot compris (un sous-agent : début de `task`) : jalons et arrêt propre avec synthèse s'y mesurent ; absente, seuls `wallclockS` et `LLAMA_TOOL_LOOP_MAX_S` jouent. */
+  echeanceMs?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
   wrapupSuffix?: string | null;
   /** Place (caractères) du suffixe de la question dans celui enregistré, pour un rejeu à l'octet ; absent = sans borne. */
@@ -356,6 +358,13 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
   const murGlobal = Number(config.LLAMA_TOOL_LOOP_MAX_S || 0);
   const murS = o.wallclockS && o.wallclockS > 0 ? Math.min(o.wallclockS, murGlobal || Infinity) : murGlobal;
   const debutBoucle = performance.now() / 1000;
+  const echeanceMs = o.echeanceMs && o.echeanceMs > 0 ? o.echeanceMs : null;
+  /** Temps restant (s) avant le mur de la boucle, le plus proche de l'échéance absolue et du mur relatif ; `null` sans mur. */
+  const murRestantS = (): number | null => {
+    const relatif = murS > 0 ? murS - (performance.now() / 1000 - debutBoucle) : null;
+    const absolu = echeanceMs !== null ? (echeanceMs - Date.now()) / 1000 : null;
+    return relatif === null || (absolu !== null && absolu < relatif) ? absolu : relatif;
+  };
   const cycle = new CycleGuard();
   let cycleHardStopped = false;
   rec.runPruneKeys = new Set((o.pruneKeys ?? []).filter((k): k is string => typeof k === "string"));
@@ -377,7 +386,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     if (limitesSandbox === null)
       limitesSandbox = allowed.includes("execute_shell") ? (sandboxLimitsText() ?? "") : "";
     const ligne = harnessStatusLine(effectiveIter, budget, {
-      wallLeftS: murS > 0 ? murS - (performance.now() / 1000 - debutBoucle) : null,
+      wallLeftS: murRestantS(),
       hardLeft,
       ctxLeft: occ ? rec.ctxSize - occ : null,
       ctxSize: rec.ctxSize,
@@ -453,7 +462,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       await rec.emitPartialSnapshot(onEvent);
       throw new CancelledError("User cancelled");
     }
-    if (murS > 0 && performance.now() / 1000 - debutBoucle > murS && (effectiveIter > 0 || hardIter > 0)) {
+    if ((murRestantS() ?? 1) < 0 && (effectiveIter > 0 || hardIter > 0)) {
       forcedStop = true;
       wallclockStop = true;
       await emit(onEvent, {
@@ -461,7 +470,9 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
         level: "warn",
         message: "budget de temps de la tâche atteint — synthèse et arrêt",
       });
-      log.warn(`[run_chat_multi_mcp] budget mur d'horloge (${murS}s) atteint → synthèse`);
+      log.warn(
+        `[run_chat_multi_mcp] budget mur d'horloge atteint (mur ${murS}s, échéance ${echeanceMs ?? "aucune"}) → synthèse`,
+      );
       continue;
     }
     const iteration = hardIter;

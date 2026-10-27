@@ -1384,6 +1384,27 @@ sequenceDiagram
   continue comme un job). Un détachement du client (onglet fermé) n'est pas un
   abandon : le run se détache et son signal n'est pas touché. Valable pour le
   tour principal : un Stop arrête la commande au premier plan.
+- **Échéances d'un enfant** : fixées au début du gestionnaire de `task`, en
+  temps absolu (prélude, vérification du navigateur de `web`, attente de slot
+  comprises), pour un `max_seconds` borné par `TASK_CHILD_TIMEOUT_S` (`D`).
+  *Délai dur* = `D` : minuterie qui annule l'enfant. *Échéance souple* = `D − R`
+  (`OptionsRun.echeanceMs`), où la **réserve** `R = min(300 + 60, D / 3)`
+  (`reserveSouple` : plus longue commande du shell d'un sous-agent,
+  `SHELL_SOUS_AGENT_DELAI_MAX_S`, plus 60 s de synthèse, au plus un tiers du délai
+  pour un petit `max_seconds` : 10 s pour 30 s, 100 s pour 300 s, 360 s dès 1 080 s).
+  À l'échéance souple, testée au début de chaque itération, la boucle fait sa
+  synthèse (`Status: partial`, statut `timeout`, `stop_reason: wallclock`).
+  `<task_context>` annonce la durée de travail `D − R`, et « Wall-clock remaining »
+  des jalons `<harness_status>` se mesure à l'échéance souple. L'échéance est portée
+  à l'hôte d'outils par `_meta.subagent.deadline_ms` (epoch ms, horloge du core :
+  un hôte d'outils distant doit avoir une horloge à quelques secondes près) :
+  `execute_shell` y borne `timeout_sec` au temps restant (1 s au moins, et le
+  `fix` d'un délai raccourci le dit) ; sans `deadline_ms`, rien ne change. Au
+  délai dur, aucun appel au moteur n'est fait : le rapport est le dernier texte de
+  l'assistant de l'enfant (le texte de la génération interrompue s'il y en a un,
+  sinon le dernier texte complet), rendu dans `partial_report` de l'enveloppe
+  `task_timeout` avec le bilan (`status: timeout`) et le `task_id` (la reprise est
+  déjà stockée). Le tour principal garde `LLAMA_TOOL_LOOP_MAX_S`, sans échéance.
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.

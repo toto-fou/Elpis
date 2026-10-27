@@ -16,6 +16,8 @@ export interface SousAgent {
   readonly id?: string;
   /** Absent ou illisible : `isolated` (le défaut ne donne jamais la session du compte). */
   readonly browser_session?: SessionNavigateur;
+  /** Échéance souple (epoch ms, horloge du core) : une commande du shell ne court pas au-delà ; absente, aucune borne. */
+  readonly deadline_ms?: number;
 }
 
 export const TYPES_AGENTS_LIVRES = ["explore", "implement", "verify", "web", "pr"] as const;
@@ -51,6 +53,17 @@ export const OUTILS_RETIRES_PAR_TYPE: Readonly<Record<string, ReadonlySet<string
 
 export const SHELL_SOUS_AGENT_DELAI_DEFAUT_S = 120;
 export const SHELL_SOUS_AGENT_DELAI_MAX_S = 300;
+
+/** Délai d'une commande du shell d'un sous-agent borné au temps restant avant son échéance souple (1 s au moins) ; sans échéance, tel quel. */
+export function bornerDelaiShell(
+  sa: SousAgent | null | undefined,
+  delaiS: number,
+  maintenantMs: number = Date.now(),
+): number {
+  if (!sa || sa.deadline_ms === undefined) return delaiS;
+  return Math.max(1, Math.min(delaiS, Math.floor((sa.deadline_ms - maintenantMs) / 1000)));
+}
+
 /** Conseil commun quand un sous-agent ne peut pas faire ce qu'il demande. */
 export const FIX_SOUS_AGENT =
   "A sub-agent cannot run background jobs or be woken: split the command into shorter steps " +
@@ -109,12 +122,16 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
   }
   const id = typeof d["id"] === "string" && ID_ENFANT.test(d["id"]) ? { id: d["id"] } : {};
   const session: SessionNavigateur = d["browser_session"] === "user" ? "user" : "isolated";
+  const fin = d["deadline_ms"];
+  const echeance =
+    typeof fin === "number" && Number.isFinite(fin) && fin > 0 ? { deadline_ms: Math.trunc(fin) } : {};
   return {
     type,
     read_only: d["read_only"] !== false,
     writable_paths: chemins,
     ...id,
     browser_session: session,
+    ...echeance,
   };
 }
 
@@ -126,6 +143,7 @@ export function sousAgentEnDict(sa: SousAgent): Record<string, unknown> {
     ...(sa.writable_paths === null ? {} : { writable_paths: [...sa.writable_paths] }),
     ...(sa.id === undefined ? {} : { id: sa.id }),
     ...(sa.browser_session === undefined ? {} : { browser_session: sa.browser_session }),
+    ...(sa.deadline_ms === undefined ? {} : { deadline_ms: sa.deadline_ms }),
   };
 }
 

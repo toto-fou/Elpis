@@ -109,6 +109,15 @@ const ACTIFS = new Map<
 >();
 const ANNULES = new Set<string>();
 const REPRISES = new Map<string, Dict>();
+/** Dernier run lancé par clé, gardé après sa sortie d'`ACTIFS` : un run plus ancien qui finit en retard (Stop puis reprise immédiate) ne ferme ni n'écrase rien du nouveau. */
+const DERNIER = new Map<string, AbortController>();
+const DERNIER_MAX = 1000;
+
+function marquerDernier(k: string, arret: AbortController): void {
+  DERNIER.delete(k);
+  DERNIER.set(k, arret);
+  if (DERNIER.size > DERNIER_MAX) DERNIER.delete(DERNIER.keys().next().value as string);
+}
 
 const cle = (username: string, childId: string): string =>
   JSON.stringify([String(username), String(childId)]);
@@ -1597,7 +1606,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     const storeResumeState = async (): Promise<void> => {
       clorePoints();
-      if (ACTIFS.has(k) && ACTIFS.get(k)?.arret !== arret) return;
+      if (DERNIER.get(k) !== arret) return;
       const fini = etat === "completed" || etat === "incomplete";
       let suivants: Dict[] | null = null;
       if (echange() || (fini && finalText)) {
@@ -1652,7 +1661,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       const lu = travailCourant();
       const obtenu = lu !== null && aEchange(lu);
       if (resumed === null && !obtenu) return null;
-      if (obtenu) memoriserReprise(o.username, childId, enregistrement(lu, true));
+      if (obtenu && DERNIER.get(k) === arret) memoriserReprise(o.username, childId, enregistrement(lu, true));
       return enveloppeAnnulee(bilanInstantane("cancelled"), true, true);
     };
     const recordRun = (bilan: Bilan): void => {
@@ -1689,7 +1698,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const avecReprise = (): boolean => resumed !== null || echange();
     /** Session de navigateur privée de l'enfant fermée à la fin du run, quel qu'en soit l'état ; jamais celle du compte, jamais d'échec. */
     const fermerNavigateur = async (): Promise<void> => {
-      if (sessionNavigateur !== "isolated" || !navigateurUtilise) return;
+      if (sessionNavigateur !== "isolated" || !navigateurUtilise || DERNIER.get(k) !== arret) return;
       try {
         const delai = new Promise<false>((fin) =>
           setTimeout(() => fin(false), DELAI_FERMETURE_NAVIGATEUR_S * 1000).unref(),
@@ -1709,7 +1718,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     /** Bloc du harnais une fois l'enfant terminé (rapport masqué, plafonné et sauvé dans le bac s'il déborde). */
     const conclure = async (): Promise<{ bilan: Bilan; rapport: string }> => {
-      const avec = finTrace(o.username, childId);
+      const avec = DERNIER.get(k) === arret ? finTrace(o.username, childId) : [];
       const depot = suivi.depotARelire();
       if (suivi.gitOuShell && depot !== null && etat !== "cancelled" && !o.signal?.aborted) {
         let relue: string | null;
@@ -1780,6 +1789,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     tour.lancements++;
     const arret = new AbortController();
     ACTIFS.set(k, { agent: agentType, chatId: o.chatId, t0: Date.now() / 1000, arret });
+    marquerDernier(k, arret);
     try {
       await emit(o.onEvent, {
         type: "task_step",

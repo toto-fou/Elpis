@@ -247,7 +247,9 @@ const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
 // Plafond global (tous comptes, sous-agents compris : chacun a sa session) ; `BROWSER_MAX_SESSIONS` le règle.
 const MAX_SESSIONS = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS || '10', 10) || 10);
-// Sessions par compte : au-delà, sa plus ancienne cède la place (jamais celle d'un autre).
+// Sessions par compte, sous-agents compris (le groupe : le compte et les propriétaires dérivés de ses
+// enfants) : au-delà, la plus ancienne session du demandeur cède la place (jamais celle d'un autre
+// propriétaire du groupe ni d'un autre compte) ; sans session à céder, le démarrage est refusé.
 const MAX_SESSIONS_PER_OWNER = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS_PER_OWNER || '3', 10) || 3);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
@@ -2292,6 +2294,8 @@ app.post('/start', async (req, res) => {
         // à la session, à ses états sauvegardés et à ses téléchargements.
         const owner = safeOwner(req.body.owner);
         if (!owner) return res.status(400).json({ error: 'owner requis.' });
+        // Groupe du quota : le compte d'un sous-agent à session isolée (absent : le propriétaire seul).
+        const group = safeOwner(req.body.group) || owner;
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
@@ -2458,14 +2462,16 @@ app.post('/start', async (req, res) => {
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now });
+        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_OWNER, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
-            return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
+            return res.status(503).json({ error: slot.cause === 'groupe'
+                ? `Quota de sessions du compte atteint (${MAX_SESSIONS_PER_OWNER}, sous-agents compris) : fermez une session ou attendez qu'un agent termine.`
+                : 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
         }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -7054,5 +7060,5 @@ app.get('/recorder/dump', getSession, async (req, res) => {
 const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
 const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
 app.listen(LISTEN_PORT, LISTEN_HOST, () => {
-    console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: 10 sessions)`);
+    console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions, ${MAX_SESSIONS_PER_OWNER} par compte sous-agents compris)`);
 });

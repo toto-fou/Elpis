@@ -206,21 +206,29 @@ export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs, keep } 
 
 
 // Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
-// JAMAIS celle d'un autre compte : au quota du compte, sa plus ancienne cède
-// la place ; plafond global atteint sans session du compte à céder → refus.
-// → { evict: sid|null, refuse: bool }
-export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, now = Date.now() } = {}) {
+// JAMAIS celle d'un autre propriétaire : au quota du propriétaire, ou du
+// GROUPE (le compte et ses sous-agents, chacun a son propriétaire dérivé),
+// sa plus ancienne session cède la place ; sans session à céder, le plafond
+// du groupe ou le plafond global refuse. Un sous-agent n'évince donc ni la
+// session du compte ni celle d'un frère.
+// → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
+export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, now = Date.now() } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
     const own = [];
     let total = 0;
+    let dansGroupe = 0;
     for (const [sid, s] of sessions) {
         total += 1;
-        if (s && s.owner === owner) own.push([sid, age(s)]);
+        if (!s) continue;
+        if (s.owner === owner) own.push([sid, age(s)]);
+        if ((s.group || s.owner) === group) dansGroupe += 1;
     }
     own.sort((a, b) => a[1] - b[1]);
-    if (own.length >= maxPerOwner || (total >= maxTotal && own.length)) {
+    const groupePlein = dansGroupe >= maxPerGroup;
+    if (own.length >= maxPerOwner || ((total >= maxTotal || groupePlein) && own.length)) {
         return { evict: own[0][0], refuse: false };
     }
-    if (total >= maxTotal) return { evict: null, refuse: true };
+    if (groupePlein) return { evict: null, refuse: true, cause: 'groupe' };
+    if (total >= maxTotal) return { evict: null, refuse: true, cause: 'global' };
     return { evict: null, refuse: false };
 }

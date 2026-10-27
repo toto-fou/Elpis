@@ -1462,24 +1462,44 @@ sequenceDiagram
   `_meta.subagent` de chaque appel local porte `id` (le `task_id` de l'enfant) et
   `browser_session`, et l'hôte parle au service navigateur sous un **propriétaire
   dérivé** (`proprietaireDe`, `apps/toolhost/src/mcp/browser/appel.ts` ;
-  `pwOwnerEnfant` : empreinte du compte et de l'enfant) au lieu de celui du compte.
+  `pwOwnerEnfant` : empreinte du compte et de l'enfant, préfixe `s_`) au lieu de
+  celui du compte. `pwOwner` réserve cet espace de noms : un nom de compte de la
+  forme `[sur]_` + 32 hex minuscules (propriétaires dérivés `s_` enfant, `u_` nom non
+  sûr, `r_` nom sûr de cette forme) est lui-même haché en `r_…` ; aucun autre nom de
+  compte ne change d'identité (ses états sauvegardés restent à lui).
   Le service ne connaît que des propriétaires : `/start` ne réutilise que les
   sessions du propriétaire (un second `start` de l'enfant ouvre un onglet dans sa
-  session), et `/sessions`, `session_id`, le quota (`BROWSER_MAX_SESSIONS_PER_OWNER`)
-  et `/cleanup` sont les siens ; la session du compte ou d'un frère répond
-  `session_not_found`. Une dérivation plutôt que `isolated: true` sous le
-  propriétaire du compte, qui partagerait `pw_session list`, le quota (une session
-  de plus ferme la plus ancienne, qui peut être celle de l'utilisateur) et
-  `cleanup`. Le harnais ferme les sessions de l'enfant dans le `finally` de son run
-  (`PortsHoteTache.fermerNavigateur` : `pw_session(action="cleanup")` sous
+  session), et `/sessions`, `session_id` et `/cleanup` sont les siens ; la session
+  du compte ou d'un frère répond `session_not_found`. Une dérivation plutôt que
+  `isolated: true` sous le propriétaire du compte, qui partagerait `pw_session list`,
+  le quota (une session de plus ferme la plus ancienne, qui peut être celle de
+  l'utilisateur) et `cleanup`. Le **quota** (`BROWSER_MAX_SESSIONS_PER_OWNER`, 3) se
+  compte par **groupe** : l'hôte joint au `/start` d'un enfant isolé le propriétaire
+  du compte (`group`), et le service plafonne l'ensemble compte + enfants au même
+  nombre qu'un compte seul avant les sous-agents (`planSessionSlot`,
+  `browser-service/session_util.js`) ; au plafond, la plus ancienne session du
+  *demandeur* cède la place, jamais celle du compte, d'un frère ou d'un autre
+  compte : un enfant sans session à lui est refusé proprement, de même le compte
+  quand ses enfants occupent tout le quota. Avant, un propriétaire par enfant faisait
+  que 10 enfants d'un seul compte occupaient les 10 places du service. Le harnais
+  ferme les sessions de l'enfant dans le `finally` de son run
+  (`PortsHoteTache.fermerNavigateur` : `pw_session(action="cleanup_own")` sous
   l'identité de l'enfant), quel que soit l'état (terminé, échec, limite, délai,
   annulation de l'enfant ou du tour), s'il a appelé un `pw_*` ; sans hôte ni
   service rien ne lève, le service ramasse les sessions inactives au bout de
-  15 minutes. Le plafond global du service (`BROWSER_MAX_SESSIONS`, 10) compte les
-  sessions des enfants : au plafond, un `start` est refusé proprement.
+  15 minutes. `cleanup_own` n'existe que sur l'hôte à jour (il ne ferme que les
+  sessions dérivées de l'enfant, refuse l'enfant `user` et le chat) : un **ancien
+  hôte** distant répond « unknown action » et ne ferme rien, alors qu'un `cleanup`
+  y fermerait les sessions du compte et de ses autres enfants. Une reprise
+  immédiate du même `task_id` après un Stop ne se fait pas fermer son navigateur
+  par l'ancien run, qui finit en retard : `DERNIER` (par clé, gardé après la sortie
+  d'`ACTIFS`) dit quel run est le dernier lancé, et seul celui-là ferme le navigateur
+  et écrit l'enregistrement de reprise. Le plafond global du service
+  (`BROWSER_MAX_SESSIONS`, 10) compte les sessions des enfants : au plafond, un `start`
+  est refusé proprement.
   `browser_session: "user"` (seulement si la mission exige le compte de
   l'utilisateur et qu'il l'a demandé) donne la session connectée du compte :
-  jamais fermée par le harnais, `stop` et `cleanup` de `pw_session` y sont refusés
+  jamais fermée par le harnais, `stop`, `cleanup` et `cleanup_own` de `pw_session` y sont refusés
   à l'enfant (`user_session_protected`) et `isolated: true` y est ignoré (un
   contexte de plus ne serait fermé par personne). Le bilan `<task_meta>` et l'étape
   finale portent `browser_session` pour un agent qui a des outils `pw_*` (la carte

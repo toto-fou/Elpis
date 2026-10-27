@@ -13,7 +13,7 @@ import { executerOutilMcp } from "../mcp/clients";
 export interface PortsHoteTache {
   /** Cause d'indisponibilité du service navigateur, `null` s'il répond. */
   santeNavigateur(o: CompteTache): Promise<string | null>;
-  /** Ferme les sessions de navigateur PRIVÉES de l'enfant (jamais celle du compte : l'hôte les distingue par l'identité de l'enfant) ; vrai si l'hôte l'a confirmé, faux sans erreur si le service est absent. */
+  /** Ferme les sessions de navigateur PRIVÉES de l'enfant par `cleanup_own`, que seul l'hôte à jour connaît (un ancien hôte répond « unknown action » et ne ferme rien : jamais le `cleanup` du compte) ; vrai si l'hôte l'a confirmé, faux sans erreur sinon. */
   fermerNavigateur(o: CompteTache & { enfant: SousAgent }): Promise<boolean>;
   /** Texte écrit dans le bac du compte à `chemin` (relatif à /work) ; vrai si l'outil l'a confirmé. */
   sauverRapport(o: CompteTache & { chemin: string; texte: string }): Promise<boolean>;
@@ -105,7 +105,7 @@ export const hoteTacheParDefaut: PortsHoteTache = {
         { username: o.username, userId: o.userId, chatId: o.chatId },
         "browser",
         "pw_session",
-        { action: "cleanup" },
+        { action: "cleanup_own" },
         12,
         o.enfant,
       );

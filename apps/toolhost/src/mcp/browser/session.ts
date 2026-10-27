@@ -2,7 +2,14 @@
 /** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, identifiants de la mémoire AX, propriété posée par l'outil), arrêt, état, liste, nettoyage. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { errPw, getCredentials, recordPwSessionOwner, refusUrl, saveCredentials } from "@elpis/navigateur";
+import {
+  errPw,
+  getCredentials,
+  pwOwner,
+  recordPwSessionOwner,
+  refusUrl,
+  saveCredentials,
+} from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { headless, minusculesPy, ouvrirAppel } from "./appel";
@@ -20,7 +27,7 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), propriété de la session posée, identifiants retenus après succès. */
+/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée, identifiants retenus après succès. */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
@@ -64,6 +71,7 @@ async function demarrer(
     if (f !== null) corps["viewport"] = f;
   }
   for (const k of ["locale", "timezone", "color_scheme"]) if (a[k]) corps[k] = a[k];
+  if (portee === "isolee") corps["group"] = pwOwner(username);
   if (a["touch"] !== null) corps["touch"] = a["touch"];
   for (const k of ["isolated", "trace", "record_video"])
     if (a[k] && !(k === "isolated" && portee === "compte-delegue")) corps[k] = true;
@@ -96,7 +104,10 @@ export function pwSession(s: ServicesBrowser) {
     if (action === "start") return demarrer(a, s, appel);
     if (appel.refus !== null) return appel.refus;
     const { client } = appel.appel;
-    if (appel.appel.portee === "compte-delegue" && (action === "stop" || action === "cleanup"))
+    if (
+      appel.appel.portee === "compte-delegue" &&
+      (action === "stop" || action === "cleanup" || action === "cleanup_own")
+    )
       return refusFermetureCompte(action);
     const sid = a["session_id"];
     if (action === "stop" || action === "trace_export" || action === "save_state")
@@ -115,6 +126,14 @@ export function pwSession(s: ServicesBrowser) {
       return r;
     }
     if (action === "cleanup") return client.req("POST", "/cleanup");
+    if (action === "cleanup_own")
+      return appel.appel.portee === "isolee"
+        ? client.req("POST", "/cleanup")
+        : errPw("not_a_subagent", "", {
+            message:
+              "pw_session(action='cleanup_own') closes the private sessions of a sub-agent: it is reserved to the harness.",
+            fix: "use action='cleanup' to close your own sessions.",
+          });
     if (action === "health") return client.req("GET", "/health");
     return errPw(`unknown action ${reprPy(action)}`, "use: start|stop|save_state|list|cleanup|health");
   };

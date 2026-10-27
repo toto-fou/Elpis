@@ -1172,12 +1172,18 @@ restreint le RÉSEAU LOCAL aux hôtes et réseaux qu'elle nomme (les
 destinations publiques restent joignables, les refus ci-dessus restent
 absolus). Les sessions, états sauvegardés,
 téléchargements et références visuelles sont rangés par compte ; au plus 3
-sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`) et 10 en tout
-(`BROWSER_MAX_SESSIONS`), une nouvelle session ne ferme jamais celle d'un autre
-compte. Chaque sous-agent `task` qui pilote le navigateur a sa session privée, avec
-son propre quota, qui compte dans le plafond global : relevez `BROWSER_MAX_SESSIONS`
-si plusieurs comptes lancent des agents `web` en parallèle (au plafond, un
-démarrage est refusé, jamais la session d'un autre).
+sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`), **sous-agents compris**, et
+10 en tout (`BROWSER_MAX_SESSIONS`) ; une nouvelle session ne ferme jamais celle d'un
+autre compte, ni la session du compte ou d'un frère quand c'est un sous-agent qui la
+demande. Chaque sous-agent `task` qui pilote le navigateur a sa session privée, qui
+compte dans le quota de son compte : avec la session du chat et les trois agents
+`web` que `agents.max_parallel` lance par défaut, le quota de 3 refuse le dernier
+(`Quota de sessions du compte atteint`) ; relevez
+`BROWSER_MAX_SESSIONS_PER_OWNER` (agents en parallèle + 1 pour la session du chat) et
+`BROWSER_MAX_SESSIONS` si plusieurs comptes lancent des agents `web` en parallèle.
+Redémarrez le service avec le core. Un service ou un hôte d'outils plus ancien que le
+core ne connaît pas le quota par groupe (chaque enfant compte à part) ni la
+fermeture sûre des sessions d'un enfant : mettez-les à jour ensemble.
 
 ⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
 l'adresse de l'hôte ou un conteneur local est désormais refusée.

@@ -20,14 +20,19 @@ import { pyJoin, safeSandboxName } from "@elpis/config";
 const log = (): ReturnType<typeof journalDe> => journalDe("pw_owner");
 
 const OWNER_OK = /^[A-Za-z0-9_-]{1,64}$/;
+/** Forme des propriétaires dérivés (`u_` nom non sûr, `s_` enfant, `r_` nom sûr de cette forme) : jamais un nom de compte rendu tel quel. */
+const OWNER_DERIVE = /^[sur]_[0-9a-f]{32}$/;
 
-/** Propriétaire transmis au service navigateur : le nom s'il est sûr, sinon une empreinte stable (jamais deux comptes confondus). */
+const empreinte = (texte: string): string =>
+  createHash("sha256").update(texte, "utf-8").digest("hex").slice(0, 32);
+
+/** Propriétaire transmis au service navigateur : le nom s'il est sûr et d'une forme libre, sinon une empreinte stable (jamais deux comptes confondus, jamais un nom qui imite un propriétaire dérivé). */
 export function pwOwner(username: string | null | undefined): string {
   const u = stripPy(username || "") || "guest";
-  if (OWNER_OK.test(u)) return u;
+  if (OWNER_OK.test(u) && !OWNER_DERIVE.test(u)) return u;
   if (!u.isWellFormed())
     throw new ErreurPython("ValueError", "'utf-8' codec can't encode character: surrogates not allowed");
-  return "u_" + createHash("sha256").update(u, "utf-8").digest("hex").slice(0, 32);
+  return OWNER_OK.test(u) ? "r_" + empreinte(`reserve\u0000${u}`) : "u_" + empreinte(u);
 }
 
 /** Propriétaire d'un enfant à session isolée : empreinte du compte et de l'enfant (le NUL sépare, un nom de compte n'en porte pas), donc une session, un quota et un nettoyage distincts de ceux du compte. */
@@ -37,7 +42,7 @@ export function pwOwnerEnfant(
 ): string {
   const u = stripPy(username || "") || "guest";
   const e = stripPy(enfantId || "") || "-";
-  return "s_" + createHash("sha256").update(`${u}\u0000task\u0000${e}`, "utf-8").digest("hex").slice(0, 32);
+  return "s_" + empreinte(`${u}\u0000task\u0000${e}`);
 }
 
 /** Propriétaire que les outils `pw_*` transmettent pour un compte : `pw_owner(safe_sandbox_name(compte))`. */

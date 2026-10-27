@@ -141,15 +141,34 @@ selon [SemVer](https://semver.org/lang/fr/).
   les autres). L'hôte d'outils l'applique à chaque appel `pw_*` d'après
   `_meta.subagent` (`id`, `browser_session`), aussi en fork ; le harnais ferme la
   session de l'enfant à la fin de son run quel qu'en soit l'état, jamais celle du
-  compte. Nouveau paramètre de `task`, `browser_session` : `isolated` (défaut) ou
+  compte, par `pw_session(action="cleanup_own")` : une action que seul l'hôte à
+  jour connaît, et qui ne ferme que les sessions dérivées de l'enfant. Nouveau
+  paramètre de `task`, `browser_session` : `isolated` (défaut) ou
   `user` (la session connectée de l'utilisateur, à demander seulement si la mission
   exige son compte et qu'il l'a demandé : l'enfant ne peut pas la fermer, la carte
-  du sous-agent indique « votre session web »). Un hôte d'outils distant se met à
-  jour avec le core, sinon ses sous-agents gardent la session du compte. La
-  description de `task` change une fois (cache de la tête du parent). Service
-  navigateur : chaque enfant compte dans le plafond global de 10 sessions,
-  désormais réglable (`BROWSER_MAX_SESSIONS`) ; redémarrez-le avec le core.
-  Rechargez les onglets ouverts : le bilan du harnais porte un champ de plus.
+  du sous-agent indique « votre session web »). **Un hôte d'outils distant plus
+  ancien que le core** ignore `_meta.subagent` : ses sous-agents partagent la
+  session du compte (comme avant), `user_session_protected` n'existe pas, il ne borne
+  pas `execute_shell` à l'échéance du sous-agent et il répond
+  « unknown action » à `cleanup_own` : le harnais n'y ferme rien (jamais le
+  `cleanup` du compte, qui fermerait les sessions de l'utilisateur et des frères),
+  et le service ramasse les sessions inactives au bout de 15 minutes. Mettez l'hôte
+  à jour avec le core. La description de `task` change une fois (cache de la tête
+  du parent). Service navigateur : chaque enfant a sa session, mais le quota par
+  compte (`BROWSER_MAX_SESSIONS_PER_OWNER`, 3) se compte pour l'ensemble du compte
+  et de ses enfants (le groupe) : un enfant sans session ne prend la place de personne
+  et est refusé au quota, la session du compte n'est jamais évincée par un enfant, et
+  10 enfants d'un compte n'occupent plus les 10 places du service
+  (`BROWSER_MAX_SESSIONS`, désormais réglable). Pour lancer N agents `web` en
+  parallèle à côté de la session du chat, relevez
+  `BROWSER_MAX_SESSIONS_PER_OWNER` à N + 1. Un compte dont le nom est exactement
+  `s_`, `u_` ou `r_` suivi de 32 caractères hexadécimaux minuscules change
+  d'identité côté navigateur (ces formes sont réservées aux propriétaires dérivés) ;
+  aucun autre compte n'est touché. Une reprise immédiate du même `task_id` après un
+  Stop n'est plus gênée par l'ancien run, qui finit en retard : il ne ferme plus le
+  navigateur du nouveau et n'écrase plus son enregistrement de reprise. Redémarrez
+  le service navigateur avec le core. Rechargez les onglets ouverts : le bilan du
+  harnais porte un champ de plus.
 
 - **Injection de prompt : marqueurs de tour et sous-agents.** Un résultat
   d'outil (page `pw_*`, fichier, sortie de commande, serveur MCP tiers, rapport

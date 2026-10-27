@@ -684,7 +684,9 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   émet une étape finale (`state: "failed"`, `child_id` vide, bloc `status: unavailable` ou `error` avec `reason`)
   qui ferme la ligne, et le run est gardé dans `task_runs[]`.
 - **Parallélisme** : les `task` consécutifs d'une même réponse partent ensemble, `agents.max_parallel` à la fois (1
-  à 10, défaut 3, relu à chaud, plafonné à `total_slots − 1` sur llama.cpp ; `LLAMA_TOOL_PARALLELISM` ne les bride pas) ; le bloc liste les autres runs du
+  à 10, défaut 3, relu à chaud, plafonné à `total_slots − 1` sur llama.cpp ; `LLAMA_TOOL_PARALLELISM` ne les bride pas),
+  sauf deux écrivains dont les `writable_paths` se recouvrent (ou dont l'un n'en a pas, ou un `verify`) : l'un après
+  l'autre dans l'ordre de l'appel, lecteurs toujours parallèles ; le bloc liste les autres runs du
   compte qui ont tourné en même temps (`overlapped_with` : sous-agents de tout chat, `chat:<id>` d'une boucle de
   premier niveau autre que la parente).
 - **Fichiers modifiés sous parallélisme** (N1) : le shell relève tout le bac du compte, pas les seules écritures de

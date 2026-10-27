@@ -1528,6 +1528,28 @@ sequenceDiagram
   `max_parallel` s'applique sans plafond. La description de l'outil
   (« up to N at a time ») garde la valeur configurée : elle fait partie de la
   tête du parent et reste identique d'un tour à l'autre.
+- **Écrivains d'un même lot** : le parallélisme ne vaut que pour des enfants qui
+  ne se marchent pas dessus. Avant de lancer un lot, `executeToolBatch` classe
+  chaque appel dont l'outil intégré porte un `classerLot` (`OutilIntegre.classerLot`,
+  aujourd'hui `task` seul ; aucun cas particulier du nom dans la boucle) :
+  *lecteur* (lecture seule effective, calculée par la **même** fonction que le
+  lancement, `lectureSeuleDeLAppel` : défaut ou imposition de l'administrateur,
+  case du compte, `read_only` de l'appel, enregistrement d'une reprise) ou
+  *écrivain* de ses `writable_paths` (`null` : tout `/work`). Un `verify` compte
+  toujours comme écrivain de tout `/work` : il n'écrit pas par les outils de
+  fichiers mais son shell lance des tests, qui lisent l'état que l'autre écrivain
+  change ; de même un agent sans `writable_paths`. Les lecteurs restent parallèles
+  entre eux et avec les écrivains ; deux écrivains dont les chemins s'emboîtent
+  (`src` et `src/x`) ou dont l'un est sans borne partent l'un après l'autre, dans
+  l'ordre du lot (`ecrituresEnConflit`), sans refus : le second attend la fin du
+  premier **avant** de prendre une place de `tachesSimultanees` (il ne bloque pas un
+  slot). Un appel qui sera refusé d'avance (arguments illisibles, `task_id` inconnu)
+  n'attend personne. Un Stop pendant l'attente l'annule sans l'avoir lancé. Les
+  événements NDJSON gardent leur ordre et leurs types (`tool_call` de tout le lot,
+  puis `tool_result` dans l'ordre), chaque appel garde son résultat ; seul le
+  `task_step` `spawned` du second arrive plus tard. Limite : `writable_paths` ne
+  borne que les outils de fichiers, pas le shell (description du paramètre), et un
+  lecteur peut lire un état à moitié écrit.
 - **Lancer llama-server pour les sous-agents** : `-np 2` au moins (`--parallel`,
   idéalement les sous-agents simultanés + 1), `--kv-unified` (un tampon KV
   partagé par les slots) et `--cache-ram` (cache de prompts en RAM, qui restaure

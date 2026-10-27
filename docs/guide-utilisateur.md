@@ -490,6 +490,14 @@ connectée (`browser_session: "user"`) que si la mission exige votre compte et q
 vous l'avez demandé : la carte indique alors « votre session web », et l'agent ne
 peut pas la fermer.
 
+**Plusieurs agents à la fois.** Quand l'assistant lance plusieurs agents dans le
+même message, ceux qui ne font que lire (`explore`, `web`, ou toute mission en
+lecture seule) partent ensemble. Deux agents qui **écrivent** dans les mêmes
+dossiers, ou dont l'un n'a pas de dossiers réservés, ne partent pas ensemble :
+le second attend la fin du premier, dans l'ordre demandé, pour ne pas écrire par
+dessus lui. Un `verify` attend ainsi l'écrivain qui le précède, car ses tests lisent
+tout le projet. Rien n'est refusé, la carte du second apparaît quand il démarre.
+
 **La durée d'un agent.** L'assistant peut borner une mission (`max_seconds`, au
 plus le délai de l'administrateur, 1 heure par défaut). Le décompte part dès
 l'entrée dans la délégation. L'agent reçoit une échéance un peu plus courte :

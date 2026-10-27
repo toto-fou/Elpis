@@ -24,8 +24,8 @@ import { journal } from "../journal";
 import type { ConfigMcp } from "@elpis/mcp";
 import type { SousAgent } from "@elpis/securite";
 
-import { collectMcpTools } from "../outils/catalogue";
-import type { OutilIntegre } from "../outils/catalogue";
+import { classeursIntegres, collectMcpTools } from "../outils/catalogue";
+import type { ClasseurLot, OutilIntegre } from "../outils/catalogue";
 import { debutBoucle } from "../outils/integres/bilan-taches";
 import { renderChecklist } from "../outils/integres/format-todo";
 import type { Dict } from "../python";
@@ -268,6 +268,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
   let toolsPayload: Dict[];
   let builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>;
   let lectureSeule: ReadonlyMap<string, boolean>;
+  let classeurs: ReadonlyMap<string, ClasseurLot> = new Map();
   let allowed: string[];
   if (figee) {
     ({ toolCfgMap, builtinHandlers, lectureSeule } = figee);
@@ -283,6 +284,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       signal,
     });
     ({ toolCfgMap, toolsPayload, builtinHandlers, lectureSeule } = catalogue);
+    classeurs = classeursIntegres(o.builtinTools ?? null, builtinHandlers);
     allowed = [...new Set([...toolCfgMap.keys(), ...builtinHandlers.keys()])].sort();
     if (onEvent && catalogue.connectedServerNames.length)
       await emit(onEvent, {
@@ -439,6 +441,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     toolsPayload,
     toolCfgMap,
     builtinHandlers,
+    classeurs,
     toolsPayloadChars,
     maxIter,
     effectiveIterBudget: budget,

@@ -12,7 +12,7 @@ import type { SurEvenement } from "./evenements";
 import type { ConfigMcp } from "@elpis/mcp";
 import { neutraliserMarqueursTour } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
-import type { OutilIntegre } from "../outils/catalogue";
+import type { ClasseurLot, OutilIntegre } from "../outils/catalogue";
 
 import type { LlamaChatFn } from "../contexte/compresseur";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
@@ -200,6 +200,8 @@ export interface ChampsRun {
   toolsPayload: Dict[];
   toolCfgMap: ReadonlyMap<string, ConfigMcp>;
   builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>;
+  /** Classeurs de lot des outils intégrés qui en ont un (ordonnancement des écrivains d'un lot). */
+  classeurs: ReadonlyMap<string, ClasseurLot>;
   toolsPayloadChars: number;
   maxIter: number;
   effectiveIterBudget: number;

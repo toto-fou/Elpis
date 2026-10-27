@@ -211,6 +211,18 @@ selon [SemVer](https://semver.org/lang/fr/).
   bilan (`status: timeout`) et le `task_id` de la reprise. Le tour principal ne
   change pas.
 
+- **Sous-agents : les écrivains d'un même lot ne se marchent plus dessus.** Deux
+  `implement` (ou un `implement` et un `verify`) lancés ensemble écrivaient et
+  testaient dans le même `/work` en même temps. Chaque appel `task` est classé
+  avant le lot : lecteur (lecture seule effective, même règle que le lancement) ou
+  écrivain de ses `writable_paths` (`null` : tout `/work`, ce que compte aussi un
+  `verify`). Les lecteurs restent parallèles ; deux écrivains aux chemins qui se
+  recouvrent, ou dont l'un est sans borne, partent l'un après l'autre dans l'ordre
+  du lot, sans refus. Interface optionnelle `OutilIntegre.classerLot` (pas de cas
+  du nom `task` dans la boucle) ; ordre et types des événements inchangés. La note 5
+  de la description de `task` le dit (une seule invalidation du cache du parent à
+  la mise à jour).
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

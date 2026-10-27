@@ -11,10 +11,11 @@ import {
   strPy,
   utf8Remplace,
 } from "@elpis/commun";
+import { sousPrefixes } from "@elpis/securite";
 
 import { LLAMA_TOOL_PARALLELISM } from "../llm/constantes";
 import { journal } from "../journal";
-import type { ContexteParent } from "../outils/catalogue";
+import type { ClasseLot, ContexteParent } from "../outils/catalogue";
 import { categorize } from "../outils/categories";
 import { flattenExceptionMessage } from "../outils/mcp/clients";
 import { toolTraits } from "../outils/traits";
@@ -173,6 +174,17 @@ function attendreMs(ms: number): Promise<void> {
   });
 }
 
+/** Deux appels dont l'un au moins écrit se gênent : l'un écrit partout (`null`) et l'autre quelque part, ou deux préfixes de chemin s'emboîtent ; `[]` n'écrit nulle part. */
+export function ecrituresEnConflit(a: ClasseLot, b: ClasseLot): boolean {
+  if (!a.ecrit || !b.ecrit) return false;
+  const [x, y] = [a.chemins, b.chemins];
+  if (x === null) return y === null || y.length > 0;
+  if (y === null) return x.length > 0;
+  return x.some((p) => y.some((q) => sousPrefixes(p, [q]) || sousPrefixes(q, [p])));
+}
+
+const RIEN: ClasseLot = { ecrit: false, chemins: [] };
+
 export interface OptionsLot {
   executeSingle: ExecuteSingle;
   recordMetric: (...args: unknown[]) => unknown;
@@ -188,6 +200,8 @@ export interface OptionsLot {
   resultsOut?: Map<number, string>;
   /** Appels `task` consécutifs lancés ensemble au plus (1 : l'un après l'autre). */
   tachesSimultanees?: number;
+  /** Classe un appel du lot (outil intégré à classeur) ; deux appels qui écrivent sur les mêmes chemins partent l'un après l'autre, dans l'ordre du lot. */
+  classer?: ((nom: string, args: Dict) => ClasseLot | null) | null;
 }
 
 /** Exécute `prepared` (`{call_id, tool_name, final_args, meta, args_error}`) dans l'ordre du modèle ; rend `index → résultat JSON`. */
@@ -202,7 +216,12 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     Boolean((o.isCancelled && o.isCancelled()) || o.signal?.aborted || signalLot?.aborted);
   let instantaneDuLot = false;
 
-  const execOne = async (idx: number, p: Dict, signalLot?: AbortSignal): Promise<void> => {
+  const execOne = async (
+    idx: number,
+    p: Dict,
+    signalLot?: AbortSignal,
+    avant: readonly Promise<unknown>[] = [],
+  ): Promise<void> => {
     const nom = strPy(p["tool_name"]);
     const signal = signalLot ?? o.signal;
     const callId = p["call_id"] === null || p["call_id"] === undefined ? null : strPy(p["call_id"]);
@@ -233,6 +252,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
         }
       : {};
     const borne = nom === "task" ? semTaches : sem;
+    await Promise.all(avant);
     await borne.prendre();
     if (annulationReelle(signalLot)) {
       borne.rendre();
@@ -347,12 +367,32 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     instantaneDuLot = true;
     try {
       let premier: unknown = undefined;
-      const taches = items.map(([k, p]) =>
-        execOne(k, p, signalLot).catch((e: unknown) => {
+      const classes = new Map<number, ClasseLot>();
+      for (const [k, p] of items) {
+        const classe = p["args_error"]
+          ? null
+          : (o.classer?.(strPy(p["tool_name"]), p["final_args"] as Dict) ?? null);
+        if (classe !== null) classes.set(k, classe);
+      }
+      const finis = new Map<number, Promise<void>>();
+      const taches = items.map(([k, p]) => {
+        const classe = classes.get(k);
+        const avant = items
+          .filter(
+            ([i]) => i < k && classe !== undefined && ecrituresEnConflit(classes.get(i) ?? RIEN, classe),
+          )
+          .map(([i]) => finis.get(i) as Promise<void>);
+        if (avant.length)
+          log.info(
+            `[execute_tool_batch] Iter ${o.iteration} : appel ${k + 1} (${strPy(p["tool_name"])}) après ${avant.length} appel(s) qui écrivent sur les mêmes chemins`,
+          );
+        const fini = execOne(k, p, signalLot, avant).catch((e: unknown) => {
           if (premier === undefined) premier = e;
           arret.abort(new CancelledError("lot interrompu"));
-        }),
-      );
+        });
+        finis.set(k, fini);
+        return fini;
+      });
       await Promise.all(taches);
       if (premier === undefined) return;
       if (annulationReelle()) {

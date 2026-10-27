@@ -55,7 +55,7 @@ import { journal } from "../../journal";
 import { buildSkillsIndexBlock, loadAgentPersona } from "../../prompts/systeme";
 import type { Dict } from "../../python";
 import { perimetreEnfant } from "../catalogue";
-import type { AppelIntegre, ContexteParent, OutilIntegre } from "../catalogue";
+import type { AppelIntegre, ClasseLot, ContexteParent, OutilIntegre } from "../catalogue";
 import { toolsDeniedFor } from "../categories";
 import { err } from "../erreur-outil";
 import { manifesteMcp } from "../ports";
@@ -74,7 +74,7 @@ import {
   texteAvertissement,
   travailRestant,
 } from "./bilan-taches";
-import type { AvertissementBudget, Bilan, Statut } from "./bilan-taches";
+import type { ArgsTache, AvertissementBudget, Bilan, Statut } from "./bilan-taches";
 import { hoteTacheParDefaut } from "./controles-taches";
 import type { PortsHoteTache } from "./controles-taches";
 import {
@@ -579,7 +579,9 @@ export function buildDefinition(
     "4. When NOT to use: reading one known file (read it directly), a trivial 1-2 call lookup, or anything needing user " +
     "interaction mid-task.\n" +
     `5. Several independent tasks requested in one message run IN PARALLEL (up to ${Math.trunc(enParallele)} at a time); ` +
-    "you coordinate them: give agents that write disjoint writable_paths, and check overlaps in their results.\n" +
+    "agents that write run one after the other, in the order of your calls, when their writable_paths overlap or are " +
+    "not given (a verify counts as writing everywhere: its tests read the whole tree). Give parallel writers " +
+    "disjoint writable_paths, and check overlaps in their results.\n" +
     "6. The result starts with a <task_meta> JSON block written by the harness, not by the agent: status (done, " +
     "partial, blocked, budget_exhausted, timeout, unavailable, error, cancelled), tool_calls, files_changed " +
     "(files_changed_candidates: seen by the shell while another agent of the account was running, author " +
@@ -872,6 +874,27 @@ const echecSur = (r: unknown): boolean => {
   }
 };
 
+/** Lecture seule effective d'un appel `task` : réglages de l'administrateur, case du compte, demande de l'appel et enregistrement repris (source unique du lancement et du classement des lots). */
+function lectureSeuleDeLAppel(
+  agentType: string,
+  s: AgentSpec,
+  lus: ArgsTache,
+  resumed: Dict | null,
+): ReturnType<typeof lectureSeuleEffective> {
+  return lectureSeuleEffective(typeReglable(agentType), {
+    task: lus.readOnly || (resumed !== null && resumed["read_only"] === true),
+    utilisateur: s.readOnlyUser,
+  });
+}
+
+/** Chemins écrivables déclarés par l'appel, sinon ceux de l'enregistrement repris ; `null` : aucune borne. */
+function cheminsDeLAppel(lus: ArgsTache, resumed: Dict | null): string[] | null {
+  const avant = Array.isArray(resumed?.["writable_paths"])
+    ? (resumed["writable_paths"] as unknown[]).map(strPy)
+    : null;
+  return lus.writablePaths ?? avant;
+}
+
 export interface OptionsTache {
   parentMcpConfigs: readonly unknown[];
   parentBuiltinTools: Readonly<Record<string, OutilIntegre>> | null;
@@ -1006,19 +1029,13 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       });
     const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
     if ("erreur" in lus) return refusSimple("bad_args", lus.erreur, { fix: lus.fix });
-    const ro = lectureSeuleEffective(typeReglable(agentType), {
-      task: lus.readOnly || (resumed !== null && resumed["read_only"] === true),
-      utilisateur: s.readOnlyUser,
-    });
-    const cheminsAvant = Array.isArray(resumed?.["writable_paths"])
-      ? (resumed["writable_paths"] as unknown[]).map(strPy)
-      : null;
+    const ro = lectureSeuleDeLAppel(agentType, s, lus, resumed);
     const sessionNavigateur: SessionNavigateur =
       lus.browserSession ?? (resumed?.["browser_session"] === "user" ? "user" : "isolated");
     const sa: SousAgent = {
       type: agentType,
       read_only: ro.read_only,
-      writable_paths: ro.read_only ? null : (lus.writablePaths ?? cheminsAvant),
+      writable_paths: ro.read_only ? null : cheminsDeLAppel(lus, resumed),
       browser_session: sessionNavigateur,
     };
     /** L'agent a des outils `pw_*` : catégorie `browser` de son type (un fork : ceux de son périmètre, posé plus bas). */
@@ -1818,7 +1835,29 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     return out;
   };
 
-  return { task: { definition: buildDefinition(agentsMap), handler: handleTask as OutilIntegre["handler"] } };
+  /** Écrivain ou lecteur d'un appel avant son lot : lecture seule effective comme au lancement ; sinon écrivain de ses `writable_paths`, et de tout /work pour `verify` (son shell lance des tests qui lisent l'état) ou sans borne ; `null` si l'appel sera refusé. */
+  const classerLot = (args: Dict): ClasseLot | null => {
+    if (!estDict(args)) return null;
+    const taskId = stripPy(texteOu(args["task_id"], ""));
+    const resumed = taskId ? resumeLookup(o.username, taskId) : null;
+    if (taskId && resumed === null) return null;
+    const agentType =
+      resumed !== null ? strPy(resumed["agent"]) : stripPy(texteOu(args["subagent_type"], ""));
+    const s = agentsMap.get(agentType);
+    if (s === undefined || !stripPy(texteOu(args["prompt"], ""))) return null;
+    const lus = lireArgsTache(args, { maxIters: s.maxIters, maxSecondsCap: TASK_CHILD_TIMEOUT_S });
+    if ("erreur" in lus) return null;
+    if (lectureSeuleDeLAppel(agentType, s, lus, resumed).read_only) return { ecrit: false, chemins: [] };
+    return { ecrit: true, chemins: agentType === "verify" ? null : cheminsDeLAppel(lus, resumed) };
+  };
+
+  return {
+    task: {
+      definition: buildDefinition(agentsMap),
+      handler: handleTask as OutilIntegre["handler"],
+      classerLot,
+    },
+  };
 }
 
 /** Événement `task_step` FINAL : état, coût, durée, déroulé et résultat de l'enfant ; tout échec est tu. */

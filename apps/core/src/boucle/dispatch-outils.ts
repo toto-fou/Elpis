@@ -1115,6 +1115,7 @@ export async function runToolBatch(
     isCancelled: ctx.c.isCancelled,
     signal,
     tachesSimultanees: simultanees,
+    classer: (nom, args) => ctx.c.classeurs.get(nom)?.(args) ?? null,
   });
 
   const port = portVisionBureau();

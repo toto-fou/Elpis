@@ -57,10 +57,33 @@ export interface AppelIntegre {
   parent?: (() => ContexteParent) | null;
 }
 
+/** Ce qu'un appel d'outil intégré écrit dans /work : `chemins` = préfixes relatifs au bac (`[]` : aucun), `null` = tout /work. */
+export interface ClasseLot {
+  ecrit: boolean;
+  chemins: readonly string[] | null;
+}
+
+/** Classe un appel d'après ses arguments, avant son lot ; `null` : rien à ordonnancer (appel refusé d'avance). */
+export type ClasseurLot = (args: Dict) => ClasseLot | null;
+
 /** Outil intégré construit pour l'appel (RAG, sous-agents…) : définition `tools[]` et gestionnaire. */
 export interface OutilIntegre {
   definition: Dict;
   handler: (args: Dict, appel?: AppelIntegre) => unknown;
+  /** Facultatif : les appels du lot qui écrivent sur les mêmes chemins ne partent pas ensemble (un `task` qui écrit). */
+  classerLot?: ClasseurLot;
+}
+
+/** Classeurs des outils intégrés retenus par le catalogue (`retenus` : leurs gestionnaires). */
+export function classeursIntegres(
+  builtinTools: ReadonlyMap<string, OutilIntegre> | Readonly<Record<string, OutilIntegre>> | null | undefined,
+  retenus: ReadonlyMap<string, unknown>,
+): Map<string, ClasseurLot> {
+  const sortie = new Map<string, ClasseurLot>();
+  const integres = builtinTools instanceof Map ? [...builtinTools] : Object.entries(builtinTools ?? {});
+  for (const [nom, info] of integres)
+    if (info.classerLot && retenus.has(nom)) sortie.set(nom, info.classerLot);
+  return sortie;
 }
 
 function nomOutil(t: unknown): string {

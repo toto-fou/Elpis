@@ -35,6 +35,7 @@ import { resultIsToolFailure } from "../../boucle/contrat-resultat";
 import { toolMsgWeight } from "../../boucle/run";
 import { truncateHeadTail } from "../../contexte/elagage";
 import {
+  TASK_CHECKPOINT_S,
   TASK_CHILD_TIMEOUT_S,
   TASK_MAX_ITERS_CUSTOM,
   TASK_MAX_ITERS_EXPLORE,
@@ -827,6 +828,12 @@ function consigneReprise(
       "Your private browser session was closed when the previous run ended: every session_id in your history is " +
         'void, open a new one with pw_session(action="start", url=…).',
     );
+  if (rec["checkpoint"] === true)
+    notes.push(
+      "Your previous run was cut short without a final report (for instance a restart of the server): calls made after " +
+        "your last visible result may have run without leaving a trace in your history, so check the actual state " +
+        "(files, git, processes) before repeating any write or command.",
+    );
   if (o.champs.length) notes.push(`Required fields in your report: ${o.champs.join(", ")}.`);
   return `[harness] ${notes.join(" ")}\n\n`;
 }
@@ -1365,6 +1372,11 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           await tick();
         }
       } else if (t === "iteration") {
+        try {
+          pointDeReprise();
+        } catch (e) {
+          log.warn(`[task_tool] point de reprise de ${childId} non posé (${String(e)})`);
+        }
         const n = intPy(ev["n"] || 0);
         if (n > 0) iters.n = n;
         const m = intPy(ev["max"] || 0);
@@ -1416,6 +1428,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             status: "running",
           });
       } else if (t === "tool_result") {
+        points.resultats++;
         const st = echecSur(ev["result"]) ? "error" : "done";
         const nom = texteOu(ev["name"], "");
         const cid = ev["call_id"] ? strPy(ev["call_id"]) : "";
@@ -1470,26 +1483,88 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
 
     let lireTravail: (() => Dict[]) | null = null;
     let travailFige: Dict[] | null = null;
-    /** Historique de reprise = messages de travail de la boucle (la boucle est finie, lu une fois) ; sans lecteur, l'entrée seule. */
-    const historique = (): Dict[] => {
-      if (travailFige !== null) return travailFige;
-      let lu: Dict[] | null = null;
+    /** Messages de travail de la boucle en forme canonique, lus maintenant (la boucle peut tourner) ; `null` sans lecteur ou si la lecture échoue. */
+    const travailCourant = (): Dict[] | null => {
       try {
-        lu = lireTravail ? lireTravail() : null;
+        return lireTravail ? lireTravail() : null;
       } catch (e) {
         log.warn(`[task_tool] messages de travail illisibles pour la reprise (${String(e)})`);
+        return null;
       }
-      travailFige = lu ?? [...childMessages];
+    };
+    /** Historique de reprise = messages de travail de la boucle (la boucle est finie, lu une fois) ; sans lecteur, l'entrée seule. */
+    const historique = (): Dict[] => {
+      travailFige ??= travailCourant() ?? [...childMessages];
       return travailFige;
     };
     const dejaRepondus = new Set(
       childMessages.filter((m) => m["role"] === "tool").map((m) => m["tool_call_id"]),
     );
-    /** Vrai si CE run a obtenu au moins un résultat d'outil (hors historique repris). */
-    const echange = (): boolean =>
-      historique().some((m) => m["role"] === "tool" && !dejaRepondus.has(m["tool_call_id"]));
+    /** Vrai si ces messages portent au moins un résultat d'outil obtenu par CE run (hors historique repris). */
+    const aEchange = (messages: readonly Dict[]): boolean =>
+      messages.some((m) => m["role"] === "tool" && !dejaRepondus.has(m["tool_call_id"]));
+    const echange = (): boolean => aEchange(historique());
 
-    const storeResumeState = (): void => {
+    /** Enregistrement de reprise de cet enfant ; `point` : état pris en cours de route, que seul un arrêt brutal (redémarrage du core) laisse en place. */
+    const enregistrement = (messages: Dict[], point: boolean): Dict => ({
+      agent: agentType,
+      messages,
+      ts: Date.now() / 1000,
+      tool_calls_total: appelsAvant + appelsVus,
+      read_only: sa.read_only,
+      browser_session: sessionNavigateur,
+      ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
+      ...(modeFork ? { fork: true, fork_outils: outilsFork() ?? [] } : {}),
+      ...(point ? { checkpoint: true } : {}),
+    });
+
+    /** Points de reprise : mémoire après chaque lot d'outils fini, disque au plus toutes les `TASK_CHECKPOINT_S` s (la dernière demande part à l'échéance), écriture jamais bloquante. */
+    const points = {
+      resultats: 0,
+      dernierMs: 0,
+      minuterie: null as ReturnType<typeof setTimeout> | null,
+      enAttente: null as Dict | null,
+      clos: false,
+    };
+    const ecrirePoint = (): void => {
+      if (points.minuterie !== null) clearTimeout(points.minuterie);
+      points.minuterie = null;
+      const rec = points.enAttente;
+      points.enAttente = null;
+      if (rec === null || points.clos) return;
+      points.dernierMs = Date.now();
+      void Store.putAsync(o.username, childId, rec);
+      try {
+        pruneResumeStore();
+      } catch {
+        // ramasse-miettes best-effort
+      }
+    };
+    const pointDeReprise = (): void => {
+      if (points.clos || points.resultats === 0) return;
+      points.resultats = 0;
+      const lu = travailCourant();
+      if (lu === null || !aEchange(lu)) return;
+      const rec = enregistrement(lu, true);
+      memoriserReprise(o.username, childId, rec);
+      points.enAttente = rec;
+      const attente = TASK_CHECKPOINT_S * 1000 - (Date.now() - points.dernierMs);
+      if (attente <= 0) ecrirePoint();
+      else if (points.minuterie === null) {
+        points.minuterie = setTimeout(ecrirePoint, attente);
+        points.minuterie.unref();
+      }
+    };
+    const clorePoints = (): void => {
+      points.clos = true;
+      points.enAttente = null;
+      if (points.minuterie !== null) clearTimeout(points.minuterie);
+      points.minuterie = null;
+    };
+
+    const storeResumeState = async (): Promise<void> => {
+      clorePoints();
+      if (ACTIFS.has(k) && ACTIFS.get(k)?.arret !== arret) return;
       const fini = etat === "completed" || etat === "incomplete";
       let suivants: Dict[] | null = null;
       if (echange() || (fini && finalText)) {
@@ -1500,24 +1575,52 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         if (fini && finalText && !dejaLa) suivants.push({ role: "assistant", content: finalText });
       }
       if (suivants !== null) {
-        const rec: Dict = {
-          agent: agentType,
-          messages: suivants,
-          ts: Date.now() / 1000,
-          tool_calls_total: appelsAvant + appelsVus,
-          read_only: sa.read_only,
-          browser_session: sessionNavigateur,
-          ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
-          ...(modeFork ? { fork: true, fork_outils: outilsFork() ?? [] } : {}),
-        };
+        const rec = enregistrement(suivants, false);
         memoriserReprise(o.username, childId, rec);
         try {
-          Store.put(o.username, childId, rec);
+          await Store.putAsync(o.username, childId, rec);
         } catch {
           // reprise limitée à la mémoire
         }
         pruneResumeStore();
       }
+    };
+    /** Enveloppe `task_cancelled` : `task_id` à reprendre si l'enfant a de quoi l'être ; `tourArrete` : le tour entier a été arrêté (Stop), sinon cet agent seul. */
+    const enveloppeAnnulee = (bilan: Bilan, reprenable: boolean, tourArrete: boolean): string =>
+      pyJsonDumps(
+        err("task_cancelled", `sub-agent '${agentType}' was cancelled by the user`, {
+          nextAction:
+            tourArrete && reprenable
+              ? "the user stopped the turn: to finish this work, pass task_id to resume this agent from its partial work (its last action may be unconfirmed, check the state first); otherwise continue without its report"
+              : "continue the turn without this sub-agent's report, or ask the user how to proceed",
+          ...(reprenable ? { task_id: childId } : {}),
+          harness: bilan,
+        }),
+      );
+    /** Bilan lu maintenant, sans attendre la fin de l'enfant (ni relecture de la branche ni rapport) : ce que ses outils ont déjà fait. */
+    const bilanInstantane = (status: Statut): Bilan => {
+      const candidats = suivi.fichiersCandidats();
+      return bilanDe({
+        status,
+        tool_calls: appelsVus,
+        tool_calls_total: appelsAvant + appelsVus,
+        iterations: iters.n,
+        duration_s: Math.round((Date.now() / 1000 - t0) * 10) / 10,
+        files_changed: suivi.fichiersModifies(),
+        ...(candidats.length
+          ? { files_changed_candidates: candidats, files_changed_attribution: "uncertain" as const }
+          : {}),
+        git: suivi.git(),
+        errors: suivi.erreurs,
+      });
+    };
+    /** Résultat de l'appel si le tour parent est annulé pendant l'enfant : `task_cancelled` avec son `task_id`, déposé dans le lot partiel avant que l'annulation ne remonte, et l'état repris déjà en mémoire ; `null` si l'enfant n'a encore rien à reprendre. */
+    const rendreSiTourAnnule = (): string | null => {
+      const lu = travailCourant();
+      const obtenu = lu !== null && aEchange(lu);
+      if (resumed === null && !obtenu) return null;
+      if (obtenu) memoriserReprise(o.username, childId, enregistrement(lu, true));
+      return enveloppeAnnulee(bilanInstantane("cancelled"), true, true);
     };
     const recordRun = (bilan: Bilan): void => {
       const sink = o.usageSink;
@@ -1653,6 +1756,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       ANNULES.delete(k);
       throw e;
     }
+    appel?.rendreSiAnnule?.(rendreSiTourAnnule);
     const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
     debutTrace(o.username, traceParent, childId, saRun);
     let delaiDepasse = false;
@@ -1739,6 +1843,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
               : "partial";
       }
     } catch (e) {
+      clorePoints();
       if (delaiDepasse) {
         etat = "timeout";
         statut = "timeout";
@@ -1762,7 +1867,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
             transcript: chat,
             harness: bilan,
           });
-          storeResumeState();
+          await storeResumeState();
           recordRun(bilan);
           throw e;
         }
@@ -1774,6 +1879,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       }
     } finally {
       clearTimeout(minuterie);
+      clorePoints();
       slotsEnfants.delete(childId);
       if (ACTIFS.get(k)?.arret === arret) {
         ACTIFS.delete(k);
@@ -1807,14 +1913,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           harness: bilan,
         }),
       );
-    else if (etat === "cancelled")
-      out = pyJsonDumps(
-        err("task_cancelled", `sub-agent '${agentType}' was cancelled by the user`, {
-          nextAction: "continue the turn without this sub-agent's report, or ask the user how to proceed",
-          ...(avecReprise() ? { task_id: childId } : {}),
-          harness: bilan,
-        }),
-      );
+    else if (etat === "cancelled") out = enveloppeAnnulee(bilan, avecReprise(), false);
     else
       out = pyJsonDumps(
         err(
@@ -1843,7 +1942,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       result: prefixePy(masquerSecretsTexte(finalText || "").texte, TASK_RESULT_PERSIST_CAP),
       harness: bilan,
     });
-    storeResumeState();
+    await storeResumeState();
     recordRun(bilan);
     return out;
   };

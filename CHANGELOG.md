@@ -236,6 +236,26 @@ selon [SemVer](https://semver.org/lang/fr/).
   `Status: blocked` avec l'appel à lancer. Description de `task` : paramètre et
   note 8 (une seule invalidation du cache du parent à la mise à jour).
 
+- **Sous-agents : le `task_id` survit au Stop du parent et au redémarrage.** Un Stop
+  pendant un enfant laissait au parent repris (« Continuer ») la sentinelle
+  « exécution NON confirmée » sans `task_id`, alors que l'enregistrement de reprise
+  existait : l'outil enregistre maintenant auprès de la boucle le résultat à rendre
+  en cas d'annulation (`AppelIntegre.rendreSiAnnule`), que `executeToolBatch`
+  dépose dans le lot partiel avant l'instantané. Le parent lit `task_cancelled` avec
+  le `task_id`, un `next_action` de reprise et ce que les outils de l'enfant ont déjà
+  fait ; l'état est déjà en mémoire à ce moment. Le mécanisme d'annulation
+  (`AbortSignal`), l'ordre et les types des événements, et le résultat de tout autre
+  outil ne changent pas. Pendant le run, l'état reprenable est gardé en mémoire à
+  chaque lot d'outils fini et sur disque au plus toutes les `TASK_CHECKPOINT_S`
+  secondes (10), avec une écriture asynchrone (`putAsync`) qui ne bloque plus la
+  boucle d'événements (7,5 Mio : jusqu'à 200 ms d'arrêt avant, une dizaine de
+  millisecondes après) et garde les protections du store (0700/0600, refus des liens,
+  `O_NOFOLLOW`, `.tmp` puis rename, plafond de 8 Mio contrôlé avant et pendant la
+  sérialisation, un seul write en vol par enregistrement). Après un redémarrage du
+  core en plein enfant, `task_id` se reprend depuis le disque ; le message de reprise
+  prévient l'enfant que des appels faits après son dernier point ont pu agir sans
+  trace. Les enregistrements existants se relisent sans changement.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

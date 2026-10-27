@@ -206,6 +206,8 @@ export const TASK_RESUME_TTL_S = config.TASK_RESUME_TTL_S || 21600;
 export const TASK_RESUME_MAX = config.TASK_RESUME_MAX || 200;
 /** Plafond de la mémoire des reprises (taille JSON approchée) : un enregistrement de fork porte toute la conversation du parent ; au-delà, le plus ancien est évincé de la mémoire et ne se reprend plus que depuis le disque, où il n'est écrit que s'il tient dans 8 Mio et si le dossier est accepté. */
 export const TASK_RESUME_MAX_BYTES = 32 * 1024 * 1024;
+/** Écart minimal (s) entre deux écritures disque du point de reprise d'un sous-agent en cours : la mémoire suit chaque lot d'outils, le disque au plus à ce rythme (la dernière demande part à l'échéance), pour qu'un redémarrage du core ne perde que ces secondes de travail. */
+export const TASK_CHECKPOINT_S = 10;
 export const TASK_MAX_ITERS_EXPLORE = maxPy(1, config.TASK_MAX_ITERS_EXPLORE || 60);
 export const TASK_MAX_ITERS_IMPLEMENT = maxPy(1, config.TASK_MAX_ITERS_IMPLEMENT || 100);
 export const TASK_MAX_ITERS_VERIFY = maxPy(1, config.TASK_MAX_ITERS_VERIFY || 60);

@@ -516,6 +516,15 @@ délai dur tombe quand même, aucun nouvel appel n'est fait au modèle : la cart
 garde le dernier message de l'agent comme rapport partiel, et l'assistant peut le
 reprendre (`task_id`) avec l'historique déjà fait.
 
+**Arrêter ou redémarrer en plein travail.** Si vous arrêtez le tour pendant qu'un
+agent travaille, puis cliquez sur « Continuer », l'assistant retrouve l'identifiant
+de l'agent (`task_id`) et peut le reprendre là où il en était. Pendant son travail,
+l'agent garde un point de reprise (en mémoire après chaque série d'appels, sur le
+disque toutes les 10 secondes au plus, sans ralentir le serveur) : si le serveur
+redémarre en plein travail, l'agent se reprend depuis ce point. Au plus quelques
+secondes de travail sont à refaire, et l'agent est prévenu de vérifier l'état des
+fichiers avant de répéter une écriture ou une commande.
+
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui
 ouvre le déroulé complet de l'enfant (ses appels d'outils, son rapport). Une

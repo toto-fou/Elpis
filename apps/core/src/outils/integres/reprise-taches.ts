@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/reprise-taches.ts — store disque du travail partiel d'un sous-agent (reprise par `task_id`) : dossier 0700 du compte système du core, JSON 0600 atomique par compte, TTL et cap sur la mtime. */
+/** apps/core/src/outils/integres/reprise-taches.ts — store disque du travail partiel d'un sous-agent (reprise par `task_id`) : dossier 0700 du compte système du core, JSON 0600 atomique par compte (écriture synchrone ou asynchrone, un seul write en vol par fichier), TTL et cap sur la mtime. */
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -16,9 +16,10 @@ import {
   utimesSync,
   writeSync,
 } from "node:fs";
+import { open, rename, unlink, utimes } from "node:fs/promises";
 import path from "node:path";
 
-import { estDict, pyJsonDumps, pyJsonLoads, stripPy } from "@elpis/commun";
+import { clesOrdonnees, estDict, pyJsonDumps, pyJsonLoads, stripPy } from "@elpis/commun";
 
 import { journal } from "../../journal";
 import type { Dict } from "../../python";
@@ -123,6 +124,170 @@ export function put(username: string, childId: string, record: Dict): boolean {
     supprimer(tmp);
     return false;
   }
+}
+
+/** Borne basse de la taille JSON d'un enregistrement (somme des textes de ses messages) : au-delà du plafond, rien à sérialiser. */
+export function borneBasse(record: Dict): number {
+  const textes = (v: unknown): number =>
+    typeof v === "string"
+      ? v.length
+      : Array.isArray(v)
+        ? v.reduce<number>((n, p) => n + (estDict(p) ? textes(p["text"]) : 0), 0)
+        : 0;
+  let n = 0;
+  for (const m of Array.isArray(record["messages"]) ? (record["messages"] as unknown[]) : []) {
+    if (!estDict(m)) continue;
+    n += textes(m["content"]) + textes(m["reasoning_content"]);
+    for (const c of Array.isArray(m["tool_calls"]) ? (m["tool_calls"] as unknown[]) : [])
+      if (estDict(c) && estDict(c["function"])) n += textes(c["function"]["arguments"]);
+  }
+  return n;
+}
+
+/** Tranche de calcul (ms) au-delà de laquelle la sérialisation rend la main à la boucle d'événements. */
+const TRANCHE_MS = 4;
+/** Taille (caractères) des tampons assemblés pendant la sérialisation : jamais de concaténation ni d'encodage du fichier entier d'un coup. */
+const TAILLE_TAMPON = 256 * 1024;
+const ceder = (): Promise<void> => new Promise((ok) => setImmediate(ok));
+
+/** `pyJsonDumps(record, { ensureAscii: false })` octet pour octet, en tampons, message par message en rendant la main entre deux tranches ; `null` dès que le plafond est dépassé. */
+async function serialiser(record: Dict): Promise<Buffer[] | null> {
+  const options = { ensureAscii: false } as const;
+  const tampons: Buffer[] = [];
+  let lot: string[] = [];
+  let longueur = 0;
+  let octets = 0;
+  let depuis = performance.now();
+  const vider = (): void => {
+    if (lot.length) tampons.push(Buffer.from(lot.join(""), "utf8"));
+    lot = [];
+    longueur = 0;
+  };
+  const ajouter = async (s: string): Promise<boolean> => {
+    octets += Buffer.byteLength(s, "utf8");
+    if (octets > MAX_BYTES) return false;
+    lot.push(s);
+    longueur += s.length;
+    if (longueur >= TAILLE_TAMPON) vider();
+    if (performance.now() - depuis > TRANCHE_MS) {
+      await ceder();
+      depuis = performance.now();
+    }
+    return true;
+  };
+  if (!(await ajouter("{"))) return null;
+  let premier = true;
+  for (const cle of clesOrdonnees(record)) {
+    const valeur = record[cle];
+    if (valeur === undefined) continue;
+    if (!(await ajouter(`${premier ? "" : ", "}${pyJsonDumps(cle, options)}: `))) return null;
+    premier = false;
+    if (cle === "messages" && Array.isArray(valeur) && valeur.length > 0) {
+      if (!(await ajouter("["))) return null;
+      for (const [i, m] of valeur.entries())
+        if (!(await ajouter((i ? ", " : "") + pyJsonDumps(m, options)))) return null;
+      if (!(await ajouter("]"))) return null;
+    } else if (!(await ajouter(pyJsonDumps(valeur, options)))) return null;
+  }
+  if (!(await ajouter("}"))) return null;
+  vider();
+  return tampons;
+}
+
+async function supprimerAsync(chemin: string): Promise<void> {
+  try {
+    await unlink(chemin);
+  } catch {
+    return;
+  }
+}
+
+/** Même écriture que `put`, sans bloquer la boucle d'événements : sérialisation par tranches, `O_NOFOLLOW`, `.tmp` puis rename atomique ; jamais ne lève. */
+async function ecrireAsync(username: string, childId: string, record: Dict): Promise<boolean> {
+  if (!dossierSur(true)) return false;
+  if (borneBasse(record) > MAX_BYTES) {
+    log.info(
+      `[task_resume] ${username}/${childId} : plus de ${MAX_BYTES} octets — reprise limitée à la mémoire`,
+    );
+    return false;
+  }
+  let tampons: Buffer[] | null;
+  try {
+    tampons = await serialiser(record);
+  } catch (e) {
+    log.warn(`[task_resume] enregistrement non sérialisable (${String(e)})`);
+    return false;
+  }
+  if (tampons === null) {
+    log.info(`[task_resume] ${username}/${childId} : > ${MAX_BYTES} octets — reprise limitée à la mémoire`);
+    return false;
+  }
+  const p = cheminEnregistrement(username, childId);
+  const tmp = p.replace(/\.json$/u, ".tmp");
+  try {
+    const fd = await open(
+      tmp,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+      0o600,
+    );
+    try {
+      for (const t of tampons) await fd.writeFile(t);
+    } finally {
+      await fd.close();
+    }
+    await rename(tmp, p);
+    const ts = record["ts"];
+    if (typeof ts === "number" && ts > 0)
+      try {
+        await utimes(p, ts, ts);
+      } catch {
+        // mtime non calée : la relecture compare quand même les ts
+      }
+    return true;
+  } catch (e) {
+    log.warn(`[task_resume] écriture ${p} échouée (${String(e)})`);
+    await supprimerAsync(tmp);
+    return false;
+  }
+}
+
+interface Suivant {
+  record: Dict;
+  fait: Promise<boolean>;
+  rendre: (ok: boolean) => void;
+}
+
+/** Écritures asynchrones en cours, par fichier : un seul write en vol, le suivant (le dernier demandé) part à sa fin. */
+const enVol = new Map<string, { suivant: Suivant | null }>();
+
+/** Persiste un enregistrement de reprise sans bloquer ; `true` quand CET enregistrement, ou un plus récent demandé pendant son écriture, est écrit. */
+export function putAsync(username: string, childId: string, record: Dict): Promise<boolean> {
+  const p = cheminEnregistrement(username, childId);
+  const etat = enVol.get(p);
+  if (etat !== undefined) {
+    if (etat.suivant === null) {
+      let rendre: (ok: boolean) => void = () => undefined;
+      const fait = new Promise<boolean>((ok) => (rendre = ok));
+      etat.suivant = { record, fait, rendre };
+    } else etat.suivant.record = record;
+    return etat.suivant.fait;
+  }
+  const nouveau: { suivant: Suivant | null } = { suivant: null };
+  enVol.set(p, nouveau);
+  return (async () => {
+    let premier: boolean;
+    try {
+      premier = await ecrireAsync(username, childId, record);
+      for (let s = nouveau.suivant; s !== null; s = nouveau.suivant) {
+        nouveau.suivant = null;
+        s.rendre(await ecrireAsync(username, childId, s.record));
+      }
+    } finally {
+      enVol.delete(p);
+      nouveau.suivant?.rendre(false);
+    }
+    return premier;
+  })();
 }
 
 /** Relit un enregistrement non périmé ; un fichier expiré ou illisible est retiré. */

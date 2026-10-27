@@ -1340,9 +1340,36 @@ sequenceDiagram
   autre compte ; un enregistrement de plus de 8 Mio n'est pas écrit (il ne se
   reprend que tant qu'il est en mémoire : plus après son éviction ni un
   redémarrage), et un dossier refusé n'est signalé qu'une fois par process.
-  Vaut aussi pour les runs interrompus (délai, annulation, échec, limite) :
-  l'enveloppe porte le `task_id` à reprendre dès que l'enfant a obtenu un
-  résultat d'outil. L'historique stocké est celui de la boucle, lu par
+  Les écritures du run (`putAsync`) ne bloquent pas la boucle d'événements :
+  sérialisation par tranches de 4 ms (octets identiques à `pyJsonDumps`), plafond
+  de 8 Mio contrôlé avant (borne basse sur le texte des messages) puis pendant la
+  sérialisation, mêmes droits, `O_NOFOLLOW` et `.tmp` puis rename qu'`put`, un
+  seul write en vol par enregistrement (les demandes qui arrivent pendant ce
+  write se réduisent à la dernière). Vaut aussi pour les runs interrompus (délai,
+  annulation, échec, limite) : l'enveloppe porte le `task_id` à reprendre dès que
+  l'enfant a obtenu un résultat d'outil.
+  **Points de reprise** : pendant le run, à chaque début d'itération qui suit un
+  lot d'outils fini, la mémoire reçoit l'état reprenable (lu par `exposerTravail`,
+  donc la forme canonique ci-dessous, avec la sentinelle pour un appel en vol),
+  marqué `checkpoint: true` ; le disque le reçoit au plus toutes les
+  `TASK_CHECKPOINT_S` secondes (10 : la première demande part tout de suite, la
+  dernière à l'échéance). Le rapport final (ou l'état d'un run arrêté) remplace le
+  point et efface la marque. Après un redémarrage du core en plein enfant, `task_id`
+  se reprend depuis le disque (`ACTIFS` est vide) : le message de reprise prévient
+  que des appels faits après le dernier point ont pu agir sans laisser de trace
+  (vérifier l'état avant de répéter une écriture ou une commande) ; au plus
+  `TASK_CHECKPOINT_S` secondes de travail et le lot en cours sont perdus.
+  **Stop du tour parent** : l'`AbortSignal` du tour fait abandonner l'attente de
+  l'appel `task` tout de suite, avant que l'enfant ait fini de se défaire
+  (`conclure`, étape finale, enregistrement), donc avant l'instantané du lot. L'outil
+  enregistre donc auprès de la boucle (`AppelIntegre.rendreSiAnnule`, `RappelsOutil` de `execution-outils.ts`)
+  le résultat à rendre en cas d'annulation ; `executeToolBatch` le dépose dans le
+  lot partiel (`batchPartial`) avant l'instantané, que `materializeInterruptedBatch`
+  matérialise : le parent repris (« Continuer ») lit `task_cancelled` avec le
+  `task_id`, un `next_action` de reprise et le bilan de ce que les outils de
+  l'enfant ont déjà fait, au lieu de la sentinelle sans identifiant, et l'état est
+  déjà en mémoire. Sans rien à reprendre (Stop pendant le premier appel au
+  moteur) ou pour tout autre outil, la sentinelle reste le résultat. L'historique stocké est celui de la boucle, lu par
   `OptionsRun.exposerTravail` (`travailCanonique`, `boucle/travail.ts`) et non
   reconstruit depuis les événements : la tête système brute d'origine (l'assemblage
   refusionne le manifeste), puis ce que le moteur a vu après la tête assemblée,

@@ -55,6 +55,8 @@ export interface AppelIntegre {
   callId: string | null;
   /** Contexte du run appelant, lu à la demande ; la boucle ne le transmet qu'à `task` (un `fork` s'en sert). */
   parent?: (() => ContexteParent) | null;
+  /** L'outil enregistre le résultat à rendre si le tour est annulé pendant l'appel : la boucle le dépose dans le lot partiel avant l'instantané, au lieu de la sentinelle. */
+  rendreSiAnnule?: ((fournir: () => string | null) => void) | null;
 }
 
 /** Ce qu'un appel d'outil intégré écrit dans /work : `chemins` = préfixes relatifs au bac (`[]` : aucun), `null` = tout /work. */

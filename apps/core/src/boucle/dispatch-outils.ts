@@ -461,6 +461,7 @@ export async function executeSingleToolCall(
       const bh: unknown = handler(finalArgs, {
         callId: o.callId ?? null,
         ...(o.parent ? { parent: o.parent } : {}),
+        ...(o.rendreSiAnnule ? { rendreSiAnnule: o.rendreSiAnnule } : {}),
       });
       if (bh instanceof Promise) {
         const reste = Math.max(0.5, bto - (performance.now() - t0) / 1000);

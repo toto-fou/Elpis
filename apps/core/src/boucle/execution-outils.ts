@@ -43,6 +43,8 @@ export interface RappelsOutil {
   parent?: (() => ContexteParent) | null;
   onProgress?: ((p: Progression) => void | Promise<void>) | null;
   onLog?: ((params: Dict) => void | Promise<void>) | null;
+  /** Un outil intégré y enregistre le résultat à rendre si le tour est annulé pendant l'appel (cf. `AppelIntegre`). */
+  rendreSiAnnule?: ((fournir: () => string | null) => void) | null;
   signal?: AbortSignal | undefined;
 }
 
@@ -251,6 +253,23 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
           },
         }
       : {};
+    let rendu: (() => string | null) | null = null;
+    const rappelsOutil: RappelsOutil = {
+      ...rappels,
+      rendreSiAnnule: (fournir) => {
+        rendu = fournir;
+      },
+    };
+    /** Annulation réelle : le résultat que l'outil a promis de rendre part dans le lot partiel, que l'instantané matérialise ; sans lui, la sentinelle. */
+    const deposerRendu = (): void => {
+      if (rendu === null || resultats.has(idx)) return;
+      try {
+        const r = rendu();
+        if (typeof r === "string" && r) resultats.set(idx, r);
+      } catch {
+        // la sentinelle reste le repli
+      }
+    };
     const borne = nom === "task" ? semTaches : sem;
     await Promise.all(avant);
     await borne.prendre();
@@ -269,12 +288,13 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
           : await o.executeSingle(nom, p["final_args"] as Dict, {
               meta: (p["meta"] as Dict | null) ?? null,
               callId,
-              ...rappels,
+              ...rappelsOutil,
               signal,
             });
         resultats.set(idx, typeof r === "string" ? r : pyJsonDumps(r));
       } catch (e) {
         if (annulationReelle(signalLot)) {
+          deposerRendu();
           if (!instantaneDuLot) await o.onCancelSnapshot();
           throw e;
         }

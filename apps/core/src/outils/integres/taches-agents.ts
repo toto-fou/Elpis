@@ -23,7 +23,7 @@ import {
   SHELL_SOUS_AGENT_DELAI_MAX_S,
   toContainer,
 } from "@elpis/securite";
-import type { SousAgent } from "@elpis/securite";
+import type { SessionNavigateur, SousAgent } from "@elpis/securite";
 
 import { emit } from "../../boucle/evenements";
 import type { SurEvenement } from "../../boucle/evenements";
@@ -198,6 +198,9 @@ function memoriserReprise(username: string, childId: string, rec: Dict): void {
 // ── Types d'agents ───────────────────────────────────────────────────────────
 
 const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save"];
+
+/** Attente au plus de la fermeture du navigateur privé d'un enfant : le run ne dépend pas d'un hôte qui ne répond pas. */
+const DELAI_FERMETURE_NAVIGATEUR_S = 20;
 
 export interface AgentSpec {
   personaStem: string;
@@ -621,6 +624,14 @@ export const PARAMETRES_TS: Readonly<Dict> = {
       "Run the agent read-only: no write, commit, job or shell tool. It can only tighten: a read-only setting of the " +
       "user or administrator is never lifted.",
   },
+  browser_session: {
+    type: "string",
+    enum: ["isolated", "user"],
+    description:
+      'Browser session of the agent\'s pw_* tools. "isolated" (default): its own private session, with an empty ' +
+      "profile (none of the user's cookies or logins), closed when the agent ends. \"user\": the user's own signed-in " +
+      'session, shared with the user. Use "user" ONLY when the mission needs the user\'s account AND the user asked for it.',
+  },
   max_iterations: {
     type: "integer",
     minimum: 1,
@@ -695,7 +706,14 @@ function libelleDuree(timeoutS: number): string {
 /** Contexte propre à l'appel (date, budget, périmètre, champs exigés), en tête du premier message user (de la consigne, pour un fork) : la tête système reste identique d'un appel à l'autre. */
 export function taskContextBlock(
   sa: SousAgent,
-  o: { budget: number; timeoutS: number; champs?: readonly string[]; fork?: { outils: readonly string[] } },
+  o: {
+    budget: number;
+    timeoutS: number;
+    champs?: readonly string[];
+    fork?: { outils: readonly string[] };
+    /** L'agent a des outils `pw_*` : la ligne dit quelle session de navigateur est la sienne. */
+    navigateur?: boolean;
+  },
 ): string {
   const lignes = [
     "<task_context>",
@@ -715,6 +733,15 @@ export function taskContextBlock(
       "Writable paths: the file tools (write_file, edit_file, manage_files, git_write) may only write under: " +
         (sa.writable_paths.length ? sa.writable_paths.map(toContainer).join(", ") : "(nowhere)") +
         ". The shell is NOT bounded by this list: never use it to write anywhere else.",
+    );
+  if (o.navigateur)
+    lignes.push(
+      sa.browser_session === "user"
+        ? "Browser: the user's own signed-in session, shared with the user and the other agents (it may hold their " +
+            "logins). Work only in your own tab, do only what the mission needs, and never call pw_session with " +
+            "stop or cleanup (refused)."
+        : "Browser: your own private session (empty profile: none of the user's cookies or logins) with your own tabs; " +
+            "the harness closes it when you finish, so do not stop it.",
     );
   if (o.champs?.length)
     lignes.push(
@@ -741,7 +768,14 @@ export const CONSIGNE_CLOTURE =
 function consigneReprise(
   sa: SousAgent,
   rec: Dict,
-  o: { budget: number; timeoutS: number; champs: readonly string[]; outilsFork?: readonly string[] | null },
+  o: {
+    budget: number;
+    timeoutS: number;
+    champs: readonly string[];
+    outilsFork?: readonly string[] | null;
+    /** L'agent a déjà utilisé le navigateur dans l'historique repris. */
+    navigateur?: boolean;
+  },
 ): string {
   const notes = [
     `Budget for this run: ${o.budget} tool iterations, up to ${libelleDuree(o.timeoutS)} wall-clock, counted from this ` +
@@ -762,6 +796,11 @@ function consigneReprise(
       "The tools of this run changed (the list in your task_context no longer applies): only these tools work, any " +
         `other call is refused: ${o.outilsFork.join(", ")}.`,
     );
+  if (o.navigateur && sa.browser_session !== "user")
+    notes.push(
+      "Your private browser session was closed when the previous run ended: every session_id in your history is " +
+        'void, open a new one with pw_session(action="start", url=…).',
+    );
   if (o.champs.length) notes.push(`Required fields in your report: ${o.champs.join(", ")}.`);
   return `[harness] ${notes.join(" ")}\n\n`;
 }
@@ -772,6 +811,19 @@ function memeEnsemble(actuels: readonly string[], avant: unknown): boolean {
   const a = [...new Set(actuels)].sort();
   const b = [...new Set(avant.map(strPy))].sort();
   return a.length === b.length && a.every((c, i) => c === b[i]);
+}
+
+/** Vrai si un assistant de l'historique a appelé un outil `pw_*`. */
+function historiqueNavigateur(messages: unknown): boolean {
+  if (!Array.isArray(messages)) return false;
+  return messages.some(
+    (m) =>
+      estDict(m) &&
+      Array.isArray(m["tool_calls"]) &&
+      m["tool_calls"].some(
+        (c) => estDict(c) && estDict(c["function"]) && strPy(c["function"]["name"]).startsWith("pw_"),
+      ),
+  );
 }
 
 /** Réflexion effective d'un enfant, fixée à son lancement : réglage voulu ET moteur qui l'honore ; jamais de chargement de modèle, tout échec la coupe. */
@@ -947,11 +999,16 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const cheminsAvant = Array.isArray(resumed?.["writable_paths"])
       ? (resumed["writable_paths"] as unknown[]).map(strPy)
       : null;
+    const sessionNavigateur: SessionNavigateur =
+      lus.browserSession ?? (resumed?.["browser_session"] === "user" ? "user" : "isolated");
     const sa: SousAgent = {
       type: agentType,
       read_only: ro.read_only,
       writable_paths: ro.read_only ? null : (lus.writablePaths ?? cheminsAvant),
+      browser_session: sessionNavigateur,
     };
+    /** L'agent a des outils `pw_*` : catégorie `browser` de son type (un fork : ceux de son périmètre, posé plus bas). */
+    let aNavigateur = s.filterCategories === null || s.filterCategories.includes("browser");
     const budget = lus.maxIterations ?? s.maxIters;
     const dureeMax = Math.min(TASK_CHILD_TIMEOUT_S, lus.maxSeconds ?? TASK_CHILD_TIMEOUT_S);
     const murS = Math.max(1, dureeMax - Math.min(60, Math.floor(dureeMax / 5)));
@@ -978,6 +1035,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       read_only_source: ro.source,
       thinking: reflexion,
       context: modeFork ? "fork" : "fresh",
+      ...(aNavigateur ? { browser_session: sessionNavigateur } : {}),
       ...(sa.writable_paths !== null
         ? {
             writable_paths: sa.writable_paths.map(toContainer),
@@ -1036,6 +1094,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     }
 
     const childId = resumed !== null ? taskId : `t${++compteur}-${tokenHex(3)}`;
+    /** Périmètre porté aux outils : l'identifiant de l'enfant désigne sa session de navigateur privée. */
+    const saRun: SousAgent = { ...sa, id: childId };
     const childChatId = `${o.chatId || "chat"}#task-${childId}`;
     const slotKey = parent?.slotKey || `${o.chatId || "chat"}#task-${agentType}`;
     const k = cle(o.username, childId);
@@ -1116,6 +1176,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       if (insuffisant !== null) return refuserFork(insuffisant);
     }
 
+    if (teteFigee !== null) aNavigateur = [...teteFigee.permis].some((n) => n.startsWith("pw_"));
     const outilsFork = (): string[] | null => (teteFigee === null ? null : [...teteFigee.permis].sort());
     let childMessages: Dict[];
     if (resumed !== null)
@@ -1129,6 +1190,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
               timeoutS: dureeMax,
               champs: lus.outputSchema,
               outilsFork: outilsFork(),
+              navigateur: aNavigateur && historiqueNavigateur(resumed["messages"]),
             }) + prompt,
         },
       ];
@@ -1141,6 +1203,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           timeoutS: dureeMax,
           champs: lus.outputSchema,
           fork: { outils: outilsFork() ?? [] },
+          navigateur: aNavigateur,
         });
         const role = stripPy(persona) ? `<agent_role>\n${stripPy(persona)}\n</agent_role>` : "";
         const consigne = [contexte, role, subagentRulesBlock(true), prompt].filter(Boolean).join("\n\n");
@@ -1158,7 +1221,12 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           }
           if (index) systeme = `${systeme}\n\n${index}`;
         }
-        const contexte = taskContextBlock(sa, { budget, timeoutS: dureeMax, champs: lus.outputSchema });
+        const contexte = taskContextBlock(sa, {
+          budget,
+          timeoutS: dureeMax,
+          champs: lus.outputSchema,
+          navigateur: aNavigateur,
+        });
         childMessages = [
           { role: "system", content: systeme },
           { role: "user", content: `${contexte}\n\n${prompt}` },
@@ -1200,6 +1268,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     const chat: Dict[] = [];
     let tampon = "";
     const debutsAppels = new Map<string, number>();
+    let navigateurUtilise = false;
 
     const flushChat = async (emettre = true, dejaRendu = ""): Promise<void> => {
       let t = stripPy(tampon);
@@ -1262,6 +1331,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         const step = ++pas;
         appelsVus = step;
         suivi.appel(texteOu(ev["name"], ""), ev["args"]);
+        if (texteOu(ev["name"], "").startsWith("pw_")) navigateurUtilise = true;
         const cid = ev["call_id"] ?? null;
         debutsAppels.set(cid ? strPy(cid) : texteOu(ev["name"], ""), Date.now());
         if (transcript.length < 50)
@@ -1384,6 +1454,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           ts: Date.now() / 1000,
           tool_calls_total: appelsAvant + appelsVus,
           read_only: sa.read_only,
+          browser_session: sessionNavigateur,
           ...(sa.writable_paths !== null ? { writable_paths: [...sa.writable_paths] } : {}),
           ...(modeFork ? { fork: true, fork_outils: outilsFork() ?? [] } : {}),
         };
@@ -1427,6 +1498,24 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       });
     };
     const avecReprise = (): boolean => resumed !== null || echange();
+    /** Session de navigateur privée de l'enfant fermée à la fin du run, quel qu'en soit l'état ; jamais celle du compte, jamais d'échec. */
+    const fermerNavigateur = async (): Promise<void> => {
+      if (sessionNavigateur !== "isolated" || !navigateurUtilise) return;
+      try {
+        const delai = new Promise<false>((fin) =>
+          setTimeout(() => fin(false), DELAI_FERMETURE_NAVIGATEUR_S * 1000).unref(),
+        );
+        if (
+          !(await Promise.race([
+            hote.fermerNavigateur({ ...compte, signal: undefined, enfant: saRun }),
+            delai,
+          ]))
+        )
+          log.warn(`[task_tool] navigateur privé de ${childId} non confirmé fermé (le service le ramassera)`);
+      } catch (e) {
+        log.warn(`[task_tool] navigateur privé de ${childId} non fermé (${String(e)})`);
+      }
+    };
     const traceParent = `${o.username}:${o.chatId || ""}`;
 
     /** Bloc du harnais une fois l'enfant terminé (rapport masqué, plafonné et sauvé dans le bac s'il déborde). */
@@ -1513,7 +1602,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
       throw e;
     }
     const signalEnfant = o.signal ? AbortSignal.any([o.signal, arret.signal]) : arret.signal;
-    debutTrace(o.username, traceParent, childId, sa);
+    debutTrace(o.username, traceParent, childId, saRun);
     let delaiDepasse = false;
     const minuterie = setTimeout(() => {
       delaiDepasse = true;
@@ -1553,7 +1642,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           priority,
           userId: o.userId ?? null,
           slot: slot ?? null,
-          subagent: sa,
+          subagent: saRun,
           wallclockS: murS,
           wrapupSuffix: CONSIGNE_CLOTURE,
           exposerTravail: (lire) => {
@@ -1634,6 +1723,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         ACTIFS.delete(k);
         ANNULES.delete(k);
       }
+      await fermerNavigateur();
     }
     const { bilan, rapport } = await conclure();
     const reprise = (suite: string): Dict => (avecReprise() ? { task_id: childId, nextAction: suite } : {});

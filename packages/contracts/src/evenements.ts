@@ -100,6 +100,8 @@ export const schemaBilanTache = z.strictObject({
   thinking: z.boolean().optional(),
   /** Contexte de départ de l'agent : la conversation du parent (`fork`) ou une page blanche (`fresh`) ; absent sur les anciens runs. */
   context: z.enum(["fork", "fresh"]).optional(),
+  /** Session du navigateur d'un agent qui a des outils `pw_*` : la sienne (`isolated`, fermée à la fin du run) ou celle de l'utilisateur (`user`) ; absent sur les anciens runs et pour un agent sans navigateur. */
+  browser_session: z.enum(["isolated", "user"]).optional(),
   writable_paths: z.array(z.string()).optional(),
   /** Seuls write_file, edit_file, manage_files et git_write sont bornés ; le shell ne l'est pas. */
   writable_paths_scope: z.literal("file_tools_only").optional(),

@@ -2,12 +2,20 @@
 /** packages/securite/src/sous-agent.ts — périmètre d'un sous-agent (`task`) : profils d'outils par type, lecture seule, chemins écrivables, shell ; même règle pour le manifeste du core et les refus de l'hôte d'outils. */
 import { stripWorkPrefix } from "./confinement";
 
+/** Session du navigateur d'un sous-agent : la sienne (contexte neuf, aucun cookie du compte) ou la session connectée du compte. */
+export type SessionNavigateur = "isolated" | "user";
+export const SESSIONS_NAVIGATEUR: readonly SessionNavigateur[] = ["isolated", "user"];
+
 /** Champ `subagent` du `_meta` d'appel et de l'enveloppe d'identité : il ne fait que restreindre. */
 export interface SousAgent {
   readonly type: string;
   readonly read_only: boolean;
   /** Préfixes relatifs au bac où les outils de fichiers peuvent écrire ; `null` : aucune borne. */
   readonly writable_paths: readonly string[] | null;
+  /** Identifiant de l'enfant (`task_id`) : sa session de navigateur ne sert qu'à lui ; absent, session isolée commune aux enfants du compte. */
+  readonly id?: string;
+  /** Absent ou illisible : `isolated` (le défaut ne donne jamais la session du compte). */
+  readonly browser_session?: SessionNavigateur;
 }
 
 export const TYPES_AGENTS_LIVRES = ["explore", "implement", "verify", "web", "pr"] as const;
@@ -74,12 +82,18 @@ function fondDemande(v: unknown): boolean {
 }
 
 const NOM_TYPE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+const ID_ENFANT = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
 /** Champ reçu (meta ou enveloppe) lu en fermant : présent mais mal formé, il vaut lecture seule. */
 export function lireSousAgent(brut: unknown): SousAgent | null {
   if (brut === null || brut === undefined) return null;
   if (typeof brut !== "object" || Array.isArray(brut))
-    return { type: TYPE_AGENT_PERSONNALISE, read_only: true, writable_paths: null };
+    return {
+      type: TYPE_AGENT_PERSONNALISE,
+      read_only: true,
+      writable_paths: null,
+      browser_session: "isolated",
+    };
   const d = brut as Record<string, unknown>;
   const type =
     typeof d["type"] === "string" && NOM_TYPE.test(d["type"]) ? d["type"] : TYPE_AGENT_PERSONNALISE;
@@ -93,7 +107,15 @@ export function lireSousAgent(brut: unknown): SousAgent | null {
         if (rel !== null && !chemins.includes(rel)) chemins.push(rel);
       }
   }
-  return { type, read_only: d["read_only"] !== false, writable_paths: chemins };
+  const id = typeof d["id"] === "string" && ID_ENFANT.test(d["id"]) ? { id: d["id"] } : {};
+  const session: SessionNavigateur = d["browser_session"] === "user" ? "user" : "isolated";
+  return {
+    type,
+    read_only: d["read_only"] !== false,
+    writable_paths: chemins,
+    ...id,
+    browser_session: session,
+  };
 }
 
 /** Forme transmise (clés stables, chemins normalisés). */
@@ -102,6 +124,8 @@ export function sousAgentEnDict(sa: SousAgent): Record<string, unknown> {
     type: sa.type,
     read_only: sa.read_only,
     ...(sa.writable_paths === null ? {} : { writable_paths: [...sa.writable_paths] }),
+    ...(sa.id === undefined ? {} : { id: sa.id }),
+    ...(sa.browser_session === undefined ? {} : { browser_session: sa.browser_session }),
   };
 }
 

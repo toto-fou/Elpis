@@ -473,6 +473,15 @@ alors sur une page blanche, qui a tous les outils du type. Un fork repris
 (`task_id`) est soumis aux mêmes règles, avec les outils de la conversation
 courante. La carte indique « fork ».
 
+**Le navigateur d'un agent.** Un agent qui pilote le navigateur (`web`) travaille
+dans **sa propre session**, à profil vide : il ne voit ni vos connexions ni vos
+cookies, ne touche pas à vos onglets ni à ceux d'un autre agent, et sa session est
+fermée à la fin de sa mission, quelle qu'en soit l'issue. Des agents `web`
+simultanés ont chacun la leur. L'assistant ne lui confie **votre** session
+connectée (`browser_session: "user"`) que si la mission exige votre compte et que
+vous l'avez demandé : la carte indique alors « votre session web », et l'agent ne
+peut pas la fermer.
+
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
 avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui
 ouvre le déroulé complet de l'enfant (ses appels d'outils, son rapport). Une

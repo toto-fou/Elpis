@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/outils/integres/controles-taches.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, rapport complet sauvé dans le bac, branche relue en fin de run. */
+/** apps/core/src/outils/integres/controles-taches.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, navigateur privé de l'enfant fermé en fin de run, rapport complet sauvé dans le bac, branche relue en fin de run. */
 import { estDict, jsonLoads, prefixePy, strPy } from "@elpis/commun";
 import { BUILTIN_SENTINEL } from "@elpis/mcp";
+import { sousAgentEnDict } from "@elpis/securite";
+import type { SousAgent } from "@elpis/securite";
 
 import type { Dict } from "../../python";
 import { collectMcpTools } from "../catalogue";
@@ -11,6 +13,8 @@ import { executerOutilMcp } from "../mcp/clients";
 export interface PortsHoteTache {
   /** Cause d'indisponibilité du service navigateur, `null` s'il répond. */
   santeNavigateur(o: CompteTache): Promise<string | null>;
+  /** Ferme les sessions de navigateur PRIVÉES de l'enfant (jamais celle du compte : l'hôte les distingue par l'identité de l'enfant) ; vrai si l'hôte l'a confirmé, faux sans erreur si le service est absent. */
+  fermerNavigateur(o: CompteTache & { enfant: SousAgent }): Promise<boolean>;
   /** Texte écrit dans le bac du compte à `chemin` (relatif à /work) ; vrai si l'outil l'a confirmé. */
   sauverRapport(o: CompteTache & { chemin: string; texte: string }): Promise<boolean>;
   /** Branche courante du dépôt `repo` (relatif à /work), lue sans écriture ; `null` si la lecture échoue. */
@@ -24,11 +28,12 @@ export interface CompteTache {
   signal?: AbortSignal | undefined;
 }
 
-function metaDe(o: CompteTache): Dict {
+function metaDe(o: CompteTache, enfant?: SousAgent): Dict {
   return {
     username: o.username,
     ...(o.userId ? { user_id: strPy(Math.trunc(o.userId)) } : {}),
     ...(o.chatId ? { chat_id: o.chatId } : {}),
+    ...(enfant ? { subagent: sousAgentEnDict(enfant) } : {}),
   };
 }
 
@@ -39,6 +44,7 @@ async function appelLocal(
   nom: string,
   args: Dict,
   delaiS: number,
+  enfant?: SousAgent,
 ): Promise<Dict | "absent" | null> {
   let carte: ReadonlyMap<string, Dict>;
   try {
@@ -61,7 +67,7 @@ async function appelLocal(
   }
   if (!carte.has(nom)) return "absent";
   const brut = await executerOutilMcp(carte, nom, args, {
-    meta: metaDe(o),
+    meta: metaDe(o, enfant),
     timeoutS: delaiS,
     queueTimeoutS: 5,
     signal: o.signal,
@@ -92,6 +98,21 @@ export const hoteTacheParDefaut: PortsHoteTache = {
     if (r["ok"] === false || r["error"])
       return prefixePy(`${strPy(r["error"] || "error")}: ${strPy(r["message"] || r["fix"] || "")}`, 300);
     return null;
+  },
+  async fermerNavigateur(o) {
+    try {
+      const r = await appelLocal(
+        { username: o.username, userId: o.userId, chatId: o.chatId },
+        "browser",
+        "pw_session",
+        { action: "cleanup" },
+        12,
+        o.enfant,
+      );
+      return r !== null && r !== "absent" && r["ok"] !== false && !r["error"];
+    } catch {
+      return false;
+    }
   },
   async sauverRapport(o) {
     const r = await appelLocal(o, "fs", "write_file", { path: o.chemin, content: o.texte }, 30);

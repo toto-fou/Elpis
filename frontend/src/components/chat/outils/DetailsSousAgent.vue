@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/outils/DetailsSousAgent.vue — détails du bloc du harnais d'un sous-agent : fichiers sûrs puis peut-être modifiés par un autre agent, git, lecture seule et sa source, chemins écrivables, reste à faire, cause d'arrêt, avertissements de budget, rapport, reprise. -->
+<!-- frontend/src/components/chat/outils/DetailsSousAgent.vue — détails du bloc du harnais d'un sous-agent : fichiers sûrs puis peut-être modifiés par un autre agent, git, lecture seule et sa source, navigateur, chemins écrivables, reste à faire, cause d'arrêt, avertissements de budget, rapport, reprise. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -91,6 +91,16 @@ const reprise = computed(
             (outils de fichiers seulement, le shell n'est pas borné)</span
           >
         </div>
+      </dd>
+    </template>
+    <template v-if="props.bilan.browser_session">
+      <dt>Navigateur</dt>
+      <dd data-task-bilan-navigateur>
+        {{
+          props.bilan.browser_session === "user"
+            ? "Votre session connectée, partagée avec vous"
+            : "Session privée de l'agent (profil vide, fermée à la fin)"
+        }}
       </dd>
     </template>
     <template v-if="props.avecReste && props.bilan.remaining_work">

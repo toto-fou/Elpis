@@ -133,6 +133,24 @@ selon [SemVer](https://semver.org/lang/fr/).
   évite ce slot. Le bilan porte `context`. `fresh` (défaut) est inchangé ; la description de
   `task` change une fois (cache de la tête du parent).
 
+- **Sous-agents : navigateur isolé par enfant.** Un sous-agent qui pilote le
+  navigateur (`web`, un fork, un agent du compte avec la catégorie Navigateur)
+  travaille dans sa propre session : contexte neuf, aucun cookie ni identifiant
+  de site du compte, onglets à lui, invisible du chat et de ses frères (avant, tous
+  partageaient l'onglet courant de la session du compte et se lisaient les uns
+  les autres). L'hôte d'outils l'applique à chaque appel `pw_*` d'après
+  `_meta.subagent` (`id`, `browser_session`), aussi en fork ; le harnais ferme la
+  session de l'enfant à la fin de son run quel qu'en soit l'état, jamais celle du
+  compte. Nouveau paramètre de `task`, `browser_session` : `isolated` (défaut) ou
+  `user` (la session connectée de l'utilisateur, à demander seulement si la mission
+  exige son compte et qu'il l'a demandé : l'enfant ne peut pas la fermer, la carte
+  du sous-agent indique « votre session web »). Un hôte d'outils distant se met à
+  jour avec le core, sinon ses sous-agents gardent la session du compte. La
+  description de `task` change une fois (cache de la tête du parent). Service
+  navigateur : chaque enfant compte dans le plafond global de 10 sessions,
+  désormais réglable (`BROWSER_MAX_SESSIONS`) ; redémarrez-le avec le core.
+  Rechargez les onglets ouverts : le bilan du harnais porte un champ de plus.
+
 - **Raisonnement conservé (SGLang) : jalons du budget sans casser le cache.**
   Quand la réflexion des tours d'outils est rendue au moteur, la ligne
   `<harness_status>` est ajoutée au dernier résultat d'outil du lot au lieu d'un

@@ -245,7 +245,8 @@ const sessions = new Map();
 // ==========================================
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
-const MAX_SESSIONS = 10;                 // hard limit
+// Plafond global (tous comptes, sous-agents compris : chacun a sa session) ; `BROWSER_MAX_SESSIONS` le règle.
+const MAX_SESSIONS = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS || '10', 10) || 10);
 // Sessions par compte : au-delà, sa plus ancienne cède la place (jamais celle d'un autre).
 const MAX_SESSIONS_PER_OWNER = Math.max(1, parseInt(process.env.BROWSER_MAX_SESSIONS_PER_OWNER || '3', 10) || 3);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de

@@ -30,6 +30,16 @@ export function pwOwner(username: string | null | undefined): string {
   return "u_" + createHash("sha256").update(u, "utf-8").digest("hex").slice(0, 32);
 }
 
+/** Propriétaire d'un enfant à session isolée : empreinte du compte et de l'enfant (le NUL sépare, un nom de compte n'en porte pas), donc une session, un quota et un nettoyage distincts de ceux du compte. */
+export function pwOwnerEnfant(
+  username: string | null | undefined,
+  enfantId: string | null | undefined,
+): string {
+  const u = stripPy(username || "") || "guest";
+  const e = stripPy(enfantId || "") || "-";
+  return "s_" + createHash("sha256").update(`${u}\u0000task\u0000${e}`, "utf-8").digest("hex").slice(0, 32);
+}
+
 /** Propriétaire que les outils `pw_*` transmettent pour un compte : `pw_owner(safe_sandbox_name(compte))`. */
 export function proprietaire(compte: string | null | undefined): string {
   return pwOwner(safeSandboxName(compte ?? null));

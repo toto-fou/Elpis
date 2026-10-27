@@ -1172,8 +1172,12 @@ restreint le RÉSEAU LOCAL aux hôtes et réseaux qu'elle nomme (les
 destinations publiques restent joignables, les refus ci-dessus restent
 absolus). Les sessions, états sauvegardés,
 téléchargements et références visuelles sont rangés par compte ; au plus 3
-sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`) et 10 en tout, une
-nouvelle session ne ferme jamais celle d'un autre compte.
+sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`) et 10 en tout
+(`BROWSER_MAX_SESSIONS`), une nouvelle session ne ferme jamais celle d'un autre
+compte. Chaque sous-agent `task` qui pilote le navigateur a sa session privée, avec
+son propre quota, qui compte dans le plafond global : relevez `BROWSER_MAX_SESSIONS`
+si plusieurs comptes lancent des agents `web` en parallèle (au plafond, un
+démarrage est refusé, jamais la session d'un autre).
 
 ⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
 l'adresse de l'hôte ou un conteneur local est désormais refusée.

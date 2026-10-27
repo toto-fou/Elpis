@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/outils/integres/bilan-taches.ts — bloc de métadonnées du harnais pour `task` : arguments du parent, suivi des outils de l'enfant (fichiers sûrs ou candidats, git, erreurs), statut, travail restant, champs exigés, rapport masqué et plafonné, runs du compte qui se chevauchent. */
 import { estDict, jsonLoads, longueurPy, prefixePy, pyJsonDumps, stripPy, strPy } from "@elpis/commun";
-import { masquerSecretsTexte, relatifBac } from "@elpis/securite";
-import type { SousAgent } from "@elpis/securite";
+import { masquerSecretsTexte, relatifBac, SESSIONS_NAVIGATEUR } from "@elpis/securite";
+import type { SessionNavigateur, SousAgent } from "@elpis/securite";
 
 import type { Dict } from "../../python";
 
@@ -60,6 +60,8 @@ export interface Bilan {
   thinking: boolean;
   /** Contexte de départ : la conversation du parent (`fork`) ou une page blanche (`fresh`). */
   context?: "fork" | "fresh";
+  /** Session du navigateur de l'agent ; posée seulement pour un agent qui a des outils `pw_*`. */
+  browser_session?: SessionNavigateur;
   writable_paths?: string[];
   writable_paths_scope?: "file_tools_only";
   remaining_work?: string;
@@ -74,6 +76,8 @@ export interface Bilan {
 export interface ArgsTache {
   contexte: "fresh" | "fork";
   readOnly: boolean;
+  /** `null` : non demandée (isolée, ou celle de l'enregistrement repris). */
+  browserSession: SessionNavigateur | null;
   maxIterations: number | null;
   maxSeconds: number | null;
   writablePaths: string[] | null;
@@ -99,6 +103,12 @@ export function lireArgsTache(
     return {
       erreur: 'context must be "fresh" or "fork"',
       fix: 'pass context="fork", context="fresh" or omit it',
+    };
+  const bs = args["browser_session"];
+  if (bs !== undefined && bs !== null && !SESSIONS_NAVIGATEUR.includes(bs as SessionNavigateur))
+    return {
+      erreur: 'browser_session must be "isolated" or "user"',
+      fix: 'pass browser_session="isolated" (the default), "user" or omit it',
     };
   const it = entierPositif(args["max_iterations"]);
   if (Number.isNaN(it))
@@ -142,6 +152,7 @@ export function lireArgsTache(
   return {
     contexte: contexte === "fork" ? "fork" : "fresh",
     readOnly: ro === true,
+    browserSession: bs === undefined || bs === null ? null : (bs as SessionNavigateur),
     maxIterations: it === null ? null : Math.min(it, o.maxIters),
     maxSeconds: sec === null ? null : Math.min(sec, o.maxSecondsCap),
     writablePaths: chemins,

@@ -133,6 +133,13 @@ const lignes = computed(() =>
           >· fork</span
         >
         <span
+          v-if="bilan.browser_session === 'user'"
+          class="task-run-meta"
+          title="L'agent a utilisé votre session de navigateur (vos connexions), partagée avec vous"
+          data-task-navigateur-compte
+          >· votre session web</span
+        >
+        <span
           v-if="arretSurBudget(bilan)"
           class="task-run-meta"
           title="L'agent a conclu de lui-même après l'avertissement de fin de budget"

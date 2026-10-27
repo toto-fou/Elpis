@@ -113,10 +113,11 @@ export {
   relatifBac,
   SHELL_SOUS_AGENT_DELAI_DEFAUT_S,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
+  SESSIONS_NAVIGATEUR,
   sousAgentEnDict,
   sousPrefixes,
   TYPE_AGENT_PERSONNALISE,
   TYPES_AGENTS_LIVRES,
   TYPES_AGENTS_REGLABLES,
 } from "./sous-agent";
-export type { RefusSousAgent, SousAgent } from "./sous-agent";
+export type { RefusSousAgent, SessionNavigateur, SousAgent } from "./sous-agent";

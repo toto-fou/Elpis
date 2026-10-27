@@ -1368,6 +1368,38 @@ sequenceDiagram
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.
+- **Navigateur de l'enfant** : un sous-agent qui a des outils `pw_*` travaille par
+  défaut dans **sa propre session** (`browser_session: "isolated"`, paramètre de
+  `task`) : contexte neuf, profil vide (ni cookie, ni identifiant de site
+  enregistré du compte, appliqué ou écrit), onglets à lui, invisible du chat et des
+  frères. L'isolation est appliquée côté hôte d'outils, jamais par le manifeste,
+  donc aussi en fork (dont la liste d'outils est celle du parent) : le
+  `_meta.subagent` de chaque appel local porte `id` (le `task_id` de l'enfant) et
+  `browser_session`, et l'hôte parle au service navigateur sous un **propriétaire
+  dérivé** (`proprietaireDe`, `apps/toolhost/src/mcp/browser/appel.ts` ;
+  `pwOwnerEnfant` : empreinte du compte et de l'enfant) au lieu de celui du compte.
+  Le service ne connaît que des propriétaires : `/start` ne réutilise que les
+  sessions du propriétaire (un second `start` de l'enfant ouvre un onglet dans sa
+  session), et `/sessions`, `session_id`, le quota (`BROWSER_MAX_SESSIONS_PER_OWNER`)
+  et `/cleanup` sont les siens ; la session du compte ou d'un frère répond
+  `session_not_found`. Une dérivation plutôt que `isolated: true` sous le
+  propriétaire du compte, qui partagerait `pw_session list`, le quota (une session
+  de plus ferme la plus ancienne, qui peut être celle de l'utilisateur) et
+  `cleanup`. Le harnais ferme les sessions de l'enfant dans le `finally` de son run
+  (`PortsHoteTache.fermerNavigateur` : `pw_session(action="cleanup")` sous
+  l'identité de l'enfant), quel que soit l'état (terminé, échec, limite, délai,
+  annulation de l'enfant ou du tour), s'il a appelé un `pw_*` ; sans hôte ni
+  service rien ne lève, le service ramasse les sessions inactives au bout de
+  15 minutes. Le plafond global du service (`BROWSER_MAX_SESSIONS`, 10) compte les
+  sessions des enfants : au plafond, un `start` est refusé proprement.
+  `browser_session: "user"` (seulement si la mission exige le compte de
+  l'utilisateur et qu'il l'a demandé) donne la session connectée du compte :
+  jamais fermée par le harnais, `stop` et `cleanup` de `pw_session` y sont refusés
+  à l'enfant (`user_session_protected`) et `isolated: true` y est ignoré (un
+  contexte de plus ne serait fermé par personne). Le bilan `<task_meta>` et l'étape
+  finale portent `browser_session` pour un agent qui a des outils `pw_*` (la carte
+  affiche « votre session web » pour `user`). Une reprise garde le mode de son
+  enregistrement et annonce que la session privée précédente est fermée.
 - **Tête de l'enfant stable** : le message `system` ne porte que ce qui est fixe
   pour (type d'agent, compte), du plus stable au moins stable : persona, partie
   commune de `<subagent_rules>` (statut, pas de réveil, délai du shell, secrets,
@@ -1511,7 +1543,7 @@ sequenceDiagram
     s'exécuter (`runToolBatch`, `refusHorsPerimetre`) : `not_available_here`,
     `read_only_subagent` ou `not_available_for_subagent` (codes de l'hôte
     d'outils), la liste des outils permis dans `fix`. `subagent: {type,
-    read_only, writable_paths}` reste porté au `_meta` des appels locaux :
+    read_only, writable_paths, id, browser_session}` reste porté au `_meta` des appels locaux :
     l'hôte d'outils applique donc toujours la lecture seule, les chemins
     écrivables, les profils par type et les limites du shell, sans dépendre du
     filtrage du manifeste. Les catégories du type, elles, ne sont connues que du
@@ -1582,8 +1614,8 @@ sequenceDiagram
   - **Limites.** Un fork n'est pas isolé : il voit toute la conversation et les
     résultats d'outils du parent, peut s'en laisser influencer, et son contexte
     démarre aussi gros que celui du parent. La description de `task` (tête du
-    parent) gagne le paramètre `context` et la note 7, constantes d'un tour à
-    l'autre ; une seule invalidation du cache à la mise à jour.
+    parent) gagne les paramètres `context` et `browser_session` et la note 7,
+    constants d'un tour à l'autre ; une seule invalidation du cache à la mise à jour.
 
 ---
 
@@ -2798,9 +2830,12 @@ Gotchas :
   `target`.
 - Les valeurs peuvent contenir `=` sans échappement ; pour un `|` littéral,
   écrire `\|`.
-- **Une instance de navigateur PAR UTILISATEUR**, réutilisée. Les sessions
-  `pw_*` sont per-user : **jamais** de teardown depuis un sous-agent. Ne pas
-  promettre « un navigateur neuf » dans une persona.
+- **Une instance de navigateur PAR UTILISATEUR**, réutilisée par le chat et les
+  autres conversations du compte. Un sous-agent a, lui, une session privée par
+  défaut (voir « Navigateur de l'enfant ») : le teardown de la session du compte
+  depuis un sous-agent reste interdit (`user_session_protected`), celui de sa
+  propre session revient au harnais. Une persona ne promet « un navigateur neuf »
+  que parce que `<task_context>` le dit.
 - Reaper côté Node après 15 min d'inactivité.
 - `pw_memory` s'appuie sur la mémoire AX (arbre d'accessibilité persistant par
   site) pour éviter de re-explorer une page déjà cartographiée.

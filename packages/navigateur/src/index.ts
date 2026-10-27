@@ -6,6 +6,7 @@ export {
   proprietaire,
   PW_VERB_ALIASES,
   pwOwner,
+  pwOwnerEnfant,
   pwOwnerPath,
   pwOwnersDir,
   pwVerbOf,

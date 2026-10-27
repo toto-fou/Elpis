@@ -20,14 +20,15 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents, propriété de la session posée, identifiants retenus après succès. */
+/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), propriété de la session posée, identifiants retenus après succès. */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
   appel: Awaited<ReturnType<typeof ouvrirAppel>>,
 ): Promise<unknown> {
   if (appel.refus !== null) return appel.refus;
-  const { client, ax, username } = appel.appel;
+  const { client, username, portee } = appel.appel;
+  const ax = portee === "isolee" ? null : appel.appel.ax;
   const url = a["url"] as string;
   if (!stripPy(url || ""))
     return errPw("url_required", "", {
@@ -64,7 +65,8 @@ async function demarrer(
   }
   for (const k of ["locale", "timezone", "color_scheme"]) if (a[k]) corps[k] = a[k];
   if (a["touch"] !== null) corps["touch"] = a["touch"];
-  for (const k of ["isolated", "trace", "record_video"]) if (a[k]) corps[k] = true;
+  for (const k of ["isolated", "trace", "record_video"])
+    if (a[k] && !(k === "isolated" && portee === "compte-delegue")) corps[k] = true;
   const resultat = await client.req("POST", "/start", { json: corps });
   if (estDict(resultat)) {
     const sid = veritePy(resultat["session_id"]) ? resultat["session_id"] : resultat["sid"];
@@ -78,7 +80,15 @@ async function demarrer(
   return resultat;
 }
 
-/** `pw_session` : `start` ne vérifie pas `session_id` (il retrouve l'instance du compte), les autres actions si. */
+/** Un enfant sur la session du compte ne la ferme pas : `stop` et `cleanup` fermeraient le navigateur de l'utilisateur. */
+function refusFermetureCompte(action: string): Dict {
+  return errPw("user_session_protected", "", {
+    message: `pw_session(action='${action}') is not available to a sub-agent working in the user's own browser session: it would close the user's browser.`,
+    fix: "Leave the session open: the harness does not close it either. Return your report.",
+  });
+}
+
+/** `pw_session` : `start` ne vérifie pas `session_id` (il retrouve l'instance du propriétaire), les autres actions si. */
 export function pwSession(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const action = a["action"] as string;
@@ -86,6 +96,8 @@ export function pwSession(s: ServicesBrowser) {
     if (action === "start") return demarrer(a, s, appel);
     if (appel.refus !== null) return appel.refus;
     const { client } = appel.appel;
+    if (appel.appel.portee === "compte-delegue" && (action === "stop" || action === "cleanup"))
+      return refusFermetureCompte(action);
     const sid = a["session_id"];
     if (action === "stop" || action === "trace_export" || action === "save_state")
       return client.req("POST", `/${action}`, { json: { session_id: sid } });

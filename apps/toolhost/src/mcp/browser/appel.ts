@@ -3,9 +3,17 @@
 import { estDict, intPy, lowerPy, nomTypePy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
-import { ClientNavigateur, pwOwner, rappelOnglet, refusSessionDAutrui } from "@elpis/navigateur";
+import {
+  ClientNavigateur,
+  pwOwner,
+  pwOwnerEnfant,
+  rappelOnglet,
+  refusSessionDAutrui,
+} from "@elpis/navigateur";
 import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
+import { current, lireSousAgent } from "@elpis/securite";
+import type { SousAgent } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
 
@@ -15,13 +23,32 @@ export interface ServicesBrowser {
   readonly journal: Journal;
 }
 
+/** Rôle de l'appelant vis-à-vis du navigateur : le chat (session du compte), un sous-agent à session isolée (la sienne seule), un sous-agent sur la session du compte. */
+export type PorteeNavigateur = "compte" | "isolee" | "compte-delegue";
+
 export interface Appel {
   readonly username: string;
   readonly client: ClientNavigateur;
   readonly ax: Base | null;
+  readonly portee: PorteeNavigateur;
 }
 
-/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte), ou l'appel au propriétaire du compte. */
+/** Sous-agent de l'appel (identité vérifiée, sinon `_meta`) ; `null` pour le chat. */
+export function sousAgentDe(ctx: ContexteAppel): SousAgent | null {
+  return current()?.subagent ?? lireSousAgent(ctx.meta?.["subagent"]);
+}
+
+/** Propriétaire que le service voit : le compte, ou l'empreinte de l'enfant à session isolée (ses sessions, son quota et son nettoyage ne touchent jamais ceux du compte ni d'un frère). */
+export function proprietaireDe(
+  username: string,
+  sa: SousAgent | null,
+): { owner: string; portee: PorteeNavigateur } {
+  if (sa === null) return { owner: pwOwner(username), portee: "compte" };
+  if (sa.browser_session === "user") return { owner: pwOwner(username), portee: "compte-delegue" };
+  return { owner: pwOwnerEnfant(username, sa.id), portee: "isolee" };
+}
+
+/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
 export async function ouvrirAppel(
   ctx: ContexteAppel,
   s: ServicesBrowser,
@@ -30,9 +57,15 @@ export async function ouvrirAppel(
   const username = getUsername(ctx);
   const refus = await refusSessionDAutrui(sessionId, username);
   if (refus !== null) return { refus };
+  const { owner, portee } = proprietaireDe(username, sousAgentDe(ctx));
   return {
     refus: null,
-    appel: { username, client: new ClientNavigateur({ owner: pwOwner(username) }), ax: s.ax() },
+    appel: {
+      username,
+      client: new ClientNavigateur({ owner }),
+      ax: s.ax(),
+      portee,
+    },
   };
 }
 

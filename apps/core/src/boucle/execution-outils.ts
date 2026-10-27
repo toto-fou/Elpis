@@ -12,6 +12,7 @@ import {
   utf8Remplace,
 } from "@elpis/commun";
 import { sousPrefixes } from "@elpis/securite";
+import type { SousAgent } from "@elpis/securite";
 
 import { LLAMA_TOOL_PARALLELISM } from "../llm/constantes";
 import { journal } from "../journal";
@@ -39,6 +40,8 @@ export interface RappelsOutil {
   meta?: Dict | null;
   /** Id de l'appel du modèle : les `task_step` d'un sous-agent le portent. */
   callId?: string | null;
+  /** Périmètre du sous-agent qui appelle : son échéance souple borne l'appel, sa durée restante est reprise à l'envoi. */
+  sousAgent?: SousAgent | null;
   /** Contexte du run appelant, transmis à l'outil intégré (un `task` en `fork`). */
   parent?: (() => ContexteParent) | null;
   onProgress?: ((p: Progression) => void | Promise<void>) | null;

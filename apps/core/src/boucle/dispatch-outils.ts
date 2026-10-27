@@ -445,13 +445,32 @@ async function borne<T>(p: Promise<T>, s: number, signal?: AbortSignal): Promise
   }
 }
 
+/** Marge (s) laissée à l'hôte d'outils pour rendre son propre délai (commande tuée, sortie gardée) avant que le core ne coupe l'appel à l'échéance. */
+export const GRACE_ECHEANCE_S = 3;
+
+/** Appel d'un sous-agent coupé par son échéance souple : jamais exécuté (`demarre` faux) ou interrompu, exécution NON confirmée. */
+function coupureEcheanceJson(toolName: string, demarre: boolean): string {
+  const fix =
+    "Do not retry it and start nothing new: write your final report now and list under 'Left open' what this call was meant to do.";
+  return pyJsonDumps(
+    demarre
+      ? err(
+          "timeout",
+          `${toolName} was cut off at this sub-agent's time limit: execution NOT confirmed (it may have acted in part)`,
+          { fix },
+        )
+      : err("time_limit", `${toolName} was NOT executed: this sub-agent's time limit was reached`, { fix }),
+    { ensureAscii: false },
+  );
+}
+
 /** Un appel d'outil : intégré (borne et annulation) ou serveur MCP ; toujours rendu en JSON, seule l'annulation remonte. */
-export async function executeSingleToolCall(
+async function appelerOutil(
   toolName: string,
   finalArgs: Dict,
   toolCfgMap: ReadonlyMap<string, ConfigMcp>,
   builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>,
-  o: RappelsOutil = {},
+  o: RappelsOutil,
 ): Promise<unknown> {
   const handler = builtinHandlers.get(toolName);
   if (handler) {
@@ -475,12 +494,16 @@ export async function executeSingleToolCall(
       return pyJsonDumps({ error: flattenExceptionMessage(e) }, { ensureAscii: false });
     }
   }
+  const sa = o.sousAgent ?? null;
   return executerOutilMcp(
     toolCfgMap,
     toolName,
     isLocalTool(toolCfgMap, toolName) ? finalArgs : restaurerArgsOutil(toolName, finalArgs),
     {
       meta: o.meta ?? null,
+      refraichirMeta: sa
+        ? (m) => (Object.hasOwn(m, "subagent") ? { ...m, subagent: sousAgentEnDict(sa) } : m)
+        : null,
       onProgress: o.onProgress ?? null,
       onLog: o.onLog ?? null,
       timeoutS: toolTimeoutS(toolName),
@@ -488,6 +511,31 @@ export async function executeSingleToolCall(
       signal: o.signal,
     },
   );
+}
+
+/** Appel d'un outil ; celui d'un sous-agent ne court pas au-delà de son échéance souple (file du pool et délai propre de l'outil compris) : coupé, il suit le chemin d'une exécution non confirmée, jamais rejoué. */
+export async function executeSingleToolCall(
+  toolName: string,
+  finalArgs: Dict,
+  toolCfgMap: ReadonlyMap<string, ConfigMcp>,
+  builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>,
+  o: RappelsOutil = {},
+): Promise<unknown> {
+  const echeance = o.sousAgent?.deadline_ms;
+  if (echeance === undefined) return appelerOutil(toolName, finalArgs, toolCfgMap, builtinHandlers, o);
+  const reste = echeance - Date.now();
+  if (reste <= 0) return coupureEcheanceJson(toolName, false);
+  const coupe = new AbortController();
+  const minuterie = setTimeout(() => coupe.abort(), reste + GRACE_ECHEANCE_S * 1000);
+  const signal = o.signal ? AbortSignal.any([o.signal, coupe.signal]) : coupe.signal;
+  try {
+    return await appelerOutil(toolName, finalArgs, toolCfgMap, builtinHandlers, { ...o, signal });
+  } catch (e) {
+    if (coupe.signal.aborted && !o.signal?.aborted) return coupureEcheanceJson(toolName, true);
+    throw e;
+  } finally {
+    clearTimeout(minuterie);
+  }
 }
 
 /** Actif d'un hôte d'outils DISTANT rapatrié par le relais à `chemin` ; vrai s'il est présent. */
@@ -1120,6 +1168,7 @@ export async function runToolBatch(
         );
       return executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, {
         ...r,
+        sousAgent: ctx.c.subagent ?? null,
         ...(nom === "task" ? { parent: lecteurParent } : {}),
       });
     },

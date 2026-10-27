@@ -175,6 +175,8 @@ export interface OptionsRun {
   echeanceMs?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
   wrapupSuffix?: string | null;
+  /** Reçoit le texte de la synthèse finale au fil de sa génération : un délai dur qui l'interrompt en garde ce qui a été produit. */
+  surTexteSynthese?: ((delta: string) => void) | null;
   /** Place (caractères) du suffixe de la question dans celui enregistré, pour un rejeu à l'octet ; absent = sans borne. */
   userSuffixRoom?: number | null;
   /** Chaque `<harness_status>` envoyé au modèle ; `finDeBudget` : ligne « Wrap up » ou « LAST » (bilan d'un sous-agent). */
@@ -424,6 +426,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     liveShell: o.liveShell ?? false,
     subagent: o.subagent ?? null,
     wrapupSuffix: o.wrapupSuffix ?? null,
+    surTexteSynthese: o.surTexteSynthese ?? null,
     slotKey: o.slotKey ?? null,
     slotAvoid: o.slotAvoid ?? null,
     slotPrefere: o.slotPrefere ?? null,

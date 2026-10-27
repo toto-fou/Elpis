@@ -360,7 +360,7 @@ export async function finishOnLimit(
         deps.stream(msgs, toolsPayload, {
           modelOverride: model,
           userId: username,
-          onContentToken: () => undefined,
+          onContentToken: (t) => ctx.c.surTexteSynthese?.(t),
           isCancelled: ctx.c.isCancelled,
           signal,
           samplingOverride,

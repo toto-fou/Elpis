@@ -179,6 +179,7 @@ export interface ChampsRun {
   /** Périmètre du sous-agent qui fait ce run, `null` pour un tour de premier niveau. */
   subagent?: SousAgent | null;
   wrapupSuffix?: string | null;
+  surTexteSynthese?: ((delta: string) => void) | null;
   /** La réflexion des tours d'outils repart au moteur (`reasoning_content`), décidé une fois par run ; absent, relu du profil du moteur. */
   reflexionRendue?: boolean;
   /** Affinité de slot llama.cpp du run (cf. `OptionsRun`). */

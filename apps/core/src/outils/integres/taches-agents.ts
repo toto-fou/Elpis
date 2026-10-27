@@ -235,14 +235,19 @@ function offreLeShell(type: string, s: AgentSpec): boolean {
 /** Attente au plus de la fermeture du navigateur privé d'un enfant : le run ne dépend pas d'un hôte qui ne répond pas. */
 const DELAI_FERMETURE_NAVIGATEUR_S = 20;
 
-/** Marge (s) de la synthèse finale derrière l'échéance souple : une requête au moteur sans outil, le temps d'un long préremplissage et d'un rapport de quelques milliers de jetons. */
-export const MARGE_SYNTHESE_S = 60;
+/** Plancher (s) de la réserve : la génération en cours à l'échéance souple (réflexion comprise, sur un moteur modeste), qu'on ne coupe pas, puis la synthèse (un long préremplissage et un rapport de quelques milliers de jetons). */
+export const MARGE_SYNTHESE_S = 120;
+/** Part du délai dur que la réserve atteint au plus pour un long délai (au-delà du plancher). */
+export const PART_RESERVE = 0.1;
 /** Part du délai dur que la réserve ne dépasse jamais (petit `max_seconds`). */
 export const PART_RESERVE_MAX = 1 / 3;
 
-/** Réserve (s) entre l'échéance souple d'un enfant et son délai dur : la marge de synthèse seule (60 s, au plus un tiers du délai), car l'hôte d'outils à jour borne `timeout_sec` d'`execute_shell` au temps restant (`remaining_ms`) ; un ancien hôte, sans borne, peut dépasser l'échéance, le délai dur interrompt alors l'enfant. */
+/** Réserve (s) entre l'échéance souple d'un enfant et son délai dur : `min(⅓ D, max(120 s, D / 10))` ; les appels d'outils sont coupés à l'échéance souple, la réserve n'a donc à contenir qu'une génération et la synthèse. */
 export function reserveSouple(dureeMaxS: number): number {
-  return Math.min(MARGE_SYNTHESE_S, Math.floor(dureeMaxS * PART_RESERVE_MAX));
+  return Math.min(
+    Math.floor(dureeMaxS * PART_RESERVE_MAX),
+    Math.max(MARGE_SYNTHESE_S, Math.floor(dureeMaxS * PART_RESERVE)),
+  );
 }
 
 export interface AgentSpec {
@@ -1401,6 +1406,8 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
     let tampon = "";
     /** Dernier texte complet de l'assistant de l'enfant : rapport partiel d'un délai dur, rendu sans nouvel appel au moteur. */
     let dernierTexte = "";
+    /** Synthèse finale produite jusque-là (le délai dur peut l'interrompre) : le rapport partiel le plus récent. */
+    let texteSynthese = "";
     const debutsAppels = new Map<string, number>();
     let navigateurUtilise = false;
 
@@ -1891,6 +1898,9 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
           subagent: saRun,
           echeanceMs: echeanceSoupleMs,
           wrapupSuffix: CONSIGNE_CLOTURE,
+          surTexteSynthese: (delta) => {
+            if (longueurPy(texteSynthese) < 24_000) texteSynthese += delta;
+          },
           exposerTravail: (lire) => {
             lireTravail = lire;
           },
@@ -1935,7 +1945,7 @@ export function buildTaskBuiltinTool(o: OptionsTache): Record<string, OutilInteg
         etat = "timeout";
         statut = "timeout";
         stopReason = "wallclock_hard";
-        finalText = stripPy(tampon) || dernierTexte;
+        finalText = stripPy(texteSynthese) || stripPy(tampon) || dernierTexte;
       } else if (estErreurAnnulation(e) || signalEnfant.aborted) {
         etat = "cancelled";
         statut = "cancelled";

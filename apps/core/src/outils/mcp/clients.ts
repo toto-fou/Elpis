@@ -1333,6 +1333,8 @@ export function pickToolPayload(resultat: unknown): unknown {
 
 export interface OptionsExecution {
   meta?: Dict | null;
+  /** Reprend le `_meta` à l'envoi effectif (après la file du pool). */
+  refraichirMeta?: ((meta: Dict) => Dict) | null;
   onProgress?: OptionsAppelClient["onProgress"];
   onLog?: SurJournal | null;
   timeoutS: number;
@@ -1368,6 +1370,7 @@ export async function executerOutilMcp(
     const res = await pool.callTool(cfg, toolName, finalArgs, {
       resolveClient: resoudreClientMcp,
       meta: options.meta ?? null,
+      refraichirMeta: options.refraichirMeta ?? null,
       onProgress: options.onProgress ?? null,
       onLog: options.onLog ?? null,
       execTimeoutS: options.timeoutS,

@@ -230,20 +230,23 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Sous-agents : échéance absolue, réserve, délai dur avec rapport.** Le délai
   d'un enfant est fixé à l'entrée dans `task` (prélude et attente de slot
   compris) au lieu du début de sa boucle. Son échéance souple laisse une réserve
-  de `min(60 s de synthèse, un tiers du délai)` avant le délai dur (60 s au plus
-  avant : un `execute_shell` de 300 s la dépassait). La
+  de `min(⅓ du délai, max(120 s, délai / 10))` avant le délai dur : de quoi finir la
+  génération en cours (réflexion comprise) puis la synthèse. La
   boucle reçoit l'échéance (`OptionsRun.echeanceMs`), `<task_context>` annonce la
-  durée de travail et « Wall-clock remaining » se mesure à l'échéance. Elle part
-  aussi à l'hôte d'outils, en durée restante recalculée à chaque appel
-  (`_meta.subagent.remaining_ms`, convertie à réception : aucune dépendance aux
-  horloges du core et de l'hôte), qui borne le `timeout_sec` d'`execute_shell` au
-  temps restant : la réserve n'a donc plus à contenir la plus longue commande. Un
-  hôte plus ancien ne borne pas et peut dépasser l'échéance souple (c'est alors le
-  délai dur qui interrompt l'enfant) ; un enfant sans échéance
-  garde le comportement d'avant. Au délai dur, l'enveloppe `task_timeout`
-  porte `partial_report` (dernier texte de l'enfant, sans appel au moteur), le
-  bilan (`status: timeout`) et le `task_id` de la reprise. Le tour principal ne
-  change pas.
+  durée de travail et « Wall-clock remaining » se mesure à l'échéance. **Chaque appel
+  d'outil de l'enfant** (intégré, de l'hôte d'outils ou d'un serveur MCP tiers, file
+  du pool comprise) est coupé à l'échéance souple, à trois secondes près : un appel
+  qui dépasse rend `timeout` (« exécution NON confirmée », jamais rejoué), un appel qui
+  n'a pas commencé n'est pas exécuté ; `pw_wait` (330 s) ou un outil tiers de 300 s ne
+  consomment donc plus la réserve. L'échéance part aussi à l'hôte d'outils, en durée
+  restante calculée à l'envoi effectif de l'appel, après l'attente au sémaphore du lot et
+  à la file du pool (`_meta.subagent.remaining_ms`, convertie à réception : aucune
+  dépendance aux horloges du core et de l'hôte), qui borne le `timeout_sec`
+  d'`execute_shell` au temps restant. Un enfant sans échéance garde le comportement
+  d'avant. Au délai dur, l'enveloppe `task_timeout` porte `partial_report` (la synthèse
+  en cours, diffusée à l'enfant au fil de sa génération, sinon le dernier texte de
+  l'enfant, sans appel au moteur), le bilan (`status: timeout`) et le `task_id` de la
+  reprise. Le tour principal ne change pas.
 
 - **Sous-agents : les écrivains d'un même lot ne se marchent plus dessus.** Deux
   `implement` (ou un `implement` et un `verify`) lancés ensemble écrivaient et

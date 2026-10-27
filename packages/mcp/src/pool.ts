@@ -308,6 +308,8 @@ export interface OptionsPool {
 export interface OptionsAppel {
   resolveClient?: ResoudreClient | null;
   meta?: Dict | null;
+  /** Reprend le `_meta` à l'envoi effectif, après l'attente en file : ce qui dépend de l'heure (durée restante d'un sous-agent) ne vieillit pas dans la file. */
+  refraichirMeta?: ((meta: Dict) => Dict) | null;
   onProgress?: SurProgression | null;
   onLog?: SurJournal | null;
   execTimeoutS?: number | null;
@@ -533,7 +535,11 @@ export class PoolMcp {
     const borne = signalBorne(options.signal, delai === null || delai === undefined ? null : delai * 1000);
     try {
       const appel: OptionsAppelClient = { signal: borne.signal };
-      if (veritePy(options.meta)) appel.meta = options.meta ?? null;
+      if (veritePy(options.meta))
+        appel.meta =
+          options.meta && options.refraichirMeta
+            ? options.refraichirMeta(options.meta)
+            : (options.meta ?? null);
       if (options.onProgress) appel.onProgress = options.onProgress;
       if (options.onLog) appel.onLog = options.onLog;
       return await course(client.appelerOutil(toolName, args, appel), borne.signal);

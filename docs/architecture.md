@@ -1454,33 +1454,40 @@ sequenceDiagram
   temps absolu (prélude, vérification du navigateur de `web`, attente de slot
   comprises), pour un `max_seconds` borné par `TASK_CHILD_TIMEOUT_S` (`D`).
   *Délai dur* = `D` : minuterie qui annule l'enfant. *Échéance souple* = `D − R`
-  (`OptionsRun.echeanceMs`), où la **réserve** `R = min(60, D / 3)` est la marge de
-  synthèse (`reserveSouple`, `MARGE_SYNTHESE_S` : une requête sans outil, un long
-  préremplissage et un rapport de quelques milliers de jetons), au plus un tiers du
-  délai pour un petit `max_seconds` : 10 s pour 30 s, 60 s dès 180 s. Elle ne compte
-  plus la plus longue commande du shell : l'hôte d'outils à jour borne le
-  `timeout_sec` d'`execute_shell` au temps restant, aucune commande ne dépasse donc
-  l'échéance souple ; un ancien hôte, sans cette borne, peut la dépasser (une
-  commande de 300 s lancée à l'échéance), et c'est alors le délai dur qui interrompt
-  l'enfant et rend son dernier texte.
+  (`OptionsRun.echeanceMs`), où la **réserve** `R = min(D / 3, max(120 s, D / 10))`
+  (`reserveSouple`) laisse le temps de ce qu'on ne coupe pas : la génération en cours
+  à l'échéance souple (réflexion comprise, sur un llama.cpp modeste), puis la synthèse
+  (une requête sans outil, un long préremplissage et un rapport de quelques milliers
+  de jetons) ; au plus un tiers du délai pour un petit `max_seconds` : 10 s pour 30 s,
+  60 s pour 180 s, 100 s pour 300 s, 120 s jusqu'à 20 min, 360 s pour 1 h.
+  **Chaque appel d'outil de l'enfant** est borné à son tour par l'échéance souple
+  (`executeSingleToolCall`, `dispatch-outils.ts` : outils intégrés, outils de l'hôte
+  d'outils et serveurs MCP tiers, file du pool comprise) : un appel encore en cours
+  trois secondes après l'échéance (la marge qui laisse l'hôte rendre lui-même son
+  délai, commande tuée et sortie gardée) est coupé et rend `timeout` (« exécution NON
+  confirmée », jamais rejoué : le pool ne rejoue pas un appel coupé) ; un appel qui
+  n'a pas encore commencé à l'échéance n'est pas exécuté (`time_limit`). `pw_wait`
+  (330 s), un outil tiers de 300 s ou un `execute_shell` ne dépassent donc jamais
+  l'échéance, et la réserve n'a pas à contenir la plus longue commande.
   À l'échéance souple, testée au début de chaque itération, la boucle fait sa
   synthèse (`Status: partial`, statut `timeout`, `stop_reason: wallclock`).
   `<task_context>` annonce la durée de travail `D − R`, et « Wall-clock remaining »
   des jalons `<harness_status>` se mesure à l'échéance souple. L'échéance est portée
   à l'hôte d'outils par `_meta.subagent.remaining_ms`, une **durée restante**
-  recalculée à chaque appel (`sousAgentEnDict`, dans `buildCallMeta`) : l'hôte
-  la convertit en échéance à réception, avec sa propre horloge, donc sans exiger que
-  les horloges du core et d'un hôte distant s'accordent ; elle ne tient pas compte de
-  l'attente en file du pool MCP entre la construction du `_meta` et l'envoi (5 s pour
-  les appels du harnais, jusqu'à 120 s pour un appel saturé), au pire un surplus
-  d'autant. `execute_shell` y borne `timeout_sec` au temps restant (1 s au moins, et
+  calculée **à l'envoi effectif** de l'appel (`OptionsAppel.refraichirMeta` du pool
+  MCP, appelé après l'attente au sémaphore du lot et à la file du pool, avec
+  `sousAgentEnDict`) : l'hôte la convertit en échéance à réception, avec sa propre
+  horloge, donc sans exiger que les horloges du core et d'un hôte distant
+  s'accordent. `execute_shell` y borne `timeout_sec` au temps restant (1 s au moins, et
   le `fix` d'un délai raccourci le dit) ; sans `remaining_ms` (hôte plus ancien),
-  rien ne change. Au
-  délai dur, aucun appel au moteur n'est fait : le rapport est le dernier texte de
-  l'assistant de l'enfant (le texte de la génération interrompue s'il y en a un,
-  sinon le dernier texte complet), rendu dans `partial_report` de l'enveloppe
-  `task_timeout` avec le bilan (`status: timeout`) et le `task_id` (la reprise est
-  déjà stockée). Le tour principal garde `LLAMA_TOOL_LOOP_MAX_S`, sans échéance.
+  la coupure du core suffit. Au délai dur, aucun appel au moteur n'est fait : le
+  rapport est le texte déjà produit, dans l'ordre : la synthèse en cours (diffusée au
+  fil de sa génération à l'enfant par `OptionsRun.surTexteSynthese`, alors qu'elle
+  n'est émise au client qu'une fois complète), sinon le texte de la génération
+  interrompue, sinon le dernier texte complet de l'assistant ; il est rendu dans
+  `partial_report` de l'enveloppe `task_timeout` avec le bilan (`status: timeout`) et
+  le `task_id` (la reprise est déjà stockée). Le tour principal garde
+  `LLAMA_TOOL_LOOP_MAX_S`, sans échéance.
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.

@@ -6,7 +6,8 @@
   "license": "MIT",
   "description": "Sécurité partagée du core et du toolhost : chiffrement Fernet, mots de passe, enveloppe d'identité, journal d'audit (port de security/encryption.py, accounts/identity.py et security/audit.py)",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./marqueurs-tour": "./src/marqueurs-tour.ts"
   },
   "dependencies": {
     "@elpis/commun": "0.1.1",

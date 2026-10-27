@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/modales/VoletAgent.vue — volet non modal d'un sous-agent, à droite du fil : nom, état, horloge, Arrêter ; dans l'ordre réel, la consigne reçue, sa chronologie dans la grammaire du fil, puis son bilan (statut, appels, reste à faire) et « Rendu à l'assistant » une fois fini. -->
 <script setup lang="ts">
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 import { computed, inject, nextTick, onUnmounted, reactive, ref, useTemplateRef, watch } from "vue";
 
 import { domaineModales } from "../../../features/chat/modales/domaine";
@@ -96,7 +97,7 @@ function arreter(): void {
 }
 
 async function copierRendu(): Promise<void> {
-  const t = run.value?.result || "";
+  const t = restaurerMarqueursTour(run.value?.result || "");
   if (!t) return;
   try {
     await globalThis.navigator.clipboard.writeText(t);

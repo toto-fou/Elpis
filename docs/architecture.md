@@ -3012,10 +3012,12 @@ famille n'est pas couvert tant qu'on ne l'a pas ajouté. Le texte reste lisible 
 `<` ordinaires (code, HTML, génériques) et les `[INFO]` des journaux ne sont pas
 touchés ; la fonction est déterministe et idempotente (le cache de préfixe du moteur
 en dépend). La `tool_history` enregistrée est la version que le moteur a reçue ;
-l'interface montre le texte d'origine en direct, et **après rechargement** elle
-retire le joint des seuls marqueurs à l'affichage et au copier
-(`restaurerMarqueursTour`, `features/chat/outils/segments.ts`, copie d'une réponse et
-d'un bloc de code). Les résultats d'un lot interrompu et les événements de jobs
+l'interface montre le texte d'origine en direct (l'événement `tool_result` porte le
+résultat avant neutralisation) et le retrouve au rechargement : `features/chat/outils/segments.ts`
+retire le joint (`restaurerMarqueursTour`) des seuls résultats d'outils, comme en direct, et
+la copie le retire (réponse, bloc de code, rapport d'un sous-agent, sortie de routine). Le
+texte de l'assistant n'est jamais restauré avant son rendu Markdown, ni en direct ni
+rechargé : un `<s>` ou un `<think>` qu'il cite reste le même texte dans les deux cas. Les résultats d'un lot interrompu et les événements de jobs
 passent par la même fonction. Le comptage de jetons voit le texte envoyé (un caractère
 de plus par marqueur, `contexte/tokens.ts` n'a rien à changer). `read_file` est
 neutralisé comme le reste (un dépôt cloné est la voie d'injection la plus courante).
@@ -3033,6 +3035,10 @@ intégrés (`rag_*`, `generate_image`, `ask_user`) avant envoi. Seuls
 prompt d'un autre tour : `memory`, `skill_save` et `skill_add_file` (skills), `todowrite`
 (rappel de tâches en début de tour), `task` (brief d'un sous-agent) et `routine_save`
 (prompt de la routine) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
+**Limite de la restauration** : elle retire tout U+2060 qui suit un début de marqueur de
+la liste, y compris un U+2060 voulu (un `old_string` d'`edit_file` copié d'un fichier qui
+contient réellement `<` U+2060 `|im_start|>` devient `<|im_start|>` et ne s'y retrouve pas) ;
+le mécanisme ne distingue pas les deux, c'est le prix d'un joint sans état.
 Les résultats déjà enregistrés gardent leur texte. Le RAG garde sa neutralisation
 propre (`neutraliserJetonsRole`, crochets larges, chevrons échappés).
 **Neutralisation au rendu** : la restauration des arguments laisse les magasins que le

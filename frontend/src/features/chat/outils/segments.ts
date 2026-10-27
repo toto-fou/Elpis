@@ -182,7 +182,7 @@ export function parseToolHistorySegments(
     Array.isArray(opts.prevHistory) && opts.prevHistory.length
       ? (opts.prevHistory as readonly unknown[])
       : null;
-  const finalContent = typeof opts.finalContent === "string" ? restaurerMarqueursTour(opts.finalContent) : "";
+  const finalContent = typeof opts.finalContent === "string" ? opts.finalContent : "";
   const start = opts.delta ? 0 : debutDuTour(h, prev);
 
   const segTexts: string[] = [];
@@ -219,7 +219,7 @@ export function parseToolHistorySegments(
     if (e["role"] !== "assistant") continue;
     const brut = e["tool_calls"];
     const appels = Array.isArray(brut) && brut.length ? (brut as readonly unknown[]) : null;
-    const txt = typeof e["content"] === "string" ? restaurerMarqueursTour(e["content"]).trim() : "";
+    const txt = typeof e["content"] === "string" ? e["content"].trim() : "";
     if (!appels) {
       if (txt && tourOutils) segTexts.push(txt);
       continue;

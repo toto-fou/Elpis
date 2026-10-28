@@ -110,6 +110,19 @@ export const TABLES: readonly Table[] = [
     indexes: [{"name": "idx_ax_procedures_origin", "cols": ["owner", "origin"]}],
   },
   {
+    name: "ax_procedure_approvals",
+    cols: [
+      { name: "owner", type: "text", null: false },
+      { name: "procedure_id", type: "text", null: false },
+      { name: "gesture_fp", type: "text", null: false },
+      { name: "path", type: "text", null: false },
+      { name: "approved_at", type: "real", null: false },
+      { name: "validated_at", type: "real" },
+      { name: "chain", type: "text" },
+    ],
+    pk: ["owner", "procedure_id", "gesture_fp"],
+  },
+  {
     name: "ax_procedure_counters",
     cols: [
       { name: "owner", type: "text", null: false },
@@ -135,6 +148,7 @@ export const TABLES: readonly Table[] = [
       { name: "token", type: "text" },
       { name: "page_key", type: "text" },
       { name: "new_version", type: "int" },
+      { name: "played_json", type: "text" },
       { name: "duration_ms", type: "int", null: false, default: 0 },
     ],
     indexes: [{"name": "idx_ax_procedure_runs_proc", "cols": ["owner", "procedure_id", "started_at DESC"]}],

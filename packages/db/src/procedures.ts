@@ -7,5 +7,6 @@ export async function retirerProceduresDuCompte(x: Executeur, proprietaire: stri
   if (!proprietaire) return 0;
   await x.run("DELETE FROM ax_procedure_runs WHERE owner = ?", [proprietaire]);
   await x.run("DELETE FROM ax_procedure_counters WHERE owner = ?", [proprietaire]);
+  await x.run("DELETE FROM ax_procedure_approvals WHERE owner = ?", [proprietaire]);
   return (await x.run("DELETE FROM ax_procedures WHERE owner = ?", [proprietaire])).changes;
 }

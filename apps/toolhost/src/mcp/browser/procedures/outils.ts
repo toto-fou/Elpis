@@ -4,7 +4,14 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { aControle, mesurer, parcourir, validerProcedure, verifierReparation } from "@elpis/contracts";
+import {
+  aConfirm,
+  aControle,
+  mesurer,
+  parcourir,
+  validerProcedure,
+  verifierReparation,
+} from "@elpis/contracts";
 import type { Procedure } from "@elpis/contracts";
 import { messageErreur } from "@elpis/mcp";
 import { errPw } from "@elpis/navigateur";
@@ -18,6 +25,10 @@ import { executer, pageCourante } from "./moteur";
 import { contexteReparation } from "./reparation";
 import {
   annulerAttentes,
+  approbations,
+  dejaReussi,
+  oublierApprobations,
+  enregistrerApprobations,
   attenteReparation,
   filiation,
   reparationPermise,
@@ -165,7 +176,7 @@ export function pwRun(s: ServicesBrowser) {
         const noeud =
           attente === null ? undefined : [...parcourir(v.procedure.root)].find(([, c]) => c === attente)?.[0];
         const confirmable =
-          noeud !== undefined && "act" in noeud && noeud.confirm === true && !attente?.includes(".retry");
+          noeud !== undefined && "act" in noeud && aConfirm(noeud) && !attente?.includes(".retry");
         const rc =
           attente !== null && demandes.includes(attente) && confirmable
             ? await reprendre(ax, {
@@ -188,6 +199,7 @@ export function pwRun(s: ServicesBrowser) {
       // Toute nouvelle exécution annule les attentes précédentes de la session.
       await annulerAttentes(ax, username, sessionId);
       const debut = Date.now() / 1000;
+      const approuves = await approbations(ax, username, v.procedure.id);
       const r = await new Heartbeat(ctx).avec(() =>
         executer(s, ctx, client, v.procedure, {
           sessionId,
@@ -195,8 +207,18 @@ export function pwRun(s: ServicesBrowser) {
           params: params.valeurs,
           confirmed: confirmes,
           reprise,
+          approuves,
         }),
       );
+      // Les gestes `confirm: "once"` exécutés avec accord sont validés si l'exécution a réussi (ils ne redemandent plus).
+      if ((r.onceFaits ?? []).length > 0 || r.status === "ok")
+        await enregistrerApprobations(ax, {
+          owner: username,
+          id: v.procedure.id,
+          chain,
+          gestes: r.onceFaits ?? [],
+          ok: r.status === "ok",
+        }).catch((e: unknown) => s.journal.warn(`[procedures] approbations : ${messageErreur(e)}`));
       // Échec réparable : le modèle reçoit le contexte et un repair_id enregistré comme une confirmation (limites : 2 par exécution logique, 1 par nœud).
       const echec = r.status === "failed" ? r.failed_at : undefined;
       const page =
@@ -229,12 +251,18 @@ export function pwRun(s: ServicesBrowser) {
         noeudEnEchec: r.failed_at?.path ?? r.node_path ?? null,
         dureeMs: r.duration_ms,
         chain,
-        ...(token !== undefined ? { token, pageKey: page } : {}),
+        ...(token !== undefined
+          ? {
+              token,
+              pageKey: page,
+              played: (echec?.played ?? []).flatMap((g) => (g.target_used === null ? [] : [g.target_used])),
+            }
+          : {}),
         ...(r.status === "needs_confirmation" && r.node_path !== undefined
           ? { empreinte: empreinte(brut.texte, r.node_path, version, page) }
           : {}),
       }).catch((e: unknown) => s.journal.warn(`[procedures] journal d'exécution : ${messageErreur(e)}`));
-      const { failed_at: fa, ...reste } = r;
+      const { failed_at: fa, onceFaits: _once, ...reste } = r;
       return {
         ok: r.status === "ok",
         procedure: v.procedure.id,
@@ -333,7 +361,10 @@ export function pwProcedure(s: ServicesBrowser) {
           return errPw("procedure_invalid", "", {
             message: "the failed version is no longer readable: " + va.erreurs.join(" ; "),
           });
-        const vr = verifierReparation(va.procedure, att.chemin, a["node"]);
+        const vr = verifierReparation(va.procedure, att.chemin, a["node"], {
+          played: att.played,
+          dejaReussi: await dejaReussi(ax, owner, id),
+        });
         if (!vr.ok)
           return errPw("repair_refused", "", {
             message: vr.erreurs.join(" ; "),
@@ -358,10 +389,17 @@ export function pwProcedure(s: ServicesBrowser) {
               message: "the repair was superseded by another run while being saved; nothing was kept",
             });
           }
+          await oublierApprobations(ax, owner, id, att.chemin);
           return {
             ok: true,
             action,
             status: "repaired",
+            ...(vr.confirmations.length > 0
+              ? {
+                  confirm_once: vr.confirmations,
+                  note: 'these gestures were put under confirm: "once": the user is asked once, then they run freely after a successful run',
+                }
+              : {}),
             id,
             new_version: sv.version,
             parent_version: att.version,

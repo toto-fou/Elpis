@@ -5095,7 +5095,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 let sub = null;
                 try {
                     sub = await Promise.race([
-                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow }),
+                        f.evaluate(collectFn, { level, viewportOnly: false, maxItems: budget, pierceShadow, sansValeur }),
                         new Promise(r => setTimeout(() => r(null), 3000)),
                     ]);
                 } catch (e) { sub = null; }

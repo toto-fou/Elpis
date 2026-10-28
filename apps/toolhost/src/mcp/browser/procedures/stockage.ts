@@ -2,7 +2,7 @@
 /** apps/toolhost/src/mcp/browser/procedures/stockage.ts — procédures du compte (`ax_procedures`, versions gardées) et journal des exécutions (`ax_procedure_runs`) dans la base de l'hôte. */
 import { createHash } from "node:crypto";
 
-import type { Procedure } from "@elpis/contracts";
+import type { Act, Procedure } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 
 /** Procédures distinctes par compte, versions gardées par procédure, taille d'un arbre, exécutions gardées par procédure. */
@@ -136,6 +136,71 @@ export async function lire(base: Base, owner: string, id: string, version = 0): 
   }
 }
 
+/** Empreinte d'un geste `confirm: "once"` : chemin, geste, cibles, valeur et URL (tout changement de ces champs le fait redemander). */
+export function empreinteGeste(chemin: string, n: Act): string {
+  return createHash("sha256")
+    .update(JSON.stringify([chemin, n.act, n.t ?? null, n.v ?? null, n.url ?? null]), "utf8")
+    .digest("hex");
+}
+
+/** Gestes `confirm: "once"` de la procédure déjà approuvés et suivis d'une exécution ok : ils ne demandent plus d'accord. */
+export async function approbations(base: Base, owner: string, id: string): Promise<Set<string>> {
+  const l = await base.all<{ gesture_fp: string }>(
+    "SELECT gesture_fp FROM ax_procedure_approvals WHERE owner=? AND procedure_id=? AND validated_at IS NOT NULL",
+    [owner, id],
+  );
+  return new Set(l.map((x) => x.gesture_fp));
+}
+
+/**
+ * Gestes `once` exécutés avec accord : enregistrés comme approuvés ; si l'exécution a réussi (`ok`), ils sont validés ainsi que
+ * tous ceux que les exécutions précédentes de la même chaîne (confirmation, réparation) avaient fait approuver.
+ */
+export async function enregistrerApprobations(
+  base: Base,
+  o: {
+    owner: string;
+    id: string;
+    chain: string;
+    gestes: readonly { fp: string; path: string }[];
+    ok: boolean;
+  },
+): Promise<void> {
+  const t = maintenant();
+  for (const g of o.gestes)
+    await base.run(
+      "INSERT INTO ax_procedure_approvals (owner, procedure_id, gesture_fp, path, approved_at, validated_at, chain) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (owner, procedure_id, gesture_fp) DO UPDATE SET chain = excluded.chain, validated_at = COALESCE(ax_procedure_approvals.validated_at, excluded.validated_at)",
+      [o.owner, o.id, g.fp, g.path, t, o.ok ? t : null, o.chain],
+    );
+  if (o.ok)
+    await base.run(
+      "UPDATE ax_procedure_approvals SET validated_at=? WHERE owner=? AND procedure_id=? AND chain=? AND validated_at IS NULL",
+      [t, o.owner, o.id, o.chain],
+    );
+}
+
+/** Oublie les approbations du nœud réparé et de ses descendants : une réparation qui le touche les réinitialise. */
+export async function oublierApprobations(
+  base: Base,
+  owner: string,
+  id: string,
+  chemin: string,
+): Promise<void> {
+  await base.run(
+    "DELETE FROM ax_procedure_approvals WHERE owner=? AND procedure_id=? AND (path=? OR path LIKE ?)",
+    [owner, id, chemin, `${chemin}.%`],
+  );
+}
+
+/** Vrai si la procédure a déjà une exécution `ok` (toutes versions). */
+export async function dejaReussi(base: Base, owner: string, id: string): Promise<boolean> {
+  const n = await base.get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM ax_procedure_runs WHERE owner=? AND procedure_id=? AND outcome='ok'",
+    [owner, id],
+  );
+  return Number(n?.n ?? 0) > 0;
+}
+
 /** Empreinte d'une attente de confirmation : arbre exact, chemin du nœud, version et page (origine + chemin, purgée) où l'exécution s'est arrêtée. */
 export function empreinte(texte: string, chemin: string, version: number, page: string): string {
   return createHash("sha256").update(`${texte}\n${chemin}\n${version}\n${page}`, "utf8").digest("hex");
@@ -192,8 +257,10 @@ export async function supprimer(base: Base, owner: string, id: string, version =
       version > 0
         ? await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=? AND version=?", [owner, id, version])
         : await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=?", [owner, id]);
-    if (version === 0)
+    if (version === 0) {
       await x.run("DELETE FROM ax_procedure_runs WHERE owner=? AND procedure_id=?", [owner, id]);
+      await x.run("DELETE FROM ax_procedure_approvals WHERE owner=? AND procedure_id=?", [owner, id]);
+    }
     return r.changes;
   });
 }
@@ -215,13 +282,15 @@ export interface LigneExecution {
   /** Attente de réparation seulement : `repair_id` et page (origine, chemin, requête) où l'exécution s'est arrêtée. */
   readonly token?: string;
   readonly pageKey?: string;
+  /** Cibles des gestes déjà joués (réparation) : sert à la garde anti-rejeu. */
+  readonly played?: readonly string[];
 }
 
 /** Journal d'une exécution (issue, nœud en échec, durée ; jamais de valeur de paramètre) ; les plus anciennes au-delà du quota sont retirées. */
 export async function noterExecution(base: Base, e: LigneExecution): Promise<void> {
   await base.transaction(async (x) => {
     await x.run(
-      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms, fingerprint, chain, token, page_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms, fingerprint, chain, token, page_key, played_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         e.owner,
         e.procedureId,
@@ -236,6 +305,7 @@ export async function noterExecution(base: Base, e: LigneExecution): Promise<voi
         e.chain ?? null,
         e.token ?? null,
         e.pageKey ?? null,
+        e.played === undefined ? null : JSON.stringify(e.played),
       ],
     );
     await x.run(
@@ -313,6 +383,7 @@ export interface AttenteReparation {
   readonly sessionId: string;
   readonly chain: string | null;
   readonly page: string;
+  readonly played: string[];
 }
 
 /** Réparations déjà faites dans l'exécution logique : au plus 2 en tout et 1 par nœud. */
@@ -343,8 +414,9 @@ export async function attenteReparation(
     session_id: string | null;
     chain: string | null;
     page_key: string | null;
+    played_json: string | null;
   }>(
-    `SELECT id, version, failed_path, session_id, chain, page_key FROM ax_procedure_runs
+    `SELECT id, version, failed_path, session_id, chain, page_key, played_json FROM ax_procedure_runs
       WHERE owner=? AND procedure_id=? AND token=? AND outcome='needs_repair' AND ended_at>=?`,
     [o.owner, o.procedureId, o.token, maintenant() - REPRISE_S],
   );
@@ -356,6 +428,7 @@ export async function attenteReparation(
     sessionId: l.session_id ?? "",
     chain: l.chain,
     page: l.page_key ?? "",
+    played: jouesDe(l.played_json),
   };
 }
 
@@ -443,4 +516,13 @@ export async function filiation(
         parent_version: l.parent_version === null ? null : Number(l.parent_version),
         repaired_path: l.repaired_path,
       };
+}
+
+function jouesDe(texte: string | null): string[] {
+  try {
+    const l = JSON.parse(texte ?? "[]") as unknown;
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
 }

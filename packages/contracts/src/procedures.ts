@@ -156,10 +156,16 @@ export interface Act {
   v?: string;
   url?: string;
   expect?: Condition;
-  confirm?: boolean;
+  /** `true` : accord à chaque exécution ; `"once"` : accord tant que le geste n'a pas été approuvé puis suivi d'une exécution ok. */
+  confirm?: boolean | "once";
   timeout_ms?: number;
   note?: string;
 }
+/** Vrai si le geste demande un accord (`confirm: true` ou `"once"`). */
+export function aConfirm(n: { confirm?: boolean | "once" }): boolean {
+  return n.confirm === true || n.confirm === "once";
+}
+
 export interface Login {
   creds: string;
   password_target?: string;
@@ -185,7 +191,7 @@ const schemaAct = z.strictObject({
   v: texteBorne(LIMITES_PROCEDURE.longueurValeur).optional(),
   url: texteBorne(LIMITES_PROCEDURE.longueurUrl).optional(),
   expect: schemaCondition.optional(),
-  confirm: z.boolean().optional(),
+  confirm: z.union([z.boolean(), z.literal("once")]).optional(),
   timeout_ms: z.number().int().min(LIMITES_PROCEDURE.delaiMinMs).max(LIMITES_PROCEDURE.delaiMaxMs).optional(),
   note: texteBorne(LIMITES_PROCEDURE.longueurNote).optional(),
 });
@@ -441,9 +447,9 @@ function sousRetryInterdit(racine: Noeud): string[] {
     if (dedans) {
       if ("login" in n)
         erreurs.push(`${chemin} : login interdit sous un retry (un usage du jeton serait rejoué)`);
-      else if ("act" in n && (n.confirm === true || !["goto", "wait", "hover"].includes(n.act)))
+      else if ("act" in n && (aConfirm(n) || !["goto", "wait", "hover"].includes(n.act)))
         erreurs.push(
-          `${chemin} : ${n.confirm === true ? "confirm" : n.act} interdit sous un retry (seuls goto, wait, hover et les conditions sont rejouables)`,
+          `${chemin} : ${aConfirm(n) ? "confirm" : n.act} interdit sous un retry (seuls goto, wait, hover et les conditions sont rejouables)`,
         );
     }
     for (const [suffixe, f] of fils(n)) pile.push([f, `${chemin}.${suffixe}`, dedans || "retry" in n]);
@@ -513,15 +519,6 @@ function urlComplete(url: string): string {
   return (url.replace(/^https?:\/\/[^/?#]+/u, "").split("#")[0] ?? "").trim();
 }
 
-const cheminDe = (url: string): string => urlComplete(url).split("?")[0] ?? "";
-const nomsRequete = (url: string): string =>
-  (urlComplete(url).split("?")[1] ?? "")
-    .split("&")
-    .map((x) => x.split("=")[0] ?? "")
-    .filter((x) => x !== "")
-    .sort()
-    .join(",");
-
 const EFFETS: ReadonlySet<string> = new Set(["click", "press", "fill", "select", "check", "uncheck"]);
 const actes = (n: Noeud): Act[] => [...parcourir(n)].flatMap(([x]) => ("act" in x ? [x] : []));
 const logins = (n: Noeud): string[] =>
@@ -554,19 +551,53 @@ function sansNotesNouvelles(n: Noeud, permises: Set<string>): Noeud {
 }
 
 export type ResultatReparation =
-  { ok: true; procedure: Procedure; chemin: string } | { ok: false; erreurs: string[] };
+  | { ok: true; procedure: Procedure; chemin: string; confirmations: string[] }
+  | { ok: false; erreurs: string[] };
+
+/** Ce que la réparation sait de l'exécution qui a échoué : cibles des gestes déjà joués, et si la procédure a déjà réussi une fois. */
+export interface ContexteReparation {
+  readonly played: readonly string[];
+  readonly dejaReussi: boolean;
+}
+
+/** Valeur lisible d'une cible DSL (name, text, label, placeholder, title, alt, test_id), sans accents ni casse ni ponctuation. */
+function nomNormalise(t: string): string {
+  const valeurs: string[] = [];
+  for (const morceau of t.split(SEPARATEUR)) {
+    const i = morceau.indexOf("=");
+    if (i < 0) continue;
+    if (
+      ["name", "text", "label", "placeholder", "title", "alt", "test_id"].includes(
+        morceau.slice(0, i).trim().toLowerCase(),
+      )
+    )
+      valeurs.push(morceau.slice(i + 1));
+  }
+  return valeurs
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, " ")
+    .trim();
+}
+
+const motsSignificatifs = (cibles: readonly string[] | undefined): Set<string> =>
+  new Set((cibles ?? []).flatMap((t) => nomNormalise(t).split(" ")).filter((m) => m.length > 3));
 
 /**
  * Remplace le nœud au chemin par `nouveau` et valide le tout (schéma, limites) avec les règles de réparation :
- * (a) chaque geste sous `confirm` du sous-arbre remplacé a un correspondant (même `act`, `confirm: true`, même URL complète pour un goto) ;
- * (b) tout geste à effet ou goto nouveau (sans correspondant de même `act` dans l'ancien sous-arbre) porte `confirm: true` ;
- * (c) un goto neuf ne peut être qu'une URL déjà présente à l'identique (requête comprise) dans un goto de l'arbre, sauf si le nœud remplacé est lui-même un goto : même chemin et mêmes noms de paramètres de requête ;
- * (d) un `retry` neuf n'entoure que wait, wait_ms, hover et des conditions ; aucun login nouveau ; même origine et mêmes paramètres ; nœud borné ; notes nouvelles écartées.
+ * (a) chaque geste sous `confirm` du sous-arbre remplacé a un correspondant (même `act`, confirm conservé : `true` reste `true`, même URL complète pour un goto) ;
+ * (b) tout geste à effet ou goto nouveau (sans correspondant de même `act`) reçoit `confirm: "once"` ;
+ * (b') un geste à effet apparié dont la cible change reçoit `confirm: "once"` si l'une de trois gardes se déclenche : anti-rejeu (une cible du nouveau geste, ou le même nom accessible, figure dans les gestes déjà joués ou dans un autre geste de l'arbre), ressemblance (aucun mot de plus de 3 lettres en commun avec les cibles de l'ancien geste), historique (la procédure n'a jamais réussi) ;
+ * (c) un goto neuf ne peut être qu'une URL déjà présente à l'identique (requête comprise) dans un goto de l'arbre ; remplacer un goto par une autre URL de l'origine est permis avec `confirm: "once"` ;
+ * (d) un `retry` neuf n'entoure que wait, wait_ms, hover et des conditions ; aucun login nouveau ; même origine et paramètres ; nœud borné ; notes nouvelles écartées.
  */
 export function verifierReparation(
   ancienne: Procedure,
   chemin0: string,
   nouveau: unknown,
+  contexte: ContexteReparation = { played: [], dejaReussi: true },
 ): ResultatReparation {
   const octets = new TextEncoder().encode(JSON.stringify(nouveau ?? null)).length;
   if (octets > LIMITES_PROCEDURE.octetsReparation)
@@ -600,24 +631,26 @@ export function verifierReparation(
   const vieux = actes(ancien);
   const neufs = actes(noeud);
   const pris = new Set<Act>();
-  // (a) chaque geste confirmé de l'ancien sous-arbre garde un correspondant confirmé, au même endroit logique (même act, même URL complète pour un goto).
-  for (const o of vieux.filter((x) => x.confirm === true)) {
+  // (a) chaque geste sous confirm de l'ancien sous-arbre garde un correspondant sous confirm (un `true` reste `true`).
+  for (const o of vieux.filter(aConfirm)) {
     const c = neufs.find(
       (x) =>
         !pris.has(x) &&
         x.act === o.act &&
-        x.confirm === true &&
+        aConfirm(x) &&
+        (o.confirm !== true || x.confirm === true) &&
         (o.act !== "goto" || urlComplete(x.url ?? "") === urlComplete(o.url ?? "")),
     );
     if (c === undefined)
       erreurs.push(
-        `le geste ${o.act}${o.act === "goto" ? ` ${o.url ?? ""}` : ""} était sous confirm : la réparation doit garder un ${o.act} identique avec confirm: true`,
+        `le geste ${o.act}${o.act === "goto" ? ` ${o.url ?? ""}` : ""} était sous confirm${o.confirm === true ? " (permanent)" : ""} : la réparation doit garder un ${o.act} identique avec le même confirm`,
       );
     else pris.add(c);
   }
-  // (b) les autres gestes neufs : correspondant de même act dans l'ancien sous-arbre (même cible, puis même expect, puis le premier), sinon confirm obligatoire.
+  // Appariement des autres gestes : même cible, puis même expect, puis le premier de même act.
   const restants = neufs.filter((x) => !pris.has(x));
   const sansCorrespondant = new Set<Act>(restants);
+  const paires: [Act, Act][] = [];
   const memeCible = (x: Act, y: Act): boolean => JSON.stringify(x.t ?? null) === JSON.stringify(y.t ?? null);
   const memeExpect = (x: Act, y: Act): boolean =>
     JSON.stringify(x.expect ?? null) === JSON.stringify(y.expect ?? null);
@@ -626,34 +659,48 @@ export function verifierReparation(
     (o, x) => o.act === x.act && x.expect !== undefined && memeExpect(o, x),
     (o, x) => o.act === x.act,
   ];
-  const vieuxLibres = new Set(vieux.filter((x) => x.confirm !== true));
+  const vieuxLibres = new Set(vieux.filter((x) => !aConfirm(x)));
   for (const accorde of passes)
     for (const o of [...vieuxLibres]) {
       const x = restants.find((y) => sansCorrespondant.has(y) && accorde(o, y));
       if (x === undefined) continue;
       sansCorrespondant.delete(x);
       vieuxLibres.delete(o);
+      paires.push([o, x]);
     }
+  const aMarquer = new Map<Act, string>();
   for (const x of sansCorrespondant)
-    if ((EFFETS.has(x.act) || x.act === "goto") && x.confirm !== true)
-      erreurs.push(
-        `le geste ${x.act}${x.act === "goto" ? ` ${x.url ?? ""}` : ""} est nouveau : il doit porter confirm: true`,
-      );
-  // (c) goto : URL déjà présente à l'identique dans l'arbre, sauf remplacement d'un goto (même chemin, mêmes noms de paramètres de requête).
+    if (EFFETS.has(x.act) || x.act === "goto") aMarquer.set(x, "geste nouveau");
+  // (b') geste à effet apparié dont la cible change : trois gardes.
+  const dehors = new Set<string>();
+  for (const [n, c] of parcourir(ancienne.root))
+    if ("act" in n && c !== chemin0 && !c.startsWith(`${chemin0}.`))
+      for (const t of n.t ?? []) dehors.add(nomNormalise(t));
+  for (const t of contexte.played) dehors.add(nomNormalise(t));
+  dehors.delete("");
+  for (const [o, x] of paires) {
+    if (!EFFETS.has(x.act) || memeCible(o, x)) continue;
+    const anciens = motsSignificatifs(o.t);
+    const nouveaux = motsSignificatifs(x.t);
+    if ((x.t ?? []).some((t) => dehors.has(nomNormalise(t))))
+      aMarquer.set(x, "cible déjà jouée ou présente ailleurs dans l'arbre");
+    else if (![...nouveaux].some((mot) => anciens.has(mot)))
+      aMarquer.set(x, "cible sans ressemblance avec l'ancienne");
+    else if (!contexte.dejaReussi) aMarquer.set(x, "la procédure n'a jamais réussi");
+  }
+  // (c) goto.
   const presentes = new Set(
     actes(ancienne.root).flatMap((x) => (x.act === "goto" ? [urlComplete(x.url ?? "")] : [])),
   );
   const remplaceUnGoto = "act" in ancien && ancien.act === "goto";
   for (const x of neufs.filter((y) => y.act === "goto")) {
     const u = urlComplete(x.url ?? "");
-    const permis =
-      presentes.has(u) ||
-      (remplaceUnGoto &&
-        cheminDe(u) === cheminDe(ancien.url ?? "") &&
-        nomsRequete(u) === nomsRequete(ancien.url ?? ""));
-    if (!permis)
+    if (remplaceUnGoto) {
+      if (u !== urlComplete(ancien.url ?? "") && !pris.has(x))
+        aMarquer.set(x, "goto remplacé par une autre URL");
+    } else if (!presentes.has(u))
       erreurs.push(
-        `goto ${u} : URL absente de l'arbre (permise seulement à l'identique, requête comprise, ou en remplacement d'un goto : même chemin et mêmes paramètres de requête)`,
+        `goto ${u} : URL absente de l'arbre (permise seulement à l'identique, requête comprise, ou en remplacement d'un goto)`,
       );
   }
   // (d) retry neuf : seulement autour de wait, wait_ms, hover et conditions.
@@ -666,6 +713,13 @@ export function verifierReparation(
       if (!["wait", "hover"].includes(a.act))
         erreurs.push(`retry nouveau : ${a.act} interdit dedans (seulement wait, hover et conditions)`);
   }
+  const confirmations: string[] = [];
+  for (const [x, raison] of aMarquer) {
+    if (!aConfirm(x)) x.confirm = "once";
+    confirmations.push(
+      `${x.act}${x.act === "goto" ? ` ${x.url ?? ""}` : ` ${(x.t ?? [])[0] ?? ""}`} : ${raison}`,
+    );
+  }
   const arbre = remplacerNoeud(ancienne.root, chemin0, noeud);
   if (arbre === null) return { ok: false, erreurs: [`le chemin ${chemin0} ne peut pas être remplacé`] };
   const neuve: Procedure = { ...ancienne, root: arbre };
@@ -673,5 +727,5 @@ export function verifierReparation(
   if (!v.ok) erreurs.push(...v.erreurs);
   return erreurs.length > 0
     ? { ok: false, erreurs: erreurs.slice(0, 10) }
-    : { ok: true, procedure: neuve, chemin: chemin0 };
+    : { ok: true, procedure: neuve, chemin: chemin0, confirmations };
 }

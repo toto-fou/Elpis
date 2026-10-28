@@ -275,7 +275,7 @@ compte (`ax_procedures`, versions gardées) et rejoué **sans le modèle** par `
 d'adresse, mémoire AX, session sécurisée, expurgation) avec un budget, l'annulation de l'appel et l'arrêt sans
 rejeu sur un geste ambigu. Un échec réparable est rendu au modèle du chat avec le contexte de la page
 (`failed_at.repair`) ; il corrige le nœud par `pw_procedure(action='repair')` (règles strictes) puis reprend
-(`resume`). Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
+(`resume`) ; ses gestes nouveaux ou détournés passent par `confirm: "once"`. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
 
 ## Invariants
 

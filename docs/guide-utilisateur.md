@@ -330,7 +330,10 @@ réfléchir à chaque clic, donc beaucoup plus vite.
 - Si le site a seulement changé d'apparence (un lien renommé, un bouton déplacé), l'assistant **répare** la
   procédure lui-même : il voit les éléments de la page, corrige l'étape qui a échoué (sans pouvoir ajouter de
   connexion, retirer une demande d'accord ni aller sur un autre site), enregistre une nouvelle version puis reprend
-  là où l'exécution s'était arrêtée. Au plus deux réparations par exécution, une par étape.
+  là où l'exécution s'était arrêtée. Au plus deux réparations par exécution, une par étape. Un geste ajouté ou modifié par une réparation
+  (fermer une fenêtre imprévue, viser un autre bouton, aller sur une autre page) demande **votre accord la première fois**
+  (« première exécution d'un geste issu d'une réparation ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
+  redemande plus.
 - Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») ; il n'y a pas
   encore d'écran dédié.
 

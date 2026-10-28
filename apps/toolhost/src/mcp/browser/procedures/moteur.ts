@@ -14,6 +14,7 @@ import goldenBrowser from "@elpis/outils-mcp/goldens/browser.json" with { type: 
 
 import type { ServicesBrowser } from "../appel";
 import { nettoyerResultat, secretsRecents } from "../creds";
+import { empreinteGeste } from "./stockage";
 import { byNonNuls, pwAct } from "../elements";
 import { pwLogin } from "../login";
 
@@ -80,6 +81,10 @@ export interface GestePasse {
   expect_confirmed: boolean;
 }
 export interface ResultatRun {
+  /** Interne : gestes `confirm: "once"` exécutés, à valider si l'exécution a réussi. */
+  onceFaits?: { fp: string; path: string }[];
+  /** Vrai si l'accord demandé est celui d'un geste issu d'une réparation (`confirm: "once"`). */
+  first_run_after_repair?: boolean;
   status: StatutRun;
   steps: Etape[];
   failed_at?: EchecRun;
@@ -99,6 +104,8 @@ export interface OptionsRun {
   readonly confirmed: readonly string[];
   /** Chemin d'un nœud à reprendre : ce qui le précède est tenu pour fait (page conservée par la session). */
   readonly reprise: string | null;
+  /** Empreintes des gestes `confirm: "once"` déjà approuvés et suivis d'une exécution ok : ils ne demandent plus d'accord. */
+  readonly approuves: ReadonlySet<string>;
 }
 
 type Issue = { k: "ok" } | { k: "fail" } | { k: "halt"; statut: Exclude<StatutRun, "ok"> };
@@ -176,7 +183,9 @@ export async function pageCourante(client: ClientNavigateur, sessionId: string):
 class Execution {
   readonly steps: Etape[] = [];
   echec: EchecRun | null = null;
-  confirmation: { path: string; description: string } | null = null;
+  confirmation: { path: string; description: string; once: boolean } | null = null;
+  /** Empreintes des gestes `confirm: "once"` exécutés (approuvés) : validés si l'exécution réussit. */
+  readonly onceFaits: { fp: string; path: string }[] = [];
   tentatives = 0;
   private url = "";
   private readonly t0 = Date.now();
@@ -338,6 +347,16 @@ class Execution {
         return errPw("cancelled", "", { message: "appel annulé" });
       }
       return errPw("run_error", "", { message: messageErreur(e) });
+    }
+  }
+
+  /** Page courante sans fragment (origine, chemin, requête), pour la description d'un accord. */
+  private pageCourante(): string {
+    try {
+      const u = new URL(this.url);
+      return `${u.origin}${u.pathname}${u.search}`;
+    } catch {
+      return "(inconnue)";
     }
   }
 
@@ -532,20 +551,40 @@ class Execution {
       const r = refusCible(c);
       if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`, true);
     }
-    if (n.confirm === true) {
+    const once = n.confirm === "once";
+    const empreinteGesteN = once ? empreinteGeste(path, n) : "";
+    if (n.confirm === true || (once && !this.o.approuves.has(empreinteGesteN))) {
       if (!this.o.confirmed.includes(path)) {
-        const cible =
+        let cible =
           cibles.length > 1
             ? `l'une de [${cibles.join(" | ")}] (la première qui existe)`
             : (cibles[0] ?? n.url ?? "");
-        const quoi = [n.act, cible, v && n.act !== "fill" ? v : v ? `← ${v}` : ""].filter(Boolean).join(" ");
-        this.confirmation = { path, description: quoi.slice(0, 400) };
+        if (n.act === "goto") {
+          try {
+            cible = new URL(this.sub(n.url ?? "", "url"), this.p.origin).href;
+          } catch {
+            cible = this.sub(n.url ?? "", "url");
+          }
+        }
+        const quoi = [
+          n.act,
+          cible,
+          v && n.act !== "fill" ? v : v ? `← ${v}` : "",
+          `| page: ${this.pageCourante()}`,
+          once
+            ? "| FIRST RUN of a gesture added or changed by a repair (asked until approved and followed by a successful run)"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        this.confirmation = { path, description: quoi.slice(0, 700), once };
         return halte("needs_confirmation");
       }
       // Un accord vaut une exécution du nœud, jamais davantage dans le même appel.
       if (this.confirmesFaits.has(path)) return this.refus(path, n, t, "confirm_already_used");
       this.confirmesFaits.add(path);
     }
+    if (once) this.onceFaits.push({ fp: empreinteGesteN, path });
     if (n.act === "goto") return this.aller(n, path, t);
     if (origineDe(this.url) !== this.p.origin)
       return this.refus(
@@ -787,11 +826,16 @@ export async function executer(
       steps: x.steps,
       ...(statut === "failed" && x.echec !== null ? { failed_at: x.echec } : {}),
       ...(statut === "needs_confirmation" && x.confirmation !== null
-        ? { node_path: x.confirmation.path, description: x.confirmation.description }
+        ? {
+            node_path: x.confirmation.path,
+            description: x.confirmation.description,
+            ...(x.confirmation.once ? { first_run_after_repair: true } : {}),
+          }
         : {}),
       ...page,
       duration_ms: x.ecoule,
       attempts: x.tentatives,
+      onceFaits: x.onceFaits,
     },
     secretsRecents(o.username),
   );

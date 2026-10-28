@@ -29,7 +29,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   15 nœuds), enregistre la version suivante (`parent_version`, `repaired_path`, migration `0031_reparation_procedures`)
   et `pw_run(..., resume=repair_id)` reprend au nœud réparé sans rejouer ce qui précède. Au plus 2 réparations par
   exécution et 1 par nœud ; un échec après un geste à effet non confirmé par un `expect` n'est jamais réparable ; un geste
-  nouveau ou un `goto` nouveau demande `confirm: true`, un geste confirmé garde son `confirm` et son URL ; les échecs ambigus, `acted_unconfirmed`, `origin_changed` et `login_*` ne sont jamais réparables.
+  nouveau, un `goto` remplacé par une autre URL ou une cible changée qui déclenche l'une des gardes (anti-rejeu,
+  ressemblance, historique) reçoit `confirm: "once"` (accord demandé jusqu'à une première exécution réussie, approbation
+  stockée dans `ax_procedure_approvals`, migration `0032`), un `confirm: true` reste permanent ; les échecs ambigus, `acted_unconfirmed`, `origin_changed` et `login_*` ne sont jamais réparables.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

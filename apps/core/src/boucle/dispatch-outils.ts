@@ -390,6 +390,7 @@ export class CycleGuard {
 const TOOL_TIMEOUT_DEFAULTS: Readonly<Record<string, number>> = {
   execute_shell: 610.0,
   pw_wait: 330.0,
+  pw_run: 330.0,
   desktop_shell: 610.0,
 };
 

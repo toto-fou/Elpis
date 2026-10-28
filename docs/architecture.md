@@ -2131,6 +2131,126 @@ Python (`shared_infra/db/_schema.py`) ne recrée plus `ax_credentials`.
 
 ---
 
+## Procédures (arbres de comportement)
+
+Piloter un site coûte d'ordinaire un aller-retour du modèle par geste. Une
+**procédure** est un arbre de comportement (à la manière de l'IA des jeux vidéo)
+enregistré pour un compte, que l'outil `pw_run` rejoue **sans le modèle** : un
+interpréteur déterministe, dans l'hôte d'outils, enchaîne les gestes, les replis et
+les vérifications, puis rend la main au modèle avec le bilan (l'appel du modèle au fil de
+l'exécution en cas d'échec, puis l'apprentissage des arbres, viennent ensuite). Le moteur
+n'invente aucun chemin : il appelle les traitements de `pw_act` et de `pw_login`, donc la
+garde d'adresse, la mémoire AX, la session sécurisée et l'expurgation des secrets
+s'appliquent comme pour un appel du modèle.
+
+**Format** (schéma Zod `validerProcedure`, `packages/contracts/src/procedures.ts`).
+
+```json
+{"id": "releve-mensuel", "origin": "https://banque.exemple", "version": 1,
+ "description": "Télécharger le relevé d'un mois",
+ "params": {"compte": "creds", "mois": "string"},
+ "root": {"seq": [
+   {"login": {"creds": "{compte}", "username_target": "label=Identifiant",
+              "password_target": "label=Mot de passe",
+              "submit_target": "role=button|name=Connexion",
+              "wait_for": "role=heading|name=Accueil"}},
+   {"act": "click", "t": ["role=link|name=Relevés", "text=Historique"],
+    "expect": {"url_path": "/releves*"}},
+   {"act": "select", "t": ["label=Mois"], "v": "{mois}"},
+   {"act": "click", "t": ["role=button|name=Télécharger"], "confirm": true,
+    "expect": {"text": "Relevé prêt"}}]}}
+```
+
+| Nœud | Sens |
+|---|---|
+| `{seq: [...]}` | Séquence : s'arrête au premier échec. |
+| `{sel: [...]}` | Sélecteur (repli) : s'arrête au premier succès. |
+| `{if: C, then?, else?}` | Condition ; seule (`{if: C}`, dans un `sel` par exemple) elle réussit si `C` est vraie. Avec `then`/`else`, une branche absente vaut succès. |
+| `{act, t?, v?, url?, expect?, confirm?, timeout_ms?}` | Geste : `goto`, `click`, `fill`, `select`, `press`, `check`, `uncheck`, `hover`, `wait`. `t` : cibles essayées dans l'ordre ; `v` : valeur ; `url` : chemin relatif ou URL de même origine (`goto`) ; `expect` : postcondition ; `confirm` : arrêt avant le geste. |
+| `{login: {creds, password_target?, username_target?, submit_target?, wait_for?}}` | Délègue à `pw_login`. `creds` vaut exactement `{param}` d'un paramètre `creds`. |
+| `{retry: N, max: 1..3}` | Rejoue le sous-arbre `N` (au plus `max` essais au total). |
+| `{wait_ms: n}` | Pause, 10 000 ms au plus. |
+
+Condition : `{url_path?, visible?, text?, not?}` (toutes les clés données doivent tenir) ;
+`url_path` compare le chemin de la page (égalité, `*` = suite quelconque) sur l'origine de la
+procédure ; `visible` est une cible ; `text` un extrait du texte de la page ; `not` une condition.
+
+Règles vérifiées **à l'enregistrement et à chaque exécution** :
+
+- cibles **sémantiques** seulement (`role`, `name`, `text`, `label`, `placeholder`, `test_id`, `alt`,
+  `title`, `nth`) ; `css=`, `xpath=` et `ref=` sont refusés (cohérent avec la session sécurisée) ;
+- `origin` est une origine exacte `http(s)` sans chemin ; `goto`/`url` hors de cette origine (ou `//hôte`)
+  sont refusés ; après substitution l'adresse est revérifiée ;
+- paramètres `string`, `number` ou `creds`, tous déclarés ; `{param}` n'est admis que dans `t`, `v`, `url`
+  et les conditions ; un paramètre `creds` n'est utilisable que dans `login.creds`, et aucun jeton
+  `⟦creds:…⟧` ni mot de passe ne peut figurer dans l'arbre ;
+- `fill` et `select` exigent `t` et `v`, `press` exige `v`, `goto` exige `url`, `wait` exige `t` ;
+- limites : profondeur 8, 80 nœuds, 30 enfants par `seq`/`sel`, 5 cibles par geste, chaînes de 300
+  caractères (cibles 200, adresses 500), 12 paramètres, 64 Ko ; l'entrée JSON brute est mesurée sans
+  récursion avant Zod (une imbrication démesurée est refusée sans épuiser la pile).
+
+**Stockage.** `ax_procedures` (clé `(owner, id, version)`, `origin`, `description`, `tree_json`,
+`created_at`, `updated_at`) et `ax_procedure_runs` (`owner`, `procedure_id`, `version`, `session_id`,
+début, fin, `outcome`, `failed_path`, `duration_ms`), créées par `0029_procedures_ax` dans la base de
+l'hôte d'outils (celle de la mémoire AX). `owner` est le nom du compte, comme pour les anciens
+identifiants AX ; chaque `save` crée la **version suivante** (50 gardées par procédure, 200 procédures
+par compte) ; l'arbre est écrit en `JSON.stringify` (seul le TypeScript le relit). Le journal des
+exécutions ne contient ni valeur de paramètre ni cible : issue, nœud en échec, durée (200 exécutions
+gardées par procédure). La suppression d'un compte efface procédures et exécutions
+(`retirerProceduresDuCompte`, `packages/db` : dans la transaction du core, et par
+`/api/internal/account/purge` sur un hôte d'outils à base séparée).
+
+**Moteur** (`apps/toolhost/src/mcp/browser/procedures/moteur.ts`).
+
+- Un `act` essaie ses cibles dans l'ordre. Une cible qui n'a rien fait (`element_not_found`,
+  `ambiguous_target`, `url_blocked`…) laisse la place à la suivante ; les cibles autres que la dernière
+  ont 1,5 s pour se résoudre. Un geste réussi est suivi de `expect` (5 s par défaut, `timeout_ms`), sondé
+  toutes les 150 ms ; sans `expect`, le succès du geste suffit.
+- **Aucun rejeu d'un geste qui a peut-être agi** : un `click` ou un `press` en échec pour une autre raison
+  qu'une cible absente (délai, service coupé, erreur du navigateur) arrête toute l'exécution
+  (`failed_at.reason` commence par `ambiguous`), sans essayer la cible suivante ni le `retry` englobant. Les
+  gestes idempotents (`goto`, `fill`, `select`, `check`, `uncheck`, `hover`, `wait`) peuvent passer à la cible
+  suivante. `retry` rejoue le sous-arbre tel quel : à réserver aux sous-arbres sans effet de bord.
+- `login` délègue à `pw_login` (session sécurisée, jeton à un usage) ; tout échec arrête l'exécution (un
+  usage a pu être consommé). Si `wait_for` est donné, le moteur vérifie qu'il est visible après la connexion
+  (une navigation vers une page d'échec compte comme une réussite pour `pw_login`).
+- Les gestes agissent sur l'origine de la procédure : sur une autre page ils échouent (`origin_mismatch`).
+- `confirm: true` : l'exécution s'arrête **avant** le geste avec `status: "needs_confirmation"`, `node_path`
+  et `description`. Après l'accord de l'utilisateur, `pw_run(…, confirmed=[node_path])` **reprend** à ce nœud
+  sur la même session : ce qui le précède sur son chemin est tenu pour fait (la page est conservée) et n'est
+  pas rejoué. La reprise exige l'attente enregistrée dans `ax_procedure_runs` pour cette session (15 min) ;
+  sans elle, `confirmed` autorise seulement le nœud dans une exécution complète.
+- Budget : 60 tentatives de geste (cibles essayées comprises) et 200 s ; au-delà, `failed` avec
+  `budget_exceeded`. L'annulation de l'appel (`AbortSignal`) est prise en compte entre les gestes et
+  interrompt l'attente d'un geste en cours (`status: "cancelled"` ; le geste déjà parti peut aller à son terme
+  dans le service).
+- Résultat (jamais d'exception) : `{ok, status: ok|failed|needs_confirmation|cancelled, procedure, version,
+  steps: [{path, act, target_used, ok, ms, reason?}], failed_at?: {path, reason, tried_targets}, node_path?,
+  description?, url, title, duration_ms, attempts}`. `path` numérote les nœuds (`0.2.then`, `0.1.retry`) ; `url`
+  et `title` sont lus en fin d'exécution et expurgés comme tout résultat `pw_*`.
+- Les paramètres sont validés **avant le premier geste** (tous présents, du bon type, pas de paramètre en trop ;
+  une référence `⟦creds:…@origine⟧` doit viser l'origine de la procédure) ; leurs valeurs ne sont jamais
+  journalisées.
+
+**Outils.** `pw_run(session_id, procedure, params?, version?, confirmed?)` (délai de l'appel 330 s) et
+`pw_procedure(action='list'|'get'|'save'|'delete', …)` (famille `browser`, golden
+`packages/outils-mcp/goldens/browser.json`, descriptions statiques en anglais). Le moteur appelle `pw_act` avec une
+clé interne `_timeout_ms` que le schéma MCP refuse au modèle.
+
+**`pw_chain` comme cas simple.** `chaineVersSeq(etapes, origin, {parametres})`
+(`procedures/chaine.ts`) convertit des étapes `pw_chain` réussies (même forme que l'outil) en `{seq: [act…]}` :
+`type` devient `fill`, une adresse de l'origine devient un chemin relatif, `parametres` (`{nom: valeur}`)
+remplace les valeurs par `{nom}` ; css/xpath/`selector` brut, gestes inconnus et autres origines sont rapportés
+dans `erreurs`. Aucune étape n'en fait encore un outil : elle sert à l'apprentissage.
+
+Limites : pas d'interface (les procédures se gèrent par `pw_procedure`) ; une procédure ne survit pas
+à un changement de libellé que ses cibles de repli ne couvrent pas (l'appel du modèle en cas d'échec et la
+réécriture de l'arbre viennent ensuite) ; `text` d'une condition lit le texte du document principal ; les
+conditions `visible` et `text` sont testées dans la session telle qu'elle est (modale imprévue comprise : un
+clic masqué par une modale échoue après le délai du geste, de façon ambiguë, et arrête l'exécution).
+
+---
+
 ## Routines et webhooks (API)
 
 | Endpoint | Description |
@@ -2642,7 +2762,7 @@ d'outil est du contexte **permanent** pour le reste du run.
 | `fs` (hôte d'outils) | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
 | `shell` (hôte d'outils) | `shell` | `execute_shell` |
 | `git` (hôte d'outils) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
-| `browser` (hôte d'outils) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
+| `browser` (hôte d'outils) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_dialog`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_login`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory`, `pw_run`, `pw_procedure` |
 | `desktop` (hôte d'outils) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
 | `chart` (main) | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
 | `office` (worker Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |

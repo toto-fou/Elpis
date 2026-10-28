@@ -10,7 +10,7 @@ import {
 } from "@elpis/bac";
 import { HttpError } from "@elpis/commun";
 import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
-import { retirerIdentifiantsAxDuCompte } from "@elpis/db";
+import { retirerIdentifiantsAxDuCompte, retirerProceduresDuCompte } from "@elpis/db";
 import { auditEvent, usernameFor } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -44,15 +44,16 @@ async function supprimerBac(requete: FastifyRequest, reponse: FastifyReply): Pro
   }
 }
 
-/** Anciens identifiants AX non repris du compte de l'enveloppe, retirés de la base de l'hôte (distincte de celle du core quand `db_path` est posé). */
+/** Anciens identifiants AX non repris et procédures du compte de l'enveloppe, retirés de la base de l'hôte (distincte de celle du core quand `db_path` est posé). */
 async function purgerCompte(requete: FastifyRequest, reponse: FastifyReply): Promise<FastifyReply> {
   const uid = uidDe(requete);
   const username = await usernameFor(uid);
   const base = baseHote();
   if (base === null) throw new HttpError(503, "base de l'hôte indisponible");
   const credentials = await retirerIdentifiantsAxDuCompte(base, username);
-  auditEvent({ userId: uid, username, action: "user.toolhost.purge", details: { credentials } });
-  return reponseJson(reponse, { ok: true, credentials });
+  const procedures = await base.ecriture((x) => retirerProceduresDuCompte(x, username));
+  auditEvent({ userId: uid, username, action: "user.toolhost.purge", details: { credentials, procedures } });
+  return reponseJson(reponse, { ok: true, credentials, procedures });
 }
 
 export function routesInternes(): DefinitionRoute[] {

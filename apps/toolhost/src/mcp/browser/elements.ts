@@ -235,6 +235,8 @@ export function pwAct(s: ServicesBrowser) {
     if (a["option_value"]) corps["option_value"] = a["option_value"];
     if (typeof charge["nth"] === "number") corps["nth"] = charge["nth"];
     if (a["strict"] === true) corps["strict"] = true;
+    // Délai du geste imposé par le moteur de procédures (clé interne : le schéma MCP la refuse au modèle).
+    if (typeof a["_timeout_ms"] === "number") corps["timeout"] = a["_timeout_ms"];
     if (geste === "upload") {
       const f = await fichiersUpload(a["files"], o.appel.username);
       if ("refus" in f) return f.refus;

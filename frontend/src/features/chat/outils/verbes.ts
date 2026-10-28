@@ -21,6 +21,7 @@ const VERBES: Readonly<Record<string, string>> = {
   pw_find: "Cherche",
   pw_expect: "Vérifie",
   pw_login: "Connecte",
+  pw_run: "Rejoue",
   pw_wait: "Attend",
   pw_observe: "Observe",
   pw_visual: "Capture",

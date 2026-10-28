@@ -3,7 +3,7 @@
 import { nomCanonique, supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
 import { pyJoin } from "@elpis/commun";
 import { config, safeSandboxName } from "@elpis/config";
-import { estTableAbsente, retirerIdentifiantsAxDuCompte } from "@elpis/db";
+import { estTableAbsente, retirerIdentifiantsAxDuCompte, retirerProceduresDuCompte } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { supprimerEntreeSous } from "@elpis/securite";
 
@@ -63,7 +63,7 @@ async function purgerDossiersDuNom(nom: string): Promise<void> {
   }
 }
 
-/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et coffre d'identifiants dans une transaction, puis les fichiers. */
+/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et coffre d'identifiants et procédures du navigateur dans une transaction, puis les fichiers. */
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
   let rag: CollectionPartieRag[] = [];
   let nom = "";
@@ -83,6 +83,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     });
     await toleree(base, (tx) => purgerCoffreCompte(tx, uid));
     if (nom) await toleree(base, (tx) => retirerIdentifiantsAxDuCompte(tx, nom).then(() => undefined));
+    if (nom) await toleree(base, (tx) => retirerProceduresDuCompte(tx, nom).then(() => undefined));
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
   if (!supprime) return false;

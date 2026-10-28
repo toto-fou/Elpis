@@ -12,6 +12,7 @@ import { toolPolicy } from "./categories";
 const DEFAUTS: Readonly<Record<string, number>> = {
   execute_shell: 610,
   pw_wait: 330,
+  pw_run: 330,
   desktop_shell: 610,
 };
 

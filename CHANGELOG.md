@@ -6,6 +6,19 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ## Non publié
 
+### Ajouté
+
+- **Procédures du navigateur (arbres de comportement).** Une procédure est un arbre
+  JSON versionné (`seq`, `sel`, `if`, `act`, `login`, `retry`, `wait_ms`) que le nouvel outil
+  `pw_run` rejoue **sans appeler le modèle** entre les gestes : cibles sémantiques essayées dans
+  l'ordre, postconditions `expect`, confirmation (`confirm`, reprise par `confirmed`), connexion
+  par `pw_login`, budget (60 gestes, 200 s), annulation, arrêt sans rejeu d'un clic ou d'une
+  touche dont l'issue est incertaine. `pw_procedure` liste, lit, enregistre (validation Zod :
+  pas de `css=`/`xpath=`, `goto` limité à l'origine, paramètre `creds` réservé à `login`,
+  profondeur et taille bornées) et supprime. Tables `ax_procedures` et `ax_procedure_runs`
+  (migration `0029_procedures_ax`), purgées avec le compte. `chaineVersSeq` convertit des
+  étapes `pw_chain` réussies en procédure (base de l'apprentissage, étape suivante).
+
 ### Sécurité
 
 - **Coffre d'identifiants et commande `/creds`.** Les mots de passe de sites ne

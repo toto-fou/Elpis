@@ -266,6 +266,15 @@ TLS strict, routes en liste blanche, cibles sémantiques), si le frame de l'él�
 l'origine du jeton ; les documents qui ont reçu le secret sont remplacés aussitôt après. Détail dans
 [docs/architecture.md](docs/architecture.md) (« Coffre d'identifiants »).
 
+## Procédures du navigateur
+
+Une **procédure** est un arbre de comportement (`seq`, `sel`, `if`, `act`, `login`, `retry`), validé par
+`@elpis/contracts` (`validerProcedure` : cibles sémantiques, origine exacte, limites dures), enregistré par
+compte (`ax_procedures`, versions gardées) et rejoué **sans le modèle** par `pw_run` : l'interpréteur de
+`apps/toolhost/src/mcp/browser/procedures/` appelle les traitements de `pw_act` et `pw_login` (garde
+d'adresse, mémoire AX, session sécurisée, expurgation) avec un budget, l'annulation de l'appel et l'arrêt sans
+rejeu sur un geste ambigu. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
+
 ## Invariants
 
 - **Séparation des process.** Les routes d'administration sont **montées**

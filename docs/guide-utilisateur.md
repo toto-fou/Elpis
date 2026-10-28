@@ -309,6 +309,25 @@ apparaître comme cases à cocher :
 - l'outil **`task`** de délégation, si vous avez activé les
   [sous-agents](#les-sous-agents).
 
+### Procédures du navigateur
+
+Quand une tâche sur un site revient souvent (télécharger un relevé, saisir une
+facture…), l'assistant peut en garder la **procédure** : une suite de gestes avec des
+repères de repli (« cliquer sur *Relevés*, sinon sur *Historique* ») et des vérifications
+(« la page *Relevés* s'est ouverte »). Il la rejoue ensuite d'un seul appel (`pw_run`), sans
+réfléchir à chaque clic, donc beaucoup plus vite.
+
+- Une procédure appartient à votre compte et à **un seul site** ; elle ne peut ni aller
+  sur un autre site ni contenir de mot de passe : la connexion passe par votre
+  [coffre](#identifiants-de-sites-creds) (`/creds`) comme d'habitude.
+- Une étape sensible peut demander votre **accord** avant d'agir (« Télécharger le relevé de
+  mars ? ») ; l'exécution reprend alors là où elle s'était arrêtée.
+- Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête
+  proprement, dit où et pourquoi, et l'assistant reprend la main. Un clic dont on ne sait pas s'il a
+  eu lieu n'est jamais rejoué.
+- Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») ; il n'y a pas
+  encore d'écran dédié.
+
 ### Serveurs MCP externes
 
 En plus des outils intégrés, on peut brancher des **serveurs MCP tiers** —

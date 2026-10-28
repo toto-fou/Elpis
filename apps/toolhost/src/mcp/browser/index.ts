@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/index.ts — famille `browser` servie par l'hôte : 15 outils pw_* de @elpis/navigateur sur les définitions du golden Python, propriétaire imposé, mémoire AX dans la base de l'hôte. */
+/** apps/toolhost/src/mcp/browser/index.ts — famille `browser` servie par l'hôte : 17 outils pw_* (dont `pw_run` et `pw_procedure`, procédures rejouées sans LLM) sur les définitions du golden, propriétaire imposé, mémoire AX et procédures dans la base de l'hôte. */
 import type { Dict } from "@elpis/commun";
 import { getUsername, outilDuGolden, signatureDuGolden } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
@@ -15,6 +15,7 @@ import { pwLogin } from "./login";
 import { pwA11y, pwMock, pwObserve, pwRecorder, pwVisual } from "./essais";
 import { pwMemory } from "./memoire";
 import { pwDialog, pwExpect, pwPage, pwWait } from "./page";
+import { pwProcedure, pwRun } from "./procedures/outils";
 import { pwSession } from "./session";
 
 export type { ServicesBrowser } from "./appel";
@@ -23,7 +24,7 @@ const GOLDEN = goldenBrowser as unknown as Golden;
 
 type Traitement = (args: Dict, ctx: ContexteAppel, brut: Dict) => Promise<unknown>;
 
-/** Les 15 outils dans l'ordre d'enregistrement Python (`firefox_tools.register`). */
+/** Les 15 outils dans l'ordre d'enregistrement Python (`firefox_tools.register`), puis `pw_run` et `pw_procedure`. */
 export function outilsBrowser(s: ServicesBrowser): DefinitionOutil[] {
   const traitements: [string, (s: ServicesBrowser) => Traitement][] = [
     ["pw_session", pwSession],
@@ -41,6 +42,8 @@ export function outilsBrowser(s: ServicesBrowser): DefinitionOutil[] {
     ["pw_a11y", pwA11y],
     ["pw_visual", pwVisual],
     ["pw_memory", pwMemory],
+    ["pw_run", pwRun],
+    ["pw_procedure", pwProcedure],
   ];
   return traitements.map(([nom, fabrique]) => {
     const traiter = fabrique(s);

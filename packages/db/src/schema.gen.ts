@@ -93,6 +93,37 @@ export const TABLES: readonly Table[] = [
     indexes: [{"name": "idx_coffre_jetons_chat", "cols": ["user_id", "chat_id"]}, {"name": "idx_coffre_jetons_exp", "cols": ["expires_at"]}],
   },
   {
+    name: "ax_procedures",
+    cols: [
+      { name: "owner", type: "text", null: false },
+      { name: "id", type: "text", null: false },
+      { name: "version", type: "int", null: false },
+      { name: "origin", type: "text", null: false },
+      { name: "description", type: "text", null: false, default: "" },
+      { name: "tree_json", type: "text", null: false },
+      { name: "created_at", type: "real", null: false },
+      { name: "updated_at", type: "real", null: false },
+    ],
+    pk: ["owner", "id", "version"],
+    indexes: [{"name": "idx_ax_procedures_origin", "cols": ["owner", "origin"]}],
+  },
+  {
+    name: "ax_procedure_runs",
+    cols: [
+      { name: "id", type: "id" },
+      { name: "owner", type: "text", null: false },
+      { name: "procedure_id", type: "text", null: false },
+      { name: "version", type: "int", null: false },
+      { name: "session_id", type: "text" },
+      { name: "started_at", type: "real", null: false },
+      { name: "ended_at", type: "real", null: false },
+      { name: "outcome", type: "text", null: false },
+      { name: "failed_path", type: "text" },
+      { name: "duration_ms", type: "int", null: false, default: 0 },
+    ],
+    indexes: [{"name": "idx_ax_procedure_runs_proc", "cols": ["owner", "procedure_id", "started_at DESC"]}],
+  },
+  {
     name: "users",
     cols: [
       { name: "id", type: "id" },

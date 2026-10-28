@@ -32,6 +32,7 @@ import * as ax from "./ax";
 import * as cli from "./cli";
 import * as code from "./code";
 import * as coffre from "./coffre";
+import * as procedures from "./procedures";
 import * as outils from "./outils";
 import * as webhooks from "./webhooks";
 import { schemaOk } from "./commun";
@@ -152,6 +153,14 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "/api/rag/collections/:collection_id/documents/:doc_id/localiser",
     rag.schemaReponseLocalisationRag,
     rag.schemaCorpsLocalisationRag,
+  ),
+  c("procedures", "GET", "/api/procedures/approbations", procedures.schemaReponseApprobations),
+  c(
+    "procedures",
+    "POST",
+    "/api/procedures/approbations/:id/decision",
+    procedures.schemaReponseDecisionApprobation,
+    procedures.schemaCorpsDecisionApprobation,
   ),
   c("coffre", "GET", "/api/coffre", coffre.schemaReponseCoffre),
   c("coffre", "POST", "/api/coffre", coffre.schemaReponseEntreeCoffre, coffre.schemaCorpsCreationCoffre),

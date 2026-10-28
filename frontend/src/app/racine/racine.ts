@@ -30,6 +30,7 @@ import { creerClavier } from "./clavier";
 import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
+import { creerApprobations } from "./approbations";
 import { creerCreds } from "./creds";
 import { creerOpencode } from "./opencode";
 import { EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
@@ -823,6 +824,15 @@ export function creerRacine(options: OptionsRacine = {}) {
     showToast: toasts.showToast,
   });
 
+  const approbations = creerApprobations({
+    http,
+    currentChatId,
+    isStreaming,
+    inputMessage,
+    envoyer: async () => void (await m.chat?.sendMessage()),
+    showToast: toasts.showToast,
+  });
+
   // ── Menu contextuel : actions (chats, fichiers, dossiers, fond de l'explorateur) ──
   function handleContextAction(action: string): void {
     const item: ElementMenu | null = menu.contextMenu.value.item;
@@ -1149,6 +1159,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     showInfoModal,
     ...opencode,
     creds: proxyRefs(creds),
+    approbations: proxyRefs(approbations),
     appInfo,
     logoApp,
     imgZoom,

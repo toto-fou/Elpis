@@ -11,7 +11,7 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Procédures du navigateur (arbres de comportement).** Une procédure est un arbre
   JSON versionné (`seq`, `sel`, `if`, `act`, `login`, `retry`, `wait_ms`) que le nouvel outil
   `pw_run` rejoue **sans appeler le modèle** entre les gestes : cibles sémantiques essayées dans
-  l'ordre, postconditions `expect`, confirmation (`confirm`, reprise par `confirmed`), connexion
+  l'ordre, postconditions `expect`, confirmation (`confirm`, reprise par `approval` après le bouton du chat), connexion
   par `pw_login`, budget (60 gestes, 200 s), annulation, arrêt sans rejeu d'un clic ou d'une
   touche dont l'issue est incertaine. `pw_procedure` liste, lit, enregistre (validation Zod :
   pas de `css=`/`xpath=`, `goto` limité à l'origine, paramètre `creds` réservé à `login`,
@@ -19,7 +19,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   (migration `0029_procedures_ax`), purgées avec le compte. `chaineVersSeq` convertit des
   étapes `pw_chain` réussies en procédure (base de l'apprentissage, étape suivante).
   Un clic ou une touche qui a agi n'est jamais rejoué (`retry`, `click`, `press`, `confirm` et `login`
-  incompatibles), `confirmed` ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
+  incompatibles), l'accord ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
   l'origine est vérifiée par le service juste avant chaque geste, `wait_for` est obligatoire dans `login`.
 - **Réparation des procédures par le modèle.** Un échec sans effet constaté avant l'action (cible introuvable ou
   ambiguë, élément disparu, option absente, lecture fausse) rend dans `failed_at.repair` le nœud, son intention (nouveau
@@ -30,8 +30,22 @@ selon [SemVer](https://semver.org/lang/fr/).
   et `pw_run(..., resume=repair_id)` reprend au nœud réparé sans rejouer ce qui précède. Au plus 2 réparations par
   exécution et 1 par nœud ; un échec après un geste à effet non confirmé par un `expect` n'est jamais réparable ; un geste
   nouveau, un `goto` remplacé par une autre URL ou une cible changée qui déclenche l'une des gardes (anti-rejeu,
-  ressemblance, historique) reçoit `confirm: "once"` (accord demandé jusqu'à une première exécution réussie, approbation
+  élargissement de la cible, historique) reçoit `confirm: "once"` (accord demandé jusqu'à une première exécution réussie, approbation
   stockée dans `ax_procedure_approvals`, migration `0032`), un `confirm: true` reste permanent ; les échecs ambigus, `acted_unconfirmed`, `origin_changed` et `login_*` ne sont jamais réparables.
+- **Accord humain des gestes sensibles de procédure.** Un geste sous `confirm` ne reprend plus sur un
+  `confirmed=[chemin]` fourni par le modèle (retiré, `confirmed_removed`) : `pw_run` crée côté serveur une demande
+  d'accord (table `ax_procedure_demandes`, migration `0033`, 15 min, usage unique, liée au compte, à la conversation, à la
+  session, à la procédure, à la version, au nœud, à la page et à l'**empreinte du geste après substitution des
+  paramètres** : l'accord pour `to=alice` ne couvre pas `to=mallory`). Le chat affiche une carte « Confirmer » (geste,
+  cibles, adresse visée, page, premier passage d'un geste réparé) avec Approuver / Refuser ; la décision passe par une route
+  de session du compte (`/api/procedures/approbations/:id/decision`), jamais par un outil, puis un message automatique
+  « Approuvé : … » relance le modèle, qui rappelle `pw_run(..., approval=<id>)`. L'hôte consomme l'accord par le canal
+  interne signé. Les gestes `confirm: "once"` ne sont validés qu'après un accord humain consommé **et** un geste réussi.
+  `pw_procedure(save)` ne peut ni retirer ni affaiblir un `confirm` de la dernière version, `delete` refuse une procédure
+  qui en porte. Routines et sous-agents s'arrêtent à `needs_confirmation` (demande visible, personne d'autre ne peut approuver).
+  La garde de similarité devient un élargissement : un mot de plus de 3 lettres ou un nombre absent de l'ancienne cible
+  (« Payer » → « Payer express ») demande `confirm: "once"`. Le moteur résout ses cibles par nom accessible **exact**
+  (« Payer » ne clique plus « Payer express ») ; le `pw_act` du modèle ne change pas.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

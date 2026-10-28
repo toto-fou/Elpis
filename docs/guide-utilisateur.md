@@ -320,19 +320,24 @@ réfléchir à chaque clic, donc beaucoup plus vite.
 - Une procédure appartient à votre compte et à **un seul site** ; elle ne peut ni aller
   sur un autre site ni contenir de mot de passe : la connexion passe par votre
   [coffre](#identifiants-de-sites-creds) (`/creds`) comme d'habitude.
-- Une étape sensible peut demander votre **accord** avant d'agir (« Télécharger le relevé de
-  mars ? ») ; l'exécution reprend alors là où elle s'était arrêtée. Un accord vaut **une** exécution de
-  l'étape, valable 15 minutes sur la même session, pour la même version de la procédure et tant que la page n'a pas changé : toute
-  autre exécution, ou une procédure modifiée entre-temps, redemande l'accord.
+- Les gestes sensibles demandent votre accord **par un bouton**. Une étape sensible (« Télécharger le relevé de
+  mars ? », un paiement, un envoi) s'arrête avant d'agir et le chat affiche une carte **Confirmer** : le geste,
+  sa cible (ou l'adresse visée), la valeur saisie, la page actuelle. **Approuver** autorise ce geste, tel qu'affiché, une seule fois ;
+  **Refuser** l'annule. Seul ce bouton compte : l'assistant ne peut pas approuver à votre place, ni vous remplacer
+  par un « oui » écrit. L'accord vaut 15 minutes, pour cette conversation, cette session, cette version de la
+  procédure et les valeurs affichées (un accord pour *alice* ne vaut pas pour *mallory*) ; toute autre exécution, une
+  procédure modifiée ou une page différente redemande l'accord. Après votre clic, un message automatique (« Approuvé : … »
+  ou « Refusé : … ») relance l'assistant. Dans une routine ou un sous-agent, l'exécution s'arrête à la demande : elle
+  reste affichée dans la conversation, vous seul pouvez l'approuver.
 - Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête
   proprement, dit où et pourquoi, et l'assistant reprend la main. Un clic dont on ne sait pas s'il a
   eu lieu, ou qui a eu lieu sans l'effet attendu, n'est jamais rejoué ni remplacé par un autre.
 - Si le site a seulement changé d'apparence (un lien renommé, un bouton déplacé), l'assistant **répare** la
   procédure lui-même : il voit les éléments de la page, corrige l'étape qui a échoué (sans pouvoir ajouter de
-  connexion, retirer une demande d'accord ni aller sur un autre site), enregistre une nouvelle version puis reprend
+  connexion, retirer une demande d'accord ni aller sur un autre site ; un enregistrement ne peut pas non plus lever un accord déjà exigé), enregistre une nouvelle version puis reprend
   là où l'exécution s'était arrêtée. Au plus deux réparations par exécution, une par étape. Un geste ajouté ou modifié par une réparation
   (fermer une fenêtre imprévue, viser un autre bouton, aller sur une autre page) demande **votre accord la première fois**
-  (« première exécution d'un geste issu d'une réparation ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
+  (carte marquée « Première exécution d'un geste réparé ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
   redemande plus.
 - Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») ; il n'y a pas
   encore d'écran dédié.

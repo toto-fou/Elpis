@@ -82,6 +82,7 @@ import { creerFamilleInterneToolhost, jetonServiceDuManifeste } from "./familles
 import { creerFamilleJobs } from "./familles/jobs";
 import { reprendreIdentifiantsAx } from "./coffre/heritage";
 import { creerFamilleCoffre } from "./familles/coffre";
+import { creerFamilleAccordsProcedures } from "./familles/procedures-accords";
 import { creerFamilleJetons } from "./familles/jetons";
 import { creerFamilleMemoire } from "./familles/memoire";
 import { creerFamilleOAuth } from "./familles/oauth";
@@ -460,6 +461,7 @@ export async function composer(
       creerFamilleComptes(comptes),
       creerFamilleJetons(comptes),
       creerFamilleCoffre({ base }),
+      creerFamilleAccordsProcedures({ base }),
       creerFamilleOAuth({ auth, oauth }),
       pont.famille,
       creerFamilleOpenapi({ jetons: auth, journal: journal.child({ domaine: "openapi" }) }),

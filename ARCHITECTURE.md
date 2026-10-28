@@ -275,7 +275,9 @@ compte (`ax_procedures`, versions gardées) et rejoué **sans le modèle** par `
 d'adresse, mémoire AX, session sécurisée, expurgation) avec un budget, l'annulation de l'appel et l'arrêt sans
 rejeu sur un geste ambigu. Un échec réparable est rendu au modèle du chat avec le contexte de la page
 (`failed_at.repair`) ; il corrige le nœud par `pw_procedure(action='repair')` (règles strictes) puis reprend
-(`resume`) ; ses gestes nouveaux ou détournés passent par `confirm: "once"`. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
+(`resume`) ; ses gestes nouveaux ou détournés passent par `confirm: "once"`. Un geste sous `confirm` ne reprend que sur un **accord humain**
+vérifié côté serveur (`ax_procedure_demandes`, bouton « Confirmer » du chat, route de session ; `pw_run(approval=…)`, empreinte du geste
+substitué, usage unique) : le modèle ne peut pas approuver. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
 
 ## Invariants
 

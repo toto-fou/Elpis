@@ -7,25 +7,31 @@ import type { Dict } from "@elpis/commun";
 import {
   aConfirm,
   aControle,
+  confirmesAffaiblis,
   mesurer,
   parcourir,
   validerProcedure,
   verifierReparation,
 } from "@elpis/contracts";
-import type { Procedure } from "@elpis/contracts";
+import type { Act, Procedure } from "@elpis/contracts";
 import { messageErreur } from "@elpis/mcp";
 import { errPw } from "@elpis/navigateur";
-import { getUsername, Heartbeat } from "@elpis/outils-mcp";
+import { getAccessToken, getUsername, Heartbeat, readMetaField } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { ouvrirAppel } from "../appel";
 import type { ServicesBrowser } from "../appel";
 import { jetonSeul, secretsRecents } from "../creds";
-import { executer, pageCourante } from "./moteur";
+import { lireSousAgent } from "@elpis/securite";
+
+import type { CompteSigne } from "../../../rappel";
+import { empreinteSubstituee, executer, pageCourante } from "./moteur";
 import { contexteReparation } from "./reparation";
 import {
   annulerAttentes,
   approbations,
+  arbresEnregistres,
+  rendreConfirmation,
   dejaReussi,
   oublierApprobations,
   enregistrerApprobations,
@@ -100,6 +106,30 @@ export function validerParametres(
   return erreurs.length > 0 ? { ok: false, erreurs } : { ok: true, valeurs };
 }
 
+/** Compte signé pour les accords humains : client de confiance (l'application), conversation connue ; sinon la raison du refus. */
+async function compteAccord(
+  s: ServicesBrowser,
+  ctx: ContexteAppel,
+  username: string,
+): Promise<{ compte: CompteSigne } | { raison: string }> {
+  if (s.rappel === null || !s.rappel.actif)
+    return { raison: "the approval service is not reachable from the tools host" };
+  if (getAccessToken()?.claims["trusted_meta"] !== true)
+    return { raison: "approvals are only available from the user's own conversation" };
+  const chatId = readMetaField(ctx, "chat_id") ?? "";
+  if (chatId === "") return { raison: "no conversation to show the approval in" };
+  const identite = await s.rappel.identityForUsername(username);
+  if (identite === null) return { raison: "account not resolvable for approvals" };
+  return {
+    compte: {
+      user_id: identite.user_id,
+      username,
+      chat_id: chatId,
+      subagent: lireSousAgent(ctx.meta?.["subagent"]),
+    },
+  };
+}
+
 /** `pw_run` : valide la procédure et les paramètres, puis la rejoue (budget, annulation, arrêt sur geste ambigu) et journalise l'issue. */
 export function pwRun(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
@@ -141,16 +171,21 @@ export function pwRun(s: ServicesBrowser) {
             .join(", ")}}`,
         });
       const sessionId = String(a["session_id"]);
-      const demandes = (Array.isArray(a["confirmed"]) ? a["confirmed"] : []).filter(
-        (x): x is string => typeof x === "string",
-      );
+      if (a["confirmed"] !== undefined)
+        return errPw("confirmed_removed", "", {
+          message:
+            "confirmed= no longer exists: a sensitive gesture needs the USER's approval, given by a button in the chat that you cannot press",
+          fix: "run the procedure: when it stops with needs_confirmation, tell the user to press « Confirmer » in the chat, wait for their message « Approuvé : … », then call pw_run(..., approval='<approval id>')",
+        });
+      const approval = String(a["approval"] ?? "").trim();
       const ref = { owner: username, procedureId: v.procedure.id, version, sessionId };
       const resume = String(a["resume"] ?? "").trim();
-      if (resume !== "" && demandes.length > 0)
-        return errPw("resume_and_confirmed", "", {
-          message: "pass either resume= (after a repair) or confirmed= (after a confirmation), not both",
+      if (resume !== "" && approval !== "")
+        return errPw("resume_and_approval", "", {
+          message: "pass either resume= (after a repair) or approval= (after the user's approval), not both",
         });
       let confirmes: string[] = [];
+      let approbation: { path: string; fp: string } | null = null;
       let chain: string = randomUUID();
       let reprise: string | null = null;
       if (resume !== "") {
@@ -170,29 +205,54 @@ export function pwRun(s: ServicesBrowser) {
         reprise = rr.chemin;
         chain = rr.chain ?? chain;
       }
-      if (demandes.length > 0) {
-        // Un accord ne vaut que par l'attente enregistrée pour CE nœud, CETTE version et CET arbre ; sinon aucun geste.
-        const attente = await attenteEnCours(ax, ref);
-        const noeud =
-          attente === null ? undefined : [...parcourir(v.procedure.root)].find(([, c]) => c === attente)?.[0];
-        const confirmable =
-          noeud !== undefined && "act" in noeud && aConfirm(noeud) && !attente?.includes(".retry");
-        const rc =
-          attente !== null && demandes.includes(attente) && confirmable
-            ? await reprendre(ax, {
-                ...ref,
-                texte: brut.texte,
-                chemin: attente,
-                page: await pageCourante(client, sessionId),
-              })
-            : null;
-        if (attente === null || rc === null)
-          return errPw("confirmation_expired", "", {
+      if (approval !== "") {
+        // L'accord vaut pour l'attente enregistrée de CE nœud, CETTE version, CET arbre, CETTE page ET CES valeurs substituées, vérifié côté serveur.
+        const expire = (): unknown =>
+          errPw("confirmation_expired", "", {
             message:
               "no pending confirmation matches (expired, other session, other version, the tree changed, or the page is not the one where the run stopped): nothing was done by this call. The steps BEFORE the confirm node already ran in the earlier call",
             fix: "inspect the page first (pw_page); do not blindly replay the procedure from the start, its earlier steps already took effect. If the user still agrees, rerun it only when repeating those steps is safe",
           });
+        const attente = await attenteEnCours(ax, ref);
+        const noeud =
+          attente === null ? undefined : [...parcourir(v.procedure.root)].find(([, c]) => c === attente)?.[0];
+        if (
+          attente === null ||
+          noeud === undefined ||
+          !("act" in noeud) ||
+          !aConfirm(noeud) ||
+          attente.includes(".retry")
+        )
+          return expire();
+        const page = await pageCourante(client, sessionId);
+        const rc = await reprendre(ax, { ...ref, texte: brut.texte, chemin: attente, page });
+        if (rc === null) return expire();
+        const fp = empreinteSubstituee(attente, noeud as Act, params.valeurs, v.procedure.origin);
+        const c = await compteAccord(s, ctx, username);
+        const cr =
+          "compte" in c
+            ? await s.rappel?.consommerApprobation(c.compte, approval, {
+                session_id: sessionId,
+                procedure_id: v.procedure.id,
+                version,
+                path: attente,
+                fingerprint: fp,
+                page,
+              })
+            : null;
+        if (cr === null || cr === undefined || !cr.ok) {
+          await rendreConfirmation(ax, rc.id).catch(() => undefined);
+          const code = cr === null || cr === undefined ? "approval_unavailable" : cr.code;
+          return errPw(code, "", {
+            message:
+              cr === null || cr === undefined
+                ? `the approval could not be checked: ${"raison" in c ? c.raison : "the approval service did not answer"}. Nothing was done`
+                : `${cr.message}. Nothing was done by this call`,
+            fix: "tell the user that the gesture still needs their approval by the « Confirmer » button in the chat (rerun pw_run without approval to get a new request if it expired); never claim they approved",
+          });
+        }
         confirmes = [attente];
+        approbation = { path: attente, fp };
         reprise = attente;
         chain = rc.chain ?? chain;
       }
@@ -206,6 +266,7 @@ export function pwRun(s: ServicesBrowser) {
           username,
           params: params.valeurs,
           confirmed: confirmes,
+          approbation,
           reprise,
           approuves,
         }),
@@ -262,7 +323,29 @@ export function pwRun(s: ServicesBrowser) {
           ? { empreinte: empreinte(brut.texte, r.node_path, version, page) }
           : {}),
       }).catch((e: unknown) => s.journal.warn(`[procedures] journal d'exécution : ${messageErreur(e)}`));
-      const { failed_at: fa, onceFaits: _once, ...reste } = r;
+      // Geste sensible : la demande d'accord humain est créée côté serveur (le modèle ne fait que la relayer).
+      let demande: { id: string; expires_at: number } | null = null;
+      let demandeRefus: string | undefined;
+      if (r.status === "needs_confirmation" && r.node_path !== undefined && r.accord !== undefined) {
+        const c = await compteAccord(s, ctx, username);
+        if ("raison" in c) demandeRefus = c.raison;
+        else {
+          demande =
+            (await s.rappel?.creerDemandeApprobation(c.compte, {
+              session_id: sessionId,
+              procedure_id: v.procedure.id,
+              version,
+              path: r.node_path,
+              fingerprint: r.accord.fp,
+              description: r.description ?? "",
+              gesture: r.accord.gesture,
+              page,
+              once: r.first_run_after_repair === true,
+            })) ?? null;
+          if (demande === null) demandeRefus = "the approval service did not answer";
+        }
+      }
+      const { failed_at: fa, onceFaits: _once, accord: _accord, ...reste } = r;
       return {
         ok: r.status === "ok",
         procedure: v.procedure.id,
@@ -280,11 +363,18 @@ export function pwRun(s: ServicesBrowser) {
               },
             }
           : {}),
-        ...(r.status === "needs_confirmation"
+        ...(demande !== null
           ? {
-              next: `ask the user, then pw_run(session_id, procedure='${id}', params, version=${version}, confirmed=['${r.node_path ?? ""}'])`,
+              approval_id: demande.id,
+              approval_expires_in_s: Math.max(0, Math.round(demande.expires_at - Date.now() / 1000)),
+              next: `the user was shown a « Confirmer » button in the chat for this gesture; STOP and tell them to press it. Only after their message « Approuvé : … », call pw_run(session_id, procedure='${id}', params, version=${version}, approval='${demande.id}'). Never say the user approved before that message`,
             }
-          : {}),
+          : r.status === "needs_confirmation"
+            ? {
+                approval_unavailable: demandeRefus ?? "no approval request",
+                next: "the gesture needs the user's approval but no approval button could be shown: tell the user, do not retry and do not work around it",
+              }
+            : {}),
         ...(repair !== null
           ? {
               next: `fix the node with pw_procedure(action='repair', id='${v.procedure.id}', repair_id='${token}', node={...}); then pw_run(session_id, procedure='${v.procedure.id}', params, version=<new_version>, resume='${token}')`,
@@ -418,12 +508,38 @@ export function pwProcedure(s: ServicesBrowser) {
             message: v.erreurs.join(" ; "),
             fix: "fix the tree and save again; see the pw_procedure description for the format",
           });
+        // Un enregistrement ne lève ni n'affaiblit un `confirm` de la dernière version : seul l'utilisateur le peut, hors de cet outil.
+        const derniere = await lireTexte(ax, owner, v.procedure.id, 0);
+        if (derniere !== undefined) {
+          let ancienne: unknown = null;
+          try {
+            ancienne = JSON.parse(derniere.texte);
+          } catch {
+            ancienne = null;
+          }
+          const va = validerProcedure(ancienne);
+          const manques = va.ok ? confirmesAffaiblis(va.procedure, v.procedure) : [];
+          if (manques.length > 0)
+            return errPw("confirm_protected", "", {
+              message: `the latest version asks the user before: ${manques.join(", ")}. A save cannot remove or weaken a confirm`,
+              fix: "keep those gestures with the same confirm (true stays true), or save the procedure under another id",
+            });
+        }
         const r = await sauvegarder(ax, owner, v.procedure);
         if (!r.ok) return errPw(r.code, "", { message: r.message });
         return { ok: true, action, id: r.id, version: r.version, nodes: mesurer(v.procedure.root).noeuds };
       }
       if (action === "delete") {
         if (!id) return errPw("id_required", "", { message: "delete needs id", fix: FIX_LISTE });
+        // Supprimer puis réenregistrer sans `confirm` contournerait la protection de l'enregistrement.
+        const gardees = (await arbresEnregistres(ax, owner, id)).some((t) =>
+          /"confirm"\s*:\s*(true|"once")/u.test(t),
+        );
+        if (gardees)
+          return errPw("delete_protected", "", {
+            message: `${id} holds gestures that ask the user first: the model cannot delete it`,
+            fix: "tell the user; they can ask to have it removed outside this tool",
+          });
         return { ok: true, action, id, deleted: await supprimer(ax, owner, id, version) };
       }
       return errPw("unknown_action", "", {

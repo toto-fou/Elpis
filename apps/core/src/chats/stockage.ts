@@ -30,6 +30,7 @@ import { ciLike } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 
 import { purgerJetonsConversations } from "../coffre/jetons";
+import { retirerDemandesDesChats } from "../procedures/demandes";
 import { deleteForChats } from "../images/magasin";
 import { journal } from "../journal";
 
@@ -106,6 +107,9 @@ async function apresSuppression(base: Base, uid: number, ids: readonly string[])
   await purgerImages(base, uid, ids);
   await purgerJetonsConversations(base, uid, ids).catch((e: unknown) =>
     log.warn({ err: e }, `[chats] jetons du coffre non purgés (user_id=${uid})`),
+  );
+  await retirerDemandesDesChats(base, uid, ids).catch((e: unknown) =>
+    log.warn({ err: e }, `[chats] demandes d'accord non purgées (user_id=${uid})`),
   );
   if (ids.length === 0 || crochets.apresSuppression === undefined) return;
   try {

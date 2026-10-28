@@ -4849,6 +4849,20 @@ th.adm-rag-num, td.adm-rag-num { text-align: right; font-variant-numeric: tabula
 .elpis-compose-card.elpis-ask-ouvert:focus-within { border-color: var(--accent-border); }
 body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { background: transparent; border-color: var(--accent-text); color: var(--accent-text); }
 @media (max-width: 640px), (pointer: coarse) { .elpis-ask-aide-clavier { display: none; } }
+/* Carte « Confirmer » d'un geste sensible de procédure (CarteApprobation.vue) : l'accord est celui du compte, pas du modèle. */
+.elpis-accord { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; padding: 12px 14px; border: 1px solid var(--warn-border); border-radius: var(--radius-lg); background: var(--warn-surface); color: var(--text-800); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+.elpis-accord-tete { display: flex; align-items: center; gap: 10px; }
+.elpis-accord-icone { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-md); background: var(--warn-surface-2); color: var(--warn-text-strong); }
+.elpis-accord-titre { display: flex; flex-direction: column; min-width: 0; flex: 1; font-size: 13px; }
+.elpis-accord-titre span { color: var(--text-600); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elpis-accord-delai { flex: none; font-size: 12px; color: var(--warn-text-strong); }
+.elpis-accord-once { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 600; color: var(--warn-text-strong); }
+.elpis-accord-lignes { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 13px; }
+.elpis-accord-lignes > div { display: flex; gap: 10px; align-items: baseline; }
+.elpis-accord-lignes dt { flex: none; width: 64px; color: var(--text-600); font-size: 12px; }
+.elpis-accord-lignes dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.elpis-accord-code { font: 12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-900); overflow-wrap: anywhere; }
+.elpis-accord-pied { display: flex; justify-content: flex-end; gap: 8px; }
 .elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
     .elpis-ask-opt, .elpis-ask-btn { transition: none; }

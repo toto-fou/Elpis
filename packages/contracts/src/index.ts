@@ -34,6 +34,7 @@ export * from "./rest/chats";
 export * from "./rest/cli";
 export * from "./rest/code";
 export * from "./rest/coffre";
+export * from "./rest/procedures";
 export * from "./rest/config";
 export * from "./rest/jetons";
 export * from "./rest/llm";

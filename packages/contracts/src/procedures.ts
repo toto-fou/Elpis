@@ -583,7 +583,42 @@ function nomNormalise(t: string): string {
 }
 
 const motsSignificatifs = (cibles: readonly string[] | undefined): Set<string> =>
-  new Set((cibles ?? []).flatMap((t) => nomNormalise(t).split(" ")).filter((m) => m.length > 3));
+  new Set(
+    (cibles ?? []).flatMap((t) => nomNormalise(t).split(" ")).filter((m) => m.length > 3 || /\d/.test(m)),
+  );
+
+/** Vrai si la nouvelle cible apporte un mot significatif (ou un nombre) absent de l'ancienne, ou change sans mot significatif. */
+function cibleElargie(
+  ancienne: readonly string[] | undefined,
+  nouvelle: readonly string[] | undefined,
+): boolean {
+  const anciens = motsSignificatifs(ancienne);
+  const nouveaux = motsSignificatifs(nouvelle);
+  const noms = (c: readonly string[] | undefined): string => (c ?? []).map(nomNormalise).join(" ");
+  if (nouveaux.size === 0) return noms(nouvelle) !== noms(ancienne);
+  return [...nouveaux].some((mot) => !anciens.has(mot));
+}
+
+/** Gestes sous `confirm` de `ancienne` sans équivalent sous `confirm` dans `nouvelle` (même act, `true` resté `true`, même URL pour un goto) : un `save` ne peut pas lever un accord humain. */
+export function confirmesAffaiblis(ancienne: Procedure, nouvelle: Procedure): string[] {
+  const pris = new Set<Act>();
+  const neufs = actes(nouvelle.root);
+  const manques: string[] = [];
+  for (const o of actes(ancienne.root).filter(aConfirm)) {
+    const c = neufs.find(
+      (x) =>
+        !pris.has(x) &&
+        x.act === o.act &&
+        aConfirm(x) &&
+        (o.confirm !== true || x.confirm === true) &&
+        (o.act !== "goto" || urlComplete(x.url ?? "") === urlComplete(o.url ?? "")),
+    );
+    if (c === undefined)
+      manques.push(`${o.act}${o.act === "goto" ? ` ${o.url ?? ""}` : ` ${(o.t ?? [])[0] ?? ""}`}`);
+    else pris.add(c);
+  }
+  return manques;
+}
 
 /**
  * Remplace le nœud au chemin par `nouveau` et valide le tout (schéma, limites) avec les règles de réparation :
@@ -680,12 +715,10 @@ export function verifierReparation(
   dehors.delete("");
   for (const [o, x] of paires) {
     if (!EFFETS.has(x.act) || memeCible(o, x)) continue;
-    const anciens = motsSignificatifs(o.t);
-    const nouveaux = motsSignificatifs(x.t);
     if ((x.t ?? []).some((t) => dehors.has(nomNormalise(t))))
       aMarquer.set(x, "cible déjà jouée ou présente ailleurs dans l'arbre");
-    else if (![...nouveaux].some((mot) => anciens.has(mot)))
-      aMarquer.set(x, "cible sans ressemblance avec l'ancienne");
+    else if (cibleElargie(o.t, x.t))
+      aMarquer.set(x, "cible apportant un mot ou un nombre absent de l'ancienne");
     else if (!contexte.dejaReussi) aMarquer.set(x, "la procédure n'a jamais réussi");
   }
   // (c) goto.

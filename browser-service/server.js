@@ -3111,7 +3111,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             if (cible.n === 0)
                 return res.status(404).json({ error: `The element of ref ${ref} is no longer on the page. Re-call pw_find.`, code: 'ref_expired' });
         } else if (by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath) {
-            cibleParams = { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath };
+            // `nom_exact` (moteur de procédures) : nom accessible, texte et libellé entiers, jamais une sous-chaîne (« Payer » ne retrouve pas « Payer express »).
+            cibleParams = { by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title, by_css, by_xpath, ...(req.body.nom_exact === true ? { exact: true } : {}) };
             cible = await resoudreCible(page, cibleParams, graceMs);
         }
         if (cible && cible.n === 0) {

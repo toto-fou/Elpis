@@ -136,8 +136,8 @@ export async function lire(base: Base, owner: string, id: string, version = 0): 
   }
 }
 
-/** Empreinte d'un geste `confirm: "once"` : chemin, geste, cibles, valeur et URL (tout changement de ces champs le fait redemander). */
-export function empreinteGeste(chemin: string, n: Act): string {
+/** Empreinte d'un geste sensible : chemin, geste, cibles, valeur et URL, à fournir APRÈS substitution des paramètres (tout changement le fait redemander). */
+export function empreinteGeste(chemin: string, n: Pick<Act, "act" | "t" | "v" | "url">): string {
   return createHash("sha256")
     .update(JSON.stringify([chemin, n.act, n.t ?? null, n.v ?? null, n.url ?? null]), "utf8")
     .digest("hex");
@@ -340,7 +340,7 @@ export async function reprendre(
     chemin: string;
     page: string;
   },
-): Promise<{ chain: string | null } | null> {
+): Promise<{ chain: string | null; id: number } | null> {
   return base.ecriture(async (x) => {
     const l = await x.get<{
       id: number;
@@ -358,8 +358,30 @@ export async function reprendre(
       l.failed_path === o.chemin &&
       l.fingerprint === empreinte(o.texte, o.chemin, o.version, o.page);
     if (valide) await x.run("UPDATE ax_procedure_runs SET outcome='confirmed' WHERE id=?", [l.id]);
-    return valide ? { chain: l.chain } : null;
+    return valide ? { chain: l.chain, id: l.id } : null;
   });
+}
+
+/** Rend l'attente de confirmation reprise (accord humain refusé par le core) : l'utilisateur peut encore approuver. */
+export async function rendreConfirmation(base: Base, id: number): Promise<void> {
+  await base.run(
+    "UPDATE ax_procedure_runs SET outcome='needs_confirmation' WHERE id=? AND outcome='confirmed'",
+    [id],
+  );
+}
+
+/** Textes des arbres enregistrés (une version, ou toutes si 0). */
+export async function arbresEnregistres(
+  base: Base,
+  owner: string,
+  id: string,
+  version = 0,
+): Promise<string[]> {
+  const l = await base.all<{ tree_json: string }>(
+    `SELECT tree_json FROM ax_procedures WHERE owner=? AND id=? ${version > 0 ? "AND version=?" : ""}`,
+    version > 0 ? [owner, id, version] : [owner, id],
+  );
+  return l.map((x) => x.tree_json);
 }
 
 /** Chemin de la dernière attente de confirmation valide de la session (même procédure et version), `null` sinon. */

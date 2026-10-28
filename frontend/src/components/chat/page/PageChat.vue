@@ -12,6 +12,7 @@ import ZoneSaisie from "../composeur/ZoneSaisie.vue";
 import AlerteContexte from "./AlerteContexte.vue";
 import BarreComposeur from "./BarreComposeur.vue";
 import BoutonBas from "./BoutonBas.vue";
+import CarteApprobation from "./CarteApprobation.vue";
 import EnteteConversation from "./EnteteConversation.vue";
 import EpinglesComposeur from "./EpinglesComposeur.vue";
 import FilConversation from "./FilConversation.vue";
@@ -109,6 +110,8 @@ function surFichiers(e: Event): void {
         <FileAttente />
 
         <AlerteContexte />
+
+        <CarteApprobation />
 
         <PuceQuestionnaire />
 

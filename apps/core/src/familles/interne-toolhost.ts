@@ -18,6 +18,7 @@ import { detectProvider, normalizeHost } from "../git/detection";
 import { ouvrirPrPourHote } from "../git/pr";
 import { importLegacyGitCredentials, saveGitCredential, saveGitCredentialAgent } from "../git/resolveur";
 import type { Journal } from "../journal";
+import { consommer, creerDemande } from "../procedures/demandes";
 import { createNotification } from "../notifications/stockage";
 import { resolveNetworkProfileId } from "../relais/identite";
 import type { Famille } from "../routes";
@@ -363,6 +364,84 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
           );
           if (!r.ok) dep.journal.info(`[creds] résolution refusée (${r.code}, user=${ident.user_id})`);
           return r.ok ? { ok: true, values: r.values } : { ok: false, code: r.code, message: r.message };
+        },
+      },
+      {
+        methode: "POST",
+        chemin: "/api/internal/procedures/demande",
+        processus: ["main"],
+        acces: "service",
+        traiter: async (req) => {
+          const ident = await identiteSignee(dep, req);
+          const c = corpsObjet(req);
+          const chatId = typeof ident.chat_id === "string" ? ident.chat_id : "";
+          const texte = (k: string, max: number): string =>
+            typeof c[k] === "string" ? (c[k] as string).slice(0, max) : "";
+          const g = estDict(c["gesture"]) ? c["gesture"] : {};
+          const version = typeof c["version"] === "number" ? Math.trunc(c["version"]) : 0;
+          if (
+            !chatId ||
+            !texte("procedure_id", 200) ||
+            !texte("path", 300) ||
+            !texte("fingerprint", 100) ||
+            version < 1
+          )
+            return {
+              ok: false,
+              code: "approval_invalid",
+              message: "conversation, procedure, version, path and fingerprint are required",
+            };
+          const d = await creerDemande(base, {
+            owner: ident.username,
+            uid: ident.user_id,
+            chatId,
+            sessionId: texte("session_id", 200),
+            procedureId: texte("procedure_id", 200),
+            version,
+            path: texte("path", 300),
+            fingerprint: texte("fingerprint", 100),
+            description: texte("description", 700),
+            gesture: {
+              act: typeof g["act"] === "string" ? g["act"].slice(0, 40) : "",
+              targets: Array.isArray(g["targets"])
+                ? g["targets"]
+                    .filter((t): t is string => typeof t === "string")
+                    .map((t) => t.slice(0, 300))
+                    .slice(0, 8)
+                : [],
+              value: typeof g["value"] === "string" ? g["value"].slice(0, 500) : "",
+              url: typeof g["url"] === "string" ? g["url"].slice(0, 1000) : "",
+            },
+            page: texte("page", 1000),
+            once: c["once"] === true,
+          });
+          return { ok: true, id: d.id, expires_at: d.expires_at, state: d.state };
+        },
+      },
+      {
+        methode: "POST",
+        chemin: "/api/internal/procedures/approbation",
+        processus: ["main"],
+        acces: "service",
+        traiter: async (req) => {
+          const ident = await identiteSignee(dep, req);
+          const c = corpsObjet(req);
+          const chatId = typeof ident.chat_id === "string" ? ident.chat_id : "";
+          if (ident.subagent)
+            return { ok: false, code: "approval_unavailable", message: "a sub-agent cannot use an approval" };
+          const texte = (k: string): string => (typeof c[k] === "string" ? (c[k] as string) : "");
+          const r = await consommer(base, texte("id"), {
+            owner: ident.username,
+            chatId,
+            sessionId: texte("session_id"),
+            procedureId: texte("procedure_id"),
+            version: typeof c["version"] === "number" ? Math.trunc(c["version"]) : 0,
+            path: texte("path"),
+            fingerprint: texte("fingerprint"),
+            page: texte("page"),
+          });
+          if (!r.ok) dep.journal.info(`[procedures] accord refusé (${r.code}, user=${ident.user_id})`);
+          return r;
         },
       },
       {

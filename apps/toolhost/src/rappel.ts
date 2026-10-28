@@ -289,6 +289,53 @@ export class ClientRappel {
     };
   }
 
+  /** Crée la demande d'accord humain d'un geste (le core la montre au compte dans la conversation) ; `null` si le core ne répond pas ou refuse. */
+  async creerDemandeApprobation(
+    compte: CompteSigne,
+    demande: DemandeAccord,
+  ): Promise<{ id: string; expires_at: number } | null> {
+    const d = await this.appeler(
+      "POST",
+      "/api/internal/procedures/demande",
+      undefined,
+      { ...demande },
+      compte,
+      this.delaiMs,
+      undefined,
+      false,
+    );
+    const id = d === null ? undefined : getPy(d, "id");
+    if (d === null || !veritePy(getPy(d, "ok")) || typeof id !== "string") return null;
+    return { id, expires_at: Number(getPy(d, "expires_at")) || 0 };
+  }
+
+  /** Consomme l'accord humain `id` (usage unique) s'il est approuvé et lié à ce geste ; `null` si le core ne répond pas. */
+  async consommerApprobation(
+    compte: CompteSigne,
+    id: string,
+    liaison: LiaisonAccord,
+  ): Promise<{ ok: true } | { ok: false; code: string; message: string } | null> {
+    const d = await this.appeler(
+      "POST",
+      "/api/internal/procedures/approbation",
+      undefined,
+      { id, ...liaison },
+      compte,
+      this.delaiMs,
+      undefined,
+      false,
+    );
+    if (d === null) return null;
+    if (veritePy(getPy(d, "ok"))) return { ok: true };
+    const code = getPy(d, "code");
+    const message = getPy(d, "message");
+    return {
+      ok: false,
+      code: typeof code === "string" ? code : "approval_refused",
+      message: typeof message === "string" ? message : "approval refused",
+    };
+  }
+
   /** `import_legacy_git_credentials` par le core pour `compte` (enveloppe signée) : connecteurs créés, `-1` si l'import a échoué, `IMPORT_GARDE` si des hôtes ont été refusés (fichier gardé dans les deux cas). */
   async importAncien(compte: CompteSigne, donnees: Buffer): Promise<number> {
     if (compte.user_id <= 0 || !compte.username) return -1;
@@ -437,6 +484,23 @@ export interface CompteSigne {
   /** Conversation de l'appel et périmètre de sous-agent, pour les rappels qui en dépendent (coffre). */
   readonly chat_id?: string;
   readonly subagent?: SousAgent | null;
+}
+
+/** Liaison d'un accord humain à une exécution : session, procédure, version, nœud, empreinte du geste substitué et page. */
+export interface LiaisonAccord {
+  readonly session_id: string;
+  readonly procedure_id: string;
+  readonly version: number;
+  readonly path: string;
+  readonly fingerprint: string;
+  readonly page: string;
+}
+
+/** Demande d'accord : liaison, texte montré au compte, geste lisible et premier passage d'un geste réparé. */
+export interface DemandeAccord extends LiaisonAccord {
+  readonly description: string;
+  readonly gesture: { act: string; targets: string[]; value: string; url: string };
+  readonly once: boolean;
 }
 
 /** Réponse du core à la résolution de références `jeton.champ` : valeurs avec l'origine attendue, ou refus codé. */

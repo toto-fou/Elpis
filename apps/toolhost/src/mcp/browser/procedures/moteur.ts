@@ -83,8 +83,10 @@ export interface GestePasse {
 export interface ResultatRun {
   /** Interne : gestes `confirm: "once"` exécutés, à valider si l'exécution a réussi. */
   onceFaits?: { fp: string; path: string }[];
-  /** Vrai si l'accord demandé est celui d'un geste issu d'une réparation (`confirm: "once"`). */
+  /** Vrai si l'accord demandé est celui d'un geste `confirm: "once"` (ajouté ou modifié par une réparation ou un enregistrement). */
   first_run_after_repair?: boolean;
+  /** Interne : empreinte du geste en attente d'accord (valeurs substituées) et geste lisible montré au compte. */
+  accord?: { fp: string; gesture: { act: string; targets: string[]; value: string; url: string } };
   status: StatutRun;
   steps: Etape[];
   failed_at?: EchecRun;
@@ -100,8 +102,10 @@ export interface OptionsRun {
   readonly sessionId: string;
   readonly username: string;
   readonly params: Readonly<Record<string, string | number>>;
-  /** Nœuds `confirm` autorisés à s'exécuter. */
+  /** Nœuds `confirm` autorisés à s'exécuter : seulement ceux d'un accord humain consommé par `pw_run(approval=…)`. */
   readonly confirmed: readonly string[];
+  /** Accord humain consommé : nœud et empreinte du geste (valeurs substituées) pour lesquels il a été donné. */
+  readonly approbation: { readonly path: string; readonly fp: string } | null;
   /** Chemin d'un nœud à reprendre : ce qui le précède est tenu pour fait (page conservée par la session). */
   readonly reprise: string | null;
   /** Empreintes des gestes `confirm: "once"` déjà approuvés et suivis d'une exécution ok : ils ne demandent plus d'accord. */
@@ -180,10 +184,60 @@ export async function pageCourante(client: ClientNavigateur, sessionId: string):
   }
 }
 
+type ModeSub = "texte" | "dsl" | "url";
+
+/** Remplace `{param}` par la valeur du paramètre (échappée selon l'usage) ; un nom inconnu devient vide. */
+function substituer(params: Readonly<Record<string, string | number>>, texte: string, mode: ModeSub): string {
+  return texte.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/gu, (_, nom: string) => {
+    const v = Object.hasOwn(params, nom) ? String(params[nom]) : "";
+    return mode === "dsl" ? echapperDsl(v) : mode === "url" ? encodeURIComponent(v) : v;
+  });
+}
+
+/** Geste tel qu'il sera joué : cibles, valeur et URL après substitution des paramètres (URL complète pour un goto). */
+export function gesteSubstitue(
+  n: Act,
+  params: Readonly<Record<string, string | number>>,
+  origine: string,
+): { act: string; targets: string[]; value: string; url: string } {
+  let url = "";
+  if (n.act === "goto") {
+    const brut = substituer(params, n.url ?? "", "url");
+    try {
+      url = new URL(brut, origine).href;
+    } catch {
+      url = brut;
+    }
+  }
+  return {
+    act: n.act,
+    targets: (n.t ?? []).map((x) => substituer(params, x, "dsl")),
+    value: n.v === undefined ? "" : substituer(params, n.v, "texte"),
+    url,
+  };
+}
+
+/** Empreinte d'un geste sensible : nœud, geste et valeurs SUBSTITUÉES (un accord pour to=alice ne vaut pas pour to=mallory). */
+export function empreinteSubstituee(
+  path: string,
+  n: Act,
+  params: Readonly<Record<string, string | number>>,
+  origine: string,
+): string {
+  const g = gesteSubstitue(n, params, origine);
+  return empreinteGeste(path, { act: n.act, t: g.targets, v: g.value, url: g.url });
+}
+
 class Execution {
   readonly steps: Etape[] = [];
   echec: EchecRun | null = null;
-  confirmation: { path: string; description: string; once: boolean } | null = null;
+  confirmation: {
+    path: string;
+    description: string;
+    once: boolean;
+    fp: string;
+    gesture: { act: string; targets: string[]; value: string; url: string };
+  } | null = null;
   /** Empreintes des gestes `confirm: "once"` exécutés (approuvés) : validés si l'exécution réussit. */
   readonly onceFaits: { fp: string; path: string }[] = [];
   tentatives = 0;
@@ -264,10 +318,7 @@ class Execution {
   }
 
   private sub(texte: string, mode: "texte" | "dsl" | "url"): string {
-    return texte.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/gu, (_, nom: string) => {
-      const v = Object.hasOwn(this.o.params, nom) ? String(this.o.params[nom]) : "";
-      return mode === "dsl" ? echapperDsl(v) : mode === "url" ? encodeURIComponent(v) : v;
-    });
+    return substituer(this.o.params, texte, mode);
   }
 
   private subCondition(c: Condition): Condition {
@@ -461,6 +512,7 @@ class Execution {
           v,
           _expected_origin: this.p.origin,
           _sans_repli: true,
+          _nom_exact: true,
           ...(n.timeout_ms !== undefined ? { _timeout_ms: n.timeout_ms } : {}),
           ...(presence !== undefined ? { _presence_ms: presence } : {}),
         },
@@ -552,39 +604,45 @@ class Execution {
       if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`, true);
     }
     const once = n.confirm === "once";
-    const empreinteGesteN = once ? empreinteGeste(path, n) : "";
-    if (n.confirm === true || (once && !this.o.approuves.has(empreinteGesteN))) {
+    const geste = gesteSubstitue(n, this.o.params, this.p.origin);
+    const fp = once || n.confirm === true ? empreinteSubstituee(path, n, this.o.params, this.p.origin) : "";
+    let parHumain = false;
+    if (n.confirm === true || (once && !this.o.approuves.has(fp))) {
       if (!this.o.confirmed.includes(path)) {
-        let cible =
-          cibles.length > 1
-            ? `l'une de [${cibles.join(" | ")}] (la première qui existe)`
-            : (cibles[0] ?? n.url ?? "");
-        if (n.act === "goto") {
-          try {
-            cible = new URL(this.sub(n.url ?? "", "url"), this.p.origin).href;
-          } catch {
-            cible = this.sub(n.url ?? "", "url");
-          }
-        }
+        const cible =
+          n.act === "goto"
+            ? geste.url
+            : cibles.length > 1
+              ? `l'une de [${cibles.join(" | ")}] (la première qui existe)`
+              : (cibles[0] ?? "");
         const quoi = [
           n.act,
           cible,
           v && n.act !== "fill" ? v : v ? `← ${v}` : "",
           `| page: ${this.pageCourante()}`,
           once
-            ? "| FIRST RUN of a gesture added or changed by a repair (asked until approved and followed by a successful run)"
+            ? "| FIRST RUN of a gesture marked confirm once (asked until approved by the user and followed by a successful run)"
             : "",
         ]
           .filter(Boolean)
           .join(" ");
-        this.confirmation = { path, description: quoi.slice(0, 700), once };
+        this.confirmation = { path, description: quoi.slice(0, 700), once, fp, gesture: geste };
         return halte("needs_confirmation");
       }
-      // Un accord vaut une exécution du nœud, jamais davantage dans le même appel.
+      // L'accord humain consommé vaut pour CE nœud et CES valeurs substituées, une exécution, jamais davantage.
+      if (this.o.approbation === null || this.o.approbation.path !== path || this.o.approbation.fp !== fp)
+        return this.refus(path, n, t, "approval_mismatch");
       if (this.confirmesFaits.has(path)) return this.refus(path, n, t, "confirm_already_used");
       this.confirmesFaits.add(path);
+      parHumain = true;
     }
-    if (once) this.onceFaits.push({ fp: empreinteGesteN, path });
+    const issue = await this.jouer(n, path, cibles, v, t);
+    // Un geste `once` n'est validé que s'il a réussi après un accord humain.
+    if (once && parHumain && issue === OK) this.onceFaits.push({ fp, path });
+    return issue;
+  }
+
+  private async jouer(n: Act, path: string, cibles: string[], v: string, t: number): Promise<Issue> {
     if (n.act === "goto") return this.aller(n, path, t);
     if (origineDe(this.url) !== this.p.origin)
       return this.refus(
@@ -830,6 +888,7 @@ export async function executer(
             node_path: x.confirmation.path,
             description: x.confirmation.description,
             ...(x.confirmation.once ? { first_run_after_repair: true } : {}),
+            accord: { fp: x.confirmation.fp, gesture: x.confirmation.gesture },
           }
         : {}),
       ...page,

@@ -2233,13 +2233,34 @@ gardées par procédure). La suppression d'un compte efface procédures et exéc
   `navigated` compare les identifiants du document principal avant/après (protocole du navigateur) ; le moteur le revérifie après la connexion.
 - Les gestes agissent sur l'origine de la procédure : sur une autre page ils échouent (`origin_mismatch`).
 - `confirm: true` : l'exécution s'arrête **avant** le geste avec `status: "needs_confirmation"`, `node_path`,
-  `description` (toutes les cibles qui pourront être cliquées) et `next`. Après l'accord de l'utilisateur,
-  `pw_run(…, version, confirmed=[node_path])` **reprend** à ce nœud sur la même session : ce qui le précède sur
-  son chemin est tenu pour fait (la page est conservée). `confirmed` n'est honoré **que** pour l'attente
-  enregistrée dans `ax_procedure_runs` (même compte, session, procédure, version, nœud, moins de 15 min, et
+  `description` (cibles, valeurs et URL **après substitution des paramètres**, page courante), `approval_id` et `next`.
+  Le geste ne reprend qu'après un **accord humain vérifié côté serveur** (voir « Accord humain » ci-dessous) :
+  `pw_run(…, version, approval=<approval_id>)` **reprend** à ce nœud sur la même session : ce qui le précède sur
+  son chemin est tenu pour fait (la page est conservée). L'ancien `confirmed=[node_path]` n'existe plus (`confirmed_removed`).
+  L'attente reste enregistrée dans `ax_procedure_runs` (même compte, session, procédure, version, nœud, moins de 15 min, et
   empreinte sha256 de l'arbre exact + chemin + version + page où l'exécution s'est arrêtée : origine, chemin et requête triée, sans ancre ni `utm_*`/`fbclid`/`gclid`) ; sinon `confirmation_expired` et aucun geste. Toute
   nouvelle exécution sur la session annule (`superseded`) les attentes précédentes ; un accord vaut une exécution
   du nœud, jamais plus.
+- **Accord humain** (table `ax_procedure_demandes`, migration `0033_demandes_procedures`, module
+  `apps/core/src/procedures/demandes.ts`). À l'arrêt `needs_confirmation`, l'hôte demande au core, par le canal interne
+  signé (`POST /api/internal/procedures/demande`, identité = compte + conversation du `_meta` de confiance), de créer une
+  demande : identifiant aléatoire, compte, conversation, session du navigateur, procédure, version, nœud,
+  **empreinte du geste substitué** (`empreinteSubstituee` : nœud, geste, cibles, valeur et URL après `{param}` ; un accord
+  pour `to=alice` ne couvre pas `to=mallory`), description, page, indicateur `once`, expiration à 15 min, états
+  `pending → approved | refused → consumed`. L'interface (carte « Confirmer » au-dessus du composeur) la lit par
+  `GET /api/procedures/approbations?chat_id=` et la décide par `POST /api/procedures/approbations/:id/decision`
+  (`approve` / `refuse`) : routes de **session du process main** (cookie du compte, garde CSRF commune), jamais un outil ;
+  une demande d'un autre compte est introuvable. Après le clic, l'interface envoie un message automatique
+  « Approuvé : … » (ou « Refusé : … ») qui relance le modèle. `pw_run(approval=)` vérifie d'abord l'attente et la page, puis
+  consomme la demande par `POST /api/internal/procedures/approbation` : approuvée **par le compte**, non expirée, jamais
+  utilisée, liée aux mêmes compte, conversation, session, procédure, version, nœud, empreinte (recalculée avec les paramètres
+  de l'appel) et page ; refus codés `approval_unknown`, `approval_pending`, `approval_refused`, `approval_expired`,
+  `approval_consumed`, `approval_other_conversation`, `approval_mismatch`, `approval_unavailable`. Le moteur recontrôle
+  l'empreinte à la porte du geste (`approval_mismatch`). Un refus du core rend l'attente (l'utilisateur peut encore
+  approuver). Les demandes expirées depuis plus d'un jour sont purgées à la création ; elles partent aussi avec la
+  conversation et avec le compte. **Routines et sous-agents** : sans conversation de confiance ou sans bouton visible,
+  `pw_run` s'arrête à `needs_confirmation` avec `approval_unavailable` ; un sous-agent ne peut jamais consommer un accord ;
+  la demande reste visible dans la conversation jusqu'à son expiration.
 - Budget : 60 tentatives de geste (cibles essayées comprises) et 200 s (attentes `expect`/conditions comprises, interruptibles par l'annulation ; pire cas sous les 330 s de l'appel : un geste de 30 s attend au plus 65 s côté client, plus 30 s d'`expect`) ; au-delà, `failed` avec
   `budget_exceeded`. L'annulation de l'appel (`AbortSignal`) est prise en compte entre les gestes et
   interrompt l'attente d'un geste en cours (`status: "cancelled"` ; le geste déjà parti peut aller à son terme
@@ -2252,11 +2273,19 @@ gardées par procédure). La suppression d'un compte efface procédures et exéc
   une référence `⟦creds:…@origine⟧` doit viser l'origine de la procédure) ; leurs valeurs ne sont jamais
   journalisées.
 
-**Outils.** `pw_run(session_id, procedure, params?, version?, confirmed?)` (délai de l'appel 330 s) et
+**Outils.** `pw_run(session_id, procedure, params?, version?, approval?, resume?)` (délai de l'appel 330 s) et
 `pw_procedure(action='list'|'get'|'save'|'delete', …)` (famille `browser`, golden
 `packages/outils-mcp/goldens/browser.json`, descriptions statiques en anglais). `pw_run` exige la base de l'hôte (mémoire AX) : sans elle, `procedures_unavailable`. Le moteur appelle `pw_act` avec des
-clés internes (`_timeout_ms`, `_presence_ms`, `_expected_origin`, `_sans_repli`) que le schéma MCP refuse au modèle ;
-`_sans_repli` supprime le repli par sélecteur du service et impose `strict`.
+clés internes (`_timeout_ms`, `_presence_ms`, `_expected_origin`, `_sans_repli`, `_nom_exact`) que le schéma MCP refuse au modèle ;
+`_sans_repli` supprime le repli par sélecteur du service et impose `strict` ; `_nom_exact` (`nom_exact` côté service) impose le nom accessible **exact**
+(espaces normalisés) : « Payer » ne clique pas « Payer express » (`element_not_found`, réparable). Le `pw_act` du modèle garde la correspondance par sous-chaîne.
+
+**`pw_procedure` et les confirmations.** `save` ne peut ni retirer ni affaiblir un `confirm` de la dernière version
+(`confirm_protected` : `confirmesAffaiblis`, un `true` reste `true`) et `delete` refuse une procédure qui porte des gestes
+sous `confirm` (`delete_protected`) : supprimer puis réenregistrer sans `confirm` contournerait la règle. Choix le plus simple
+et sûr : refuser, sans second parcours d'accord. En dehors de cela `save` n'est **pas contraint** : un geste nouveau
+enregistré sans `confirm` s'exécute sans demander (la description de l'outil le dit) ; seul l'accord humain d'un
+geste marqué le protège.
 
 **`pw_chain` comme cas simple.** `chaineVersSeq(etapes, origin, {parametres})`
 (`procedures/chaine.ts`) convertit des étapes `pw_chain` réussies (même forme que l'outil) en `{seq: [act…]}` :
@@ -2295,9 +2324,9 @@ façon **réparable**, c'est le modèle de la conversation (ou de la routine) qu
   automatiquement `confirm: "once"` ; (c) un geste à effet **apparié dont la cible change** reçoit `confirm: "once"` si
   l'une de trois gardes se déclenche : *anti-rejeu* (une cible du nouveau geste, ou le même nom accessible normalisé,
   figure dans les gestes déjà joués `played` ou dans un autre `act` de l'arbre hors du sous-arbre remplacé),
-  *ressemblance* (le nom accessible de la nouvelle cible ne partage aucun mot de plus de 3 lettres, sans accents ni
-  casse, avec les cibles de l'ancien geste : « Relevés » → « Mes relevés » passe, « Relevés » → « Historique » ou
-  « Télécharger le reçu » → « Payer » non), *historique* (la procédure n'a jamais eu d'exécution `ok`, toutes versions) ;
+  *élargissement* (le nom accessible de la nouvelle cible apporte un mot de plus de 3 lettres, sans accents ni casse,
+  absent des cibles de l'ancien geste, ou un nombre absent : « Mes relevés » → « Relevés » passe, « Payer » →
+  « Payer express », « Relevés » → « Historique » ou « Facture 12 » → « Facture 99 » non), *historique* (la procédure n'a jamais eu d'exécution `ok`, toutes versions) ;
   sinon changer la cible du même geste ne demande rien ; (d) un `goto` neuf ne peut être qu'une URL déjà présente à
   l'identique (requête comprise, ancre ignorée) dans un `goto` de l'arbre ; **remplacer un `goto`** par une autre URL de
   l'origine (nouveau chemin, valeur de requête changée) est permis avec `confirm: "once"` ; (e) un `retry` neuf n'entoure
@@ -2309,10 +2338,10 @@ façon **réparable**, c'est le modèle de la conversation (ou de la routine) qu
   réservée : une attente annulée entre-temps n'est pas ressuscitée et la version écrite est retirée) et rend
   `{new_version, confirm_once, next}`.
 - *`confirm: "once"`* : l'accord est demandé tant que le geste (procédure, chemin, `act`, cibles, valeur et URL :
-  empreinte sha256) n'a pas été **approuvé puis suivi d'une exécution `ok`** de la même chaîne (confirmation ou
+  empreinte sha256 des valeurs **substituées**) n'a pas été **approuvé par l'utilisateur** (accord humain consommé), **joué avec succès** puis suivi d'une exécution `ok` de la même chaîne (confirmation ou
   réparation comprises) ; ensuite il ne demande plus. L'approbation est stockée dans `ax_procedure_approvals`
   (migration `0032_approbations_procedures`, purgée avec le compte et la procédure) ; modifier le geste change son
-  empreinte, une réparation qui le touche l'oublie. `needs_confirmation` précise alors `first_run_after_repair: true`.
+  empreinte, une réparation qui le touche l'oublie. `needs_confirmation` précise alors `first_run_after_repair: true` (le marqueur vient d'une réparation ou d'un `save`).
   La `description` de tout accord inclut la page courante (origine + chemin + requête, purgés) et, pour un `goto`,
   l'URL complète visée après substitution.
 - *Reprise* : `pw_run(…, version=new_version, resume=repair_id)` reprend **au chemin réparé** sans rejouer ce qui le

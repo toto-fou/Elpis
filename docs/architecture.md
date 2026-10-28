@@ -2264,7 +2264,10 @@ clés internes (`_timeout_ms`, `_presence_ms`, `_expected_origin`, `_sans_repli`
 remplace les valeurs par `{nom}` ; css/xpath/`selector` brut, gestes inconnus et autres origines sont rapportés
 dans `erreurs`. Aucune étape n'en fait encore un outil : elle sert à l'apprentissage.
 
-Limites : pas d'interface (les procédures se gèrent par `pw_procedure`) ; une procédure ne survit pas
+Limites : un paramètre de query ajouté par la page elle-même entre l'arrêt et la reprise (anti-cache, pagination)
+change la page liée à l'attente : la reprise est refusée (`confirmation_expired`, aucun geste) ; en mode origine
+attendue, seuls `click`, `hover`, `fill`, `press`, `select`, `check` et `uncheck` passent par la poignée vérifiée
+(`gesteSurPoignee`), et tout nouveau geste du moteur doit y passer ; pas d'interface (les procédures se gèrent par `pw_procedure`) ; une procédure ne survit pas
 à un changement de libellé que ses cibles de repli ne couvrent pas (l'appel du modèle en cas d'échec et la
 réécriture de l'arbre viennent ensuite) ; `text` d'une condition lit le texte du document principal ; les
 conditions `visible` et `text` sont testées dans la session telle qu'elle est (modale imprévue comprise : un

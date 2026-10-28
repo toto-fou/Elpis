@@ -1950,6 +1950,7 @@ async function poigneeVerifiee(locator, origineAttendue, reste) {
  * Un détachement avant l'action (re-rendu) relance l'essai ; `element_detached` n'est rendu que si le délai s'épuise avant toute action.
  * check/uncheck lisent l'état, ne cliquent que si nécessaire et vérifient l'état ensuite : tout écart après le clic est `ambiguous_after_action`.
  */
+// Seuls click, hover, fill, press, select, check et uncheck passent ici : tout nouveau geste du moteur doit y passer.
 async function gesteSurPoignee(locator, origineAttendue, delaiMs, type, o) {
     const fin = Date.now() + delaiMs;
     const detache = () => erreurCodee('element_detached', "L'élément a quitté la page avant le geste : aucun geste n'a été fait.", { fix: 'Rejouez depuis une page stable.' });
@@ -2738,7 +2739,7 @@ async function preparerLogin(req, fin = null) {
     if (!cu && !cp) throw erreurSecret('login_target_required', "Au moins un champ (identifiant ou mot de passe) doit être ciblé.", 400);
     const cs = await candidatsLogin(req, req.body.submit_target);
     const cw = await candidatsLogin(req, req.body.wait_for);
-    const p = { handles: [], champs: {}, submit: null, origine: null, timeout, cw };
+    const p = { handles: [], champs: {}, submit: null, origine: null, timeout, cw, cibles: { password: cp, username: cu } };
     try {
         for (const [nom, c] of [['username', cu], ['password', cp]]) {
             if (!c) continue;
@@ -2922,7 +2923,9 @@ app.post('/login', getSession, async (req, res) => {
                         if (!vu && docChange && p.champs.password) {
                             let memeOrigine = false;
                             try { memeOrigine = new URL(page.url()).origin === origineJeton; } catch (_) {}
-                            const nb = memeOrigine ? await avecDelai(page.locator('input[type="password"]').filter({ visible: true }).count(), 1000).catch(() => 0) : 0;
+                            // Les cibles de l'appel, re-résolues dans le nouveau document (un autre formulaire « mot de passe » ne compte pas) ; l'identifiant, s'il était fourni, doit aussi être revenu.
+                            const revu = async (c) => (await avecDelai(c.candidats.filter({ visible: true }).count(), 1000).catch(() => 0)) > 0;
+                            const nb = memeOrigine && (await revu(p.cibles.password)) && (!p.cibles.username || (await revu(p.cibles.username))) ? 1 : 0;
                             if (nb > 0) { mdpDepuis = mdpDepuis || Date.now(); if (Date.now() - mdpDepuis >= 1500) break; } else mdpDepuis = 0;
                         }
                         if (!vu) await page.waitForTimeout(150).catch(() => {});

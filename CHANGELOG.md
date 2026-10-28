@@ -15,7 +15,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   (30 min, 5 usages) que les outils `pw_act` / `pw_chain` (`secret=`) et
   `pw_session` (`creds=`) échangent avec le core contre la valeur, uniquement pour
   un champ dont le frame est sur l'origine du jeton. Les résultats d'outils sont
-  nettoyés des valeurs résolues.
+  nettoyés des valeurs résolues. Le service navigateur refuse un secret dans une
+  session qui a servi à des scripts, des interceptions, une trace ou un HAR, hors
+  d'un champ mot de passe, ou sur un certificat non approuvé (entrée du coffre
+  « Certificat non vérifié accepté » pour un réseau privé) ; une session ayant reçu un
+  secret refuse ensuite `eval`, `pw_mock` et les interceptions.
 - **Identifiants HTTP du navigateur liés à une origine.** `httpCredentials`
   porte toujours `origin` : plus d'envoi à un serveur tiers qui répondrait 401.
 - **Mémoire AX : plus d'identifiants.** `pw_session` n'injecte ni n'enregistre plus
@@ -28,7 +32,8 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Migration `0027_coffre_identifiants`.** Les lignes de `ax_credentials` sont
   chiffrées au démarrage du core dans le coffre du compte, sans origine et « à
   confirmer » (inutilisables avant confirmation dans Paramètres › Coffre), puis la
-  table est supprimée. L'API `/api/ax/*` n'expose plus d'identifiants
+  table est supprimée ; un hôte d'outils à base séparée supprime la sienne (mots de
+  passe à ressaisir). `0028_coffre_certificat` ajoute le drapeau de certificat. L'API `/api/ax/*` n'expose plus d'identifiants
   (`DELETE /api/ax/sites/{site}/credentials` et `include_credentials` retirés) ;
   l'administrateur ne gère pas le coffre des comptes.
 - **Habillages personnels : `skins.user_custom` et `skins.user_max`.** Actifs

@@ -5,11 +5,9 @@ import { computed, onScopeDispose, ref, watch } from "vue";
 import type { Ref, ShallowUnwrapRef } from "vue";
 
 import { creerApiCoffre } from "../../features/coffre/api";
+import { EVT_OUVRIR_CREDS } from "../../features/coffre/ouverture";
 import type { ClientHttp } from "../../platform/http/client";
 import { messageErreur } from "../../platform/http/resultat";
-
-/** Événement de fenêtre posé par la commande /creds du composeur. */
-export const EVT_OUVRIR_CREDS = "elpis:creds:ouvrir";
 
 export type ModeCreds = "coffre" | "ponctuel";
 
@@ -23,9 +21,9 @@ export interface DependancesCreds {
   showToast(message: string, type?: string): void;
 }
 
-/** `⟦creds:JETON⟧` glissé dans le brouillon, séparé du texte qui précède. */
-export function brouillonAvecJeton(brouillon: string, jeton: string): string {
-  const marque = `⟦creds:${jeton}⟧`;
+/** `⟦creds:JETON@ORIGINE⟧` glissé dans le brouillon, séparé du texte qui précède (l'origine rappelle où le jeton vaut). */
+export function brouillonAvecJeton(brouillon: string, jeton: string, origine: string): string {
+  const marque = `⟦creds:${jeton}@${origine}⟧`;
   return brouillon && !/\s$/u.test(brouillon) ? `${brouillon} ${marque}` : `${brouillon}${marque}`;
 }
 
@@ -47,6 +45,7 @@ export function creerCreds(dep: DependancesCreds) {
   const credsIdentifiant = ref("");
   const credsMotDePasse = ref("");
   const credsEnregistrer = ref(false);
+  const credsCertificat = ref(false);
   const credsBusy = ref(false);
   const credsErreur = ref("");
   const credsMaintenant = ref(Date.now() / 1000);
@@ -64,6 +63,7 @@ export function creerCreds(dep: DependancesCreds) {
     credsIdentifiant.value = "";
     credsOrigine.value = "";
     credsEnregistrer.value = false;
+    credsCertificat.value = false;
     credsErreur.value = "";
     credsEntree.value = null;
   }
@@ -95,12 +95,14 @@ export function creerCreds(dep: DependancesCreds) {
   }
 
   watch(showCredsModal, (ouvert) => {
+    // Toute fermeture (Échap, clic à côté, déconnexion) vide aussi les champs, mot de passe compris.
+    if (!ouvert) vider();
     arreterMinuteur();
     if (ouvert) minuteur = setInterval(() => (credsMaintenant.value = Date.now() / 1000), 15_000);
   });
 
-  function inserer(jeton: string): void {
-    dep.inputMessage.value = brouillonAvecJeton(dep.inputMessage.value, jeton);
+  function inserer(jeton: string, origine: string): void {
+    dep.inputMessage.value = brouillonAvecJeton(dep.inputMessage.value, jeton, origine);
     const zone = dep.inputRef.value;
     if (zone) {
       zone.focus();
@@ -138,6 +140,7 @@ export function creerCreds(dep: DependancesCreds) {
               username: identifiant,
               password: motDePasse,
               save: credsEnregistrer.value,
+              allow_insecure_tls: credsCertificat.value,
             }
           : { chat_id: chat, entry_id: credsEntree.value as number },
       );
@@ -145,7 +148,7 @@ export function creerCreds(dep: DependancesCreds) {
         credsErreur.value = messageErreur(r) || "Échec de la création";
         return;
       }
-      inserer(r.valeur.token);
+      inserer(r.valeur.token, r.valeur.item.origin);
       dep.showToast("Identifiant ajouté au message (30 min)", "success");
       fermerCreds();
     } finally {
@@ -184,6 +187,7 @@ export function creerCreds(dep: DependancesCreds) {
     credsIdentifiant,
     credsMotDePasse,
     credsEnregistrer,
+    credsCertificat,
     credsBusy,
     credsErreur,
     ouvrirCreds,

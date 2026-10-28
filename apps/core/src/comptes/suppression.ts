@@ -3,7 +3,7 @@
 import { nomCanonique, supprimerJetonsCompte, supprimerOauthCompte } from "@elpis/auth";
 import { pyJoin } from "@elpis/commun";
 import { config, safeSandboxName } from "@elpis/config";
-import { estTableAbsente } from "@elpis/db";
+import { estTableAbsente, retirerIdentifiantsAxDuCompte } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 import { supprimerEntreeSous } from "@elpis/securite";
 
@@ -82,6 +82,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
       rag = await purgerCompteRag(tx, uid);
     });
     await toleree(base, (tx) => purgerCoffreCompte(tx, uid));
+    if (nom) await toleree(base, (tx) => retirerIdentifiantsAxDuCompte(tx, nom).then(() => undefined));
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
   if (!supprime) return false;

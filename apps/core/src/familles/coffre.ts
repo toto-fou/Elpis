@@ -65,6 +65,7 @@ export function creerFamilleCoffre(dep: DependancesCoffre): Famille {
             origin: c["origin"],
             username: c["username"],
             password: c["password"],
+            allow_insecure_tls: c["allow_insecure_tls"] === true,
           });
           return { ok: true, item };
         }),
@@ -79,6 +80,9 @@ export function creerFamilleCoffre(dep: DependancesCoffre): Famille {
             ...(c["origin"] !== undefined ? { origin: c["origin"] } : {}),
             ...(c["username"] !== undefined ? { username: c["username"] } : {}),
             ...(c["password"] !== undefined ? { password: c["password"] } : {}),
+            ...(c["allow_insecure_tls"] !== undefined
+              ? { allow_insecure_tls: c["allow_insecure_tls"] === true }
+              : {}),
           });
           if (!item) throw new HttpError(404, "Entrée introuvable.");
           return { ok: true, item };
@@ -88,7 +92,9 @@ export function creerFamilleCoffre(dep: DependancesCoffre): Famille {
         garde(async () => {
           const uid = utilisateur(req);
           const id = idChemin(req);
-          const item = await confirmerOrigine(base, uid, id, corps(req)["origin"]);
+          const c = corps(req);
+          if (typeof c["origin"] !== "string") throw new HttpError(422, "Origine requise.");
+          const item = await confirmerOrigine(base, uid, id, c["origin"], c["password"]);
           if (!item) throw new HttpError(404, "Entrée introuvable.");
           return { ok: true, item };
         }),
@@ -119,6 +125,7 @@ export function creerFamilleCoffre(dep: DependancesCoffre): Famille {
             username: c["username"],
             password: c["password"],
             enregistrer: c["save"] === true,
+            allowInsecureTls: c["allow_insecure_tls"] === true,
           });
           return { ok: true, token: r.token, item: r.item };
         }),

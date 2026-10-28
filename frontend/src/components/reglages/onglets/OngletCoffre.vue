@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletCoffre.vue — onglet « coffre » des Paramètres : identifiants liés à une origine exacte, mot de passe en écriture seule. -->
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onBeforeUnmount, onMounted } from "vue";
 
 import { domaineReglages } from "../../../features/reglages/domaine";
 import AideOnglet from "../AideOnglet.vue";
@@ -10,6 +10,8 @@ const rg = domaineReglages();
 const titre = "Coffre";
 
 onMounted(() => void rg.loadCoffre());
+// Fermeture des Paramètres ou changement d'onglet : plus aucun mot de passe en mémoire de la page.
+onBeforeUnmount(() => rg.cancelCoffre());
 </script>
 
 <template>
@@ -37,6 +39,9 @@ onMounted(() => void rg.loadCoffre());
             </div>
             <div class="text-xs text-slate-500">
               {{ e.use_count }} {{ e.use_count > 1 ? "usages" : "usage" }}
+              <span v-if="e.allow_insecure_tls" class="text-amber-600">
+                · certificat non vérifié accepté</span
+              >
             </div>
           </div>
           <button
@@ -125,6 +130,10 @@ onMounted(() => void rg.loadCoffre());
           />
         </div>
       </div>
+      <label class="flex items-center gap-2 text-sm text-slate-600">
+        <input v-model="rg.coffreForm.allow_insecure_tls" type="checkbox" />
+        Certificat non vérifié accepté
+      </label>
       <p v-if="rg.coffreErreur" role="alert" class="text-xs text-red-600">{{ rg.coffreErreur }}</p>
       <div class="flex items-center gap-2 pt-1">
         <button

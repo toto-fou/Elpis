@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
 import { TABLE_IDENTIFIANTS_AX } from "./coffre-heritage";
-import { createAll, hasTable, isFresh } from "./schema";
+import { addMissingColumns, createAll, hasTable, isFresh, tableParNom } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
 
 export class ErreurBaseNonAJour extends ErreurBase {
@@ -25,6 +25,12 @@ export const MIGRATIONS_TS: readonly Migration[] = [
     migrer: async (x) => {
       if ((await hasTable(x, "ax_credentials")) && !(await hasTable(x, TABLE_IDENTIFIANTS_AX)))
         await x.run(`ALTER TABLE "ax_credentials" RENAME TO "${TABLE_IDENTIFIANTS_AX}"`);
+    },
+  },
+  {
+    name: "0028_coffre_certificat",
+    migrer: async (x) => {
+      for (const t of ["coffre_identifiants", "coffre_jetons"]) await addMissingColumns(x, tableParNom(t));
     },
   },
 ];

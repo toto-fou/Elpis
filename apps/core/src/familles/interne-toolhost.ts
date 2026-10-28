@@ -347,7 +347,9 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         acces: "service",
         traiter: async (req) => {
           const ident = await identiteSignee(dep, req);
-          const refs = corpsObjet(req)["refs"];
+          const corps = corpsObjet(req);
+          const refs = corps["refs"];
+          const attendue = typeof corps["expect_origin"] === "string" ? corps["expect_origin"] : undefined;
           const r = await resoudreReferences(
             base,
             {
@@ -357,6 +359,7 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
               sousAgent: Boolean(ident.subagent),
             },
             Array.isArray(refs) ? refs : [],
+            attendue === undefined ? {} : { expectOrigin: attendue },
           );
           if (!r.ok) dep.journal.info(`[creds] résolution refusée (${r.code}, user=${ident.user_id})`);
           return r.ok ? { ok: true, values: r.values } : { ok: false, code: r.code, message: r.message };

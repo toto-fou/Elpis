@@ -17,6 +17,9 @@ export interface FormulaireCoffre {
   origin: string;
   username: string;
   password: string;
+  allow_insecure_tls: boolean;
+  /** Origine telle qu'enregistrée : la changer exige de ressaisir le mot de passe. */
+  origineInitiale: string;
 }
 
 export interface CtxCoffre {
@@ -39,12 +42,27 @@ export function setupCoffre(ctx: CtxCoffre | null | undefined, http: ClientHttp)
 
   function newCoffre(): void {
     coffreErreur.value = "";
-    coffreForm.value = { nom: "", origin: "", username: "", password: "" };
+    coffreForm.value = {
+      nom: "",
+      origin: "",
+      username: "",
+      password: "",
+      allow_insecure_tls: false,
+      origineInitiale: "",
+    };
   }
 
   function editCoffre(e: EntreeCoffre): void {
     coffreErreur.value = "";
-    coffreForm.value = { id: e.id, nom: e.nom, origin: e.origin ?? "", username: e.username, password: "" };
+    coffreForm.value = {
+      id: e.id,
+      nom: e.nom,
+      origin: e.origin ?? "",
+      username: e.username,
+      password: "",
+      allow_insecure_tls: e.allow_insecure_tls,
+      origineInitiale: e.origin ?? "",
+    };
   }
 
   function cancelCoffre(): void {
@@ -62,12 +80,28 @@ export function setupCoffre(ctx: CtxCoffre | null | undefined, http: ClientHttp)
       coffreErreur.value = "Nom, origine, identifiant et mot de passe requis.";
       return;
     }
+    if (f.id && f.origineInitiale && origin !== f.origineInitiale && !f.password) {
+      coffreErreur.value = "Changer l'origine exige de ressaisir le mot de passe.";
+      return;
+    }
     coffreBusy.value = true;
     coffreErreur.value = "";
     try {
       const r = f.id
-        ? await api.modifier(f.id, { nom, origin, username, ...(f.password ? { password: f.password } : {}) })
-        : await api.creer({ nom, origin, username, password: f.password });
+        ? await api.modifier(f.id, {
+            nom,
+            origin,
+            username,
+            allow_insecure_tls: f.allow_insecure_tls,
+            ...(f.password ? { password: f.password } : {}),
+          })
+        : await api.creer({
+            nom,
+            origin,
+            username,
+            password: f.password,
+            allow_insecure_tls: f.allow_insecure_tls,
+          });
       if (r.type === "ok") {
         f.password = "";
         coffreForm.value = null;

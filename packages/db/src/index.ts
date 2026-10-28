@@ -39,6 +39,7 @@ export {
   importerIdentifiantsAx,
   nomDepuisSite,
   retirerIdentifiantsAxDuCompte,
+  retirerIdentifiantsAxOrphelins,
   TABLE_IDENTIFIANTS_AX,
 } from "./coffre-heritage";
 export { BASELINE_COVERS, MIGRATIONS_PYTHON, TABLES } from "./schema.gen";

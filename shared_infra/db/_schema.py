@@ -181,16 +181,6 @@ def create_index_sql(t: Table, ix: Index, dialect: str = SQLITE) -> str:
 #  SQLite (colonnes ajoutées après coup en fin de table).
 
 TABLES: List[Table] = [
-    Table('ax_credentials', [
-        Col('owner', TEXT, null=False, default=''),
-        Col('site', TEXT, null=False),
-        Col('username', TEXT, null=False),
-        Col('password', TEXT, null=False),
-        Col('last_ok', REAL),
-        Col('use_count', INT, null=False, default=1),
-    ],
-        pk=('owner', 'site'),
-    ),
     Table('ax_nodes', [
         Col('id', ID),
         Col('site', TEXT, null=False),

@@ -157,6 +157,13 @@ watch(
               <input v-model="c.credsEnregistrer" type="checkbox" />
               Enregistrer dans le coffre
             </label>
+            <label
+              class="flex items-center gap-2 text-sm text-slate-600"
+              title="Autorise la saisie même si le certificat du site n'est pas approuvé (réseau privé)"
+            >
+              <input v-model="c.credsCertificat" type="checkbox" />
+              Certificat non vérifié accepté
+            </label>
           </div>
 
           <p v-if="c.credsErreur" role="alert" class="text-xs text-red-600">{{ c.credsErreur }}</p>

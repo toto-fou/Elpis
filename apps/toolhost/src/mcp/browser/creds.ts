@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/browser/creds.ts — secrets `⟦creds:JETON⟧` des outils pw_* : résolution par le core (conversation et compte de l'appel), origine attendue, nettoyage des résultats. */
 import type { Dict } from "@elpis/commun";
-import { getUsername, readMetaField, tokenIdentity } from "@elpis/outils-mcp";
+import { getAccessToken, getUsername, readMetaField } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 import { errPw } from "@elpis/navigateur";
 import { lireSousAgent } from "@elpis/securite";
@@ -13,15 +13,21 @@ export interface SecretResolu {
   readonly jeton: string;
   readonly valeur: string;
   readonly origine: string;
+  /** `password` ou `username`. */
+  readonly champ: "password" | "username";
+  /** L'entrée du coffre accepte un certificat non vérifié. */
+  readonly tlsInsecure: boolean;
 }
 
 const FORME_REF = /^([A-Za-z0-9_-]{20,64})\.(password|username)$/u;
 const LONGUEUR_MIN_NETTOYEE = 3;
 
-/** Référence débarrassée de l'enveloppe `⟦creds:…⟧` que le modèle recopie parfois, et des blancs. */
+/** Référence débarrassée de l'enveloppe `⟦creds:JETON@ORIGINE⟧` que le modèle recopie parfois (l'origine du marqueur est ignorée : seule celle du jeton compte), et des blancs. */
 export function normaliserReference(ref: unknown): string {
   const brut = typeof ref === "string" ? ref.trim() : "";
-  return /^⟦creds:/u.test(brut) ? brut.replace(/^⟦creds:/u, "").replace("⟧", "") : brut;
+  const m = /^⟦creds:([^⟧]*)⟧(.*)$/su.exec(brut);
+  if (m === null) return brut;
+  return (m[1] ?? "").split("@")[0] + (m[2] ?? "");
 }
 
 /** Jeton d'une référence `JETON.password` ou `JETON.username` ; `null` si la forme est autre. */
@@ -62,6 +68,7 @@ export async function resoudreSecrets(
   s: ServicesBrowser,
   ctx: ContexteAppel,
   refs: readonly string[],
+  options: { expectOrigin?: string } = {},
 ): Promise<{ secrets: SecretResolu[] } | { refus: Dict }> {
   const propres = refs.map(normaliserReference);
   if (propres.some((r) => jetonDeReference(r) === null))
@@ -72,7 +79,8 @@ export async function resoudreSecrets(
       "the credentials service is not reachable from the tools host",
       FIX_CREDS,
     );
-  if (tokenIdentity() !== null)
+  // Seul le client de confiance (l'application, jeton de service) fournit un `_meta` crédible : ni client externe, ni stdio.
+  if (getAccessToken()?.claims["trusted_meta"] !== true)
     return refus(
       "creds_not_available",
       "credentials are only usable from the user's own conversation",
@@ -90,6 +98,7 @@ export async function resoudreSecrets(
       subagent: lireSousAgent(ctx.meta?.["subagent"]),
     },
     propres,
+    options.expectOrigin,
   );
   if (reponse === null)
     return refus("creds_unavailable", "the credentials service did not answer", FIX_CREDS);
@@ -100,7 +109,14 @@ export async function resoudreSecrets(
     const jeton = jetonDeReference(ref);
     if (v === undefined || jeton === null || v.value === "")
       return refus("creds_invalid", "credentials could not be resolved", FIX_CREDS);
-    secrets.push({ ref, jeton, valeur: v.value, origine: v.origin });
+    secrets.push({
+      ref,
+      jeton,
+      valeur: v.value,
+      origine: v.origin,
+      champ: ref.endsWith(".username") ? "username" : "password",
+      tlsInsecure: v.insecure_tls,
+    });
   }
   retenirSecrets(
     username,
@@ -124,7 +140,10 @@ export function variantes(v: string): string[] {
   const b64 = Buffer.from(v, "utf8").toString("base64");
   let url = v;
   let uri = v;
+  let formulaire = v;
   try {
+    // application/x-www-form-urlencoded : `! ' ( ) ~` encodés, espace en `+` (corps d'un formulaire de connexion).
+    formulaire = new URLSearchParams({ x: v }).toString().slice(2);
     url = encodeURIComponent(v);
     uri = encodeURI(v);
   } catch {
@@ -135,6 +154,7 @@ export function variantes(v: string): string[] {
       v,
       url,
       url.replaceAll("%20", "+"),
+      formulaire,
       uri,
       echapperHtml(v),
       JSON.stringify(v).slice(1, -1),
@@ -145,23 +165,38 @@ export function variantes(v: string): string[] {
   ];
 }
 
-/** Remplace dans tout texte du résultat chaque forme d'une valeur résolue par `⟦creds:JETON⟧` (valeurs de moins de 3 caractères exceptées : elles détruiraient la page). */
+/** Étiquette laissée à la place d'une valeur : le marqueur que l'utilisateur a inséré, origine comprise. */
+export function etiquette(s: SecretResolu): string {
+  return `⟦creds:${s.jeton}@${s.origine}⟧`;
+}
+
+function estObjetSimple(v: unknown): v is Dict {
+  if (v === null || typeof v !== "object") return false;
+  const proto = Object.getPrototypeOf(v) as unknown;
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Remplace dans tout texte du résultat (valeurs et clés) chaque forme d'une valeur résolue par `⟦creds:JETON@ORIGINE⟧`.
+ * Ne traverse que les tableaux et objets simples : une instance de classe (flottant Python…) reste intacte.
+ * Valeurs de moins de 3 caractères exceptées : elles détruiraient la page.
+ */
 export function nettoyerResultat<T>(valeur: T, secrets: readonly SecretResolu[]): T {
   const paires: [string, string][] = [];
-  for (const s of secrets) for (const x of variantes(s.valeur)) paires.push([x, `⟦creds:${s.jeton}⟧`]);
+  for (const s of secrets) for (const x of variantes(s.valeur)) paires.push([x, etiquette(s)]);
   if (paires.length === 0) return valeur;
   paires.sort((a, b) => b[0].length - a[0].length);
   const texte = (t: string): string => {
     let sortie = t;
-    for (const [forme, etiquette] of paires)
-      if (sortie.includes(forme)) sortie = sortie.split(forme).join(etiquette);
+    for (const [forme, marque] of paires)
+      if (sortie.includes(forme)) sortie = sortie.split(forme).join(marque);
     return sortie;
   };
   const marche = (v: unknown): unknown => {
     if (typeof v === "string") return texte(v);
     if (Array.isArray(v)) return v.map(marche);
-    if (v !== null && typeof v === "object")
-      return Object.fromEntries(Object.entries(v as Dict).map(([k, x]) => [k, marche(x)]));
+    if (estObjetSimple(v))
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [texte(k), marche(x)]));
     return v;
   };
   return marche(valeur) as T;

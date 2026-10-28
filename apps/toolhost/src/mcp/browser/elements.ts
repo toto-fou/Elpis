@@ -140,6 +140,21 @@ function roleEtNom(geste: string, resolus: Dict, resultat: unknown): [unknown, u
 
 const GESTES_SECRETS: ReadonlySet<string> = new Set(["fill", "type"]);
 
+/** Clés de cible d'une étape de `pw_chain` que le service sait résoudre pour un secret (jamais `selector` seul : pas de repli). */
+const CIBLES_ETAPE = [
+  "target",
+  "ref",
+  "by_role",
+  "by_text",
+  "by_label",
+  "by_placeholder",
+  "by_test_id",
+  "by_css",
+  "by_xpath",
+  "by_alt",
+  "by_title",
+] as const;
+
 const REFUS_GESTE_SECRET = (geste: string): Dict =>
   errPw("secret_gesture_refused", "", {
     message: `secret= is only usable with action='fill' or 'type' (got ${JSON.stringify(geste)})`,
@@ -265,7 +280,15 @@ export function pwAct(s: ServicesBrowser) {
       key: v || null,
       ...waitPayload(a["wait_after"]),
     });
-    if (secrets.length > 0) Object.assign(corps, { key: null, secret_origin: secrets[0]?.origine });
+    // Un secret ne se saisit que par `fill` (même demandé en `type`), dans le type de champ attendu, sur l'origine du jeton.
+    if (secrets[0] !== undefined)
+      Object.assign(corps, {
+        type: "fill",
+        key: null,
+        secret_origin: secrets[0].origine,
+        secret_field: secrets[0].champ,
+        secret_insecure_tls: secrets[0].tlsInsecure,
+      });
     if (a["option_label"]) corps["option_label"] = a["option_label"];
     if (a["option_value"]) corps["option_value"] = a["option_value"];
     if (typeof charge["nth"] === "number") corps["nth"] = charge["nth"];
@@ -291,13 +314,12 @@ export function pwAct(s: ServicesBrowser) {
     }
     const repli = dslToSelector(target);
     if (repli) corps["selector"] = repli;
-    const r = nettoyerResultat(
-      await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps })),
-      secrets,
-    );
+    const brut = await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps }));
+    const r = nettoyerResultat(brut, secrets);
     if (ax !== null) {
       try {
-        const apres = await urlApres(client, r, sid);
+        // L'adresse vient du résultat brut : nettoyée, elle fausserait la mémoire AX (qui n'en garde que site et chemin).
+        const apres = await urlApres(client, brut, sid);
         const [role, nom] = roleEtNom(geste, resolus, r);
         if (veritePy(role) && veritePy(nom))
           await recordAction(ax, {
@@ -404,18 +426,7 @@ export function pwChain(s: ServicesBrowser) {
       if (!ref) continue;
       const geste = first(st["do"], st["type"], st["action"]);
       if (!GESTES_SECRETS.has(geste)) return REFUS_GESTE_SECRET(geste);
-      if (
-        !first(
-          st["target"],
-          st["selector"],
-          st["ref"],
-          st["by_css"],
-          st["by_role"],
-          st["by_label"],
-          st["by_placeholder"],
-        )
-      )
-        return REFUS_CIBLE_SECRET;
+      if (!first(...CIBLES_ETAPE.map((k) => st[k]))) return REFUS_CIBLE_SECRET;
       refs.add(ref);
     }
     let secrets: SecretResolu[] = [];
@@ -428,8 +439,26 @@ export function pwChain(s: ServicesBrowser) {
       const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
       if (!ref) return etape(st);
       const secret = secrets.find((x) => x.ref === ref);
-      const { secret: _s, value: _v, v: _w, text: _t, ...reste } = st;
-      return etape({ ...reste, text: secret?.valeur ?? "", secret_origin: secret?.origine ?? "" });
+      // Le verbe est ramené à `fill` et le repli `selector` retiré : un secret n'a qu'un chemin.
+      const {
+        secret: _s,
+        value: _v,
+        v: _w,
+        text: _t,
+        do: _d,
+        action: _a,
+        type: _y,
+        selector: _l,
+        ...reste
+      } = st;
+      return etape({
+        ...reste,
+        type: "fill",
+        text: secret?.valeur ?? "",
+        secret_origin: secret?.origine ?? "",
+        secret_field: secret?.champ ?? "password",
+        secret_insecure_tls: secret?.tlsInsecure === true,
+      });
     });
     const r = nettoyerResultat(
       await client.req("POST", "/chain", {

@@ -23,7 +23,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { origineDe, origineSecret, saisirSecret, masquerValeur } from './secret_util.js';
+import { origineDe, origineSecret, saisirSecret, masquerValeur, refusSessionPourSecret, gardeScripts } from './secret_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
@@ -2282,10 +2282,50 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
+// ── Certificat de l'origine d'un secret ─────────────────────────────────
+// Les sessions ouvertes sans identifiants HTTP acceptent les certificats invalides (réseaux privés) : avant de saisir un secret, une
+// sonde dans un contexte à part, SANS cette tolérance, vérifie que le navigateur approuve le certificat de l'origine.
+const CACHE_TLS_MS = 5 * 60_000;
+const cacheTls = new Map();
+
+async function sondeCertificat(origine) {
+    const browser = await ensureBrowser(true);
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: false, userAgent: USER_AGENT });
+    try {
+        await installerGarde(ctx);
+        const pg = await ctx.newPage();
+        await pg.goto(origine, { waitUntil: 'commit', timeout: 10000 });
+        return 'valide';
+    } catch (e) {
+        return /ERR_CERT|ERR_SSL|SSL_ERROR|SEC_ERROR|certificate|self.signed/i.test(String(e && e.message)) ? 'invalide' : 'inconnu';
+    } finally {
+        await ctx.close().catch(() => {});
+    }
+}
+
+/** Erreur codée si le certificat de l'origine n'est pas approuvé (sauf accord explicite ou http clair), `null` sinon. */
+async function refusCertificat(session, origine, accepteInvalide) {
+    if (accepteInvalide || !origine.startsWith('https:') || (session && session.tlsStrict)) return null;
+    let c = cacheTls.get(origine);
+    if (!c || c.jusqua < Date.now()) {
+        c = { etat: await sondeCertificat(origine), jusqua: Date.now() + CACHE_TLS_MS };
+        cacheTls.set(origine, c);
+        if (cacheTls.size > 200) cacheTls.delete(cacheTls.keys().next().value);
+    }
+    if (c.etat === 'valide') return null;
+    return erreurCodee(
+        c.etat === 'invalide' ? 'secret_tls_invalid' : 'secret_tls_unknown',
+        c.etat === 'invalide'
+            ? `Le certificat de ${origine} n'est pas approuvé par le navigateur : saisie du secret refusée.`
+            : `Validité du certificat de ${origine} non vérifiable : saisie du secret refusée.`,
+        { fix: "Corrigez le certificat, ou cochez « Certificat non vérifié accepté » sur l'entrée du coffre (/creds)." },
+    );
+}
+
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, credentials_origin, headless, load_state_id, record_har = false,
+        const { url, username, password, credentials_origin, credentials_insecure_tls, headless, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2303,8 +2343,12 @@ app.post('/start', async (req, res) => {
             if (!lie) return res.status(400).json({ error: "Identifiants HTTP sans origine exacte : fournir url=https://… ou credentials_origin.", code: 'credentials_origin_required' });
             if (url && origineDe(url) !== lie)
                 return res.status(400).json({ error: "L'adresse de départ n'est pas sur l'origine des identifiants.", code: 'credentials_origin_mismatch' });
+            if (trace || record_har || record_video)
+                return res.status(400).json({ error: "Identifiants HTTP incompatibles avec trace, HAR et vidéo (ils enregistreraient le mot de passe).", code: 'credentials_recording_refused' });
             httpCredentials = { username, password, origin: lie };
         }
+        // Avec des identifiants HTTP, aucun certificat invalide n'est toléré (sauf accord explicite) : ils ne partent qu'à un serveur authentifié.
+        const tlsStrict = Boolean(httpCredentials) && credentials_insecure_tls !== true;
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
         // resolveStateFile). Résolu avant la réutilisation d'une session : un
@@ -2411,7 +2455,7 @@ app.post('/start', async (req, res) => {
             locale: locale || 'fr-FR',
             timezoneId: timezone || 'Europe/Paris',
             colorScheme: color_scheme || undefined,   // 'light' | 'dark' | 'no-preference'
-            ignoreHTTPSErrors: true,
+            ignoreHTTPSErrors: !tlsStrict,
             acceptDownloads: true,
             storageState,
             httpCredentials,
@@ -2474,7 +2518,7 @@ app.post('/start', async (req, res) => {
         }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, harActive: Boolean(record_har), videoActive: Boolean(record_video), tlsStrict, _lock: makeLock(), dialogState });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -2558,6 +2602,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         } catch (e) { return res.status(e.statut || 400).json({ error: e.message, code: e.code }); }
         const valeurSecrete = secretOrigine ? (text || value || '') : '';
         if (secretOrigine && !valeurSecrete) return res.status(400).json({ error: 'Secret vide.', code: 'secret_empty' });
+        if (secretOrigine) {
+            const refusS = refusSessionPourSecret(req.session);
+            if (refusS) return res.status(refusS.statut || 403).json({ error: refusS.message, code: refusS.code, ...(refusS.details || {}) });
+        }
         const opts = { timeout, button, modifiers };
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
@@ -2680,6 +2728,15 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // Un secret ne passe que par le locator officiel : cible introuvable ou repli → refus, jamais de saisie ailleurs.
         if (secretOrigine && !officialLocator)
             return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
+        if (secretOrigine) {
+            // Une cible ambiguë n'est jamais résolue au premier élément : le secret irait peut-être au mauvais champ.
+            if (cible && cible.n > 1 && nth === null)
+                return res.status(409).json({ error: `${cible.n} éléments correspondent : saisie du secret refusée.`, code: 'ambiguous_target', fix: 'Précisez la cible (|nth=K ou un ref de pw_find).' });
+            const refusT = await refusCertificat(req.session, secretOrigine, req.body.secret_insecure_tls === true);
+            if (refusT) return res.status(403).json({ error: refusT.message, ...detailsErreur(refusT) });
+            // Taché dès avant la saisie : même un échec partiel a pu poser la valeur dans la page.
+            req.session._secretSaisi = true;
+        }
 
         // ── Actions page-level (sans cible) ──
         // press, type sans cible → utilise page.keyboard (focus actuel)
@@ -2811,9 +2868,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 } else if (type === 'scroll_into_view' || type === 'scroll') {
                     await officialLocator.scrollIntoViewIfNeeded({ timeout: _t });
                 } else if (type === 'fill' && secretOrigine) {
-                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { mode: 'fill', timeout: _t, force });
-                } else if (type === 'type' && secretOrigine) {
-                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { mode: 'type', timeout: _t, delai: delay || 30 });
+                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { champ: req.body.secret_field, timeout: _t, force });
                 } else if (type === 'fill') {
                     await officialLocator.fill(text || value || '', { timeout: _t, force });
                 } else if (type === 'type') {
@@ -5231,7 +5286,11 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
         const { networkLog, page } = req.session;
         const { filter, last = 50, types } = req.query;
         const typeSet = types ? new Set(String(types).split(',').map(t => t.trim()).filter(Boolean)) : null;
-        const out = summarizeNetwork(networkLog, { last, filter: filter || '', types: typeSet });
+        // Session ayant reçu un secret : le corps des requêtes (formulaire de connexion) n'est plus montré.
+        const journalReseau = req.session._secretSaisi
+            ? networkLog.map(e => (e.postData ? { ...e, postData: '[omis : session avec secret]' } : e))
+            : networkLog;
+        const out = summarizeNetwork(journalReseau, { last, filter: filter || '', types: typeSet });
         let pageUrl = ''; try { pageUrl = page.url(); } catch (_) {}
         res.json({ ...out, page_url: pageUrl });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -5239,7 +5298,7 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== INTERCEPT REQUESTS ========================
-app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
+app.post('/intercept', getSession, gardeScripts('intercept'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { block_patterns = [], modify_headers = {} } = req.body;
@@ -5257,7 +5316,7 @@ app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== CAPTURE API RESPONSE ========================
-app.post('/capture_response', getSession, autoSnapshot, async (req, res) => {
+app.post('/capture_response', getSession, gardeScripts('capture_response'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { url_pattern, timeout = 15000 } = req.body;
@@ -5536,7 +5595,7 @@ app.post('/clipboard', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== MUTATION OBSERVER ========================
-app.post('/watch_changes', getSession, autoSnapshot, async (req, res) => {
+app.post('/watch_changes', getSession, gardeScripts('watch_changes'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', timeout = 10000, attribute_filter } = req.body;
@@ -5583,7 +5642,7 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EVALUATE JS ========================
-app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
+app.post('/evaluate', getSession, gardeScripts('evaluate'), autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
         const { page } = req.session;
@@ -5794,7 +5853,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 
 // ======================== DISPATCH EVENT ========================
 // Déclenche n'importe quel événement DOM sur un élément
-app.post('/dispatch_event', getSession, autoSnapshot, async (req, res) => {
+app.post('/dispatch_event', getSession, gardeScripts('dispatch_event'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -5849,7 +5908,7 @@ app.post('/dispatch_event', getSession, autoSnapshot, async (req, res) => {
 
 // ======================== TRIGGER REACT/VUE/ANGULAR ========================
 // Force la mise à jour des frameworks JS en simulant une vraie saisie utilisateur
-app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res) => {
+app.post('/trigger_framework_update', getSession, gardeScripts('trigger_framework_update'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector, value, framework = 'auto' } = req.body;
@@ -5941,7 +6000,7 @@ app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res)
 
 // ======================== POLL UNTIL ========================
 // Exécute un script JS en boucle jusqu'à ce qu'il retourne true
-app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
+app.post('/poll_until', getSession, gardeScripts('poll_until'), autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -6124,7 +6183,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
         // Resolve a chain step's target. Prefers `ref` and explicit `by_*`
         // params (Playwright official API — robust). Falls back to a
         // `selector` string parsed by smartResolveLocator (text/CSS/XPath).
-        async function resolveChainTarget(act) {
+        async function resolveChainTarget(act, secret = false) {
             const params = {
                 ref: act.ref,
                 by_role: act.by_role, by_name: act.by_name, by_text: act.by_text,
@@ -6137,12 +6196,15 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 // Comptée d'abord, comme /action : une cible absente échoue vite (element_not_found).
                 const c = await cibleDepuisParams(page, params, req.sessionId, Number(act.timeout) > 0 ? Number(act.timeout) : NOT_FOUND_GRACE_MS);
                 if (c) {
+                    // Un secret n'est jamais saisi dans « le premier » de plusieurs éléments.
+                    if (secret && c.n > 1 && (act.nth === undefined || act.nth === null))
+                        throw erreurCodee('ambiguous_target', `${c.n} éléments correspondent : saisie du secret refusée.`, { fix: 'Précisez la cible (nth ou un ref de pw_find).' });
                     if (c.n > 0 && !(c.nth !== null && c.nth >= c.n)) return { locator: c.loc.first(), source: 'official', matched: c.n };
-                    if (!act.selector || !(await trouveParRepli(page, act.selector)))
+                    if (secret || !act.selector || !(await trouveParRepli(page, act.selector)))
                         throw erreurCodee('element_not_found', `No element matches ${act.ref ? `ref ${act.ref}` : describeLocator(params, { first: false })} on this page.`);
                 }
             }
-            if (act.selector) {
+            if (act.selector && !secret) {
                 const r = await smartResolveLocator(page, act.selector);
                 if (r && r.locator) return { locator: r.locator, source: r.strategy || 'selector' };
             }
@@ -6165,13 +6227,21 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 secretOrigine = origineSecret(act, {
                     geste: actType,
                     aCible: Boolean(act.ref || act.by_role || act.by_text || act.by_label || act.by_placeholder
-                        || act.by_test_id || act.by_css || act.by_xpath || act.by_alt || act.by_title || act.selector),
+                        || act.by_test_id || act.by_css || act.by_xpath || act.by_alt || act.by_title),
                 });
                 valeurSecrete = secretOrigine ? (act.text || act.value || '') : '';
                 if (secretOrigine && !valeurSecrete) throw Object.assign(new Error('Secret vide.'), { code: 'secret_empty' });
+                if (secretOrigine) {
+                    const refusS = refusSessionPourSecret(req.session);
+                    if (refusS) throw refusS;
+                    const refusT = await refusCertificat(req.session, secretOrigine, act.secret_insecure_tls === true);
+                    if (refusT) throw refusT;
+                    // Taché dès avant la saisie : même un échec partiel a pu poser la valeur dans la page.
+                    req.session._secretSaisi = true;
+                }
             } catch (e) {
                 if (suivi) suivi.annuler();
-                results.push({ step: i, action: actType, success: false, error: e.message, code: e.code, duration_ms: Date.now() - startMs });
+                results.push({ step: i, action: actType, success: false, error: masquerValeur(e.message, valeurSecrete), code: e.code, ...(e.details || {}), duration_ms: Date.now() - startMs });
                 failed = true;
                 if (stop_on_error) break;
                 continue;
@@ -6201,9 +6271,9 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                     }
 
                     case 'fill': {
-                        const { locator } = await resolveChainTarget(act);
+                        const { locator } = await resolveChainTarget(act, Boolean(secretOrigine));
                         if (secretOrigine) {
-                            await saisirSecret(locator, secretOrigine, valeurSecrete, { mode: 'fill', timeout: act.timeout || ACTION_TIMEOUT_MS });
+                            await saisirSecret(locator, secretOrigine, valeurSecrete, { champ: act.secret_field, timeout: act.timeout || ACTION_TIMEOUT_MS });
                             result = { success: true, action: 'fill' };
                             break;
                         }
@@ -6221,11 +6291,6 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                     case 'type': {
                         const { locator } = await resolveChainTarget(act);
-                        if (secretOrigine) {
-                            await saisirSecret(locator, secretOrigine, valeurSecrete, { mode: 'type', timeout: act.timeout || ACTION_TIMEOUT_MS, delai: act.delay || 50 });
-                            result = { success: true, action: 'type' };
-                            break;
-                        }
                         await locator.click({ timeout: 3000 }).catch(() => {});
                         await locator.pressSequentially(act.text || act.value || '', { delay: act.delay || 50 });
                         result = { success: true, action: 'type' };
@@ -6335,7 +6400,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
+                    }, saisie ? await resolveChainTarget(act, Boolean(secretOrigine)).then(r => r.locator, () => null) : null);
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -6868,7 +6933,7 @@ async function ensureMockHandler(session) {
     session._mockHandlerRegistered = true;
 }
 
-app.post('/mock/add', getSession, async (req, res) => {
+app.post('/mock/add', getSession, gardeScripts('mock/add'), async (req, res) => {
     try {
         const {
             url_pattern, status = 200, body = '', content_type = 'application/json',

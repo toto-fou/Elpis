@@ -20,6 +20,7 @@ export interface JetonCreds {
   created_at: number;
   expires_at: number;
   uses_left: number;
+  allow_insecure_tls: boolean;
 }
 
 function maintenant(): number {
@@ -36,14 +37,19 @@ function jeton(l: Record<string, unknown>): JetonCreds {
     created_at: Number(l["created_at"]),
     expires_at: Number(l["expires_at"]),
     uses_left: Number(l["uses_left"]),
+    allow_insecure_tls: Number(l["allow_insecure_tls"]) === 1,
   };
 }
 
-const COLONNES = "id, chat_id, origin, label, entry_id, created_at, expires_at, uses_left";
+const COLONNES =
+  "id, chat_id, origin, label, entry_id, created_at, expires_at, uses_left, allow_insecure_tls";
 
-/** Jetons expirés retirés (paresseusement, à chaque création ou liste). */
-export async function purgerJetonsExpires(x: Executeur): Promise<void> {
-  await x.run("DELETE FROM coffre_jetons WHERE expires_at<?", [maintenant()]);
+/** Un jeton expiré reste lisible ce temps-là pour que l'appel qui le présente reçoive « expiré » plutôt que « inconnu ». */
+const GRACE_EXPIRE_S = 5 * 60;
+
+/** Jetons expirés retirés (paresseusement : création, liste, résolution, renouvellement) ; `grace` laisse les plus récents répondre « expiré ». */
+export async function purgerJetonsExpires(x: Executeur, grace = 0): Promise<void> {
+  await x.run("DELETE FROM coffre_jetons WHERE expires_at<?", [maintenant() - grace]);
 }
 
 /** Suppression de conversations : leurs jetons partent avec elles. */
@@ -77,6 +83,7 @@ export interface DemandeJeton {
   username?: unknown;
   password?: unknown;
   enregistrer?: boolean;
+  allowInsecureTls?: boolean;
 }
 
 /** Crée un jeton depuis une entrée confirmée ou un secret ponctuel (éventuellement enregistré) ; le jeton en clair n'est rendu qu'ici. */
@@ -101,9 +108,10 @@ export async function creerJetonCreds(
     let origine: string;
     let label: string;
     let secret: string | null = null;
+    let tls: boolean;
     if (d.entryId !== undefined && d.entryId !== null) {
       const e = await x.get(
-        "SELECT nom, origin, origin_confirmed FROM coffre_identifiants WHERE id=? AND user_id=?",
+        "SELECT nom, origin, origin_confirmed, allow_insecure_tls FROM coffre_identifiants WHERE id=? AND user_id=?",
         [d.entryId, uid],
       );
       if (!e) throw new ErreurCoffre(404, "Entrée introuvable.");
@@ -112,7 +120,9 @@ export async function creerJetonCreds(
       entryId = d.entryId;
       origine = e["origin"];
       label = String(e["nom"]);
+      tls = Number(e["allow_insecure_tls"]) === 1;
     } else {
+      tls = d.allowInsecureTls === true;
       origine = validerOrigine(d.origin);
       const username = typeof d.username === "string" ? d.username.trim() : "";
       const password = typeof d.password === "string" ? d.password : "";
@@ -121,7 +131,13 @@ export async function creerJetonCreds(
       label = username;
       if (d.enregistrer) {
         const nom = await nomLibrePourOrigine(x, uid, origine);
-        const e = await creerEntree(base, uid, { nom, origin: origine, username, password });
+        const e = await creerEntree(base, uid, {
+          nom,
+          origin: origine,
+          username,
+          password,
+          allow_insecure_tls: tls,
+        });
         entryId = e.id;
         label = e.nom;
       } else {
@@ -129,7 +145,7 @@ export async function creerJetonCreds(
       }
     }
     const id = await x.insertId(
-      "INSERT INTO coffre_jetons (token_hash, user_id, chat_id, origin, entry_id, label, secret_enc, created_at, expires_at, uses_left) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO coffre_jetons (token_hash, user_id, chat_id, origin, entry_id, label, secret_enc, created_at, expires_at, uses_left, allow_insecure_tls) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         tokenDigest(token),
         uid,
@@ -141,6 +157,7 @@ export async function creerJetonCreds(
         t,
         t + DUREE_JETON_S,
         USAGES_DEFAUT,
+        tls ? 1 : 0,
       ],
     );
     const l = await x.get(`SELECT ${COLONNES} FROM coffre_jetons WHERE id=?`, [id]);
@@ -149,15 +166,14 @@ export async function creerJetonCreds(
   return { token, item };
 }
 
-/** Renouvelle : 30 minutes à partir de maintenant et usages remis à leur valeur par défaut. */
+/** Renouvelle un jeton encore valide : 30 minutes à partir de maintenant et usages remis à leur valeur par défaut ; un jeton expiré ne se renouvelle pas (il faut un nouveau /creds). */
 export async function renouvelerJeton(base: Base, uid: number, id: number): Promise<JetonCreds | null> {
   const t = maintenant();
-  const r = await base.run("UPDATE coffre_jetons SET expires_at=?, uses_left=? WHERE id=? AND user_id=?", [
-    t + DUREE_JETON_S,
-    USAGES_DEFAUT,
-    id,
-    uid,
-  ]);
+  await purgerJetonsExpires(base, GRACE_EXPIRE_S);
+  const r = await base.run(
+    "UPDATE coffre_jetons SET expires_at=?, uses_left=? WHERE id=? AND user_id=? AND expires_at>?",
+    [t + DUREE_JETON_S, USAGES_DEFAUT, id, uid, t],
+  );
   if (r.changes === 0) return null;
   const l = await base.get(`SELECT ${COLONNES} FROM coffre_jetons WHERE id=?`, [id]);
   return l ? jeton(l) : null;
@@ -175,7 +191,7 @@ export interface ContexteResolution {
 }
 
 export type ResolutionCreds =
-  | { ok: true; values: Record<string, { value: string; origin: string }> }
+  | { ok: true; values: Record<string, { value: string; origin: string; insecure_tls: boolean }> }
   | { ok: false; code: string; message: string };
 
 class Refus extends Error {
@@ -208,6 +224,7 @@ export async function resoudreReferences(
   base: Base,
   c: ContexteResolution,
   refs: readonly unknown[],
+  options: { expectOrigin?: string } = {},
 ): Promise<ResolutionCreds> {
   if (c.sousAgent || !c.chatId || c.chatId.startsWith(PREFIXE_ROUTINE))
     return {
@@ -225,13 +242,14 @@ export async function resoudreReferences(
     parJeton.set(r.token, champs);
   }
   const t = maintenant();
-  const sortie: Record<string, { value: string; origin: string }> = {};
+  const sortie: Record<string, { value: string; origin: string; insecure_tls: boolean }> = {};
   const usages: { id: number; origin: string; champs: string[] }[] = [];
   try {
     await base.ecriture(async (x) => {
+      await purgerJetonsExpires(x, GRACE_EXPIRE_S);
       for (const [token, champs] of parJeton) {
         const l = await x.get(
-          "SELECT id, user_id, chat_id, origin, entry_id, secret_enc, expires_at FROM coffre_jetons WHERE token_hash=?",
+          "SELECT id, user_id, chat_id, origin, entry_id, secret_enc, expires_at, allow_insecure_tls FROM coffre_jetons WHERE token_hash=?",
           [tokenDigest(token)],
         );
         if (!l || Number(l["user_id"]) !== c.uid || String(l["chat_id"]) !== c.chatId)
@@ -243,14 +261,22 @@ export async function resoudreReferences(
             message: "credentials token expired: ask the user to renew it with /creds",
           });
         }
+        if (options.expectOrigin !== undefined && options.expectOrigin !== String(l["origin"]))
+          throw new Refus({
+            ok: false,
+            code: "creds_origin_mismatch",
+            message: "the requested URL is not on the exact origin these credentials are bound to",
+          });
         let identifiant: string;
         let motDePasse: string;
+        let tls = Number(l["allow_insecure_tls"]) === 1;
         if (l["entry_id"] !== null && l["entry_id"] !== undefined) {
           const e = await lireSecretEntree(x, c.uid, Number(l["entry_id"]));
           if (!e || !e.confirmee || e.origin !== String(l["origin"]) || !e.password)
             throw new Refus(REFUS_GENERIQUE);
           identifiant = e.username;
           motDePasse = e.password;
+          tls = e.tls;
         } else {
           try {
             const brut = JSON.parse(decrypt(String(l["secret_enc"] ?? ""))) as { u?: unknown; p?: unknown };
@@ -280,6 +306,7 @@ export async function resoudreReferences(
           sortie[`${token}.${champ}`] = {
             value: champ === "password" ? motDePasse : identifiant,
             origin: String(l["origin"]),
+            insecure_tls: tls,
           };
         }
         usages.push({ id: Number(l["id"]), origin: String(l["origin"]), champs: [...champs] });

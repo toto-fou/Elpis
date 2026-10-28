@@ -16,6 +16,7 @@ export interface CorpsEntree {
   origin: string;
   username: string;
   password: string;
+  allow_insecure_tls?: boolean;
 }
 
 export interface CorpsMajEntree {
@@ -23,6 +24,7 @@ export interface CorpsMajEntree {
   origin?: string;
   username?: string;
   password?: string;
+  allow_insecure_tls?: boolean;
 }
 
 export interface CorpsJeton {
@@ -32,6 +34,7 @@ export interface CorpsJeton {
   username?: string;
   password?: string;
   save?: boolean;
+  allow_insecure_tls?: boolean;
 }
 
 function json(methode: string, corps?: unknown): RequestInit {
@@ -47,10 +50,14 @@ export function creerApiCoffre(http: ClientHttp) {
       http.requete("/api/coffre", json("POST", corps), { schema: schemaReponseEntreeCoffre }),
     modifier: (id: number, corps: CorpsMajEntree) =>
       http.requete(`/api/coffre/${id}`, json("PUT", corps), { schema: schemaReponseEntreeCoffre }),
-    confirmer: (id: number, origin: string) =>
-      http.requete(`/api/coffre/${id}/confirmer`, json("POST", { origin }), {
-        schema: schemaReponseEntreeCoffre,
-      }),
+    confirmer: (id: number, origin: string, password?: string) =>
+      http.requete(
+        `/api/coffre/${id}/confirmer`,
+        json("POST", { origin, ...(password ? { password } : {}) }),
+        {
+          schema: schemaReponseEntreeCoffre,
+        },
+      ),
     supprimer: (id: number) => http.requete(`/api/coffre/${id}`, json("DELETE"), { schema: schemaOk }),
     jetons: (chatId: string) =>
       http.requete(

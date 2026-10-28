@@ -2,7 +2,7 @@
 /** apps/core/src/coffre/stockage.ts — coffre d'identifiants du compte : entrées (origine exacte, identifiant, mot de passe Fernet), jamais relues en clair par l'API. */
 import { nomDepuisSite } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
-import { decrypt, encrypt, origineExacte } from "@elpis/securite";
+import { auditEvent, decrypt, encrypt, origineExacte } from "@elpis/securite";
 
 export class ErreurCoffre extends Error {
   readonly statut: number;
@@ -19,14 +19,11 @@ export interface EntreeCoffre {
   origin: string | null;
   origin_confirmed: boolean;
   username: string;
+  allow_insecure_tls: boolean;
   use_count: number;
   last_used_at: number | null;
   created_at: number;
   updated_at: number;
-}
-
-export interface LigneEntree extends EntreeCoffre {
-  password_enc: string;
 }
 
 export const ENTREES_MAX = 200;
@@ -45,6 +42,7 @@ function entree(l: Record<string, unknown>): EntreeCoffre {
     origin: typeof l["origin"] === "string" ? l["origin"] : null,
     origin_confirmed: Number(l["origin_confirmed"]) === 1,
     username: String(l["username"]),
+    allow_insecure_tls: Number(l["allow_insecure_tls"]) === 1,
     use_count: Number(l["use_count"] ?? 0),
     last_used_at:
       l["last_used_at"] === null || l["last_used_at"] === undefined ? null : Number(l["last_used_at"]),
@@ -54,7 +52,12 @@ function entree(l: Record<string, unknown>): EntreeCoffre {
 }
 
 const COLONNES =
-  "id, nom, origin, origin_confirmed, username, created_at, updated_at, last_used_at, use_count";
+  "id, nom, origin, origin_confirmed, username, allow_insecure_tls, created_at, updated_at, last_used_at, use_count";
+
+/** Journal d'audit du coffre : action et champs touchés, jamais une valeur. */
+function audit(uid: number, action: string, details: Record<string, unknown>): void {
+  auditEvent({ userId: uid, username: null, action, details });
+}
 
 export function validerNom(brut: unknown): string {
   const nom = typeof brut === "string" ? brut.trim().toLowerCase() : "";
@@ -69,13 +72,13 @@ export function validerOrigine(brut: unknown): string {
   return origine;
 }
 
-function validerIdentifiant(brut: unknown): string {
+export function validerIdentifiant(brut: unknown): string {
   const v = typeof brut === "string" ? brut.trim() : "";
   if (!v || v.length > IDENTIFIANT_MAX) throw new ErreurCoffre(422, "Identifiant invalide.");
   return v;
 }
 
-function validerMotDePasse(brut: unknown): string {
+export function validerMotDePasse(brut: unknown): string {
   if (typeof brut !== "string" || !brut || brut.length > MOT_DE_PASSE_MAX)
     throw new ErreurCoffre(422, "Mot de passe invalide.");
   return brut;
@@ -98,6 +101,7 @@ export interface DonneesEntree {
   origin: unknown;
   username: unknown;
   password: unknown;
+  allow_insecure_tls?: unknown;
 }
 
 export async function creerEntree(base: Base, uid: number, d: DonneesEntree): Promise<EntreeCoffre> {
@@ -112,9 +116,10 @@ export async function creerEntree(base: Base, uid: number, d: DonneesEntree): Pr
     if (await x.get("SELECT 1 AS un FROM coffre_identifiants WHERE user_id=? AND nom=?", [uid, nom]))
       throw new ErreurCoffre(409, "Ce nom existe déjà.");
     const id = await x.insertId(
-      "INSERT INTO coffre_identifiants (user_id, nom, origin, origin_confirmed, username, password_enc, created_at, updated_at, use_count) VALUES (?, ?, ?, 1, ?, ?, ?, ?, 0)",
-      [uid, nom, origine, username, chiffre, t, t],
+      "INSERT INTO coffre_identifiants (user_id, nom, origin, origin_confirmed, username, password_enc, allow_insecure_tls, created_at, updated_at, use_count) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 0)",
+      [uid, nom, origine, username, chiffre, d.allow_insecure_tls === true ? 1 : 0, t, t],
     );
+    audit(uid, "coffre.create", { entry_id: id, origin: origine });
     return (await lireEntree(x, uid, id)) as EntreeCoffre;
   });
 }
@@ -135,71 +140,111 @@ export interface ModifEntree {
   origin?: unknown;
   username?: unknown;
   password?: unknown;
+  allow_insecure_tls?: unknown;
 }
 
-/** Modifie une entrée (mot de passe absent : inchangé) ; une origine fournie la confirme ; tout changement de source révoque les jetons issus de l'entrée. */
+/**
+ * Modifie une entrée (mot de passe absent ou vide : inchangé). Changer l'origine d'une entrée déjà confirmée exige de ressaisir le mot de passe
+ * (sinon un accès à la session suffirait à détourner le secret vers un autre site) ; seule la première confirmation d'une entrée reprise (origine nulle) s'en passe.
+ * Les jetons issus de l'entrée sont révoqués si l'origine, l'identifiant, le mot de passe ou l'accord sur le certificat changent réellement.
+ */
 export async function modifierEntree(
   base: Base,
   uid: number,
   id: number,
   m: ModifEntree,
+  action = "coffre.update",
 ): Promise<EntreeCoffre | null> {
-  const sets: string[] = [];
-  const params: (string | number)[] = [];
-  let revoque = false;
   const nom = m.nom === undefined ? null : validerNom(m.nom);
-  if (nom !== null) {
-    sets.push("nom=?");
-    params.push(nom);
-  }
-  if (m.origin !== undefined) {
-    sets.push("origin=?", "origin_confirmed=1");
-    params.push(validerOrigine(m.origin));
-    revoque = true;
-  }
-  if (m.username !== undefined) {
-    sets.push("username=?");
-    params.push(validerIdentifiant(m.username));
-    revoque = true;
-  }
-  if (m.password !== undefined && m.password !== "") {
-    sets.push("password_enc=?");
-    params.push(encrypt(validerMotDePasse(m.password)));
-    revoque = true;
-  }
+  const origine = m.origin === undefined ? null : validerOrigine(m.origin);
+  const identifiant = m.username === undefined ? null : validerIdentifiant(m.username);
+  const nouveauMdp = m.password !== undefined && m.password !== "" ? validerMotDePasse(m.password) : null;
+  const tls = m.allow_insecure_tls === undefined ? null : m.allow_insecure_tls === true;
   return base.ecriture(async (x) => {
-    if (!(await lireEntree(x, uid, id))) return null;
-    if (nom !== null) {
+    const actuel = await x.get(`SELECT ${COLONNES} FROM coffre_identifiants WHERE id=? AND user_id=?`, [
+      id,
+      uid,
+    ]);
+    if (!actuel) return null;
+    const ancienne = typeof actuel["origin"] === "string" ? actuel["origin"] : null;
+    const origineChange = origine !== null && origine !== ancienne;
+    if (origineChange && ancienne !== null && nouveauMdp === null)
+      throw new ErreurCoffre(422, "Changer l'origine exige de ressaisir le mot de passe.");
+    if (nom !== null && nom !== actuel["nom"]) {
       const pris = await x.get(
         "SELECT 1 AS un FROM coffre_identifiants WHERE user_id=? AND nom=? AND id<>?",
         [uid, nom, id],
       );
       if (pris) throw new ErreurCoffre(409, "Ce nom existe déjà.");
     }
+    const sets: string[] = [];
+    const params: (string | number)[] = [];
+    const champs: string[] = [];
+    if (nom !== null && nom !== actuel["nom"]) {
+      sets.push("nom=?");
+      params.push(nom);
+      champs.push("nom");
+    }
+    if (origine !== null && (origineChange || Number(actuel["origin_confirmed"]) !== 1)) {
+      sets.push("origin=?", "origin_confirmed=1");
+      params.push(origine);
+      champs.push("origin");
+    }
+    if (identifiant !== null && identifiant !== actuel["username"]) {
+      sets.push("username=?");
+      params.push(identifiant);
+      champs.push("username");
+    }
+    if (nouveauMdp !== null) {
+      sets.push("password_enc=?");
+      params.push(encrypt(nouveauMdp));
+      champs.push("password");
+    }
+    if (tls !== null && tls !== (Number(actuel["allow_insecure_tls"]) === 1)) {
+      sets.push("allow_insecure_tls=?");
+      params.push(tls ? 1 : 0);
+      champs.push("allow_insecure_tls");
+    }
     if (sets.length > 0) {
       await x.run(
         `UPDATE coffre_identifiants SET ${sets.join(", ")}, updated_at=? WHERE id=? AND user_id=?`,
         [...params, maintenant(), id, uid],
       );
+      audit(uid, ancienne === null && origineChange ? "coffre.confirm" : action, {
+        entry_id: id,
+        fields: champs,
+      });
     }
-    if (revoque) await x.run("DELETE FROM coffre_jetons WHERE user_id=? AND entry_id=?", [uid, id]);
+    if (champs.some((c) => c !== "nom"))
+      await x.run("DELETE FROM coffre_jetons WHERE user_id=? AND entry_id=?", [uid, id]);
     return lireEntree(x, uid, id);
   });
 }
 
+/** Confirme l'origine : la première confirmation d'une entrée reprise est libre (et auditée) ; confirmer une autre origine exige le mot de passe. */
 export async function confirmerOrigine(
   base: Base,
   uid: number,
   id: number,
   origine: unknown,
+  motDePasse?: unknown,
 ): Promise<EntreeCoffre | null> {
-  return modifierEntree(base, uid, id, { origin: origine });
+  return modifierEntree(
+    base,
+    uid,
+    id,
+    { origin: origine, ...(motDePasse !== undefined ? { password: motDePasse } : {}) },
+    "coffre.confirm",
+  );
 }
 
 export async function supprimerEntree(base: Base, uid: number, id: number): Promise<boolean> {
   return base.ecriture(async (x) => {
     await x.run("DELETE FROM coffre_jetons WHERE user_id=? AND entry_id=?", [uid, id]);
-    return (await x.run("DELETE FROM coffre_identifiants WHERE id=? AND user_id=?", [id, uid])).changes > 0;
+    const supprimee =
+      (await x.run("DELETE FROM coffre_identifiants WHERE id=? AND user_id=?", [id, uid])).changes > 0;
+    if (supprimee) audit(uid, "coffre.delete", { entry_id: id });
+    return supprimee;
   });
 }
 
@@ -208,9 +253,15 @@ export async function lireSecretEntree(
   x: Executeur,
   uid: number,
   id: number,
-): Promise<{ username: string; password: string; origin: string | null; confirmee: boolean } | null> {
+): Promise<{
+  username: string;
+  password: string;
+  origin: string | null;
+  confirmee: boolean;
+  tls: boolean;
+} | null> {
   const l = await x.get(
-    "SELECT username, password_enc, origin, origin_confirmed FROM coffre_identifiants WHERE id=? AND user_id=?",
+    "SELECT username, password_enc, origin, origin_confirmed, allow_insecure_tls FROM coffre_identifiants WHERE id=? AND user_id=?",
     [id, uid],
   );
   if (!l) return null;
@@ -219,6 +270,7 @@ export async function lireSecretEntree(
     password: decrypt(String(l["password_enc"])),
     origin: typeof l["origin"] === "string" ? l["origin"] : null,
     confirmee: Number(l["origin_confirmed"]) === 1,
+    tls: Number(l["allow_insecure_tls"]) === 1,
   };
 }
 

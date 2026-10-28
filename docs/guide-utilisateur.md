@@ -621,18 +621,23 @@ automatiquement sur la recherche de skills.
 Ne tapez jamais un mot de passe dans le message : l'assistant l'afficherait dans
 l'historique et les journaux. Tapez `/creds` : une fenêtre propose une entrée de
 votre **Coffre** (Paramètres › Coffre) ou une saisie ponctuelle (origine,
-identifiant, mot de passe, case « Enregistrer dans le coffre »). Elle insère
-`⟦creds:…⟧` dans votre message ; l'assistant ne voit que ce jeton et le fait taper
-dans le formulaire du navigateur sans jamais lire le mot de passe.
+identifiant, mot de passe, cases « Enregistrer dans le coffre » et « Certificat non
+vérifié accepté »). Elle insère `⟦creds:…@origine⟧` dans votre message ; l'assistant
+ne voit que ce jeton et le fait taper dans le formulaire du navigateur sans jamais
+lire le mot de passe.
 
 - Le jeton est lié à **cette conversation** et à **une origine exacte** (schéma,
-  hôte et port) : le mot de passe n'est tapé que dans une page de cette origine,
-  iframes comprises.
+  hôte et port) : le mot de passe n'est tapé que dans un champ « mot de passe » d'une
+  page de cette origine, iframes comprises, et seulement si le navigateur approuve son
+  certificat (sinon cochez « Certificat non vérifié accepté », pour un réseau privé).
 - Il expire au bout de **30 min** ou de 5 usages ; la fenêtre `/creds` liste les
   accès actifs de la conversation (Renouveler, Révoquer). Supprimer la conversation
-  les supprime.
+  les supprime. Un sous-agent ou une routine ne peut pas s'en servir.
+- Une fois un identifiant saisi, la session de navigateur n'accepte plus de script
+  (`eval`), de simulation de réponses ni d'interception : fermez-la pour les reprendre.
 - Les entrées reprises de l'ancienne mémoire des sites sont marquées « à
-  confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser.
+  confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser. Changer
+  l'origine d'une entrée confirmée exige de ressaisir son mot de passe.
 
 ### Pièces jointes et images
 

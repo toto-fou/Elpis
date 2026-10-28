@@ -50,12 +50,36 @@ async function demarrer(
         message: "creds= takes the TOKEN of a ⟦creds:TOKEN⟧ supplied by the user",
         fix: "ask the user to supply a login with the /creds command",
       });
+    if (a["trace"] || a["record_har"] || a["record_video"])
+      return errPw("creds_recording_refused", "", {
+        message:
+          "creds= cannot be combined with trace, record_har or record_video (they would record the password)",
+        fix: "start without trace / record_har / record_video",
+      });
+    // Les identifiants HTTP ne se posent qu'à la création d'un contexte : une session déjà ouverte les ignorerait en silence.
+    if (!a["isolated"]) {
+      const ouvertes = await client.req("GET", "/sessions");
+      if (estDict(ouvertes) && Array.isArray(ouvertes["sessions"]) && ouvertes["sessions"].length > 0)
+        return errPw("creds_session_reused", "", {
+          message:
+            "a browser session is already open: it would be reused and HTTP credentials only apply to a new browser context",
+          fix: "call pw_session(action='start', url=…, creds=…, isolated=true), or stop the open session first",
+        });
+    }
     const origineUrl = origineExacte(url);
-    const r = await resoudreSecrets(s, ctx, [`${jeton}.username`, `${jeton}.password`]);
+    if (origineUrl === null)
+      return errPw("creds_origin_mismatch", "", {
+        message: "url= is not a valid http(s) address",
+        fix: "start the session on the credentials' origin",
+      });
+    // L'origine est contrôlée par le core AVANT de décompter un usage.
+    const r = await resoudreSecrets(s, ctx, [`${jeton}.username`, `${jeton}.password`], {
+      expectOrigin: origineUrl,
+    });
     if ("refus" in r) return r.refus;
     secrets = r.secrets;
     const [identifiant, motDePasse] = secrets;
-    if (origineUrl === null || origineUrl !== identifiant?.origine)
+    if (identifiant === undefined || origineUrl !== identifiant.origine)
       return errPw("creds_origin_mismatch", "", {
         message: "url= is not on the exact origin these credentials are bound to",
         fix: "start the session on the credentials' origin, or ask the user for /creds for this origin",
@@ -64,6 +88,7 @@ async function demarrer(
       username: identifiant.valeur,
       password: motDePasse?.valeur,
       credentials_origin: identifiant.origine,
+      credentials_insecure_tls: identifiant.tlsInsecure,
     };
   }
   const corps: Dict = {

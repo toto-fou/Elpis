@@ -3,7 +3,7 @@
 import type * as Vue from "vue";
 import type { ComputedRef, Ref } from "vue";
 
-import { EVT_OUVRIR_CREDS } from "../../../app/racine/creds.ts";
+import { EVT_OUVRIR_CREDS } from "../../coffre/ouverture.ts";
 import type { JobsSlash } from "../jobs/jobs.ts";
 import type { ResultatCommande, TemplatesChat } from "./templates.ts";
 

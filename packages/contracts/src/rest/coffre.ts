@@ -10,6 +10,7 @@ export const schemaEntreeCoffre = z.object({
   origin: z.string().nullable(),
   origin_confirmed: z.boolean(),
   username: z.string(),
+  allow_insecure_tls: z.boolean(),
   use_count: entier,
   last_used_at: horodatage.nullable(),
   created_at: horodatage,
@@ -24,15 +25,21 @@ export const schemaCorpsCreationCoffre = z.object({
   origin: z.string(),
   username: z.string(),
   password: z.string(),
+  allow_insecure_tls: z.boolean().optional(),
 });
-/** Mot de passe absent ou vide : inchangé ; une origine fournie la confirme. */
+/** Mot de passe absent ou vide : inchangé ; changer l'origine d'une entrée confirmée exige de le ressaisir. */
 export const schemaCorpsMajCoffre = z.object({
   nom: z.string().optional(),
   origin: z.string().optional(),
   username: z.string().optional(),
   password: z.string().optional(),
+  allow_insecure_tls: z.boolean().optional(),
 });
-export const schemaCorpsConfirmationCoffre = z.object({ origin: z.string() });
+/** Première confirmation d'une entrée reprise : l'origine seule ; toute autre origine exige aussi le mot de passe. */
+export const schemaCorpsConfirmationCoffre = z.object({
+  origin: z.string(),
+  password: z.string().optional(),
+});
 
 export const schemaJetonCreds = z.object({
   id: entier,
@@ -43,6 +50,7 @@ export const schemaJetonCreds = z.object({
   created_at: horodatage,
   expires_at: horodatage,
   uses_left: entier,
+  allow_insecure_tls: z.boolean(),
 });
 export type JetonCreds = z.infer<typeof schemaJetonCreds>;
 export const schemaReponseJetonsCreds = z.object({ items: z.array(schemaJetonCreds) });
@@ -62,4 +70,5 @@ export const schemaCorpsJetonCreds = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   save: z.boolean().optional(),
+  allow_insecure_tls: z.boolean().optional(),
 });

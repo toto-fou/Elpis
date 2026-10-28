@@ -362,7 +362,7 @@ export async function composer(
   configurerAuditDuCore(mode, journal);
   brancherGardeUrl((url, schemas) => blockRemoteUrlReason(url, { allowSchemes: schemas }));
   await convertirJetonsAuDemarrage(base, journal);
-  await reprendreIdentifiantsAx(base, journal);
+  if (mode !== "admin") await reprendreIdentifiantsAx(base, journal);
   installerPortsMemoire(base);
   installerPortsSkills(base);
   installerPortsBureau(base);

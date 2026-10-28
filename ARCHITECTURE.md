@@ -256,7 +256,7 @@ passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
 ## Identifiants de sites
 
 Un coffre par compte (`coffre_identifiants`, mot de passe Fernet, **origine
-exacte**) et des jetons `⟦creds:…⟧` liés à une conversation (`coffre_jetons`,
+exacte**) et des jetons `⟦creds:JETON@ORIGINE⟧` liés à une conversation (`coffre_jetons`,
 empreinte SHA-256, 30 min, 5 usages) : le modèle ne voit jamais un mot de passe.
 Les outils `pw_*` le demandent au core par le canal interne signé
 (`/api/internal/creds/resolve`) et `browser-service` ne le saisit que si le frame

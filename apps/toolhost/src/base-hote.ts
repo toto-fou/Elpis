@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/base-hote.ts — base de l'hôte (`init_db` de toolhost/app.py) : `db_path` de toolhost.json, sinon la base de l'app ; schéma sous le verrou partagé avec main, garde de génération, WAL compacté. */
 import type { FabriqueJournal } from "@elpis/commun";
-import { creerGardeGeneration, demarrerBase, walCheckpoint } from "@elpis/db";
+import { creerGardeGeneration, demarrerBase, retirerIdentifiantsAxOrphelins, walCheckpoint } from "@elpis/db";
 import type { Base } from "@elpis/db";
 
 let courante: Base | null = null;
@@ -21,6 +21,12 @@ export async function ouvrirBaseHote(journal: FabriqueJournal): Promise<Base | n
       journal,
     });
     courante = base;
+    // Base propre à l'hôte (sans compte) : les anciens mots de passe en clair de la mémoire AX n'y seront jamais repris par le core.
+    const perdus = await retirerIdentifiantsAxOrphelins(base).catch(() => null);
+    if (perdus !== null)
+      journal("toolhost").warn(
+        `[coffre] ${perdus} ancien(s) identifiant(s) AX en clair supprimé(s) de la base de l'hôte : à ressaisir dans le coffre (Paramètres › Coffre)`,
+      );
   } catch (e) {
     journal("toolhost").warn(`init_db : ${e instanceof Error ? e.message : String(e)}`);
   }

@@ -258,12 +258,16 @@ export class ClientRappel {
   }
 
   /** Secrets des références `jeton.champ` pour l'appel de `compte` : SECRET, jamais mis en cache ni journalisé ; `null` si le core ne répond pas. */
-  async resoudreCreds(compte: CompteSigne, refs: readonly string[]): Promise<ResolutionCreds | null> {
+  async resoudreCreds(
+    compte: CompteSigne,
+    refs: readonly string[],
+    origineAttendue?: string,
+  ): Promise<ResolutionCreds | null> {
     const d = await this.appeler(
       "POST",
       "/api/internal/creds/resolve",
       undefined,
-      { refs: [...refs] },
+      { refs: [...refs], ...(origineAttendue === undefined ? {} : { expect_origin: origineAttendue }) },
       compte,
       this.delaiMs,
       undefined,
@@ -271,10 +275,10 @@ export class ClientRappel {
     );
     if (d === null) return null;
     if (veritePy(getPy(d, "ok")) && estDict(getPy(d, "values"))) {
-      const values: Record<string, { value: string; origin: string }> = {};
+      const values: Record<string, { value: string; origin: string; insecure_tls: boolean }> = {};
       for (const [ref, v] of Object.entries(getPy(d, "values") as Dict))
         if (estDict(v) && typeof v["value"] === "string" && typeof v["origin"] === "string")
-          values[ref] = { value: v["value"], origin: v["origin"] };
+          values[ref] = { value: v["value"], origin: v["origin"], insecure_tls: v["insecure_tls"] === true };
       return { ok: true, values };
     }
     return {
@@ -437,7 +441,10 @@ export interface CompteSigne {
 
 /** Réponse du core à la résolution de références `jeton.champ` : valeurs avec l'origine attendue, ou refus codé. */
 export type ResolutionCreds =
-  | { readonly ok: true; readonly values: Readonly<Record<string, { value: string; origin: string }>> }
+  | {
+      readonly ok: true;
+      readonly values: Readonly<Record<string, { value: string; origin: string; insecure_tls: boolean }>>;
+    }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 /** `d[cle]` : une clé absente lève (KeyError). */

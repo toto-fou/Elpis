@@ -73,26 +73,40 @@ async function importer(
     });
   }
   const maintenant = Date.now() / 1000;
+  let importes = 0;
   for (const p of prets) {
-    await x.run(
+    const r = await x.run(
       "INSERT INTO coffre_identifiants (user_id, nom, origin, origin_confirmed, username, password_enc, created_at, updated_at, last_used_at, use_count) VALUES (?, ?, NULL, 0, ?, ?, ?, ?, ?, ?) ON CONFLICT (user_id, nom) DO NOTHING",
       [p.uid, p.nom, p.username, p.chiffre, maintenant, maintenant, p.ok, p.n],
     );
+    importes += r.changes;
   }
   await x.run(`DROP TABLE "${TABLE_IDENTIFIANTS_AX}"`);
-  return { importes: prets.length, ignores };
+  return { importes, ignores };
 }
 
-/** Importe les anciens identifiants AX chiffrés, sans origine ni confirmation, puis retire la table ; rien n'est modifié si le chiffrement échoue (nouvel essai au démarrage suivant). */
+/** Importe les anciens identifiants AX chiffrés, sans origine ni confirmation, puis retire la table ; sous le verrou d'écriture (deux process qui démarrent ensemble s'y succèdent, le second ne trouve plus la table) ; rien n'est modifié si le chiffrement échoue (nouvel essai au démarrage suivant). */
 export async function importerIdentifiantsAx(
   base: Base,
   chiffrer: (clair: string) => string,
 ): Promise<{ importes: number; ignores: number }> {
-  return base.transaction((x) => importer(x, chiffrer));
+  return base.ecriture((x) => importer(x, chiffrer));
 }
 
 /** Lignes non reprises d'un compte supprimé (base de l'hôte distincte de celle du core) ; 0 si la table n'existe plus. */
 export async function retirerIdentifiantsAxDuCompte(x: Executeur, proprietaire: string): Promise<number> {
   if (!proprietaire || !(await hasTable(x, TABLE_IDENTIFIANTS_AX))) return 0;
   return (await x.run(`DELETE FROM "${TABLE_IDENTIFIANTS_AX}" WHERE owner = ?`, [proprietaire])).changes;
+}
+
+/** Hôte d'outils à base séparée : sans aucun compte dans sa base, personne n'y importera la table de clair ; elle est supprimée. Nombre de lignes perdues, `null` si la table n'est pas là ou si la base porte des comptes (le core l'y importera). */
+export async function retirerIdentifiantsAxOrphelins(base: Base): Promise<number | null> {
+  return base.ecriture(async (x) => {
+    if (!(await hasTable(x, TABLE_IDENTIFIANTS_AX))) return null;
+    const comptes = await x.get("SELECT COUNT(*) AS n FROM users");
+    if (Number(comptes?.["n"] ?? 0) > 0) return null;
+    const lignes = await x.get(`SELECT COUNT(*) AS n FROM "${TABLE_IDENTIFIANTS_AX}"`);
+    await x.run(`DROP TABLE "${TABLE_IDENTIFIANTS_AX}"`);
+    return Number(lignes?.["n"] ?? 0);
+  });
 }

@@ -180,6 +180,12 @@ export function installerCrochets(purify: Purify): void {
   crochets.add(purify);
   purify.addHook("uponSanitizeAttribute", (noeud, brut) => {
     const data = brut as DonneeAttribut;
+    // Une réponse du modèle ne peut pas imiter la carte d'accord ni ses boutons.
+    if (data.attrName === "class" && data.attrValue)
+      data.attrValue = data.attrValue
+        .split(/\s+/u)
+        .filter((c) => !/^elpis-(accord|ask-btn)/u.test(c))
+        .join(" ");
     if (data.attrName === "style" && data.attrValue) {
       data.attrValue = data.attrValue.replace(POSITION_FLOTTANTE, "position:static");
       const dansSvg = noeud instanceof Element && noeud.closest("svg") !== null;

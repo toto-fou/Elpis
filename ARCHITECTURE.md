@@ -277,7 +277,7 @@ rejeu sur un geste ambigu. Un échec réparable est rendu au modèle du chat ave
 (`failed_at.repair`) ; il corrige le nœud par `pw_procedure(action='repair')` (règles strictes) puis reprend
 (`resume`) ; ses gestes nouveaux ou détournés passent par `confirm: "once"`. Un geste sous `confirm` ne reprend que sur un **accord humain**
 vérifié côté serveur (`ax_procedure_demandes`, bouton « Confirmer » du chat, route de session ; `pw_run(approval=…)`, empreinte du geste
-substitué, usage unique) : le modèle ne peut pas approuver. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
+substitué, usage unique) : le modèle ne peut pas approuver. Hors conversation (routine, sous-agent) seules les versions **approuvées par l'utilisateur** (Paramètres › Procédures) s'exécutent. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
 
 ## Invariants
 

@@ -375,17 +375,10 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
           const ident = await identiteSignee(dep, req);
           const c = corpsObjet(req);
           const chatId = typeof ident.chat_id === "string" ? ident.chat_id : "";
-          const texte = (k: string, max: number): string =>
-            typeof c[k] === "string" ? (c[k] as string).slice(0, max) : "";
+          const texte = (k: string): string => (typeof c[k] === "string" ? (c[k] as string) : "");
           const g = estDict(c["gesture"]) ? c["gesture"] : {};
           const version = typeof c["version"] === "number" ? Math.trunc(c["version"]) : 0;
-          if (
-            !chatId ||
-            !texte("procedure_id", 200) ||
-            !texte("path", 300) ||
-            !texte("fingerprint", 100) ||
-            version < 1
-          )
+          if (!chatId || !texte("procedure_id") || !texte("path") || !texte("fingerprint") || version < 1)
             return {
               ok: false,
               code: "approval_invalid",
@@ -395,26 +388,31 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
             owner: ident.username,
             uid: ident.user_id,
             chatId,
-            sessionId: texte("session_id", 200),
-            procedureId: texte("procedure_id", 200),
+            sessionId: texte("session_id"),
+            procedureId: texte("procedure_id"),
             version,
-            path: texte("path", 300),
-            fingerprint: texte("fingerprint", 100),
-            description: texte("description", 700),
+            path: texte("path"),
+            fingerprint: texte("fingerprint"),
+            description: texte("description"),
             gesture: {
-              act: typeof g["act"] === "string" ? g["act"].slice(0, 40) : "",
+              act: typeof g["act"] === "string" ? g["act"] : "",
               targets: Array.isArray(g["targets"])
-                ? g["targets"]
-                    .filter((t): t is string => typeof t === "string")
-                    .map((t) => t.slice(0, 300))
-                    .slice(0, 8)
+                ? g["targets"].filter((t): t is string => typeof t === "string")
                 : [],
-              value: typeof g["value"] === "string" ? g["value"].slice(0, 500) : "",
-              url: typeof g["url"] === "string" ? g["url"].slice(0, 1000) : "",
+              value: typeof g["value"] === "string" ? g["value"] : "",
+              url: typeof g["url"] === "string" ? g["url"] : "",
             },
-            page: texte("page", 1000),
+            page: texte("page"),
             once: c["once"] === true,
+            repaired: c["repaired"] === true,
           });
+          if (d === null)
+            return {
+              ok: false,
+              code: "approval_too_long",
+              message:
+                "the gesture does not fit in an approval card (a field is too long): it was not requested",
+            };
           return { ok: true, id: d.id, expires_at: d.expires_at, state: d.state };
         },
       },

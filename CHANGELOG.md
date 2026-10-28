@@ -46,6 +46,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   La garde de similarité devient un élargissement : un mot de plus de 3 lettres ou un nombre absent de l'ancienne cible
   (« Payer » → « Payer express ») demande `confirm: "once"`. Le moteur résout ses cibles par nom accessible **exact**
   (« Payer » ne clique plus « Payer express ») ; le `pw_act` du modèle ne change pas.
+- **Versions approuvées et écran Procédures.** Chaque version enregistrée ou réparée par le modèle est non approuvée
+  (`approved_at`, migration `0034`) ; routines, sous-agents et tout contexte sans humain n'exécutent que des versions
+  approuvées par l'utilisateur (`version_not_approved`). Paramètres › Procédures liste les versions, résume leurs gestes,
+  les approuve et les supprime ; `pw_procedure(delete)` refuse une version approuvée ; `confirm_protected` apparie sur le
+  geste entier (garde-fou, pas frontière). La carte d'accord refuse de se créer si un champ est tronqué, rend visibles les
+  caractères invisibles, et un nom de cible qui change (dans un sens ou l'autre) demande `once`.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

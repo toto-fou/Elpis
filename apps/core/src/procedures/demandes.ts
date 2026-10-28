@@ -22,6 +22,7 @@ export interface NouvelleDemande {
   readonly gesture: DemandeApprobation["gesture"];
   readonly page: string;
   readonly once: boolean;
+  readonly repaired: boolean;
 }
 
 export interface LiaisonDemande {
@@ -38,7 +39,17 @@ export interface LiaisonDemande {
 type Ligne = Record<string, unknown>;
 
 const maintenant = (): number => Date.now() / 1000;
-const borne = (s: string, n: number): string => s.slice(0, n);
+/** Bornes de chaque champ du geste : au-delà la demande est REFUSÉE (jamais tronquée : la carte montrerait un geste différent de celui qui sera joué). */
+const BORNES = {
+  act: 40,
+  cible: 200,
+  cibles: 5,
+  valeur: 300,
+  url: 2000,
+  description: 700,
+  page: 1000,
+  chemin: 300,
+} as const;
 
 function demande(l: Ligne): DemandeApprobation {
   let gesture: DemandeApprobation["gesture"] = { act: "", targets: [], value: "", url: "" };
@@ -64,6 +75,7 @@ function demande(l: Ligne): DemandeApprobation {
     gesture,
     page: String(l["page"]),
     once: Number(l["once"]) === 1,
+    repaired: Number(l["repaired"]) === 1,
     state: etat === "approved" || etat === "refused" || etat === "consumed" ? etat : "pending",
     created_at: Number(l["created_at"]),
     expires_at: Number(l["expires_at"]),
@@ -71,13 +83,26 @@ function demande(l: Ligne): DemandeApprobation {
 }
 
 /** Crée la demande (état `pending`, 15 min) ; une demande identique encore en attente est rendue telle quelle. Les anciennes lignes sont purgées au passage. */
-export async function creerDemande(base: Base, d: NouvelleDemande): Promise<DemandeApprobation> {
+export async function creerDemande(base: Base, d: NouvelleDemande): Promise<DemandeApprobation | null> {
+  const g = d.gesture;
+  if (
+    !g.act ||
+    g.act.length > BORNES.act ||
+    g.targets.length > BORNES.cibles ||
+    g.targets.some((t) => t.length > BORNES.cible) ||
+    g.value.length > BORNES.valeur ||
+    g.url.length > BORNES.url ||
+    d.description.length > BORNES.description ||
+    d.page.length > BORNES.page ||
+    d.path.length > BORNES.chemin
+  )
+    return null;
   return base.ecriture(async (x) => {
     const t = maintenant();
     await x.run("DELETE FROM ax_procedure_demandes WHERE expires_at < ?", [t - CONSERVATION_S]);
     const existante = await x.get<Ligne>(
       `SELECT * FROM ax_procedure_demandes WHERE user_id=? AND chat_id=? AND session_id=? AND procedure_id=? AND version=?
-          AND path=? AND fingerprint=? AND page=? AND state IN ('pending', 'approved') AND expires_at>?`,
+          AND path=? AND fingerprint=? AND page=? AND state='pending' AND expires_at>?`,
       [d.uid, d.chatId, d.sessionId, d.procedureId, d.version, d.path, d.fingerprint, d.page, t],
     );
     if (existante !== undefined) return demande(existante);
@@ -89,8 +114,8 @@ export async function creerDemande(base: Base, d: NouvelleDemande): Promise<Dema
     );
     const id = `ap_${randomBytes(18).toString("hex")}`;
     await x.run(
-      `INSERT INTO ax_procedure_demandes (id, owner, user_id, chat_id, session_id, procedure_id, version, path, fingerprint, description, gesture_json, page, once, state, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      `INSERT INTO ax_procedure_demandes (id, owner, user_id, chat_id, session_id, procedure_id, version, path, fingerprint, description, gesture_json, page, once, repaired, state, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
       [
         id,
         d.owner,
@@ -99,12 +124,13 @@ export async function creerDemande(base: Base, d: NouvelleDemande): Promise<Dema
         d.sessionId,
         d.procedureId,
         d.version,
-        borne(d.path, 300),
+        d.path,
         d.fingerprint,
-        borne(d.description, 700),
-        borne(JSON.stringify(d.gesture), 3000),
-        borne(d.page, 1000),
+        d.description,
+        JSON.stringify(g),
+        d.page,
         d.once ? 1 : 0,
+        d.repaired ? 1 : 0,
         t,
         t + DUREE_DEMANDE_S,
       ],

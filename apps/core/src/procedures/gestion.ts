@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: MIT
+/** apps/core/src/procedures/gestion.ts — écran Procédures du compte : liste des versions, résumé lisible, approbation d'une version par l'utilisateur, suppression. */
+import type { Noeud, ProcedureListee } from "@elpis/contracts";
+import { validerProcedure } from "@elpis/contracts";
+import type { Base } from "@elpis/db";
+
+const maintenant = (): number => Date.now() / 1000;
+
+type Ligne = Record<string, unknown>;
+
+/** Procédures du compte (nom du compte = propriétaire), versions de la plus récente à la plus ancienne. */
+export async function listerProcedures(base: Base, owner: string): Promise<ProcedureListee[]> {
+  const l = await base.all<Ligne>(
+    "SELECT id, origin, description, version, created_at, parent_version, repaired_path, approved_at FROM ax_procedures WHERE owner=? ORDER BY id, version DESC",
+    [owner],
+  );
+  const out = new Map<string, ProcedureListee>();
+  for (const r of l) {
+    const id = String(r["id"]);
+    const p = out.get(id) ?? {
+      id,
+      origin: String(r["origin"]),
+      description: String(r["description"]),
+      versions: [],
+    };
+    p.versions.push({
+      version: Number(r["version"]),
+      created_at: Number(r["created_at"]),
+      parent_version: r["parent_version"] === null ? null : Number(r["parent_version"]),
+      repaired_path: r["repaired_path"] === null ? null : String(r["repaired_path"]),
+      approved_at:
+        r["approved_at"] === null || r["approved_at"] === undefined ? null : Number(r["approved_at"]),
+    });
+    out.set(id, p);
+  }
+  return [...out.values()];
+}
+
+const cible = (t: readonly string[] | undefined): string => (t ?? []).map((x) => `« ${x} »`).join(" ou ");
+
+function lignes(n: Noeud, profondeur: number, sortie: string[]): void {
+  const ligne = (texte: string): void => void sortie.push(`${"  ".repeat(profondeur)}${texte}`);
+  if ("seq" in n) {
+    ligne("Dans l'ordre :");
+    for (const e of n.seq) lignes(e, profondeur + 1, sortie);
+  } else if ("sel" in n) {
+    ligne("Le premier qui réussit :");
+    for (const e of n.sel) lignes(e, profondeur + 1, sortie);
+  } else if ("if" in n) {
+    ligne(`Si ${JSON.stringify(n.if)} :`);
+    if (n.then) lignes(n.then, profondeur + 1, sortie);
+    if (n.else) {
+      ligne("Sinon :");
+      lignes(n.else, profondeur + 1, sortie);
+    }
+  } else if ("act" in n) {
+    const accord =
+      n.confirm === true
+        ? " [accord à chaque fois]"
+        : n.confirm === "once"
+          ? " [accord à la première exécution]"
+          : "";
+    const quoi = n.act === "goto" ? (n.url ?? "") : cible(n.t);
+    ligne(`${n.act} ${quoi}${n.v !== undefined ? ` ← « ${n.v} »` : ""}${accord}`.trim());
+  } else if ("login" in n) {
+    ligne(`Connexion (identifiant ${n.login.creds}), attend ${cible([n.login.wait_for])}`);
+  } else if ("retry" in n) {
+    ligne(`Recommencer jusqu'à ${n.max} fois :`);
+    lignes(n.retry, profondeur + 1, sortie);
+  } else {
+    ligne(`Attendre ${n.wait_ms} ms`);
+  }
+}
+
+/** Résumé d'une version ; `null` si elle n'existe pas. */
+export async function resumerVersion(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<{ lines: string[]; readable: boolean } | null> {
+  const l = await base.get<Ligne>(
+    "SELECT tree_json FROM ax_procedures WHERE owner=? AND id=? AND version=?",
+    [owner, id, version],
+  );
+  if (l === undefined) return null;
+  let brut: unknown;
+  try {
+    brut = JSON.parse(String(l["tree_json"]));
+  } catch {
+    brut = null;
+  }
+  const v = validerProcedure(brut);
+  if (!v.ok) return { lines: ["Arbre illisible."], readable: false };
+  const sortie: string[] = [];
+  lignes(v.procedure.root, 0, sortie);
+  return { lines: sortie.slice(0, 200), readable: true };
+}
+
+/** Approuve une version existante ; l'heure d'approbation, ou `null` si elle n'existe pas. */
+export async function approuverVersion(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<number | null> {
+  const t = maintenant();
+  const r = await base.run("UPDATE ax_procedures SET approved_at=? WHERE owner=? AND id=? AND version=?", [
+    t,
+    owner,
+    id,
+    version,
+  ]);
+  return r.changes === 1 ? t : null;
+}
+
+/** Supprime une version, ou toutes (`version` 0) avec exécutions, approbations de gestes et demandes ; nombre de versions retirées. */
+export async function supprimerProcedure(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<number> {
+  return base.ecriture(async (x) => {
+    const r =
+      version > 0
+        ? await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=? AND version=?", [owner, id, version])
+        : await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=?", [owner, id]);
+    if (version === 0 && r.changes > 0) {
+      await x.run("DELETE FROM ax_procedure_runs WHERE owner=? AND procedure_id=?", [owner, id]);
+      await x.run("DELETE FROM ax_procedure_approvals WHERE owner=? AND procedure_id=?", [owner, id]);
+      await x.run("DELETE FROM ax_procedure_demandes WHERE owner=? AND procedure_id=?", [owner, id]);
+    }
+    return r.changes;
+  });
+}

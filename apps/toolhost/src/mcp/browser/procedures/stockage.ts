@@ -24,6 +24,8 @@ export interface ResumeProcedure {
   readonly repaired_path: string | null;
   /** Nombre de versions gardées issues d'une réparation. */
   readonly repairs: number;
+  /** La dernière version est approuvée par l'utilisateur (seule une version approuvée s'exécute sans humain). */
+  readonly approved: boolean;
 }
 
 export type ResultatSauvegarde =
@@ -219,8 +221,9 @@ export async function lister(base: Base, owner: string, origin = ""): Promise<Re
     r: number;
     parent_version: number | null;
     repaired_path: string | null;
+    approved_at: number | null;
   }>(
-    `SELECT p.id, p.origin, p.version, p.description, p.tree_json, p.updated_at, p.parent_version, p.repaired_path,
+    `SELECT p.id, p.origin, p.version, p.description, p.tree_json, p.updated_at, p.parent_version, p.repaired_path, p.approved_at,
             (SELECT COUNT(*) FROM ax_procedures q WHERE q.owner=p.owner AND q.id=p.id) AS n,
             (SELECT COUNT(*) FROM ax_procedures q WHERE q.owner=p.owner AND q.id=p.id AND q.parent_version IS NOT NULL) AS r
        FROM ax_procedures p
@@ -247,6 +250,7 @@ export async function lister(base: Base, owner: string, origin = ""): Promise<Re
     parent_version: l.parent_version === null ? null : Number(l.parent_version),
     repaired_path: l.repaired_path,
     repairs: Number(l.r),
+    approved: l.approved_at !== null && l.approved_at !== undefined,
   }));
 }
 
@@ -538,6 +542,29 @@ export async function filiation(
         parent_version: l.parent_version === null ? null : Number(l.parent_version),
         repaired_path: l.repaired_path,
       };
+}
+
+/** Vrai si l'utilisateur a approuvé cette version (écran Procédures) ; une version créée par `save` ou `repair` ne l'est jamais. */
+export async function versionApprouvee(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<boolean> {
+  const l = await base.get<{ approved_at: number | null }>(
+    "SELECT approved_at FROM ax_procedures WHERE owner=? AND id=? AND version=?",
+    [owner, id, version],
+  );
+  return l !== undefined && l.approved_at !== null && l.approved_at !== undefined;
+}
+
+/** Nombre de versions approuvées d'une procédure, dans la portée d'une suppression (une version, ou toutes si 0). */
+export async function approuveesDe(base: Base, owner: string, id: string, version = 0): Promise<number> {
+  const l = await base.get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ax_procedures WHERE owner=? AND id=? AND approved_at IS NOT NULL ${version > 0 ? "AND version=?" : ""}`,
+    version > 0 ? [owner, id, version] : [owner, id],
+  );
+  return Number(l?.n ?? 0);
 }
 
 function jouesDe(texte: string | null): string[] {

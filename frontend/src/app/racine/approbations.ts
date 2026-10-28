@@ -22,21 +22,12 @@ export interface DependancesApprobations {
   showToast(message: string, type?: string): void;
 }
 
-/** Geste en une ligne, sans emoji : « click « Payer » », « goto https://… ». */
-export function resume(d: DemandeApprobation): string {
-  const g = d.gesture;
-  const cible = g.act === "goto" ? g.url : (g.targets[0] ?? "");
-  return [g.act, cible, g.value && g.act !== "goto" ? `« ${g.value} »` : ""]
-    .filter(Boolean)
-    .join(" ")
-    .slice(0, 160);
-}
-
-/** Message automatique envoyé après le clic : le modèle n'agit qu'à sa réception. */
+/** Message automatique envoyé après le clic : identifiants seulement, jamais le contenu du geste (c'est un message de rôle utilisateur). */
 export function messageDecision(d: DemandeApprobation, decision: DecisionAccord): string {
+  const ref = `demande ${d.id.slice(0, 11)} (procédure ${d.procedure_id} v${d.version})`;
   return decision === "approve"
-    ? `Approuvé : ${resume(d)} (procédure ${d.procedure_id}, accord ${d.id}). Vous pouvez continuer.`
-    : `Refusé : ${resume(d)} (procédure ${d.procedure_id}, accord ${d.id}). Ne rejouez pas ce geste.`;
+    ? `Approuvé : ${ref}. Vous pouvez continuer avec approval=${d.id}.`
+    : `Refusé : ${ref}. Ne rejouez pas ce geste.`;
 }
 
 export function creerApprobations(dep: DependancesApprobations) {
@@ -122,6 +113,11 @@ export function creerApprobations(dep: DependancesApprobations) {
         return;
       }
       accords.value = accords.value.filter((x) => x.id !== d.id);
+      // Le message part dans la conversation de la demande ; si l'utilisateur en a changé, rien n'est envoyé et il en est averti.
+      if (dep.currentChatId.value !== d.chat_id) {
+        dep.showToast("Décision enregistrée. Dites-le à l'assistant dans la conversation d'origine.", "info");
+        return;
+      }
       await envoyerAuto(messageDecision(d, decision));
     } finally {
       accordsOccupe.value = null;

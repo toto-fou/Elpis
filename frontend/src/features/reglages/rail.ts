@@ -66,6 +66,12 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         mots: "identifiant mot de passe login creds site origine navigateur secret",
       },
       {
+        id: "procedures",
+        libelle: "Procédures",
+        icone: "ph-list-checks",
+        mots: "procedure navigateur routine geste approuver version accord site",
+      },
+      {
         id: "connectors",
         libelle: "Comptes Git",
         icone: "ph-git-fork",

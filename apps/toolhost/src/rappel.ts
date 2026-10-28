@@ -501,6 +501,8 @@ export interface DemandeAccord extends LiaisonAccord {
   readonly description: string;
   readonly gesture: { act: string; targets: string[]; value: string; url: string };
   readonly once: boolean;
+  /** Le `once` vient d'une réparation (sinon d'un enregistrement). */
+  readonly repaired: boolean;
 }
 
 /** Réponse du core à la résolution de références `jeton.champ` : valeurs avec l'origine attendue, ou refus codé. */

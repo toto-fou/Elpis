@@ -8,6 +8,10 @@ import { CLE_APPROBATIONS } from "../../../app/racine/domaine";
 // Fournie par la racine du chat ; absente, la carte reste muette.
 const a = inject(CLE_APPROBATIONS, null);
 const visibles = computed(() => (a ? a.accords.filter((d) => d.expires_at * 1000 > Date.now()) : []));
+// Caractères invisibles (bidi, largeur nulle…) rendus visibles : le texte affiché est celui qui sera joué.
+const visible = (t: string): string =>
+  t.replace(/\p{Cf}/gu, (c) => `⟦U+${c.codePointAt(0)?.toString(16).toUpperCase().padStart(4, "0")}⟧`);
+const lisible = (d: { gesture: { act: string } }): boolean => d.gesture.act !== "";
 const annonce = computed(() => (visibles.value.length ? "Un geste attend votre accord." : ""));
 </script>
 
@@ -31,9 +35,14 @@ const annonce = computed(() => (visibles.value.length ? "Un geste attend votre a
     </header>
     <p v-if="d.once" class="elpis-accord-once">
       <i class="ph ph-wrench" aria-hidden="true"></i>
-      Première exécution d'un geste réparé
+      {{ d.repaired ? "Première exécution d'un geste réparé" : "Première exécution de ce geste" }}
     </p>
-    <dl class="elpis-accord-lignes">
+    <p v-if="!lisible(d)" class="elpis-accord-once">
+      <i class="ph ph-warning" aria-hidden="true"></i>
+      Geste illisible : approbation impossible.
+    </p>
+    <p v-if="!lisible(d)" class="elpis-accord-code">{{ visible(d.description) }}</p>
+    <dl v-else class="elpis-accord-lignes">
       <div>
         <dt>Geste</dt>
         <dd>{{ d.gesture.act }}</dd>
@@ -41,20 +50,20 @@ const annonce = computed(() => (visibles.value.length ? "Un geste attend votre a
       <div v-if="d.gesture.targets.length">
         <dt>Cible</dt>
         <dd>
-          <span v-for="(t, i) in d.gesture.targets" :key="i" class="elpis-accord-code">{{ t }}</span>
+          <span v-for="(t, i) in d.gesture.targets" :key="i" class="elpis-accord-code">{{ visible(t) }}</span>
         </dd>
       </div>
       <div v-if="d.gesture.url">
         <dt>Adresse</dt>
-        <dd class="elpis-accord-code">{{ d.gesture.url }}</dd>
+        <dd class="elpis-accord-code">{{ visible(d.gesture.url) }}</dd>
       </div>
       <div v-if="d.gesture.value">
         <dt>Valeur</dt>
-        <dd class="elpis-accord-code">{{ d.gesture.value }}</dd>
+        <dd class="elpis-accord-code">{{ visible(d.gesture.value) }}</dd>
       </div>
       <div v-if="d.page">
         <dt>Page</dt>
-        <dd class="elpis-accord-code">{{ d.page }}</dd>
+        <dd class="elpis-accord-code">{{ visible(d.page) }}</dd>
       </div>
     </dl>
     <footer class="elpis-accord-pied">
@@ -71,7 +80,7 @@ const annonce = computed(() => (visibles.value.length ? "Un geste attend votre a
       <button
         type="button"
         class="elpis-ask-btn elpis-ask-btn-p"
-        :disabled="a?.accordsOccupe !== null"
+        :disabled="a?.accordsOccupe !== null || !lisible(d)"
         title="Le geste sera joué une fois, tel qu'affiché"
         @click="a?.decider(d, 'approve')"
       >

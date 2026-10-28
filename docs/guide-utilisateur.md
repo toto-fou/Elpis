@@ -329,18 +329,22 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   procédure modifiée ou une page différente redemande l'accord. Après votre clic, un message automatique (« Approuvé : … »
   ou « Refusé : … ») relance l'assistant. Dans une routine ou un sous-agent, l'exécution s'arrête à la demande : elle
   reste affichée dans la conversation, vous seul pouvez l'approuver.
+- Seule une version que **vous** avez approuvée (Paramètres › Procédures) s'exécute sans vous : dans une routine ou un
+  sous-agent, une version enregistrée ou réparée par l'assistant s'arrête (`version_not_approved`) tant que vous ne l'avez pas
+  approuvée. Cet écran liste les procédures et leurs versions, résume leurs gestes, permet d'approuver et de supprimer. En
+  conversation, l'assistant peut aussi agir directement sur le site : la protection porte sur les rejeux sans vous, et l'accord
+  est lié à l'adresse de la page, pas à son contenu.
 - Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête
   proprement, dit où et pourquoi, et l'assistant reprend la main. Un clic dont on ne sait pas s'il a
   eu lieu, ou qui a eu lieu sans l'effet attendu, n'est jamais rejoué ni remplacé par un autre.
 - Si le site a seulement changé d'apparence (un lien renommé, un bouton déplacé), l'assistant **répare** la
   procédure lui-même : il voit les éléments de la page, corrige l'étape qui a échoué (sans pouvoir ajouter de
-  connexion, retirer une demande d'accord ni aller sur un autre site ; un enregistrement ne peut pas non plus lever un accord déjà exigé), enregistre une nouvelle version puis reprend
+  connexion, retirer une demande d'accord ni aller sur un autre site ), enregistre une nouvelle version puis reprend
   là où l'exécution s'était arrêtée. Au plus deux réparations par exécution, une par étape. Un geste ajouté ou modifié par une réparation
   (fermer une fenêtre imprévue, viser un autre bouton, aller sur une autre page) demande **votre accord la première fois**
-  (carte marquée « Première exécution d'un geste réparé ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
+  (carte marquée « Première exécution d'un geste réparé » ou « de ce geste ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
   redemande plus.
-- Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») ; il n'y a pas
-  encore d'écran dédié.
+- Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») .
 
 ### Serveurs MCP externes
 

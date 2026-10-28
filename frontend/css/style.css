@@ -4861,7 +4861,7 @@ body.elpis-dark-surface .elpis-ask-opt[aria-checked="true"] .elpis-ask-ind { bac
 .elpis-accord-lignes > div { display: flex; gap: 10px; align-items: baseline; }
 .elpis-accord-lignes dt { flex: none; width: 64px; color: var(--text-600); font-size: 12px; }
 .elpis-accord-lignes dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-.elpis-accord-code { font: 12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-900); overflow-wrap: anywhere; }
+.elpis-accord-code { unicode-bidi: isolate; font: 12px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-900); overflow-wrap: anywhere; }
 .elpis-accord-pied { display: flex; justify-content: flex-end; gap: 8px; }
 .elpis-ask-opt:focus-visible, .elpis-ask-btn:focus-visible, .elpis-ask-lien:focus-visible, .elpis-ask-reprendre:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {

@@ -4,7 +4,7 @@ import { setTimeout as dormir } from "node:timers/promises";
 
 import { estDict } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { refusCible } from "@elpis/contracts";
+import { LIMITES_PROCEDURE, refusCible } from "@elpis/contracts";
 import type { Act, Condition, Login, Noeud, Procedure } from "@elpis/contracts";
 import { messageErreur } from "@elpis/mcp";
 import { dslToSelector, echapperDsl, errPw } from "@elpis/navigateur";
@@ -603,6 +603,10 @@ class Execution {
       const r = refusCible(c);
       if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`, true);
     }
+    if (v.length > LIMITES_PROCEDURE.longueurValeur)
+      return this.refus(path, n, t, "value_too_long: la valeur substituée dépasse la limite du schéma");
+    if (n.url !== undefined && this.sub(n.url, "url").length > LIMITES_PROCEDURE.longueurUrl)
+      return this.refus(path, n, t, "url_too_long: l'URL substituée dépasse la limite du schéma");
     const once = n.confirm === "once";
     const geste = gesteSubstitue(n, this.o.params, this.p.origin);
     const fp = once || n.confirm === true ? empreinteSubstituee(path, n, this.o.params, this.p.origin) : "";

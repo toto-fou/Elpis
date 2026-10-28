@@ -32,6 +32,7 @@ import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
 import { creerApprobations } from "./approbations";
 import { creerCreds } from "./creds";
+import { creerProcedures } from "./procedures";
 import { creerOpencode } from "./opencode";
 import { EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
 import { brouillonAvecCorrection, EVT_SKIN_CORRECTION } from "../../features/reglages/skins-perso";
@@ -824,6 +825,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     showToast: toasts.showToast,
   });
 
+  const procedures = creerProcedures({ http, showToast: toasts.showToast });
   const approbations = creerApprobations({
     http,
     currentChatId,
@@ -1160,6 +1162,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...opencode,
     creds: proxyRefs(creds),
     approbations: proxyRefs(approbations),
+    procedures: proxyRefs(procedures),
     appInfo,
     logoApp,
     imgZoom,

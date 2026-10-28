@@ -3,6 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { estDict } from "@elpis/commun";
+import type { Base } from "@elpis/db";
 import type { Dict } from "@elpis/commun";
 import {
   aConfirm,
@@ -30,7 +31,8 @@ import { contexteReparation } from "./reparation";
 import {
   annulerAttentes,
   approbations,
-  arbresEnregistres,
+  approuveesDe,
+  versionApprouvee,
   rendreConfirmation,
   dejaReussi,
   oublierApprobations,
@@ -86,6 +88,10 @@ export function validerParametres(
       else erreurs.push(`parameter ${nom} must be a number`);
       continue;
     }
+    if (typeof v === "string" && !v.isWellFormed()) {
+      erreurs.push(`parameter ${nom} must be valid text (no lone surrogate)`);
+      continue;
+    }
     if (typeof v !== "string" || v.length > PARAM_LONGUEUR || (type === "string" && aControle(v))) {
       erreurs.push(`parameter ${nom} must be a string of ${PARAM_LONGUEUR} characters at most`);
       continue;
@@ -130,6 +136,30 @@ async function compteAccord(
   };
 }
 
+/** Un humain est là : client de confiance, conversation ordinaire (ni routine ni sous-agent) ; sinon seules les versions approuvées s'exécutent. */
+function contexteHumain(ctx: ContexteAppel): boolean {
+  const chat = readMetaField(ctx, "chat_id") ?? "";
+  return (
+    getAccessToken()?.claims["trusted_meta"] === true &&
+    chat !== "" &&
+    !chat.startsWith("routine:") &&
+    !lireSousAgent(ctx.meta?.["subagent"])
+  );
+}
+
+/** Le nœud est (sous) le chemin réparé par la version : son `once` vient d'une réparation, sinon d'un enregistrement. */
+async function venantDUneReparation(
+  ax: Base,
+  owner: string,
+  id: string,
+  version: number,
+  chemin: string,
+): Promise<boolean> {
+  const f = await filiation(ax, owner, id, version);
+  const rp = f?.repaired_path ?? null;
+  return rp !== null && (chemin === rp || chemin.startsWith(`${rp}.`));
+}
+
 /** `pw_run` : valide la procédure et les paramètres, puis la rejoue (budget, annulation, arrêt sur geste ambigu) et journalise l'issue. */
 export function pwRun(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
@@ -171,11 +201,16 @@ export function pwRun(s: ServicesBrowser) {
             .join(", ")}}`,
         });
       const sessionId = String(a["session_id"]);
+      if (!contexteHumain(ctx) && !(await versionApprouvee(ax, username, v.procedure.id, version)))
+        return errPw("version_not_approved", "", {
+          message: `version ${version} of ${v.procedure.id} was not approved by the user: without a human in the conversation (routine, sub-agent) only approved versions run. Nothing was done`,
+          fix: "tell the user to approve this version in Paramètres › Procédures (a version created or repaired by the model is never approved)",
+        });
       if (a["confirmed"] !== undefined)
         return errPw("confirmed_removed", "", {
           message:
             "confirmed= no longer exists: a sensitive gesture needs the USER's approval, given by a button in the chat that you cannot press",
-          fix: "run the procedure: when it stops with needs_confirmation, tell the user to press « Confirmer » in the chat, wait for their message « Approuvé : … », then call pw_run(..., approval='<approval id>')",
+          fix: "run the procedure: when it stops with needs_confirmation, tell the user to press « Approuver » on the card in the chat, wait for their message « Approuvé : … », then call pw_run(..., approval='<approval id>')",
         });
       const approval = String(a["approval"] ?? "").trim();
       const ref = { owner: username, procedureId: v.procedure.id, version, sessionId };
@@ -248,7 +283,7 @@ export function pwRun(s: ServicesBrowser) {
               cr === null || cr === undefined
                 ? `the approval could not be checked: ${"raison" in c ? c.raison : "the approval service did not answer"}. Nothing was done`
                 : `${cr.message}. Nothing was done by this call`,
-            fix: "tell the user that the gesture still needs their approval by the « Confirmer » button in the chat (rerun pw_run without approval to get a new request if it expired); never claim they approved",
+            fix: "tell the user that the gesture still needs their approval by the « Approuver » button of the card in the chat (rerun pw_run without approval to get a new request if it expired); never claim they approved",
           });
         }
         confirmes = [attente];
@@ -341,6 +376,7 @@ export function pwRun(s: ServicesBrowser) {
               gesture: r.accord.gesture,
               page,
               once: r.first_run_after_repair === true,
+              repaired: await venantDUneReparation(ax, username, v.procedure.id, version, r.node_path),
             })) ?? null;
           if (demande === null) demandeRefus = "the approval service did not answer";
         }
@@ -367,7 +403,7 @@ export function pwRun(s: ServicesBrowser) {
           ? {
               approval_id: demande.id,
               approval_expires_in_s: Math.max(0, Math.round(demande.expires_at - Date.now() / 1000)),
-              next: `the user was shown a « Confirmer » button in the chat for this gesture; STOP and tell them to press it. Only after their message « Approuvé : … », call pw_run(session_id, procedure='${id}', params, version=${version}, approval='${demande.id}'). Never say the user approved before that message`,
+              next: `the user was shown a « Confirmer » card with an « Approuver » button in the chat for this gesture; STOP and tell them to press « Approuver ». Only after their message « Approuvé : … », call pw_run(session_id, procedure='${id}', params, version=${version}, approval='${demande.id}'). Never say the user approved before that message`,
             }
           : r.status === "needs_confirmation"
             ? {
@@ -522,7 +558,7 @@ export function pwProcedure(s: ServicesBrowser) {
           if (manques.length > 0)
             return errPw("confirm_protected", "", {
               message: `the latest version asks the user before: ${manques.join(", ")}. A save cannot remove or weaken a confirm`,
-              fix: "keep those gestures with the same confirm (true stays true), or save the procedure under another id",
+              fix: "keep those gestures unchanged with the same confirm (true stays true). This guard only prevents mistakes: the protection that matters is the user's approval of a version",
             });
         }
         const r = await sauvegarder(ax, owner, v.procedure);
@@ -531,14 +567,11 @@ export function pwProcedure(s: ServicesBrowser) {
       }
       if (action === "delete") {
         if (!id) return errPw("id_required", "", { message: "delete needs id", fix: FIX_LISTE });
-        // Supprimer puis réenregistrer sans `confirm` contournerait la protection de l'enregistrement.
-        const gardees = (await arbresEnregistres(ax, owner, id)).some((t) =>
-          /"confirm"\s*:\s*(true|"once")/u.test(t),
-        );
-        if (gardees)
-          return errPw("delete_protected", "", {
-            message: `${id} holds gestures that ask the user first: the model cannot delete it`,
-            fix: "tell the user; they can ask to have it removed outside this tool",
+        // Une version approuvée par l'utilisateur ne se supprime que depuis l'écran Procédures.
+        if ((await approuveesDe(ax, owner, id, version)) > 0)
+          return errPw("delete_approved", "", {
+            message: `${id} holds a version approved by the user: only the user can delete it (Paramètres › Procédures)`,
+            fix: "tell the user; versions that were never approved can still be deleted",
           });
         return { ok: true, action, id, deleted: await supprimer(ax, owner, id, version) };
       }

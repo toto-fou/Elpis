@@ -71,9 +71,9 @@ const NOMS_RESERVES: ReadonlySet<string> = new Set([
   "hasownproperty",
 ]);
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
-/** Vrai si la chaîne porte un caractère de contrôle (saut de ligne, tabulation, NUL…). */
+/** Vrai si la chaîne porte un caractère de contrôle (saut de ligne, tabulation, NUL…) ou de format invisible (bidi, largeur nulle, BOM : affichage trompeur). */
 export function aControle(s: string): boolean {
-  return Array.from(s).some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
+  return Array.from(s).some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127 || /\p{Cf}/u.test(c));
 }
 
 /** Noms de gabarits `{nom}` d'une chaîne, dans l'ordre. */
@@ -582,24 +582,26 @@ function nomNormalise(t: string): string {
     .trim();
 }
 
-const motsSignificatifs = (cibles: readonly string[] | undefined): Set<string> =>
-  new Set(
-    (cibles ?? []).flatMap((t) => nomNormalise(t).split(" ")).filter((m) => m.length > 3 || /\d/.test(m)),
-  );
-
-/** Vrai si la nouvelle cible apporte un mot significatif (ou un nombre) absent de l'ancienne, ou change sans mot significatif. */
+/** Vrai si le nom accessible normalisé de la cible change, dans un sens ou dans l'autre (« Ne pas payer » → « Payer » compris). */
 function cibleElargie(
   ancienne: readonly string[] | undefined,
   nouvelle: readonly string[] | undefined,
 ): boolean {
-  const anciens = motsSignificatifs(ancienne);
-  const nouveaux = motsSignificatifs(nouvelle);
   const noms = (c: readonly string[] | undefined): string => (c ?? []).map(nomNormalise).join(" ");
-  if (nouveaux.size === 0) return noms(nouvelle) !== noms(ancienne);
-  return [...nouveaux].some((mot) => !anciens.has(mot));
+  return noms(nouvelle) !== noms(ancienne);
 }
 
-/** Gestes sous `confirm` de `ancienne` sans équivalent sous `confirm` dans `nouvelle` (même act, `true` resté `true`, même URL pour un goto) : un `save` ne peut pas lever un accord humain. */
+/** Même geste : action, noms de cibles normalisés, valeur et URL (garde contre les erreurs, pas une frontière : l'accord humain l'est). */
+function memeGeste(o: Act, x: Act): boolean {
+  const noms = (a: Act): string => (a.t ?? []).map(nomNormalise).join("|");
+  return (
+    noms(o) === noms(x) &&
+    (o.v ?? "") === (x.v ?? "") &&
+    urlComplete(o.url ?? "") === urlComplete(x.url ?? "")
+  );
+}
+
+/** Gestes sous `confirm` de `ancienne` sans équivalent sous `confirm` dans `nouvelle` (même act, `true` resté `true`, même URL pour un goto) : un `save` ne retire pas un `confirm` par mégarde (garde-fou : l'exécution sans humain repose sur les versions approuvées). */
 export function confirmesAffaiblis(ancienne: Procedure, nouvelle: Procedure): string[] {
   const pris = new Set<Act>();
   const neufs = actes(nouvelle.root);
@@ -611,7 +613,7 @@ export function confirmesAffaiblis(ancienne: Procedure, nouvelle: Procedure): st
         x.act === o.act &&
         aConfirm(x) &&
         (o.confirm !== true || x.confirm === true) &&
-        (o.act !== "goto" || urlComplete(x.url ?? "") === urlComplete(o.url ?? "")),
+        memeGeste(o, x),
     );
     if (c === undefined)
       manques.push(`${o.act}${o.act === "goto" ? ` ${o.url ?? ""}` : ` ${(o.t ?? [])[0] ?? ""}`}`);

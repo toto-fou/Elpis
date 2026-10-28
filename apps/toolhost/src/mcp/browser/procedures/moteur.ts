@@ -40,15 +40,6 @@ const SANS_EFFET: ReadonlySet<string> = new Set([
   "option_not_found",
   "element_detached",
 ]);
-const REJOUABLES: ReadonlySet<string> = new Set([
-  "goto",
-  "fill",
-  "select",
-  "check",
-  "uncheck",
-  "hover",
-  "wait",
-]);
 /** Seuls gestes sans effet de bord : après tout autre geste (fill et select relancent des événements input/change), un expect raté arrête tout. */
 const SANS_EFFET_DE_BORD: ReadonlySet<string> = new Set(["goto", "hover", "wait"]);
 
@@ -146,11 +137,16 @@ async function adresseSession(client: ClientNavigateur, sessionId: string): Prom
   return estDict(x) && typeof x["url"] === "string" ? x["url"] : await client.axGetCurrentUrl(sessionId);
 }
 
-/** Page de la session sans requête ni fragment (origine + chemin, adresse purgée par le service), `""` si illisible : liée à l'attente de confirmation. */
+/** Page de la session sans fragment (origine, chemin et requête triée sans suivi ; adresse purgée par le service), `""` si illisible : liée à l'attente de confirmation. */
 export async function pageCourante(client: ClientNavigateur, sessionId: string): Promise<string> {
   try {
     const u = new URL(await adresseSession(client, sessionId));
-    return `${u.origin}${u.pathname}`;
+    // Query comprise (paramètres triés, suivi publicitaire exclu), ancre ignorée : /transfert?to=alice et ?to=bob sont deux pages.
+    const q = [...u.searchParams]
+      .filter(([k]) => !/^(utm_.*|utm|fbclid|gclid)$/iu.test(k))
+      .sort(([a, x], [b, y]) => (a < b ? -1 : a > b ? 1 : x < y ? -1 : x > y ? 1 : 0));
+    const requete = new URLSearchParams(q).toString();
+    return `${u.origin}${u.pathname}${requete ? `?${requete}` : ""}`;
   } catch {
     return "";
   }
@@ -435,7 +431,7 @@ class Execution {
         this.rate(path, raison, tried);
         return FAIL;
       }
-      if (SANS_EFFET.has(e.code) || REJOUABLES.has(n.act)) {
+      if (SANS_EFFET.has(e.code)) {
         this.rate(path, raison, tried);
         continue;
       }

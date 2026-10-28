@@ -1494,7 +1494,8 @@ async function resolveFormInput(page, locator, originalSelector) {
 async function captureAncestors(locator) {
     if (!locator) return [];
     try {
-        const handle = await locator.elementHandle({ timeout: 500 }).catch(() => null);
+        // Une poignée (geste du moteur de procédures) est déjà l'élément.
+        const handle = typeof locator.elementHandle === 'function' ? await locator.elementHandle({ timeout: 500 }).catch(() => null) : locator;
         if (!handle) return [];
         const ancestors = await handle.evaluate((el) => {
             const SEMANTIC_TAGS = new Set([
@@ -1927,6 +1928,70 @@ function detailsErreur(e) {
     if (e && typeof e.code === 'string' && /^[a-z][a-z0-9_]*$/.test(e.code)) out.code = e.code;
     if (e && e.details && typeof e.details === 'object') Object.assign(out, e.details);
     return out;
+}
+
+const DETACHE = /not attached to the DOM/i;
+const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Poignée de l'élément du locator (re-résolue), son origine vérifiée ; `null` = l'élément a changé de document pendant la lecture (recommencer). */
+async function poigneeVerifiee(locator, origineAttendue, reste) {
+    let h;
+    try { h = await locator.elementHandle({ timeout: Math.max(200, reste) }); }
+    catch (e) { throw erreurCodee('element_not_found', "L'élément n'est plus sur la page : aucun geste n'a été fait.", { fix: 'Vérifiez la page.' }); }
+    let origine;
+    try { origine = await avecDelai(h.evaluate(() => location.origin), 3000); } catch (_) { return null; }
+    if (origine !== origineAttendue)
+        throw erreurCodee('origin_mismatch', `La page n'est pas sur l'origine attendue (${origineAttendue}) : aucun geste n'a été fait.`, { fix: 'Ouvrez le site de la procédure avant de la rejouer.' });
+    return h;
+}
+
+/**
+ * Geste du moteur de procédures sur l'élément, dans le délai du geste : l'élément est re-résolu et son origine revérifiée à chaque essai, le geste agit sur CETTE poignée.
+ * Un détachement avant l'action (re-rendu) relance l'essai ; `element_detached` n'est rendu que si le délai s'épuise avant toute action.
+ * check/uncheck lisent l'état, ne cliquent que si nécessaire et vérifient l'état ensuite : tout écart après le clic est `ambiguous_after_action`.
+ */
+async function gesteSurPoignee(locator, origineAttendue, delaiMs, type, o) {
+    const fin = Date.now() + delaiMs;
+    const detache = () => erreurCodee('element_detached', "L'élément a quitté la page avant le geste : aucun geste n'a été fait.", { fix: 'Rejouez depuis une page stable.' });
+    for (;;) {
+        const reste = fin - Date.now();
+        if (reste <= 0) throw detache();
+        const h = await poigneeVerifiee(locator, origineAttendue, reste);
+        if (h === null) { await attendre(60); continue; }
+        if (type === 'check' || type === 'uncheck') {
+            const voulu = type === 'check';
+            let actuel;
+            try { actuel = await h.isChecked(); }
+            catch (e) { if (DETACHE.test(String(e && e.message))) { await attendre(60); continue; } throw e; }
+            if (actuel === voulu) return null;
+            try { await h.click({ timeout: Math.max(300, fin - Date.now()), force: o.force }); }
+            catch (e) {
+                const apres = await locator.isChecked({ timeout: 1000 }).catch(() => null);
+                if (apres === voulu) return null;
+                throw erreurCodee('ambiguous_after_action', `${type} : le clic a échoué (${String(e && e.message).slice(0, 80)}) et l'état n'est pas confirmé : le geste a peut-être agi.`, { fix: "Inspectez la page avant toute relance." });
+            }
+            const apres = await locator.isChecked({ timeout: 1500 }).catch(() => null);
+            if (apres === voulu) return null;
+            throw erreurCodee('ambiguous_after_action', `${type} : le clic a eu lieu mais l'état ${apres === null ? 'est illisible (case remplacée ?)' : "n'est pas celui attendu"} : le geste a agi.`, { fix: "Inspectez la page avant toute relance." });
+        }
+        const t = Math.max(300, fin - Date.now());
+        try {
+            if (type === 'click') await h.click({ timeout: t, button: o.button, modifiers: o.modifiers, force: o.force });
+            else if (type === 'hover') await h.hover({ timeout: t, modifiers: o.modifiers });
+            else if (type === 'fill') await h.fill(o.text || o.value || '', { timeout: t, force: o.force });
+            else if (type === 'press') await h.press(o.key, { timeout: t });
+            else {
+                if (!o.option_value && !o.option_label && !o.value && !o.text)
+                    throw new Error('select requires option_value=, option_label=, value= or text=');
+                return await selectOptionSmart(h, { option_value: o.option_value, option_label: o.option_label, value: o.value, text: o.text, timeout: t });
+            }
+            return null;
+        } catch (e) {
+            // Détaché pendant l'attente d'actionnabilité : le geste n'a pas pu agir, l'élément est re-résolu.
+            if (DETACHE.test(String(e && e.message))) { await attendre(60); continue; }
+            throw e;
+        }
+    }
 }
 
 async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
@@ -2722,6 +2787,15 @@ async function idsDocuments(page) {
     } finally { await cdp.detach().catch(() => {}); }
 }
 
+// Identifiant (frame + chargement) du document principal : change à chaque vraie navigation, ce qu'aucun événement de page ne prouve.
+async function idPrincipal(page) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+        const { frameTree } = await cdp.send('Page.getFrameTree');
+        return `${frameTree.frame.id}:${frameTree.frame.loaderId}`;
+    } finally { await cdp.detach().catch(() => {}); }
+}
+
 // Après une connexion, AUCUN document ayant reçu le secret ne doit rester : on ne le vide pas, on le remplace (navigation GET via about:blank, jamais un
 // rechargement qui pourrait rejouer un POST). Échec fermé : page fermée, puis session fermée. Tout est borné par `finPost`.
 async function remplacerDocuments(s, saisies, origineJeton, finPost) {
@@ -2820,6 +2894,7 @@ app.post('/login', getSession, async (req, res) => {
                 if (p.champs.username) await remplirChamp(p.champs.username, uv, { champ: 'username', timeout: p.timeout, delaiAvant: fin });
                 if (p.champs.password) await remplirChamp(p.champs.password, pv, { champ: 'password', timeout: p.timeout, delaiAvant: fin });
                 const observe = p.champs.password || p.champs.username;
+                const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => '');
                 const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
                 // Sans attendre la navigation : une page suivante lente est attendue par la boucle ci-dessous, bornée par `fin`.
                 if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
@@ -2833,19 +2908,30 @@ app.post('/login', getSession, async (req, res) => {
                     await page.waitForTimeout(150);
                 }
                 if (issue !== 'wait_for' && issue !== 'no_change') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+                // Vraie navigation = le document principal a changé (identifiants du protocole), pas l'événement de page.
+                const apresId = await avecDelai(idPrincipal(page), 2000).catch(() => avantId);
+                const docChange = avantId !== '' && apresId !== avantId;
                 // wait_for donné : une navigation ou un champ vidé ne suffisent pas, la cible d'arrivée doit apparaître (sinon identifiants refusés).
+                // Sortie anticipée : le nouveau document montre de nouveau un champ mot de passe de la même origine pendant 1,5 s alors que l'étape soumise en avait un (une connexion en deux étapes n'y tombe pas).
                 if (p.cw && !nouvelles.length && (issue === 'navigated' || issue === 'field_gone')) {
                     const limite = fin;
                     let vu = false;
+                    let mdpDepuis = 0;
                     while (!vu && Date.now() < limite) {
                         vu = (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), Math.max(300, Math.min(2000, limite - Date.now()))).catch(() => 0)) > 0;
+                        if (!vu && docChange && p.champs.password) {
+                            let memeOrigine = false;
+                            try { memeOrigine = new URL(page.url()).origin === origineJeton; } catch (_) {}
+                            const nb = memeOrigine ? await avecDelai(page.locator('input[type="password"]').filter({ visible: true }).count(), 1000).catch(() => 0) : 0;
+                            if (nb > 0) { mdpDepuis = mdpDepuis || Date.now(); if (Date.now() - mdpDepuis >= 1500) break; } else mdpDepuis = 0;
+                        }
                         if (!vu) await page.waitForTimeout(150).catch(() => {});
                     }
                     if (!vu) issue = 'wait_for_missing';
                 }
                 // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
                 if (issue !== 'wait_for' && (s._blocages > blocages0 || /^chrome-error:/.test(page.url()))) issue = 'blocked';
-                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked' && issue !== 'wait_for_missing', status: 'submitted', outcome: issue, navigated: issue === 'navigated' || navigue, ...(nouvelles.length ? { opened_tab: true } : {}) } };
+                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked' && issue !== 'wait_for_missing', status: 'submitted', outcome: issue, navigated: docChange, ...(nouvelles.length ? { opened_tab: true } : {}) } };
                 if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
                 if (issue === 'wait_for_missing') sortie.corps = { ...sortie.corps, code: 'login_not_confirmed', hint: "La page a changé mais la cible wait_for n'est pas apparue (identifiants refusés, étape supplémentaire…) : regardez la page." };
                 if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET, autre origine ou adresse interdite par la politique du navigateur) : cette page ne permet pas une connexion sûre." };
@@ -3054,17 +3140,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
         }
 
-        // Origine attendue (moteur de procédures) : vérifiée sous le verrou sur le document de l'élément, qui est ensuite figé en poignée : le geste vise CE nœud (une navigation entre-temps le détache, rien n'est fait).
-        let poigneeFigee = false;
-        if (typeof req.body.expected_origin === 'string' && req.body.expected_origin) {
+        // Origine attendue (moteur de procédures) : pour un geste sur un élément, vérifiée à chaque (re)résolution de l'élément par `gesteSurPoignee` ; sans élément, sur la page, ici.
+        const modeOrigine = typeof req.body.expected_origin === 'string' && req.body.expected_origin !== '';
+        if (modeOrigine && !officialLocator) {
             let origine = '';
-            try {
-                if (officialLocator) {
-                    const h = await officialLocator.elementHandle({ timeout: Math.min(timeout, 8000) });
-                    origine = await avecDelai(h.evaluate(() => location.origin), 3000);
-                    if (origine === req.body.expected_origin) { officialLocator = h; poigneeFigee = true; }
-                } else origine = new URL(page.url()).origin;
-            } catch (_) { origine = ''; }
+            try { origine = new URL(page.url()).origin; } catch (_) { origine = ''; }
             if (origine !== req.body.expected_origin)
                 return res.status(409).json({ error: `La page n'est pas sur l'origine attendue (${req.body.expected_origin}) : aucun geste n'a été fait.`, code: 'origin_mismatch', fix: 'Ouvrez le site de la procédure avant de la rejouer.' });
         }
@@ -3169,7 +3249,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 : timeout;
             const _t = officialTimeout;
             try {
-                if (type === 'click') {
+                if (modeOrigine && ['click', 'hover', 'fill', 'press', 'select', 'select_option', 'check', 'uncheck'].includes(type)) {
+                    const sortieGeste = await gesteSurPoignee(officialLocator, req.body.expected_origin, _t, type, { button, modifiers, force, text, value, key, option_value, option_label });
+                    if (sortieGeste) selectedOption = sortieGeste;
+                } else if (type === 'click') {
                     await officialLocator.click({ timeout: _t, button, modifiers, force });
                     // Un treeitem / disclosure dit s'il s'est ouvert : sans ça un
                     // clic « réussi » qui n'a fait que SÉLECTIONNER passait pour
@@ -3251,8 +3334,6 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     ancestors: ancestors,
                 });
             } catch (e) {
-                if (poigneeFigee && /not attached|detached/i.test(String(e && e.message)))
-                    return res.status(409).json({ error: "L'élément a quitté la page avant le geste : aucun geste n'a été fait.", code: 'element_detached', fix: 'Rejouez la procédure depuis une page stable.' });
                 // ── REPLI sur l'échelle « smart » ──────────────────────────
                 // Un locator officiel qui échoue renvoyait un 500 sec. Or
                 // l'échelle smartResolveLocator sait faire ce que l'API

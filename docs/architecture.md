@@ -2184,7 +2184,7 @@ Règles vérifiées **à l'enregistrement et à chaque exécution** :
 - paramètres `string`, `number` ou `creds`, tous déclarés ; `{param}` n'est admis que dans `t`, `v`, `url`
   et les conditions ; un paramètre `creds` n'est utilisable que dans `login.creds`, et aucun jeton
   `⟦creds:…⟧` ni mot de passe ne peut figurer dans l'arbre ;
-- `fill` et `select` exigent `t` et `v`, `press` exige `v`, `goto` exige `url`, `wait` exige `t` ; une valeur de cible qui ressemble à un sélecteur (`text=css=#x`, `text=#id`, `//…`) est refusée ; les noms de paramètres d'objet (`constructor`…) aussi ;
+- `fill` et `select` exigent `t` et `v`, `press` exige `v`, `goto` exige `url`, `wait` exige `t` ; une valeur de cible qui commence par `css=`, `xpath=`, `ref=` ou `//` est refusée (`text=#1`, `name=.NET` restent des textes) ; les noms de paramètres d'objet (`constructor`…) aussi ;
 - limites : profondeur 8, 80 nœuds, 30 enfants par `seq`/`sel`, 5 cibles par geste, chaînes de 300
   caractères (cibles 200, adresses 500), 12 paramètres, 64 Ko (en octets) ; l'entrée JSON brute est mesurée sans
   récursion et à valeurs visitées plafonnées (20 000) avant Zod ; au plus 10 erreurs sont rendues.
@@ -2215,23 +2215,29 @@ gardées par procédure). La suppression d'un compte efface procédures et exéc
   qui a eu lieu. Un geste dont la page rendue n'est plus sur l'origine de la procédure arrête l'exécution
   (`origin_changed`). Les cibles ne sont résolues qu'en mode strict : une cible présente deux fois fait échouer le
   geste (`ambiguous_target`, sans effet) ; ajouter `nth=K` ou une cible plus précise.
-- **Origine vérifiée par le service** : chaque geste porte l'origine attendue (clé interne `_expected_origin` de
-  `pw_act`) ; le service la compare, sous le verrou de la session, à l'origine du frame de l'élément juste avant
-  d'agir, fige l'élément en poignée et agit **sur cette poignée** : un écart refuse (`origin_mismatch`), une
-  navigation entre-temps détache la poignée (`element_detached`) ; dans les deux cas rien n'est fait
-  (redirection différée comprise). Le moteur
-  garde aussi l'adresse de la dernière réponse comme contrôle préalable.
+- **Origine vérifiée par le service** : chaque geste sur un élément porte l'origine attendue (clé interne
+  `_expected_origin` de `pw_act`). Le service résout l'élément, lit l'origine de son document, puis agit **sur
+  cette poignée** ; un détachement avant l'action (re-rendu d'un bouton désactivé remplacé, par exemple) relance
+  l'essai dans le délai du geste (`click`, `hover`, `fill`, `press`, `select`), l'origine étant revérifiée à chaque
+  fois : un écart refuse (`origin_mismatch`), un délai épuisé avant toute action rend `element_detached` ; dans les
+  deux cas rien n'est fait. `check`/`uncheck` lisent l'état, ne cliquent que si nécessaire et vérifient l'état
+  ensuite : un clic dont l'état n'est pas confirmé (case remplacée par un `onchange`…) rend
+  `ambiguous_after_action` et arrête l'exécution. Le repli sur la cible suivante n'est admis que pour un code
+  « sans effet » constaté avant l'action (`element_not_found`, `ambiguous_target`, `element_detached`, `url_blocked`…),
+  jamais sur un délai dépassé ou une erreur du navigateur, quel que soit le geste.
 - `login` délègue à `pw_login` (session sécurisée, jeton à un usage) ; tout échec arrête l'exécution (un
   usage a pu être consommé). `pw_login` clique sans attendre la navigation puis sonde `wait_for` jusqu'à la fin du budget de
   connexion (40 s, plafond du service 62 s) et rend `login_not_confirmed` (`ok: false`, `outcome: wait_for_missing`)
-  s'il n'apparaît pas ; le moteur le revérifie après la connexion.
+  s'il n'apparaît pas ; si le nouveau document affiche de nouveau, 1,5 s durant, un champ mot de passe de la même origine
+  alors que l'étape soumise en avait un, la sortie est anticipée (une connexion en deux étapes n'est pas touchée) ;
+  `navigated` compare les identifiants du document principal avant/après (protocole du navigateur) ; le moteur le revérifie après la connexion.
 - Les gestes agissent sur l'origine de la procédure : sur une autre page ils échouent (`origin_mismatch`).
 - `confirm: true` : l'exécution s'arrête **avant** le geste avec `status: "needs_confirmation"`, `node_path`,
   `description` (toutes les cibles qui pourront être cliquées) et `next`. Après l'accord de l'utilisateur,
   `pw_run(…, version, confirmed=[node_path])` **reprend** à ce nœud sur la même session : ce qui le précède sur
   son chemin est tenu pour fait (la page est conservée). `confirmed` n'est honoré **que** pour l'attente
   enregistrée dans `ax_procedure_runs` (même compte, session, procédure, version, nœud, moins de 15 min, et
-  empreinte sha256 de l'arbre exact + chemin + version + page, origine et chemin, où l'exécution s'est arrêtée) ; sinon `confirmation_expired` et aucun geste. Toute
+  empreinte sha256 de l'arbre exact + chemin + version + page où l'exécution s'est arrêtée : origine, chemin et requête triée, sans ancre ni `utm_*`/`fbclid`/`gclid`) ; sinon `confirmation_expired` et aucun geste. Toute
   nouvelle exécution sur la session annule (`superseded`) les attentes précédentes ; un accord vaut une exécution
   du nœud, jamais plus.
 - Budget : 60 tentatives de geste (cibles essayées comprises) et 200 s (attentes `expect`/conditions comprises, interruptibles par l'annulation ; pire cas sous les 330 s de l'appel : un geste de 30 s attend au plus 65 s côté client, plus 30 s d'`expect`) ; au-delà, `failed` avec

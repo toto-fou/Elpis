@@ -19,16 +19,26 @@ export interface ResumeProcedure {
   readonly description: string;
   readonly params: Procedure["params"];
   readonly updated_at: number;
+  /** Version dont celle-ci est la réparation, `null` si enregistrée à la main. */
+  readonly parent_version: number | null;
+  readonly repaired_path: string | null;
+  /** Nombre de versions gardées issues d'une réparation. */
+  readonly repairs: number;
 }
 
 export type ResultatSauvegarde =
-  | { readonly ok: true; readonly id: string; readonly version: number }
+  | { readonly ok: true; readonly id: string; readonly version: number; readonly texte: string }
   | { readonly ok: false; readonly code: string; readonly message: string };
 
 const maintenant = (): number => Date.now() / 1000;
 
 /** Nouvelle version de la procédure du compte (compteur jamais décroissant, versions gardées) ; arbre écrit en JSON stable (l'ordre des clés est celui du schéma). */
-export async function sauvegarder(base: Base, owner: string, p: Procedure): Promise<ResultatSauvegarde> {
+export async function sauvegarder(
+  base: Base,
+  owner: string,
+  p: Procedure,
+  reparation: { parent: number; chemin: string } | null = null,
+): Promise<ResultatSauvegarde> {
   const texte = JSON.stringify(p);
   const octets = Buffer.byteLength(texte, "utf8");
   if (octets > QUOTAS.octets)
@@ -70,16 +80,28 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
       [owner, p.id, version],
     );
     const t = maintenant();
+    const stocke = JSON.stringify({ ...p, version });
     await x.run(
-      "INSERT INTO ax_procedures (owner, id, version, origin, description, tree_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [owner, p.id, version, p.origin, p.description, JSON.stringify({ ...p, version }), t, t],
+      "INSERT INTO ax_procedures (owner, id, version, origin, description, tree_json, created_at, updated_at, parent_version, repaired_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        owner,
+        p.id,
+        version,
+        p.origin,
+        p.description,
+        stocke,
+        t,
+        t,
+        reparation?.parent ?? null,
+        reparation?.chemin ?? null,
+      ],
     );
     await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=? AND version<=?", [
       owner,
       p.id,
       version - QUOTAS.versions,
     ]);
-    return { ok: true, id: p.id, version } as const;
+    return { ok: true, id: p.id, version, texte: stocke } as const;
   });
 }
 
@@ -129,9 +151,13 @@ export async function lister(base: Base, owner: string, origin = ""): Promise<Re
     tree_json: string;
     updated_at: number;
     n: number;
+    r: number;
+    parent_version: number | null;
+    repaired_path: string | null;
   }>(
-    `SELECT p.id, p.origin, p.version, p.description, p.tree_json, p.updated_at,
-            (SELECT COUNT(*) FROM ax_procedures q WHERE q.owner=p.owner AND q.id=p.id) AS n
+    `SELECT p.id, p.origin, p.version, p.description, p.tree_json, p.updated_at, p.parent_version, p.repaired_path,
+            (SELECT COUNT(*) FROM ax_procedures q WHERE q.owner=p.owner AND q.id=p.id) AS n,
+            (SELECT COUNT(*) FROM ax_procedures q WHERE q.owner=p.owner AND q.id=p.id AND q.parent_version IS NOT NULL) AS r
        FROM ax_procedures p
       WHERE p.owner=? ${origin ? "AND p.origin=?" : ""}
         AND p.version=(SELECT MAX(version) FROM ax_procedures m WHERE m.owner=p.owner AND m.id=p.id)
@@ -153,6 +179,9 @@ export async function lister(base: Base, owner: string, origin = ""): Promise<Re
     description: l.description,
     params: parametres(l.tree_json),
     updated_at: Number(l.updated_at),
+    parent_version: l.parent_version === null ? null : Number(l.parent_version),
+    repaired_path: l.repaired_path,
+    repairs: Number(l.r),
   }));
 }
 
@@ -181,13 +210,18 @@ export interface LigneExecution {
   readonly dureeMs: number;
   /** Attente de confirmation seulement : `empreinte(arbre, chemin, version)`. */
   readonly empreinte?: string;
+  /** Exécution logique (suite de reprises après confirmation ou réparation). */
+  readonly chain?: string;
+  /** Attente de réparation seulement : `repair_id` et page (origine, chemin, requête) où l'exécution s'est arrêtée. */
+  readonly token?: string;
+  readonly pageKey?: string;
 }
 
 /** Journal d'une exécution (issue, nœud en échec, durée ; jamais de valeur de paramètre) ; les plus anciennes au-delà du quota sont retirées. */
 export async function noterExecution(base: Base, e: LigneExecution): Promise<void> {
   await base.transaction(async (x) => {
     await x.run(
-      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms, fingerprint, chain, token, page_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         e.owner,
         e.procedureId,
@@ -199,6 +233,9 @@ export async function noterExecution(base: Base, e: LigneExecution): Promise<voi
         e.noeudEnEchec,
         e.dureeMs,
         e.empreinte ?? null,
+        e.chain ?? null,
+        e.token ?? null,
+        e.pageKey ?? null,
       ],
     );
     await x.run(
@@ -209,10 +246,14 @@ export async function noterExecution(base: Base, e: LigneExecution): Promise<voi
   });
 }
 
-/** Remplace par `superseded` toute attente de confirmation en cours sur la session : une nouvelle exécution les annule. */
+/** Une nouvelle exécution annule (`superseded`) les attentes de confirmation et de réparation de la session et retire les `repair_id` non repris. */
 export async function annulerAttentes(base: Base, owner: string, sessionId: string): Promise<void> {
   await base.run(
-    "UPDATE ax_procedure_runs SET outcome='superseded' WHERE owner=? AND session_id=? AND outcome='needs_confirmation'",
+    "UPDATE ax_procedure_runs SET outcome='superseded' WHERE owner=? AND session_id=? AND outcome IN ('needs_confirmation', 'needs_repair', 'repairing')",
+    [owner, sessionId],
+  );
+  await base.run(
+    "UPDATE ax_procedure_runs SET token=NULL WHERE owner=? AND session_id=? AND outcome='repaired' AND token IS NOT NULL",
     [owner, sessionId],
   );
 }
@@ -229,10 +270,15 @@ export async function reprendre(
     chemin: string;
     page: string;
   },
-): Promise<boolean> {
+): Promise<{ chain: string | null } | null> {
   return base.ecriture(async (x) => {
-    const l = await x.get<{ id: number; failed_path: string | null; fingerprint: string | null }>(
-      `SELECT id, failed_path, fingerprint FROM ax_procedure_runs
+    const l = await x.get<{
+      id: number;
+      failed_path: string | null;
+      fingerprint: string | null;
+      chain: string | null;
+    }>(
+      `SELECT id, failed_path, fingerprint, chain FROM ax_procedure_runs
         WHERE owner=? AND procedure_id=? AND version=? AND session_id=? AND outcome='needs_confirmation' AND ended_at>=?
         ORDER BY id DESC LIMIT 1`,
       [o.owner, o.procedureId, o.version, o.sessionId, maintenant() - REPRISE_S],
@@ -242,7 +288,7 @@ export async function reprendre(
       l.failed_path === o.chemin &&
       l.fingerprint === empreinte(o.texte, o.chemin, o.version, o.page);
     if (valide) await x.run("UPDATE ax_procedure_runs SET outcome='confirmed' WHERE id=?", [l.id]);
-    return valide;
+    return valide ? { chain: l.chain } : null;
   });
 }
 
@@ -258,4 +304,140 @@ export async function attenteEnCours(
     [o.owner, o.procedureId, o.version, o.sessionId, maintenant() - REPRISE_S],
   );
   return l?.failed_path ?? null;
+}
+
+export interface AttenteReparation {
+  readonly id: number;
+  readonly version: number;
+  readonly chemin: string;
+  readonly sessionId: string;
+  readonly chain: string | null;
+  readonly page: string;
+}
+
+/** Réparations déjà faites dans l'exécution logique : au plus 2 en tout et 1 par nœud. */
+export const REPARATIONS_MAX = 2;
+
+/** Vrai si l'exécution logique peut encore offrir une réparation pour ce nœud. */
+export async function reparationPermise(
+  base: Base,
+  o: { owner: string; chain: string; chemin: string },
+): Promise<boolean> {
+  const n = await base.get<{ n: number; m: number }>(
+    "SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN failed_path=? THEN 1 ELSE 0 END), 0) AS m FROM ax_procedure_runs WHERE owner=? AND chain=? AND outcome='repaired'",
+    [o.chemin, o.owner, o.chain],
+  );
+  return Number(n?.n ?? 0) < REPARATIONS_MAX && Number(n?.m ?? 0) === 0;
+}
+
+/** Attente de réparation du compte pour cette procédure et ce `repair_id`, non expirée ; `undefined` sinon. */
+export async function attenteReparation(
+  base: Base,
+  o: { owner: string; procedureId: string; token: string },
+): Promise<AttenteReparation | undefined> {
+  if (!o.token) return undefined;
+  const l = await base.get<{
+    id: number;
+    version: number;
+    failed_path: string | null;
+    session_id: string | null;
+    chain: string | null;
+    page_key: string | null;
+  }>(
+    `SELECT id, version, failed_path, session_id, chain, page_key FROM ax_procedure_runs
+      WHERE owner=? AND procedure_id=? AND token=? AND outcome='needs_repair' AND ended_at>=?`,
+    [o.owner, o.procedureId, o.token, maintenant() - REPRISE_S],
+  );
+  if (l === undefined || l.failed_path === null) return undefined;
+  return {
+    id: Number(l.id),
+    version: Number(l.version),
+    chemin: l.failed_path,
+    sessionId: l.session_id ?? "",
+    chain: l.chain,
+    page: l.page_key ?? "",
+  };
+}
+
+/** Réserve l'attente (usage unique, même sous concurrence) ; faux si quelqu'un l'a déjà prise. */
+export async function reserverReparation(base: Base, id: number): Promise<boolean> {
+  return (
+    (
+      await base.run(
+        "UPDATE ax_procedure_runs SET outcome='repairing' WHERE id=? AND outcome='needs_repair'",
+        [id],
+      )
+    ).changes === 1
+  );
+}
+
+/** Rend l'attente réservée si l'enregistrement de la réparation a échoué. */
+export async function rendreReparation(base: Base, id: number): Promise<void> {
+  await base.run("UPDATE ax_procedure_runs SET outcome='needs_repair' WHERE id=? AND outcome='repairing'", [
+    id,
+  ]);
+}
+
+/** Réparation enregistrée : issue `repaired`, nouvelle version et empreinte (arbre réparé + chemin + version + page) exigées à la reprise. */
+export async function terminerReparation(
+  base: Base,
+  id: number,
+  o: { nouvelleVersion: number; empreinte: string },
+): Promise<void> {
+  await base.run("UPDATE ax_procedure_runs SET outcome='repaired', new_version=?, fingerprint=? WHERE id=?", [
+    o.nouvelleVersion,
+    o.empreinte,
+    id,
+  ]);
+}
+
+/** Consomme (une fois) la réparation de la session si elle vise cette version, ce chemin, cet arbre exact et cette page ; rend le chemin à reprendre. */
+export async function reprendreReparation(
+  base: Base,
+  o: {
+    owner: string;
+    procedureId: string;
+    version: number;
+    sessionId: string;
+    token: string;
+    texte: string;
+    page: string;
+  },
+): Promise<{ chemin: string; chain: string | null } | null> {
+  if (!o.token) return null;
+  return base.ecriture(async (x) => {
+    const l = await x.get<{
+      id: number;
+      failed_path: string | null;
+      fingerprint: string | null;
+      chain: string | null;
+    }>(
+      `SELECT id, failed_path, fingerprint, chain FROM ax_procedure_runs
+        WHERE owner=? AND procedure_id=? AND token=? AND outcome='repaired' AND new_version=? AND session_id=? AND ended_at>=?`,
+      [o.owner, o.procedureId, o.token, o.version, o.sessionId, maintenant() - REPRISE_S],
+    );
+    if (l === undefined || l.failed_path === null) return null;
+    if (l.fingerprint !== empreinte(o.texte, l.failed_path, o.version, o.page)) return null;
+    await x.run("UPDATE ax_procedure_runs SET token=NULL WHERE id=?", [l.id]);
+    return { chemin: l.failed_path, chain: l.chain };
+  });
+}
+
+/** Origine d'une version (versions parente et chemin réparé), `undefined` si la version n'existe pas. */
+export async function filiation(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<{ parent_version: number | null; repaired_path: string | null } | undefined> {
+  const l = await base.get<{ parent_version: number | null; repaired_path: string | null }>(
+    "SELECT parent_version, repaired_path FROM ax_procedures WHERE owner=? AND id=? AND version=?",
+    [owner, id, version],
+  );
+  return l === undefined
+    ? undefined
+    : {
+        parent_version: l.parent_version === null ? null : Number(l.parent_version),
+        repaired_path: l.repaired_path,
+      };
 }

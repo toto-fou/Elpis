@@ -13,6 +13,11 @@ export const LIMITES_PROCEDURE = {
   longueurValeur: 300,
   longueurUrl: 500,
   longueurDescription: 500,
+  /** Intention d'un nœud (champ `note`), lue par le modèle qui répare. */
+  longueurNote: 200,
+  /** Réparation : octets du nœud de remplacement et nombre de nœuds au plus. */
+  octetsReparation: 4096,
+  noeudsReparation: 15,
   longueurId: 64,
   attenteMaxMs: 10_000,
   delaiMinMs: 100,
@@ -153,6 +158,7 @@ export interface Act {
   expect?: Condition;
   confirm?: boolean;
   timeout_ms?: number;
+  note?: string;
 }
 export interface Login {
   creds: string;
@@ -162,13 +168,13 @@ export interface Login {
   wait_for: string;
 }
 export type Noeud =
-  | { seq: Noeud[] }
-  | { sel: Noeud[] }
-  | { if: Condition; then?: Noeud; else?: Noeud }
+  | { seq: Noeud[]; note?: string }
+  | { sel: Noeud[]; note?: string }
+  | { if: Condition; then?: Noeud; else?: Noeud; note?: string }
   | Act
-  | { login: Login }
-  | { retry: Noeud; max: number }
-  | { wait_ms: number };
+  | { login: Login; note?: string }
+  | { retry: Noeud; max: number; note?: string }
+  | { wait_ms: number; note?: string };
 
 const noeud = (): z.ZodType<Noeud, unknown> => schemaNoeud;
 const enfants = z.lazy(noeud).array().min(1).max(LIMITES_PROCEDURE.enfants);
@@ -181,6 +187,7 @@ const schemaAct = z.strictObject({
   expect: schemaCondition.optional(),
   confirm: z.boolean().optional(),
   timeout_ms: z.number().int().min(LIMITES_PROCEDURE.delaiMinMs).max(LIMITES_PROCEDURE.delaiMaxMs).optional(),
+  note: texteBorne(LIMITES_PROCEDURE.longueurNote).optional(),
 });
 const schemaLogin = z.strictObject({
   creds: texteBorne(LIMITES_PROCEDURE.longueurCible),
@@ -189,18 +196,26 @@ const schemaLogin = z.strictObject({
   submit_target: texteBorne(LIMITES_PROCEDURE.longueurCible).optional(),
   wait_for: texteBorne(LIMITES_PROCEDURE.longueurCible),
 });
+const note = texteBorne(LIMITES_PROCEDURE.longueurNote).optional();
 const variantes: Record<string, z.ZodType> = {
-  seq: z.strictObject({ seq: enfants }),
-  sel: z.strictObject({ sel: enfants }),
-  if: z.strictObject({ if: schemaCondition, then: z.lazy(noeud).optional(), else: z.lazy(noeud).optional() }),
+  seq: z.strictObject({ seq: enfants, note }),
+  sel: z.strictObject({ sel: enfants, note }),
+  if: z.strictObject({
+    if: schemaCondition,
+    then: z.lazy(noeud).optional(),
+    else: z.lazy(noeud).optional(),
+    note,
+  }),
   act: schemaAct,
-  login: z.strictObject({ login: schemaLogin }),
+  login: z.strictObject({ login: schemaLogin, note }),
   retry: z.strictObject({
     retry: z.lazy(noeud),
     max: z.number().int().min(1).max(LIMITES_PROCEDURE.retryMax),
+    note,
   }),
   wait_ms: z.strictObject({
     wait_ms: z.number().int().min(0).max(LIMITES_PROCEDURE.attenteMaxMs),
+    note,
   }),
 };
 
@@ -454,4 +469,124 @@ export function validerProcedure(entree: unknown): ResultatProcedure {
   const procedure = r.data as unknown as Procedure;
   const erreurs = verifierProcedure(procedure);
   return erreurs.length > 0 ? { ok: false, erreurs: erreurs.slice(0, 10) } : { ok: true, procedure };
+}
+
+/** Nœud à un chemin (`0`, `0.2`, `0.1.then`…), `undefined` s'il n'existe pas. */
+export function noeudA(racine: Noeud, chemin: string): Noeud | undefined {
+  for (const [n, c] of parcourir(racine)) if (c === chemin) return n;
+  return undefined;
+}
+
+/** Copie de l'arbre dont le nœud au chemin est remplacé, `null` si le chemin n'existe pas. */
+export function remplacerNoeud(racine: Noeud, chemin: string, nouveau: Noeud): Noeud | null {
+  const segments = chemin.split(".").slice(1);
+  const aller = (n: Noeud, reste: string[]): Noeud | null => {
+    const [tete, ...suite] = reste;
+    if (tete === undefined) return nouveau;
+    if ("seq" in n || "sel" in n) {
+      const liste = "seq" in n ? n.seq : n.sel;
+      const i = Number(tete);
+      const enfant = liste[i];
+      if (!Number.isInteger(i) || enfant === undefined) return null;
+      const r = aller(enfant, suite);
+      if (r === null) return null;
+      const copie = liste.map((x, k) => (k === i ? r : x));
+      return "seq" in n ? { ...n, seq: copie } : { ...n, sel: copie };
+    }
+    if ("if" in n && (tete === "then" || tete === "else")) {
+      const enfant = n[tete];
+      if (enfant === undefined) return null;
+      const r = aller(enfant, suite);
+      return r === null ? null : { ...n, [tete]: r };
+    }
+    if ("retry" in n && tete === "retry") {
+      const r = aller(n.retry, suite);
+      return r === null ? null : { ...n, retry: r };
+    }
+    return null;
+  };
+  return aller(racine, segments);
+}
+
+const urlsGoto = (n: Noeud): string[] => {
+  const sortie: string[] = [];
+  for (const [x] of parcourir(n))
+    if ("act" in x && x.act === "goto" && x.url !== undefined) sortie.push(chemin(x.url));
+  return sortie;
+};
+
+/** Chemin d'une URL de goto (requête et ancre retirées, origine retirée) : unité de comparaison de la règle des goto. */
+function chemin(url: string): string {
+  const sansOrigine = url.replace(/^https?:\/\/[^/?#]+/u, "");
+  return sansOrigine.split(/[?#]/u)[0] ?? "";
+}
+
+const confirmes = (n: Noeud): number =>
+  [...parcourir(n)].filter(([x]) => "act" in x && x.confirm === true).length;
+const logins = (n: Noeud): string[] =>
+  [...parcourir(n)].filter(([x]) => "login" in x).map(([x]) => JSON.stringify(x));
+
+export type ResultatReparation =
+  { ok: true; procedure: Procedure; chemin: string } | { ok: false; erreurs: string[] };
+
+/**
+ * Remplace le nœud au chemin par `nouveau` et valide le tout (schéma, limites, règles) avec les règles de réparation : même origine et mêmes paramètres, aucun login nouveau,
+ * aucun confirm retiré ni geste à effet sorti de son confirm, goto seulement vers un chemin déjà présent dans l'arbre (sauf si le nœud remplacé est lui-même un goto), nœud borné.
+ */
+export function verifierReparation(
+  ancienne: Procedure,
+  chemin0: string,
+  nouveau: unknown,
+): ResultatReparation {
+  const octets = new TextEncoder().encode(JSON.stringify(nouveau ?? null)).length;
+  if (octets > LIMITES_PROCEDURE.octetsReparation)
+    return {
+      ok: false,
+      erreurs: [
+        `nœud de remplacement trop gros : ${octets} octets (${LIMITES_PROCEDURE.octetsReparation} au plus)`,
+      ],
+    };
+  if (profondeurBrute(nouveau) > LIMITES_PROCEDURE.profondeurBrute)
+    return { ok: false, erreurs: ["nœud trop profond"] };
+  const r = schemaNoeud.safeParse(nouveau);
+  if (!r.success)
+    return {
+      ok: false,
+      erreurs: r.error.issues.slice(0, 10).map((i) => `node.${i.path.join(".")} : ${i.message}`),
+    };
+  const noeud = r.data;
+  const ancien = noeudA(ancienne.root, chemin0);
+  if (ancien === undefined)
+    return { ok: false, erreurs: [`le chemin ${chemin0} n'existe plus dans cette version`] };
+  const erreurs: string[] = [];
+  const m = mesurer(noeud);
+  if (m.noeuds > LIMITES_PROCEDURE.noeudsReparation)
+    erreurs.push(
+      `nœud de remplacement trop grand : ${m.noeuds} nœuds (${LIMITES_PROCEDURE.noeudsReparation} au plus)`,
+    );
+  const anciensLogins = new Set(logins(ancien));
+  for (const l of logins(noeud))
+    if (!anciensLogins.has(l)) erreurs.push("aucun login nouveau ou modifié dans une réparation");
+  if (confirmes(noeud) < confirmes(ancien)) erreurs.push("une réparation ne peut pas retirer un confirm");
+  if (confirmes(ancien) > 0)
+    for (const [x] of parcourir(noeud))
+      if ("act" in x && !["goto", "hover", "wait"].includes(x.act) && x.confirm !== true)
+        erreurs.push(`le geste ${x.act} remplace un geste sous confirm : il doit garder confirm: true`);
+  const ancienEstGoto = "act" in ancien && ancien.act === "goto";
+  if (!ancienEstGoto) {
+    const permis = new Set(urlsGoto(ancienne.root));
+    for (const u of urlsGoto(noeud))
+      if (!permis.has(u))
+        erreurs.push(
+          `goto ${u} : chemin absent de l'arbre (autorisé seulement s'il y figure déjà, ou si le nœud remplacé est un goto)`,
+        );
+  }
+  const arbre = remplacerNoeud(ancienne.root, chemin0, noeud);
+  if (arbre === null) return { ok: false, erreurs: [`le chemin ${chemin0} ne peut pas être remplacé`] };
+  const neuve: Procedure = { ...ancienne, root: arbre };
+  const v = validerProcedure(neuve);
+  if (!v.ok) erreurs.push(...v.erreurs);
+  return erreurs.length > 0
+    ? { ok: false, erreurs: erreurs.slice(0, 10) }
+    : { ok: true, procedure: neuve, chemin: chemin0 };
 }

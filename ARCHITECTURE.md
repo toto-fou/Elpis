@@ -273,7 +273,9 @@ Une **procédure** est un arbre de comportement (`seq`, `sel`, `if`, `act`, `log
 compte (`ax_procedures`, versions gardées) et rejoué **sans le modèle** par `pw_run` : l'interpréteur de
 `apps/toolhost/src/mcp/browser/procedures/` appelle les traitements de `pw_act` et `pw_login` (garde
 d'adresse, mémoire AX, session sécurisée, expurgation) avec un budget, l'annulation de l'appel et l'arrêt sans
-rejeu sur un geste ambigu. Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
+rejeu sur un geste ambigu. Un échec réparable est rendu au modèle du chat avec le contexte de la page
+(`failed_at.repair`) ; il corrige le nœud par `pw_procedure(action='repair')` (règles strictes) puis reprend
+(`resume`). Détail dans [docs/architecture.md](docs/architecture.md) (« Procédures »).
 
 ## Invariants
 

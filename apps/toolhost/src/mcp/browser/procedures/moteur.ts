@@ -40,6 +40,14 @@ const SANS_EFFET: ReadonlySet<string> = new Set([
   "option_not_found",
   "element_detached",
 ]);
+/** Codes d'échec d'une cible que la réparation de l'arbre peut corriger (constatés avant toute action). */
+const REPARABLES: ReadonlySet<string> = new Set([
+  "element_not_found",
+  "target_not_found",
+  "ambiguous_target",
+  "element_detached",
+  "option_not_found",
+]);
 /** Seuls gestes sans effet de bord : après tout autre geste (fill et select relancent des événements input/change), un expect raté arrête tout. */
 const SANS_EFFET_DE_BORD: ReadonlySet<string> = new Set(["goto", "hover", "wait"]);
 
@@ -57,6 +65,10 @@ export interface EchecRun {
   path: string;
   reason: string;
   tried_targets: string[];
+  /** Échec sans effet constaté avant l'action (ou lecture seule) : le modèle peut réparer l'arbre. */
+  repairable?: boolean;
+  /** Codes des cibles essayées, dans l'ordre. */
+  codes?: string[];
 }
 export interface ResultatRun {
   status: StatutRun;
@@ -265,8 +277,14 @@ class Execution {
     });
   }
 
-  private rate(path: string, reason: string, tried: string[] = []): void {
-    this.echec = { path, reason, tried_targets: tried };
+  private rate(
+    path: string,
+    reason: string,
+    tried: string[] = [],
+    reparable = false,
+    codes: string[] = [],
+  ): void {
+    this.echec = { path, reason, tried_targets: tried, repairable: reparable, codes };
   }
 
   /** Arrêt avant un geste : annulation de l'appel ou budget épuisé. */
@@ -389,6 +407,7 @@ class Execution {
     const t = Date.now();
     const essais = cibles.length > 0 ? cibles : [""];
     const tried: string[] = [];
+    const codes: string[] = [];
     for (const [i, cible] of essais.entries()) {
       const stop = this.arret(path);
       if (stop) return stop;
@@ -426,13 +445,20 @@ class Execution {
       }
       const raison = `${e.code}${e.message ? `: ${e.message}` : ""}`;
       tried.push(cible || "(sans cible)");
+      codes.push(e.code);
       this.noter(path, n.act, cible || null, false, t, raison);
       if (e.code === "origin_mismatch") {
-        this.rate(path, raison, tried);
+        this.rate(path, raison, tried, false, codes);
         return FAIL;
       }
       if (SANS_EFFET.has(e.code)) {
-        this.rate(path, raison, tried);
+        this.rate(
+          path,
+          raison,
+          tried,
+          codes.every((c) => REPARABLES.has(c)),
+          codes,
+        );
         continue;
       }
       this.rate(path, `ambiguous: ${raison} (le geste a peut-être agi : arrêt sans rejeu)`, tried);
@@ -462,7 +488,7 @@ class Execution {
           );
           return halte("failed");
         }
-        this.rate(path, raison, [cible]);
+        this.rate(path, raison, [cible], r === false);
         return FAIL;
       }
     }
@@ -478,7 +504,7 @@ class Execution {
     const v = n.v === undefined ? "" : this.sub(n.v, "texte");
     for (const c of cibles) {
       const r = refusCible(c);
-      if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`);
+      if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`, true);
     }
     if (n.confirm === true) {
       if (!this.o.confirmed.includes(path)) {
@@ -506,9 +532,9 @@ class Execution {
     return this.geste(n, path, cibles, v);
   }
 
-  private refus(path: string, n: Act, t: number, raison: string): Issue {
+  private refus(path: string, n: Act, t: number, raison: string, reparable = false): Issue {
     this.noter(path, n.act, null, false, t, raison);
-    this.rate(path, raison);
+    this.rate(path, raison, [], reparable);
     return FAIL;
   }
 
@@ -558,7 +584,7 @@ class Execution {
       await dormir(BUDGET.pasMs).catch(() => undefined);
     }
     this.noter(path, "wait", null, false, t, "wait_timeout");
-    this.rate(path, "wait_timeout", cibles);
+    this.rate(path, "wait_timeout", cibles, true);
     return FAIL;
   }
 
@@ -699,7 +725,7 @@ class Execution {
     }
     this.noter(path, "if", null, vrai, t);
     if (n.then === undefined && n.else === undefined) {
-      if (!vrai) this.rate(path, "condition_false");
+      if (!vrai) this.rate(path, "condition_false", [], true);
       return vrai ? OK : FAIL;
     }
     const branche = vrai ? n.then : n.else;

@@ -21,6 +21,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   Un clic ou une touche qui a agi n'est jamais rejoué (`retry`, `click`, `press`, `confirm` et `login`
   incompatibles), `confirmed` ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
   l'origine est vérifiée par le service juste avant chaque geste, `wait_for` est obligatoire dans `login`.
+- **Réparation des procédures par le modèle.** Un échec sans effet constaté avant l'action (cible introuvable ou
+  ambiguë, élément disparu, option absente, lecture fausse) rend dans `failed_at.repair` le nœud, son intention (nouveau
+  champ `note`), les cibles essayées et un instantané compact de la page (candidats sémantiques, aucune valeur de
+  champ, contenu présenté comme non fiable) avec un `repair_id` à usage unique. `pw_procedure(action='repair')` valide le
+  nœud de remplacement (même origine, aucun login nouveau, `confirm` conservé, `goto` limités aux chemins de l'arbre,
+  15 nœuds), enregistre la version suivante (`parent_version`, `repaired_path`, migration `0031_reparation_procedures`)
+  et `pw_run(..., resume=repair_id)` reprend au nœud réparé sans rejouer ce qui précède. Au plus 2 réparations par
+  exécution et 1 par nœud ; les échecs ambigus, `acted_unconfirmed`, `origin_changed` et `login_*` ne sont jamais réparables.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

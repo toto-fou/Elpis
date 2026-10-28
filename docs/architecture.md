@@ -2264,6 +2264,37 @@ clés internes (`_timeout_ms`, `_presence_ms`, `_expected_origin`, `_sans_repli`
 remplace les valeurs par `{nom}` ; css/xpath/`selector` brut, gestes inconnus et autres origines sont rapportés
 dans `erreurs`. Aucune étape n'en fait encore un outil : elle sert à l'apprentissage.
 
+**Réparation par le modèle du chat.** Il n'y a aucun second modèle dans l'hôte d'outils : quand `pw_run` échoue de
+façon **réparable**, c'est le modèle de la conversation (ou de la routine) qui corrige l'arbre avec les outils.
+
+- *Réparable* : l'échec est constaté **avant toute action** (`element_not_found`, `ambiguous_target`,
+  `element_detached`, `option_not_found`, cible invalide après substitution) ou ne fait que lire (`expect` raté après
+  `goto`/`hover`/`wait`, `wait` expiré, `if` seul faux), et aucun geste n'a agi sans être confirmé. Les échecs
+  ambigus, `acted_unconfirmed`, `origin_changed`, `origin_mismatch`, `login_*` et les budgets ne le sont **pas**.
+- *Contexte* : `failed_at.repair` = `{repair_id, path, reason, intent, node, tried_targets, codes, page}`. `intent`
+  est le champ optionnel `note` du nœud (200 caractères), sinon celui du plus proche parent qui en porte un, sinon
+  la description de la procédure. `page` est un instantané **compact** (`untrusted: true`) : origine + chemin,
+  titre, au plus 40 candidats `{role, name, target}` (rôles interactifs avec nom accessible, cible DSL prête,
+  noms de 80 caractères au plus, 8 libellés d'options pour une liste), 4000 caractères en tout ; jamais de valeur de
+  champ, de texte libre ni de sélecteur, et expurgé des secrets résolus. Le contenu de page est une donnée non fiable.
+- *`repair_id`* : attente enregistrée comme la confirmation (`ax_procedure_runs`, issue `needs_repair`, jeton, page,
+  exécution logique `chain`) : même compte, procédure, version et chemin, 15 minutes, **usage unique**, annulée
+  (`superseded`) par toute autre exécution sur la session. Au plus **2 réparations par exécution logique** (suite de
+  reprises) et **1 par nœud** ; au-delà `failed_at.repair_unavailable` et l'échec est final.
+- *`pw_procedure(action='repair', id, repair_id, node)`* : le nœud est validé comme un `save` **plus** : même
+  `origin` et mêmes paramètres (le remplacement ne touche que le sous-arbre au chemin), aucun `login` nouveau ou
+  modifié, aucun `confirm` retiré et tout geste qui était sous confirm y reste, **règle des `goto`** : un `goto` du
+  nœud de remplacement doit viser un chemin (requête et ancre exclues) déjà utilisé par un `goto` de l'arbre, sauf si
+  le nœud remplacé est lui-même un `goto` (il peut alors viser n'importe quel chemin de l'origine) ; nœud d'au plus 15
+  nœuds et 4 Ko. Un refus (`repair_refused`) laisse le `repair_id` valable. Une réparation valide enregistre la version
+  suivante (compteur) avec `parent_version` et `repaired_path` (`ax_procedures`, migration `0031_reparation_procedures`),
+  marque l'attente `repaired` et rend `{new_version, next}`.
+- *Reprise* : `pw_run(…, version=new_version, resume=repair_id)` reprend **au chemin réparé** sans rejouer ce qui le
+  précède, à condition d'être sur la même session, sur la même page (origine, chemin et requête triée) et avec
+  l'arbre réparé exact (empreinte sha256) ; le `repair_id` est consommé une fois. Le modèle peut aussi relancer depuis
+  le début : les gestes précédents ont déjà eu lieu. `get` rend `lineage`, `list` rend `parent_version`,
+  `repaired_path` et `repairs`.
+
 Limites : un paramètre de query ajouté par la page elle-même entre l'arrêt et la reprise (anti-cache, pagination)
 change la page liée à l'attente : la reprise est refusée (`confirmation_expired`, aucun geste) ; en mode origine
 attendue, seuls `click`, `hover`, `fill`, `press`, `select`, `check` et `uncheck` passent par la poignée vérifiée

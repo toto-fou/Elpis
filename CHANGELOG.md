@@ -31,6 +31,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   réseau sans corps de requête. Le champ est contrôlé (visible, unique, type réel,
   frame de l'origine) par un pré-contrôle sans valeur avant que le jeton ne soit
   résolu ; le type est revérifié après la saisie.
+  La requête qui porte le secret, exécutée par le service, passe par le relais filtrant
+  (adresse jugée et épinglée par le relais, refus rendu `blocked`) ; un `stop` pendant la
+  connexion ferme la session sans attendre ; la connexion finit toujours (post-traitement
+  compris, 62 s au plus) avant l'échéance de 75 s de l'hôte d'outils.
 - **Identifiants HTTP du navigateur liés à une origine.** `httpCredentials`
   porte toujours `origin` : plus d'envoi à un serveur tiers qui répondrait 401.
 - **Mémoire AX : plus d'identifiants.** `pw_session` n'injecte ni n'enregistre plus

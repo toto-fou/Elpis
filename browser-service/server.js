@@ -1737,7 +1737,9 @@ async function getSession(req, res, next) {
     // AUDIT 2026-06 — mutex par session : UN SEUL point d'intégration pour
     // les ~80 routes. Le verrou est relâché au finish/close de la réponse
     // (close couvre la déconnexion client). Voir session_lock.js.
-    if (PW_MUTEX) {
+    // Un arrêt demandé pendant une connexion ne l'attend pas : la session est fermée aussitôt (la connexion échoue sur un contexte fermé).
+    const arretPendantConnexion = session._connexionEnCours && req.route && req.route.path === '/stop';
+    if (PW_MUTEX && !arretPendantConnexion) {
         if (!session._lock) session._lock = makeLock();
         let release;
         try {
@@ -1784,6 +1786,8 @@ async function getSession(req, res, next) {
 // ── Screenshot write for a specific step number (file I/O only).
 async function liveSnapshotForStep(page, sid, n) {
     if (!page || !sid || !n) return null;
+    const sv = sessions.get(sid);
+    if (sv && sv._connexionEnCours) return null;
     const liveName = `live_${sid}.png`;
     const stepName = `step_${sid}_${n}.png`;
     const livePath = path.join(SCREENSHOT_DIR, liveName);
@@ -2557,6 +2561,7 @@ app.post('/start', async (req, res) => {
         suivreOnglets(sess, page);
         if (secure) {
             sess._originesSecret = new Set();
+            sess._blocages = 0;
             browser.on('disconnected', () => { sessions.delete(sessionId); });
             securiserCaptures(context, page, sess);
             // Trafic sortant d'une session sécurisée : tolérance de certificat limitée à l'origine du jeton, et aucune valeur secrète dans une adresse,
@@ -2585,20 +2590,26 @@ app.post('/start', async (req, res) => {
                     if (u.protocol === 'http:' || u.protocol === 'https:') {
                         if (sess.tlsTolerant && u.origin !== sess.origineTolerance) return await route.abort('blockedbyclient');
                         if (requetePorteSecret(rq.url(), rq.postData(), sess)) {
-                            if (['GET', 'HEAD'].includes(rq.method()) || !sess._originesSecret.has(u.origin)) return await route.abort('blockedbyclient');
+                            if (['GET', 'HEAD'].includes(rq.method()) || !sess._originesSecret.has(u.origin)) { sess._blocages++; return await route.abort('blockedbyclient'); }
                             porteSecret = true;
                         }
                     }
                 } catch (e) {}
                 if (!porteSecret) { try { await route.continue(); } catch (e) {} return; }
                 // Requête portant le secret : exécutée ici sans suivre de redirection ; un saut vers une autre origine que celle du jeton est interrompu.
+                // Elle part du process Node mais emprunte le proxy du navigateur (PROXY_NAVIGATEUR, sans exception de contournement) : le relais résout le nom,
+                // juge chaque adresse et se connecte à l'adresse jugée. Le refus anticipé ci-dessous n'est qu'une seconde ligne.
+                const bloquer = async (raison) => { sess._blocages++; return await route.abort(raison).catch(() => {}); };
+                if (await refusUrl(rq.url()).catch(() => 'vérification impossible')) return await bloquer('blockedbyclient');
                 let reponse;
                 try { reponse = await route.fetch({ maxRedirects: 0, timeout: 30000 }); }
-                catch (e) { return await route.abort('failed').catch(() => {}); }
+                catch (e) { return await bloquer('failed'); }
+                // Refus du relais (adresse interdite) : l'agent du proxy le rend comme la réponse du serveur ; l'en-tête le distingue d'un 403 du site.
+                if (reponse.headers()['x-elpis-garde']) return await bloquer('blockedbyclient');
                 if ([301, 302, 303, 307, 308].includes(reponse.status())) {
                     let autre = true;
                     try { autre = !sess._originesSecret.has(new URL(reponse.headers()['location'] || '', rq.url()).origin); } catch (e) {}
-                    if (autre) return await route.abort('blockedbyclient').catch(() => {});
+                    if (autre) return await bloquer('blockedbyclient');
                 }
                 await route.fulfill({ response: reponse }).catch(() => {});
             });
@@ -2651,12 +2662,12 @@ async function libererLogin(p) {
 }
 
 // Champs, formulaire(s) et origine contrôlés sans valeur ; les poignées restent à libérer (libererLogin).
-async function preparerLogin(req) {
+async function preparerLogin(req, fin = null) {
     const s = req.session;
     if (!s.secure)
         throw erreurSecret('secret_requires_secure_session', 'Une connexion ne se fait que dans une session sécurisée.', 403,
             "Fermez cette session (pw_session stop) puis ouvrez-en une avec pw_session(action='start', url=…, secure=true, creds=…).");
-    const timeout = Math.min(Number(req.body.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2);
+    const timeout = Math.max(500, Math.min(Number(req.body.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2, fin ? fin - Date.now() : Infinity));
     const cu = await candidatsLogin(req, req.body.username_target);
     const cp = await candidatsLogin(req, req.body.password_target);
     if (!cu && !cp) throw erreurSecret('login_target_required', "Au moins un champ (identifiant ou mot de passe) doit être ciblé.", 400);
@@ -2694,6 +2705,9 @@ function erreurLogin(e) {
 }
 
 const POST_BUDGET_MS = parseInt(process.env.PW_LOGIN_POST_BUDGET_MS || '15000', 10);
+// Plafond absolu d'une connexion, depuis l'arrivée de la requête : l'hôte d'outils abandonne à 75 s, le service a fini (post-traitement compris) avant.
+const PLAFOND_LOGIN_MS = parseInt(process.env.PW_LOGIN_CEILING_MS || '62000', 10);
+const FERMETURE_MS = 4000;
 const avecDelai = (promesse, ms) => Promise.race([promesse, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('délai'), { name: 'TimeoutError' })), ms))]);
 
 // Identifiants de documents (frame + chargement) lus par le protocole du navigateur : une page ne peut pas les falsifier.
@@ -2782,17 +2796,21 @@ app.post('/login', getSession, async (req, res) => {
     try {
         try {
             if (!origineJeton) throw erreurSecret('secret_origin_invalid', 'Origine du secret illisible.', 400);
-            p = await preparerLogin(req);
+            const prep = preparerLogin(req, fin);
+            try { p = await avecDelai(prep, Math.max(500, fin - Date.now())); }
+            catch (e) { prep.then(libererLogin, () => {}); throw e; }
             if (p.origine !== origineJeton) throw erreurSecret('secret_origin_mismatch', `Le frame des champs n'est pas sur l'origine attendue (${origineJeton}) : saisie refusée.`);
             if (Boolean(p.champs.username) !== Boolean(uv) || Boolean(p.champs.password) !== Boolean(pv))
                 throw erreurSecret('login_values_mismatch', 'Les valeurs ne correspondent pas aux champs ciblés.', 400);
             // Documents qui vont recevoir le secret, notés avant toute saisie (échec fermé si le navigateur ne les identifie pas).
+            const finIds = Date.now() + 3000;
             for (const h of Object.values(p.champs)) {
-                const pg = (await h.ownerFrame()).page();
-                if (!saisies.has(pg)) saisies.set(pg, await avecDelai(idsDocuments(pg), 3000));
+                const pg = (await avecDelai(h.ownerFrame(), 3000)).page();
+                if (!saisies.has(pg)) saisies.set(pg, await avecDelai(idsDocuments(pg), Math.max(300, finIds - Date.now())));
             }
             retenirValeurs(s, [uv, pv]);
             s._originesSecret.add(origineJeton);
+            const blocages0 = s._blocages;
             saisi = true;
             const page = s.page;
             let navigue = false;
@@ -2808,16 +2826,17 @@ app.post('/login', getSession, async (req, res) => {
                 let issue = 'no_change';
                 while (Date.now() < fin) {
                     if (navigue || nouvelles.length) { issue = 'navigated'; break; }
-                    if (p.cw && (await p.cw.candidats.filter({ visible: true }).count().catch(() => 0)) > 0) { issue = 'wait_for'; break; }
-                    if (await observe.evaluate((el) => !el.isConnected || el.value === '' || el.getClientRects().length === 0).catch(() => true)) { issue = 'field_gone'; break; }
+                    const lim = () => Math.max(300, Math.min(2000, fin - Date.now()));
+                    if (p.cw && (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), lim()).catch(() => 0)) > 0) { issue = 'wait_for'; break; }
+                    if (await avecDelai(observe.evaluate((el) => !el.isConnected || el.value === '' || el.getClientRects().length === 0), lim()).catch((e) => !(e && e.name === 'TimeoutError'))) { issue = 'field_gone'; break; }
                     await page.waitForTimeout(150);
                 }
                 if (issue !== 'wait_for' && issue !== 'no_change') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
                 // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
-                if (issue !== 'wait_for' && /^chrome-error:/.test(page.url())) issue = 'blocked';
+                if (issue !== 'wait_for' && (s._blocages > blocages0 || /^chrome-error:/.test(page.url()))) issue = 'blocked';
                 sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked', status: 'submitted', outcome: issue, navigated: issue === 'navigated', ...(nouvelles.length ? { opened_tab: true } : {}) } };
                 if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
-                if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET ou autre origine) : cette page ne permet pas une connexion sûre." };
+                if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET, autre origine ou adresse interdite par la politique du navigateur) : cette page ne permet pas une connexion sûre." };
             } finally {
                 page.off('framenavigated', surNav);
             }
@@ -2828,9 +2847,9 @@ app.post('/login', getSession, async (req, res) => {
         await libererLogin(p).catch(() => {});
         // Post-traitement, quoi qu'il arrive : les documents qui ont reçu le secret sont remplacés (ou la page, ou la session, fermées).
         if (saisi) {
-            try { post = await remplacerDocuments(s, saisies, origineJeton, Date.now() + POST_BUDGET_MS); }
+            try { post = await remplacerDocuments(s, saisies, origineJeton, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS))); }
             catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
-            if (post.sessionFermee) await closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }).catch(() => {});
+            if (post.sessionFermee) await avecDelai(closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }), FERMETURE_MS).catch(() => {});
         }
     } finally {
         s._connexionEnCours = false;

@@ -106,7 +106,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
         if (!v.ok) {
             journal(`refus http ${cible.host} : ${v.motif}`);
-            res.writeHead(403, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+            res.writeHead(403, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-elpis-garde': 'refus' });
             return res.end(_pageRefus(v.motif));
         }
         const entetes = {};
@@ -140,7 +140,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         if (client.destroyed) return;
         if (!v.ok) {
             journal(`refus tunnel ${req.url} : ${v.motif}`);
-            client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n');
+            client.end('HTTP/1.1 403 Forbidden\r\nx-elpis-garde: refus\r\ncontent-length: 0\r\n\r\n');
             return;
         }
         const amont = net.connect(hp.port, v.adresse, () => {
@@ -162,7 +162,7 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {} } = {}) 
         const hp = cible ? _hotePort(cible.host, 80) : null;
         const v = hp ? await juger(hp.hote, hp.port) : { ok: false, motif: 'adresse mal formée' };
         if (client.destroyed) return;
-        if (!v.ok) { client.end('HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n'); return; }
+        if (!v.ok) { client.end('HTTP/1.1 403 Forbidden\r\nx-elpis-garde: refus\r\ncontent-length: 0\r\n\r\n'); return; }
         const amont = net.connect(hp.port, v.adresse, () => {
             const lignes = [`${req.method} ${cible.pathname + cible.search} HTTP/1.1`];
             for (let i = 0; i < req.rawHeaders.length; i += 2) {

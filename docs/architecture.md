@@ -1983,7 +1983,14 @@ dur (15 s) : si le remplacement échoue ou dépasse le budget, la page est ferm�
 cela échoue, la session et son Chromium dédié (`outcome: session_closed`). Pendant toute la
 connexion (saisie et remplacement) un drapeau de session fait répondre 409
 `login_in_progress` à toute autre requête de cette session (sauf `stop`), quels que soient le
-verrou de session et la déconnexion du client. Une page ouverte par la soumission
+verrou de session et la déconnexion du client ; un `stop` demandé pendant la connexion ne
+l'attend pas (il ferme la session aussitôt, sans le verrou : la connexion échoue alors sur un
+contexte fermé, sans page ni processus orphelins, et ne décompte aucun usage de plus). Les
+captures différées d'`autoSnapshot` sont refusées tant qu'une connexion est en cours (et, prises
+avant ou après, passent par le masquage des captures). Durées : saisie bornée à 40 s depuis
+l'arrivée de la requête (préparation comprise ; chaque lecture de l'état de la page est bornée),
+remplacement borné à 15 s et, au total, à 62 s (plafond), fermeture de la session 4 s, titre
+1,5 s : le service a toujours répondu avant l'échéance de 75 s de l'hôte d'outils. Une page ouverte par la soumission
 (`target=_blank`) est un résultat de connexion (`opened_tab`). Le
 résultat est `{ok, outcome: navigated|field_gone|wait_for|no_change|blocked|session_closed, url, title,
 documents_replaced, page_after}` : adresse et titre purgés, capture masquée, jamais un message
@@ -2025,7 +2032,11 @@ certificat. Le même point d'entrée traite, dans toute session sécurisée, une
 porte une valeur secrète (adresse ou corps, sous toutes ses formes) : GET ou origine autre que
 celle des identifiants, elle est interrompue ; sinon elle est exécutée par le service
 (`route.fetch` sans suivre de redirection, avec les cookies et l'authentification du
-contexte), et une redirection 301/302/303/307/308 vers une autre origine que celle du jeton
+contexte ; la requête part du process Node mais emprunte le proxy du navigateur, sans exception
+de contournement : le relais filtrant résout le nom, juge chaque adresse avec la politique du
+service (liste blanche d'hôtes locaux comprise) et se connecte à l'adresse jugée, sans seconde
+résolution ; un refus du relais, reconnu à l'en-tête `x-elpis-garde`, interrompt la requête et
+fait rendre `blocked` à la connexion), et une redirection 301/302/303/307/308 vers une autre origine que celle du jeton
 est interrompue (le navigateur ne voit pas les sauts d'une redirection : sans cela un 307
 renverrait le POST ailleurs) ; une redirection de même origine est rendue au navigateur, qui la
 suit. Les WebSockets ne sont routés qu'à partir de la première saisie : seuls ceux de
@@ -2097,8 +2108,9 @@ attribut que le script d'une page peut retirer (le remplacement, le masque par v
 purge ne s'y fient pas) ; une soumission GET *traitée* par le JavaScript de la page
 (`preventDefault`) n'est pas arrêtée ; les WebSockets ouverts avant la première saisie ne
 sont pas routés (ils meurent avec le document remplacé) ; l'exécution d'une requête portant le
-secret par le service (`route.fetch`) ne passe pas par le relais filtrant (elle vise
-l'origine du jeton) ; une session tolérante (`allow_insecure_tls`) ne vérifie aucun
+secret par le service (`route.fetch`) fait confiance à l'agent de proxy de Playwright (un test
+d'invariant vérifie qu'aucun nom n'est résolu par le process Node et qu'un nom devenu interne est
+refusé) ; une session tolérante (`allow_insecure_tls`) ne vérifie aucun
 certificat pour l'origine du jeton ; si le navigateur ne sait pas identifier les documents
 (moteur autre que Chromium), la connexion est refusée avant la saisie ; les fonctions retirées en session
 sécurisée (`pw_page eval`, `wait` et `element` par sélecteur CSS, `pw_mock`, `pw_recorder`,

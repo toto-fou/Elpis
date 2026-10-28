@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/ax-actions.ts — mémoire AX écrite par les outils pw_* (port de shared_infra/memory/ax/actions.py, selectors.py, credentials.py, tree.search_nodes, transitions.find_path). */
+/** packages/navigateur/src/ax-actions.ts — mémoire AX écrite par les outils pw_* (port de shared_infra/memory/ax/actions.py, selectors.py, tree.search_nodes, transitions.find_path). */
 import { BLANC_PY, estDict, intPy, lowerPy, prefixePy, stripPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { ciLike } from "@elpis/db";
@@ -273,51 +273,6 @@ export async function recordInspection(
   } catch (e) {
     log().warn(`[ax] record_inspection failed: ${texte(e)}`);
     return rien;
-  }
-}
-
-/** `save_credentials` : couple du compte pour le site normalisé (un seul, remplacé) ; propriétaire vide : refus. */
-export async function saveCredentials(
-  b: Base,
-  url: string,
-  username: string,
-  password: string,
-  owner: string,
-): Promise<boolean> {
-  if (!url || !username || !password || !owner) return false;
-  const [site] = normalizeUrl(url);
-  if (!site) return false;
-  try {
-    await verrouAx.avec(() =>
-      b.run(
-        "INSERT INTO ax_credentials (owner, site, username, password, last_ok, use_count) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(owner, site) DO UPDATE SET username = excluded.username, password = excluded.password, last_ok = excluded.last_ok, use_count = ax_credentials.use_count + 1",
-        [owner, site, username, password, Date.now() / 1000],
-      ),
-    );
-    log().info(`[ax] creds saved for owner=${owner} site=${site} user=${username}`);
-    return true;
-  } catch (e) {
-    log().warn(`[ax] save_credentials failed: ${texte(e)}`);
-    return false;
-  }
-}
-
-/** `get_credentials` : couple de CE compte pour le site, `null` sinon (jamais celui d'un autre). */
-export async function getCredentials(x: Executeur, url: string, owner: string): Promise<Dict | null> {
-  if (!url || !owner) return null;
-  const [site] = normalizeUrl(url);
-  if (!site) return null;
-  try {
-    const r = await x.get(
-      "SELECT username, password, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?",
-      [site, owner],
-    );
-    return r
-      ? { username: r["username"], password: r["password"], use_count: r["use_count"], last_ok: r["last_ok"] }
-      : null;
-  } catch (e) {
-    log().warn(`[ax] get_credentials failed: ${texte(e)}`);
-    return null;
   }
 }
 

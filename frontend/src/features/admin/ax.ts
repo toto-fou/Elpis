@@ -78,16 +78,11 @@ export function creerAx(b: BaseAdmin) {
     axSelected.value = coche ? axSites.value.map((s) => s.site) : [];
   }
 
-  async function deleteSite(site: string, avecIdentifiants?: boolean): Promise<void> {
-    const msg = avecIdentifiants
-      ? 'Supprimer le site "' + site + '" ET ses credentials ? Action irreversible.'
-      : 'Supprimer le site "' + site + '" (garde les credentials) ?';
-    const ok = await openConfirm(msg, "", false, "Supprimer");
+  async function deleteSite(site: string): Promise<void> {
+    const ok = await openConfirm('Supprimer le site "' + site + '" ?', "", false, "Supprimer");
     if (!ok) return;
     try {
-      const url =
-        "/api/ax/sites/" + encodeURIComponent(site) + (avecIdentifiants ? "?include_credentials=true" : "");
-      const res = await fetchAuth(url, { method: "DELETE" });
+      const res = await fetchAuth("/api/ax/sites/" + encodeURIComponent(site), { method: "DELETE" });
       if (res?.ok) {
         const d = objet(objet(await corpsJson(res))["deleted"]);
         showToast(
@@ -102,21 +97,6 @@ export function creerAx(b: BaseAdmin) {
         axExpanded.value = deplies;
         await loadAxSites();
       } else showToast("Erreur suppression", "error");
-    } catch (err) {
-      showToast("Erreur: " + message(err), "error");
-    }
-  }
-  async function deleteCreds(site: string): Promise<void> {
-    const ok = await openConfirm('Supprimer les credentials de "' + site + '" ?', "", false, "Supprimer");
-    if (!ok) return;
-    try {
-      const res = await fetchAuth("/api/ax/sites/" + encodeURIComponent(site) + "/credentials", {
-        method: "DELETE",
-      });
-      if (res?.ok) {
-        showToast("Credentials supprimes", "success");
-        await loadAxSites();
-      } else showToast("Erreur", "error");
     } catch (err) {
       showToast("Erreur: " + message(err), "error");
     }
@@ -141,20 +121,20 @@ export function creerAx(b: BaseAdmin) {
       showToast("Erreur: " + message(err), "error");
     }
   }
-  async function bulkDelete(avecIdentifiants?: boolean): Promise<void> {
+  async function bulkDelete(): Promise<void> {
     if (axSelected.value.length === 0) return;
-    const msg =
-      "Supprimer " +
-      axSelected.value.length +
-      " site(s) ?" +
-      (avecIdentifiants ? " Les credentials seront aussi supprimes." : "");
-    const ok = await openConfirm(msg, "", false, "Supprimer");
+    const ok = await openConfirm(
+      "Supprimer " + axSelected.value.length + " site(s) ?",
+      "",
+      false,
+      "Supprimer",
+    );
     if (!ok) return;
     try {
       const res = await fetchAuth("/api/ax/bulk-delete", {
         method: "POST",
         headers: ENTETES_JSON,
-        body: JSON.stringify({ sites: axSelected.value, include_credentials: avecIdentifiants }),
+        body: JSON.stringify({ sites: axSelected.value }),
       });
       if (res?.ok) {
         const d = objet(objet(await corpsJson(res))["deleted"]);
@@ -183,7 +163,7 @@ export function creerAx(b: BaseAdmin) {
       const res = await fetchAuth("/api/ax/bulk-mark-stale", {
         method: "POST",
         headers: ENTETES_JSON,
-        body: JSON.stringify({ sites: axSelected.value, include_credentials: false }),
+        body: JSON.stringify({ sites: axSelected.value }),
       });
       if (res?.ok) {
         showToast(nombre(objet(await corpsJson(res))["marked"]) + " elements marques stale", "success");
@@ -197,7 +177,7 @@ export function creerAx(b: BaseAdmin) {
   async function confirmWipeAll(): Promise<void> {
     const ok = await confirmerSaisie(
       "Effacer toute la mémoire AX",
-      "Tous les sites et tous les identifiants enregistrés. Sans retour arrière.",
+      "Tous les sites appris. Sans retour arrière.",
       "EFFACER",
       "Effacer",
     );
@@ -206,14 +186,7 @@ export function creerAx(b: BaseAdmin) {
       const res = await fetchAuth("/api/ax/all?confirm=WIPE", { method: "DELETE" });
       if (res?.ok) {
         const d = objet(objet(await corpsJson(res))["deleted"]);
-        showToast(
-          "Mémoire AX effacée : " +
-            nombre(d["nodes"]) +
-            " nœuds, " +
-            nombre(d["credentials"]) +
-            " identifiants",
-          "success",
-        );
+        showToast("Mémoire AX effacée : " + nombre(d["nodes"]) + " nœuds", "success");
         axTrees.value = {};
         axExpanded.value = {};
         axSelected.value = [];
@@ -237,7 +210,6 @@ export function creerAx(b: BaseAdmin) {
     toggleAxSite,
     toggleSelectAllAx,
     deleteSite,
-    deleteCreds,
     markStale,
     bulkDelete,
     bulkMarkStale,

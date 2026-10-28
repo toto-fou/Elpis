@@ -253,6 +253,16 @@ jeton du client ne quitte jamais le relais. Les familles liées au compte
 expose les mêmes outils en HTTP ordinaire. Le **navigateur** (`browser-service/`)
 passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
 
+## Identifiants de sites
+
+Un coffre par compte (`coffre_identifiants`, mot de passe Fernet, **origine
+exacte**) et des jetons `⟦creds:…⟧` liés à une conversation (`coffre_jetons`,
+empreinte SHA-256, 30 min, 5 usages) : le modèle ne voit jamais un mot de passe.
+Les outils `pw_*` le demandent au core par le canal interne signé
+(`/api/internal/creds/resolve`) et `browser-service` ne le saisit que si le frame
+de l'élément est sur l'origine du jeton. Détail dans
+[docs/architecture.md](docs/architecture.md) (« Coffre d'identifiants »).
+
 ## Invariants
 
 - **Séparation des process.** Les routes d'administration sont **montées**
@@ -284,6 +294,10 @@ passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
 - **Base** : SQL portable via `packages/db/src/dialecte.ts` ; une nouvelle
   table ou colonne est une migration de `MIGRATIONS_TS`
   (`packages/db/src/init.ts`) ; côté Python, tout `db()` a son `close()`.
+- **Secrets d'identification** : jamais en argument d'outil, dans le prompt ni
+  dans un journal ; un outil reçoit une référence `JETON.champ`, le core la
+  résout (compte, conversation, origine, usages), et tout résultat rendu au modèle
+  est nettoyé de la valeur.
 - **Tâches planifiées** (routines, entretien, sauvegardes) : dans main, un
   seul planificateur actif entre les process (`apps/core/src/routines/meneur.ts`),
   jamais dans le process admin.

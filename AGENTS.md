@@ -250,6 +250,10 @@ résumé, une modification ne doit jamais :
   `apps/core/src/tour/`) sans relire `apps/core/src/tour/README.md` : ses
   invariants (verrou, annulation, enregistrement) et l'ordre des événements
   NDJSON ;
+- faire transiter un mot de passe de site par un argument d'outil, le prompt, le
+  brouillon de l'interface ou un journal : le coffre (`apps/core/src/coffre/`) ne
+  rend jamais un mot de passe par l'API, et une route qui reçoit un secret ne
+  passe pas par la validation générique (le 422 en recopie l'entrée) ;
 - toucher au contenu de `/work` depuis l'hôte : tout passe par l'agent du
   bac (`@elpis/bac`, `@elpis/fichiers`) ; un `open`, `readdir`, `rm` ou
   `chmod` de l'hôte sur un chemin suivrait les liens que le conteneur peut

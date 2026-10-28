@@ -80,6 +80,8 @@ import { creerFamilleAdminImages } from "./familles/admin-images";
 import { creerFamilleInterneJobs } from "./familles/interne-jobs";
 import { creerFamilleInterneToolhost, jetonServiceDuManifeste } from "./familles/interne-toolhost";
 import { creerFamilleJobs } from "./familles/jobs";
+import { reprendreIdentifiantsAx } from "./coffre/heritage";
+import { creerFamilleCoffre } from "./familles/coffre";
 import { creerFamilleJetons } from "./familles/jetons";
 import { creerFamilleMemoire } from "./familles/memoire";
 import { creerFamilleOAuth } from "./familles/oauth";
@@ -360,6 +362,7 @@ export async function composer(
   configurerAuditDuCore(mode, journal);
   brancherGardeUrl((url, schemas) => blockRemoteUrlReason(url, { allowSchemes: schemas }));
   await convertirJetonsAuDemarrage(base, journal);
+  await reprendreIdentifiantsAx(base, journal);
   installerPortsMemoire(base);
   installerPortsSkills(base);
   installerPortsBureau(base);
@@ -456,6 +459,7 @@ export async function composer(
       ...famillesParDefaut(mode),
       creerFamilleComptes(comptes),
       creerFamilleJetons(comptes),
+      creerFamilleCoffre({ base }),
       creerFamilleOAuth({ auth, oauth }),
       pont.famille,
       creerFamilleOpenapi({ jetons: auth, journal: journal.child({ domaine: "openapi" }) }),

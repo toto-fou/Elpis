@@ -778,6 +778,7 @@ export function setupChat(
     askUserNext: questionnaire.askUserNext,
     dismissAskUser: questionnaire.dismissAskUser,
     submitAskUser: questionnaire.submitAskUser,
+    ensureServerChat: (source: string) => generation.ensureServerChat(source),
     ouvrirAssistant: envoi.ouvrirAssistant,
     lancerAssistant: envoi.lancerAssistant,
     lancerAssistantForm: envoi.lancerAssistantForm,

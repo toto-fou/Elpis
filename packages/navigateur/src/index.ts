@@ -18,8 +18,6 @@ export { browserUrlBlockReason, hostAddresses, refusMessage } from "./url";
 export type { HoteNavigateur, OptionsGardeNavigateur } from "./url";
 export {
   AX_INJECT_MIN_SIGNAL,
-  deleteCredentials,
-  deleteOwnerCredentials,
   deleteSite,
   deleteSitesBulk,
   detectSessionUrl,
@@ -42,13 +40,11 @@ export type { NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
 export {
   extractSelectorsFromKwargs,
   findPath,
-  getCredentials,
   inferRegion,
   isActionSuccess,
   nodeKey,
   recordAction,
   recordInspection,
-  saveCredentials,
   searchNodes,
 } from "./ax-actions";
 export type { Action } from "./ax-actions";

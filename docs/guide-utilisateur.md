@@ -611,9 +611,28 @@ Tapez `/` en début de saisie :
 | `/image [16:9] [x2] description` | Générer une image directement, sans ouvrir le mode Images |
 | `/routine [objectif]` | Ouvrir l'assistant de création de routine (cadrage, puis entretien dans le chat) |
 | `/rag …` | Collections de documents du chat : voir [Dans le chat](#dans-le-chat) |
+| `/creds` | Donner un identifiant à l'assistant pour 30 min : voir [Identifiants de sites](#identifiants-de-sites-creds) |
 
 Si votre saisie ne correspond à aucune commande, le menu bascule
 automatiquement sur la recherche de skills.
+
+### Identifiants de sites (`/creds`)
+
+Ne tapez jamais un mot de passe dans le message : l'assistant l'afficherait dans
+l'historique et les journaux. Tapez `/creds` : une fenêtre propose une entrée de
+votre **Coffre** (Paramètres › Coffre) ou une saisie ponctuelle (origine,
+identifiant, mot de passe, case « Enregistrer dans le coffre »). Elle insère
+`⟦creds:…⟧` dans votre message ; l'assistant ne voit que ce jeton et le fait taper
+dans le formulaire du navigateur sans jamais lire le mot de passe.
+
+- Le jeton est lié à **cette conversation** et à **une origine exacte** (schéma,
+  hôte et port) : le mot de passe n'est tapé que dans une page de cette origine,
+  iframes comprises.
+- Il expire au bout de **30 min** ou de 5 usages ; la fenêtre `/creds` liste les
+  accès actifs de la conversation (Renouveler, Révoquer). Supprimer la conversation
+  les supprime.
+- Les entrées reprises de l'ancienne mémoire des sites sont marquées « à
+  confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser.
 
 ### Pièces jointes et images
 

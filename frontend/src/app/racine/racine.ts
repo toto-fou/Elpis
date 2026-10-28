@@ -30,6 +30,7 @@ import { creerClavier } from "./clavier";
 import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
+import { creerCreds } from "./creds";
 import { creerOpencode } from "./opencode";
 import { EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
 import { brouillonAvecCorrection, EVT_SKIN_CORRECTION } from "../../features/reglages/skins-perso";
@@ -813,6 +814,14 @@ export function creerRacine(options: OptionsRacine = {}) {
   });
 
   const opencode = creerOpencode({ fetchAuth, showToast: toasts.showToast });
+  const creds = creerCreds({
+    http,
+    currentChatId,
+    inputMessage,
+    inputRef,
+    ensureChat: async () => (await m.chat?.ensureServerChat("")) ?? false,
+    showToast: toasts.showToast,
+  });
 
   // ── Menu contextuel : actions (chats, fichiers, dossiers, fond de l'explorateur) ──
   function handleContextAction(action: string): void {
@@ -929,6 +938,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     contextMenu: menu.contextMenu,
     showInfoModal,
     showOpenCodeModal: opencode.showOpenCodeModal,
+    showCredsModal: creds.showCredsModal,
     imgZoom,
     showNotifPanel: n.showNotifPanel,
     menuPagesOuvert,
@@ -1042,6 +1052,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     // Page Code : flux coupé, état vidé ; vue neutre pour le compte suivant.
     essayer(() => m.code?.codeResetOnLogout());
     opencode.showOpenCodeModal.value = false;
+    creds.fermerCreds();
     currentView.value = "chat";
     essayer(() => m.studio?.clearStudio());
     essayer(() => m.studioAuto?.resetAutomation());
@@ -1137,6 +1148,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     systemAlert,
     showInfoModal,
     ...opencode,
+    creds: proxyRefs(creds),
     appInfo,
     logoApp,
     imgZoom,

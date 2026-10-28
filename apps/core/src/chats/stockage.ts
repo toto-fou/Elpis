@@ -29,6 +29,7 @@ import { maxRecentChats } from "@elpis/config";
 import { ciLike } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 
+import { purgerJetonsConversations } from "../coffre/jetons";
 import { deleteForChats } from "../images/magasin";
 import { journal } from "../journal";
 
@@ -103,6 +104,9 @@ export function installerCrochetsConversations(c: CrochetsConversations | null):
 /** Après le commit d'une suppression : images, puis le crochet ; une panne ici ne défait pas la suppression. */
 async function apresSuppression(base: Base, uid: number, ids: readonly string[]): Promise<void> {
   await purgerImages(base, uid, ids);
+  await purgerJetonsConversations(base, uid, ids).catch((e: unknown) =>
+    log.warn({ err: e }, `[chats] jetons du coffre non purgés (user_id=${uid})`),
+  );
   if (ids.length === 0 || crochets.apresSuppression === undefined) return;
   try {
     await crochets.apresSuppression(uid, ids);

@@ -31,6 +31,7 @@ import * as bacInstantanes from "./bac-instantanes";
 import * as ax from "./ax";
 import * as cli from "./cli";
 import * as code from "./code";
+import * as coffre from "./coffre";
 import * as outils from "./outils";
 import * as webhooks from "./webhooks";
 import { schemaOk } from "./commun";
@@ -152,6 +153,21 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     rag.schemaReponseLocalisationRag,
     rag.schemaCorpsLocalisationRag,
   ),
+  c("coffre", "GET", "/api/coffre", coffre.schemaReponseCoffre),
+  c("coffre", "POST", "/api/coffre", coffre.schemaReponseEntreeCoffre, coffre.schemaCorpsCreationCoffre),
+  c("coffre", "PUT", "/api/coffre/:id", coffre.schemaReponseEntreeCoffre, coffre.schemaCorpsMajCoffre),
+  c(
+    "coffre",
+    "POST",
+    "/api/coffre/:id/confirmer",
+    coffre.schemaReponseEntreeCoffre,
+    coffre.schemaCorpsConfirmationCoffre,
+  ),
+  c("coffre", "DELETE", "/api/coffre/:id", schemaOk),
+  c("coffre", "GET", "/api/coffre/jetons", coffre.schemaReponseJetonsCreds),
+  c("coffre", "POST", "/api/coffre/jetons", coffre.schemaReponseJetonCredsCree, coffre.schemaCorpsJetonCreds),
+  c("coffre", "POST", "/api/coffre/jetons/:id/renouveler", coffre.schemaReponseJetonCreds),
+  c("coffre", "DELETE", "/api/coffre/jetons/:id", schemaOk),
   c("git", "GET", "/api/git/connectors", git.schemaReponseConnecteursGit),
   c("git", "POST", "/api/git/connectors/parse", git.schemaReponseAnalyseUrlGit, git.schemaCorpsAnalyseUrlGit),
   c("git", "POST", "/api/git/connectors", git.schemaReponseConnecteurGitCree, git.schemaCorpsConnecteurGit),
@@ -892,7 +908,6 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   c("ax", "GET", "/api/ax/sites/:site/tree", ax.schemaReponseArbreAx),
   c("ax", "GET", "/api/ax/sites/:site/tree-ascii", ax.schemaReponseArbreAsciiAx),
   c("ax", "DELETE", "/api/ax/sites/:site", ax.schemaReponseSuppressionSiteAx),
-  c("ax", "DELETE", "/api/ax/sites/:site/credentials", ax.schemaReponseIdentifiantsAx),
   c("ax", "POST", "/api/ax/sites/:site/mark-stale", ax.schemaReponsePerimeAx),
   c("ax", "POST", "/api/ax/bulk-delete", ax.schemaReponseSuppressionLotAx, ax.schemaCorpsLotAx),
   c("ax", "POST", "/api/ax/bulk-mark-stale", ax.schemaReponsePerimeLotAx, ax.schemaCorpsLotAx),

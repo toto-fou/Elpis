@@ -5,6 +5,7 @@ import { creerAgents } from "./agents";
 import { creerAide } from "./aide";
 import { creerApparence } from "./apparence";
 import { creerArchives } from "./archives";
+import { setupCoffre } from "../coffre/coffre";
 import { setupGitConnecteurs } from "./connecteurs-git";
 import { setupLlmConnecteurs } from "./connecteurs-llm";
 import { setupConnexions } from "./connexions";
@@ -48,6 +49,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
 
   const connexions = setupConnexions(ctx, http);
   const git = setupGitConnecteurs(ctx, http);
+  const coffre = setupCoffre(ctx, http);
   const llm = setupLlmConnecteurs(ctx, http);
   const utilisation = setupUtilisation(http);
   const memoire = setupMemoire(
@@ -74,6 +76,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     loadUserMemory: memoire.loadUserMemory,
     loadSandboxState: sandbox.loadSandboxState,
     loadGitConnectors: git.loadGitConnectors,
+    loadCoffre: coffre.loadCoffre,
     loadConnexions: connexions.loadConnexions,
     cnxReset: connexions.cnxReset,
     cancelMemoryEdit: memoire.cancelMemoryEdit,
@@ -94,6 +97,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     ...llm,
     ...connexions,
     ...git,
+    ...coffre,
     ...memoire,
     ...utilisation,
     ...apparence,

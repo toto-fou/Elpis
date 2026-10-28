@@ -23,6 +23,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
+import { origineDe, origineSecret, saisirSecret, masquerValeur } from './secret_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
@@ -658,7 +659,7 @@ async function shadowDOMQuery(page, selector) {
                                 x: Math.round(rect.left + rect.width / 2),
                                 y: Math.round(rect.top + rect.height / 2),
                                 w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || el.value || '').trim().substring(0, 100),
+                                text: (el.textContent || (el.type === 'password' ? '' : el.value) || '').trim().substring(0, 100),
                                 tag: el.tagName.toLowerCase(),
                             };
                         }
@@ -2284,7 +2285,7 @@ function _ownerStartLock(owner) {
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, headless, load_state_id, record_har = false,
+        const { url, username, password, credentials_origin, headless, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2294,6 +2295,15 @@ app.post('/start', async (req, res) => {
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
+        }
+        // Identifiants HTTP : toujours liés à UNE origine (sans `origin`, Playwright les enverrait à tout serveur qui répond 401, redirections tierces comprises).
+        let httpCredentials;
+        if (username && password) {
+            const lie = origineDe(credentials_origin) || origineDe(url);
+            if (!lie) return res.status(400).json({ error: "Identifiants HTTP sans origine exacte : fournir url=https://… ou credentials_origin.", code: 'credentials_origin_required' });
+            if (url && origineDe(url) !== lie)
+                return res.status(400).json({ error: "L'adresse de départ n'est pas sur l'origine des identifiants.", code: 'credentials_origin_mismatch' });
+            httpCredentials = { username, password, origin: lie };
         }
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
@@ -2404,7 +2414,7 @@ app.post('/start', async (req, res) => {
             ignoreHTTPSErrors: true,
             acceptDownloads: true,
             storageState,
-            httpCredentials: (username && password) ? { username, password } : undefined,
+            httpCredentials,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
@@ -2538,6 +2548,16 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             select_option: 'select', scroll_to: 'scroll_into_view',
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
+        // Secret du coffre : fill/type sur une cible seulement, origine du frame vérifiée avant la saisie, aucun repli, aucune valeur renvoyée.
+        let secretOrigine = null;
+        try {
+            secretOrigine = origineSecret(req.body, {
+                geste: type,
+                aCible: Boolean(ref || by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath),
+            });
+        } catch (e) { return res.status(e.statut || 400).json({ error: e.message, code: e.code }); }
+        const valeurSecrete = secretOrigine ? (text || value || '') : '';
+        if (secretOrigine && !valeurSecrete) return res.status(400).json({ error: 'Secret vide.', code: 'secret_empty' });
         const opts = { timeout, button, modifiers };
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
@@ -2656,6 +2676,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                       ...(cible.nameMatch === 'substring' || cible.partial > cible.n ? { name_match: cible.nameMatch } : {}),
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
         }
+
+        // Un secret ne passe que par le locator officiel : cible introuvable ou repli → refus, jamais de saisie ailleurs.
+        if (secretOrigine && !officialLocator)
+            return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
 
         // ── Actions page-level (sans cible) ──
         // press, type sans cible → utilise page.keyboard (focus actuel)
@@ -2786,6 +2810,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     }, { direction, amount: amount === undefined ? 500 : amount });
                 } else if (type === 'scroll_into_view' || type === 'scroll') {
                     await officialLocator.scrollIntoViewIfNeeded({ timeout: _t });
+                } else if (type === 'fill' && secretOrigine) {
+                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { mode: 'fill', timeout: _t, force });
+                } else if (type === 'type' && secretOrigine) {
+                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { mode: 'type', timeout: _t, delai: delay || 30 });
                 } else if (type === 'fill') {
                     await officialLocator.fill(text || value || '', { timeout: _t, force });
                 } else if (type === 'type') {
@@ -2819,7 +2847,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 await recordEvent(req.session, {
                     action: type === 'select_option' ? 'select' : (type === 'double_click' ? 'dblclick' : type === 'right_click' ? 'rclick' : type),
                     locator: { role: by_role, name: by_name, text: by_text, label: by_label, placeholder: by_placeholder, test_id: by_test_id, css: by_css, xpath: by_xpath, alt: by_alt, title: by_title },
-                    value: text || value, key,
+                    value: secretOrigine ? '[secret]' : text || value, key,
                     // L'option RÉELLEMENT choisie — le rejeu n'écrit plus
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
@@ -2853,6 +2881,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 // `notASelect` est une erreur de DIAGNOSTIC (« ce n'est pas un
                 // <select>, utilise pick ») : la répéter via l'autre chemin ne
                 // ferait que la rendre plus confuse.
+                if (secretOrigine) {
+                    // Aucun repli ni capture pour un secret : le message est expurgé de la valeur.
+                    return res.status(e.statut || 500).json({ error: masquerValeur(e.message, valeurSecrete), ...detailsErreur(e) });
+                }
                 if (rawSelector && !e.notASelect) {
                     console.log(`[action] official KO (${e.message.slice(0, 80)}) → repli smartResolve sur ${rawSelector}`);
                     officialLocator = null;
@@ -3506,7 +3538,7 @@ app.post('/locate', getSession, autoSnapshot, async (req, res) => {
             for (const el of pool) {
                 if (visible_only && !isVisible(el)) continue;
 
-                const elText = (el.textContent || el.value || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
+                const elText = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
                 const elLabel = el.getAttribute('aria-label') ||
                                 (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || '';
                 const elPlaceholder = el.getAttribute('placeholder') || '';
@@ -3658,6 +3690,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 const usefulAttrs = {};
                 for (const a of el.attributes) {
                     const n = a.name;
+                    if (n === 'value' && el.type === 'password') continue;
                     if (n === 'id' || n === 'class' || n === 'href' || n === 'name' ||
                         n === 'type' || n === 'value' || n === 'placeholder' || n === 'title' ||
                         n === 'alt' || n === 'role' || n === 'src' ||
@@ -3669,7 +3702,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 matches.push({
                     tag: el.tagName.toLowerCase(),
                     text: (el.textContent || '').trim().substring(0, 100),
-                    value: el.value !== undefined && el.value !== '' ? String(el.value).substring(0, 100) : undefined,
+                    value: el.value !== undefined && el.value !== '' && el.type !== 'password' ? String(el.value).substring(0, 100) : undefined,
                     attrs: usefulAttrs,
                     visible: isVisible(el),
                     enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
@@ -3977,7 +4010,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                     if (visibleOnly && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
                     if (inViewport && (rect.top < 0 || rect.top > window.innerHeight || rect.left < 0 || rect.left > window.innerWidth)) continue;
 
-                    const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
+                    const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
 
                     // Filtre par query
                     if (query) {
@@ -4001,7 +4034,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                         type: el.getAttribute('type'),
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
                         checked: el.checked,
-                        value: (el.value || '').substring(0, 100),
+                        value: (el.type === 'password' ? '' : el.value || '').substring(0, 100),
                         href: el.href || null,
                         color: toHex(style.color),
                         bg: toHex(style.backgroundColor),
@@ -4233,7 +4266,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (t && t.length <= 120) return t.substring(0, 80);
                     }
                     return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || el.value || '') + '').trim().substring(0, 80);
+                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').trim().substring(0, 80);
                 } catch (e) { return ''; }
             }
 
@@ -4392,7 +4425,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4446,7 +4479,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value) item.value = el.value.substring(0, 100);
+                    if (el.value && el.type !== 'password') item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4494,7 +4527,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: f.value?.substring(0, 100), label: (() => {
+                    value: f.type === 'password' ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -4777,7 +4810,7 @@ async function inspectFrame(frame, label) {
                     if (tag === 'input') {
                         const it = node.getAttribute('type') || 'text';
                         type = `INPUT:${it}`;
-                        lbl = node.value || node.getAttribute('placeholder') || ariaLabel || '';
+                        lbl = (it === 'password' ? '' : node.value) || node.getAttribute('placeholder') || ariaLabel || '';
                         if (it === 'checkbox' || it === 'radio') lbl += node.checked ? ' ✓' : ' ○';
                         if (it === 'color') lbl += ` [valeur: ${node.value}]`;
                         if (it === 'date' || it === 'datetime-local') lbl += ` [date: ${node.value}]`;
@@ -4877,7 +4910,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || (el.type === 'password' ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -5145,11 +5178,11 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: el.value, href: el.href, src: el.src,
+                value: el.type === 'password' ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(a.name === 'value' && el.type === 'password')).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5898,7 +5931,7 @@ app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res)
                 } catch (e) { results.push('vanilla:error:' + e.message); }
             }
 
-            return { fw, results, tag: el.tagName, currentValue: el.value };
+            return { fw, results, tag: el.tagName, currentValue: el.type === 'password' ? undefined : el.value };
         }, { value, framework });
 
         res.json({ status: 'success', ...detected });
@@ -6125,6 +6158,25 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const startMs = Date.now();
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
+            // Secret du coffre : fill/type sur une cible seulement ; origine du frame vérifiée avant la saisie ; valeur jamais recopiée.
+            let secretOrigine = null;
+            let valeurSecrete = '';
+            try {
+                secretOrigine = origineSecret(act, {
+                    geste: actType,
+                    aCible: Boolean(act.ref || act.by_role || act.by_text || act.by_label || act.by_placeholder
+                        || act.by_test_id || act.by_css || act.by_xpath || act.by_alt || act.by_title || act.selector),
+                });
+                valeurSecrete = secretOrigine ? (act.text || act.value || '') : '';
+                if (secretOrigine && !valeurSecrete) throw Object.assign(new Error('Secret vide.'), { code: 'secret_empty' });
+            } catch (e) {
+                if (suivi) suivi.annuler();
+                results.push({ step: i, action: actType, success: false, error: e.message, code: e.code, duration_ms: Date.now() - startMs });
+                failed = true;
+                if (stop_on_error) break;
+                continue;
+            }
+
             try {
                 let result;
 
@@ -6150,6 +6202,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                     case 'fill': {
                         const { locator } = await resolveChainTarget(act);
+                        if (secretOrigine) {
+                            await saisirSecret(locator, secretOrigine, valeurSecrete, { mode: 'fill', timeout: act.timeout || ACTION_TIMEOUT_MS });
+                            result = { success: true, action: 'fill' };
+                            break;
+                        }
                         try { await locator.fill(act.text || act.value || '', { timeout: act.timeout || ACTION_TIMEOUT_MS }); }
                         catch {
                             await locator.evaluate((el, val) => {
@@ -6164,6 +6221,11 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
                     case 'type': {
                         const { locator } = await resolveChainTarget(act);
+                        if (secretOrigine) {
+                            await saisirSecret(locator, secretOrigine, valeurSecrete, { mode: 'type', timeout: act.timeout || ACTION_TIMEOUT_MS, delai: act.delay || 50 });
+                            result = { success: true, action: 'type' };
+                            break;
+                        }
                         await locator.click({ timeout: 3000 }).catch(() => {});
                         await locator.pressSequentially(act.text || act.value || '', { delay: act.delay || 50 });
                         result = { success: true, action: 'type' };
@@ -6269,7 +6331,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         },
                         selector: act.selector,
                         ref: act.ref,
-                        value: act.text || act.value,
+                        value: secretOrigine ? '[secret]' : act.text || act.value,
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
@@ -6280,7 +6342,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
             } catch (e) {
                 if (suivi) suivi.annuler();
-                const msg = sansAnsi(e.message || String(e));
+                const msg = masquerValeur(sansAnsi(e.message || String(e)), valeurSecrete);
                 const failResult = {
                     step: i, action: actType, success: false, error: msg.substring(0, 200),
                     code: detailsErreur(e).code || codeErreur(msg), ...(e.details || {}),
@@ -6301,7 +6363,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 }
 
                 // Feature 4: Screenshot on failure
-                if (screenshot_on_fail) {
+                if (screenshot_on_fail && !secretOrigine) {
                     const ss = await screenshotOnFailure(page, req.sessionId, actType);
                     Object.assign(failResult, ss);
                 }
@@ -6678,7 +6740,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,

@@ -17,7 +17,7 @@ export interface PortMemoireAx {
   normalizeUrl(url: string): [string, string];
   renderSiteContextual(
     site: string,
-    options: { currentPath: string | null; iteration: number; owner: string },
+    options: { currentPath: string | null; iteration: number; owner: string; origin: string | null },
   ): string | Promise<string>;
 }
 

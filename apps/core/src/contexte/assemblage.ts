@@ -2,6 +2,7 @@
 /** apps/core/src/contexte/assemblage.ts — message système de tête byte-stable : socle, runtime_context, manifeste et fragments de capacité ; mémoire AX rendue à part (suffixe de la question). */
 import { comparePointsDeCode, estErreurAnnulation, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
+import { origineExacte } from "@elpis/securite";
 
 import { journal } from "../journal";
 import { categorize } from "../outils/categories";
@@ -171,6 +172,7 @@ export async function buildAxMemoryBlock(workingMessages: readonly unknown[], ow
     const sessionUrl = await port.detectSessionUrl(workingMessages, owner);
     let currentSite: string | null = null;
     let currentPath: string | null = null;
+    const currentOrigin = sessionUrl ? origineExacte(sessionUrl) : null;
     if (sessionUrl) {
       [currentSite, currentPath] = port.normalizeUrl(sessionUrl);
       if (currentSite && !sites.includes(currentSite)) sites.unshift(currentSite);
@@ -191,6 +193,7 @@ export async function buildAxMemoryBlock(workingMessages: readonly unknown[], ow
         currentPath: s === currentSite ? currentPath : null,
         iteration,
         owner,
+        origin: s === currentSite ? currentOrigin : null,
       });
       if (block) blocks.push(block);
     }

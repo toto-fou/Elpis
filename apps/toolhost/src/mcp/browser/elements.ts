@@ -22,6 +22,8 @@ import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { ouChamps, ouvrirAppel, rappelOngletActif, urlApres } from "./appel";
 import type { ServicesBrowser } from "./appel";
+import { nettoyerResultat, normaliserReference, resoudreSecrets } from "./creds";
+import type { SecretResolu } from "./creds";
 import { fichiersUpload } from "./fichiers";
 
 const NAV: Readonly<Record<string, string>> = {
@@ -136,6 +138,19 @@ function roleEtNom(geste: string, resolus: Dict, resultat: unknown): [unknown, u
   return [role, nom];
 }
 
+const GESTES_SECRETS: ReadonlySet<string> = new Set(["fill", "type"]);
+
+const REFUS_GESTE_SECRET = (geste: string): Dict =>
+  errPw("secret_gesture_refused", "", {
+    message: `secret= is only usable with action='fill' or 'type' (got ${JSON.stringify(geste)})`,
+    fix: "fill / type the secret into a field with a target; never put it in goto, evaluate, press…",
+  });
+
+const REFUS_CIBLE_SECRET: Dict = errPw("secret_requires_target", "", {
+  message: "secret= needs the field to fill: a target (or ref), never the focused element",
+  fix: "pw_act(session_id, action='fill', target='label=Password', secret='TOKEN.password')",
+});
+
 /** `pw_act` : `pick` (toute liste déroulante), navigation (garde de l'adresse ; ni élément ni transition AX), gestes sur une cible (`nth`, `strict`, fichiers du bac pour `upload` ; transition AX s'ils changent de page) ; page jointe au résultat. */
 export function pwAct(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
@@ -144,8 +159,33 @@ export function pwAct(s: ServicesBrowser) {
     const { client, ax } = o.appel;
     const sid = a["session_id"] as string;
     const geste = first(a["action"], a["do"]);
-    const v = mergeValue(a["value"], a["v"]);
+    let v = mergeValue(a["value"], a["v"]);
     const target = mergeTarget(a["target"] as string, a["selector"] as string);
+    const refSecret = normaliserReference(a["secret"]);
+    let secrets: SecretResolu[] = [];
+    if (refSecret) {
+      if (!GESTES_SECRETS.has(geste)) return REFUS_GESTE_SECRET(geste);
+      if (
+        !target &&
+        !first(
+          a["ref"],
+          a["role"],
+          a["text"],
+          a["label"],
+          a["placeholder"],
+          a["test_id"],
+          a["css"],
+          a["xpath"],
+          a["alt"],
+          a["title"],
+        )
+      )
+        return REFUS_CIBLE_SECRET;
+      const r = await resoudreSecrets(s, ctx, [refSecret]);
+      if ("refus" in r) return r.refus;
+      secrets = r.secrets;
+      v = secrets[0]?.valeur ?? "";
+    }
     const urlAvant = ax !== null ? await client.axGetCurrentUrl(sid) : "";
     const observe = a["observe"] as boolean;
     if (geste === "pick") {
@@ -225,6 +265,7 @@ export function pwAct(s: ServicesBrowser) {
       key: v || null,
       ...waitPayload(a["wait_after"]),
     });
+    if (secrets.length > 0) Object.assign(corps, { key: null, secret_origin: secrets[0]?.origine });
     if (a["option_label"]) corps["option_label"] = a["option_label"];
     if (a["option_value"]) corps["option_value"] = a["option_value"];
     if (typeof charge["nth"] === "number") corps["nth"] = charge["nth"];
@@ -250,7 +291,10 @@ export function pwAct(s: ServicesBrowser) {
     }
     const repli = dslToSelector(target);
     if (repli) corps["selector"] = repli;
-    const r = await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps }));
+    const r = nettoyerResultat(
+      await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps })),
+      secrets,
+    );
     if (ax !== null) {
       try {
         const apres = await urlApres(client, r, sid);
@@ -269,7 +313,7 @@ export function pwAct(s: ServicesBrowser) {
         s.journal.warn(`[ax-hook] hook exception: ${messageErreur(e)}`);
       }
     }
-    return client.finishAct(r, sid, observe, a["max_items"]);
+    return nettoyerResultat(await client.finishAct(r, sid, observe, a["max_items"]), secrets);
   };
 }
 
@@ -354,16 +398,55 @@ export function pwChain(s: ServicesBrowser) {
     const { client, ax } = o.appel;
     const actions = (Array.isArray(brut["actions"]) ? brut["actions"] : a["actions"]) as Dict[];
     if (!actions.length) return errPw("actions[] required", "pass a non-empty list of action steps");
-    const r = await client.req("POST", "/chain", {
-      json: {
-        session_id: a["session_id"],
-        actions: actions.map(etape),
-        stop_on_error: a["stop_on_error"],
-        screenshot_on_fail: a["screenshot_on_fail"],
-      },
-      timeout: Math.max(client.delaiS, 60),
+    const refs = new Set<string>();
+    for (const st of actions) {
+      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
+      if (!ref) continue;
+      const geste = first(st["do"], st["type"], st["action"]);
+      if (!GESTES_SECRETS.has(geste)) return REFUS_GESTE_SECRET(geste);
+      if (
+        !first(
+          st["target"],
+          st["selector"],
+          st["ref"],
+          st["by_css"],
+          st["by_role"],
+          st["by_label"],
+          st["by_placeholder"],
+        )
+      )
+        return REFUS_CIBLE_SECRET;
+      refs.add(ref);
+    }
+    let secrets: SecretResolu[] = [];
+    if (refs.size > 0) {
+      const res = await resoudreSecrets(s, ctx, [...refs]);
+      if ("refus" in res) return res.refus;
+      secrets = res.secrets;
+    }
+    const envoyees = actions.map((st) => {
+      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
+      if (!ref) return etape(st);
+      const secret = secrets.find((x) => x.ref === ref);
+      const { secret: _s, value: _v, v: _w, text: _t, ...reste } = st;
+      return etape({ ...reste, text: secret?.valeur ?? "", secret_origin: secret?.origine ?? "" });
     });
+    const r = nettoyerResultat(
+      await client.req("POST", "/chain", {
+        json: {
+          session_id: a["session_id"],
+          actions: envoyees,
+          stop_on_error: a["stop_on_error"],
+          screenshot_on_fail: a["screenshot_on_fail"],
+        },
+        timeout: Math.max(client.delaiS, 60),
+      }),
+      secrets,
+    );
     if (ax !== null) await apprendreEtapes(s, ax, actions, r);
-    return client.finishAct(r, a["session_id"] as string, a["observe"] as boolean, a["max_items"]);
+    return nettoyerResultat(
+      await client.finishAct(r, a["session_id"] as string, a["observe"] as boolean, a["max_items"]),
+      secrets,
+    );
   };
 }

@@ -38,6 +38,7 @@ function choisir(id: string): void {
     archives: () => rg.loadArchives && rg.loadArchives(),
     sandbox: () => rg.loadSandboxState(),
     connectors: () => rg.loadGitConnectors(),
+    coffre: () => rg.loadCoffre(),
   };
   void charger[id]?.();
 }

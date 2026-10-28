@@ -6,8 +6,31 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ## Non publié
 
+### Sécurité
+
+- **Coffre d'identifiants et commande `/creds`.** Les mots de passe de sites ne
+  sont plus stockés en clair ni transmis comme arguments d'outil. Chaque compte a
+  un coffre chiffré (Fernet) dont les entrées sont liées à une origine exacte ;
+  `/creds` donne à l'assistant, pour une conversation, un jeton `⟦creds:…⟧`
+  (30 min, 5 usages) que les outils `pw_act` / `pw_chain` (`secret=`) et
+  `pw_session` (`creds=`) échangent avec le core contre la valeur, uniquement pour
+  un champ dont le frame est sur l'origine du jeton. Les résultats d'outils sont
+  nettoyés des valeurs résolues.
+- **Identifiants HTTP du navigateur liés à une origine.** `httpCredentials`
+  porte toujours `origin` : plus d'envoi à un serveur tiers qui répondrait 401.
+- **Mémoire AX : plus d'identifiants.** `pw_session` n'injecte ni n'enregistre plus
+  d'identifiants par « site normalisé » (qui fusionnait les IP privées d'un même
+  port) et l'indice du prompt ne cite plus l'identifiant. Les instantanés du
+  service navigateur ne renvoient plus la valeur d'un champ `type=password`.
+
 ### Pour l'exploitant
 
+- **Migration `0027_coffre_identifiants`.** Les lignes de `ax_credentials` sont
+  chiffrées au démarrage du core dans le coffre du compte, sans origine et « à
+  confirmer » (inutilisables avant confirmation dans Paramètres › Coffre), puis la
+  table est supprimée. L'API `/api/ax/*` n'expose plus d'identifiants
+  (`DELETE /api/ax/sites/{site}/credentials` et `include_credentials` retirés) ;
+  l'administrateur ne gère pas le coffre des comptes.
 - **Habillages personnels : `skins.user_custom` et `skins.user_max`.** Actifs
   par défaut, 10 par compte, réglables dans la console (Apparence). Rangés dans
   `SKINS_DIR/_comptes/<id>/`, inclus dans les sauvegardes, effacés avec le

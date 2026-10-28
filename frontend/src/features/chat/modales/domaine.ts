@@ -70,8 +70,6 @@ export interface SiteAx {
   elements?: number;
   paths?: number;
   transitions?: number;
-  has_credentials?: boolean;
-  cred_username?: string;
 }
 
 /** Clés de la racine historique (app.js, app-settings.js, app-admin.js) lues par les petites fenêtres du chat. */

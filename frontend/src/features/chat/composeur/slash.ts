@@ -3,6 +3,7 @@
 import type * as Vue from "vue";
 import type { ComputedRef, Ref } from "vue";
 
+import { EVT_OUVRIR_CREDS } from "../../../app/racine/creds.ts";
 import type { JobsSlash } from "../jobs/jobs.ts";
 import type { ResultatCommande, TemplatesChat } from "./templates.ts";
 
@@ -168,6 +169,7 @@ export const SETTINGS_TABS: readonly ValeurArgument[] = [
   { value: "skills", label: "Skills" },
   { value: "archives", label: "Archives" },
   { value: "sandbox", label: "Sandbox" },
+  { value: "coffre", label: "Coffre" },
   { value: "connectors", label: "Connecteurs" },
 ];
 
@@ -343,6 +345,18 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
       when: () => !!templates,
       whenLabel: "Indisponible",
       run: async (a) => (templates ? templates.runTemplateByName(a[0] || "") : null),
+    },
+    {
+      name: "creds",
+      label: "Identifiants",
+      icon: "ph-key",
+      desc: "Donner un identifiant à l'assistant pour 30 min, sans le taper dans le message",
+      when: (e) => !e.isStreaming,
+      whenLabel: "Hors génération",
+      run: async () => {
+        globalThis.dispatchEvent?.(new Event(EVT_OUVRIR_CREDS));
+        return { ok: true, silent: true };
+      },
     },
     {
       name: "plan",

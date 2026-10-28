@@ -26,6 +26,7 @@ export interface DependancesModale {
   loadUserMemory(): Promise<void>;
   loadSandboxState(): Promise<void>;
   loadGitConnectors(): Promise<void>;
+  loadCoffre(): Promise<void>;
   loadConnexions(): Promise<void>;
   cnxReset(): void;
   cancelMemoryEdit(): void;
@@ -130,6 +131,7 @@ export function creerModale(
       archives: () => dep.loadArchives(),
       sandbox: () => dep.loadSandboxState(),
       connectors: () => dep.loadGitConnectors(),
+      coffre: () => dep.loadCoffre(),
       connexions: () => dep.loadConnexions(),
       agents: () => ctx.loadMcpUserCategories?.(),
       skills: () => ctx.openSkillsTab?.(),

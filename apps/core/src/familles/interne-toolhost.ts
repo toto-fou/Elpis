@@ -8,9 +8,11 @@ import { config } from "@elpis/config";
 import { corpsJson, entrees, premierEntete, py } from "@elpis/http";
 import { toolhostEntry } from "@elpis/mcp";
 import { IDENTITY_HEADER, verify } from "@elpis/securite";
+import type { Identity } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { ancresDeLaBase, obsKey } from "../bureau";
+import { resoudreReferences } from "../coffre/jetons";
 import { hoteEnregistre, listConnectorHosts, resolveGitCredential } from "../git/connecteurs";
 import { detectProvider, normalizeHost } from "../git/detection";
 import { ouvrirPrPourHote } from "../git/pr";
@@ -92,6 +94,16 @@ export async function compteSigne(
   const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
   if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "compte inconnu");
   return { uid: ident.user_id, username: ident.username };
+}
+
+/** Enveloppe `X-Elpis-Identity` entière (conversation et sous-agent compris), relue en base comme `compteSigne`. */
+async function identiteSignee(dep: Pick<DependancesInterne, "auth">, req: FastifyRequest): Promise<Identity> {
+  const ident = verify(premierEntete(req, IDENTITY_HEADER), jetonServiceDuManifeste());
+  if (ident === null || ident.user_id <= 0)
+    throw new HttpError(401, "enveloppe d'identité absente ou invalide");
+  const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
+  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "compte inconnu");
+  return ident;
 }
 
 /** Corps JSON d'une route interne : objet attendu, sinon `{}`. */
@@ -326,6 +338,28 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
             host: id === null && refus === null ? "" : hoteSaisi(cible),
             ...(refus === null ? {} : { refus }),
           };
+        },
+      },
+      {
+        methode: "POST",
+        chemin: "/api/internal/creds/resolve",
+        processus: ["main"],
+        acces: "service",
+        traiter: async (req) => {
+          const ident = await identiteSignee(dep, req);
+          const refs = corpsObjet(req)["refs"];
+          const r = await resoudreReferences(
+            base,
+            {
+              uid: ident.user_id,
+              username: ident.username,
+              chatId: ident.chat_id,
+              sousAgent: Boolean(ident.subagent),
+            },
+            Array.isArray(refs) ? refs : [],
+          );
+          if (!r.ok) dep.journal.info(`[creds] résolution refusée (${r.code}, user=${ident.user_id})`);
+          return r.ok ? { ok: true, values: r.values } : { ok: false, code: r.code, message: r.message };
         },
       },
       {

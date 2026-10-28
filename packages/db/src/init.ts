@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
+import { TABLE_IDENTIFIANTS_AX } from "./coffre-heritage";
 import { createAll, hasTable, isFresh } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
 
@@ -17,8 +18,16 @@ export interface Migration {
   migrer(x: Executeur): Promise<void>;
 }
 
-/** Migrations propres au TS, numérotées à la suite des migrations Python (aucune à ce jour). */
-export const MIGRATIONS_TS: readonly Migration[] = [];
+/** Migrations propres au TS, numérotées à la suite des migrations Python. */
+export const MIGRATIONS_TS: readonly Migration[] = [
+  {
+    name: "0027_coffre_identifiants",
+    migrer: async (x) => {
+      if ((await hasTable(x, "ax_credentials")) && !(await hasTable(x, TABLE_IDENTIFIANTS_AX)))
+        await x.run(`ALTER TABLE "ax_credentials" RENAME TO "${TABLE_IDENTIFIANTS_AX}"`);
+    },
+  },
+];
 
 export interface RapportInit {
   neuve: boolean;

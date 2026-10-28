@@ -60,6 +60,12 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         ancien: "Connexions",
       },
       {
+        id: "coffre",
+        libelle: "Coffre",
+        icone: "ph-vault",
+        mots: "identifiant mot de passe login creds site origine navigateur secret",
+      },
+      {
         id: "connectors",
         libelle: "Comptes Git",
         icone: "ph-git-fork",

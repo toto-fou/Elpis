@@ -9,6 +9,7 @@ import OngletApparence from "./onglets/OngletApparence.vue";
 import OngletArchives from "./onglets/OngletArchives.vue";
 import OngletChat from "./onglets/OngletChat.vue";
 import OngletCompaction from "./onglets/OngletCompaction.vue";
+import OngletCoffre from "./onglets/OngletCoffre.vue";
 import OngletConnecteurs from "./onglets/OngletConnecteurs.vue";
 import OngletConnexions from "./onglets/OngletConnexions.vue";
 import OngletFonctionnalites from "./onglets/OngletFonctionnalites.vue";
@@ -93,6 +94,8 @@ const rg = domaineReglages();
             <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
 
             <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
+
+            <OngletCoffre v-if="rg.settingsTab === 'coffre'" />
 
             <OngletModelesIA v-if="rg.settingsTab === 'ai_models'" />
 

@@ -8,6 +8,7 @@ import type { Base, Executeur } from "@elpis/db";
 import { supprimerEntreeSous } from "@elpis/securite";
 
 import { purgerPersoCompte } from "../apparence/comptes-perso";
+import { purgerCoffreCompte } from "../coffre/stockage";
 import { purgerCacheGraphique } from "../graphiques/incrustation";
 import { deleteUserDir } from "../images/magasin";
 import { journal } from "../journal";
@@ -62,7 +63,7 @@ async function purgerDossiersDuNom(nom: string): Promise<void> {
   }
 }
 
-/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et identifiants de sites dans une transaction, puis les fichiers. */
+/** `delete_user_full` : conversations, prompts, groupes, accès aux moteurs, jetons, OAuth, images, RAG et coffre d'identifiants dans une transaction, puis les fichiers. */
 export async function deleteUserFull(base: Base, uid: number): Promise<boolean> {
   let rag: CollectionPartieRag[] = [];
   let nom = "";
@@ -80,7 +81,7 @@ export async function deleteUserFull(base: Base, uid: number): Promise<boolean> 
     await toleree(base, async (tx) => {
       rag = await purgerCompteRag(tx, uid);
     });
-    if (nom) await toleree(base, (tx) => tx.run("DELETE FROM ax_credentials WHERE owner=?", [nom]));
+    await toleree(base, (tx) => purgerCoffreCompte(tx, uid));
     return (await x.run("DELETE FROM users WHERE id=?", [uid])).changes > 0;
   });
   if (!supprime) return false;

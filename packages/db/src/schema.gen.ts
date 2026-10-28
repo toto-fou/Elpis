@@ -4,18 +4,6 @@ import type { Table } from "./schema";
 
 export const TABLES: readonly Table[] = [
   {
-    name: "ax_credentials",
-    cols: [
-      { name: "owner", type: "text", null: false, default: "" },
-      { name: "site", type: "text", null: false },
-      { name: "username", type: "text", null: false },
-      { name: "password", type: "text", null: false },
-      { name: "last_ok", type: "real" },
-      { name: "use_count", type: "int", null: false, default: 1 },
-    ],
-    pk: ["owner", "site"],
-  },
-  {
     name: "ax_nodes",
     cols: [
       { name: "id", type: "id" },
@@ -66,6 +54,41 @@ export const TABLES: readonly Table[] = [
     unique: [["site", "from_path", "action_node_id", "to_path"]],
     fks: [{"cols": ["action_node_id"], "table": "ax_nodes", "refCols": ["id"], "onDelete": "CASCADE"}],
     indexes: [{"name": "idx_ax_trans_to", "cols": ["site", "to_path"]}, {"name": "idx_ax_trans_from", "cols": ["site", "from_path"]}],
+  },
+  {
+    name: "coffre_identifiants",
+    cols: [
+      { name: "id", type: "id" },
+      { name: "user_id", type: "int", null: false },
+      { name: "nom", type: "text", null: false },
+      { name: "origin", type: "text" },
+      { name: "origin_confirmed", type: "int", null: false, default: 0 },
+      { name: "username", type: "text", null: false },
+      { name: "password_enc", type: "text", null: false },
+      { name: "created_at", type: "real", null: false },
+      { name: "updated_at", type: "real", null: false },
+      { name: "last_used_at", type: "real" },
+      { name: "use_count", type: "int", null: false, default: 0 },
+    ],
+    unique: [["user_id", "nom"]],
+    indexes: [{"name": "idx_coffre_identifiants_user", "cols": ["user_id"]}],
+  },
+  {
+    name: "coffre_jetons",
+    cols: [
+      { name: "id", type: "id" },
+      { name: "token_hash", type: "text", null: false, unique: true },
+      { name: "user_id", type: "int", null: false },
+      { name: "chat_id", type: "text", null: false },
+      { name: "origin", type: "text", null: false },
+      { name: "entry_id", type: "int" },
+      { name: "label", type: "text", null: false, default: "" },
+      { name: "secret_enc", type: "text" },
+      { name: "created_at", type: "real", null: false },
+      { name: "expires_at", type: "real", null: false },
+      { name: "uses_left", type: "int", null: false },
+    ],
+    indexes: [{"name": "idx_coffre_jetons_chat", "cols": ["user_id", "chat_id"]}, {"name": "idx_coffre_jetons_exp", "cols": ["expires_at"]}],
   },
   {
     name: "users",

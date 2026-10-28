@@ -35,6 +35,7 @@ export function memoireAxDuProcess(base: Executeur): PortMemoireAx {
         currentPath: o.currentPath,
         iteration: o.iteration,
         owner: o.owner,
+        origin: o.origin,
       }),
   };
 }

@@ -14,6 +14,7 @@ export interface EtatClavier {
   readonly contextMenu: Ref<MenuContextuel>;
   readonly showInfoModal: Ref<boolean>;
   readonly showOpenCodeModal: Ref<boolean>;
+  readonly showCredsModal: Ref<boolean>;
   readonly imgZoom: Ref<string | null>;
   readonly showNotifPanel: Ref<boolean>;
   readonly menuPagesOuvert: Ref<boolean>;
@@ -50,6 +51,7 @@ export function creerClavier(s: EtatClavier) {
       vrai(r?.showHelpModal) ||
       s.showInfoModal.value ||
       s.showOpenCodeModal.value ||
+      s.showCredsModal.value ||
       vrai(c?.showModelProps) ||
       vrai(c?.taskModal) ||
       vrai(c?.toolInfo) ||
@@ -219,6 +221,10 @@ export function creerClavier(s: EtatClavier) {
     }
     if (s.showOpenCodeModal.value) {
       s.showOpenCodeModal.value = false;
+      return true;
+    }
+    if (s.showCredsModal.value) {
+      s.showCredsModal.value = false;
       return true;
     }
     if (c?.showModelProps.value) {

@@ -40,6 +40,7 @@ import GalerieImages from "../chat/modales/GalerieImages.vue";
 import ModaleAPropos from "../chat/modales/ModaleAPropos.vue";
 import ModaleAide from "../chat/modales/ModaleAide.vue";
 import ModaleAx from "../chat/modales/ModaleAx.vue";
+import ModaleCreds from "../chat/modales/ModaleCreds.vue";
 import ModaleOpenCode from "../chat/modales/ModaleOpenCode.vue";
 import ModaleTransfert from "../chat/modales/ModaleTransfert.vue";
 import ProprietesModele from "../chat/modales/ProprietesModele.vue";
@@ -177,6 +178,7 @@ fournirDomaineModales(r, false);
   <GalerieImages />
   <ZoomImage />
   <ModaleAx />
+  <ModaleCreds />
   <FormulaireAssistant />
   <ApercuSkin />
   <FicheOutil />

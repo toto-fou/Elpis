@@ -4,6 +4,7 @@ import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
 import { creerIdentite, IDENTITY_HEADER, sign } from "@elpis/securite";
+import type { SousAgent } from "@elpis/securite";
 import { request } from "undici";
 import type { Dispatcher } from "undici";
 
@@ -256,6 +257,34 @@ export class ClientRappel {
     };
   }
 
+  /** Secrets des références `jeton.champ` pour l'appel de `compte` : SECRET, jamais mis en cache ni journalisé ; `null` si le core ne répond pas. */
+  async resoudreCreds(compte: CompteSigne, refs: readonly string[]): Promise<ResolutionCreds | null> {
+    const d = await this.appeler(
+      "POST",
+      "/api/internal/creds/resolve",
+      undefined,
+      { refs: [...refs] },
+      compte,
+      this.delaiMs,
+      undefined,
+      false,
+    );
+    if (d === null) return null;
+    if (veritePy(getPy(d, "ok")) && estDict(getPy(d, "values"))) {
+      const values: Record<string, { value: string; origin: string }> = {};
+      for (const [ref, v] of Object.entries(getPy(d, "values") as Dict))
+        if (estDict(v) && typeof v["value"] === "string" && typeof v["origin"] === "string")
+          values[ref] = { value: v["value"], origin: v["origin"] };
+      return { ok: true, values };
+    }
+    return {
+      ok: false,
+      code: typeof getPy(d, "code") === "string" ? (getPy(d, "code") as string) : "creds_invalid",
+      message:
+        typeof getPy(d, "message") === "string" ? (getPy(d, "message") as string) : "credentials refused",
+    };
+  }
+
   /** `import_legacy_git_credentials` par le core pour `compte` (enveloppe signée) : connecteurs créés, `-1` si l'import a échoué, `IMPORT_GARDE` si des hôtes ont été refusés (fichier gardé dans les deux cas). */
   async importAncien(compte: CompteSigne, donnees: Buffer): Promise<number> {
     if (compte.user_id <= 0 || !compte.username) return -1;
@@ -401,7 +430,15 @@ function sansGrandsEntiers(_cle: string, v: unknown): unknown {
 export interface CompteSigne {
   readonly user_id: number;
   readonly username: string;
+  /** Conversation de l'appel et périmètre de sous-agent, pour les rappels qui en dépendent (coffre). */
+  readonly chat_id?: string;
+  readonly subagent?: SousAgent | null;
 }
+
+/** Réponse du core à la résolution de références `jeton.champ` : valeurs avec l'origine attendue, ou refus codé. */
+export type ResolutionCreds =
+  | { readonly ok: true; readonly values: Readonly<Record<string, { value: string; origin: string }>> }
+  | { readonly ok: false; readonly code: string; readonly message: string };
 
 /** `d[cle]` : une clé absente lève (KeyError). */
 function exiger(d: Dict, cle: string): unknown {

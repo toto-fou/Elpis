@@ -391,7 +391,8 @@ erDiagram
 | **Connecteurs** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
 | **RAG** | `rag_collections` (propriétaire, visibilité, modèle d'embedding, compteurs), `rag_grants` (groupes d'une publication), `rag_documents`, `rag_jobs` (file d'indexation), `rag_hidden` (« Masquer de ma liste ») ; collections actives d'un chat dans `chats.meta_json.rag` |
 | **Images** | `generated_images` (une ligne par image : compte, conversation, modèle, chemin relatif du fichier et de sa vignette, mesures de durée) |
-| **Divers** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` / `ax_credentials` |
+| **Coffre** | `coffre_identifiants` (entrées du compte : nom, origine exacte, identifiant, mot de passe Fernet, usages), `coffre_jetons` (jetons `⟦creds:…⟧` d'une conversation : empreinte SHA-256, origine, source, échéance, usages restants) |
+| **Divers** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` |
 
 Schémas de référence :
 
@@ -1928,7 +1929,62 @@ des sessions inactives.
 | `PUT /api/memory/state/{user\|memory}` | Réécrit les entrées d'un magasin (`{entries:[…]}`) — édition manuelle depuis Réglages → Mémoire ; liste vide ⇒ fichier supprimé |
 | `DELETE /api/memory/state` | Purge |
 | `GET /api/memory/audit` | Journal des écritures (succès/échecs par code) |
-| `/api/ax/*` | Mémoire d'accessibilité web : sites, arbres, statistiques, purges, credentials |
+| `/api/ax/*` | Mémoire d'accessibilité web : sites, arbres, statistiques, purges (plus d'identifiants : ils sont dans le coffre) |
+
+---
+
+## Coffre d'identifiants et jetons `/creds` (API)
+
+Les identifiants de sites ne passent plus par la mémoire AX ni par les arguments
+d'un outil. Un coffre par compte garde des entrées (`coffre_identifiants`) dont le
+mot de passe est chiffré en Fernet (clé maître `app.encryption_key`) et **lié à une
+origine exacte** (`scheme://host[:port]` lu par WHATWG, jamais le « site normalisé »
+de la mémoire AX). Les routes (`apps/core/src/familles/coffre.ts`, process main
+seulement) sont en écriture seule pour le mot de passe : aucune réponse ne le
+porte, et les erreurs de validation ne le recopient pas.
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/coffre` · `POST /api/coffre` · `PUT /api/coffre/{id}` · `DELETE /api/coffre/{id}` | Entrées du compte (Paramètres › Coffre) ; mot de passe facultatif à la modification (vide = inchangé) ; changer origine, identifiant ou mot de passe révoque les jetons issus de l'entrée |
+| `POST /api/coffre/{id}/confirmer` | Confirme l'origine d'une entrée reprise de l'ancienne mémoire AX (origine saisie, normalisée) |
+| `GET /api/coffre/jetons?chat_id=` · `POST /api/coffre/jetons` | Jetons actifs d'une conversation ; création depuis une entrée confirmée (`entry_id`) ou un secret ponctuel (`origin`, `username`, `password`, `save` : l'enregistre dans le coffre). Le jeton en clair n'est rendu qu'à la création |
+| `POST /api/coffre/jetons/{id}/renouveler` · `DELETE /api/coffre/jetons/{id}` | Renouvelle (30 min, usages remis à 5) ou révoque |
+
+**Jeton `⟦creds:JETON⟧`.** 192 bits aléatoires, seule l'empreinte SHA-256 est en
+base ; lié au compte, à **une conversation** et à une origine ; valable 30 min et
+5 usages (un usage par résolution, quel que soit le nombre de champs lus). L'état est en
+base (main, admin et l'hôte d'outils sont des process distincts). La suppression d'une
+conversation ou d'un compte supprime ses jetons, les expirés sont purgés
+paresseusement. Le secret d'un jeton « ponctuel » est chiffré dans sa ligne.
+
+**Résolution.** Le message de l'utilisateur ne contient que le jeton. Quand un outil
+`pw_*` reçoit `secret="JETON.password"` (ou `.username`), l'hôte d'outils demande la
+valeur au core par le canal interne signé (`POST /api/internal/creds/resolve`, jeton
+de service et enveloppe d'identité portant compte, conversation et périmètre de
+sous-agent). Le core vérifie le propriétaire, la conversation de l'appel, l'expiration,
+l'origine de l'entrée et décompte l'usage de façon atomique ; il refuse un sous-agent,
+une routine (conversation `routine:…`) et un client MCP externe (sans conversation).
+Chaque usage est audité (`creds.use` : jeton, origine, champs, jamais une valeur).
+L'hôte envoie à `browser-service` la valeur **et l'origine attendue** ; le service ne
+saisit que dans un `fill`/`type` ciblé dont l'**élément** appartient à un frame sur
+cette origine exacte (poignée d'élément vérifiée juste avant la saisie, aucun repli),
+et expurge la valeur de ses erreurs. `pw_session(action='start', creds=JETON)` pose
+`httpCredentials` avec l'origine du jeton (refus si `url` est ailleurs) ; sans origine
+fournie, le service lie les identifiants HTTP à l'origine de `url`. Tout résultat
+renvoyé au modèle est nettoyé : chaque forme de la valeur (brute, URL, formulaire,
+HTML, JSON, base64) devient `⟦creds:JETON⟧` ; les mots de passe résolus récemment
+pour le compte sont aussi retirés des résultats des autres outils `pw_*` (page, `eval`).
+Limites : un script `eval` peut transformer la valeur avant de la lire ; un nom
+d'utilisateur ou un mot de passe de moins de 3 caractères n'est pas nettoyé.
+
+**Reprise de l'ancienne mémoire AX.** La migration `0027_coffre_identifiants`
+renomme `ax_credentials` en `ax_credentials_a_importer` ; au démarrage, le core
+chiffre ces lignes dans le coffre (`importerIdentifiantsAx`, `packages/db`) sans
+origine et **à confirmer** (jamais utilisées tant que l'utilisateur ne les a pas
+confirmées dans Paramètres › Coffre), puis supprime la table. Sans clé de
+chiffrement l'import est retenté au démarrage suivant. Avec un hôte d'outils à base
+séparée (`db_path`), la table renommée de sa base n'est pas reprise (le coffre vit
+dans la base du core) : ses lignes ne sont plus lues et partent avec le compte.
 
 ---
 

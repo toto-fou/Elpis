@@ -35,6 +35,12 @@ export {
   tableParNom,
 } from "./schema";
 export type { Col, Fk, Index, RapportFts, RapportSchema, Table, TypeCol } from "./schema";
+export {
+  importerIdentifiantsAx,
+  nomDepuisSite,
+  retirerIdentifiantsAxDuCompte,
+  TABLE_IDENTIFIANTS_AX,
+} from "./coffre-heritage";
 export { BASELINE_COVERS, MIGRATIONS_PYTHON, TABLES } from "./schema.gen";
 export {
   decrireEmplacement,

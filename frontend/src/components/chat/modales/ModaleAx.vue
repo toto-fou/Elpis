@@ -77,11 +77,6 @@ const m = domaineModales();
                     ]"
                   ></i>
                   <span class="font-mono text-sm font-semibold text-slate-800 truncate">{{ site.site }}</span>
-                  <span
-                    v-if="site.has_credentials"
-                    class="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium shrink-0"
-                    ><i class="ph ph-key text-[9px]"></i> {{ site.cred_username }}</span
-                  >
                   <span class="text-xs text-slate-500 ml-2 shrink-0"
                     >{{ site.elements }} elements · {{ site.paths }} pages ·
                     {{ site.transitions }} transitions</span

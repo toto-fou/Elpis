@@ -7,7 +7,6 @@ import type { FastifyRequest } from "fastify";
 
 import { journal } from "../journal";
 import {
-  deleteCredentials,
   deleteSite,
   deleteSitesBulk,
   getSiteStats,
@@ -26,7 +25,7 @@ export interface DependancesAx {
 }
 
 const PROCESSUS = ["main", "admin"] as const;
-const LOT_SITES = py.model({ sites: py.list(py.str()), include_credentials: py.bool().defaut(false) });
+const LOT_SITES = py.model({ sites: py.list(py.str()) });
 
 /** Rôle relu en base (`is_admin` : 1 admin, 2 modérateur) ; 403 avec le message du Python sinon. */
 async function exigerRole(
@@ -43,11 +42,6 @@ async function exigerRole(
 
 const exigerEquipe = (base: Base, req: FastifyRequest): Promise<number> =>
   exigerRole(base, req, [1, 2], "Admin or moderator required");
-
-/** Compte de la session : seuls ses propres identifiants de site sont montrés (aucun sans nom). */
-function proprietaire(req: FastifyRequest): string {
-  return req.utilisateur?.username || "";
-}
 
 function site(req: FastifyRequest): string {
   return entrees(req, { path: { site: py.str() } }).path.site;
@@ -69,7 +63,7 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
         acces: "session",
         traiter: async (req, rep) => {
           utilisateur(req);
-          const sites = await listSitesWithStats(base, proprietaire(req));
+          const sites = await listSitesWithStats(base);
           return reponseJsonPy(rep, { sites, count: sites.length });
         },
       },
@@ -81,7 +75,7 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
         traiter: async (req, rep) => {
           utilisateur(req);
           const s = site(req);
-          const stats = await getSiteStats(base, s, proprietaire(req));
+          const stats = await getSiteStats(base, s);
           if (stats === null) throw introuvable(s);
           return reponseJsonPy(rep, stats);
         },
@@ -120,23 +114,9 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
         acces: "session",
         traiter: async (req) => {
           await exigerEquipe(base, req);
-          const { path, query } = entrees(req, {
-            path: { site: py.str() },
-            query: { include_credentials: py.bool().defaut(false) },
-          });
-          const r = await deleteSite(base, path.site, query.include_credentials);
+          const r = await deleteSite(base, site(req));
           if ("error" in r) throw new HttpError(500, r.error);
           return r;
-        },
-      },
-      {
-        methode: "DELETE",
-        chemin: "/api/ax/sites/:site/credentials",
-        processus: PROCESSUS,
-        acces: "session",
-        traiter: async (req) => {
-          await exigerEquipe(base, req);
-          return { deleted: (await deleteCredentials(base, site(req))) ? 1 : 0 };
         },
       },
       {
@@ -160,7 +140,7 @@ export function creerFamilleAx(dep: DependancesAx): Famille {
           await exigerEquipe(base, req);
           const corps = entrees(req, { body: LOT_SITES }).body;
           if (corps.sites.length === 0) throw new HttpError(400, "No sites provided");
-          return deleteSitesBulk(base, corps.sites, corps.include_credentials);
+          return deleteSitesBulk(base, corps.sites);
         },
       },
       {

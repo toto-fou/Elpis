@@ -109,7 +109,8 @@ export function authHint(httpStatus) {
     if (httpStatus === 401) {
         return "Page protégée par authentification HTTP (401). Les identifiants "
             + "Basic/Digest se passent à l'OUVERTURE de session, pas au goto : "
-            + "relancez pw_session(action='start', url=…, username=…, password=…) "
+            + "demandez à l'utilisateur un identifiant avec /creds (⟦creds:JETON⟧) puis relancez "
+            + "pw_session(action='start', url=…, creds='JETON') "
             + "(isolated=true pour un contexte neuf).";
     }
     if (httpStatus === 407) {

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, identifiants de la mémoire AX, propriété posée par l'outil), arrêt, état, liste, nettoyage. */
+/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, identifiants HTTP d'un jeton du coffre liés à l'origine, propriété posée par l'outil), arrêt, état, liste, nettoyage. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { errPw, getCredentials, recordPwSessionOwner, refusUrl, saveCredentials } from "@elpis/navigateur";
+import { errPw, recordPwSessionOwner, refusUrl } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
+import { origineExacte } from "@elpis/securite";
 
 import { headless, minusculesPy, ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
+import { jetonDeReference, nettoyerResultat, normaliserReference, resoudreSecrets } from "./creds";
+import type { SecretResolu } from "./creds";
 
 /** `viewport="LxH"` → `{width, height}`, `null` si illisible. */
 function fenetre(viewport: string): Dict | null {
@@ -20,14 +23,15 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents, propriété de la session posée, identifiants retenus après succès. */
+/** `start` : url exigée et autorisée, identifiants HTTP d'un jeton `creds` (origine exacte de l'url), propriété de la session posée. */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
+  ctx: ContexteAppel,
   appel: Awaited<ReturnType<typeof ouvrirAppel>>,
 ): Promise<unknown> {
   if (appel.refus !== null) return appel.refus;
-  const { client, ax, username } = appel.appel;
+  const { client, username } = appel.appel;
   const url = a["url"] as string;
   if (!stripPy(url || ""))
     return errPw("url_required", "", {
@@ -36,22 +40,35 @@ async function demarrer(
     });
   const bloque = await refusUrl(url);
   if (bloque !== null) return bloque;
-  let identifiant = a["username"];
-  let motDePasse = a["password"];
-  if (ax !== null && url && (!veritePy(identifiant) || !veritePy(motDePasse))) {
-    const connu = await getCredentials(ax, url, username || "").catch(() => null);
-    if (connu !== null) {
-      if (!veritePy(identifiant)) identifiant = connu["username"];
-      if (!veritePy(motDePasse)) motDePasse = connu["password"];
-      s.journal.info(
-        `[ax-creds] auto-injected creds for ${url} (user=${strPy(connu["username"])}, use_count=${strPy(connu["use_count"] ?? 0)})`,
-      );
-    }
+  const creds = normaliserReference(a["creds"] ?? "");
+  let secrets: SecretResolu[] = [];
+  let identifiants: Dict = {};
+  if (creds) {
+    const jeton = jetonDeReference(`${creds}.password`);
+    if (jeton === null)
+      return errPw("creds_invalid", "", {
+        message: "creds= takes the TOKEN of a ⟦creds:TOKEN⟧ supplied by the user",
+        fix: "ask the user to supply a login with the /creds command",
+      });
+    const origineUrl = origineExacte(url);
+    const r = await resoudreSecrets(s, ctx, [`${jeton}.username`, `${jeton}.password`]);
+    if ("refus" in r) return r.refus;
+    secrets = r.secrets;
+    const [identifiant, motDePasse] = secrets;
+    if (origineUrl === null || origineUrl !== identifiant?.origine)
+      return errPw("creds_origin_mismatch", "", {
+        message: "url= is not on the exact origin these credentials are bound to",
+        fix: "start the session on the credentials' origin, or ask the user for /creds for this origin",
+      });
+    identifiants = {
+      username: identifiant.valeur,
+      password: motDePasse?.valeur,
+      credentials_origin: identifiant.origine,
+    };
   }
   const corps: Dict = {
     url,
-    username: identifiant,
-    password: motDePasse,
+    ...identifiants,
     headless: headless(),
     load_state_id: a["load_state_id"],
     record_har: a["record_har"],
@@ -70,12 +87,8 @@ async function demarrer(
     const sid = veritePy(resultat["session_id"]) ? resultat["session_id"] : resultat["sid"];
     if (veritePy(sid) && username && !veritePy(resultat["error"]))
       await recordPwSessionOwner(strPy(sid), username).catch(() => undefined);
-    if (ax !== null && veritePy(identifiant) && veritePy(motDePasse) && !veritePy(resultat["error"]))
-      await saveCredentials(ax, url, identifiant as string, motDePasse as string, username || "").catch(
-        () => false,
-      );
   }
-  return resultat;
+  return nettoyerResultat(resultat, secrets);
 }
 
 /** `pw_session` : `start` ne vérifie pas `session_id` (il retrouve l'instance du compte), les autres actions si. */
@@ -83,7 +96,7 @@ export function pwSession(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const action = a["action"] as string;
     const appel = await ouvrirAppel(ctx, s, action === "start" ? null : a["session_id"]);
-    if (action === "start") return demarrer(a, s, appel);
+    if (action === "start") return demarrer(a, s, ctx, appel);
     if (appel.refus !== null) return appel.refus;
     const { client } = appel.appel;
     const sid = a["session_id"];

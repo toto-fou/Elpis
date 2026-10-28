@@ -73,6 +73,7 @@ export type { EvenementAudit, FiltresAudit, ReglagesAudit } from "./audit";
 export { CONTEXTE_JETON_INTERNE, jetonInterne } from "./interne";
 export { adresseCritique, blockRemoteUrlReason, GIT_REMOTE_SCHEMES } from "./ssrf";
 export { cibleNonAmbigue, urlNonAmbigue } from "./url-whatwg";
+export { origineExacte } from "./origine";
 export type { OptionsGardeUrl, Resolveur } from "./ssrf";
 export {
   CONTAINER_ROOT,

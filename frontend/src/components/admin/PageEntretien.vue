@@ -623,20 +623,8 @@ const adm = domaineAdmin();
                     adm.axSelected.length
                   }})
                 </button>
-                <button
-                  type="button"
-                  class="adm-btn adm-btn--danger adm-btn--sm"
-                  @click="adm.bulkDelete(false)"
-                >
+                <button type="button" class="adm-btn adm-btn--danger adm-btn--sm" @click="adm.bulkDelete()">
                   <i class="ph ph-trash" aria-hidden="true"></i> Supprimer ({{ adm.axSelected.length }})
-                </button>
-                <button
-                  type="button"
-                  class="adm-btn adm-btn--danger adm-btn--sm"
-                  title="Supprime aussi les identifiants enregistrés"
-                  @click="adm.bulkDelete(true)"
-                >
-                  <i class="ph ph-fire" aria-hidden="true"></i> Purge totale ({{ adm.axSelected.length }})
                 </button>
               </div>
             </div>
@@ -670,11 +658,6 @@ const adm = domaineAdmin();
                       aria-hidden="true"
                     ></i>
                     <span class="font-mono text-sm font-medium text-slate-800 truncate">{{ site.site }}</span>
-                    <span
-                      v-if="site.has_credentials"
-                      class="text-[11px] px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded font-medium shrink-0"
-                      ><i class="ph ph-key text-[10px]" aria-hidden="true"></i> {{ site.cred_username }}</span
-                    >
                     <span class="text-xs text-slate-500 ml-1 shrink-0"
                       >{{ site.elements }} éléments · {{ site.paths }} pages ·
                       {{ site.transitions }} transitions</span
@@ -694,21 +677,11 @@ const adm = domaineAdmin();
                       <i class="ph ph-arrows-clockwise text-sm" aria-hidden="true"></i>
                     </button>
                     <button
-                      v-if="site.has_credentials"
                       type="button"
-                      title="Supprimer les identifiants enregistrés"
-                      aria-label="Supprimer les identifiants"
-                      class="adm-btn adm-btn--icon adm-btn--icon-danger"
-                      @click="adm.deleteCreds(site.site)"
-                    >
-                      <i class="ph ph-key-return text-sm" aria-hidden="true"></i>
-                    </button>
-                    <button
-                      type="button"
-                      title="Supprimer le site (conserve les identifiants)"
+                      title="Supprimer le site"
                       aria-label="Supprimer le site"
                       class="adm-btn adm-btn--icon adm-btn--icon-danger"
-                      @click="adm.deleteSite(site.site, false)"
+                      @click="adm.deleteSite(site.site)"
                     >
                       <i class="ph ph-trash text-sm" aria-hidden="true"></i>
                     </button>
@@ -730,9 +703,7 @@ const adm = domaineAdmin();
             v-if="adm.user.role === 'admin'"
             class="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap"
           >
-            <span
-              class="adm-row__label"
-              title="Tous les sites et identifiants enregistrés. Confirmation saisie."
+            <span class="adm-row__label" title="Tous les sites appris. Confirmation saisie."
               >Tout effacer</span
             >
             <button type="button" class="adm-btn adm-btn--danger" @click="adm.confirmWipeAll()">

@@ -8,11 +8,13 @@ import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import type { Journal } from "../../journal";
+import type { ClientRappel } from "../../rappel";
 
-/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux) et journal. */
+/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux), journal et rappels au core (coffre ; `null` sans core). */
 export interface ServicesBrowser {
   readonly ax: () => Base | null;
   readonly journal: Journal;
+  readonly rappel: ClientRappel | null;
 }
 
 export interface Appel {

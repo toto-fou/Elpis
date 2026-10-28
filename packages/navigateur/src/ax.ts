@@ -295,16 +295,21 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   });
 }
 
-/** `_render_credentials_hint` : nom de connexion du propriétaire sur ce site, jamais le mot de passe ; rien sans propriétaire. */
-async function indiceIdentifiants(x: Executeur, site: string, proprietaire: string): Promise<string | null> {
-  if (!site || !proprietaire) return null;
+/** Indice du coffre : une ligne, sans identifiant ni mot de passe, seulement si une entrée confirmée du propriétaire porte cette origine exacte. */
+async function indiceIdentifiants(
+  x: Executeur,
+  origine: string | null,
+  proprietaire: string,
+): Promise<string | null> {
+  if (!origine || !proprietaire) return null;
   try {
-    const r = await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-      site,
-      proprietaire,
-    ]);
-    if (r === undefined) return null;
-    return `CREDENTIALS KNOWN: user=${String(r["username"])} (used ${String(r["use_count"])}x, auto-injected by pw_session)`;
+    const r = await x.get(
+      "SELECT 1 AS un FROM coffre_identifiants c JOIN users u ON u.id = c.user_id WHERE u.username = ? AND c.origin = ? AND c.origin_confirmed = 1",
+      [proprietaire, origine],
+    );
+    return r === undefined
+      ? null
+      : "CREDENTIALS: a saved login exists for this origin; ask the user for /creds";
   } catch {
     return null;
   }
@@ -316,6 +321,7 @@ export async function renderFullDomForPrompt(
   site: string,
   maxChars = 6000,
   proprietaire = "",
+  origine: string | null = null,
 ): Promise<string> {
   if (!site) return "";
   const dom = await loadDomTree(x, site);
@@ -324,7 +330,7 @@ export async function renderFullDomForPrompt(
   for (const page of dom.values())
     for (const n of page.byId.values()) if (n.node_type === "element") elements++;
   const lignes = [`KNOWN UI: ${site}`, `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`];
-  const indice = await indiceIdentifiants(x, site, proprietaire);
+  const indice = await indiceIdentifiants(x, origine, proprietaire);
   if (indice) lignes.push(indice);
   lignes.push("");
   for (const chemin of cheminsTries(dom.keys())) {
@@ -427,7 +433,7 @@ export async function renderFocusedDomForPrompt(
   x: Executeur,
   site: string,
   currentPath: string,
-  options: { currentNodeId?: number | null; maxChars?: number; owner?: string } = {},
+  options: { currentNodeId?: number | null; maxChars?: number; owner?: string; origin?: string | null } = {},
 ): Promise<string> {
   const maxChars = options.maxChars ?? 3000;
   if (!site || !currentPath) return "";
@@ -442,9 +448,10 @@ export async function renderFocusedDomForPrompt(
     courant = [...byId.values()]
       .filter((n) => n.node_type === "element")
       .sort((a, b) => (b.last_ok || 0) - (a.last_ok || 0))[0];
-  if (courant === undefined) return renderFullDomForPrompt(x, site, maxChars);
+  if (courant === undefined)
+    return renderFullDomForPrompt(x, site, maxChars, options.owner ?? "", options.origin ?? null);
   const lignes = [`KNOWN UI: ${site}`, `FOCUSED ON: [${currentPath}] ${courant.role} "${courant.name}"`];
-  const indice = await indiceIdentifiants(x, site, options.owner ?? "");
+  const indice = await indiceIdentifiants(x, options.origin ?? null, options.owner ?? "");
   if (indice) lignes.push(indice);
   lignes.push("");
   const ancetres: NoeudDom[] = [];
@@ -502,16 +509,23 @@ export async function renderFocusedDomForPrompt(
 export async function renderSiteContextual(
   x: Executeur,
   site: string,
-  options: { currentPath?: string | null; maxChars?: number; iteration?: number; owner?: string } = {},
+  options: {
+    currentPath?: string | null;
+    maxChars?: number;
+    iteration?: number;
+    owner?: string;
+    origin?: string | null;
+  } = {},
 ): Promise<string> {
   const maxChars = options.maxChars ?? 4000;
   const owner = options.owner ?? "";
+  const origin = options.origin ?? null;
   if (!site) return "";
   if (AX_INJECT_MIN_SIGNAL > 0 && (await siteSignal(x, site)) < AX_INJECT_MIN_SIGNAL) return "";
-  if ((options.iteration ?? 0) === 0) return renderFullDomForPrompt(x, site, maxChars, owner);
+  if ((options.iteration ?? 0) === 0) return renderFullDomForPrompt(x, site, maxChars, owner, origin);
   if (options.currentPath)
-    return renderFocusedDomForPrompt(x, site, options.currentPath, { maxChars, owner });
-  return renderFullDomForPrompt(x, site, maxChars, owner);
+    return renderFocusedDomForPrompt(x, site, options.currentPath, { maxChars, owner, origin });
+  return renderFullDomForPrompt(x, site, maxChars, owner, origin);
 }
 
 /** Valeur REAL de la base : un flottant de Python (`1.0`), `null` gardé. */
@@ -519,11 +533,8 @@ function reel(v: unknown): FlottantPy | null {
   return v === null || v === undefined ? null : new FlottantPy(Number(v));
 }
 
-/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants du seul propriétaire, aucun sans propriétaire. */
-export async function listSitesWithStats(
-  x: Executeur,
-  proprietaire = "",
-): Promise<Record<string, unknown>[]> {
+/** `list_sites_with_stats` : sites connus et leurs compteurs (les identifiants sont dans le coffre du compte, plus ici). */
+export async function listSitesWithStats(x: Executeur): Promise<Record<string, unknown>[]> {
   try {
     const lignes = await x.all(
       `SELECT n.site,
@@ -539,21 +550,12 @@ export async function listSitesWithStats(
     for (const r of lignes) {
       const site = r["site"] as string;
       const trans = await x.get("SELECT COUNT(*) AS n FROM ax_transitions WHERE site = ?", [site]);
-      const cred = proprietaire
-        ? await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-            site,
-            proprietaire,
-          ])
-        : undefined;
       out.push({
         site,
         elements: r["elements"] || 0,
         regions: r["regions"] || 0,
         paths: r["paths"] || 0,
         transitions: trans ? trans["n"] : 0,
-        has_credentials: cred !== undefined,
-        cred_username: cred ? cred["username"] : null,
-        cred_use_count: cred ? cred["use_count"] : 0,
         last_activity: reel(r["last_activity"]),
       });
     }
@@ -564,12 +566,8 @@ export async function listSitesWithStats(
   }
 }
 
-/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants du seul propriétaire. */
-export async function getSiteStats(
-  x: Executeur,
-  site: string,
-  proprietaire = "",
-): Promise<Record<string, unknown> | null> {
+/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud. */
+export async function getSiteStats(x: Executeur, site: string): Promise<Record<string, unknown> | null> {
   if (!site) return null;
   try {
     const agg = await x.get(
@@ -592,12 +590,6 @@ export async function getSiteStats(
       "SELECT COUNT(*) AS n FROM ax_selectors s JOIN ax_nodes n ON s.node_id = n.id WHERE n.site = ?",
       [site],
     );
-    const cred = proprietaire
-      ? await x.get("SELECT username, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?", [
-          site,
-          proprietaire,
-        ])
-      : undefined;
     return {
       site,
       elements_ok: agg["elements_ok"] || 0,
@@ -608,10 +600,6 @@ export async function getSiteStats(
       selectors: sel ? sel["n"] : 0,
       first_activity: reel(agg["first_activity"]),
       last_activity: reel(agg["last_activity"]),
-      has_credentials: cred !== undefined,
-      cred_username: cred ? cred["username"] : null,
-      cred_use_count: cred ? cred["use_count"] : 0,
-      cred_last_ok: cred ? reel(cred["last_ok"]) : null,
     };
   } catch (e) {
     log().warn(`[ax] get_site_stats failed: ${texte(e)}`);
@@ -625,16 +613,14 @@ export interface Suppressions {
   nodes: number;
   selectors: number;
   transitions: number;
-  credentials: number;
 }
 
-/** `delete_site` : nœuds, sélecteurs et transitions du site (identifiants de tous les comptes si demandé) ; `{error}` en échec. */
+/** `delete_site` : nœuds, sélecteurs et transitions du site ; `{error}` en échec. */
 export async function deleteSite(
   x: Executeur,
   site: string,
-  includeCredentials = false,
 ): Promise<{ deleted: Suppressions } | { error: string }> {
-  if (!site) return { deleted: { nodes: 0, selectors: 0, transitions: 0, credentials: 0 } };
+  if (!site) return { deleted: { nodes: 0, selectors: 0, transitions: 0 } };
   try {
     const d = await verrouAx.avec(async () => {
       const sel = await x.get(
@@ -646,14 +632,9 @@ export async function deleteSite(
       ]);
       const tr = (await x.run("DELETE FROM ax_transitions WHERE site = ?", [site])).changes;
       const nd = (await x.run("DELETE FROM ax_nodes WHERE site = ?", [site])).changes;
-      const cr = includeCredentials
-        ? (await x.run("DELETE FROM ax_credentials WHERE site = ?", [site])).changes
-        : 0;
-      return { nodes: nd, selectors: Number(sel?.["n"] ?? 0), transitions: tr, credentials: cr };
+      return { nodes: nd, selectors: Number(sel?.["n"] ?? 0), transitions: tr };
     });
-    log().info(
-      `[ax] delete_site ${site} : nodes=${d.nodes} selectors=${d.selectors} trans=${d.transitions} creds=${d.credentials}`,
-    );
+    log().info(`[ax] delete_site ${site} : nodes=${d.nodes} selectors=${d.selectors} trans=${d.transitions}`);
     return { deleted: d };
   } catch (e) {
     log().warn(`[ax] delete_site failed: ${texte(e)}`);
@@ -665,16 +646,14 @@ export async function deleteSite(
 export async function deleteSitesBulk(
   x: Executeur,
   sites: readonly string[],
-  includeCredentials = false,
 ): Promise<{ deleted: Suppressions & { sites_processed: number } }> {
-  const bilan = { nodes: 0, selectors: 0, transitions: 0, credentials: 0, sites_processed: 0 };
+  const bilan = { nodes: 0, selectors: 0, transitions: 0, sites_processed: 0 };
   for (const s of sites) {
-    const r = await deleteSite(x, s, includeCredentials);
+    const r = await deleteSite(x, s);
     if ("deleted" in r) {
       bilan.nodes += r.deleted.nodes;
       bilan.selectors += r.deleted.selectors;
       bilan.transitions += r.deleted.transitions;
-      bilan.credentials += r.deleted.credentials;
       bilan.sites_processed += 1;
     }
   }
@@ -705,34 +684,6 @@ export async function markSiteStale(
   }
 }
 
-/** `delete_credentials` : URL normalisée ou site tel quel ; `proprietaire` absent = tous les comptes (administration). */
-export async function deleteCredentials(
-  x: Executeur,
-  urlOuSite: string,
-  proprietaire: string | null = null,
-): Promise<boolean> {
-  if (!urlOuSite) return false;
-  const site = urlOuSite.startsWith("http") ? normalizeUrl(urlOuSite)[0] : urlOuSite;
-  if (!site) return false;
-  try {
-    const r = await verrouAx.avec(() =>
-      proprietaire === null
-        ? x.run("DELETE FROM ax_credentials WHERE site = ?", [site])
-        : x.run("DELETE FROM ax_credentials WHERE site = ? AND owner = ?", [site, proprietaire]),
-    );
-    return r.changes > 0;
-  } catch {
-    return false;
-  }
-}
-
-/** Identifiants de sites d'un compte supprimé, tous sites confondus ; nombre de lignes retirées. */
-export async function deleteOwnerCredentials(x: Executeur, proprietaire: string): Promise<number> {
-  if (!proprietaire) return 0;
-  return (await verrouAx.avec(() => x.run("DELETE FROM ax_credentials WHERE owner = ?", [proprietaire])))
-    .changes;
-}
-
 /** `wipe_all` : toutes les tables AX vidées (administration). */
 export async function wipeAll(x: Executeur): Promise<{ deleted: Suppressions } | { error: string }> {
   try {
@@ -740,12 +691,9 @@ export async function wipeAll(x: Executeur): Promise<{ deleted: Suppressions } |
       const selectors = (await x.run("DELETE FROM ax_selectors")).changes;
       const transitions = (await x.run("DELETE FROM ax_transitions")).changes;
       const nodes = (await x.run("DELETE FROM ax_nodes")).changes;
-      const credentials = (await x.run("DELETE FROM ax_credentials")).changes;
-      return { nodes, selectors, transitions, credentials };
+      return { nodes, selectors, transitions };
     });
-    log().warn(
-      `[ax] WIPE ALL : nodes=${d.nodes} selectors=${d.selectors} trans=${d.transitions} creds=${d.credentials}`,
-    );
+    log().warn(`[ax] WIPE ALL : nodes=${d.nodes} selectors=${d.selectors} trans=${d.transitions}`);
     return { deleted: d };
   } catch (e) {
     log().warn(`[ax] wipe_all failed: ${texte(e)}`);

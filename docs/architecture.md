@@ -2168,7 +2168,7 @@ s'appliquent comme pour un appel du modèle.
 | `{if: C, then?, else?}` | Condition ; seule (`{if: C}`, dans un `sel` par exemple) elle réussit si `C` est vraie. Avec `then`/`else`, une branche absente vaut succès. |
 | `{act, t?, v?, url?, expect?, confirm?, timeout_ms?}` | Geste : `goto`, `click`, `fill`, `select`, `press`, `check`, `uncheck`, `hover`, `wait`. `t` : cibles essayées dans l'ordre ; `v` : valeur ; `url` : chemin relatif ou URL de même origine (`goto`) ; `expect` : postcondition ; `confirm` : arrêt avant le geste. |
 | `{login: {creds, password_target?, username_target?, submit_target?, wait_for}}` | Délègue à `pw_login`. `creds` vaut exactement `{param}` d'un paramètre `creds` ; `wait_for` est **obligatoire** (il prouve que la connexion a réussi). |
-| `{retry: N, max: 1..3}` | Rejoue le sous-arbre `N` (au plus `max` essais au total) ; `click`, `press`, `confirm` et `login` y sont **refusés** à la validation (un rejeu agirait deux fois). |
+| `{retry: N, max: 1..3}` | Rejoue le sous-arbre `N` (au plus `max` essais au total) ; seuls `goto`, `wait`, `hover`, `wait_ms` et les conditions y sont admis : `fill` et `select` relancent des événements `input`/`change` (comme une frappe), `click`, `press`, `check`, `uncheck`, `confirm` et `login` agissent ; tous sont **refusés** sous un `retry`. |
 | `{wait_ms: n}` | Pause, 10 000 ms au plus. |
 
 Condition : `{url_path?, visible?, text?, not?}` (toutes les clés données doivent tenir) ;
@@ -2194,7 +2194,7 @@ Règles vérifiées **à l'enregistrement et à chaque exécution** :
 début, fin, `outcome`, `failed_path`, `fingerprint`, `duration_ms`), créées par `0029_procedures_ax` dans la base de
 l'hôte d'outils (celle de la mémoire AX). `owner` est le nom du compte, comme pour les anciens
 identifiants AX ; chaque `save` crée la **version suivante** (50 gardées par procédure, 200 procédures
-par compte) ; un numéro de version n'est **jamais réutilisé** (le suivant dépasse aussi les versions vues dans les exécutions) ; l'arbre est écrit en `JSON.stringify` (seul le TypeScript le relit). Le journal des
+par compte) ; un numéro de version **ne recule jamais** : table `ax_procedure_counters` (`owner`, `id`, `last_version`, migration `0030_compteur_procedures`), qui survit à la suppression de versions ou de la procédure entière (purgée seulement avec le compte) ; l'arbre est écrit en `JSON.stringify` (seul le TypeScript le relit). Le journal des
 exécutions ne contient ni valeur de paramètre ni cible : issue, nœud en échec, durée (200 exécutions
 gardées par procédure). La suppression d'un compte efface procédures et exécutions
 (`retirerProceduresDuCompte`, `packages/db` : dans la transaction du core, et par
@@ -2209,24 +2209,29 @@ gardées par procédure). La suppression d'un compte efface procédures et exéc
   toutes les 150 ms ; sans `expect`, le succès du geste suffit.
 - **Aucun rejeu d'un geste qui a peut-être agi** : un `click` ou un `press` en échec pour une autre raison
   qu'une cible absente (délai, service coupé, erreur du navigateur) arrête toute l'exécution
-  (`failed_at.reason` commence par `ambiguous`), sans essayer la cible suivante. Un `click`/`press` qui a réussi
-  mais dont l'`expect` échoue arrête de même toute l'exécution (`acted_unconfirmed`) : ni `sel` ni autre
-  alternative ne rejoue un geste qui a eu lieu. Les gestes idempotents (`goto`, `fill`, `select`, `check`,
-  `uncheck`, `hover`, `wait`) peuvent passer à la cible suivante ou être rejoués par un `retry`.
+  (`failed_at.reason` commence par `ambiguous`), sans essayer la cible suivante. Pour tout geste autre que
+  `goto`, `wait` et `hover` (donc aussi `fill`, `select`, `check`, `uncheck`), un geste réussi dont l'`expect` échoue
+  arrête de même toute l'exécution (`acted_unconfirmed`) : ni `sel` ni autre alternative n'enchaîne sur un geste
+  qui a eu lieu. Un geste dont la page rendue n'est plus sur l'origine de la procédure arrête l'exécution
+  (`origin_changed`). Les cibles ne sont résolues qu'en mode strict : une cible présente deux fois fait échouer le
+  geste (`ambiguous_target`, sans effet) ; ajouter `nth=K` ou une cible plus précise.
 - **Origine vérifiée par le service** : chaque geste porte l'origine attendue (clé interne `_expected_origin` de
   `pw_act`) ; le service la compare, sous le verrou de la session, à l'origine du frame de l'élément juste avant
-  d'agir et refuse (`origin_mismatch`, rien n'est fait) en cas d'écart (redirection différée comprise). Le moteur
+  d'agir, fige l'élément en poignée et agit **sur cette poignée** : un écart refuse (`origin_mismatch`), une
+  navigation entre-temps détache la poignée (`element_detached`) ; dans les deux cas rien n'est fait
+  (redirection différée comprise). Le moteur
   garde aussi l'adresse de la dernière réponse comme contrôle préalable.
 - `login` délègue à `pw_login` (session sécurisée, jeton à un usage) ; tout échec arrête l'exécution (un
-  usage a pu être consommé). `pw_login` sonde `wait_for` jusqu'à 8 s une fois la page changée et rend
-  `login_not_confirmed` (`ok: false`) s'il n'apparaît pas ; le moteur le revérifie après la connexion.
+  usage a pu être consommé). `pw_login` clique sans attendre la navigation puis sonde `wait_for` jusqu'à la fin du budget de
+  connexion (40 s, plafond du service 62 s) et rend `login_not_confirmed` (`ok: false`, `outcome: wait_for_missing`)
+  s'il n'apparaît pas ; le moteur le revérifie après la connexion.
 - Les gestes agissent sur l'origine de la procédure : sur une autre page ils échouent (`origin_mismatch`).
 - `confirm: true` : l'exécution s'arrête **avant** le geste avec `status: "needs_confirmation"`, `node_path`,
   `description` (toutes les cibles qui pourront être cliquées) et `next`. Après l'accord de l'utilisateur,
   `pw_run(…, version, confirmed=[node_path])` **reprend** à ce nœud sur la même session : ce qui le précède sur
   son chemin est tenu pour fait (la page est conservée). `confirmed` n'est honoré **que** pour l'attente
   enregistrée dans `ax_procedure_runs` (même compte, session, procédure, version, nœud, moins de 15 min, et
-  empreinte sha256 de l'arbre exact + chemin + version) ; sinon `confirmation_expired` et aucun geste. Toute
+  empreinte sha256 de l'arbre exact + chemin + version + page, origine et chemin, où l'exécution s'est arrêtée) ; sinon `confirmation_expired` et aucun geste. Toute
   nouvelle exécution sur la session annule (`superseded`) les attentes précédentes ; un accord vaut une exécution
   du nœud, jamais plus.
 - Budget : 60 tentatives de geste (cibles essayées comprises) et 200 s (attentes `expect`/conditions comprises, interruptibles par l'annulation ; pire cas sous les 330 s de l'appel : un geste de 30 s attend au plus 65 s côté client, plus 30 s d'`expect`) ; au-delà, `failed` avec

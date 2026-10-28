@@ -38,6 +38,7 @@ const SANS_EFFET: ReadonlySet<string> = new Set([
   "target_required",
   "option_required",
   "option_not_found",
+  "element_detached",
 ]);
 const REJOUABLES: ReadonlySet<string> = new Set([
   "goto",
@@ -48,6 +49,8 @@ const REJOUABLES: ReadonlySet<string> = new Set([
   "hover",
   "wait",
 ]);
+/** Seuls gestes sans effet de bord : après tout autre geste (fill et select relancent des événements input/change), un expect raté arrête tout. */
+const SANS_EFFET_DE_BORD: ReadonlySet<string> = new Set(["goto", "hover", "wait"]);
 
 export type StatutRun = "ok" | "failed" | "needs_confirmation" | "cancelled";
 
@@ -135,6 +138,24 @@ function echec(r: unknown): { code: string; message: string } | null {
   return null;
 }
 
+/** Adresse courante d'une session (`/sessions` ne prend pas le verrou de la session). */
+async function adresseSession(client: ClientNavigateur, sessionId: string): Promise<string> {
+  const r = await client.req("GET", "/sessions");
+  const l = estDict(r) && Array.isArray(r["sessions"]) ? (r["sessions"] as unknown[]) : [];
+  const x = l.find((e) => estDict(e) && e["session_id"] === sessionId);
+  return estDict(x) && typeof x["url"] === "string" ? x["url"] : await client.axGetCurrentUrl(sessionId);
+}
+
+/** Page de la session sans requête ni fragment (origine + chemin, adresse purgée par le service), `""` si illisible : liée à l'attente de confirmation. */
+export async function pageCourante(client: ClientNavigateur, sessionId: string): Promise<string> {
+  try {
+    const u = new URL(await adresseSession(client, sessionId));
+    return `${u.origin}${u.pathname}`;
+  } catch {
+    return "";
+  }
+}
+
 class Execution {
   readonly steps: Etape[] = [];
   echec: EchecRun | null = null;
@@ -182,14 +203,9 @@ class Execution {
     return Date.now() - this.t0;
   }
 
-  /** Adresse courante de la session (`/sessions` ne prend pas le verrou de la session). */
+  /** Adresse courante de la session. */
   async adresse(): Promise<string> {
-    const r = await this.client.req("GET", "/sessions");
-    const l = estDict(r) && Array.isArray(r["sessions"]) ? (r["sessions"] as unknown[]) : [];
-    const x = l.find((e) => estDict(e) && e["session_id"] === this.o.sessionId);
-    return estDict(x) && typeof x["url"] === "string"
-      ? x["url"]
-      : await this.client.axGetCurrentUrl(this.o.sessionId);
+    return adresseSession(this.client, this.o.sessionId);
   }
 
   async amorcer(): Promise<void> {
@@ -401,6 +417,15 @@ class Execution {
       const e = echec(r);
       if (e === null) {
         this.majUrl(r);
+        if (origineDe(this.url) !== this.p.origin) {
+          this.noter(path, n.act, cible || null, false, t, "origin_changed");
+          this.rate(
+            path,
+            `origin_changed: la page est maintenant sur « ${origineDe(this.url) || "aucune origine"} » (le geste a eu lieu) : arrêt`,
+            [cible],
+          );
+          return halte("failed");
+        }
         return this.apres(n, path, cible, t);
       }
       const raison = `${e.code}${e.message ? `: ${e.message}` : ""}`;
@@ -432,8 +457,8 @@ class Execution {
       if (r !== true) {
         const raison = r === false ? "expect_failed" : `expect_error: ${r}`;
         this.noter(path, n.act, cible || null, false, t, raison);
-        // Un clic ou une touche a agi : ni repli ni suite, aucun autre nœud ne doit croire que rien n'a eu lieu.
-        if (!REJOUABLES.has(n.act)) {
+        // Le geste a agi : ni repli ni suite, aucun autre nœud ne doit croire que rien n'a eu lieu.
+        if (!SANS_EFFET_DE_BORD.has(n.act)) {
           this.rate(
             path,
             `acted_unconfirmed: ${raison} (le geste a eu lieu, son effet n'est pas confirmé : arrêt)`,

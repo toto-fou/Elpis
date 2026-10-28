@@ -322,7 +322,7 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   [coffre](#identifiants-de-sites-creds) (`/creds`) comme d'habitude.
 - Une étape sensible peut demander votre **accord** avant d'agir (« Télécharger le relevé de
   mars ? ») ; l'exécution reprend alors là où elle s'était arrêtée. Un accord vaut **une** exécution de
-  l'étape, valable 15 minutes sur la même session et pour la même version de la procédure : toute
+  l'étape, valable 15 minutes sur la même session, pour la même version de la procédure et tant que la page n'a pas changé : toute
   autre exécution, ou une procédure modifiée entre-temps, redemande l'accord.
 - Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête
   proprement, dit où et pourquoi, et l'assistant reprend la main. Un clic dont on ne sait pas s'il a

@@ -2821,8 +2821,9 @@ app.post('/login', getSession, async (req, res) => {
                 if (p.champs.password) await remplirChamp(p.champs.password, pv, { champ: 'password', timeout: p.timeout, delaiAvant: fin });
                 const observe = p.champs.password || p.champs.username;
                 const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
-                if (p.submit) await p.submit.click({ timeout: t });
-                else await observe.press('Enter', { timeout: t });
+                // Sans attendre la navigation : une page suivante lente est attendue par la boucle ci-dessous, bornée par `fin`.
+                if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
+                else await observe.press('Enter', { timeout: t, noWaitAfter: true });
                 let issue = 'no_change';
                 while (Date.now() < fin) {
                     if (navigue || nouvelles.length) { issue = 'navigated'; break; }
@@ -2834,7 +2835,7 @@ app.post('/login', getSession, async (req, res) => {
                 if (issue !== 'wait_for' && issue !== 'no_change') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
                 // wait_for donné : une navigation ou un champ vidé ne suffisent pas, la cible d'arrivée doit apparaître (sinon identifiants refusés).
                 if (p.cw && !nouvelles.length && (issue === 'navigated' || issue === 'field_gone')) {
-                    const limite = Math.min(fin, Date.now() + 8000);
+                    const limite = fin;
                     let vu = false;
                     while (!vu && Date.now() < limite) {
                         vu = (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), Math.max(300, Math.min(2000, limite - Date.now()))).catch(() => 0)) > 0;
@@ -2844,7 +2845,7 @@ app.post('/login', getSession, async (req, res) => {
                 }
                 // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
                 if (issue !== 'wait_for' && (s._blocages > blocages0 || /^chrome-error:/.test(page.url()))) issue = 'blocked';
-                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked' && issue !== 'wait_for_missing', status: 'submitted', outcome: issue, navigated: issue === 'navigated', ...(nouvelles.length ? { opened_tab: true } : {}) } };
+                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked' && issue !== 'wait_for_missing', status: 'submitted', outcome: issue, navigated: issue === 'navigated' || navigue, ...(nouvelles.length ? { opened_tab: true } : {}) } };
                 if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
                 if (issue === 'wait_for_missing') sortie.corps = { ...sortie.corps, code: 'login_not_confirmed', hint: "La page a changé mais la cible wait_for n'est pas apparue (identifiants refusés, étape supplémentaire…) : regardez la page." };
                 if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET, autre origine ou adresse interdite par la politique du navigateur) : cette page ne permet pas une connexion sûre." };
@@ -3053,10 +3054,17 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
         }
 
-        // Origine attendue (moteur de procédures) : vérifiée sous le verrou, sur le frame de l'élément, juste avant d'agir ; rien n'est fait en cas d'écart.
+        // Origine attendue (moteur de procédures) : vérifiée sous le verrou sur le document de l'élément, qui est ensuite figé en poignée : le geste vise CE nœud (une navigation entre-temps le détache, rien n'est fait).
+        let poigneeFigee = false;
         if (typeof req.body.expected_origin === 'string' && req.body.expected_origin) {
             let origine = '';
-            try { origine = officialLocator ? await avecDelai(officialLocator.evaluate(() => location.origin), 3000) : new URL(page.url()).origin; } catch (_) { origine = ''; }
+            try {
+                if (officialLocator) {
+                    const h = await officialLocator.elementHandle({ timeout: Math.min(timeout, 8000) });
+                    origine = await avecDelai(h.evaluate(() => location.origin), 3000);
+                    if (origine === req.body.expected_origin) { officialLocator = h; poigneeFigee = true; }
+                } else origine = new URL(page.url()).origin;
+            } catch (_) { origine = ''; }
             if (origine !== req.body.expected_origin)
                 return res.status(409).json({ error: `La page n'est pas sur l'origine attendue (${req.body.expected_origin}) : aucun geste n'a été fait.`, code: 'origin_mismatch', fix: 'Ouvrez le site de la procédure avant de la rejouer.' });
         }
@@ -3243,6 +3251,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     ancestors: ancestors,
                 });
             } catch (e) {
+                if (poigneeFigee && /not attached|detached/i.test(String(e && e.message)))
+                    return res.status(409).json({ error: "L'élément a quitté la page avant le geste : aucun geste n'a été fait.", code: 'element_detached', fix: 'Rejouez la procédure depuis une page stable.' });
                 // ── REPLI sur l'échelle « smart » ──────────────────────────
                 // Un locator officiel qui échoue renvoyait un 500 sec. Or
                 // l'échelle smartResolveLocator sait faire ce que l'API

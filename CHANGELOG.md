@@ -21,8 +21,12 @@ selon [SemVer](https://semver.org/lang/fr/).
   Un clic ou une touche qui a agi n'est jamais rejoué (`retry`, `click`, `press`, `confirm` et `login`
   incompatibles), `confirmed` ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
   l'origine est vérifiée par le service juste avant chaque geste, `wait_for` est obligatoire dans `login`.
-- **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît (jusqu'à 8 s après le
-  changement de page) ; sinon `login_not_confirmed`.
+- **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
+  (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
+  lente ne donne plus `login_timeout`).
+- **Procédures** : le geste agit sur une poignée figée après contrôle de l'origine (redirection différée sans
+  effet), `fill`/`select`/`check`/`uncheck` ne sont plus rejouables (`retry` n'admet que `goto`, `wait`, `hover`),
+  l'accord est lié à la page d'arrêt, le compteur de versions ne recule jamais.
 
 ### Sécurité
 

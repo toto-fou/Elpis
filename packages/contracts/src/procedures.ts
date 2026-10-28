@@ -95,8 +95,8 @@ export function refusCible(t: string): string | null {
       utile += 1;
       const valeur = morceau.slice(i + 1).trim();
       if (!valeur) return `${cle}= vide`;
-      if (/^(css|xpath|ref)\s*[=:]/iu.test(valeur) || valeur.startsWith("//") || /^[#.][\w-]+$/u.test(valeur))
-        return `${cle}= : la valeur ressemble à un sélecteur CSS/XPath ou à une référence, refusée`;
+      if (/^(css|xpath|ref)\s*[=:]/iu.test(valeur) || valeur.startsWith("//"))
+        return `${cle}= : la valeur commence par css=, xpath=, ref= ou // : refusée`;
     }
   }
   return utile > 0 ? null : "cible sans critère (role, name, text, label…)";
@@ -417,7 +417,7 @@ function profondeurBrute(v: unknown): number {
   return max;
 }
 
-/** Gestes à effet unique : refusés sous un `retry` (un rejeu agirait deux fois) ; fill, select, check, uncheck, hover, goto et wait sont idempotents. */
+/** Sous un `retry` seuls goto, wait, hover, wait_ms et les conditions sont admis : tout autre geste (fill et select relancent des événements input/change, un clic ou une touche agit) serait rejoué. */
 function sousRetryInterdit(racine: Noeud): string[] {
   const erreurs: string[] = [];
   const pile: [Noeud, string, boolean][] = [[racine, "0", false]];
@@ -426,9 +426,9 @@ function sousRetryInterdit(racine: Noeud): string[] {
     if (dedans) {
       if ("login" in n)
         erreurs.push(`${chemin} : login interdit sous un retry (un usage du jeton serait rejoué)`);
-      else if ("act" in n && (n.confirm === true || n.act === "click" || n.act === "press"))
+      else if ("act" in n && (n.confirm === true || !["goto", "wait", "hover"].includes(n.act)))
         erreurs.push(
-          `${chemin} : ${n.confirm === true ? "confirm" : n.act} interdit sous un retry (le geste serait rejoué)`,
+          `${chemin} : ${n.confirm === true ? "confirm" : n.act} interdit sous un retry (seuls goto, wait, hover et les conditions sont rejouables)`,
         );
     }
     for (const [suffixe, f] of fils(n)) pile.push([f, `${chemin}.${suffixe}`, dedans || "retry" in n]);

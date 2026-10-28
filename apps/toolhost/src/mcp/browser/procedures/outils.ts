@@ -12,7 +12,7 @@ import type { ContexteAppel } from "@elpis/outils-mcp";
 import { ouvrirAppel } from "../appel";
 import type { ServicesBrowser } from "../appel";
 import { jetonSeul } from "../creds";
-import { executer } from "./moteur";
+import { executer, pageCourante } from "./moteur";
 import {
   annulerAttentes,
   attenteEnCours,
@@ -136,12 +136,17 @@ export function pwRun(s: ServicesBrowser) {
           attente === null ||
           !demandes.includes(attente) ||
           !confirmable ||
-          !(await reprendre(ax, { ...ref, texte: brut.texte, chemin: attente }))
+          !(await reprendre(ax, {
+            ...ref,
+            texte: brut.texte,
+            chemin: attente,
+            page: await pageCourante(client, sessionId),
+          }))
         )
           return errPw("confirmation_expired", "", {
             message:
-              "no pending confirmation matches (expired, other session, other version, or the tree changed): nothing was done",
-            fix: "run the procedure again from the start; it will stop at the node that needs the user's agreement",
+              "no pending confirmation matches (expired, other session, other version, the tree changed, or the page is not the one where the run stopped): nothing was done by this call. The steps BEFORE the confirm node already ran in the earlier call",
+            fix: "inspect the page first (pw_page); do not blindly replay the procedure from the start, its earlier steps already took effect. If the user still agrees, rerun it only when repeating those steps is safe",
           });
         confirmes = [attente];
       }
@@ -169,7 +174,7 @@ export function pwRun(s: ServicesBrowser) {
         noeudEnEchec: r.failed_at?.path ?? r.node_path ?? null,
         dureeMs: r.duration_ms,
         ...(r.status === "needs_confirmation" && r.node_path !== undefined
-          ? { empreinte: empreinte(brut.texte, r.node_path, version) }
+          ? { empreinte: empreinte(brut.texte, r.node_path, version, await pageCourante(client, sessionId)) }
           : {}),
       }).catch((e: unknown) => s.journal.warn(`[procedures] journal d'exécution : ${messageErreur(e)}`));
       return {

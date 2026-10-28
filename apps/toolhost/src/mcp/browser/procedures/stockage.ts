@@ -27,7 +27,7 @@ export type ResultatSauvegarde =
 
 const maintenant = (): number => Date.now() / 1000;
 
-/** Nouvelle version (dernière + 1) de la procédure du compte ; arbre écrit en JSON stable (l'ordre des clés est celui du schéma). */
+/** Nouvelle version de la procédure du compte (compteur jamais décroissant, versions gardées) ; arbre écrit en JSON stable (l'ordre des clés est celui du schéma). */
 export async function sauvegarder(base: Base, owner: string, p: Procedure): Promise<ResultatSauvegarde> {
   const texte = JSON.stringify(p);
   const octets = Buffer.byteLength(texte, "utf8");
@@ -43,7 +43,11 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
       [owner, p.id],
     );
     const derniere = Number(ligne?.v ?? 0);
-    // Numéro jamais réutilisé : les versions déjà exécutées comptent aussi (une attente de confirmation ne doit pas retomber sur un autre arbre).
+    // Compteur par (compte, procédure) qui ne recule jamais, même après suppression de versions ou de la procédure entière.
+    const compteur = await x.get<{ v: number | null }>(
+      "SELECT last_version AS v FROM ax_procedure_counters WHERE owner=? AND id=?",
+      [owner, p.id],
+    );
     const vue = await x.get<{ v: number | null }>(
       "SELECT MAX(version) AS v FROM ax_procedure_runs WHERE owner=? AND procedure_id=?",
       [owner, p.id],
@@ -60,7 +64,11 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
           message: `${QUOTAS.procedures} procédures au plus par compte`,
         } as const;
     }
-    const version = Math.max(derniere, Number(vue?.v ?? 0)) + 1;
+    const version = Math.max(derniere, Number(vue?.v ?? 0), Number(compteur?.v ?? 0)) + 1;
+    await x.run(
+      "INSERT INTO ax_procedure_counters (owner, id, last_version) VALUES (?, ?, ?) ON CONFLICT (owner, id) DO UPDATE SET last_version = excluded.last_version",
+      [owner, p.id, version],
+    );
     const t = maintenant();
     await x.run(
       "INSERT INTO ax_procedures (owner, id, version, origin, description, tree_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -106,9 +114,9 @@ export async function lire(base: Base, owner: string, id: string, version = 0): 
   }
 }
 
-/** Empreinte d'une attente de confirmation : arbre exact, chemin du nœud et version. */
-export function empreinte(texte: string, chemin: string, version: number): string {
-  return createHash("sha256").update(`${texte}\n${chemin}\n${version}`, "utf8").digest("hex");
+/** Empreinte d'une attente de confirmation : arbre exact, chemin du nœud, version et page (origine + chemin, purgée) où l'exécution s'est arrêtée. */
+export function empreinte(texte: string, chemin: string, version: number, page: string): string {
+  return createHash("sha256").update(`${texte}\n${chemin}\n${version}\n${page}`, "utf8").digest("hex");
 }
 
 /** Dernière version de chaque procédure du compte, filtrée par origine exacte si donnée. */
@@ -209,7 +217,7 @@ export async function annulerAttentes(base: Base, owner: string, sessionId: stri
   );
 }
 
-/** Consomme l'attente de confirmation de la session si elle porte sur cette procédure, cette version, ce chemin et cet arbre (empreinte) et n'a pas expiré. */
+/** Consomme l'attente de confirmation de la session si elle porte sur cette procédure, cette version, ce chemin et cet arbre et cette page (empreinte) et n'a pas expiré. */
 export async function reprendre(
   base: Base,
   o: {
@@ -219,6 +227,7 @@ export async function reprendre(
     sessionId: string;
     texte: string;
     chemin: string;
+    page: string;
   },
 ): Promise<boolean> {
   return base.ecriture(async (x) => {
@@ -231,7 +240,7 @@ export async function reprendre(
     const valide =
       l !== undefined &&
       l.failed_path === o.chemin &&
-      l.fingerprint === empreinte(o.texte, o.chemin, o.version);
+      l.fingerprint === empreinte(o.texte, o.chemin, o.version, o.page);
     if (valide) await x.run("UPDATE ax_procedure_runs SET outcome='confirmed' WHERE id=?", [l.id]);
     return valide;
   });

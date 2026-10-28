@@ -241,10 +241,16 @@ export function pwAct(s: ServicesBrowser) {
     if (typeof a["_expected_origin"] === "string" && a["_expected_origin"])
       corps["expected_origin"] = a["_expected_origin"];
     if (a["_sans_repli"] === true) corps["strict"] = true;
-    const delaiHttp =
-      typeof a["_timeout_ms"] === "number"
-        ? Math.max(client.delaiS, (2 * a["_timeout_ms"]) / 1000 + 5)
-        : client.delaiS;
+    // Délai client d'un appel du moteur : attente de présence + geste (8 s par défaut côté service) + marge ; le chemin du modèle garde le délai commun.
+    const interne = typeof a["_timeout_ms"] === "number" || typeof a["_presence_ms"] === "number";
+    const geste8 = typeof a["_timeout_ms"] === "number" ? a["_timeout_ms"] : 8000;
+    const presence8 =
+      typeof a["_presence_ms"] === "number"
+        ? a["_presence_ms"]
+        : typeof a["_timeout_ms"] === "number"
+          ? a["_timeout_ms"]
+          : 2000;
+    const delaiHttp = interne ? Math.max(client.delaiS, (presence8 + geste8) / 1000 + 5) : client.delaiS;
     if (geste === "upload") {
       const f = await fichiersUpload(a["files"], o.appel.username);
       if ("refus" in f) return f.refus;

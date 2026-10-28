@@ -108,6 +108,15 @@ export const TABLES: readonly Table[] = [
     indexes: [{"name": "idx_ax_procedures_origin", "cols": ["owner", "origin"]}],
   },
   {
+    name: "ax_procedure_counters",
+    cols: [
+      { name: "owner", type: "text", null: false },
+      { name: "id", type: "text", null: false },
+      { name: "last_version", type: "int", null: false },
+    ],
+    pk: ["owner", "id"],
+  },
+  {
     name: "ax_procedure_runs",
     cols: [
       { name: "id", type: "id" },

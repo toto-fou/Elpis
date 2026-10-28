@@ -378,17 +378,20 @@ export async function rendreReparation(base: Base, id: number): Promise<void> {
   ]);
 }
 
-/** Réparation enregistrée : issue `repaired`, nouvelle version et empreinte (arbre réparé + chemin + version + page) exigées à la reprise. */
+/** Réparation enregistrée : issue `repaired`, nouvelle version et empreinte (arbre réparé + chemin + version + page) exigées à la reprise ; faux si l'attente n'est plus réservée (annulée entre-temps : rien n'est ressuscité). */
 export async function terminerReparation(
   base: Base,
   id: number,
   o: { nouvelleVersion: number; empreinte: string },
-): Promise<void> {
-  await base.run("UPDATE ax_procedure_runs SET outcome='repaired', new_version=?, fingerprint=? WHERE id=?", [
-    o.nouvelleVersion,
-    o.empreinte,
-    id,
-  ]);
+): Promise<boolean> {
+  return (
+    (
+      await base.run(
+        "UPDATE ax_procedure_runs SET outcome='repaired', new_version=?, fingerprint=? WHERE id=? AND outcome='repairing'",
+        [o.nouvelleVersion, o.empreinte, id],
+      )
+    ).changes === 1
+  );
 }
 
 /** Consomme (une fois) la réparation de la session si elle vise cette version, ce chemin, cet arbre exact et cette page ; rend le chemin à reprendre. */

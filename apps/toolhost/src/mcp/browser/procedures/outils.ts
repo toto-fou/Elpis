@@ -315,6 +315,12 @@ export function pwProcedure(s: ServicesBrowser) {
           return errPw("repair_limit", "", {
             message: "at most 2 repairs per run and 1 per node: this failure is final",
           });
+        const derniere = await lireTexte(ax, owner, id, 0);
+        if (derniere !== undefined && derniere.version !== att.version)
+          return errPw("repair_outdated", "", {
+            message: `version ${att.version} is no longer the latest (${derniere.version})`,
+            fix: "run the latest version with pw_run: if it fails in a repairable way you get a new repair_id for it",
+          });
         const stocke = await lireTexte(ax, owner, id, att.version);
         let ancien: unknown = null;
         try {
@@ -341,10 +347,17 @@ export function pwProcedure(s: ServicesBrowser) {
             await rendreReparation(ax, att.id);
             return errPw(sv.code, "", { message: sv.message });
           }
-          await terminerReparation(ax, att.id, {
+          const fin = await terminerReparation(ax, att.id, {
             nouvelleVersion: sv.version,
             empreinte: empreinte(sv.texte, att.chemin, sv.version, att.page),
           });
+          if (!fin) {
+            // L'attente a été annulée pendant l'enregistrement : la version qui vient d'être écrite est retirée.
+            await supprimer(ax, owner, id, sv.version).catch(() => 0);
+            return errPw("repair_expired", "", {
+              message: "the repair was superseded by another run while being saved; nothing was kept",
+            });
+          }
           return {
             ok: true,
             action,

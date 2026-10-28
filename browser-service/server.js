@@ -2720,7 +2720,7 @@ async function candidatsLogin(req, t) {
     const c = await cibleDepuisParams(req.session.page, params, req.sessionId, NOT_FOUND_GRACE_MS);
     if (!c) throw erreurSecret('login_target_not_found', 'Cible introuvable.', 404);
     const nth = Number.isInteger(t.nth) && t.nth >= 0 && !String(params.ref || '').includes('#') ? t.nth : null;
-    return { candidats: c.liste || c.loc, nth };
+    return { candidats: c.liste || c.loc, nth, params };
 }
 
 async function libererLogin(p) {
@@ -2924,7 +2924,11 @@ app.post('/login', getSession, async (req, res) => {
                             let memeOrigine = false;
                             try { memeOrigine = new URL(page.url()).origin === origineJeton; } catch (_) {}
                             // Les cibles de l'appel, re-résolues dans le nouveau document (un autre formulaire « mot de passe » ne compte pas) ; l'identifiant, s'il était fourni, doit aussi être revenu.
-                            const revu = async (c) => (await avecDelai(c.candidats.filter({ visible: true }).count(), 1000).catch(() => 0)) > 0;
+                            // Résolution EXACTE (nom ou libellé entier) : « Mot de passe » ne doit pas retrouver « Nouveau mot de passe ».
+                            const revu = async (c) => {
+                                const exacte = c.params && !c.params.ref ? resolveOfficialLocator(page, { ...c.params, exact: true }) : c.candidats;
+                                return (await avecDelai(exacte.filter({ visible: true }).count(), 1000).catch(() => 0)) > 0;
+                            };
                             const nb = memeOrigine && (await revu(p.cibles.password)) && (!p.cibles.username || (await revu(p.cibles.username))) ? 1 : 0;
                             if (nb > 0) { mdpDepuis = mdpDepuis || Date.now(); if (Date.now() - mdpDepuis >= 1500) break; } else mdpDepuis = 0;
                         }
@@ -4534,7 +4538,9 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
             try { await page.screenshot({ path: path.join(SCREENSHOT_DIR, `smart_${sid}.png`) }); } catch (e) {}
         }
 
-        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow }) => {
+        // `no_values=true` (instantané de réparation) : aucun nom ni texte tiré de la valeur d'un champ, comme en session sécurisée.
+        const sansValeur = req.query.no_values === 'true';
+        const collectFn = ({ level, viewportOnly, maxItems, pierceShadow, sansValeur }) => {
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -4732,7 +4738,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (t && t.length <= 120) return t.substring(0, 80);
                     }
                     return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || '') + '').trim().substring(0, 80);
+                             || el.getAttribute('alt') || ((el.type === 'password' || (sansValeur || window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || '') + '').trim().substring(0, 80);
                 } catch (e) { return ''; }
             }
 
@@ -4891,7 +4897,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || ((el.type === 'password' || (sansValeur || window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4945,7 +4951,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value && !(el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret')))) item.value = el.value.substring(0, 100);
+                    if (el.value && !(el.type === 'password' || (sansValeur || window.__elpisSecure || el.hasAttribute('data-elpis-secret')))) item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4993,7 +4999,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: (f.type === 'password' || (window.__elpisSecure || f.hasAttribute('data-elpis-secret'))) ? undefined : f.value?.substring(0, 100), label: (() => {
+                    value: (f.type === 'password' || (sansValeur || window.__elpisSecure || f.hasAttribute('data-elpis-secret'))) ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -5070,7 +5076,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                      ...(shadow.length ? { shadow } : {}) };
         };
 
-        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow });
+        const data = await page.evaluate(collectFn, { level, viewportOnly, maxItems, pierceShadow, sansValeur });
 
         // ── Contenu des iframes ───────────────────────────────────────────
         // page.evaluate ne s'exécute QUE dans la frame principale : tout ce qui

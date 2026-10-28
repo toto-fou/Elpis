@@ -69,6 +69,15 @@ export interface EchecRun {
   repairable?: boolean;
   /** Codes des cibles essayées, dans l'ordre. */
   codes?: string[];
+  /** Gestes déjà joués dans cette exécution (ou reprise), du plus ancien au plus récent. */
+  played?: GestePasse[];
+}
+export interface GestePasse {
+  path: string;
+  act: string;
+  target_used: string | null;
+  /** Un `expect` a confirmé l'effet du geste. */
+  expect_confirmed: boolean;
 }
 export interface ResultatRun {
   status: StatutRun;
@@ -174,6 +183,9 @@ class Execution {
   private readonly abandon: Promise<never>;
   private readonly arreter: () => void;
   private annule = false;
+  private readonly joues: GestePasse[] = [];
+  /** Un geste à effet (click, press, fill, select, check, uncheck) a réussi sans `expect` : plus rien n'est réparable ensuite. */
+  private effetSansExpect = false;
   private readonly confirmesFaits = new Set<string>();
   private readonly act: (a: Dict, c: ContexteAppel, b: Dict) => Promise<unknown>;
   private readonly connexion: (a: Dict, c: ContexteAppel, b: Dict) => Promise<unknown>;
@@ -284,7 +296,14 @@ class Execution {
     reparable = false,
     codes: string[] = [],
   ): void {
-    this.echec = { path, reason, tried_targets: tried, repairable: reparable, codes };
+    this.echec = {
+      path,
+      reason,
+      tried_targets: tried,
+      repairable: reparable && !this.effetSansExpect,
+      codes,
+      played: this.joues.slice(-20),
+    };
   }
 
   /** Arrêt avant un geste : annulation de l'appel ou budget épuisé. */
@@ -493,6 +512,13 @@ class Execution {
       }
     }
     this.noter(path, n.act, cible || null, true, t);
+    this.joues.push({
+      path,
+      act: n.act,
+      target_used: cible || null,
+      expect_confirmed: n.expect !== undefined,
+    });
+    if (!SANS_EFFET_DE_BORD.has(n.act) && n.expect === undefined) this.effetSansExpect = true;
     return OK;
   }
 

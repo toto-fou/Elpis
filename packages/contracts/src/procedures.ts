@@ -508,30 +508,60 @@ export function remplacerNoeud(racine: Noeud, chemin: string, nouveau: Noeud): N
   return aller(racine, segments);
 }
 
-const urlsGoto = (n: Noeud): string[] => {
-  const sortie: string[] = [];
-  for (const [x] of parcourir(n))
-    if ("act" in x && x.act === "goto" && x.url !== undefined) sortie.push(chemin(x.url));
-  return sortie;
-};
-
-/** Chemin d'une URL de goto (requête et ancre retirées, origine retirée) : unité de comparaison de la règle des goto. */
-function chemin(url: string): string {
-  const sansOrigine = url.replace(/^https?:\/\/[^/?#]+/u, "");
-  return sansOrigine.split(/[?#]/u)[0] ?? "";
+/** URL d'un goto sans origine ni ancre (chemin + requête à l'identique) : unité de comparaison des goto d'une réparation. */
+function urlComplete(url: string): string {
+  return (url.replace(/^https?:\/\/[^/?#]+/u, "").split("#")[0] ?? "").trim();
 }
 
-const confirmes = (n: Noeud): number =>
-  [...parcourir(n)].filter(([x]) => "act" in x && x.confirm === true).length;
+const cheminDe = (url: string): string => urlComplete(url).split("?")[0] ?? "";
+const nomsRequete = (url: string): string =>
+  (urlComplete(url).split("?")[1] ?? "")
+    .split("&")
+    .map((x) => x.split("=")[0] ?? "")
+    .filter((x) => x !== "")
+    .sort()
+    .join(",");
+
+const EFFETS: ReadonlySet<string> = new Set(["click", "press", "fill", "select", "check", "uncheck"]);
+const actes = (n: Noeud): Act[] => [...parcourir(n)].flatMap(([x]) => ("act" in x ? [x] : []));
 const logins = (n: Noeud): string[] =>
   [...parcourir(n)].filter(([x]) => "login" in x).map(([x]) => JSON.stringify(x));
+const notesDe = (n: Noeud): Set<string> =>
+  new Set(
+    [...parcourir(n)].flatMap(([x]) =>
+      (x as { note?: string }).note ? [(x as { note?: string }).note as string] : [],
+    ),
+  );
+
+/** Copie du nœud sans les `note` absentes de l'ancien sous-arbre : une note écrite par une réparation n'est jamais conservée (donnée non fiable relue plus tard comme intention). */
+function sansNotesNouvelles(n: Noeud, permises: Set<string>): Noeud {
+  const nettoyer = (x: Noeud): Noeud => {
+    const { note, ...reste } = x as Noeud & { note?: string };
+    const garde = note !== undefined && permises.has(note) ? { note } : {};
+    const y = { ...reste, ...garde } as Noeud;
+    if ("seq" in y) return { ...y, seq: y.seq.map(nettoyer) };
+    if ("sel" in y) return { ...y, sel: y.sel.map(nettoyer) };
+    if ("if" in y)
+      return {
+        ...y,
+        ...(y.then !== undefined ? { then: nettoyer(y.then) } : {}),
+        ...(y.else !== undefined ? { else: nettoyer(y.else) } : {}),
+      };
+    if ("retry" in y) return { ...y, retry: nettoyer(y.retry) };
+    return y;
+  };
+  return nettoyer(n);
+}
 
 export type ResultatReparation =
   { ok: true; procedure: Procedure; chemin: string } | { ok: false; erreurs: string[] };
 
 /**
- * Remplace le nœud au chemin par `nouveau` et valide le tout (schéma, limites, règles) avec les règles de réparation : même origine et mêmes paramètres, aucun login nouveau,
- * aucun confirm retiré ni geste à effet sorti de son confirm, goto seulement vers un chemin déjà présent dans l'arbre (sauf si le nœud remplacé est lui-même un goto), nœud borné.
+ * Remplace le nœud au chemin par `nouveau` et valide le tout (schéma, limites) avec les règles de réparation :
+ * (a) chaque geste sous `confirm` du sous-arbre remplacé a un correspondant (même `act`, `confirm: true`, même URL complète pour un goto) ;
+ * (b) tout geste à effet ou goto nouveau (sans correspondant de même `act` dans l'ancien sous-arbre) porte `confirm: true` ;
+ * (c) un goto neuf ne peut être qu'une URL déjà présente à l'identique (requête comprise) dans un goto de l'arbre, sauf si le nœud remplacé est lui-même un goto : même chemin et mêmes noms de paramètres de requête ;
+ * (d) un `retry` neuf n'entoure que wait, wait_ms, hover et des conditions ; aucun login nouveau ; même origine et mêmes paramètres ; nœud borné ; notes nouvelles écartées.
  */
 export function verifierReparation(
   ancienne: Procedure,
@@ -554,10 +584,10 @@ export function verifierReparation(
       ok: false,
       erreurs: r.error.issues.slice(0, 10).map((i) => `node.${i.path.join(".")} : ${i.message}`),
     };
-  const noeud = r.data;
   const ancien = noeudA(ancienne.root, chemin0);
   if (ancien === undefined)
     return { ok: false, erreurs: [`le chemin ${chemin0} n'existe plus dans cette version`] };
+  const noeud = sansNotesNouvelles(r.data, notesDe(ancien));
   const erreurs: string[] = [];
   const m = mesurer(noeud);
   if (m.noeuds > LIMITES_PROCEDURE.noeudsReparation)
@@ -567,19 +597,74 @@ export function verifierReparation(
   const anciensLogins = new Set(logins(ancien));
   for (const l of logins(noeud))
     if (!anciensLogins.has(l)) erreurs.push("aucun login nouveau ou modifié dans une réparation");
-  if (confirmes(noeud) < confirmes(ancien)) erreurs.push("une réparation ne peut pas retirer un confirm");
-  if (confirmes(ancien) > 0)
-    for (const [x] of parcourir(noeud))
-      if ("act" in x && !["goto", "hover", "wait"].includes(x.act) && x.confirm !== true)
-        erreurs.push(`le geste ${x.act} remplace un geste sous confirm : il doit garder confirm: true`);
-  const ancienEstGoto = "act" in ancien && ancien.act === "goto";
-  if (!ancienEstGoto) {
-    const permis = new Set(urlsGoto(ancienne.root));
-    for (const u of urlsGoto(noeud))
-      if (!permis.has(u))
-        erreurs.push(
-          `goto ${u} : chemin absent de l'arbre (autorisé seulement s'il y figure déjà, ou si le nœud remplacé est un goto)`,
-        );
+  const vieux = actes(ancien);
+  const neufs = actes(noeud);
+  const pris = new Set<Act>();
+  // (a) chaque geste confirmé de l'ancien sous-arbre garde un correspondant confirmé, au même endroit logique (même act, même URL complète pour un goto).
+  for (const o of vieux.filter((x) => x.confirm === true)) {
+    const c = neufs.find(
+      (x) =>
+        !pris.has(x) &&
+        x.act === o.act &&
+        x.confirm === true &&
+        (o.act !== "goto" || urlComplete(x.url ?? "") === urlComplete(o.url ?? "")),
+    );
+    if (c === undefined)
+      erreurs.push(
+        `le geste ${o.act}${o.act === "goto" ? ` ${o.url ?? ""}` : ""} était sous confirm : la réparation doit garder un ${o.act} identique avec confirm: true`,
+      );
+    else pris.add(c);
+  }
+  // (b) les autres gestes neufs : correspondant de même act dans l'ancien sous-arbre (même cible, puis même expect, puis le premier), sinon confirm obligatoire.
+  const restants = neufs.filter((x) => !pris.has(x));
+  const sansCorrespondant = new Set<Act>(restants);
+  const memeCible = (x: Act, y: Act): boolean => JSON.stringify(x.t ?? null) === JSON.stringify(y.t ?? null);
+  const memeExpect = (x: Act, y: Act): boolean =>
+    JSON.stringify(x.expect ?? null) === JSON.stringify(y.expect ?? null);
+  const passes: ((o: Act, x: Act) => boolean)[] = [
+    (o, x) => o.act === x.act && memeCible(o, x),
+    (o, x) => o.act === x.act && x.expect !== undefined && memeExpect(o, x),
+    (o, x) => o.act === x.act,
+  ];
+  const vieuxLibres = new Set(vieux.filter((x) => x.confirm !== true));
+  for (const accorde of passes)
+    for (const o of [...vieuxLibres]) {
+      const x = restants.find((y) => sansCorrespondant.has(y) && accorde(o, y));
+      if (x === undefined) continue;
+      sansCorrespondant.delete(x);
+      vieuxLibres.delete(o);
+    }
+  for (const x of sansCorrespondant)
+    if ((EFFETS.has(x.act) || x.act === "goto") && x.confirm !== true)
+      erreurs.push(
+        `le geste ${x.act}${x.act === "goto" ? ` ${x.url ?? ""}` : ""} est nouveau : il doit porter confirm: true`,
+      );
+  // (c) goto : URL déjà présente à l'identique dans l'arbre, sauf remplacement d'un goto (même chemin, mêmes noms de paramètres de requête).
+  const presentes = new Set(
+    actes(ancienne.root).flatMap((x) => (x.act === "goto" ? [urlComplete(x.url ?? "")] : [])),
+  );
+  const remplaceUnGoto = "act" in ancien && ancien.act === "goto";
+  for (const x of neufs.filter((y) => y.act === "goto")) {
+    const u = urlComplete(x.url ?? "");
+    const permis =
+      presentes.has(u) ||
+      (remplaceUnGoto &&
+        cheminDe(u) === cheminDe(ancien.url ?? "") &&
+        nomsRequete(u) === nomsRequete(ancien.url ?? ""));
+    if (!permis)
+      erreurs.push(
+        `goto ${u} : URL absente de l'arbre (permise seulement à l'identique, requête comprise, ou en remplacement d'un goto : même chemin et mêmes paramètres de requête)`,
+      );
+  }
+  // (d) retry neuf : seulement autour de wait, wait_ms, hover et conditions.
+  const anciensRetry = new Set(
+    [...parcourir(ancien)].flatMap(([x]) => ("retry" in x ? [JSON.stringify(x)] : [])),
+  );
+  for (const [x] of parcourir(noeud)) {
+    if (!("retry" in x) || anciensRetry.has(JSON.stringify(x))) continue;
+    for (const a of actes(x.retry))
+      if (!["wait", "hover"].includes(a.act))
+        erreurs.push(`retry nouveau : ${a.act} interdit dedans (seulement wait, hover et conditions)`);
   }
   const arbre = remplacerNoeud(ancienne.root, chemin0, noeud);
   if (arbre === null) return { ok: false, erreurs: [`le chemin ${chemin0} ne peut pas être remplacé`] };

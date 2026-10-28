@@ -2269,26 +2269,38 @@ façon **réparable**, c'est le modèle de la conversation (ou de la routine) qu
 
 - *Réparable* : l'échec est constaté **avant toute action** (`element_not_found`, `ambiguous_target`,
   `element_detached`, `option_not_found`, cible invalide après substitution) ou ne fait que lire (`expect` raté après
-  `goto`/`hover`/`wait`, `wait` expiré, `if` seul faux), et aucun geste n'a agi sans être confirmé. Les échecs
-  ambigus, `acted_unconfirmed`, `origin_changed`, `origin_mismatch`, `login_*` et les budgets ne le sont **pas**.
-- *Contexte* : `failed_at.repair` = `{repair_id, path, reason, intent, node, tried_targets, codes, page}`. `intent`
-  est le champ optionnel `note` du nœud (200 caractères), sinon celui du plus proche parent qui en porte un, sinon
-  la description de la procédure. `page` est un instantané **compact** (`untrusted: true`) : origine + chemin,
-  titre, au plus 40 candidats `{role, name, target}` (rôles interactifs avec nom accessible, cible DSL prête,
-  noms de 80 caractères au plus, 8 libellés d'options pour une liste), 4000 caractères en tout ; jamais de valeur de
-  champ, de texte libre ni de sélecteur, et expurgé des secrets résolus. Le contenu de page est une donnée non fiable.
+  `goto`/`hover`/`wait`, `wait` expiré, `if` seul faux) **et** aucun `click`, `press`, `fill`, `select`, `check` ni
+  `uncheck` de cette exécution (ou de cette reprise) n'a réussi sans qu'un `expect` en confirme l'effet : sinon la
+  réparation pourrait rejouer un geste qui a agi (le moteur le suit dans `Execution`, pas sur le seul nœud en échec).
+  Les échecs ambigus, `acted_unconfirmed`, `origin_changed`, `origin_mismatch`, `login_*` et les budgets ne le sont **pas**.
+- *Contexte* : `failed_at.repair` = `{repair_id, path, reason, intent, intent_untrusted, node, tried_targets, codes, played,
+  warning, page}`. `intent` est le champ optionnel `note` du nœud (200 caractères), sinon celui du plus proche parent qui
+  en porte un, sinon la description de la procédure ; `played` liste les gestes déjà joués dans l'exécution (chemin, `act`,
+  cible utilisée, `expect_confirmed`) : ils ont eu lieu et ne sont pas rejoués. `page` est un instantané **compact**
+  (`untrusted: true`) : origine + chemin, titre, au plus 40 candidats `{role, name, target}` (rôles interactifs avec nom
+  accessible, cible DSL prête, noms de 80 caractères au plus, 8 libellés d'options pour une liste), 4000 caractères en tout.
+  Il est demandé au service sans valeur (`no_values=true` : aucun nom ni texte tiré de la valeur d'un champ, comme en session
+  sécurisée) et les champs de saisie dont le nom serait leur texte sont écartés ; ni texte libre ni sélecteur ; expurgé des
+  secrets résolus. `intent`, notes et page sont des données non fiables.
 - *`repair_id`* : attente enregistrée comme la confirmation (`ax_procedure_runs`, issue `needs_repair`, jeton, page,
   exécution logique `chain`) : même compte, procédure, version et chemin, 15 minutes, **usage unique**, annulée
   (`superseded`) par toute autre exécution sur la session. Au plus **2 réparations par exécution logique** (suite de
   reprises) et **1 par nœud** ; au-delà `failed_at.repair_unavailable` et l'échec est final.
-- *`pw_procedure(action='repair', id, repair_id, node)`* : le nœud est validé comme un `save` **plus** : même
-  `origin` et mêmes paramètres (le remplacement ne touche que le sous-arbre au chemin), aucun `login` nouveau ou
-  modifié, aucun `confirm` retiré et tout geste qui était sous confirm y reste, **règle des `goto`** : un `goto` du
-  nœud de remplacement doit viser un chemin (requête et ancre exclues) déjà utilisé par un `goto` de l'arbre, sauf si
-  le nœud remplacé est lui-même un `goto` (il peut alors viser n'importe quel chemin de l'origine) ; nœud d'au plus 15
-  nœuds et 4 Ko. Un refus (`repair_refused`) laisse le `repair_id` valable. Une réparation valide enregistre la version
-  suivante (compteur) avec `parent_version` et `repaired_path` (`ax_procedures`, migration `0031_reparation_procedures`),
-  marque l'attente `repaired` et rend `{new_version, next}`.
+- *`pw_procedure(action='repair', id, repair_id, node)`* : seulement pour la **dernière** version (sinon
+  `repair_outdated`). Le nœud est validé comme un `save` **plus** ces règles (`verifierReparation`) :
+  (a) chaque geste sous `confirm` du sous-arbre remplacé garde un correspondant de même `act` avec `confirm: true` (et la
+  **même URL complète**, requête comprise, pour un `goto`) ; (b) tout `click`/`press`/`fill`/`select`/`check`/`uncheck` ou
+  `goto` **nouveau** (sans correspondant de même `act` dans l'ancien sous-arbre, appariés par cible, puis `expect`, puis
+  ordre) porte `confirm: true` — l'utilisateur valide chaque nouveau geste à effet à sa première exécution, ce `confirm`
+  restant dans la version jusqu'à un `save` explicite ; changer la cible du même geste (lien renommé) n'en demande pas ;
+  (c) une URL de `goto` nouvelle n'est permise que **à l'identique** (requête comprise, ancre ignorée) d'un `goto` de
+  l'arbre, ou, si le nœud remplacé est lui-même un `goto`, avec le même chemin et les mêmes **noms** de paramètres de
+  requête ; (d) un `retry` nouveau n'entoure que `wait`, `wait_ms`, `hover` et des conditions (jamais un `goto`) ; aucun
+  `login` nouveau ou modifié ; mêmes `origin` et paramètres ; nœud de 15 nœuds et 4 Ko au plus ; les `note` écrites par la
+  réparation ne sont pas conservées. Un refus (`repair_refused`) laisse le `repair_id` valable. Une réparation valide
+  enregistre la version suivante (compteur) avec `parent_version` et `repaired_path` (`ax_procedures`, migration
+  `0031_reparation_procedures`), marque l'attente `repaired` (seulement si elle est encore réservée : une attente annulée
+  entre-temps n'est pas ressuscitée et la version écrite est retirée) et rend `{new_version, next}`.
 - *Reprise* : `pw_run(…, version=new_version, resume=repair_id)` reprend **au chemin réparé** sans rejouer ce qui le
   précède, à condition d'être sur la même session, sur la même page (origine, chemin et requête triée) et avec
   l'arbre réparé exact (empreinte sha256) ; le `repair_id` est consommé une fois. Le modèle peut aussi relancer depuis

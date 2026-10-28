@@ -639,15 +639,19 @@ lire le mot de passe.
   sécurisée** (un navigateur dédié, avec son propre presse-papiers, jamais la session
   déjà ouverte ; si vous avez trop de sessions ouvertes, il doit en fermer une avant)
   puis appelle l'outil `pw_login`, qui remplit l'identifiant et le mot de passe, valide le
-  formulaire et **vide la page** en une seule opération, sans que l'assistant intervienne
+  formulaire et **remplace la page** (elle est rechargée à neuf : vos cookies de connexion sont
+  conservés, l'état tenu en mémoire seulement est perdu) en une seule opération, sans que l'assistant intervienne
   entre-temps. Pour un site en plusieurs étapes (identifiant puis mot de passe sur la
   page suivante), il fait un appel par étape, chacun comptant un usage du jeton.
   La session reste verrouillée jusqu'à sa fermeture : ni script (`eval`), ni simulation
   de réponses, ni interception, trace, HAR, vidéo, PDF, état sauvegardé, glisser-déposer
-  ni raccourcis de presse-papiers ; l'assistant n'y cible que par rôle, label, texte…
+  ni raccourcis de presse-papiers, d'annulation ou de rétablissement, ni clic du milieu ou de droite ;
+  l'assistant n'y cible que par rôle, label, texte…
   (jamais par sélecteur CSS ou XPath) ; la valeur d'un champ mot de passe n'est jamais
   lue et ces champs sont masqués sur les captures d'écran. Une session ordinaire refuse
-  toute connexion par jeton. Avec « Certificat non vérifié accepté », toute requête vers
+  toute connexion par jeton. Le site de confiance reçoit évidemment votre mot de passe, et un
+  identifiant que ce site affiche (« Bonjour alice ») reste lisible pour l'assistant ; le navigateur
+  de cette session tourne toujours sans fenêtre. Avec « Certificat non vérifié accepté », toute requête vers
   une autre origine que la vôtre est interrompue dans cette session.
 - Les entrées reprises de l'ancienne mémoire des sites sont marquées « à
   confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser. Changer

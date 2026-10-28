@@ -1971,12 +1971,22 @@ résolution du jeton par l'hôte (`POST /api/internal/creds/resolve`, un usage) 
 /login` : saisie de l'identifiant puis du mot de passe, soumission (clic sur
 `submit_target`, sinon Entrée dans le dernier champ), attente (navigation, disparition ou
 vidage du champ, ou `wait_for` sémantique, bornée à 40 s), puis, **quoi qu'il arrive**
-(succès, échec, délai, exception), vidage de tous les champs marqués de tous les frames de
-tous les onglets (`fill('')` de Playwright, monde utilitaire, événements `input`/`change`
-compris : un champ contrôlé se met à jour). Si un champ garde ou retrouve encore la valeur
-(la page l'a remise), l'onglet est remplacé par `about:blank` (`page_reset: true`). Le
-résultat est `{ok, outcome: navigated|field_gone|wait_for|no_change|blocked, url, title,
-fields_cleared, page_after}` : adresse et titre purgés, capture masquée, jamais un message
+(succès, échec, délai, exception), **remplacement des documents** qui ont reçu le secret : le
+navigateur identifie chaque document (frame et chargement, lus par le protocole du
+navigateur, non falsifiables) avant toute saisie ; après la soumission, quoi qu'il arrive
+(succès, échec, délai, exception), toute page dont un document noté existe encore est
+remplacée par une navigation GET (`about:blank`, puis la même adresse si elle est de
+l'origine du jeton et ne porte pas de secret ; jamais un rechargement, qui pourrait
+rejouer un POST), puis on vérifie qu'aucun ancien document ne subsiste (les cookies sont
+conservés, l'état de page tenu en mémoire est perdu). Échec fermé, borné par un budget
+dur (15 s) : si le remplacement échoue ou dépasse le budget, la page est fermée, puis, si
+cela échoue, la session et son Chromium dédié (`outcome: session_closed`). Pendant toute la
+connexion (saisie et remplacement) un drapeau de session fait répondre 409
+`login_in_progress` à toute autre requête de cette session (sauf `stop`), quels que soient le
+verrou de session et la déconnexion du client. Une page ouverte par la soumission
+(`target=_blank`) est un résultat de connexion (`opened_tab`). Le
+résultat est `{ok, outcome: navigated|field_gone|wait_for|no_change|blocked|session_closed, url, title,
+documents_replaced, page_after}` : adresse et titre purgés, capture masquée, jamais un message
 Playwright brut (codes propres). Un site en plusieurs étapes se fait en plusieurs appels
 (identifiant seul + soumission, puis mot de passe seul), chacun décomptant un usage.
 
@@ -1997,9 +2007,10 @@ tout appel qui ne vient pas du client de confiance (`trusted_meta`) ; chaque usa
 
 **Session sécurisée.** `pw_login` n'existe que dans une **session sécurisée**, décidée à
 l'ouverture : `pw_session(action='start', url=…, secure=true)` (ou `creds=`, qui l'impose).
-Elle a son **navigateur dédié** : un processus Chromium à part (presse-papiers, cache,
-cookies et état isolés des autres sessions et des autres comptes, cache avant/arrière et
-remplissage automatique désactivés), libéré à l'arrêt de la session. Jamais la session déjà
+Elle a son **navigateur dédié** : un processus Chromium à part, toujours sans fenêtre
+(presse-papiers, sélection primaire, cache, cookies et état isolés des autres sessions et des
+autres comptes ; cache avant/arrière désactivé), libéré à l'arrêt de la session. La politique de
+sécurité du site (`form-action`, `connect-src`) reste en vigueur (`bypassCSP: false`). Jamais la session déjà
 ouverte (que `start` réutilise sinon), jamais réutilisée par un `start` ordinaire ; si le
 quota de sessions du compte ou global est atteint, `start` échoue (`session_quota_reached`)
 au lieu de fermer une session (vérifié avant de lancer le navigateur et, côté hôte, avant de
@@ -2010,9 +2021,15 @@ avec le mot de passe) ouvre une session qui tolère les certificats non vérifi�
 du contexte (`context.route('**/*')`) **interrompt alors toute requête dont l'origine n'est
 pas exactement celle du jeton**, l'intranet auto-signé reste utilisable et rien ne part
 ailleurs ; chaque réponse porte `tls_verification: "disabled"`. Il n'y a plus de sonde de
-certificat. Le même point d'entrée interrompt, dans toute session sécurisée, une requête qui
-porte une valeur secrète (adresse ou corps, sous toutes ses formes) si ce n'est pas un POST
-vers l'origine des identifiants.
+certificat. Le même point d'entrée traite, dans toute session sécurisée, une requête qui
+porte une valeur secrète (adresse ou corps, sous toutes ses formes) : GET ou origine autre que
+celle des identifiants, elle est interrompue ; sinon elle est exécutée par le service
+(`route.fetch` sans suivre de redirection, avec les cookies et l'authentification du
+contexte), et une redirection 301/302/303/307/308 vers une autre origine que celle du jeton
+est interrompue (le navigateur ne voit pas les sauts d'une redirection : sans cela un 307
+renverrait le POST ailleurs) ; une redirection de même origine est rendue au navigateur, qui la
+suit. Les WebSockets ne sont routés qu'à partir de la première saisie : seuls ceux de
+l'origine du jeton passent, et toute trame de la page qui porte le secret est interrompue.
 
 Une garde unique (`getSession`) s'applique à chaque requête d'une session sécurisée :
 
@@ -2032,26 +2049,32 @@ Une garde unique (`getSession`) s'applique à chaque requête d'une session séc
   `by_xpath`, `filter_has`, `target_selector`, `tag`, `scope` (sauf `body`), `to` textuel, un
   `by_role` qui n'est pas un rôle simple, un `ref` mal formé. Le repli `selector` que
   l'hôte joint à une cible sémantique est retiré, jamais suivi ;
-- **gestes refusés** (`secure_session_gesture_refused`) : le glisser-déposer et les
-  raccourcis de presse-papiers (Contrôle ou Méta + a, c, x, v, Insertion ; Maj + Insertion ou
-  Suppr), dans `/action` comme dans les étapes de `/chain` ;
+- **gestes refusés** (`secure_session_gesture_refused`) : le glisser-déposer, les boutons
+  du milieu et de droite de la souris (`button`, `rclick`), et les raccourcis d'édition
+  (copier, couper, coller, tout sélectionner, annuler, rétablir : Contrôle ou Méta + a, c, x, v,
+  z, y, Insertion ; Maj + Insertion ou Suppr ; noms `Copy`, `Paste`, `Cut`, `Undo`, `Redo`), quelle
+  que soit la graphie de la touche (`KeyC`, `ControlOrMeta`, casse, blancs), dans `/action`
+  comme dans les étapes de `/chain` ;
 - **`nth`** : entier positif ou nul, sinon `invalid_nth` (hors session sécurisée, un `nth`
   invalide est traité comme absent) ;
-- **valeurs jamais lues** : un champ `input` qui est ou a été `type=password` (un script
-  d'initialisation le marque `data-elpis-secret`, même repassé en texte) ou qui a reçu un
-  identifiant ou un mot de passe n'a jamais sa valeur rendue (`inspect`, `smart_inspect`,
-  `observe`, `locator`…) ; `pw_expect value-equals|attr-equals` et `pw_wait
-  attribute_changes` y sont refusés (`value_masked`) ;
+- **valeurs jamais lues** : en session sécurisée aucune valeur de champ ni attribut `value` n'est
+  rendu (`inspect`, `smart_inspect`, `observe`, `locator`…), quel que soit le champ (drapeau
+  de page non modifiable posé par le script d'initialisation) ; `pw_expect value-equals`,
+  `attr-equals` sur `value` et `pw_wait` sur l'attribut `value` sont refusés (`value_masked`) ;
+  un champ `type=password` ou saisi par `pw_login` porte en plus `data-elpis-secret` ;
 - **captures masquées** : toute capture du contexte (automatique après chaque outil,
   `screenshot`, `element_screenshot`, `visual`, `observe` en mode `som`, échecs de chaîne)
   recouvre les champs marqués, **et** tout champ dont la valeur (lue côté Node, jamais
   injectée dans la page) contient un secret retenu, **et** tout texte qui en contient un
   (`getByText`), dans tous les frames ;
 - **script d'initialisation** (tous les frames, y compris `about:blank`) : annule copier,
-  couper, coller et `dragstart` sur un champ marqué ; vide les champs marqués à `pagehide` et
-  à la restauration (`pageshow`) ; annule la soumission d'un formulaire à champ marqué qui
+  couper et `dragstart` sur un champ marqué, et, dans tout le contexte, tout `paste` et tout `drop`
+  (presse-papiers, sélection primaire, bouton du milieu), les `beforeinput` d'annulation et de
+  rétablissement, et les clics du milieu ; vide les champs marqués à `pagehide` et à la
+  restauration (`pageshow`) ; annule la soumission d'un formulaire à champ marqué qui
   ferait un GET ou viserait une autre origine si la page ne l'a pas déjà traitée ;
-- **purge à la source** : adresse, titre et messages d'erreur sont purgés des valeurs
+- **purge à la source** : le texte lu par `pw_expect text-*` et `pw_wait` est purgé avant
+  comparaison, ainsi que adresse, titre et messages d'erreur des valeurs
   saisies (brute, URL, formulaire, HTML, JSON, base64) **avant** toute comparaison ou
   coupure : assertions `url-*`/`title-*`, filtre et journal de `/network` (corps jamais
   journalisés), `/sessions`, `/health`, `/list_tabs`, messages de `/chain`, champ `url`
@@ -2063,19 +2086,24 @@ de la valeur résolue (clés comprises) au profit de `⟦creds:JETON@ORIGINE⟧`
 passe résolus récemment pour le compte (40 min, mémoire du process). Seules les listes et
 objets simples sont parcourus. La mémoire AX n'apprend que site et chemin.
 
-Limites : pendant la saisie et la soumission (quelques secondes, sans le modèle) la page
-détient le secret : le site de l'origine du jeton le reçoit (c'est le but) et un script de ce
-site peut le lire ou le recopier ailleurs dans son propre domaine ; une page qui garde la
-valeur après le vidage est remplacée par `about:blank` ; une page qui réécrit le secret
-sous une autre forme (chiffrée, découpée) échappe à la purge ; un identifiant ou un mot de
-passe de moins de 3 caractères n'est pas purgé ; le marquage est un attribut que le script
-d'une page peut retirer (le vidage, le masque par valeur et la purge ne s'y fient pas) ; le
-champ de mot de passe d'un Shadow DOM fermé n'est pas marqué ; les WebSockets ne passent pas
-par la route qui interrompt le trafic ; une soumission GET *traitée* par le JavaScript de la
-page (`preventDefault`) n'est pas arrêtée ; une session tolérante (`allow_insecure_tls`) ne
-vérifie aucun certificat pour l'origine du jeton ; les fonctions retirées en session
+Limites : pendant la saisie et la soumission (jusqu'à 40 s, sans le modèle) la page de
+confiance détient le secret : le site de l'origine du jeton le reçoit (c'est le but) et un script
+de ce site peut le lire ou le recopier ailleurs dans son propre domaine, ou sous une autre
+forme (chiffrée, découpée) qui échappe à la purge ; un identifiant que le site affiche en retour
+reste lisible et devinable par `by_text` (seule la valeur exacte est purgée) ; un identifiant ou
+un mot de passe de moins de 3 caractères n'est pas purgé ; le remplacement des documents perd
+l'état de page tenu en mémoire seulement (les cookies sont conservés) ; le marquage est un
+attribut que le script d'une page peut retirer (le remplacement, le masque par valeur et la
+purge ne s'y fient pas) ; une soumission GET *traitée* par le JavaScript de la page
+(`preventDefault`) n'est pas arrêtée ; les WebSockets ouverts avant la première saisie ne
+sont pas routés (ils meurent avec le document remplacé) ; l'exécution d'une requête portant le
+secret par le service (`route.fetch`) ne passe pas par le relais filtrant (elle vise
+l'origine du jeton) ; une session tolérante (`allow_insecure_tls`) ne vérifie aucun
+certificat pour l'origine du jeton ; si le navigateur ne sait pas identifier les documents
+(moteur autre que Chromium), la connexion est refusée avant la saisie ; les fonctions retirées en session
 sécurisée (`pw_page eval`, `wait` et `element` par sélecteur CSS, `pw_mock`, `pw_recorder`,
-`pw_page pdf`, `pick`, glisser…) imposent de fermer la session pour s'en servir.
+`pw_page pdf`, `pick`, glisser, boutons du milieu et de droite, raccourcis d'édition…) imposent de
+fermer la session pour s'en servir.
 
 **Reprise de l'ancienne mémoire AX.** La migration `0027_coffre_identifiants`
 renomme `ax_credentials` en `ax_credentials_a_importer` ; au démarrage du core (main,

@@ -88,7 +88,8 @@ export function pwLogin(s: ServicesBrowser) {
         secret_origin: origine,
         timeout: 8000,
       },
-      timeout: Math.max(client.delaiS, 50),
+      // Budget de la saisie (40 s) + remplacement des documents (15 s) + marge.
+      timeout: Math.max(client.delaiS, 75),
     });
     const resultat = nettoyerResultat(brut, r.secrets);
     return nettoyerResultat(

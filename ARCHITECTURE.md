@@ -263,7 +263,7 @@ Les outils `pw_*` le demandent au core par le canal interne signé
 `browser-service` ne le saisit que par la **connexion atomique** `pw_login` (le modèle ne
 saisit jamais un secret par un geste), dans une **session sécurisée** (navigateur dédié,
 TLS strict, routes en liste blanche, cibles sémantiques), si le frame de l'élément est sur
-l'origine du jeton ; la page est vidée aussitôt après. Détail dans
+l'origine du jeton ; les documents qui ont reçu le secret sont remplacés aussitôt après. Détail dans
 [docs/architecture.md](docs/architecture.md) (« Coffre d'identifiants »).
 
 ## Invariants

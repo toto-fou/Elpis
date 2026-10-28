@@ -16,7 +16,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   avec le core contre la valeur, uniquement pour un champ dont le frame est sur l'origine
   du jeton. L'assistant ne saisit jamais un secret par un geste (`secret=` de `pw_act` et
   `pw_chain` est retiré) : `pw_login` pré-contrôle les champs sans valeur, résout le jeton,
-  remplit, valide, attend puis vide la page en une requête, sans rendre la main au modèle. Les résultats d'outils sont
+  remplit, valide, attend puis **remplace les documents** qui ont reçu le secret (navigation
+  GET, jamais un rechargement ; échec fermé : page puis session fermées) en une requête, sans rendre
+  la main au modèle ni servir d'autre requête de la session entre-temps. Les résultats d'outils sont
   nettoyés des valeurs résolues. `pw_login` n'existe que dans une **session
   sécurisée** (`pw_session(action='start', secure=true)`, ou `creds=`), décidée à
   l'ouverture : navigateur dédié (presse-papiers isolé), toujours neuf (erreur si le quota

@@ -24,7 +24,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import {
-    origineDe, erreurSecret, gardeSessionSecurisee, retenirValeurs, purgerValeurs, purgerTexte, contientSecret, requetePorteSecret,
+    origineDe, erreurSecret, gardeSessionSecurisee, retenirValeurs, purgerValeurs, purgerTexte, requetePorteSecret,
     initialisationSecurisee, securiserCaptures, choisirVisible, controlerChamp, verifierFormulaire, remplirChamp, MARQUE,
 } from './secret_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
@@ -611,12 +611,14 @@ function buildLaunchOptions(engine, headlessMode) {
 
 // Navigateur DÉDIÉ d'une session sécurisée : processus à part (presse-papiers, cache et état isolés des autres sessions et comptes),
 // sans cache avant/arrière ni remplissage automatique.
-async function lancerNavigateurDedie(headless) {
-    const headlessMode = FORCE_HEADLESS ? true : (headless !== false);
+async function lancerNavigateurDedie() {
+    // Toujours sans fenêtre : pas de presse-papiers ni de sélection primaire partagés avec un serveur d'affichage.
+    const headlessMode = true;
     const launcher = ENGINES[BROWSER_ENGINE] || chromium;
     const o = buildLaunchOptions(BROWSER_ENGINE, headlessMode);
     if (BROWSER_ENGINE === 'chromium') {
-        o.args = [...o.args, '--disable-features=BackForwardCache,AutofillServerCommunication,AutofillEnableAccountWalletStorage', '--disable-back-forward-cache', '--disable-sync'];
+        // Pas de `--disable-features` : le dernier de la ligne de commande écraserait la liste de Playwright.
+        o.args = [...o.args, '--disable-back-forward-cache', '--disable-sync'];
     }
     console.log(`[GLOBAL] Démarrage ${BROWSER_ENGINE} dédié (session sécurisée)`);
     return launcher.launch(o);
@@ -683,7 +685,7 @@ async function shadowDOMQuery(page, selector) {
                                 x: Math.round(rect.left + rect.width / 2),
                                 y: Math.round(rect.top + rect.height / 2),
                                 w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || '').trim().substring(0, 100),
+                                text: (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || '').trim().substring(0, 100),
                                 tag: el.tagName.toLowerCase(),
                             };
                         }
@@ -830,7 +832,7 @@ function decrireNoeud(el, { xpath = false } = {}) {
     if (['checkbox', 'radio', 'switch', 'menuitemcheckbox', 'menuitemradio'].includes(role)) {
         const aria = el.getAttribute('aria-checked');
         out.checked = caseNative ? (el.indeterminate ? 'mixed' : el.checked) : (aria === 'mixed' ? 'mixed' : aria === 'true');
-    } else if (champ && !el.hasAttribute('data-elpis-secret') && !['button', 'submit', 'reset', 'image', 'hidden', 'file', 'password'].includes(type)) {
+    } else if (champ && !(window.__elpisSecure || el.hasAttribute('data-elpis-secret')) && !['button', 'submit', 'reset', 'image', 'hidden', 'file', 'password'].includes(type)) {
         out.value = String(el.value || '').substring(0, 80);
     }
     if (el.disabled || el.getAttribute('aria-disabled') === 'true' || (el.closest && el.closest('fieldset:disabled'))) out.disabled = true;
@@ -1760,6 +1762,9 @@ async function getSession(req, res, next) {
     }
     req.session = session;
     req.sessionId = sid;
+    // Une connexion est en cours (saisie puis remplacement des documents) : aucune autre requête n'est servie avant sa fin, quel que soit le verrou.
+    if (session._connexionEnCours && !(req.route && req.route.path === '/stop'))
+        return res.status(409).json({ error: 'Connexion en cours : réessayez dans un instant.', code: 'login_in_progress', retryable: true });
     if (session.secure) {
         // Session sécurisée : garde centrale (routes et cibles), puis réponses purgées des valeurs saisies et marquées si le certificat n'est pas vérifié.
         const refus = gardeSessionSecurisee(req);
@@ -2453,7 +2458,7 @@ app.post('/start', async (req, res) => {
                 code: 'session_quota_reached',
                 fix: "Fermez une session avec pw_session(action='stop', session_id=…) (pw_session action='list' les montre), puis réessayez.",
             });
-        const browser = secure ? await lancerNavigateurDedie(headless) : await ensureBrowser(headless);
+        const browser = secure ? await lancerNavigateurDedie() : await ensureBrowser(headless);
         if (secure) _navDedie = browser;
         const sessionId = uuidv4();
 
@@ -2474,7 +2479,8 @@ app.post('/start', async (req, res) => {
             storageState,
             httpCredentials,
             permissions: ['geolocation'],
-            bypassCSP: true,
+            // Session sécurisée : la politique de sécurité du site (form-action, connect-src) reste en vigueur.
+            bypassCSP: !secure,
         };
         if (typeof touch === 'boolean') contextOpts.hasTouch = touch;
         // isMobile/hasTouch ne sont supportés que sur Chromium → on les retire
@@ -2555,19 +2561,46 @@ app.post('/start', async (req, res) => {
             securiserCaptures(context, page, sess);
             // Trafic sortant d'une session sécurisée : tolérance de certificat limitée à l'origine du jeton, et aucune valeur secrète dans une adresse,
             // ni dans une requête qui ne serait pas un POST vers l'origine de ses identifiants.
+            // WebSockets : routés seulement une fois qu'un secret a été saisi dans la session (le sélecteur est évalué à chaque ouverture ; avant, le trafic
+            // reste celui du navigateur, derrière le relais filtrant). Seuls ceux de l'origine du jeton passent, sans trame portant le secret.
+            await context.routeWebSocket((u) => sess._originesSecret.size > 0, (ws) => {
+                let o = '';
+                try { const u = new URL(ws.url()); o = `${u.protocol === 'wss:' ? 'https:' : 'http:'}//${u.host}`; } catch (e) { return ws.close(); }
+                if (!sess._originesSecret.has(o)) return ws.close({ code: 1008, reason: 'blocked' });
+                const serveur = ws.connectToServer();
+                ws.onMessage((m) => {
+                    const t = typeof m === 'string' ? m : Buffer.from(m).toString('latin1');
+                    if (requetePorteSecret(null, t, sess)) { ws.close({ code: 1008, reason: 'blocked' }); serveur.close(); return; }
+                    serveur.send(m);
+                });
+                serveur.onMessage((m) => ws.send(m));
+                ws.onClose((code, reason) => serveur.close({ code, reason }));
+                serveur.onClose((code, reason) => ws.close({ code, reason }));
+            });
             await context.route('**/*', async (route) => {
+                const rq = route.request();
+                let porteSecret = false;
                 try {
-                    const rq = route.request();
                     const u = new URL(rq.url());
                     if (u.protocol === 'http:' || u.protocol === 'https:') {
                         if (sess.tlsTolerant && u.origin !== sess.origineTolerance) return await route.abort('blockedbyclient');
                         if (requetePorteSecret(rq.url(), rq.postData(), sess)) {
-                            const permis = !['GET', 'HEAD'].includes(rq.method()) && sess._originesSecret.has(u.origin);
-                            if (!permis) return await route.abort('blockedbyclient');
+                            if (['GET', 'HEAD'].includes(rq.method()) || !sess._originesSecret.has(u.origin)) return await route.abort('blockedbyclient');
+                            porteSecret = true;
                         }
                     }
                 } catch (e) {}
-                try { await route.continue(); } catch (e) {}
+                if (!porteSecret) { try { await route.continue(); } catch (e) {} return; }
+                // Requête portant le secret : exécutée ici sans suivre de redirection ; un saut vers une autre origine que celle du jeton est interrompu.
+                let reponse;
+                try { reponse = await route.fetch({ maxRedirects: 0, timeout: 30000 }); }
+                catch (e) { return await route.abort('failed').catch(() => {}); }
+                if ([301, 302, 303, 307, 308].includes(reponse.status())) {
+                    let autre = true;
+                    try { autre = !sess._originesSecret.has(new URL(reponse.headers()['location'] || '', rq.url()).origin); } catch (e) {}
+                    if (autre) return await route.abort('blockedbyclient').catch(() => {});
+                }
+                await route.fulfill({ response: reponse }).catch(() => {});
             });
         }
         if (httpCredentials) retenirValeurs(sessions.get(sessionId), [httpCredentials.username, httpCredentials.password], { basic: httpCredentials });
@@ -2660,44 +2693,64 @@ function erreurLogin(e) {
     return { statut: 500, corps: { error: 'La connexion a échoué.', code: 'login_failed' } };
 }
 
-// Vide (monde utilitaire de Playwright, événements input/change compris) tous les champs marqués de tous les frames de tous les onglets ; un champ qui
-// contient encore une valeur secrète après cela (la page l'a remise) fait recharger about:blank dans l'onglet.
-async function viderChamps(s) {
-    let vides = 0, reinitialisee = false;
-    for (const pg of [...s.tabs]) {
+const POST_BUDGET_MS = parseInt(process.env.PW_LOGIN_POST_BUDGET_MS || '15000', 10);
+const avecDelai = (promesse, ms) => Promise.race([promesse, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('délai'), { name: 'TimeoutError' })), ms))]);
+
+// Identifiants de documents (frame + chargement) lus par le protocole du navigateur : une page ne peut pas les falsifier.
+async function idsDocuments(page) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+        const { frameTree } = await cdp.send('Page.getFrameTree');
+        const ids = new Set();
+        const marche = (n) => { ids.add(`${n.frame.id}:${n.frame.loaderId}`); (n.childFrames || []).forEach(marche); };
+        marche(frameTree);
+        return ids;
+    } finally { await cdp.detach().catch(() => {}); }
+}
+
+// Après une connexion, AUCUN document ayant reçu le secret ne doit rester : on ne le vide pas, on le remplace (navigation GET via about:blank, jamais un
+// rechargement qui pourrait rejouer un POST). Échec fermé : page fermée, puis session fermée. Tout est borné par `finPost`.
+async function remplacerDocuments(s, saisies, origineJeton, finPost) {
+    const bilan = { remplacees: 0, fermees: 0, sessionFermee: false };
+    const borne = () => {
+        const r = finPost - Date.now();
+        if (r < 300) throw Object.assign(new Error('budget'), { name: 'TimeoutError' });
+        return Math.min(r, 4000);
+    };
+    for (const [pg, avant] of saisies) {
         if (pg.isClosed()) continue;
-        // Deux passes séparées d'un délai : une page qui remet la valeur après coup (re-render) est détectée à la lecture suivante.
-        let reste = true;
-        for (let passe = 0; passe < 2 && reste; passe++) {
-            reste = false;
-            for (const f of pg.frames()) {
-                try {
-                    const marques = f.locator(`[${MARQUE}], input[type="password" i]`);
-                    const n = Math.min(await marques.count(), 50);
-                    for (let i = 0; i < n; i++) await marques.nth(i).fill('', { timeout: 1500, force: true }).then(() => { vides++; }, () => {});
-                    const champs = f.locator('input, textarea');
-                    const m = Math.min(await champs.count(), 200);
-                    for (let i = 0; i < m; i++) {
-                        const c = champs.nth(i);
-                        if (contientSecret(await c.inputValue({ timeout: 300 }).catch(() => null), s)) await c.fill('', { timeout: 1500, force: true }).catch(() => {});
-                    }
-                } catch (e) {}
-            }
-            await new Promise((r) => setTimeout(r, 150));
-            for (const f of pg.frames()) {
-                try {
-                    const champs = f.locator('input, textarea');
-                    const m = Math.min(await champs.count(), 200);
-                    for (let i = 0; i < m; i++) if (contientSecret(await champs.nth(i).inputValue({ timeout: 300 }).catch(() => null), s)) reste = true;
-                } catch (e) {}
-            }
-        }
-        if (reste) {
-            reinitialisee = true;
-            await pg.goto('about:blank', { timeout: 5000 }).catch(() => pg.close().catch(() => {}));
-        }
+        let restants = true;
+        let urlCible = null;
+        try {
+            const courant = await avecDelai(idsDocuments(pg), borne());
+            restants = [...avant].some((id) => courant.has(id));
+            const u = pg.url();
+            if (restants && /^https?:/.test(u) && origineDe(u) === origineJeton && purgerTexte(u, s) === u) urlCible = u;
+        } catch (e) { restants = true; }
+        if (!restants) continue;
+        let ok = false;
+        try {
+            await avecDelai(pg.goto('about:blank', { waitUntil: 'commit' }), borne());
+            const apres = await avecDelai(idsDocuments(pg), borne());
+            ok = ![...avant].some((id) => apres.has(id));
+            if (ok && urlCible) await avecDelai(pg.goto(urlCible, { waitUntil: 'commit' }), borne()).catch(() => {});
+        } catch (e) { ok = false; }
+        if (ok) { bilan.remplacees++; continue; }
+        try {
+            pg.__elpisFermeParService = true;
+            await avecDelai(pg.close(), Math.max(500, Math.min(3000, finPost - Date.now())));
+            bilan.fermees++;
+        } catch (e) { bilan.sessionFermee = true; return bilan; }
     }
-    return { vides, reinitialisee };
+    if (!s.tabs.some((t) => !t.isClosed())) {
+        try {
+            const np = await avecDelai(s.context.newPage(), 3000);
+            brancherOnglet(s, np);
+            s.tabs.push(np);
+            s.page = np;
+        } catch (e) { bilan.sessionFermee = true; }
+    }
+    return bilan;
 }
 
 app.post('/login_precheck', getSession, async (req, res) => {
@@ -2719,55 +2772,79 @@ app.post('/login', getSession, async (req, res) => {
     const uv = typeof req.body.username_value === 'string' ? req.body.username_value : '';
     const pv = typeof req.body.password_value === 'string' ? req.body.password_value : '';
     const fin = req.recuA + BUDGET_LOGIN_MS - 500;
-    let p = null, saisi = false, sortie = null;
+    // Drapeau de session, indépendant du verrou et de la connexion HTTP : levé seulement à la fin du post-traitement.
+    s._connexionEnCours = true;
+    let p = null, saisi = false, sortie = null, post = { remplacees: 0, fermees: 0, sessionFermee: false };
+    const saisies = new Map();
+    const nouvelles = [];
+    const surPage = (pg) => { nouvelles.push(pg); };
+    s.context.on('page', surPage);
     try {
-        if (!origineJeton) throw erreurSecret('secret_origin_invalid', 'Origine du secret illisible.', 400);
-        p = await preparerLogin(req);
-        if (p.origine !== origineJeton) throw erreurSecret('secret_origin_mismatch', `Le frame des champs n'est pas sur l'origine attendue (${origineJeton}) : saisie refusée.`);
-        if (Boolean(p.champs.username) !== Boolean(uv) || Boolean(p.champs.password) !== Boolean(pv))
-            throw erreurSecret('login_values_mismatch', 'Les valeurs ne correspondent pas aux champs ciblés.', 400);
-        retenirValeurs(s, [uv, pv]);
-        s._originesSecret.add(origineJeton);
-        saisi = true;
-        const page = s.page;
-        let navigue = false;
-        const surNav = (f) => { if (f === page.mainFrame()) navigue = true; };
-        page.on('framenavigated', surNav);
         try {
-            if (p.champs.username) await remplirChamp(p.champs.username, uv, { champ: 'username', timeout: p.timeout, delaiAvant: fin });
-            if (p.champs.password) await remplirChamp(p.champs.password, pv, { champ: 'password', timeout: p.timeout, delaiAvant: fin });
-            const observe = p.champs.password || p.champs.username;
-            const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
-            if (p.submit) await p.submit.click({ timeout: t });
-            else await observe.press('Enter', { timeout: t });
-            let issue = 'no_change';
-            while (Date.now() < fin) {
-                if (navigue) { issue = 'navigated'; break; }
-                if (p.cw && (await p.cw.candidats.filter({ visible: true }).count().catch(() => 0)) > 0) { issue = 'wait_for'; break; }
-                if (await observe.evaluate((el) => !el.isConnected || el.value === '' || el.getClientRects().length === 0).catch(() => true)) { issue = 'field_gone'; break; }
-                await page.waitForTimeout(150);
+            if (!origineJeton) throw erreurSecret('secret_origin_invalid', 'Origine du secret illisible.', 400);
+            p = await preparerLogin(req);
+            if (p.origine !== origineJeton) throw erreurSecret('secret_origin_mismatch', `Le frame des champs n'est pas sur l'origine attendue (${origineJeton}) : saisie refusée.`);
+            if (Boolean(p.champs.username) !== Boolean(uv) || Boolean(p.champs.password) !== Boolean(pv))
+                throw erreurSecret('login_values_mismatch', 'Les valeurs ne correspondent pas aux champs ciblés.', 400);
+            // Documents qui vont recevoir le secret, notés avant toute saisie (échec fermé si le navigateur ne les identifie pas).
+            for (const h of Object.values(p.champs)) {
+                const pg = (await h.ownerFrame()).page();
+                if (!saisies.has(pg)) saisies.set(pg, await avecDelai(idsDocuments(pg), 3000));
             }
-            if (issue === 'navigated') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
-            // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
-            if (issue === 'navigated' && /^chrome-error:/.test(page.url())) issue = 'blocked';
-            sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked', status: 'submitted', outcome: issue, navigated: issue === 'navigated' } };
-            if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET ou autre origine) : cette page ne permet pas une connexion sûre." };
-            if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
-        } finally {
-            page.off('framenavigated', surNav);
+            retenirValeurs(s, [uv, pv]);
+            s._originesSecret.add(origineJeton);
+            saisi = true;
+            const page = s.page;
+            let navigue = false;
+            const surNav = (f) => { if (f === page.mainFrame()) navigue = true; };
+            page.on('framenavigated', surNav);
+            try {
+                if (p.champs.username) await remplirChamp(p.champs.username, uv, { champ: 'username', timeout: p.timeout, delaiAvant: fin });
+                if (p.champs.password) await remplirChamp(p.champs.password, pv, { champ: 'password', timeout: p.timeout, delaiAvant: fin });
+                const observe = p.champs.password || p.champs.username;
+                const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+                if (p.submit) await p.submit.click({ timeout: t });
+                else await observe.press('Enter', { timeout: t });
+                let issue = 'no_change';
+                while (Date.now() < fin) {
+                    if (navigue || nouvelles.length) { issue = 'navigated'; break; }
+                    if (p.cw && (await p.cw.candidats.filter({ visible: true }).count().catch(() => 0)) > 0) { issue = 'wait_for'; break; }
+                    if (await observe.evaluate((el) => !el.isConnected || el.value === '' || el.getClientRects().length === 0).catch(() => true)) { issue = 'field_gone'; break; }
+                    await page.waitForTimeout(150);
+                }
+                if (issue !== 'wait_for' && issue !== 'no_change') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+                // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
+                if (issue !== 'wait_for' && /^chrome-error:/.test(page.url())) issue = 'blocked';
+                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked', status: 'submitted', outcome: issue, navigated: issue === 'navigated', ...(nouvelles.length ? { opened_tab: true } : {}) } };
+                if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
+                if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET ou autre origine) : cette page ne permet pas une connexion sûre." };
+            } finally {
+                page.off('framenavigated', surNav);
+            }
+        } catch (e) {
+            sortie = erreurLogin(e);
         }
-    } catch (e) {
-        sortie = erreurLogin(e);
+        s.context.off('page', surPage);
+        await libererLogin(p).catch(() => {});
+        // Post-traitement, quoi qu'il arrive : les documents qui ont reçu le secret sont remplacés (ou la page, ou la session, fermées).
+        if (saisi) {
+            try { post = await remplacerDocuments(s, saisies, origineJeton, Date.now() + POST_BUDGET_MS); }
+            catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
+            if (post.sessionFermee) await closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }).catch(() => {});
+        }
+    } finally {
+        s._connexionEnCours = false;
     }
-    await libererLogin(p);
-    let nettoyage = { vides: 0, reinitialisee: false };
-    if (saisi) nettoyage = await viderChamps(s).catch(() => ({ vides: 0, reinitialisee: true }));
     let url = '', titre = '';
-    try { url = s.page.url(); titre = await s.page.title().catch(() => ''); } catch (e) {}
-    res.status(sortie.statut).json({
-        ...sortie.corps, url: purgerTexte(url, s).substring(0, 300), title: purgerTexte(titre, s).substring(0, 200),
-        fields_cleared: nettoyage.vides, ...(nettoyage.reinitialisee ? { page_reset: true, warning: "Un champ gardait encore la valeur : la page a été remplacée par about:blank (rouvrez l'adresse)." } : {}),
-    });
+    if (!post.sessionFermee) { try { url = s.page.url(); titre = await avecDelai(s.page.title(), 1500).catch(() => ''); } catch (e) {} }
+    const corps = {
+        ...sortie.corps,
+        ...(post.sessionFermee ? { ok: false, outcome: 'session_closed', code: 'login_session_closed', warning: "Les documents ayant reçu le secret n'ont pas pu être remplacés : la session a été fermée par sécurité. Rouvrez une session sécurisée." } : {}),
+        url: purgerTexte(url, s).substring(0, 300), title: purgerTexte(titre, s).substring(0, 200),
+        documents_replaced: post.remplacees,
+        ...(post.fermees ? { page_closed: true, warning: "Un document n'a pas pu être remplacé : sa page a été fermée par sécurité." } : {}),
+    };
+    res.status(post.sessionFermee ? 200 : sortie.statut).json(corps);
 });
 
 app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
@@ -3794,7 +3871,7 @@ app.post('/locate', getSession, autoSnapshot, async (req, res) => {
             for (const el of pool) {
                 if (visible_only && !isVisible(el)) continue;
 
-                const elText = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
+                const elText = (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
                 const elLabel = el.getAttribute('aria-label') ||
                                 (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || '';
                 const elPlaceholder = el.getAttribute('placeholder') || '';
@@ -3946,7 +4023,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 const usefulAttrs = {};
                 for (const a of el.attributes) {
                     const n = a.name;
-                    if (n === 'value' && (el.type === 'password' || el.hasAttribute('data-elpis-secret'))) continue;
+                    if (n === 'value' && (el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret')))) continue;
                     if (n === 'id' || n === 'class' || n === 'href' || n === 'name' ||
                         n === 'type' || n === 'value' || n === 'placeholder' || n === 'title' ||
                         n === 'alt' || n === 'role' || n === 'src' ||
@@ -3958,7 +4035,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 matches.push({
                     tag: el.tagName.toLowerCase(),
                     text: (el.textContent || '').trim().substring(0, 100),
-                    value: el.value !== undefined && el.value !== '' && !(el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? String(el.value).substring(0, 100) : undefined,
+                    value: el.value !== undefined && el.value !== '' && !(el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? String(el.value).substring(0, 100) : undefined,
                     attrs: usefulAttrs,
                     visible: isVisible(el),
                     enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
@@ -4266,7 +4343,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                     if (visibleOnly && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
                     if (inViewport && (rect.top < 0 || rect.top > window.innerHeight || rect.left < 0 || rect.left > window.innerWidth)) continue;
 
-                    const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
+                    const text = (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
 
                     // Filtre par query
                     if (query) {
@@ -4290,7 +4367,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                         type: el.getAttribute('type'),
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
                         checked: el.checked,
-                        value: ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value || '').substring(0, 100),
+                        value: ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value || '').substring(0, 100),
                         href: el.href || null,
                         color: toHex(style.color),
                         bg: toHex(style.backgroundColor),
@@ -4522,7 +4599,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (t && t.length <= 120) return t.substring(0, 80);
                     }
                     return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || '') + '').trim().substring(0, 80);
+                             || el.getAttribute('alt') || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || '') + '').trim().substring(0, 80);
                 } catch (e) { return ''; }
             }
 
@@ -4681,7 +4758,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4735,7 +4812,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value && !(el.type === 'password' || el.hasAttribute('data-elpis-secret'))) item.value = el.value.substring(0, 100);
+                    if (el.value && !(el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret')))) item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4783,7 +4860,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: (f.type === 'password' || f.hasAttribute('data-elpis-secret')) ? undefined : f.value?.substring(0, 100), label: (() => {
+                    value: (f.type === 'password' || (window.__elpisSecure || f.hasAttribute('data-elpis-secret'))) ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -5066,7 +5143,7 @@ async function inspectFrame(frame, label) {
                     if (tag === 'input') {
                         const it = node.getAttribute('type') || 'text';
                         type = `INPUT:${it}`;
-                        lbl = ((it === 'password' || node.hasAttribute('data-elpis-secret')) ? '' : node.value) || node.getAttribute('placeholder') || ariaLabel || '';
+                        lbl = ((it === 'password' || (window.__elpisSecure || node.hasAttribute('data-elpis-secret'))) ? '' : node.value) || node.getAttribute('placeholder') || ariaLabel || '';
                         if (it === 'checkbox' || it === 'radio') lbl += node.checked ? ' ✓' : ' ○';
                         if (it === 'color') lbl += ` [valeur: ${node.value}]`;
                         if (it === 'date' || it === 'datetime-local') lbl += ` [date: ${node.value}]`;
@@ -5078,7 +5155,7 @@ async function inspectFrame(frame, label) {
                         const options = Array.from(node.options || []).slice(0, 12).map(o => o.text.trim()).filter(Boolean);
                         if (options.length) lbl += ` [Options: ${options.join(', ')}]`;
                     } else if (tag === 'textarea') {
-                        type = 'TEXTAREA'; lbl = node.hasAttribute('data-elpis-secret') ? '' : clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
+                        type = 'TEXTAREA'; lbl = (window.__elpisSecure || node.hasAttribute('data-elpis-secret')) ? '' : clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
                     } else if (tag === 'svg' || tag === 'img' || tag === 'i') {
                         type = 'ICON'; lbl = ariaLabel || node.getAttribute('alt') || node.getAttribute('data-icon') || node.getAttribute('title') || node.className?.toString().match(/fa-[\w-]+|icon-[\w-]+|mdi-[\w-]+|bi-[\w-]+/)?.[0] || 'Graphic';
                     } else if (tag === 'a') {
@@ -5166,7 +5243,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -5435,11 +5512,11 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: (el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? undefined : el.value, href: el.href, src: el.src,
+                value: (el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(a.name === 'value' && (el.type === 'password' || el.hasAttribute('data-elpis-secret')))).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(a.name === 'value' && (el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))))).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5996,14 +6073,14 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         if (!loc) return res.status(400).json({ error: 'selector or by_* params required', condition });
         const first = loc.first();
         const label = selector || describeLocator(params, { first: false }) || '?';
-        if (req.session.secure && (attribute || condition === 'attribute_changes') && await champMasque(loc))
-            return res.status(403).json({ error: "La valeur d'un champ mot de passe ou ayant reçu un secret n'est jamais lue.", code: 'value_masked', condition });
+        if (req.session.secure && (String(attribute || '').toLowerCase() === 'value' || ((attribute || condition === 'attribute_changes') && await champMasque(loc))))
+            return res.status(403).json({ error: "En session sécurisée, la valeur d'un champ n'est jamais lue ni comparée.", code: 'value_masked', condition });
 
         let polled = null;
         const probe = async () => {
             const count = await loc.count().catch(() => 0);
             if (!count) return { count: 0, text: null, attr: null, visible: false };
-            const text = ((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim().substring(0, 500);
+            const text = (req.session.secure ? purgerTexte : (t) => t)(((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim(), req.session).substring(0, 500);
             const attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
             const visible = await first.isVisible().catch(() => false);
             return { count, text, attr, visible };
@@ -6194,7 +6271,7 @@ app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res)
                 } catch (e) { results.push('vanilla:error:' + e.message); }
             }
 
-            return { fw, results, tag: el.tagName, currentValue: (el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? undefined : el.value };
+            return { fw, results, tag: el.tagName, currentValue: (el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? undefined : el.value };
         }, { value, framework });
 
         res.json({ status: 'success', ...detected });
@@ -6759,9 +6836,12 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
         const loc = await locatorFromParams(page, params, req.sessionId,
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
-        if (req.session.secure && (assertion === 'value-equals' || assertion === 'attr-equals') && await champMasque(loc))
-            return res.status(403).json({ error: "La valeur d'un champ mot de passe ou ayant reçu un secret n'est jamais lue.", code: 'value_masked', assertion });
+        // Session sécurisée : aucune valeur de champ ni attribut `value` n'est lu ou comparé, quel que soit le champ.
+        if (req.session.secure && (assertion === 'value-equals' || (assertion === 'attr-equals' && (String(req.body.attr || '').toLowerCase() === 'value' || /^attr=value\|/i.test(String(value || '')) || await champMasque(loc)))))
+            return res.status(403).json({ error: "En session sécurisée, la valeur d'un champ n'est jamais lue ni comparée.", code: 'value_masked', assertion });
 
+        // Session sécurisée : le texte lu est purgé AVANT toute comparaison (un identifiant que le site recopie ne se devine plus caractère par caractère).
+        const vueSecurisee = (t) => (req.session.secure ? purgerTexte(t, req.session) : t);
         let pass = false, actual = null, expected = value;
         try {
             // Most assertions tolerate a brief wait. We use a manual loop because
@@ -6797,11 +6877,11 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         return actual === false;
                     }
                     case 'text-equals': {
-                        actual = (await loc.textContent({ timeout: POLL }).catch(() => '') || '').replace(/\s+/g, ' ').trim();
+                        actual = vueSecurisee((await loc.textContent({ timeout: POLL }).catch(() => '') || '').replace(/\s+/g, ' ').trim());
                         return actual === value.replace(/\s+/g, ' ').trim();
                     }
                     case 'text-contains': {
-                        actual = (await loc.textContent({ timeout: POLL }).catch(() => '') || '').replace(/\s+/g, ' ').trim();
+                        actual = vueSecurisee((await loc.textContent({ timeout: POLL }).catch(() => '') || '').replace(/\s+/g, ' ').trim());
                         return actual.includes(value);
                     }
                     case 'value-equals': {
@@ -6992,7 +7072,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || ((el.type === 'password' || (window.__elpisSecure || el.hasAttribute('data-elpis-secret'))) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,

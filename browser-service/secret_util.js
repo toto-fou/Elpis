@@ -57,16 +57,28 @@ function refus(code, message, fix, statut = 403) {
 const FIX_SEMANTIQUE =
     "Ciblez par rôle et nom (role=button|name=…), label, placeholder, texte, test_id, alt, title, ou par ref d'un pw_find / pw_page inspect ; jamais css= ni xpath=.";
 
-const MODIFICATEURS = new Set(['control', 'ctrl', 'meta', 'command', 'cmd', 'controlormeta']);
-const TOUCHES_PRESSE_PAPIERS = new Set(['a', 'c', 'x', 'v', 'insert']);
+const MODIFICATEURS = new Set(['control', 'ctrl', 'meta', 'command', 'cmd', 'controlormeta', 'super']);
+const TOUCHES_RACCOURCI = new Set(['a', 'c', 'x', 'v', 'z', 'y', 'insert']);
+const NOMS_EDITION = new Set(['copy', 'paste', 'cut', 'undo', 'redo', 'selectall']);
 
-/** Raccourci qui copie, coupe, colle ou sélectionne tout (Contrôle ou Méta + a c x v Insert, Maj + Insert ou Suppr). */
+/** Nom de touche ramené à sa forme simple : `KeyC` → `c`, `Digit1` → `1`, casse et blancs ignorés. */
+function nomTouche(t) {
+    const x = String(t).trim().toLowerCase();
+    const m = /^key([a-z])$/.exec(x) || /^digit([0-9])$/.exec(x);
+    return m ? m[1] : x;
+}
+
+/**
+ * Raccourci d'édition ou de presse-papiers (copier, couper, coller, tout sélectionner, annuler, rétablir : Contrôle ou Méta + a c x v z y Insertion,
+ * Maj + Insertion ou Suppr, noms Copy Paste Cut Undo Redo), quelle que soit la graphie de la touche.
+ */
 export function estRaccourciPressePapiers(touche) {
     if (typeof touche !== 'string') return false;
-    const t = touche.split('+').map((x) => x.trim().toLowerCase());
+    const t = touche.split('+').map(nomTouche);
     const derniere = t[t.length - 1];
     const mods = t.slice(0, -1);
-    if (mods.some((m) => MODIFICATEURS.has(m)) && TOUCHES_PRESSE_PAPIERS.has(derniere)) return true;
+    if (NOMS_EDITION.has(derniere)) return true;
+    if (mods.some((m) => MODIFICATEURS.has(m)) && TOUCHES_RACCOURCI.has(derniere)) return true;
     return mods.includes('shift') && (derniere === 'insert' || derniere === 'delete');
 }
 
@@ -74,10 +86,12 @@ function refusGeste(o) {
     const geste = String(o.type || o.action || '').toLowerCase();
     if (geste === 'drag')
         return refus('secure_session_gesture_refused', 'Session sécurisée : le glisser-déposer est refusé.', 'Utilisez click, fill, press, select…');
+    if (geste === 'rclick' || geste === 'right_click' || (present(o.button) && String(o.button).toLowerCase() !== 'left'))
+        return refus('secure_session_gesture_refused', 'Session sécurisée : seul le bouton gauche de la souris est permis.', 'Utilisez un clic normal.');
     const touches = [o.key];
     if (geste === 'press') touches.push(o.text, o.value);
     if (touches.some(estRaccourciPressePapiers))
-        return refus('secure_session_gesture_refused', 'Session sécurisée : copier, couper, coller et tout sélectionner sont refusés.', 'Ne manipulez pas le presse-papiers ; pw_login saisit les identifiants.');
+        return refus('secure_session_gesture_refused', "Session sécurisée : copier, couper, coller, tout sélectionner, annuler et rétablir sont refusés.", 'Ne manipulez pas le presse-papiers ; pw_login saisit les identifiants.');
     return null;
 }
 
@@ -218,6 +232,10 @@ export function requetePorteSecret(url, corps, session) {
  */
 export function initialisationSecurisee() {
     const M = 'data-elpis-secret';
+    // Session sécurisée : aucune valeur de champ ne sort des lectures (drapeau non modifiable par la page).
+    try {
+        Object.defineProperty(window, '__elpisSecure', { value: true });
+    } catch {}
     const estMdp = (v) => String(v || '').trim().toLowerCase() === 'password';
     const marquer = (el) => {
         try {
@@ -252,7 +270,17 @@ export function initialisationSecurisee() {
             ev.stopImmediatePropagation();
         }
     };
-    for (const t of ['copy', 'cut', 'paste', 'dragstart']) window.addEventListener(t, bloquer, true);
+    for (const t of ['copy', 'cut', 'dragstart']) window.addEventListener(t, bloquer, true);
+    // Tout collage et tout dépôt (presse-papiers, sélection primaire, glisser) est annulé dans tous les frames ; annuler/rétablir aussi ; le bouton du milieu ne colle plus.
+    const toutAnnuler = (ev) => {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+    };
+    for (const t of ['paste', 'drop']) window.addEventListener(t, toutAnnuler, true);
+    window.addEventListener('beforeinput', (ev) => {
+        if (/^history|^insertFromPaste|^insertFromDrop|^insertFromYank/.test(ev.inputType)) toutAnnuler(ev);
+    }, true);
+    for (const t of ['mousedown', 'mouseup', 'auxclick']) window.addEventListener(t, (ev) => { if (ev.button === 1) toutAnnuler(ev); }, true);
     const vider = () => {
         try {
             document.querySelectorAll('[' + M + ']').forEach((el) => {

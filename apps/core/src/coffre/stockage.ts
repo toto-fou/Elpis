@@ -146,7 +146,7 @@ export interface ModifEntree {
 /**
  * Modifie une entrée (mot de passe absent ou vide : inchangé). Changer l'origine d'une entrée déjà confirmée exige de ressaisir le mot de passe
  * (sinon un accès à la session suffirait à détourner le secret vers un autre site) ; seule la première confirmation d'une entrée reprise (origine nulle) s'en passe.
- * Les jetons issus de l'entrée sont révoqués si l'origine, l'identifiant, le mot de passe ou l'accord sur le certificat changent réellement.
+ * Accorder le certificat non vérifié exige aussi le mot de passe. Les jetons issus de l'entrée sont révoqués si l'origine, l'identifiant, le mot de passe ou l'accord sur le certificat changent réellement.
  */
 export async function modifierEntree(
   base: Base,
@@ -170,6 +170,9 @@ export async function modifierEntree(
     const origineChange = origine !== null && origine !== ancienne;
     if (origineChange && ancienne !== null && nouveauMdp === null)
       throw new ErreurCoffre(422, "Changer l'origine exige de ressaisir le mot de passe.");
+    const tlsAccorde = tls === true && Number(actuel["allow_insecure_tls"]) !== 1;
+    if (tlsAccorde && nouveauMdp === null)
+      throw new ErreurCoffre(422, "Accepter un certificat non vérifié exige de ressaisir le mot de passe.");
     if (nom !== null && nom !== actuel["nom"]) {
       const pris = await x.get(
         "SELECT 1 AS un FROM coffre_identifiants WHERE user_id=? AND nom=? AND id<>?",
@@ -213,6 +216,10 @@ export async function modifierEntree(
       audit(uid, ancienne === null && origineChange ? "coffre.confirm" : action, {
         entry_id: id,
         fields: champs,
+        ...(champs.includes("origin") ? { origin_old: ancienne, origin_new: origine } : {}),
+        ...(champs.includes("allow_insecure_tls")
+          ? { allow_insecure_tls: tls, origin: origine ?? ancienne }
+          : {}),
       });
     }
     if (champs.some((c) => c !== "nom"))

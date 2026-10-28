@@ -22,18 +22,37 @@ export interface SecretResolu {
 const FORME_REF = /^([A-Za-z0-9_-]{20,64})\.(password|username)$/u;
 const LONGUEUR_MIN_NETTOYEE = 3;
 
-/** Référence débarrassée de l'enveloppe `⟦creds:JETON@ORIGINE⟧` que le modèle recopie parfois (l'origine du marqueur est ignorée : seule celle du jeton compte), et des blancs. */
+const FORME_JETON = /^[A-Za-z0-9_-]{20,64}$/u;
+const FORME_INTERIEUR = /^([A-Za-z0-9_-]{20,64})(?:@(\S*?))?(?:\.(password|username))?$/u;
+
+/**
+ * Référence ramenée à `JETON` ou `JETON.champ` : `JETON`, `JETON@ORIGINE`, l'enveloppe `⟦creds:…⟧` entière, avec ou sans `.champ` dedans ou dehors.
+ * L'origine du marqueur est ignorée (seule celle du jeton compte) ; une forme inconnue est rendue telle quelle, à refuser par l'appelant.
+ */
 export function normaliserReference(ref: unknown): string {
   const brut = typeof ref === "string" ? ref.trim() : "";
-  const m = /^⟦creds:([^⟧]*)⟧(.*)$/su.exec(brut);
-  if (m === null) return brut;
-  return (m[1] ?? "").split("@")[0] + (m[2] ?? "");
+  const m = /^⟦\s*creds:([^⟧]*)⟧\s*(.*)$/su.exec(brut);
+  const interieur = (m === null ? brut : (m[1] ?? "")).trim();
+  const dehors = m === null ? "" : (m[2] ?? "").trim();
+  const f = FORME_INTERIEUR.exec(interieur);
+  if (f === null) return brut;
+  const champ = f[3] ?? /^\.(password|username)$/u.exec(dehors)?.[1];
+  if (m !== null && dehors !== "" && f[3] === undefined && champ === undefined) return brut;
+  return champ === undefined ? (f[1] as string) : `${f[1]}.${champ}`;
 }
 
 /** Jeton d'une référence `JETON.password` ou `JETON.username` ; `null` si la forme est autre. */
 export function jetonDeReference(ref: unknown): string | null {
   if (typeof ref !== "string") return null;
   return FORME_REF.exec(ref.trim())?.[1] ?? null;
+}
+
+/** Jeton d'une référence avec ou sans champ (`creds=`) ; `null` si la forme est autre. */
+export function jetonSeul(ref: unknown): string | null {
+  const n = normaliserReference(ref);
+  const j = jetonDeReference(n);
+  if (j !== null) return j;
+  return FORME_JETON.test(n) ? n : null;
 }
 
 function refus(code: string, message: string, fix: string): { refus: Dict } {

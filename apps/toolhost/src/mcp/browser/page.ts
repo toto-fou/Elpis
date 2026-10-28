@@ -267,6 +267,12 @@ async function attendreCondition(client: ClientNavigateur, a: Dict, ctx: Context
         await dormir(300);
         continue;
       }
+      // Refus codé du service (session sécurisée…) : son code et son correctif.
+      if (typeof corps["code"] === "string" && typeof corps["error"] === "string")
+        return errPw(corps["code"], "", {
+          message: corps["error"],
+          fix: strPy(veritePy(corps["fix"]) ? corps["fix"] : "check the target"),
+        });
       return errPw(
         strPy(veritePy(corps["error"]) ? corps["error"] : `wait failed (${code})`),
         "check the selector and that the session is alive",

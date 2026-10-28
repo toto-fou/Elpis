@@ -47,9 +47,9 @@ const COLONNES =
 /** Un jeton expiré reste lisible ce temps-là pour que l'appel qui le présente reçoive « expiré » plutôt que « inconnu ». */
 const GRACE_EXPIRE_S = 5 * 60;
 
-/** Jetons expirés retirés (paresseusement : création, liste, résolution, renouvellement) ; `grace` laisse les plus récents répondre « expiré ». */
-export async function purgerJetonsExpires(x: Executeur, grace = 0): Promise<void> {
-  await x.run("DELETE FROM coffre_jetons WHERE expires_at<?", [maintenant() - grace]);
+/** Jetons expirés depuis plus que la grâce retirés (paresseusement, partout pareil : création, liste, résolution, renouvellement). */
+export async function purgerJetonsExpires(x: Executeur): Promise<void> {
+  await x.run("DELETE FROM coffre_jetons WHERE expires_at<?", [maintenant() - GRACE_EXPIRE_S]);
 }
 
 /** Suppression de conversations : leurs jetons partent avec elles. */
@@ -70,8 +70,8 @@ export async function purgerJetonsConversations(
 export async function listerJetons(base: Base, uid: number, chatId: string): Promise<JetonCreds[]> {
   await purgerJetonsExpires(base);
   const l = await base.all(
-    `SELECT ${COLONNES} FROM coffre_jetons WHERE user_id=? AND chat_id=? ORDER BY id`,
-    [uid, chatId],
+    `SELECT ${COLONNES} FROM coffre_jetons WHERE user_id=? AND chat_id=? AND expires_at>? ORDER BY id`,
+    [uid, chatId, maintenant()],
   );
   return l.map(jeton);
 }
@@ -98,10 +98,10 @@ export async function creerJetonCreds(
   const t = maintenant();
   const item = await base.ecriture(async (x) => {
     await purgerJetonsExpires(x);
-    const n = await x.get("SELECT COUNT(*) AS n FROM coffre_jetons WHERE user_id=? AND chat_id=?", [
-      uid,
-      d.chatId,
-    ]);
+    const n = await x.get(
+      "SELECT COUNT(*) AS n FROM coffre_jetons WHERE user_id=? AND chat_id=? AND expires_at>?",
+      [uid, d.chatId, t],
+    );
     if (Number(n?.["n"] ?? 0) >= JETONS_MAX_PAR_CHAT)
       throw new ErreurCoffre(409, "Trop de jetons actifs sur cette conversation.");
     let entryId: number | null = null;
@@ -169,7 +169,7 @@ export async function creerJetonCreds(
 /** Renouvelle un jeton encore valide : 30 minutes à partir de maintenant et usages remis à leur valeur par défaut ; un jeton expiré ne se renouvelle pas (il faut un nouveau /creds). */
 export async function renouvelerJeton(base: Base, uid: number, id: number): Promise<JetonCreds | null> {
   const t = maintenant();
-  await purgerJetonsExpires(base, GRACE_EXPIRE_S);
+  await purgerJetonsExpires(base);
   const r = await base.run(
     "UPDATE coffre_jetons SET expires_at=?, uses_left=? WHERE id=? AND user_id=? AND expires_at>?",
     [t + DUREE_JETON_S, USAGES_DEFAUT, id, uid, t],
@@ -246,7 +246,7 @@ export async function resoudreReferences(
   const usages: { id: number; origin: string; champs: string[] }[] = [];
   try {
     await base.ecriture(async (x) => {
-      await purgerJetonsExpires(x, GRACE_EXPIRE_S);
+      await purgerJetonsExpires(x);
       for (const [token, champs] of parJeton) {
         const l = await x.get(
           "SELECT id, user_id, chat_id, origin, entry_id, secret_enc, expires_at, allow_insecure_tls FROM coffre_jetons WHERE token_hash=?",

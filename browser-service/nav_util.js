@@ -111,7 +111,7 @@ export function authHint(httpStatus) {
             + "Basic/Digest se passent à l'OUVERTURE de session, pas au goto : "
             + "demandez à l'utilisateur un identifiant avec /creds (⟦creds:JETON⟧) puis relancez "
             + "pw_session(action='start', url=…, creds='JETON') "
-            + "(isolated=true pour un contexte neuf).";
+            + "(session sécurisée : toujours un contexte neuf).";
     }
     if (httpStatus === 407) {
         return "Authentification PROXY requise (407) : configurez les identifiants "

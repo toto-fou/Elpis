@@ -1947,7 +1947,7 @@ entrée et champs touchés, jamais une valeur).
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/coffre` · `POST /api/coffre` · `PUT /api/coffre/{id}` · `DELETE /api/coffre/{id}` | Entrées du compte (Paramètres › Coffre) ; mot de passe facultatif à la modification (vide = inchangé) ; **changer l'origine d'une entrée confirmée exige de ressaisir le mot de passe** ; `allow_insecure_tls` (« Certificat non vérifié accepté », faux par défaut) ; les jetons issus de l'entrée sont révoqués si origine, identifiant, mot de passe ou drapeau changent réellement (pas sur un simple renommage) |
+| `GET /api/coffre` · `POST /api/coffre` · `PUT /api/coffre/{id}` · `DELETE /api/coffre/{id}` | Entrées du compte (Paramètres › Coffre) ; mot de passe facultatif à la modification (vide = inchangé) ; **changer l'origine d'une entrée confirmée exige de ressaisir le mot de passe** ; `allow_insecure_tls` (« Certificat non vérifié accepté », faux par défaut ; **l'accorder exige de ressaisir le mot de passe**, comme changer l'origine, et l'audit note l'ancienne et la nouvelle origine) ; les jetons issus de l'entrée sont révoqués si origine, identifiant, mot de passe ou drapeau changent réellement (pas sur un simple renommage) |
 | `POST /api/coffre/{id}/confirmer` | Première confirmation d'une entrée reprise de l'ancienne mémoire AX (origine nulle) : l'origine saisie suffit (auditée) ; toute autre origine exige aussi `password` |
 | `GET /api/coffre/jetons?chat_id=` · `POST /api/coffre/jetons` | Jetons actifs d'une conversation ; création depuis une entrée confirmée (`entry_id`) ou un secret ponctuel (`origin`, `username`, `password`, `save` : l'enregistre dans le coffre, `allow_insecure_tls`). Le jeton en clair n'est rendu qu'à la création |
 | `POST /api/coffre/jetons/{id}/renouveler` · `DELETE /api/coffre/jetons/{id}` | Renouvelle un jeton encore valide (30 min, usages remis à 5 ; un jeton expiré ne se renouvelle pas) ou le révoque |
@@ -1959,53 +1959,102 @@ contient `⟦creds:JETON@ORIGINE⟧` ; seul `JETON` compte (le modèle le passe 
 l'enveloppe, l'origine du marqueur est ignorée). L'état est en base (main, admin et
 l'hôte d'outils sont des process distincts). La suppression d'une conversation ou d'un
 compte supprime ses jetons ; les expirés sont purgés paresseusement (liste, création,
-résolution, renouvellement). Le secret d'un jeton « ponctuel » est chiffré dans sa ligne.
+résolution, renouvellement) avec la même grâce de 5 min partout (un jeton expiré depuis
+moins de 5 min répond « expiré » et non « inconnu » ; il n'est plus listé ni compté). Le secret d'un jeton « ponctuel » est chiffré dans sa ligne.
+
+**Session sécurisée.** Un secret ne se saisit que dans une **session sécurisée**,
+décidée à l'ouverture et valable jusqu'à l'arrêt : `pw_session(action='start', url=…,
+secure=true)` (ou `creds=`, qui l'impose). Elle a toujours un **contexte neuf** (jamais
+la session déjà ouverte, que `start` réutilise sinon ; une session sécurisée n'est elle
+non plus jamais réutilisée par un `start` ordinaire) ; si le quota de sessions du compte
+est atteint, `start` échoue (`session_quota_reached`) au lieu de fermer la plus ancienne
+(l'hôte le vérifie avant de décompter un usage du jeton). `trace`, `record_har`,
+`record_video` et `load_state_id` y sont refusés ; les identifiants HTTP d'un `creds=`
+en font une session sécurisée. Le contexte vérifie les certificats
+(`ignoreHTTPSErrors: false`) : un formulaire posté vers un serveur au certificat non
+approuvé échoue. Seul `allow_insecure_tls` (entrée du coffre, accordé avec le mot de
+passe) ouvre une session qui tolère les certificats non vérifiés : réservée à l'origine
+du jeton qui l'a ouverte (un secret pour une autre origine `https:` y est refusé) et
+signalée dans chaque réponse (`tls_verification: "disabled"`). Il n'y a plus de sonde
+de certificat ni de cache.
+
+Une garde unique (`getSession`, point d'entrée des ~80 routes) s'applique à chaque
+requête d'une session sécurisée :
+
+- **routes refusées** (`secure_session_route_refused`) : `evaluate`, `poll_until`,
+  `dispatch_event`, `trigger_framework_update`, `watch_changes`, `intercept`,
+  `capture_response`, `mock/*`, `select_date`, `select_color`, `clipboard`,
+  `smart_click`, `handle_dropdown`, `query`, `save_state`, `trace_export`, `print_pdf`,
+  `recorder/*` ;
+- **cibles sémantiques seulement** (`secure_session_selector_refused`) : rôle et nom,
+  label, placeholder, texte, `test_id`, `alt`, `title`, ou `ref` d'un `pw_find`
+  (format `loc_…`) ; refusés partout (`/locator`, `/find_elements`, `/expect`,
+  `/wait_for_dynamic`, `/action`, `/chain` et ses étapes, `/element_screenshot`…) :
+  `selector`, `xpath`, `css`, `by_css`, `by_xpath`, `filter_has`, `target_selector`,
+  `tag`, `to` textuel, un `by_role` qui n'est pas un rôle simple, un `ref` mal formé.
+  Le repli `selector` que l'hôte joint à une cible sémantique est retiré, jamais suivi ;
+- **`nth`** : entier positif ou nul, sinon refus (`invalid_nth`) ; hors session
+  sécurisée un `nth` invalide est traité comme absent ;
+- **valeurs jamais lues** : un champ `input` qui est ou a été `type=password` (même
+  repassé en texte par un bouton « Afficher » : un script d'initialisation du contexte
+  le marque) ou qui a reçu un secret porte l'attribut `data-elpis-secret` ; sa valeur
+  n'est jamais rendue (`inspect`, `smart_inspect`, `observe`, `element_info`,
+  `locator`…), `pw_expect value-equals|attr-equals` et `pw_wait attribute_changes`
+  y sont refusés (`value_masked`), l'arbre d'accessibilité n'y montre aucune valeur ;
+- **captures masquées** : toute capture du contexte (automatique après chaque outil,
+  `screenshot`, `element_screenshot`, `visual`, `observe` en mode `som`, échec de
+  `pw_chain`) recouvre ces champs (`mask` de Playwright, tous frames) ;
+- le journal réseau n'enregistre jamais le corps des requêtes ;
+- **purge** : toute réponse est débarrassée de chaque forme des valeurs saisies
+  (brute, URL, formulaire, HTML, JSON, base64) et de l'en-tête HTTP Basic
+  (`base64(utilisateur:mot de passe)`), remplacées par `[secret]`.
 
 **Résolution.** Un outil `pw_*` reçoit `secret="JETON.password"` (ou `.username`) ;
-`pw_session` reçoit `creds="JETON"`. L'hôte d'outils demande la valeur au core par le
-canal interne signé (`POST /api/internal/creds/resolve`, jeton de service et
-enveloppe d'identité portant compte, conversation et périmètre de sous-agent), et
-seulement si l'appel vient du client de confiance (`trusted_meta` du jeton de
-service) : un client MCP externe ou stdio n'a pas de conversation crédible. Le core
-vérifie le propriétaire, la conversation de l'appel, l'expiration, l'origine de
-l'entrée (et, pour `pw_session`, que l'URL est sur l'origine du jeton, **avant** de
-décompter un usage) ; il refuse un sous-agent et une routine (`routine:…`). Chaque
-usage est audité (`creds.use` : jeton, origine, champs, jamais une valeur).
+`pw_session` reçoit `creds="JETON"`. La référence est normalisée : `JETON`,
+`JETON@ORIGINE`, l'enveloppe `⟦creds:…⟧` entière, avec ou sans `.champ` dans ou après
+l'enveloppe (l'origine du marqueur est ignorée, seule celle du jeton compte).
+L'ordre est fixe : 1. **pré-contrôle sans valeur** auprès de `browser-service`
+(`POST /secret_precheck` : session sécurisée ? champ unique **visible** ? type réel du
+champ ? origine de son frame ?) ; 2. seulement si tout passe, résolution au core par le
+canal interne signé (`POST /api/internal/creds/resolve`, jeton de service et enveloppe
+d'identité portant compte, conversation et périmètre de sous-agent), avec l'origine du
+frame comme `expect_origin`, **avant** de décompter un usage ; 3. saisie. Un refus aux
+étapes 1 ou 2 ne consomme aucun usage. Le core refuse un sous-agent, une routine
+(`routine:…`) et tout appel qui ne vient pas du client de confiance (`trusted_meta` du
+jeton de service : un client MCP externe ou stdio n'a pas de conversation crédible) ;
+il vérifie propriétaire, conversation, expiration et origine. Chaque usage est audité
+(`creds.use` : jeton, origine, champs, jamais une valeur). Pour `pw_chain`, les champs
+secrets doivent déjà être présents au lancement (tous pré-contrôlés ensemble) et dans
+des frames de même origine ; sinon scinder la chaîne.
 
-**Saisie.** L'hôte envoie à `browser-service` la valeur, l'origine attendue, le champ
-(`password`/`username`) et le drapeau de certificat. Le service n'accepte un secret
-que : par `fill` (un `type` du modèle est converti, aucune frappe caractère par
-caractère), avec une cible précise résolue par `ref` ou `by_*` (aucun repli
-`selector`, aucune cible à plusieurs correspondances), dont l'**élément** appartient
-à un frame sur l'origine exacte (poignée d'élément vérifiée juste avant la saisie),
-dans un `<input type="password">` pour un mot de passe (jamais pour un identifiant),
-et si le navigateur approuve le certificat de l'origine (sonde dans un contexte à part
-sans `ignoreHTTPSErrors`, mise en cache 5 min ; sauf `allow_insecure_tls` ou `http:`).
-`pw_session(creds=…)` pose `httpCredentials` avec l'origine du jeton, sans tolérance
-de certificat (sauf drapeau), et refuse `trace`, `record_har`, `record_video` ainsi
-qu'une session déjà ouverte (les identifiants HTTP ne s'appliquent qu'à un nouveau
-contexte : `isolated=true`).
+**Saisie.** Le service n'accepte un secret que : dans une session sécurisée
+(`secret_requires_secure_session` sinon, avant toute résolution) ; par `fill` (un
+`type` du modèle est converti) ; sur une cible sémantique comptée parmi les éléments
+**visibles** (un champ masqué par CSS ou transparent n'est pas une cible valable, et
+seuls les éléments visibles comptent pour l'ambiguïté : plusieurs visibles = refus,
+`nth` compté parmi eux) ; dans un champ dont le **type réel** (propriété `type`, pas
+l'attribut) est `password` pour un mot de passe, ou `text`, `email`, `tel`, `url`,
+`search`, `number` ou une zone de texte pour un identifiant ; dont le **frame** de
+l'élément (poignée vérifiée juste avant la saisie) est sur l'origine exacte du jeton.
+Le champ est marqué avant la saisie ; son type est revérifié juste après : s'il a
+changé, il est vidé et la saisie refusée. Aucune saisie n'a lieu après l'échéance de
+la requête de l'hôte.
 
-**Session « teintée ».** Un secret n'est accepté que dans une session qui n'a eu ni
-JavaScript arbitraire (`pw_page eval`, `poll_until`, `dispatch_event`,
-`trigger_framework_update`, `watch_changes`), ni interception ou réponse simulée
-(`pw_mock`, `intercept`, `capture_response`), ni trace, HAR ou vidéo. Dès qu'un secret
-est saisi, la session est marquée jusqu'à son arrêt : ces points d'entrée y sont
-refusés (JSON explicite), et le journal réseau n'y montre plus le corps des requêtes.
+**Nettoyage côté hôte d'outils.** Tout résultat `pw_*` est aussi débarrassé de chaque
+forme de la valeur (clés comprises) au profit de `⟦creds:JETON@ORIGINE⟧`, et des mots de
+passe résolus récemment pour le compte (40 min, mémoire du process). Seules les listes et
+objets simples sont parcourus. La mémoire AX n'apprend que site et chemin, tirés de
+l'adresse brute du résultat.
 
-**Nettoyage.** Tout résultat rendu au modèle est débarrassé de chaque forme de la
-valeur résolue (brute, URL, formulaire `x-www-form-urlencoded`, HTML, JSON, base64,
-dans les valeurs et les clés) au profit de `⟦creds:JETON@ORIGINE⟧` ; les mots de passe
-résolus récemment pour le compte sont aussi retirés des résultats des autres outils
-`pw_*`. Les instantanés du service ne renvoient jamais la valeur d'un champ
-`type=password`. Seules les listes et objets simples sont parcourus (une instance de
-classe reste intacte). La mémoire AX n'apprend que site et chemin, tirés de l'adresse
-brute du résultat (nettoyée, elle fausserait l'apprentissage).
-
-Limites : un script de la page elle-même (origine de confiance) voit ce qu'il saisit ;
-un nom d'utilisateur ou un mot de passe de moins de 3 caractères n'est pas nettoyé ;
-l'arbre d'accessibilité Playwright dépend du masquage de Chromium ; les captures
-d'écran montrent le nom d'utilisateur saisi.
+Limites : le site de l'origine du jeton reçoit le secret et peut le recopier dans son
+propre texte : le modèle peut alors deviner des fragments par des tests (`pw_expect
+text-contains`, `pw_find text=`) même si toute sortie est purgée ; un mot de passe ou
+un identifiant de moins de 3 caractères n'est pas purgé ; le marquage d'un champ
+password est un attribut que le script de la page peut retirer, et une copie du mot de
+passe dans un autre élément n'est pas masquée ; le champ de mot de passe d'un Shadow DOM
+fermé n'est pas marqué ; une session sécurisée tolérante (`allow_insecure_tls`) ne
+vérifie aucun certificat, y compris pour des origines autres que celle du jeton (seul le
+secret leur est refusé) ; la page voit ce qui est saisi dans son formulaire (c'est le but).
 
 **Reprise de l'ancienne mémoire AX.** La migration `0027_coffre_identifiants`
 renomme `ax_credentials` en `ax_credentials_a_importer` ; au démarrage du core (main,

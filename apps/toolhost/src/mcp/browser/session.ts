@@ -8,7 +8,7 @@ import { origineExacte } from "@elpis/securite";
 
 import { headless, minusculesPy, ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
-import { jetonDeReference, nettoyerResultat, normaliserReference, resoudreSecrets } from "./creds";
+import { jetonSeul, nettoyerResultat, normaliserReference, resoudreSecrets } from "./creds";
 import type { SecretResolu } from "./creds";
 
 /** `viewport="LxH"` → `{width, height}`, `null` si illisible. */
@@ -41,31 +41,36 @@ async function demarrer(
   const bloque = await refusUrl(url);
   if (bloque !== null) return bloque;
   const creds = normaliserReference(a["creds"] ?? "");
+  // Session sécurisée : demandée (secure=true) ou imposée par creds= ; décidée ici, pour toute la vie de la session.
+  const securisee = a["secure"] === true || creds !== "";
   let secrets: SecretResolu[] = [];
   let identifiants: Dict = {};
+  if (securisee) {
+    if (a["trace"] || a["record_har"] || a["record_video"] || a["load_state_id"])
+      return errPw("secure_session_option_refused", "", {
+        message:
+          "a secure session cannot be combined with trace, record_har, record_video or load_state_id (they would record or replay typed secrets)",
+        fix: "start without trace / record_har / record_video / load_state_id",
+      });
+    // Une session sécurisée a toujours son contexte neuf : le quota est vérifié AVANT de décompter un usage du jeton.
+    const ouvertes = await client.req("GET", "/sessions");
+    if (
+      estDict(ouvertes) &&
+      Array.isArray(ouvertes["sessions"]) &&
+      ouvertes["sessions"].length >= Number(ouvertes["max_per_owner"] ?? Infinity)
+    )
+      return errPw("session_quota_reached", "", {
+        message: "the session quota is reached: a secure session never replaces an open one",
+        fix: "close one with pw_session(action='stop', session_id=…) (pw_session(action='list') shows them), then start again",
+      });
+  }
   if (creds) {
-    const jeton = jetonDeReference(`${creds}.password`);
+    const jeton = jetonSeul(creds);
     if (jeton === null)
       return errPw("creds_invalid", "", {
-        message: "creds= takes the TOKEN of a ⟦creds:TOKEN⟧ supplied by the user",
+        message: "creds= takes the TOKEN of a ⟦creds:TOKEN@ORIGIN⟧ supplied by the user",
         fix: "ask the user to supply a login with the /creds command",
       });
-    if (a["trace"] || a["record_har"] || a["record_video"])
-      return errPw("creds_recording_refused", "", {
-        message:
-          "creds= cannot be combined with trace, record_har or record_video (they would record the password)",
-        fix: "start without trace / record_har / record_video",
-      });
-    // Les identifiants HTTP ne se posent qu'à la création d'un contexte : une session déjà ouverte les ignorerait en silence.
-    if (!a["isolated"]) {
-      const ouvertes = await client.req("GET", "/sessions");
-      if (estDict(ouvertes) && Array.isArray(ouvertes["sessions"]) && ouvertes["sessions"].length > 0)
-        return errPw("creds_session_reused", "", {
-          message:
-            "a browser session is already open: it would be reused and HTTP credentials only apply to a new browser context",
-          fix: "call pw_session(action='start', url=…, creds=…, isolated=true), or stop the open session first",
-        });
-    }
     const origineUrl = origineExacte(url);
     if (origineUrl === null)
       return errPw("creds_origin_mismatch", "", {
@@ -94,6 +99,7 @@ async function demarrer(
   const corps: Dict = {
     url,
     ...identifiants,
+    ...(securisee ? { secure: true } : {}),
     headless: headless(),
     load_state_id: a["load_state_id"],
     record_har: a["record_har"],

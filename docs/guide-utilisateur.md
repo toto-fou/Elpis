@@ -627,14 +627,22 @@ ne voit que ce jeton et le fait taper dans le formulaire du navigateur sans jama
 lire le mot de passe.
 
 - Le jeton est lié à **cette conversation** et à **une origine exacte** (schéma,
-  hôte et port) : le mot de passe n'est tapé que dans un champ « mot de passe » d'une
-  page de cette origine, iframes comprises, et seulement si le navigateur approuve son
-  certificat (sinon cochez « Certificat non vérifié accepté », pour un réseau privé).
+  hôte et port) : le mot de passe n'est tapé que dans un champ « mot de passe » visible
+  d'une page de cette origine, iframes comprises, et seulement si le navigateur
+  approuve son certificat (sinon cochez « Certificat non vérifié accepté », pour un
+  réseau privé ; l'accorder sur une entrée du coffre demande de ressaisir son mot de
+  passe).
 - Il expire au bout de **30 min** ou de 5 usages ; la fenêtre `/creds` liste les
   accès actifs de la conversation (Renouveler, Révoquer). Supprimer la conversation
   les supprime. Un sous-agent ou une routine ne peut pas s'en servir.
-- Une fois un identifiant saisi, la session de navigateur n'accepte plus de script
-  (`eval`), de simulation de réponses ni d'interception : fermez-la pour les reprendre.
+- L'assistant ouvre pour cela une **session de navigateur sécurisée** (un contexte
+  neuf, jamais la session déjà ouverte ; si vous avez trop de sessions ouvertes, il
+  doit en fermer une avant). Elle reste verrouillée jusqu'à sa fermeture : ni script
+  (`eval`), ni simulation de réponses, ni interception, trace, HAR, vidéo, PDF ou
+  état sauvegardé ; l'assistant n'y cible que par rôle, label, texte… (jamais par
+  sélecteur CSS ou XPath) ; la valeur d'un champ mot de passe n'est jamais lue et ces
+  champs sont masqués sur les captures d'écran. Une session ordinaire refuse tout
+  secret.
 - Les entrées reprises de l'ancienne mémoire des sites sont marquées « à
   confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser. Changer
   l'origine d'une entrée confirmée exige de ressaisir son mot de passe.

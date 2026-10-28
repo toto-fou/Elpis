@@ -23,7 +23,10 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { origineDe, origineSecret, saisirSecret, masquerValeur, refusSessionPourSecret, gardeScripts } from './secret_util.js';
+import {
+    origineDe, origineSecret, masquerValeur, gardeSessionSecurisee, retenirValeurs, purgerValeurs,
+    initialisationSecurisee, securiserCaptures, precontroleSecret, saisirSecret, CHAMPS_SECRET, MARQUE,
+} from './secret_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
@@ -287,7 +290,7 @@ async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) 
 async function findLiveSessionByOwner(owner) {
     if (!owner) return null;
     for (const [sid, s] of sessions) {
-        if (s.owner !== owner) continue;
+        if (s.owner !== owner || s.secure) continue;
         // AUDIT 2026-06 — ping borné : une page gelée ne bloque plus la
         // recherche. 'frozen' = fail-open (page sans doute juste occupée,
         // les handlers ont leurs propres timeouts).
@@ -659,7 +662,7 @@ async function shadowDOMQuery(page, selector) {
                                 x: Math.round(rect.left + rect.width / 2),
                                 y: Math.round(rect.top + rect.height / 2),
                                 w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || (el.type === 'password' ? '' : el.value) || '').trim().substring(0, 100),
+                                text: (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || '').trim().substring(0, 100),
                                 tag: el.tagName.toLowerCase(),
                             };
                         }
@@ -806,7 +809,7 @@ function decrireNoeud(el, { xpath = false } = {}) {
     if (['checkbox', 'radio', 'switch', 'menuitemcheckbox', 'menuitemradio'].includes(role)) {
         const aria = el.getAttribute('aria-checked');
         out.checked = caseNative ? (el.indeterminate ? 'mixed' : el.checked) : (aria === 'mixed' ? 'mixed' : aria === 'true');
-    } else if (champ && !['button', 'submit', 'reset', 'image', 'hidden', 'file', 'password'].includes(type)) {
+    } else if (champ && !el.hasAttribute('data-elpis-secret') && !['button', 'submit', 'reset', 'image', 'hidden', 'file', 'password'].includes(type)) {
         out.value = String(el.value || '').substring(0, 80);
     }
     if (el.disabled || el.getAttribute('aria-disabled') === 'true' || (el.closest && el.closest('fieldset:disabled'))) out.disabled = true;
@@ -867,7 +870,7 @@ function resolveOfficialLocator(page, params) {
     }
     if (filter_has_text) loc = loc.filter({ hasText: filter_has_text });
     if (filter_has) loc = loc.filter({ has: page.locator(filter_has) });
-    if (nth !== undefined && nth !== null && nth >= 0) loc = loc.nth(nth);
+    if (Number.isInteger(nth) && nth >= 0) loc = loc.nth(nth);
     return loc;
 }
 
@@ -946,8 +949,8 @@ async function resoudreCible(scope, params, graceMs = 0) {
         const ne = await locEntier.count().catch(() => 0);
         r = ne > 0 ? { liste: locEntier, n: ne, nameMatch: 'exact', partial: n0, params: entier } : { ...r, nameMatch: 'substring' };
     }
-    const k = nth === undefined || nth === null || nth === '' ? null : Number(nth);
-    if (k === null || !Number.isInteger(k) || k < 0) return { ...r, nth: null, loc: r.liste };
+    const k = Number.isInteger(nth) && nth >= 0 ? nth : null;
+    if (k === null) return { ...r, nth: null, loc: r.liste };
     return { ...r, nth: k, loc: r.liste.nth(k), params: { ...r.params, nth: k } };
 }
 
@@ -1736,6 +1739,18 @@ async function getSession(req, res, next) {
     }
     req.session = session;
     req.sessionId = sid;
+    if (session.secure) {
+        // Session sécurisée : garde centrale (routes et cibles), puis réponses purgées des valeurs saisies et marquées si le certificat n'est pas vérifié.
+        const refus = gardeSessionSecurisee(req);
+        if (refus) return res.status(refus.statut).json(refus.corps);
+        const json = res.json.bind(res);
+        res.json = (corps) => {
+            let sortie = purgerValeurs(corps, session);
+            if (session.tlsTolerant && sortie && typeof sortie === 'object' && !Array.isArray(sortie))
+                sortie = { ...sortie, tls_verification: 'disabled' };
+            return json(sortie);
+        };
+    }
     annoncerOnglets(req, res);
     next();
 }
@@ -2054,7 +2069,7 @@ function attachPageLoggers(page, consoleLogs, networkLog) {
     page.on('request', req => {
         const rtype = req.resourceType();
         if (!NET_TYPES.has(rtype)) return;
-        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: req.postData()?.substring(0, 500) || null });
+        networkLog.push({ ts: Date.now(), dir: 'REQ', method: req.method(), ...entry(req, rtype), postData: networkLog.sansCorps ? null : (req.postData()?.substring(0, 500) || null) });
         if (networkLog.length > 300) networkLog.shift();
     });
     page.on('response', resp => {
@@ -2282,52 +2297,14 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
-// ── Certificat de l'origine d'un secret ─────────────────────────────────
-// Les sessions ouvertes sans identifiants HTTP acceptent les certificats invalides (réseaux privés) : avant de saisir un secret, une
-// sonde dans un contexte à part, SANS cette tolérance, vérifie que le navigateur approuve le certificat de l'origine.
-const CACHE_TLS_MS = 5 * 60_000;
-const cacheTls = new Map();
-
-async function sondeCertificat(origine) {
-    const browser = await ensureBrowser(true);
-    const ctx = await browser.newContext({ ignoreHTTPSErrors: false, userAgent: USER_AGENT });
-    try {
-        await installerGarde(ctx);
-        const pg = await ctx.newPage();
-        await pg.goto(origine, { waitUntil: 'commit', timeout: 10000 });
-        return 'valide';
-    } catch (e) {
-        return /ERR_CERT|ERR_SSL|SSL_ERROR|SEC_ERROR|certificate|self.signed/i.test(String(e && e.message)) ? 'invalide' : 'inconnu';
-    } finally {
-        await ctx.close().catch(() => {});
-    }
-}
-
-/** Erreur codée si le certificat de l'origine n'est pas approuvé (sauf accord explicite ou http clair), `null` sinon. */
-async function refusCertificat(session, origine, accepteInvalide) {
-    if (accepteInvalide || !origine.startsWith('https:') || (session && session.tlsStrict)) return null;
-    let c = cacheTls.get(origine);
-    if (!c || c.jusqua < Date.now()) {
-        c = { etat: await sondeCertificat(origine), jusqua: Date.now() + CACHE_TLS_MS };
-        cacheTls.set(origine, c);
-        if (cacheTls.size > 200) cacheTls.delete(cacheTls.keys().next().value);
-    }
-    if (c.etat === 'valide') return null;
-    return erreurCodee(
-        c.etat === 'invalide' ? 'secret_tls_invalid' : 'secret_tls_unknown',
-        c.etat === 'invalide'
-            ? `Le certificat de ${origine} n'est pas approuvé par le navigateur : saisie du secret refusée.`
-            : `Validité du certificat de ${origine} non vérifiable : saisie du secret refusée.`,
-        { fix: "Corrigez le certificat, ou cochez « Certificat non vérifié accepté » sur l'entrée du coffre (/creds)." },
-    );
-}
-
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
         const { url, username, password, credentials_origin, credentials_insecure_tls, headless, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
+        // Session sécurisée : décidée ici, pour toute sa vie (contexte neuf, TLS strict, outils restreints) ; les identifiants HTTP en font une.
+        const secure = req.body.secure === true || Boolean(username && password);
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
         // à la session, à ses états sauvegardés et à ses téléchargements.
         const owner = safeOwner(req.body.owner);
@@ -2336,6 +2313,8 @@ app.post('/start', async (req, res) => {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
         }
+        if (secure && (trace || record_har || record_video || load_state_id))
+            return res.status(400).json({ error: "Session sécurisée incompatible avec trace, HAR, vidéo et état sauvegardé (ils enregistreraient ou rejoueraient des saisies).", code: 'secure_session_option_refused' });
         // Identifiants HTTP : toujours liés à UNE origine (sans `origin`, Playwright les enverrait à tout serveur qui répond 401, redirections tierces comprises).
         let httpCredentials;
         if (username && password) {
@@ -2343,12 +2322,13 @@ app.post('/start', async (req, res) => {
             if (!lie) return res.status(400).json({ error: "Identifiants HTTP sans origine exacte : fournir url=https://… ou credentials_origin.", code: 'credentials_origin_required' });
             if (url && origineDe(url) !== lie)
                 return res.status(400).json({ error: "L'adresse de départ n'est pas sur l'origine des identifiants.", code: 'credentials_origin_mismatch' });
-            if (trace || record_har || record_video)
-                return res.status(400).json({ error: "Identifiants HTTP incompatibles avec trace, HAR et vidéo (ils enregistreraient le mot de passe).", code: 'credentials_recording_refused' });
             httpCredentials = { username, password, origin: lie };
         }
-        // Avec des identifiants HTTP, aucun certificat invalide n'est toléré (sauf accord explicite) : ils ne partent qu'à un serveur authentifié.
-        const tlsStrict = Boolean(httpCredentials) && credentials_insecure_tls !== true;
+        // Session sécurisée : aucun certificat invalide toléré, sauf accord explicite de l'entrée du coffre (jeton `allow_insecure_tls`), alors signalé dans chaque réponse.
+        const tlsTolerant = secure && credentials_insecure_tls === true;
+        const origineTolerance = tlsTolerant ? (origineDe(credentials_origin) || origineDe(url)) : null;
+        if (tlsTolerant && !origineTolerance)
+            return res.status(400).json({ error: "Tolérance du certificat sans origine exacte.", code: 'credentials_origin_required' });
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
         // resolveStateFile). Résolu avant la réutilisation d'une session : un
@@ -2364,7 +2344,7 @@ app.post('/start', async (req, res) => {
             storageState = path.join(COOKIES_DIR, etat.file);
         }
 
-        if (PW_MUTEX && owner && !isolated) {
+        if (PW_MUTEX && owner && (!isolated || secure)) {
             try {
                 _startRelease = await acquireLock(_ownerStartLock(owner), { waitMs: LOCK_WAIT_MS });
             } catch (e) {
@@ -2379,7 +2359,7 @@ app.post('/start', async (req, res) => {
         // échéant) s'ouvre dans un NOUVEL ONGLET de l'instance existante :
         // rien en cours n'est perdu, et l'utilisateur accumule des
         // onglets entre lesquels il peut basculer (switch_tab).
-        if (owner && !isolated) {   // isolated=true → contexte neuf, pas de réutilisation (isolation des tests)
+        if (owner && !isolated && !secure) {   // isolated=true ou session sécurisée → contexte neuf, pas de réutilisation
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
@@ -2455,7 +2435,7 @@ app.post('/start', async (req, res) => {
             locale: locale || 'fr-FR',
             timezoneId: timezone || 'Europe/Paris',
             colorScheme: color_scheme || undefined,   // 'light' | 'dark' | 'no-preference'
-            ignoreHTTPSErrors: !tlsStrict,
+            ignoreHTTPSErrors: secure ? tlsTolerant : true,
             acceptDownloads: true,
             storageState,
             httpCredentials,
@@ -2474,6 +2454,7 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        if (secure) await context.addInitScript(initialisationSecurisee);
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2507,19 +2488,31 @@ app.post('/start', async (req, res) => {
 
         const consoleLogs = [];
         const networkLog = [];
+        // Session sécurisée : le corps des requêtes (formulaire de connexion) n'est jamais journalisé.
+        if (secure) networkLog.sansCorps = true;
         attachPageLoggers(page, consoleLogs, networkLog);
 
         const now = Date.now();
-        // Enforce max sessions — close oldest if at limit
+        // Enforce max sessions — close oldest if at limit (jamais une session sécurisée, jamais pour en ouvrir une)
         const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
             return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
         }
+        if (slot.evict && (secure || (sessions.get(slot.evict) || {}).secure)) {
+            await context.close().catch(() => {});
+            return res.status(409).json({
+                error: secure ? 'Quota de sessions atteint : une session sécurisée ne remplace jamais une session ouverte.' : 'Quota de sessions atteint : la plus ancienne est une session sécurisée, qui n\'est jamais fermée en silence.',
+                code: 'session_quota_reached',
+                fix: 'Fermez une session avec pw_session(action=\'stop\', session_id=…) (pw_session action=\'list\' les montre), puis réessayez.',
+            });
+        }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
+        if (secure) securiserCaptures(context, page);
 
-        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, harActive: Boolean(record_har), videoActive: Boolean(record_video), tlsStrict, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, secure, tlsTolerant, origineTolerance, _lock: makeLock(), dialogState });
         suivreOnglets(sessions.get(sessionId), page);
+        if (httpCredentials) retenirValeurs(sessions.get(sessionId), [httpCredentials.password], { basic: httpCredentials });
 
         let nav = {};
         try {
@@ -2532,13 +2525,42 @@ app.post('/start', async (req, res) => {
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav });
+        res.json(purgerValeurs({
+            status: 'started', secure, session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+            ...(tlsTolerant ? { tls_verification: 'disabled', warning: `Certificats non vérifiés acceptés pour cette session sécurisée (entrée du coffre, ${origineTolerance}).` } : {}),
+        }, sessions.get(sessionId)));
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });
 
 
 // ======================== SMART CLICK (endpoint dédié) ========================
+// Pré-contrôle d'un secret, sans valeur : session sécurisée ? champ visible unique du bon type ? origine de son frame ? Seul un succès autorise l'hôte à résoudre le jeton.
+app.post('/secret_precheck', getSession, async (req, res) => {
+    try {
+        const { page } = req.session;
+        if (!req.session.secure)
+            return res.status(403).json({
+                error: 'Un secret ne se saisit que dans une session sécurisée.', code: 'secret_requires_secure_session',
+                fix: "Fermez cette session (pw_session stop) puis ouvrez-en une avec pw_session(action='start', url=…, secure=true).",
+            });
+        const champ = req.body.secret_field;
+        if (!CHAMPS_SECRET.has(champ)) return res.status(400).json({ error: 'Champ du secret inconnu (password ou username).', code: 'secret_field_invalid' });
+        const { ref, by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title } = req.body;
+        const timeout = Math.min(Number(req.body.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2);
+        const cible = await cibleDepuisParams(page, { ref, by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title }, req.sessionId, NOT_FOUND_GRACE_MS);
+        if (!cible) return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
+        const nth = Number.isInteger(req.body.nth) && req.body.nth >= 0 && !String(ref || '').includes('#') ? req.body.nth : null;
+        const origine = await precontroleSecret(cible.liste || cible.loc, { champ, timeout, nth });
+        const s = req.session;
+        if (s.tlsTolerant && origine.startsWith('https:') && origine !== s.origineTolerance)
+            return res.status(403).json({ error: `Cette session tolère les certificats non vérifiés pour ${s.origineTolerance} seulement.`, code: 'secret_tls_tolerant_origin' });
+        res.json({ ok: true, frame_origin: origine, field: champ });
+    } catch (e) {
+        res.status(e.statut || 500).json({ error: sansAnsi(e.message || String(e)), code: e.code || codeErreur(String(e.message)), ...(e.details || {}) });
+    }
+});
+
 app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
@@ -2592,20 +2614,16 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             select_option: 'select', scroll_to: 'scroll_into_view',
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
-        // Secret du coffre : fill/type sur une cible seulement, origine du frame vérifiée avant la saisie, aucun repli, aucune valeur renvoyée.
+        // Secret du coffre : session sécurisée seulement, fill sur une cible sémantique, origine du frame vérifiée avant la saisie, aucun repli, aucune valeur renvoyée.
         let secretOrigine = null;
         try {
-            secretOrigine = origineSecret(req.body, {
+            secretOrigine = origineSecret(req.body, req.session, {
                 geste: type,
                 aCible: Boolean(ref || by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath),
             });
-        } catch (e) { return res.status(e.statut || 400).json({ error: e.message, code: e.code }); }
+        } catch (e) { return res.status(e.statut || 400).json({ error: e.message, code: e.code, ...(e.details || {}) }); }
         const valeurSecrete = secretOrigine ? (text || value || '') : '';
         if (secretOrigine && !valeurSecrete) return res.status(400).json({ error: 'Secret vide.', code: 'secret_empty' });
-        if (secretOrigine) {
-            const refusS = refusSessionPourSecret(req.session);
-            if (refusS) return res.status(refusS.statut || 403).json({ error: refusS.message, code: refusS.code, ...(refusS.details || {}) });
-        }
         const opts = { timeout, button, modifiers };
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
@@ -2681,7 +2699,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             // Format ref : "loc_xxx" ou "loc_xxx#N" (index)
             const [baseRef, idxStr] = String(ref).split('#');
             let loc = resolveRef(baseRef, page, req.sessionId);
-            if (loc && idxStr !== undefined) loc = loc.nth(parseInt(idxStr, 10));
+            if (loc && idxStr !== undefined) loc = /^\d{1,4}$/.test(idxStr) ? loc.nth(parseInt(idxStr, 10)) : null;
             if (!loc) {
                 return res.status(404).json({ error: `Ref expired or invalid: ${ref}. Re-call pw_find.`, code: 'ref_expired' });
             }
@@ -2725,17 +2743,20 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
         }
 
-        // Un secret ne passe que par le locator officiel : cible introuvable ou repli → refus, jamais de saisie ailleurs.
-        if (secretOrigine && !officialLocator)
-            return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
+        // Un secret ne passe que par la cible sémantique, comptée parmi les éléments VISIBLES : ni repli, ni premier de plusieurs.
         if (secretOrigine) {
-            // Une cible ambiguë n'est jamais résolue au premier élément : le secret irait peut-être au mauvais champ.
-            if (cible && cible.n > 1 && nth === null)
-                return res.status(409).json({ error: `${cible.n} éléments correspondent : saisie du secret refusée.`, code: 'ambiguous_target', fix: 'Précisez la cible (|nth=K ou un ref de pw_find).' });
-            const refusT = await refusCertificat(req.session, secretOrigine, req.body.secret_insecure_tls === true);
-            if (refusT) return res.status(403).json({ error: refusT.message, ...detailsErreur(refusT) });
-            // Taché dès avant la saisie : même un échec partiel a pu poser la valeur dans la page.
-            req.session._secretSaisi = true;
+            if (!cible) return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
+            retenirValeurs(req.session, [valeurSecrete]);
+            try {
+                await saisirSecret(cible.liste || cible.loc, secretOrigine, valeurSecrete, {
+                    champ: req.body.secret_field, timeout: Math.min(Number(timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2), nth, force,
+                    delaiAvant: req.recuA + BUDGET_GESTE_MS - 400,
+                });
+            } catch (e) {
+                return res.status(e.statut || 500).json({ error: masquerValeur(sansAnsi(e.message || String(e)), valeurSecrete), code: e.code || codeErreur(String(e.message)), ...(e.details || {}) });
+            }
+            await postActionWait(page, wait_after);
+            return res.json({ status: 'success', strategy: 'secret', field: req.body.secret_field, url: page.url() });
         }
 
         // ── Actions page-level (sans cible) ──
@@ -2867,8 +2888,6 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     }, { direction, amount: amount === undefined ? 500 : amount });
                 } else if (type === 'scroll_into_view' || type === 'scroll') {
                     await officialLocator.scrollIntoViewIfNeeded({ timeout: _t });
-                } else if (type === 'fill' && secretOrigine) {
-                    await saisirSecret(officialLocator, secretOrigine, valeurSecrete, { champ: req.body.secret_field, timeout: _t, force });
                 } else if (type === 'fill') {
                     await officialLocator.fill(text || value || '', { timeout: _t, force });
                 } else if (type === 'type') {
@@ -2936,10 +2955,6 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 // `notASelect` est une erreur de DIAGNOSTIC (« ce n'est pas un
                 // <select>, utilise pick ») : la répéter via l'autre chemin ne
                 // ferait que la rendre plus confuse.
-                if (secretOrigine) {
-                    // Aucun repli ni capture pour un secret : le message est expurgé de la valeur.
-                    return res.status(e.statut || 500).json({ error: masquerValeur(e.message, valeurSecrete), ...detailsErreur(e) });
-                }
                 if (rawSelector && !e.notASelect) {
                     console.log(`[action] official KO (${e.message.slice(0, 80)}) → repli smartResolve sur ${rawSelector}`);
                     officialLocator = null;
@@ -3593,7 +3608,7 @@ app.post('/locate', getSession, autoSnapshot, async (req, res) => {
             for (const el of pool) {
                 if (visible_only && !isVisible(el)) continue;
 
-                const elText = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
+                const elText = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('alt') || el.getAttribute('title') || '').trim();
                 const elLabel = el.getAttribute('aria-label') ||
                                 (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || '';
                 const elPlaceholder = el.getAttribute('placeholder') || '';
@@ -3745,7 +3760,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 const usefulAttrs = {};
                 for (const a of el.attributes) {
                     const n = a.name;
-                    if (n === 'value' && el.type === 'password') continue;
+                    if (n === 'value' && (el.type === 'password' || el.hasAttribute('data-elpis-secret'))) continue;
                     if (n === 'id' || n === 'class' || n === 'href' || n === 'name' ||
                         n === 'type' || n === 'value' || n === 'placeholder' || n === 'title' ||
                         n === 'alt' || n === 'role' || n === 'src' ||
@@ -3757,7 +3772,7 @@ app.post('/query', getSession, autoSnapshot, async (req, res) => {
                 matches.push({
                     tag: el.tagName.toLowerCase(),
                     text: (el.textContent || '').trim().substring(0, 100),
-                    value: el.value !== undefined && el.value !== '' && el.type !== 'password' ? String(el.value).substring(0, 100) : undefined,
+                    value: el.value !== undefined && el.value !== '' && !(el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? String(el.value).substring(0, 100) : undefined,
                     attrs: usefulAttrs,
                     visible: isVisible(el),
                     enabled: !el.disabled && el.getAttribute('aria-disabled') !== 'true',
@@ -4065,7 +4080,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                     if (visibleOnly && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
                     if (inViewport && (rect.top < 0 || rect.top > window.innerHeight || rect.left < 0 || rect.left > window.innerWidth)) continue;
 
-                    const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
+                    const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().substring(0, 150);
 
                     // Filtre par query
                     if (query) {
@@ -4089,7 +4104,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
                         type: el.getAttribute('type'),
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
                         checked: el.checked,
-                        value: (el.type === 'password' ? '' : el.value || '').substring(0, 100),
+                        value: ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value || '').substring(0, 100),
                         href: el.href || null,
                         color: toHex(style.color),
                         bg: toHex(style.backgroundColor),
@@ -4321,7 +4336,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (t && t.length <= 120) return t.substring(0, 80);
                     }
                     return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').trim().substring(0, 80);
+                             || el.getAttribute('alt') || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || '') + '').trim().substring(0, 80);
                 } catch (e) { return ''; }
             }
 
@@ -4480,7 +4495,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4534,7 +4549,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value && el.type !== 'password') item.value = el.value.substring(0, 100);
+                    if (el.value && !(el.type === 'password' || el.hasAttribute('data-elpis-secret'))) item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4582,7 +4597,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: f.type === 'password' ? undefined : f.value?.substring(0, 100), label: (() => {
+                    value: (f.type === 'password' || f.hasAttribute('data-elpis-secret')) ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -4865,7 +4880,7 @@ async function inspectFrame(frame, label) {
                     if (tag === 'input') {
                         const it = node.getAttribute('type') || 'text';
                         type = `INPUT:${it}`;
-                        lbl = (it === 'password' ? '' : node.value) || node.getAttribute('placeholder') || ariaLabel || '';
+                        lbl = ((it === 'password' || node.hasAttribute('data-elpis-secret')) ? '' : node.value) || node.getAttribute('placeholder') || ariaLabel || '';
                         if (it === 'checkbox' || it === 'radio') lbl += node.checked ? ' ✓' : ' ○';
                         if (it === 'color') lbl += ` [valeur: ${node.value}]`;
                         if (it === 'date' || it === 'datetime-local') lbl += ` [date: ${node.value}]`;
@@ -4877,7 +4892,7 @@ async function inspectFrame(frame, label) {
                         const options = Array.from(node.options || []).slice(0, 12).map(o => o.text.trim()).filter(Boolean);
                         if (options.length) lbl += ` [Options: ${options.join(', ')}]`;
                     } else if (tag === 'textarea') {
-                        type = 'TEXTAREA'; lbl = clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
+                        type = 'TEXTAREA'; lbl = node.hasAttribute('data-elpis-secret') ? '' : clean(node.value) || node.getAttribute('placeholder') || ariaLabel || '';
                     } else if (tag === 'svg' || tag === 'img' || tag === 'i') {
                         type = 'ICON'; lbl = ariaLabel || node.getAttribute('alt') || node.getAttribute('data-icon') || node.getAttribute('title') || node.className?.toString().match(/fa-[\w-]+|icon-[\w-]+|mdi-[\w-]+|bi-[\w-]+/)?.[0] || 'Graphic';
                     } else if (tag === 'a') {
@@ -4965,7 +4980,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || (el.type === 'password' ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -4994,7 +5009,8 @@ app.get('/accessibility', getSession, autoSnapshot, async (req, res) => {
             if (!node) return '';
             const indent = '  '.repeat(depth);
             let line = `${indent}[${node.role}] "${node.name || ''}"`;
-            if (node.value !== undefined) line += ` value="${node.value}"`;
+            // Session sécurisée : aucune valeur de champ (un champ mot de passe, même devenu texte, ne se distingue pas dans cet arbre).
+            if (node.value !== undefined && !req.session.secure) line += ` value="${node.value}"`;
             if (node.checked !== undefined) line += ` checked=${node.checked}`;
             if (node.selected !== undefined) line += ` selected=${node.selected}`;
             if (node.expanded !== undefined) line += ` expanded=${node.expanded}`;
@@ -5233,11 +5249,11 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: el.type === 'password' ? undefined : el.value, href: el.href, src: el.src,
+                value: (el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(a.name === 'value' && el.type === 'password')).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(a.name === 'value' && (el.type === 'password' || el.hasAttribute('data-elpis-secret')))).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5286,9 +5302,9 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
         const { networkLog, page } = req.session;
         const { filter, last = 50, types } = req.query;
         const typeSet = types ? new Set(String(types).split(',').map(t => t.trim()).filter(Boolean)) : null;
-        // Session ayant reçu un secret : le corps des requêtes (formulaire de connexion) n'est plus montré.
-        const journalReseau = req.session._secretSaisi
-            ? networkLog.map(e => (e.postData ? { ...e, postData: '[omis : session avec secret]' } : e))
+        // Session sécurisée : le corps des requêtes (formulaire de connexion) n'est jamais montré.
+        const journalReseau = req.session.secure
+            ? networkLog.map(e => (e.postData ? { ...e, postData: null } : e))
             : networkLog;
         const out = summarizeNetwork(journalReseau, { last, filter: filter || '', types: typeSet });
         let pageUrl = ''; try { pageUrl = page.url(); } catch (_) {}
@@ -5298,7 +5314,7 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== INTERCEPT REQUESTS ========================
-app.post('/intercept', getSession, gardeScripts('intercept'), autoSnapshot, async (req, res) => {
+app.post('/intercept', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { block_patterns = [], modify_headers = {} } = req.body;
@@ -5316,7 +5332,7 @@ app.post('/intercept', getSession, gardeScripts('intercept'), autoSnapshot, asyn
 
 
 // ======================== CAPTURE API RESPONSE ========================
-app.post('/capture_response', getSession, gardeScripts('capture_response'), autoSnapshot, async (req, res) => {
+app.post('/capture_response', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { url_pattern, timeout = 15000 } = req.body;
@@ -5595,7 +5611,7 @@ app.post('/clipboard', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== MUTATION OBSERVER ========================
-app.post('/watch_changes', getSession, gardeScripts('watch_changes'), autoSnapshot, async (req, res) => {
+app.post('/watch_changes', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', timeout = 10000, attribute_filter } = req.body;
@@ -5642,7 +5658,7 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EVALUATE JS ========================
-app.post('/evaluate', getSession, gardeScripts('evaluate'), autoSnapshot, async (req, res) => {
+app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
         const { page } = req.session;
@@ -5794,6 +5810,8 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         if (!loc) return res.status(400).json({ error: 'selector or by_* params required', condition });
         const first = loc.first();
         const label = selector || describeLocator(params, { first: false }) || '?';
+        if (req.session.secure && (attribute || condition === 'attribute_changes') && await champMasque(loc))
+            return res.status(403).json({ error: "La valeur d'un champ mot de passe ou ayant reçu un secret n'est jamais lue.", code: 'value_masked', condition });
 
         let polled = null;
         const probe = async () => {
@@ -5853,7 +5871,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
 
 // ======================== DISPATCH EVENT ========================
 // Déclenche n'importe quel événement DOM sur un élément
-app.post('/dispatch_event', getSession, gardeScripts('dispatch_event'), autoSnapshot, async (req, res) => {
+app.post('/dispatch_event', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -5908,7 +5926,7 @@ app.post('/dispatch_event', getSession, gardeScripts('dispatch_event'), autoSnap
 
 // ======================== TRIGGER REACT/VUE/ANGULAR ========================
 // Force la mise à jour des frameworks JS en simulant une vraie saisie utilisateur
-app.post('/trigger_framework_update', getSession, gardeScripts('trigger_framework_update'), autoSnapshot, async (req, res) => {
+app.post('/trigger_framework_update', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector, value, framework = 'auto' } = req.body;
@@ -5990,7 +6008,7 @@ app.post('/trigger_framework_update', getSession, gardeScripts('trigger_framewor
                 } catch (e) { results.push('vanilla:error:' + e.message); }
             }
 
-            return { fw, results, tag: el.tagName, currentValue: el.type === 'password' ? undefined : el.value };
+            return { fw, results, tag: el.tagName, currentValue: (el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? undefined : el.value };
         }, { value, framework });
 
         res.json({ status: 'success', ...detected });
@@ -6000,7 +6018,7 @@ app.post('/trigger_framework_update', getSession, gardeScripts('trigger_framewor
 
 // ======================== POLL UNTIL ========================
 // Exécute un script JS en boucle jusqu'à ce qu'il retourne true
-app.post('/poll_until', getSession, gardeScripts('poll_until'), autoSnapshot, async (req, res) => {
+app.post('/poll_until', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -6183,7 +6201,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
         // Resolve a chain step's target. Prefers `ref` and explicit `by_*`
         // params (Playwright official API — robust). Falls back to a
         // `selector` string parsed by smartResolveLocator (text/CSS/XPath).
-        async function resolveChainTarget(act, secret = false) {
+        async function resolveChainTarget(act) {
             const params = {
                 ref: act.ref,
                 by_role: act.by_role, by_name: act.by_name, by_text: act.by_text,
@@ -6196,15 +6214,12 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 // Comptée d'abord, comme /action : une cible absente échoue vite (element_not_found).
                 const c = await cibleDepuisParams(page, params, req.sessionId, Number(act.timeout) > 0 ? Number(act.timeout) : NOT_FOUND_GRACE_MS);
                 if (c) {
-                    // Un secret n'est jamais saisi dans « le premier » de plusieurs éléments.
-                    if (secret && c.n > 1 && (act.nth === undefined || act.nth === null))
-                        throw erreurCodee('ambiguous_target', `${c.n} éléments correspondent : saisie du secret refusée.`, { fix: 'Précisez la cible (nth ou un ref de pw_find).' });
                     if (c.n > 0 && !(c.nth !== null && c.nth >= c.n)) return { locator: c.loc.first(), source: 'official', matched: c.n };
-                    if (secret || !act.selector || !(await trouveParRepli(page, act.selector)))
+                    if (!act.selector || !(await trouveParRepli(page, act.selector)))
                         throw erreurCodee('element_not_found', `No element matches ${act.ref ? `ref ${act.ref}` : describeLocator(params, { first: false })} on this page.`);
                 }
             }
-            if (act.selector && !secret) {
+            if (act.selector) {
                 const r = await smartResolveLocator(page, act.selector);
                 if (r && r.locator) return { locator: r.locator, source: r.strategy || 'selector' };
             }
@@ -6224,21 +6239,14 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             let secretOrigine = null;
             let valeurSecrete = '';
             try {
-                secretOrigine = origineSecret(act, {
+                secretOrigine = origineSecret(act, req.session, {
                     geste: actType,
                     aCible: Boolean(act.ref || act.by_role || act.by_text || act.by_label || act.by_placeholder
                         || act.by_test_id || act.by_css || act.by_xpath || act.by_alt || act.by_title),
                 });
                 valeurSecrete = secretOrigine ? (act.text || act.value || '') : '';
                 if (secretOrigine && !valeurSecrete) throw Object.assign(new Error('Secret vide.'), { code: 'secret_empty' });
-                if (secretOrigine) {
-                    const refusS = refusSessionPourSecret(req.session);
-                    if (refusS) throw refusS;
-                    const refusT = await refusCertificat(req.session, secretOrigine, act.secret_insecure_tls === true);
-                    if (refusT) throw refusT;
-                    // Taché dès avant la saisie : même un échec partiel a pu poser la valeur dans la page.
-                    req.session._secretSaisi = true;
-                }
+                if (secretOrigine) retenirValeurs(req.session, [valeurSecrete]);
             } catch (e) {
                 if (suivi) suivi.annuler();
                 results.push({ step: i, action: actType, success: false, error: masquerValeur(e.message, valeurSecrete), code: e.code, ...(e.details || {}), duration_ms: Date.now() - startMs });
@@ -6271,12 +6279,22 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                     }
 
                     case 'fill': {
-                        const { locator } = await resolveChainTarget(act, Boolean(secretOrigine));
                         if (secretOrigine) {
-                            await saisirSecret(locator, secretOrigine, valeurSecrete, { champ: act.secret_field, timeout: act.timeout || ACTION_TIMEOUT_MS });
+                            // Cible comptée parmi les éléments visibles ; aucun repli, jamais le premier de plusieurs.
+                            const nthS = Number.isInteger(act.nth) && act.nth >= 0 ? act.nth : null;
+                            const c = await cibleDepuisParams(page, {
+                                ref: act.ref, by_role: act.by_role, by_name: act.by_name, by_text: act.by_text, by_label: act.by_label,
+                                by_placeholder: act.by_placeholder, by_test_id: act.by_test_id, by_alt: act.by_alt, by_title: act.by_title,
+                            }, req.sessionId, Number(act.timeout) > 0 ? Number(act.timeout) : NOT_FOUND_GRACE_MS);
+                            if (!c) throw erreurCodee('secret_requires_target', 'Champ du secret introuvable : saisie refusée.');
+                            await saisirSecret(c.liste || c.loc, secretOrigine, valeurSecrete, {
+                                champ: act.secret_field, timeout: Math.min(Number(act.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2), nth: nthS,
+                                delaiAvant: req.recuA + BUDGET_CHAINE_MS - 400,
+                            });
                             result = { success: true, action: 'fill' };
                             break;
                         }
+                        const { locator } = await resolveChainTarget(act);
                         try { await locator.fill(act.text || act.value || '', { timeout: act.timeout || ACTION_TIMEOUT_MS }); }
                         catch {
                             await locator.evaluate((el, val) => {
@@ -6400,7 +6418,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, saisie ? await resolveChainTarget(act, Boolean(secretOrigine)).then(r => r.locator, () => null) : null);
+                    }, saisie ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -6469,9 +6487,10 @@ app.get('/sessions', (req, res) => {
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
+            secure: Boolean(s.secure),
         });
     }
-    res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
+    res.json({ count: list.length, max: MAX_SESSIONS, max_per_owner: MAX_SESSIONS_PER_OWNER, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
 });
 
 // ======================== FORCE CLEANUP ========================
@@ -6517,11 +6536,16 @@ async function cibleDepuisParams(page, params, sid = null, graceMs = 0) {
     if (ref) {
         const [baseRef, idxStr] = String(ref).split('#');
         let loc = resolveRef(baseRef, page, sid);
-        if (loc && idxStr !== undefined) loc = loc.nth(parseInt(idxStr, 10));
+        if (loc && idxStr !== undefined) loc = /^\d{1,4}$/.test(idxStr) ? loc.nth(parseInt(idxStr, 10)) : null;
         return loc ? { loc, liste: loc, n: await attendrePresence(loc, graceMs), nth: null, nameMatch: null, params: {}, refBase: baseRef } : null;
     }
     if (!Object.values(byParams).some(v => v !== undefined && v !== null && v !== '')) return null;
     return resoudreCible(page, byParams, graceMs);
+}
+
+// Le premier élément du locator est-il un champ mot de passe (même devenu texte) ou un champ ayant reçu un secret ? Sa valeur et ses attributs ne se lisent pas.
+async function champMasque(loc) {
+    return loc.first().evaluate((el, m) => el.hasAttribute(m) || (el instanceof HTMLInputElement && el.type === 'password'), MARQUE, { timeout: 1500 }).catch(() => false);
 }
 
 // Locator d'un outil (/expect, /wait_for, captures, glisser) : premier élément si `first` (sauf ref), la liste entière pour les comptages.
@@ -6574,6 +6598,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
         const loc = await locatorFromParams(page, params, req.sessionId,
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
+        if (req.session.secure && (assertion === 'value-equals' || assertion === 'attr-equals') && await champMasque(loc))
+            return res.status(403).json({ error: "La valeur d'un champ mot de passe ou ayant reçu un secret n'est jamais lue.", code: 'value_masked', assertion });
 
         let pass = false, actual = null, expected = value;
         try {
@@ -6805,7 +6831,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || ((el.type === 'password' || el.hasAttribute('data-elpis-secret')) ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,
@@ -6933,7 +6959,7 @@ async function ensureMockHandler(session) {
     session._mockHandlerRegistered = true;
 }
 
-app.post('/mock/add', getSession, gardeScripts('mock/add'), async (req, res) => {
+app.post('/mock/add', getSession, async (req, res) => {
     try {
         const {
             url_pattern, status = 200, body = '', content_type = 'application/json',

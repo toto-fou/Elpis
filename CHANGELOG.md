@@ -15,11 +15,17 @@ selon [SemVer](https://semver.org/lang/fr/).
   (30 min, 5 usages) que les outils `pw_act` / `pw_chain` (`secret=`) et
   `pw_session` (`creds=`) échangent avec le core contre la valeur, uniquement pour
   un champ dont le frame est sur l'origine du jeton. Les résultats d'outils sont
-  nettoyés des valeurs résolues. Le service navigateur refuse un secret dans une
-  session qui a servi à des scripts, des interceptions, une trace ou un HAR, hors
-  d'un champ mot de passe, ou sur un certificat non approuvé (entrée du coffre
-  « Certificat non vérifié accepté » pour un réseau privé) ; une session ayant reçu un
-  secret refuse ensuite `eval`, `pw_mock` et les interceptions.
+  nettoyés des valeurs résolues. Un secret ne se saisit que dans une **session
+  sécurisée** (`pw_session(action='start', secure=true)`, ou `creds=`), décidée à
+  l'ouverture : contexte toujours neuf (erreur si le quota est atteint, rien n'est
+  fermé), certificats vérifiés (sauf « Certificat non vérifié accepté » sur l'entrée,
+  qui exige le mot de passe, signalé dans chaque réponse), sans `eval`, interception,
+  `pw_mock`, `poll_until`, `dispatch_event`, trace, HAR, vidéo, PDF, état sauvegardé
+  ni enregistreur, avec des cibles sémantiques seulement (pas de CSS ni de XPath),
+  des champs mot de passe jamais lus et masqués sur toutes les captures, un journal
+  réseau sans corps de requête. Le champ est contrôlé (visible, unique, type réel,
+  frame de l'origine) par un pré-contrôle sans valeur avant que le jeton ne soit
+  résolu ; le type est revérifié après la saisie.
 - **Identifiants HTTP du navigateur liés à une origine.** `httpCredentials`
   porte toujours `origin` : plus d'envoi à un serveur tiers qui répondrait 401.
 - **Mémoire AX : plus d'identifiants.** `pw_session` n'injecte ni n'enregistre plus

@@ -309,7 +309,7 @@ async function indiceIdentifiants(
     );
     return r === undefined
       ? null
-      : "CREDENTIALS: a saved login exists for this origin; ask the user for /creds";
+      : "CREDENTIALS: a saved login exists for this origin; ask the user for /creds, then open pw_session(action='start', url=…, secure=true)";
   } catch {
     return null;
   }

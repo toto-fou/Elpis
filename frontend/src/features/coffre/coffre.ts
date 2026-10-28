@@ -20,6 +20,8 @@ export interface FormulaireCoffre {
   allow_insecure_tls: boolean;
   /** Origine telle qu'enregistrée : la changer exige de ressaisir le mot de passe. */
   origineInitiale: string;
+  /** Accord enregistré sur le certificat : l'accorder de nouveau exige de ressaisir le mot de passe. */
+  certificatInitial: boolean;
 }
 
 export interface CtxCoffre {
@@ -49,6 +51,7 @@ export function setupCoffre(ctx: CtxCoffre | null | undefined, http: ClientHttp)
       password: "",
       allow_insecure_tls: false,
       origineInitiale: "",
+      certificatInitial: false,
     };
   }
 
@@ -62,6 +65,7 @@ export function setupCoffre(ctx: CtxCoffre | null | undefined, http: ClientHttp)
       password: "",
       allow_insecure_tls: e.allow_insecure_tls,
       origineInitiale: e.origin ?? "",
+      certificatInitial: e.allow_insecure_tls,
     };
   }
 
@@ -82,6 +86,10 @@ export function setupCoffre(ctx: CtxCoffre | null | undefined, http: ClientHttp)
     }
     if (f.id && f.origineInitiale && origin !== f.origineInitiale && !f.password) {
       coffreErreur.value = "Changer l'origine exige de ressaisir le mot de passe.";
+      return;
+    }
+    if (f.id && f.allow_insecure_tls && !f.certificatInitial && !f.password) {
+      coffreErreur.value = "Accepter un certificat non vérifié exige de ressaisir le mot de passe.";
       return;
     }
     coffreBusy.value = true;

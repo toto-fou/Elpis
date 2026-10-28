@@ -18,13 +18,10 @@ import {
   refusUrl,
   waitPayload,
 } from "@elpis/navigateur";
-import type { ClientNavigateur } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { ouChamps, ouvrirAppel, rappelOngletActif, urlApres } from "./appel";
 import type { ServicesBrowser } from "./appel";
-import { jetonDeReference, nettoyerResultat, normaliserReference, resoudreSecrets } from "./creds";
-import type { SecretResolu } from "./creds";
 import { fichiersUpload } from "./fichiers";
 
 const NAV: Readonly<Record<string, string>> = {
@@ -139,63 +136,9 @@ function roleEtNom(geste: string, resolus: Dict, resultat: unknown): [unknown, u
   return [role, nom];
 }
 
-const GESTES_SECRETS: ReadonlySet<string> = new Set(["fill", "type"]);
-
-/** Clés de cible d'une étape de `pw_chain` que le service sait résoudre pour un secret (jamais `selector` seul : pas de repli). */
-const CIBLES_ETAPE = [
-  "target",
-  "ref",
-  "by_role",
-  "by_text",
-  "by_label",
-  "by_placeholder",
-  "by_test_id",
-  "by_css",
-  "by_xpath",
-  "by_alt",
-  "by_title",
-] as const;
-
-const REFUS_GESTE_SECRET = (geste: string): Dict =>
-  errPw("secret_gesture_refused", "", {
-    message: `secret= is only usable with action='fill' or 'type' (got ${JSON.stringify(geste)})`,
-    fix: "fill / type the secret into a field with a target; never put it in goto, evaluate, press…",
-  });
-
-const REFUS_REFERENCE_SECRET: Dict = errPw("creds_invalid", "", {
-  message:
-    "secret must be 'TOKEN.password' or 'TOKEN.username' (TOKEN = the part before the @ of a ⟦creds:TOKEN@ORIGIN⟧)",
-  fix: "ask the user to supply a login with the /creds command",
-});
-
-/** Clés du corps d'un geste qui désignent la cible (celles du pré-contrôle d'un secret). */
-const CLES_CIBLE = [...BY_ACT, "ref", "nth"] as const;
-
-/**
- * Pré-contrôle SANS valeur d'un secret, avant toute résolution du jeton : session sécurisée, champ visible unique du bon type, origine de son frame.
- * Seul un succès autorise la résolution (qui décompte un usage) ; l'origine rendue est celle que le core impose au jeton.
- */
-async function precontroleSecret(
-  client: ClientNavigateur,
-  sid: unknown,
-  cible: Dict,
-  champ: "password" | "username",
-): Promise<{ origine: string } | { refus: Dict }> {
-  const charge: Dict = { session_id: sid, secret_field: champ };
-  for (const k of CLES_CIBLE) if (veritePy(cible[k]) || cible[k] === 0) charge[k] = cible[k];
-  const r = await client.req("POST", "/secret_precheck", { json: charge });
-  if (estDict(r) && r["ok"] === true && typeof r["frame_origin"] === "string")
-    return { origine: r["frame_origin"] };
-  return {
-    refus: estDict(r)
-      ? r
-      : errPw("secret_precheck_failed", "", { message: "the field could not be checked" }),
-  };
-}
-
-const REFUS_CIBLE_SECRET: Dict = errPw("secret_requires_target", "", {
-  message: "secret= needs the field to fill: a target (or ref), never the focused element",
-  fix: "pw_act(session_id, action='fill', target='label=Password', secret='TOKEN.password')",
+const REFUS_SECRET_RETIRE: Dict = errPw("secret_removed", "", {
+  message: "secret= was removed: a saved login is never typed by a gesture",
+  fix: "pw_login(session_id, creds='TOKEN', password_target='label=Password', username_target='label=Email') on a session opened with pw_session(action='start', url=…, secure=true)",
 });
 
 /** `pw_act` : `pick` (toute liste déroulante), navigation (garde de l'adresse ; ni élément ni transition AX), gestes sur une cible (`nth`, `strict`, fichiers du bac pour `upload` ; transition AX s'ils changent de page) ; page jointe au résultat. */
@@ -203,33 +146,12 @@ export function pwAct(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const o = await ouvrirAppel(ctx, s, a["session_id"]);
     if (o.refus !== null) return o.refus;
+    if (veritePy(a["secret"])) return REFUS_SECRET_RETIRE;
     const { client, ax } = o.appel;
     const sid = a["session_id"] as string;
     const geste = first(a["action"], a["do"]);
     const v = mergeValue(a["value"], a["v"]);
     const target = mergeTarget(a["target"] as string, a["selector"] as string);
-    const refSecret = normaliserReference(a["secret"]);
-    let secrets: SecretResolu[] = [];
-    if (refSecret) {
-      if (jetonDeReference(refSecret) === null) return REFUS_REFERENCE_SECRET;
-      if (!GESTES_SECRETS.has(geste)) return REFUS_GESTE_SECRET(geste);
-      if (
-        !target &&
-        !first(
-          a["ref"],
-          a["role"],
-          a["text"],
-          a["label"],
-          a["placeholder"],
-          a["test_id"],
-          a["css"],
-          a["xpath"],
-          a["alt"],
-          a["title"],
-        )
-      )
-        return REFUS_CIBLE_SECRET;
-    }
     const urlAvant = ax !== null ? await client.axGetCurrentUrl(sid) : "";
     const observe = a["observe"] as boolean;
     if (geste === "pick") {
@@ -334,30 +256,10 @@ export function pwAct(s: ServicesBrowser) {
     }
     const repli = dslToSelector(target);
     if (repli) corps["selector"] = repli;
-    // Secret : pré-contrôle du champ (sans valeur), puis seulement résolution du jeton sur l'origine de son frame ; saisi par `fill` (même demandé en `type`).
-    if (refSecret) {
-      const champ = refSecret.endsWith(".username") ? "username" : "password";
-      const pre = await precontroleSecret(client, sid, corps, champ);
-      if ("refus" in pre) return pre.refus;
-      const res = await resoudreSecrets(s, ctx, [refSecret], { expectOrigin: pre.origine });
-      if ("refus" in res) return res.refus;
-      secrets = res.secrets;
-      const secret = secrets[0] as SecretResolu;
-      Object.assign(corps, {
-        type: "fill",
-        key: null,
-        text: secret.valeur,
-        value: secret.valeur,
-        secret_origin: secret.origine,
-        secret_field: secret.champ,
-      });
-    }
-    const brut = await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps }));
-    const r = nettoyerResultat(brut, secrets);
+    const r = await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps }));
     if (ax !== null) {
       try {
-        // L'adresse vient du résultat brut : nettoyée, elle fausserait la mémoire AX (qui n'en garde que site et chemin).
-        const apres = await urlApres(client, brut, sid);
+        const apres = await urlApres(client, r, sid);
         const [role, nom] = roleEtNom(geste, resolus, r);
         if (veritePy(role) && veritePy(nom))
           await recordAction(ax, {
@@ -373,7 +275,7 @@ export function pwAct(s: ServicesBrowser) {
         s.journal.warn(`[ax-hook] hook exception: ${messageErreur(e)}`);
       }
     }
-    return nettoyerResultat(await client.finishAct(r, sid, observe, a["max_items"]), secrets);
+    return client.finishAct(r, sid, observe, a["max_items"]);
   };
 }
 
@@ -458,85 +360,17 @@ export function pwChain(s: ServicesBrowser) {
     const { client, ax } = o.appel;
     const actions = (Array.isArray(brut["actions"]) ? brut["actions"] : a["actions"]) as Dict[];
     if (!actions.length) return errPw("actions[] required", "pass a non-empty list of action steps");
-    const refs = new Set<string>();
-    for (const st of actions) {
-      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
-      if (!ref) continue;
-      if (jetonDeReference(ref) === null) return REFUS_REFERENCE_SECRET;
-      const geste = first(st["do"], st["type"], st["action"]);
-      if (!GESTES_SECRETS.has(geste)) return REFUS_GESTE_SECRET(geste);
-      if (!first(...CIBLES_ETAPE.map((k) => st[k]))) return REFUS_CIBLE_SECRET;
-      refs.add(ref);
-    }
-    // Étapes à secret : champ pré-contrôlé (sans valeur) AVANT toute résolution ; une seule origine de frame pour tout l'appel.
-    const origines = new Set<string>();
-    const sansSecret = actions.map((st) => {
-      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
-      if (!ref) return etape(st);
-      const {
-        secret: _s,
-        value: _v,
-        v: _w,
-        text: _t,
-        do: _d,
-        action: _a,
-        type: _y,
-        selector: _l,
-        ...reste
-      } = st;
-      return etape({ ...reste, type: "fill" });
+    if (actions.some((st) => estDict(st) && veritePy(st["secret"]))) return REFUS_SECRET_RETIRE;
+    const r = await client.req("POST", "/chain", {
+      json: {
+        session_id: a["session_id"],
+        actions: actions.map(etape),
+        stop_on_error: a["stop_on_error"],
+        screenshot_on_fail: a["screenshot_on_fail"],
+      },
+      timeout: Math.max(client.delaiS, 60),
     });
-    for (let i = 0; i < actions.length; i++) {
-      const st = actions[i];
-      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
-      if (!ref) continue;
-      const pre = await precontroleSecret(
-        client,
-        a["session_id"],
-        sansSecret[i] as Dict,
-        ref.endsWith(".username") ? "username" : "password",
-      );
-      if ("refus" in pre) return pre.refus;
-      origines.add(pre.origine);
-    }
-    if (origines.size > 1)
-      return errPw("secret_origins_differ", "", {
-        message: "the secret fields of this pw_chain sit in frames of different origins",
-        fix: "split the chain: one pw_chain (or pw_act) per origin",
-      });
-    let secrets: SecretResolu[] = [];
-    if (refs.size > 0) {
-      const res = await resoudreSecrets(s, ctx, [...refs], { expectOrigin: [...origines][0] });
-      if ("refus" in res) return res.refus;
-      secrets = res.secrets;
-    }
-    const envoyees = actions.map((st, i) => {
-      const ref = estDict(st) ? normaliserReference(st["secret"]) : "";
-      if (!ref) return sansSecret[i] as Dict;
-      const secret = secrets.find((x) => x.ref === ref);
-      return {
-        ...(sansSecret[i] as Dict),
-        text: secret?.valeur ?? "",
-        secret_origin: secret?.origine ?? "",
-        secret_field: secret?.champ ?? "password",
-      };
-    });
-    const r = nettoyerResultat(
-      await client.req("POST", "/chain", {
-        json: {
-          session_id: a["session_id"],
-          actions: envoyees,
-          stop_on_error: a["stop_on_error"],
-          screenshot_on_fail: a["screenshot_on_fail"],
-        },
-        timeout: Math.max(client.delaiS, 60),
-      }),
-      secrets,
-    );
     if (ax !== null) await apprendreEtapes(s, ax, actions, r);
-    return nettoyerResultat(
-      await client.finishAct(r, a["session_id"] as string, a["observe"] as boolean, a["max_items"]),
-      secrets,
-    );
+    return client.finishAct(r, a["session_id"] as string, a["observe"] as boolean, a["max_items"]);
   };
 }

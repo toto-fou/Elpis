@@ -12,13 +12,16 @@ selon [SemVer](https://semver.org/lang/fr/).
   sont plus stockés en clair ni transmis comme arguments d'outil. Chaque compte a
   un coffre chiffré (Fernet) dont les entrées sont liées à une origine exacte ;
   `/creds` donne à l'assistant, pour une conversation, un jeton `⟦creds:…⟧`
-  (30 min, 5 usages) que les outils `pw_act` / `pw_chain` (`secret=`) et
-  `pw_session` (`creds=`) échangent avec le core contre la valeur, uniquement pour
-  un champ dont le frame est sur l'origine du jeton. Les résultats d'outils sont
-  nettoyés des valeurs résolues. Un secret ne se saisit que dans une **session
+  (30 min, 5 usages) que le nouvel outil `pw_login` et `pw_session` (`creds=`) échangent
+  avec le core contre la valeur, uniquement pour un champ dont le frame est sur l'origine
+  du jeton. L'assistant ne saisit jamais un secret par un geste (`secret=` de `pw_act` et
+  `pw_chain` est retiré) : `pw_login` pré-contrôle les champs sans valeur, résout le jeton,
+  remplit, valide, attend puis vide la page en une requête, sans rendre la main au modèle. Les résultats d'outils sont
+  nettoyés des valeurs résolues. `pw_login` n'existe que dans une **session
   sécurisée** (`pw_session(action='start', secure=true)`, ou `creds=`), décidée à
-  l'ouverture : contexte toujours neuf (erreur si le quota est atteint, rien n'est
-  fermé), certificats vérifiés (sauf « Certificat non vérifié accepté » sur l'entrée,
+  l'ouverture : navigateur dédié (presse-papiers isolé), toujours neuf (erreur si le quota
+  est atteint, rien n'est fermé), routes en liste blanche, copier-coller et glisser
+  refusés, requêtes vers une autre origine interrompues si le certificat est toléré, certificats vérifiés (sauf « Certificat non vérifié accepté » sur l'entrée,
   qui exige le mot de passe, signalé dans chaque réponse), sans `eval`, interception,
   `pw_mock`, `poll_until`, `dispatch_event`, trace, HAR, vidéo, PDF, état sauvegardé
   ni enregistreur, avec des cibles sémantiques seulement (pas de CSS ni de XPath),

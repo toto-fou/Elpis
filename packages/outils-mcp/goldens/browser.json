@@ -5,7 +5,7 @@
     {
       "name": "pw_session",
       "title": "Pw Session",
-      "description": "Manage the Playwright browser session lifecycle (Chromium by default; the\nservice's BROWSER_ENGINE can select firefox or webkit - action=\"health\"\nreports the engine in use).\n\naction= :\n  start       : open a session. Required: url=.\n                SECURE SESSION (REQUIRED to type a saved login): when the user\n                supplies \u27e6creds:TOKEN@ORIGIN\u27e7 (the /creds command), open the\n                session with pw_session(action=\"start\", url=\u2026, secure=true)\n                BEFORE using it. Typing a password (pw_act / pw_chain\n                secret=\"TOKEN.password\") is refused on any other session\n                (secret_requires_secure_session). A secure session is a NEW\n                dedicated context, never a reused one, with strict TLS\n                (an untrusted certificate fails to load), and it stays locked\n                for its whole life: no pw_page eval, pw_mock, pw_recorder,\n                interception, poll_until, dispatch_event,\n                trigger_framework_update, watch_changes, save_state /\n                load_state, trace / HAR / video, PDF; targets must be semantic\n                (role+name, label, placeholder, text, test_id, alt, title, or a\n                ref from pw_find) - css= and xpath= are refused; password\n                fields are masked in screenshots and their value is never\n                returned. Typing a secret into a secure session is the only\n                way to use it; do NOT open it for anything else. If the quota of\n                open sessions is reached the start fails (session_quota_reached):\n                stop one first, nothing is closed for you.\n                HTTP AUTH (Basic AND Digest) \u2192 creds=\"TOKEN\" (the part before\n                the @ of the \u27e6creds:TOKEN@ORIGIN\u27e7) HERE, at start: it makes the\n                session secure. The token is bound to ONE exact origin\n                (scheme://host:port): url= must be on that origin. Credentials\n                are set at context creation (httpCredentials) and can NOT be\n                added afterwards via a goto. A certificate that is not trusted\n                is refused, unless the user ticked \"accept an unverified\n                certificate\" on that /creds entry (every response then says\n                tls_verification=\"disabled\"). NEVER ask for a password in clear\n                and never pass one. If a page returns 401, ask the user for\n                /creds, then start WITH creds=. No popup is shown.\n                Without secure=: use load_state_id= to resume cookies from a\n                saved session.\n                IDEMPOTENT PER USER (normal sessions only): one browser\n                instance per user. If you already have a normal session, start\n                REUSES it and opens url= in a NEW TAB (returns reused=true +\n                tab_index). Use pw_page with\n                action=\"tabs\"/\"tab_switch\" to list/switch between your tabs.\n                EMULATION (optional): device=\"iPhone 13\"|\"Pixel 7\"|\"iPad Mini\"\u2026\n                OR viewport=\"1280x800\"; plus locale=, timezone=,\n                color_scheme=\"dark\", touch=true. Default: desktop 1920x1080.\n                TESTING (optional, never with secure=): isolated=true (FRESH\n                context, no reuse \u2014 for reproducible tests) ; trace=true\n                (then action=\"trace_export\" \u2192 trace_url viewable via\n                `npx playwright show-trace`) ; record_video=true (video_urls\n                returned by action=\"stop\").\n  trace_export: stop le tracing et renvoie trace_url (si trace=true au start).\n  stop        : close session. Required: session_id=.\n  save_state  : save cookies/localStorage. Reusable via load_state_id.\n  list        : list active sessions. Optional url_filter= (substring match\n                on URL or domain) \u2014 returns matching sessions only.\n  cleanup     : close all sessions + kill zombie browser processes.\n  health      : browser service status: engine, uptime, your sessions\n                (sessions=[...]) and session_count (all accounts).\n\nPROTOCOL: you get a single instance. Call start whenever you need a URL \u2014\nit reuses your existing instance and opens a new tab rather than failing.\nSwitch between tabs with pw_page(action=\"tab_switch\", index=N).\n\nSYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selector=.",
+      "description": "Manage the Playwright browser session lifecycle (Chromium by default; the\nservice's BROWSER_ENGINE can select firefox or webkit - action=\"health\"\nreports the engine in use).\n\naction= :\n  start       : open a session. Required: url=.\n                SECURE SESSION (REQUIRED to log in with a saved login): when the\n                user supplies \u27e6creds:TOKEN@ORIGIN\u27e7 (the /creds command), open\n                the session with pw_session(action=\"start\", url=\u2026, secure=true)\n                (add creds=\"TOKEN\" when the site uses HTTP auth), then call\n                pw_login(session_id, creds=\"TOKEN\", username_target=\u2026,\n                password_target=\u2026, submit_target=\u2026): it types the login for you\n                and empties the page (you never type or read a password).\n                A secure session is a NEW dedicated browser (own process and\n                clipboard, never a reused session), with strict TLS (an\n                untrusted certificate fails to load), and it stays locked for\n                its whole life. Targets must be semantic (role+name, label,\n                placeholder, text, test_id, alt, title, or a ref from pw_find):\n                css= and xpath= are refused. NOT available in a secure session:\n                pw_page eval / pdf / wait / element / extract_table with a CSS\n                selector, pw_mock, pw_recorder, interception, poll_until,\n                dispatch_event, trigger_framework_update, watch_changes,\n                save_state / load_state, trace / HAR / video, drag, clipboard\n                shortcuts (Ctrl/Cmd + a c x v, Shift+Insert), pw_a11y with a\n                selector scope. Password fields are masked in screenshots and\n                their value is never returned. If the quota of open sessions is\n                reached the start fails (session_quota_reached): stop one\n                first, nothing is closed for you. Open a secure session for\n                logging in and nothing else.\n                HTTP AUTH (Basic AND Digest) \u2192 creds=\"TOKEN\" (the part before\n                the @ of the \u27e6creds:TOKEN@ORIGIN\u27e7) HERE, at start: it makes the\n                session secure. The token is bound to ONE exact origin\n                (scheme://host:port): url= must be on that origin. Credentials\n                are set at context creation (httpCredentials) and can NOT be\n                added afterwards via a goto. A certificate that is not trusted\n                is refused, unless the user ticked \"accept an unverified\n                certificate\" on that /creds entry (every response then says\n                tls_verification=\"disabled\", and every request to another\n                origin is blocked). NEVER ask for a password in clear\n                and never pass one. If a page returns 401, ask the user for\n                /creds, then start WITH creds=. No popup is shown.\n                Without secure=: use load_state_id= to resume cookies from a\n                saved session.\n                IDEMPOTENT PER USER (normal sessions only): one browser\n                instance per user. If you already have a normal session, start\n                REUSES it and opens url= in a NEW TAB (returns reused=true +\n                tab_index). Use pw_page with\n                action=\"tabs\"/\"tab_switch\" to list/switch between your tabs.\n                EMULATION (optional): device=\"iPhone 13\"|\"Pixel 7\"|\"iPad Mini\"\u2026\n                OR viewport=\"1280x800\"; plus locale=, timezone=,\n                color_scheme=\"dark\", touch=true. Default: desktop 1920x1080.\n                TESTING (optional, never with secure=): isolated=true (FRESH\n                context, no reuse \u2014 for reproducible tests) ; trace=true\n                (then action=\"trace_export\" \u2192 trace_url viewable via\n                `npx playwright show-trace`) ; record_video=true (video_urls\n                returned by action=\"stop\").\n  trace_export: stop le tracing et renvoie trace_url (si trace=true au start).\n  stop        : close session. Required: session_id=.\n  save_state  : save cookies/localStorage. Reusable via load_state_id.\n  list        : list active sessions. Optional url_filter= (substring match\n                on URL or domain) \u2014 returns matching sessions only.\n  cleanup     : close all sessions + kill zombie browser processes.\n  health      : browser service status: engine, uptime, your sessions\n                (sessions=[...]) and session_count (all accounts).\n\nPROTOCOL: you get a single instance. Call start whenever you need a URL \u2014\nit reuses your existing instance and opens a new tab rather than failing.\nSwitch between tabs with pw_page(action=\"tab_switch\", index=N).\n\nSYNONYMS (all pw_* tools): action= == op= == do=, value= == v=, target= == selector=.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -28,7 +28,7 @@
           "secure": {
             "default": false,
             "type": "boolean",
-            "description": "Open a SECURE session: a NEW dedicated context, strict TLS, locked tools and semantic targets only, required before typing a saved login (secret=). Implied by creds=."
+            "description": "Open a SECURE session: a NEW dedicated browser, strict TLS, locked tools and semantic targets only. Required before pw_login. Implied by creds=."
           },
           "load_state_id": {
             "default": null,
@@ -574,7 +574,7 @@
     {
       "name": "pw_act",
       "title": "Pw Act",
-      "description": "Act on an element or page.\n\nPREFERRED \u2014 target DSL (single string):\n  pw_act(sid, action=\"click\", target=\"role=button|name=Login\")\n  pw_act(sid, action=\"click\", target=\"text=Add to cart\")\n  pw_act(sid, action=\"fill\",  target=\"label=Email\",       value=\"me@x.com\")\n  pw_act(sid, action=\"fill\",  target=\"placeholder=Password\", secret=\"TOKEN.password\")  # from \u27e6creds:TOKEN\u27e7\n  pw_act(sid, action=\"press\", value=\"Enter\")       # no target = current focus\n  pw_act(sid, action=\"select\", target=\"label=Country\", option_label=\"France\")\n  pw_act(sid, action=\"pick\",  target=\"css=#city\", option_label=\"Lyon\")  # ANY dropdown\n  pw_act(sid, action=\"scroll\", direction=\"down\", amount=800)   # page\n  pw_act(sid, action=\"goto\",  url=\"https://example.com\")\n  pw_act(sid, action=\"click\", target=\"ref=loc_abc\")  # ref from pw_find\n  pw_act(sid, action=\"drag\",   target=\"css=#column-a\", to=\"css=#column-b\")   # drag & drop\n  pw_act(sid, action=\"expand\", target=\"role=treeitem|name=Tables\")           # open a tree node\n\nSYNONYMS (all pw_* tools): action= == do=, value= == v=, selector= == target=.\n\nTARGET MATCHING: the target is counted before acting.\n  - no match after ~2 s -> element_not_found right away, with `suggestions`\n    (targets with a close name, else of the same role). Wait first with\n    pw_wait when the element shows up late.\n  - several matches -> acts on the FIRST, returns matched=N + warning.\n    strict=true refuses instead (ambiguous_target + `candidates`, each with\n    a ref). Add |nth=K (0-based) to the target to choose one.\n  - name= is matched as the WHOLE name first (case-insensitive), then as a\n    substring (\"Start\" may hit \"Restart\": name_match=\"substring\" + warning).\n  Each gesture waits up to 8 s for its element to be actionable (same\n  default as pw_chain), so the service error arrives before the tool timeout.\n\nAUTH NOTE: for a page behind HTTP auth (Basic/Digest), goto takes NO\ncredentials. Open the session with: pw_session(action=\"start\",\nurl=\u2026, creds=\"TOKEN\"). A goto on such a page returns the\nauth_hint field as a reminder.\n\nSECRETS: the user supplies a login as \u27e6creds:TOKEN@ORIGIN\u27e7 (the /creds\ncommand). It can only be typed in a SECURE session: first\npw_session(action=\"start\", url=\u2026, secure=true) (a new dedicated context; on any\nother session the secret is refused with secret_requires_secure_session, before\nthe token is used). Then fill with secret=\"TOKEN.password\" or\nsecret=\"TOKEN.username\" (TOKEN = the part before the @; the whole marker is\naccepted too; fill, or type which runs as fill; ONE target; value= is then\nignored). Target the field by label, placeholder, role+name, test_id or a ref\nfrom pw_find - never css= or xpath= (refused in a secure session). The password\ngoes only into a VISIBLE <input type=\"password\">, the username into a visible\ntext field; a hidden or ambiguous field (several visible matches) is refused.\nThe field, its frame's origin and its type are checked BEFORE the token is\nused, and the secret is typed only if the frame holding the field is on the\nexact origin the token is bound to. It is never shown back to you: password\nfields and fields that received a secret are masked in screenshots and their\nvalue is never returned (pw_expect value-equals is refused on them). NEVER ask\nfor a password in clear and never put one in value=. If the token is expired or\nexhausted, ask the user for /creds again.\n\nActions (action=):\n  click | fill | press | hover | check | uncheck | focus | type | clear\n  dblclick | rclick | goto | back | forward | reload\n  upload     : put files in an <input type=file> (target=). files= : paths\n               inside your sandbox /work ([\"report.pdf\"], [\"/work/a.csv\"]) or\n               {\"name\", \"content_base64\", \"mime_type\"?} objects. Nothing\n               outside /work is readable (file_not_found, files_required).\n  select     : NATIVE <select> only. Prefer option_label= (what you SEE) or\n               option_value=. The options are listed in pw_page(\"inspect\").\n  pick       : ANY dropdown \u2014 native <select>, autocomplete input, or a custom\n               div/ul/role=listbox one. Opens it and clicks the option for you.\n               Use this when the control is not a real <select>.\n  scroll     : NO target  \u2192 scrolls the PAGE (direction=, amount=). When the\n               page itself cannot scroll (max_y=0 \u2014 GWT/desktop-like layouts\n               scroll INSIDE a panel), the largest scrollable container is\n               scrolled instead and named in `container` (strategy=\n               container-scroll); target it explicitly next time. The list\n               of scrollable panels is in pw_page(\"inspect\").scrollables.\n               target= + direction= \u2192 scrolls INSIDE that container.\n               target= alone \u2192 brings the element into view.\n  drag       : drag target= and drop it on to= (DSL). Pointer drag first\n               (Playwright dragTo), then synthetic HTML5 drag events when\n               the drop did not land. Without to=, direction=/amount= drag\n               by an offset in pixels.\n  expand | collapse : open / close a tree node or disclosure (GWT CellTree,\n               ARIA tree, accordion). A plain click on a tree item usually\n               only SELECTS it: this tries the toggle icon, then\n               focus + ArrowRight/ArrowLeft, then dblclick, and VERIFIES\n               aria-expanded. Result: expanded_before / expanded / method.\n               (A click on a tree item also reports `expanded` so you can\n               see it did not open.)\n\nwait_after= : \"network\" (wait networkidle, max 6s) | \"selector:#x\" |\n              \"text:Welcome\" | <int ms>. Use after navigation-triggering clicks.\n\nvalue= : text for fill/type, key for press (Enter/Tab/Escape/etc).\noption_label= / option_value= : for select/pick. option_label is the visible\n     text; option_value is the underlying value=. Passing the visible text as\n     value= still works but is guessed. Both return `selected` (the option\n     really chosen); option_not_found lists the available `options`.\ndirection= : down|up|left|right (scroll). amount= : pixels, default 500.\n\nobserve= : when true (default) the result carries `page_after` \u2014 a fresh\n     lite snapshot of the page AFTER the action, so you SEE the outcome in\n     THIS call (no separate pw_page(action=\"inspect\") needed). Set false only for\n     speed-critical sequences where you do not need to see the result.\n\nmax_items= : cap on the interactive elements listed in `page_after`\n     (default 25, clamped 1-200). Lower it (e.g. 5-10) to save tokens on\n     dense pages when you only need confirmation the action landed.",
+      "description": "Act on an element or page.\n\nPREFERRED \u2014 target DSL (single string):\n  pw_act(sid, action=\"click\", target=\"role=button|name=Login\")\n  pw_act(sid, action=\"click\", target=\"text=Add to cart\")\n  pw_act(sid, action=\"fill\",  target=\"label=Email\",       value=\"me@x.com\")\n  pw_act(sid, action=\"press\", value=\"Enter\")       # no target = current focus\n  pw_act(sid, action=\"select\", target=\"label=Country\", option_label=\"France\")\n  pw_act(sid, action=\"pick\",  target=\"css=#city\", option_label=\"Lyon\")  # ANY dropdown\n  pw_act(sid, action=\"scroll\", direction=\"down\", amount=800)   # page\n  pw_act(sid, action=\"goto\",  url=\"https://example.com\")\n  pw_act(sid, action=\"click\", target=\"ref=loc_abc\")  # ref from pw_find\n  pw_act(sid, action=\"drag\",   target=\"css=#column-a\", to=\"css=#column-b\")   # drag & drop\n  pw_act(sid, action=\"expand\", target=\"role=treeitem|name=Tables\")           # open a tree node\n\nSYNONYMS (all pw_* tools): action= == do=, value= == v=, selector= == target=.\n\nTARGET MATCHING: the target is counted before acting.\n  - no match after ~2 s -> element_not_found right away, with `suggestions`\n    (targets with a close name, else of the same role). Wait first with\n    pw_wait when the element shows up late.\n  - several matches -> acts on the FIRST, returns matched=N + warning.\n    strict=true refuses instead (ambiguous_target + `candidates`, each with\n    a ref). Add |nth=K (0-based) to the target to choose one.\n  - name= is matched as the WHOLE name first (case-insensitive), then as a\n    substring (\"Start\" may hit \"Restart\": name_match=\"substring\" + warning).\n  Each gesture waits up to 8 s for its element to be actionable (same\n  default as pw_chain), so the service error arrives before the tool timeout.\n\nAUTH NOTE: for a page behind HTTP auth (Basic/Digest), goto takes NO\ncredentials. Open the session with: pw_session(action=\"start\",\nurl=\u2026, creds=\"TOKEN\"). A goto on such a page returns the\nauth_hint field as a reminder.\n\nSECRETS: a saved login \u27e6creds:TOKEN@ORIGIN\u27e7 is never typed by a gesture. secret=\nwas removed: use pw_login (one call that fills, submits and empties the page)\non a session opened with pw_session(action=\"start\", url=\u2026, secure=true).\nNever ask for a password in clear and never put one in value=.\n\nActions (action=):\n  click | fill | press | hover | check | uncheck | focus | type | clear\n  dblclick | rclick | goto | back | forward | reload\n  upload     : put files in an <input type=file> (target=). files= : paths\n               inside your sandbox /work ([\"report.pdf\"], [\"/work/a.csv\"]) or\n               {\"name\", \"content_base64\", \"mime_type\"?} objects. Nothing\n               outside /work is readable (file_not_found, files_required).\n  select     : NATIVE <select> only. Prefer option_label= (what you SEE) or\n               option_value=. The options are listed in pw_page(\"inspect\").\n  pick       : ANY dropdown \u2014 native <select>, autocomplete input, or a custom\n               div/ul/role=listbox one. Opens it and clicks the option for you.\n               Use this when the control is not a real <select>.\n  scroll     : NO target  \u2192 scrolls the PAGE (direction=, amount=). When the\n               page itself cannot scroll (max_y=0 \u2014 GWT/desktop-like layouts\n               scroll INSIDE a panel), the largest scrollable container is\n               scrolled instead and named in `container` (strategy=\n               container-scroll); target it explicitly next time. The list\n               of scrollable panels is in pw_page(\"inspect\").scrollables.\n               target= + direction= \u2192 scrolls INSIDE that container.\n               target= alone \u2192 brings the element into view.\n  drag       : drag target= and drop it on to= (DSL). Pointer drag first\n               (Playwright dragTo), then synthetic HTML5 drag events when\n               the drop did not land. Without to=, direction=/amount= drag\n               by an offset in pixels.\n  expand | collapse : open / close a tree node or disclosure (GWT CellTree,\n               ARIA tree, accordion). A plain click on a tree item usually\n               only SELECTS it: this tries the toggle icon, then\n               focus + ArrowRight/ArrowLeft, then dblclick, and VERIFIES\n               aria-expanded. Result: expanded_before / expanded / method.\n               (A click on a tree item also reports `expanded` so you can\n               see it did not open.)\n\nwait_after= : \"network\" (wait networkidle, max 6s) | \"selector:#x\" |\n              \"text:Welcome\" | <int ms>. Use after navigation-triggering clicks.\n\nvalue= : text for fill/type, key for press (Enter/Tab/Escape/etc).\noption_label= / option_value= : for select/pick. option_label is the visible\n     text; option_value is the underlying value=. Passing the visible text as\n     value= still works but is guessed. Both return `selected` (the option\n     really chosen); option_not_found lists the available `options`.\ndirection= : down|up|left|right (scroll). amount= : pixels, default 500.\n\nobserve= : when true (default) the result carries `page_after` \u2014 a fresh\n     lite snapshot of the page AFTER the action, so you SEE the outcome in\n     THIS call (no separate pw_page(action=\"inspect\") needed). Set false only for\n     speed-critical sequences where you do not need to see the result.\n\nmax_items= : cap on the interactive elements listed in `page_after`\n     (default 25, clamped 1-200). Lower it (e.g. 5-10) to save tokens on\n     dense pages when you only need confirmation the action landed.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -706,7 +706,7 @@
           "secret": {
             "default": "",
             "type": "string",
-            "description": "fill / type only: TOKEN.password or TOKEN.username (TOKEN = the part before the @ of a \u27e6creds:TOKEN@ORIGIN\u27e7 the user supplied); replaces value=."
+            "description": "REMOVED (always refused): use pw_login."
           }
         },
         "required": [
@@ -1892,7 +1892,7 @@
     {
       "name": "pw_chain",
       "title": "Pw Chain",
-      "description": "Execute multiple actions in a single round-trip (max 30).\n\nactions= : list of {action, target?, value?, key?, url?, wait_after?, ms?}\n  action values: click | fill | type | press | select | check | wait | scroll | goto | hover\n  (per-step synonyms accepted: action|do|type, value|v)\n\nEXAMPLES:\n  # Login flow in one call:\n  pw_chain(session_id, actions=[\n    {\"action\": \"fill\", \"target\": \"label=Email\",    \"secret\": \"TOKEN.username\"},\n    {\"action\": \"fill\", \"target\": \"label=Password\", \"secret\": \"TOKEN.password\"},\n    {\"action\": \"click\", \"target\": \"role=button|name=Login\", \"wait_after\": \"network\"},\n  ])\n\n  # secret= (fill / type steps only, one semantic target by ref/by_*/target)\n  # takes TOKEN.password or TOKEN.username from a \u27e6creds:TOKEN@ORIGIN\u27e7 the user\n  # supplied (/creds); never ask for a password in clear. Same rules as\n  # pw_act(secret=): SECURE session only (pw_session start secure=true), no\n  # css= / xpath=. Every secret field must already be on the page when the chain\n  # starts (they are all checked before the token is used) and sit in frames of\n  # the same origin: split the chain after a navigation.\n\n  # Wait + verify pattern:\n  pw_chain(session_id, actions=[\n    {\"action\": \"wait\", \"ms\": 500},\n    {\"action\": \"click\", \"target\": \"test_id=continue\"},\n  ])\n\nReturns {ok, total, executed, failed, results:[{step, action, success, ...}],\npage_after}. ok=false when a step failed \u2014 read `results` (code, alternatives +\nscreenshot when enabled). Each step waits up to 8 s for its element (same\ndefault as pw_act); a step whose target matches nothing fails fast with\ncode=element_not_found and `alternatives` (targets with a close name). observe=true (default) attaches `page_after`, a\nlite snapshot taken AFTER the last step (max_items= caps it) \u2014 the same\ngrounding pw_act gives; set observe=false for speed-critical sequences.\nUse this when you have a deterministic sequence to save 5-10x tool-call latency.",
+      "description": "Execute multiple actions in a single round-trip (max 30).\n\nactions= : list of {action, target?, value?, key?, url?, wait_after?, ms?}\n  action values: click | fill | type | press | select | check | wait | scroll | goto | hover\n  (per-step synonyms accepted: action|do|type, value|v)\n\nEXAMPLES:\n  # A saved login (\u27e6creds:\u2026\u27e7) is never typed in a chain: secret= was removed,\n  # use pw_login (secure session, see pw_session).\n\n  # Wait + verify pattern:\n  pw_chain(session_id, actions=[\n    {\"action\": \"wait\", \"ms\": 500},\n    {\"action\": \"click\", \"target\": \"test_id=continue\"},\n  ])\n\nReturns {ok, total, executed, failed, results:[{step, action, success, ...}],\npage_after}. ok=false when a step failed \u2014 read `results` (code, alternatives +\nscreenshot when enabled). Each step waits up to 8 s for its element (same\ndefault as pw_act); a step whose target matches nothing fails fast with\ncode=element_not_found and `alternatives` (targets with a close name). observe=true (default) attaches `page_after`, a\nlite snapshot taken AFTER the last step (max_items= caps it) \u2014 the same\ngrounding pw_act gives; set observe=false for speed-critical sequences.\nUse this when you have a deterministic sequence to save 5-10x tool-call latency.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2055,6 +2055,331 @@
                     ],
                     "default": null,
                     "description": "0-based index of the first failing step (if any)."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "_meta": {
+        "category": {
+          "name": "browser",
+          "label": "Navigateur",
+          "icon": "ph-globe",
+          "color": "sky"
+        },
+        "policy": {
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "browser"
+          ]
+        }
+      }
+    },
+    {
+      "name": "pw_login",
+      "title": "Pw Login",
+      "description": "Log in with a login the user supplied as \u27e6creds:TOKEN@ORIGIN\u27e7 (the /creds command).\nYou never type a password: this ONE call fills the fields, submits and empties\nthe page again, without giving you control in between.\n\nPrerequisite: the session must be a SECURE session opened with\npw_session(action=\"start\", url=\u2026, secure=true) (see pw_session). On any other\nsession the call is refused (secret_requires_secure_session) before the token is\nused.\n\n  pw_login(session_id, creds=\"TOKEN\",\n           username_target=\"label=Email\",          # optional\n           password_target=\"label=Password\",       # optional\n           submit_target=\"role=button|name=Sign in\",  # optional\n           wait_for=\"role=heading|name=Dashboard\")    # optional\n\ncreds=           : TOKEN, the part before the @ of the \u27e6creds:TOKEN@ORIGIN\u27e7\n                   (the whole marker is accepted too).\npassword_target= : the password field. username_target= : the username field.\n                   At least one of the two. Semantic targets only (role+name,\n                   label, placeholder, text, test_id, alt, title, or a ref\n                   from pw_find) - never css= or xpath=. Each must match\n                   exactly ONE VISIBLE element (a hidden field or several\n                   matches are refused); the password goes only into a real\n                   <input type=\"password\">, the username into a text field.\nsubmit_target=   : the button to click; without it Enter is pressed in the\n                   last field filled. The form must POST to the origin the\n                   token is bound to (a GET form or another origin is refused).\nwait_for=        : target that shows up when the login worked. Without it the\n                   call ends on a navigation or when the field disappears or is\n                   emptied, within about 40 s.\n\nMulti-step sites (identifier first, password on the next page): call\npw_login(username_target=\u2026, submit_target=\u2026) for step 1, then\npw_login(password_target=\u2026, submit_target=\u2026) for step 2. Each call uses one\nof the token's usages.\n\nThe fields are checked BEFORE the token is used and the secret is typed only if\nthe frame holding the field is on the exact origin the token is bound to.\nWhatever happens, every filled field is emptied afterwards (and the page\nreplaced by about:blank if a field still holds the value: page_reset=true).\nReturns {ok, outcome: navigated|field_gone|wait_for|no_change, url, title,\nfields_cleared, page_after}; url, title and every text are purged of the\nsecret. ok=false / outcome=no_change: nothing changed after the submit (wrong\nlogin, extra step, 2FA) - read page_after. NEVER ask the user for a password in\nclear. If the token is expired or exhausted, ask the user for /creds again.\n",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "creds": {
+            "default": "",
+            "type": "string",
+            "description": "TOKEN of a \u27e6creds:TOKEN@ORIGIN\u27e7 the user supplied (the part before the @)."
+          },
+          "password_target": {
+            "default": "",
+            "type": "string",
+            "description": "Password field (semantic target, one visible element)."
+          },
+          "username_target": {
+            "default": "",
+            "type": "string",
+            "description": "Username field (semantic target, one visible element)."
+          },
+          "submit_target": {
+            "default": "",
+            "type": "string",
+            "description": "Submit button (semantic target); default: Enter in the last field."
+          },
+          "wait_for": {
+            "default": "",
+            "type": "string",
+            "description": "Semantic target that appears once logged in."
+          },
+          "observe": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_items": {
+            "default": 25,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of pw_login \u2014 click / fill / type / press / select / hover / drag / expand\u2026",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "session_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "target": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "DSL or selector that was acted upon."
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Service outcome ('success')."
+                  },
+                  "strategy": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "How the element was reached: ref | by_official | smart:<strategy> | page-scroll | container-scroll | keyboard."
+                  },
+                  "resolved_selector": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The Playwright expression the service actually used (e.g. getByRole('button', { name: /Login/i }).first())."
+                  },
+                  "attempts": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Ordered resolution attempts {via, ok, error?, ms?} \u2014 shows when the official locator failed and a fallback landed."
+                  },
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Page URL after the action."
+                  },
+                  "selected": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "select/pick: the option really chosen {value, label, index}."
+                  },
+                  "expanded": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "click/expand/collapse on a tree item or disclosure: aria-expanded AFTER the action (null when the element declares none)."
+                  },
+                  "page_after": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Lite snapshot of the page after the action (observe=true)."
+                  },
+                  "screenshot_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "When action involved a screenshot."
+                  },
+                  "step": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Step number within the session."
                   }
                 },
                 "type": "object"
@@ -4293,6 +4618,58 @@
           "annotation": "bool",
           "requis": false,
           "defaut": true
+        },
+        {
+          "nom": "observe",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": true
+        },
+        {
+          "nom": "max_items",
+          "annotation": "int",
+          "requis": false,
+          "defaut": 25
+        }
+      ]
+    },
+    "pw_login": {
+      "fonction": "login",
+      "parametres": [
+        {
+          "nom": "session_id",
+          "annotation": "str",
+          "requis": true
+        },
+        {
+          "nom": "creds",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "password_target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "username_target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "submit_target",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
+        },
+        {
+          "nom": "wait_for",
+          "annotation": "str",
+          "requis": false,
+          "defaut": ""
         },
         {
           "nom": "observe",

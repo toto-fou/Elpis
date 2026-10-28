@@ -635,14 +635,20 @@ lire le mot de passe.
 - Il expire au bout de **30 min** ou de 5 usages ; la fenêtre `/creds` liste les
   accès actifs de la conversation (Renouveler, Révoquer). Supprimer la conversation
   les supprime. Un sous-agent ou une routine ne peut pas s'en servir.
-- L'assistant ouvre pour cela une **session de navigateur sécurisée** (un contexte
-  neuf, jamais la session déjà ouverte ; si vous avez trop de sessions ouvertes, il
-  doit en fermer une avant). Elle reste verrouillée jusqu'à sa fermeture : ni script
-  (`eval`), ni simulation de réponses, ni interception, trace, HAR, vidéo, PDF ou
-  état sauvegardé ; l'assistant n'y cible que par rôle, label, texte… (jamais par
-  sélecteur CSS ou XPath) ; la valeur d'un champ mot de passe n'est jamais lue et ces
-  champs sont masqués sur les captures d'écran. Une session ordinaire refuse tout
-  secret.
+- L'assistant ne tape jamais votre mot de passe : il ouvre une **session de navigateur
+  sécurisée** (un navigateur dédié, avec son propre presse-papiers, jamais la session
+  déjà ouverte ; si vous avez trop de sessions ouvertes, il doit en fermer une avant)
+  puis appelle l'outil `pw_login`, qui remplit l'identifiant et le mot de passe, valide le
+  formulaire et **vide la page** en une seule opération, sans que l'assistant intervienne
+  entre-temps. Pour un site en plusieurs étapes (identifiant puis mot de passe sur la
+  page suivante), il fait un appel par étape, chacun comptant un usage du jeton.
+  La session reste verrouillée jusqu'à sa fermeture : ni script (`eval`), ni simulation
+  de réponses, ni interception, trace, HAR, vidéo, PDF, état sauvegardé, glisser-déposer
+  ni raccourcis de presse-papiers ; l'assistant n'y cible que par rôle, label, texte…
+  (jamais par sélecteur CSS ou XPath) ; la valeur d'un champ mot de passe n'est jamais
+  lue et ces champs sont masqués sur les captures d'écran. Une session ordinaire refuse
+  toute connexion par jeton. Avec « Certificat non vérifié accepté », toute requête vers
+  une autre origine que la vôtre est interrompue dans cette session.
 - Les entrées reprises de l'ancienne mémoire des sites sont marquées « à
   confirmer » : indiquez l'origine exacte avant de pouvoir les utiliser. Changer
   l'origine d'une entrée confirmée exige de ressaisir son mot de passe.

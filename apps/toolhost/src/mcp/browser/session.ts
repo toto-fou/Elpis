@@ -57,10 +57,12 @@ async function demarrer(
     if (
       estDict(ouvertes) &&
       Array.isArray(ouvertes["sessions"]) &&
-      ouvertes["sessions"].length >= Number(ouvertes["max_per_owner"] ?? Infinity)
+      (ouvertes["sessions"].length >= Number(ouvertes["max_per_owner"] ?? Infinity) ||
+        Number(ouvertes["total"] ?? 0) >= Number(ouvertes["max"] ?? Infinity))
     )
       return errPw("session_quota_reached", "", {
-        message: "the session quota is reached: a secure session never replaces an open one",
+        message:
+          "the session quota is reached: a secure session never replaces an open one (per-account or global limit)",
         fix: "close one with pw_session(action='stop', session_id=…) (pw_session(action='list') shows them), then start again",
       });
   }

@@ -29,39 +29,17 @@ export function erreurSecret(code, message, statut = 403, fix = null) {
     return e;
 }
 
-/**
- * Origine attendue d'un geste porteur de secret ; `null` si le corps n'en porte pas.
- * Lève une erreur codée si la session n'est pas sécurisée, si le geste n'est pas `fill`, s'il n'a pas de cible, si le champ ou l'origine sont illisibles.
- */
-export function origineSecret(corps, session, { geste, aCible }) {
-    const brut = corps.secret_origin;
-    if (brut === undefined || brut === null || brut === '') return null;
-    if (!session || !session.secure)
-        throw erreurSecret(
-            'secret_requires_secure_session',
-            'Un secret ne se saisit que dans une session sécurisée.',
-            403,
-            "Fermez cette session (pw_session stop) puis ouvrez-en une avec pw_session(action='start', url=…, secure=true).",
-        );
-    const origine = origineDe(brut);
-    if (!origine) throw erreurSecret('secret_origin_invalid', 'Origine du secret illisible.', 400);
-    if (geste !== 'fill') throw erreurSecret('secret_gesture_refused', `Un secret ne se saisit qu'avec fill (reçu : ${geste}).`, 400);
-    if (!CHAMPS_SECRET.has(corps.secret_field)) throw erreurSecret('secret_field_invalid', 'Champ du secret inconnu (password ou username).', 400);
-    if (!aCible) throw erreurSecret('secret_requires_target', 'Un secret se saisit dans un champ ciblé, jamais dans l\'élément actif.', 400);
-    if (session.tlsTolerant && origine.startsWith('https:') && origine !== session.origineTolerance)
-        throw erreurSecret('secret_tls_tolerant_origin', `Cette session tolère les certificats non vérifiés pour ${session.origineTolerance} seulement : saisie refusée sur ${origine}.`);
-    return origine;
-}
-
 // ── Garde de la session sécurisée ───────────────────────────────────────
 
-/** Routes qui exécutent du JavaScript fourni, réécrivent le trafic ou enregistrent la session : refusées d'un bout à l'autre d'une session sécurisée. */
-const ROUTES_REFUSEES = new Set([
-    '/evaluate', '/poll_until', '/dispatch_event', '/trigger_framework_update', '/watch_changes', '/intercept', '/capture_response',
-    '/select_date', '/select_color', '/clipboard', '/smart_click', '/handle_dropdown', '/query',
-    '/save_state', '/trace_export', '/print_pdf',
+/**
+ * Routes (déclarées, `req.route.path`) permises en session sécurisée : liste blanche. Tout le reste (JavaScript fourni, trafic réécrit,
+ * presse-papiers, états, PDF, enregistreur, glisser, lecture d'un élément par sélecteur…) est refusé, quelle que soit la graphie du chemin.
+ */
+const ROUTES_AUTORISEES = new Set([
+    '/login', '/login_precheck', '/action', '/chain', '/locator', '/locate', '/find_elements', '/expect', '/wait_for', '/wait_for_dynamic',
+    '/smart_inspect', '/inspect', '/observe', '/screenshot', '/element_screenshot', '/visual', '/extract_text', '/extract_table',
+    '/a11y_audit', '/new_tab', '/switch_tab', '/close_tab', '/list_tabs', '/frames', '/network', '/dialog', '/handle_next_dialog', '/stop',
 ]);
-const PREFIXES_REFUSES = ['/mock/', '/recorder/'];
 
 /** Clés de cible brute (CSS, XPath, DSL Playwright) : jamais acceptées en session sécurisée. */
 const CLES_BRUTES = ['selector', 'xpath', 'css', 'by_css', 'by_xpath', 'filter_has', 'target_selector', 'tag', 'scope'];
@@ -79,6 +57,30 @@ function refus(code, message, fix, statut = 403) {
 const FIX_SEMANTIQUE =
     "Ciblez par rôle et nom (role=button|name=…), label, placeholder, texte, test_id, alt, title, ou par ref d'un pw_find / pw_page inspect ; jamais css= ni xpath=.";
 
+const MODIFICATEURS = new Set(['control', 'ctrl', 'meta', 'command', 'cmd', 'controlormeta']);
+const TOUCHES_PRESSE_PAPIERS = new Set(['a', 'c', 'x', 'v', 'insert']);
+
+/** Raccourci qui copie, coupe, colle ou sélectionne tout (Contrôle ou Méta + a c x v Insert, Maj + Insert ou Suppr). */
+export function estRaccourciPressePapiers(touche) {
+    if (typeof touche !== 'string') return false;
+    const t = touche.split('+').map((x) => x.trim().toLowerCase());
+    const derniere = t[t.length - 1];
+    const mods = t.slice(0, -1);
+    if (mods.some((m) => MODIFICATEURS.has(m)) && TOUCHES_PRESSE_PAPIERS.has(derniere)) return true;
+    return mods.includes('shift') && (derniere === 'insert' || derniere === 'delete');
+}
+
+function refusGeste(o) {
+    const geste = String(o.type || o.action || '').toLowerCase();
+    if (geste === 'drag')
+        return refus('secure_session_gesture_refused', 'Session sécurisée : le glisser-déposer est refusé.', 'Utilisez click, fill, press, select…');
+    const touches = [o.key];
+    if (geste === 'press') touches.push(o.text, o.value);
+    if (touches.some(estRaccourciPressePapiers))
+        return refus('secure_session_gesture_refused', 'Session sécurisée : copier, couper, coller et tout sélectionner sont refusés.', 'Ne manipulez pas le presse-papiers ; pw_login saisit les identifiants.');
+    return null;
+}
+
 function verifierCibles(o, retirerRepli, profondeur = 0) {
     if (!o || typeof o !== 'object' || profondeur > 4) return null;
     if (Array.isArray(o)) {
@@ -89,8 +91,11 @@ function verifierCibles(o, retirerRepli, profondeur = 0) {
         return null;
     }
     const semantique = CLES_SEMANTIQUES.some((k) => present(o[k]));
+    const geste = refusGeste(o);
+    if (geste) return geste;
     for (const k of CLES_BRUTES) {
         if (!present(o[k])) continue;
+        if (k === 'scope' && o[k] === 'body') continue;
         // Le repli `selector` accompagne toujours une cible sémantique côté hôte d'outils : il est retiré, jamais suivi.
         if (k === 'selector' && semantique && retirerRepli) {
             delete o[k];
@@ -123,11 +128,11 @@ function verifierCibles(o, retirerRepli, profondeur = 0) {
  * Retire le repli `selector` quand une cible sémantique l'accompagne. `null` si la requête passe.
  */
 export function gardeSessionSecurisee(req) {
-    const chemin = req.path;
-    if (ROUTES_REFUSEES.has(chemin) || PREFIXES_REFUSES.some((p) => chemin.startsWith(p)))
+    const route = req.route && typeof req.route.path === 'string' ? req.route.path : req.path;
+    if (!ROUTES_AUTORISEES.has(route))
         return refus(
             'secure_session_route_refused',
-            `Session sécurisée : ${chemin.slice(1)} est refusé (il exécuterait du code fourni, réécrirait le trafic, lirait une valeur ou enregistrerait la session).`,
+            `Session sécurisée : ${String(route).replace(/^\//, '')} est refusé (il exécuterait du code fourni, réécrirait le trafic, toucherait au presse-papiers, lirait une valeur ou enregistrerait la session).`,
             "Fermez la session (pw_session stop) et ouvrez-en une normale pour cet outil, sans y saisir d'identifiant.",
         );
     return verifierCibles(req.body, true) || verifierCibles(req.query, false);
@@ -154,10 +159,15 @@ export function formesSecret(v) {
     return [...out].filter((x) => x.length >= LONGUEUR_MIN_PURGE);
 }
 
-/** Enregistre les valeurs d'une session (et la forme `user:pass` de l'authentification HTTP Basic). */
+/** Enregistre les valeurs d'une session : formes à purger, valeurs brutes (masque des captures, détection d'un champ resté plein) et `user:pass` de l'authentification HTTP Basic. */
 export function retenirValeurs(session, valeurs, { basic = null } = {}) {
     if (!session._valeursSecretes) session._valeursSecretes = new Set();
-    for (const v of valeurs) for (const f of formesSecret(v)) session._valeursSecretes.add(f);
+    if (!session._secretsBruts) session._secretsBruts = new Set();
+    for (const v of valeurs) {
+        if (typeof v !== 'string' || !v) continue;
+        session._secretsBruts.add(v);
+        for (const f of formesSecret(v)) session._valeursSecretes.add(f);
+    }
     if (basic) for (const f of formesSecret(`${basic.username}:${basic.password}`)) session._valeursSecretes.add(f);
 }
 
@@ -180,9 +190,32 @@ export function purgerValeurs(charge, session) {
     return marche(charge);
 }
 
-// ── Marquage des champs et masquage des captures ────────────────────────
+/** Texte purgé AVANT toute coupure ou comparaison (adresse, titre, message d'erreur). */
+export function purgerTexte(texte, session) {
+    return purgerValeurs(typeof texte === 'string' ? texte : String(texte ?? ''), session);
+}
 
-/** Script d'initialisation (tous les frames d'un contexte sécurisé) : marque tout champ qui est ou a été de type password, même si la page change son type ensuite. */
+/** Ce texte (valeur d'un champ) contient-il une valeur secrète brute de la session ? */
+export function contientSecret(texte, session) {
+    if (typeof texte !== 'string' || !texte || !session || !session._secretsBruts) return false;
+    for (const v of session._secretsBruts) if (v.length >= LONGUEUR_MIN_PURGE ? texte.includes(v) : texte === v) return true;
+    return false;
+}
+
+/** Une requête sortante porte-t-elle une valeur secrète (adresse ou corps, sous toutes ses formes) ? */
+export function requetePorteSecret(url, corps, session) {
+    if (!session || !session._valeursSecretes || !session._valeursSecretes.size) return false;
+    for (const f of session._valeursSecretes) if ((url && url.includes(f)) || (corps && corps.includes(f))) return true;
+    return false;
+}
+
+// ── Marquage des champs, presse-papiers, formulaires, captures ──────────
+
+/**
+ * Script d'initialisation (tous les frames d'un contexte sécurisé) : marque tout champ qui est ou a été de type password même si la page
+ * change son type ensuite ; annule copier, couper, coller et glisser sur un champ marqué ; vide les champs marqués au départ de la page et
+ * à sa restauration (cache avant/arrière) ; annule la soumission d'un formulaire à champ marqué qui ferait un GET ou partirait vers une autre origine.
+ */
 export function initialisationSecurisee() {
     const M = 'data-elpis-secret';
     const estMdp = (v) => String(v || '').trim().toLowerCase() === 'password';
@@ -212,42 +245,89 @@ export function initialisationSecurisee() {
     observer.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['type'], attributeOldValue: true });
     document.addEventListener('DOMContentLoaded', () => balayer(document), { once: true });
     balayer(document);
+    const marque = (el) => Boolean(el && el.nodeType === 1 && (el.hasAttribute(M) || (el instanceof HTMLInputElement && el.type === 'password')));
+    const bloquer = (ev) => {
+        if (marque(ev.target) || marque(document.activeElement)) {
+            ev.preventDefault();
+            ev.stopImmediatePropagation();
+        }
+    };
+    for (const t of ['copy', 'cut', 'paste', 'dragstart']) window.addEventListener(t, bloquer, true);
+    const vider = () => {
+        try {
+            document.querySelectorAll('[' + M + ']').forEach((el) => {
+                if ('value' in el) el.value = '';
+            });
+        } catch {}
+    };
+    window.addEventListener('pagehide', vider, true);
+    window.addEventListener('pageshow', (ev) => { if (ev.persisted) vider(); }, true);
+    window.addEventListener('submit', (ev) => {
+        const f = ev.target;
+        if (!(f instanceof HTMLFormElement) || ev.defaultPrevented || !Array.from(f.elements).some(marque)) return;
+        const sub = ev.submitter;
+        const methode = String((sub && sub.formMethod) || f.method || 'get').toLowerCase();
+        let autre = false;
+        try {
+            autre = new URL((sub && sub.formAction) || f.action, location.href).origin !== location.origin;
+        } catch {
+            autre = true;
+        }
+        if (methode !== 'post' || autre) ev.preventDefault();
+    }, false);
 }
 
-const contextesSecurises = new WeakSet();
+/** Contexte sécurisé → session (valeurs brutes lues à chaque capture). */
+const contextesSecurises = new WeakMap();
 let masquageInstalle = false;
 
-function masques(page) {
-    return page.frames().map((f) => f.locator(SELECTEUR_MASQUE));
+const PLAFOND_CHAMPS_LUS = 150;
+
+/** Masques d'une capture : champs marqués ou mot de passe, champs dont la valeur (lue côté Node) contient un secret, textes qui en contiennent un. */
+async function masques(page, session) {
+    const sortie = [];
+    for (const f of page.frames()) {
+        sortie.push(f.locator(SELECTEUR_MASQUE));
+        const secrets = session && session._secretsBruts ? [...session._secretsBruts] : [];
+        if (!secrets.length) continue;
+        try {
+            const champs = await f.locator('input, textarea').all();
+            for (const c of champs.slice(0, PLAFOND_CHAMPS_LUS)) {
+                const v = await c.inputValue({ timeout: 300 }).catch(() => null);
+                if (contientSecret(v, session)) sortie.push(c);
+            }
+        } catch {}
+        for (const v of secrets) if (v.length >= LONGUEUR_MIN_PURGE) sortie.push(f.getByText(v));
+    }
+    return sortie;
 }
 
-/** Les captures (page ou élément) de ce contexte masquent les champs marqués et les champs mot de passe, quel que soit leur point d'appel. */
-export function securiserCaptures(context, page) {
-    contextesSecurises.add(context);
+/** Les captures (page ou élément) de ce contexte masquent les champs sensibles, quel que soit leur point d'appel. */
+export function securiserCaptures(context, page, session) {
+    contextesSecurises.set(context, session);
     if (masquageInstalle) return;
     masquageInstalle = true;
     const protoPage = Object.getPrototypeOf(page);
     const protoLocator = Object.getPrototypeOf(page.locator('body'));
-    const ajouter = (opts, p) => ({ ...(opts || {}), mask: [...((opts && opts.mask) || []), ...masques(p)], maskColor: '#000000' });
+    const ajouter = async (opts, p, sess) => ({ ...(opts || {}), mask: [...((opts && opts.mask) || []), ...(await masques(p, sess))], maskColor: '#000000' });
     const pageScreenshot = protoPage.screenshot;
-    protoPage.screenshot = function (opts) {
-        return pageScreenshot.call(this, contextesSecurises.has(this.context()) ? ajouter(opts, this) : opts);
+    protoPage.screenshot = async function (opts) {
+        const sess = contextesSecurises.get(this.context());
+        return pageScreenshot.call(this, sess ? await ajouter(opts, this, sess) : opts);
     };
     const locatorScreenshot = protoLocator.screenshot;
-    protoLocator.screenshot = function (opts) {
-        return locatorScreenshot.call(this, contextesSecurises.has(this.page().context()) ? ajouter(opts, this.page()) : opts);
+    protoLocator.screenshot = async function (opts) {
+        const sess = contextesSecurises.get(this.page().context());
+        return locatorScreenshot.call(this, sess ? await ajouter(opts, this.page(), sess) : opts);
     };
 }
 
-// ── Saisie d'un secret ──────────────────────────────────────────────────
+// ── Contrôle des champs ─────────────────────────────────────────────────
 
 const TYPES_IDENTIFIANT = new Set(['text', 'email', 'tel', 'url', 'search', 'number']);
 
-/**
- * Contrôle d'un champ avant tout secret (sans valeur) : élément unique visible, frame, type réel (propriété, pas attribut), champ éditable.
- * Renvoie la poignée et l'origine du frame ; l'appelant la libère.
- */
-async function controlerChamp(candidats, { champ, timeout, nth = null }) {
+/** Élément unique parmi les VISIBLES (un champ masqué par CSS ne compte pas) ; `nth` compte parmi eux. Poignée à libérer par l'appelant. */
+export async function choisirVisible(candidats, { timeout, nth = null }) {
     const visibles = candidats.filter({ visible: true });
     let n = await visibles.count().catch(() => 0);
     for (const fin = Date.now() + Math.min(timeout, 1500); n === 0 && Date.now() < fin; ) {
@@ -257,20 +337,28 @@ async function controlerChamp(candidats, { champ, timeout, nth = null }) {
     if (n === 0)
         throw erreurSecret(
             'secret_target_not_visible',
-            'Aucun champ visible ne correspond : un champ masqué par CSS n\'est pas une cible valable pour un secret.',
+            "Aucun élément visible ne correspond : un champ masqué par CSS n'est pas une cible valable.",
             404,
-            'Ciblez le champ affiché à l\'écran (rôle, label, placeholder) et attendez qu\'il le soit.',
+            "Ciblez l'élément affiché à l'écran (rôle, label, placeholder) et attendez qu'il le soit.",
         );
     if (n > 1 && nth === null)
-        throw erreurSecret('ambiguous_target', `${n} champs visibles correspondent : saisie du secret refusée.`, 409, 'Précisez la cible (label, placeholder, nth=K ou un ref de pw_find).');
-    if (nth !== null && nth >= n)
-        throw erreurSecret('element_not_found', `nth=${nth} mais ${n} champ(s) visible(s) seulement.`, 404);
+        throw erreurSecret('ambiguous_target', `${n} éléments visibles correspondent : refus.`, 409, 'Précisez la cible (label, placeholder, nth=K ou un ref de pw_find).');
+    if (nth !== null && nth >= n) throw erreurSecret('element_not_found', `nth=${nth} mais ${n} élément(s) visible(s) seulement.`, 404);
     const h = await (nth === null ? visibles.first() : visibles.nth(nth)).elementHandle({ timeout });
-    if (!h) throw erreurSecret('element_not_found', 'Champ introuvable.', 404);
+    if (!h) throw erreurSecret('element_not_found', 'Élément introuvable.', 404);
+    return h;
+}
+
+/**
+ * Contrôle d'un champ avant tout secret (sans valeur) : visible et unique, frame, type réel (propriété, pas attribut), éditable.
+ * Renvoie la poignée et l'origine du frame ; l'appelant la libère.
+ */
+export async function controlerChamp(candidats, { champ, timeout, nth = null }) {
+    const h = await choisirVisible(candidats, { timeout, nth });
     try {
         const frame = await h.ownerFrame();
         const origine = frame ? origineDe(frame.url()) : null;
-        if (!origine) throw erreurSecret('secret_origin_mismatch', 'Le frame du champ n\'a pas d\'origine http(s) : saisie refusée.');
+        if (!origine) throw erreurSecret('secret_origin_mismatch', "Le frame du champ n'a pas d'origine http(s) : saisie refusée.");
         const info = await h.evaluate((el) => ({
             input: el instanceof HTMLInputElement,
             area: el instanceof HTMLTextAreaElement,
@@ -279,7 +367,7 @@ async function controlerChamp(candidats, { champ, timeout, nth = null }) {
             opacite: parseFloat(getComputedStyle(el).opacity),
         }));
         if (info.opacite < 0.05)
-            throw erreurSecret('secret_field_mismatch', 'Le champ est transparent : un champ invisible n\'est pas une cible valable pour un secret.');
+            throw erreurSecret('secret_field_mismatch', "Le champ est transparent : un champ invisible n'est pas une cible valable pour un secret.");
         if (!info.ecriture) throw erreurSecret('secret_field_mismatch', 'Le champ est désactivé ou en lecture seule.');
         if (champ === 'password' && !(info.input && info.type === 'password'))
             throw erreurSecret('secret_field_mismatch', 'Un mot de passe ne se saisit que dans un champ <input type="password">.');
@@ -292,38 +380,36 @@ async function controlerChamp(candidats, { champ, timeout, nth = null }) {
     }
 }
 
-/** Pré-contrôle sans valeur : renvoie l'origine du frame du champ visé, ou lève une erreur codée. */
-export async function precontroleSecret(candidats, options) {
-    const { h, origine } = await controlerChamp(candidats, options);
-    await h.dispose().catch(() => {});
-    return origine;
+/**
+ * Formulaire englobant (ou formaction du bouton) : sa soumission ne doit ni être un GET explicite ni viser une autre origine que `origine`.
+ * Lève une erreur codée sinon. Un formulaire sans attribut `method` n'est pas refusé ici : le script d'initialisation annule un GET non traité par la page.
+ */
+export async function verifierFormulaire(h, origine) {
+    const f = await h.evaluate((el) => {
+        const form = el.form;
+        const m = (el.getAttribute && el.getAttribute('formmethod')) || (form && form.getAttribute('method')) || '';
+        let action = null;
+        try {
+            action = new URL((el.formAction && el.getAttribute('formaction') ? el.formAction : form && form.action) || location.href, location.href).origin;
+        } catch {}
+        return { form: Boolean(form), methode: m.toLowerCase(), action };
+    });
+    if (!f.form && !f.methode) return;
+    if (f.methode && f.methode !== 'post')
+        throw erreurSecret('login_form_not_post', "La soumission de ce formulaire ne serait pas un POST : un identifiant n'irait pas dans une adresse.", 403, 'Ce site ne se connecte pas par formulaire POST : demandez une autre voie à l\'utilisateur.');
+    if (f.action !== origine)
+        throw erreurSecret('login_form_other_origin', 'Le formulaire poste vers une autre origine que celle des identifiants : refus.', 403);
 }
 
-/**
- * Saisit la valeur (par `fill`) : champ contrôlé de nouveau, origine du frame égale à celle du jeton, champ marqué avant la saisie,
- * type revérifié juste après (une page qui change le type en réaction est refusée et le champ vidé). Aucune saisie après `delaiAvant`.
- */
-export async function saisirSecret(candidats, origine, valeur, { champ, timeout, nth = null, force = false, delaiAvant = Infinity }) {
-    try {
-        const { h, origine: reelle } = await controlerChamp(candidats, { champ, timeout, nth });
-        try {
-            if (reelle !== origine)
-                throw erreurSecret('secret_origin_mismatch', `Le frame du champ n'est pas sur l'origine attendue (${origine}) : saisie refusée.`);
-            const reste = delaiAvant - Date.now();
-            if (reste < 300) throw erreurSecret('secret_deadline', 'Délai de la requête dépassé : saisie du secret annulée.', 408);
-            await h.evaluate((el, m) => el.setAttribute(m, '1'), MARQUE);
-            await h.fill(valeur, { timeout: Math.min(timeout, reste), force });
-            const type = await h.evaluate((el) => (el instanceof HTMLInputElement ? el.type : 'autre'));
-            if (champ === 'password' && type !== 'password') {
-                await h.evaluate((el) => { el.value = ''; }).catch(() => {});
-                throw erreurSecret('secret_field_mismatch', 'Le champ a changé de type pendant la saisie : valeur effacée, saisie refusée.');
-            }
-        } finally {
-            await h.dispose().catch(() => {});
-        }
-    } catch (e) {
-        e.message = masquerValeur(e.message, valeur);
-        if (typeof e.stack === 'string') e.stack = masquerValeur(e.stack, valeur);
-        throw e;
+/** Saisit la valeur (par `fill`) : champ marqué avant la saisie, type revérifié après (changé : champ vidé et refus). Aucune saisie après `delaiAvant`. */
+export async function remplirChamp(h, valeur, { champ, timeout, delaiAvant = Infinity }) {
+    const reste = delaiAvant - Date.now();
+    if (reste < 300) throw erreurSecret('login_deadline', 'Délai de la requête dépassé : saisie annulée.', 408);
+    await h.evaluate((el, m) => el.setAttribute(m, '1'), MARQUE);
+    await h.fill(valeur, { timeout: Math.min(timeout, reste) });
+    const type = await h.evaluate((el) => (el instanceof HTMLInputElement ? el.type : 'autre'));
+    if (champ === 'password' && type !== 'password') {
+        await h.evaluate((el) => { el.value = ''; }).catch(() => {});
+        throw erreurSecret('secret_field_mismatch', 'Le champ a changé de type pendant la saisie : valeur effacée, saisie refusée.');
     }
 }

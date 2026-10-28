@@ -260,9 +260,10 @@ exacte**) et des jetons `⟦creds:JETON@ORIGINE⟧` liés à une conversation (`
 empreinte SHA-256, 30 min, 5 usages) : le modèle ne voit jamais un mot de passe.
 Les outils `pw_*` le demandent au core par le canal interne signé
 (`/api/internal/creds/resolve`) après un pré-contrôle sans valeur du champ, et
-`browser-service` ne le saisit que dans une **session sécurisée** (contexte neuf,
-TLS strict, outils et cibles restreints), si le frame de l'élément est sur l'origine
-du jeton. Détail dans
+`browser-service` ne le saisit que par la **connexion atomique** `pw_login` (le modèle ne
+saisit jamais un secret par un geste), dans une **session sécurisée** (navigateur dédié,
+TLS strict, routes en liste blanche, cibles sémantiques), si le frame de l'élément est sur
+l'origine du jeton ; la page est vidée aussitôt après. Détail dans
 [docs/architecture.md](docs/architecture.md) (« Coffre d'identifiants »).
 
 ## Invariants

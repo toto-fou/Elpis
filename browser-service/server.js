@@ -24,8 +24,8 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import {
-    origineDe, origineSecret, masquerValeur, gardeSessionSecurisee, retenirValeurs, purgerValeurs,
-    initialisationSecurisee, securiserCaptures, precontroleSecret, saisirSecret, CHAMPS_SECRET, MARQUE,
+    origineDe, erreurSecret, gardeSessionSecurisee, retenirValeurs, purgerValeurs, purgerTexte, contientSecret, requetePorteSecret,
+    initialisationSecurisee, securiserCaptures, choisirVisible, controlerChamp, verifierFormulaire, remplirChamp, MARQUE,
 } from './secret_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 
@@ -37,7 +37,12 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
+const present = (v) => v !== undefined && v !== null && v !== '';
+
 const app = express();
+// Chemins exacts : `/Evaluate` ou `/mock/add/` ne désignent pas une route (la garde de session sécurisée raisonne sur la route déclarée).
+app.set('case sensitive routing', true);
+app.set('strict routing', true);
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
@@ -280,6 +285,8 @@ async function closeSession(sid, reason = 'unknown', { lockHeld = false } = {}) 
         catch (e) { /* timeout → force close */ }
     }
     try { await s.context.close(); } catch (e) {}
+    // Session sécurisée : son navigateur dédié part avec elle (presse-papiers, cache et processus ne survivent pas).
+    if (s.navigateurDedie) { try { await s.navigateurDedie.close(); } catch (e) {} }
     cleanupSessionScreenshots(sid);
 }
 
@@ -602,6 +609,19 @@ function buildLaunchOptions(engine, headlessMode) {
     return common; // webkit : pas d'options moteur-spécifiques
 }
 
+// Navigateur DÉDIÉ d'une session sécurisée : processus à part (presse-papiers, cache et état isolés des autres sessions et comptes),
+// sans cache avant/arrière ni remplissage automatique.
+async function lancerNavigateurDedie(headless) {
+    const headlessMode = FORCE_HEADLESS ? true : (headless !== false);
+    const launcher = ENGINES[BROWSER_ENGINE] || chromium;
+    const o = buildLaunchOptions(BROWSER_ENGINE, headlessMode);
+    if (BROWSER_ENGINE === 'chromium') {
+        o.args = [...o.args, '--disable-features=BackForwardCache,AutofillServerCommunication,AutofillEnableAccountWalletStorage', '--disable-back-forward-cache', '--disable-sync'];
+    }
+    console.log(`[GLOBAL] Démarrage ${BROWSER_ENGINE} dédié (session sécurisée)`);
+    return launcher.launch(o);
+}
+
 // Une seule promesse de lancement : deux /start simultanés ne lancent plus
 // deux navigateurs (le second écrasait le premier, resté orphelin).
 let _lancement = null;
@@ -623,7 +643,8 @@ async function _lancerNavigateur(headless) {
         globalBrowser.on('disconnected', () => {
             console.warn('[GLOBAL] Browser déconnecté, reset...');
             globalBrowser = null;
-            sessions.clear();
+            // Les sessions sécurisées ont leur propre navigateur : elles survivent à celui-ci.
+            for (const [sid, sess] of [...sessions]) if (!sess.navigateurDedie) sessions.delete(sid);
         });
     }
     return globalBrowser;
@@ -2248,11 +2269,11 @@ async function html5DragDrop(srcLoc, dstLoc) {
         return true;
     }, dstHandle).catch(() => false);
 }
-async function performDrag(page, srcLoc, body, timeout) {
+async function performDrag(page, srcLoc, body, timeout, sid = null) {
     const { to, target_selector, dx, dy, direction, amount, human = false } = body || {};
     let dstLoc = null, dstVia = null;
     if (to && typeof to === 'object' && Object.values(to).some(v => v !== undefined && v !== null && v !== '')) {
-        dstLoc = await locatorFromParams(page, to, null); dstVia = 'official';
+        dstLoc = await locatorFromParams(page, to, sid); dstVia = 'official';
     }
     if (!dstLoc && target_selector) {
         const r = await smartResolveLocator(page, target_selector).catch(() => null);
@@ -2299,6 +2320,8 @@ function _ownerStartLock(owner) {
 
 app.post('/start', async (req, res) => {
     let _startRelease = null;
+    let _sessionCreee = false;
+    let _navDedie = null;
     try {
         const { url, username, password, credentials_origin, credentials_insecure_tls, headless, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
@@ -2420,7 +2443,18 @@ app.post('/start', async (req, res) => {
             }
         }
 
-        const browser = await ensureBrowser(headless);
+        // Quota vérifié AVANT de lancer un navigateur : une session sécurisée ne remplace jamais une session ouverte, aucune n'est fermée en silence.
+        const slotAvant = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now: Date.now() });
+        if (slotAvant.refuse)
+            return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.', code: 'browser_saturated' });
+        if (slotAvant.evict && (secure || (sessions.get(slotAvant.evict) || {}).secure))
+            return res.status(409).json({
+                error: secure ? 'Quota de sessions atteint : une session sécurisée ne remplace jamais une session ouverte.' : "Quota de sessions atteint : la plus ancienne est une session sécurisée, qui n'est jamais fermée en silence.",
+                code: 'session_quota_reached',
+                fix: "Fermez une session avec pw_session(action='stop', session_id=…) (pw_session action='list' les montre), puis réessayez.",
+            });
+        const browser = secure ? await lancerNavigateurDedie(headless) : await ensureBrowser(headless);
+        if (secure) _navDedie = browser;
         const sessionId = uuidv4();
 
         // ── Émulation device/viewport (V13) ─────────────────────────────
@@ -2497,10 +2531,12 @@ app.post('/start', async (req, res) => {
         const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
+            if (secure) await browser.close().catch(() => {});
             return res.status(503).json({ error: 'Navigateur saturé : trop de sessions ouvertes. Réessayez plus tard.' });
         }
         if (slot.evict && (secure || (sessions.get(slot.evict) || {}).secure)) {
             await context.close().catch(() => {});
+            if (secure) await browser.close().catch(() => {});
             return res.status(409).json({
                 error: secure ? 'Quota de sessions atteint : une session sécurisée ne remplace jamais une session ouverte.' : 'Quota de sessions atteint : la plus ancienne est une session sécurisée, qui n\'est jamais fermée en silence.',
                 code: 'session_quota_reached',
@@ -2508,11 +2544,33 @@ app.post('/start', async (req, res) => {
             });
         }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
-        if (secure) securiserCaptures(context, page);
 
-        sessions.set(sessionId, { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, secure, tlsTolerant, origineTolerance, _lock: makeLock(), dialogState });
-        suivreOnglets(sessions.get(sessionId), page);
-        if (httpCredentials) retenirValeurs(sessions.get(sessionId), [httpCredentials.password], { basic: httpCredentials });
+        const sess = { context, page, owner, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, secure, tlsTolerant, origineTolerance, navigateurDedie: secure ? browser : null, _lock: makeLock(), dialogState };
+        sessions.set(sessionId, sess);
+        _sessionCreee = true;
+        suivreOnglets(sess, page);
+        if (secure) {
+            sess._originesSecret = new Set();
+            browser.on('disconnected', () => { sessions.delete(sessionId); });
+            securiserCaptures(context, page, sess);
+            // Trafic sortant d'une session sécurisée : tolérance de certificat limitée à l'origine du jeton, et aucune valeur secrète dans une adresse,
+            // ni dans une requête qui ne serait pas un POST vers l'origine de ses identifiants.
+            await context.route('**/*', async (route) => {
+                try {
+                    const rq = route.request();
+                    const u = new URL(rq.url());
+                    if (u.protocol === 'http:' || u.protocol === 'https:') {
+                        if (sess.tlsTolerant && u.origin !== sess.origineTolerance) return await route.abort('blockedbyclient');
+                        if (requetePorteSecret(rq.url(), rq.postData(), sess)) {
+                            const permis = !['GET', 'HEAD'].includes(rq.method()) && sess._originesSecret.has(u.origin);
+                            if (!permis) return await route.abort('blockedbyclient');
+                        }
+                    }
+                } catch (e) {}
+                try { await route.continue(); } catch (e) {}
+            });
+        }
+        if (httpCredentials) retenirValeurs(sessions.get(sessionId), [httpCredentials.username, httpCredentials.password], { basic: httpCredentials });
 
         let nav = {};
         try {
@@ -2529,36 +2587,187 @@ app.post('/start', async (req, res) => {
             status: 'started', secure, session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
             ...(tlsTolerant ? { tls_verification: 'disabled', warning: `Certificats non vérifiés acceptés pour cette session sécurisée (entrée du coffre, ${origineTolerance}).` } : {}),
         }, sessions.get(sessionId)));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) {
+        if (_navDedie && !_sessionCreee) await _navDedie.close().catch(() => {});
+        res.status(500).json({ error: e.message });
+    }
     finally { if (_startRelease) _startRelease(); }
 });
 
 
 // ======================== SMART CLICK (endpoint dédié) ========================
-// Pré-contrôle d'un secret, sans valeur : session sécurisée ? champ visible unique du bon type ? origine de son frame ? Seul un succès autorise l'hôte à résoudre le jeton.
-app.post('/secret_precheck', getSession, async (req, res) => {
+// ── Connexion atomique (identifiants du coffre) ─────────────────────────
+// Le modèle ne saisit jamais un secret par un geste : /login_precheck contrôle les champs SANS valeur, /login saisit, soumet, attend puis vide
+// la page, le tout en une requête, sans rendre la main entre les étapes. Aucun message Playwright brut ne sort de ces routes.
+const BUDGET_LOGIN_MS = parseInt(process.env.PW_LOGIN_BUDGET_MS || '40000', 10);
+const CLES_CIBLE_LOGIN = ['ref', 'by_role', 'by_name', 'by_text', 'by_label', 'by_placeholder', 'by_test_id', 'by_alt', 'by_title'];
+
+async function candidatsLogin(req, t) {
+    if (!t || typeof t !== 'object') return null;
+    const params = {};
+    for (const k of CLES_CIBLE_LOGIN) if (present(t[k])) params[k] = t[k];
+    if (!Object.keys(params).length) return null;
+    const c = await cibleDepuisParams(req.session.page, params, req.sessionId, NOT_FOUND_GRACE_MS);
+    if (!c) throw erreurSecret('login_target_not_found', 'Cible introuvable.', 404);
+    const nth = Number.isInteger(t.nth) && t.nth >= 0 && !String(params.ref || '').includes('#') ? t.nth : null;
+    return { candidats: c.liste || c.loc, nth };
+}
+
+async function libererLogin(p) {
+    if (p) for (const h of p.handles) await h.dispose().catch(() => {});
+}
+
+// Champs, formulaire(s) et origine contrôlés sans valeur ; les poignées restent à libérer (libererLogin).
+async function preparerLogin(req) {
+    const s = req.session;
+    if (!s.secure)
+        throw erreurSecret('secret_requires_secure_session', 'Une connexion ne se fait que dans une session sécurisée.', 403,
+            "Fermez cette session (pw_session stop) puis ouvrez-en une avec pw_session(action='start', url=…, secure=true, creds=…).");
+    const timeout = Math.min(Number(req.body.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2);
+    const cu = await candidatsLogin(req, req.body.username_target);
+    const cp = await candidatsLogin(req, req.body.password_target);
+    if (!cu && !cp) throw erreurSecret('login_target_required', "Au moins un champ (identifiant ou mot de passe) doit être ciblé.", 400);
+    const cs = await candidatsLogin(req, req.body.submit_target);
+    const cw = await candidatsLogin(req, req.body.wait_for);
+    const p = { handles: [], champs: {}, submit: null, origine: null, timeout, cw };
     try {
-        const { page } = req.session;
-        if (!req.session.secure)
-            return res.status(403).json({
-                error: 'Un secret ne se saisit que dans une session sécurisée.', code: 'secret_requires_secure_session',
-                fix: "Fermez cette session (pw_session stop) puis ouvrez-en une avec pw_session(action='start', url=…, secure=true).",
-            });
-        const champ = req.body.secret_field;
-        if (!CHAMPS_SECRET.has(champ)) return res.status(400).json({ error: 'Champ du secret inconnu (password ou username).', code: 'secret_field_invalid' });
-        const { ref, by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title } = req.body;
-        const timeout = Math.min(Number(req.body.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2);
-        const cible = await cibleDepuisParams(page, { ref, by_role, by_name, by_text, by_label, by_placeholder, by_test_id, by_alt, by_title }, req.sessionId, NOT_FOUND_GRACE_MS);
-        if (!cible) return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
-        const nth = Number.isInteger(req.body.nth) && req.body.nth >= 0 && !String(ref || '').includes('#') ? req.body.nth : null;
-        const origine = await precontroleSecret(cible.liste || cible.loc, { champ, timeout, nth });
-        const s = req.session;
-        if (s.tlsTolerant && origine.startsWith('https:') && origine !== s.origineTolerance)
-            return res.status(403).json({ error: `Cette session tolère les certificats non vérifiés pour ${s.origineTolerance} seulement.`, code: 'secret_tls_tolerant_origin' });
-        res.json({ ok: true, frame_origin: origine, field: champ });
+        for (const [nom, c] of [['username', cu], ['password', cp]]) {
+            if (!c) continue;
+            const r = await controlerChamp(c.candidats, { champ: nom, timeout, nth: c.nth });
+            p.handles.push(r.h);
+            p.champs[nom] = r.h;
+            if (p.origine && p.origine !== r.origine) throw erreurSecret('login_origins_differ', 'Les champs sont dans des frames d\'origines différentes : refus.', 403);
+            p.origine = r.origine;
+        }
+        if (s.tlsTolerant && p.origine.startsWith('https:') && p.origine !== s.origineTolerance)
+            throw erreurSecret('secret_tls_tolerant_origin', `Cette session tolère les certificats non vérifiés pour ${s.origineTolerance} seulement.`);
+        for (const h of Object.values(p.champs)) await verifierFormulaire(h, p.origine);
+        if (cs) {
+            p.submit = await choisirVisible(cs.candidats, { timeout, nth: cs.nth });
+            p.handles.push(p.submit);
+            await verifierFormulaire(p.submit, p.origine);
+        }
+        return p;
     } catch (e) {
-        res.status(e.statut || 500).json({ error: sansAnsi(e.message || String(e)), code: e.code || codeErreur(String(e.message)), ...(e.details || {}) });
+        await libererLogin(p);
+        throw e;
     }
+}
+
+function erreurLogin(e) {
+    if (e && e.code && e.statut) return { statut: e.statut, corps: { error: e.message, code: e.code, ...(e.details || {}) } };
+    if (e && e.name === 'TimeoutError') return { statut: 408, corps: { error: 'Délai dépassé pendant la connexion.', code: 'login_timeout' } };
+    return { statut: 500, corps: { error: 'La connexion a échoué.', code: 'login_failed' } };
+}
+
+// Vide (monde utilitaire de Playwright, événements input/change compris) tous les champs marqués de tous les frames de tous les onglets ; un champ qui
+// contient encore une valeur secrète après cela (la page l'a remise) fait recharger about:blank dans l'onglet.
+async function viderChamps(s) {
+    let vides = 0, reinitialisee = false;
+    for (const pg of [...s.tabs]) {
+        if (pg.isClosed()) continue;
+        // Deux passes séparées d'un délai : une page qui remet la valeur après coup (re-render) est détectée à la lecture suivante.
+        let reste = true;
+        for (let passe = 0; passe < 2 && reste; passe++) {
+            reste = false;
+            for (const f of pg.frames()) {
+                try {
+                    const marques = f.locator(`[${MARQUE}], input[type="password" i]`);
+                    const n = Math.min(await marques.count(), 50);
+                    for (let i = 0; i < n; i++) await marques.nth(i).fill('', { timeout: 1500, force: true }).then(() => { vides++; }, () => {});
+                    const champs = f.locator('input, textarea');
+                    const m = Math.min(await champs.count(), 200);
+                    for (let i = 0; i < m; i++) {
+                        const c = champs.nth(i);
+                        if (contientSecret(await c.inputValue({ timeout: 300 }).catch(() => null), s)) await c.fill('', { timeout: 1500, force: true }).catch(() => {});
+                    }
+                } catch (e) {}
+            }
+            await new Promise((r) => setTimeout(r, 150));
+            for (const f of pg.frames()) {
+                try {
+                    const champs = f.locator('input, textarea');
+                    const m = Math.min(await champs.count(), 200);
+                    for (let i = 0; i < m; i++) if (contientSecret(await champs.nth(i).inputValue({ timeout: 300 }).catch(() => null), s)) reste = true;
+                } catch (e) {}
+            }
+        }
+        if (reste) {
+            reinitialisee = true;
+            await pg.goto('about:blank', { timeout: 5000 }).catch(() => pg.close().catch(() => {}));
+        }
+    }
+    return { vides, reinitialisee };
+}
+
+app.post('/login_precheck', getSession, async (req, res) => {
+    let p = null;
+    try {
+        p = await preparerLogin(req);
+        res.json({ ok: true, frame_origin: p.origine, fields: Object.keys(p.champs), submit: Boolean(p.submit) });
+    } catch (e) {
+        const r = erreurLogin(e);
+        res.status(r.statut).json(r.corps);
+    } finally {
+        await libererLogin(p);
+    }
+});
+
+app.post('/login', getSession, async (req, res) => {
+    const s = req.session;
+    const origineJeton = origineDe(req.body.secret_origin);
+    const uv = typeof req.body.username_value === 'string' ? req.body.username_value : '';
+    const pv = typeof req.body.password_value === 'string' ? req.body.password_value : '';
+    const fin = req.recuA + BUDGET_LOGIN_MS - 500;
+    let p = null, saisi = false, sortie = null;
+    try {
+        if (!origineJeton) throw erreurSecret('secret_origin_invalid', 'Origine du secret illisible.', 400);
+        p = await preparerLogin(req);
+        if (p.origine !== origineJeton) throw erreurSecret('secret_origin_mismatch', `Le frame des champs n'est pas sur l'origine attendue (${origineJeton}) : saisie refusée.`);
+        if (Boolean(p.champs.username) !== Boolean(uv) || Boolean(p.champs.password) !== Boolean(pv))
+            throw erreurSecret('login_values_mismatch', 'Les valeurs ne correspondent pas aux champs ciblés.', 400);
+        retenirValeurs(s, [uv, pv]);
+        s._originesSecret.add(origineJeton);
+        saisi = true;
+        const page = s.page;
+        let navigue = false;
+        const surNav = (f) => { if (f === page.mainFrame()) navigue = true; };
+        page.on('framenavigated', surNav);
+        try {
+            if (p.champs.username) await remplirChamp(p.champs.username, uv, { champ: 'username', timeout: p.timeout, delaiAvant: fin });
+            if (p.champs.password) await remplirChamp(p.champs.password, pv, { champ: 'password', timeout: p.timeout, delaiAvant: fin });
+            const observe = p.champs.password || p.champs.username;
+            const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+            if (p.submit) await p.submit.click({ timeout: t });
+            else await observe.press('Enter', { timeout: t });
+            let issue = 'no_change';
+            while (Date.now() < fin) {
+                if (navigue) { issue = 'navigated'; break; }
+                if (p.cw && (await p.cw.candidats.filter({ visible: true }).count().catch(() => 0)) > 0) { issue = 'wait_for'; break; }
+                if (await observe.evaluate((el) => !el.isConnected || el.value === '' || el.getClientRects().length === 0).catch(() => true)) { issue = 'field_gone'; break; }
+                await page.waitForTimeout(150);
+            }
+            if (issue === 'navigated') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+            // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
+            if (issue === 'navigated' && /^chrome-error:/.test(page.url())) issue = 'blocked';
+            sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked', status: 'submitted', outcome: issue, navigated: issue === 'navigated' } };
+            if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET ou autre origine) : cette page ne permet pas une connexion sûre." };
+            if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
+        } finally {
+            page.off('framenavigated', surNav);
+        }
+    } catch (e) {
+        sortie = erreurLogin(e);
+    }
+    await libererLogin(p);
+    let nettoyage = { vides: 0, reinitialisee: false };
+    if (saisi) nettoyage = await viderChamps(s).catch(() => ({ vides: 0, reinitialisee: true }));
+    let url = '', titre = '';
+    try { url = s.page.url(); titre = await s.page.title().catch(() => ''); } catch (e) {}
+    res.status(sortie.statut).json({
+        ...sortie.corps, url: purgerTexte(url, s).substring(0, 300), title: purgerTexte(titre, s).substring(0, 200),
+        fields_cleared: nettoyage.vides, ...(nettoyage.reinitialisee ? { page_reset: true, warning: "Un champ gardait encore la valeur : la page a été remplacée par about:blank (rouvrez l'adresse)." } : {}),
+    });
 });
 
 app.post('/smart_click', getSession, autoSnapshot, async (req, res) => {
@@ -2614,16 +2823,9 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             select_option: 'select', scroll_to: 'scroll_into_view',
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
-        // Secret du coffre : session sécurisée seulement, fill sur une cible sémantique, origine du frame vérifiée avant la saisie, aucun repli, aucune valeur renvoyée.
-        let secretOrigine = null;
-        try {
-            secretOrigine = origineSecret(req.body, req.session, {
-                geste: type,
-                aCible: Boolean(ref || by_role || by_text || by_label || by_placeholder || by_test_id || by_alt || by_title || by_css || by_xpath),
-            });
-        } catch (e) { return res.status(e.statut || 400).json({ error: e.message, code: e.code, ...(e.details || {}) }); }
-        const valeurSecrete = secretOrigine ? (text || value || '') : '';
-        if (secretOrigine && !valeurSecrete) return res.status(400).json({ error: 'Secret vide.', code: 'secret_empty' });
+        // Plus aucun secret par un geste : la saisie d'un identifiant passe par /login.
+        if (present(req.body.secret_origin) || present(req.body.secret_field))
+            return res.status(400).json({ error: "Un secret ne se saisit plus par un geste.", code: 'secret_removed', fix: 'Utilisez pw_login.' });
         const opts = { timeout, button, modifiers };
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
@@ -2741,22 +2943,6 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             extra = { ...extra, matched: cible.n,
                       ...(cible.nameMatch === 'substring' || cible.partial > cible.n ? { name_match: cible.nameMatch } : {}),
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
-        }
-
-        // Un secret ne passe que par la cible sémantique, comptée parmi les éléments VISIBLES : ni repli, ni premier de plusieurs.
-        if (secretOrigine) {
-            if (!cible) return res.status(404).json({ error: 'Champ du secret introuvable : saisie refusée.', code: 'secret_requires_target' });
-            retenirValeurs(req.session, [valeurSecrete]);
-            try {
-                await saisirSecret(cible.liste || cible.loc, secretOrigine, valeurSecrete, {
-                    champ: req.body.secret_field, timeout: Math.min(Number(timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2), nth, force,
-                    delaiAvant: req.recuA + BUDGET_GESTE_MS - 400,
-                });
-            } catch (e) {
-                return res.status(e.statut || 500).json({ error: masquerValeur(sansAnsi(e.message || String(e)), valeurSecrete), code: e.code || codeErreur(String(e.message)), ...(e.details || {}) });
-            }
-            await postActionWait(page, wait_after);
-            return res.json({ status: 'success', strategy: 'secret', field: req.body.secret_field, url: page.url() });
         }
 
         // ── Actions page-level (sans cible) ──
@@ -2909,7 +3095,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 } else if (type === 'expand' || type === 'collapse') {
                     extra = { ...extra, ...(await expandTreeItem(page, officialLocator, type === 'expand', _t)) };
                 } else if (type === 'drag') {
-                    extra = { ...extra, ...(await performDrag(page, officialLocator, req.body, _t)) };
+                    extra = { ...extra, ...(await performDrag(page, officialLocator, req.body, _t, req.sessionId)) };
                 } else {
                     return res.status(400).json({ error: `Action '${type}' incompatible avec API Playwright officielle. Utilise selector= au lieu de by_*/ref.` });
                 }
@@ -2921,7 +3107,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 await recordEvent(req.session, {
                     action: type === 'select_option' ? 'select' : (type === 'double_click' ? 'dblclick' : type === 'right_click' ? 'rclick' : type),
                     locator: { role: by_role, name: by_name, text: by_text, label: by_label, placeholder: by_placeholder, test_id: by_test_id, css: by_css, xpath: by_xpath, alt: by_alt, title: by_title },
-                    value: secretOrigine ? '[secret]' : text || value, key,
+                    value: text || value, key,
                     // L'option RÉELLEMENT choisie — le rejeu n'écrit plus
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
@@ -3221,7 +3407,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // DRAG & DROP (même moteur que le chemin officiel : dragTo → HTML5 → décalage)
         if (type === 'drag') {
             const { locator } = await smartResolveLocator(page, selector);
-            const r = await performDrag(page, locator, req.body, _lt);
+            const r = await performDrag(page, locator, req.body, _lt, req.sessionId);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed('drag') });
         }
@@ -4124,7 +4310,7 @@ app.post('/find_elements', getSession, autoSnapshot, async (req, res) => {
 app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const sid = req.query.session_id;
+        const sid = req.sessionId;
         const skipScreenshot = req.query.skip_screenshot === 'true';
         // ── New context-saving knobs (Python side already sends these) ──
         const level = ['lite', 'nav', 'full'].includes(req.query.level) ? req.query.level : 'lite';
@@ -4757,7 +4943,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
 app.get('/inspect', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const sid = req.query.session_id;
+        const sid = req.sessionId;
         const skipScreenshot = req.query.skip_screenshot === 'true';
 
         if (!skipScreenshot) {
@@ -4948,7 +5134,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector, full_page = false, annotate = false, skip_image = false } = req.body;
-        const sid = req.body.session_id;
+        const sid = req.sessionId;
         const filename = `shot_${sid}_${Date.now()}.png`;
         const filepath = path.join(SCREENSHOT_DIR, filename);
 
@@ -5304,7 +5490,7 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
         const typeSet = types ? new Set(String(types).split(',').map(t => t.trim()).filter(Boolean)) : null;
         // Session sécurisée : le corps des requêtes (formulaire de connexion) n'est jamais montré.
         const journalReseau = req.session.secure
-            ? networkLog.map(e => (e.postData ? { ...e, postData: null } : e))
+            ? networkLog.map(e => ({ ...e, postData: null, url: purgerTexte(e.url, req.session) }))
             : networkLog;
         const out = summarizeNetwork(journalReseau, { last, filter: filter || '', types: typeSet });
         let pageUrl = ''; try { pageUrl = page.url(); } catch (_) {}
@@ -5578,7 +5764,7 @@ app.get('/list_tabs', getSession, autoSnapshot, async (req, res) => {
         const tabs = [];
         for (let i = 0; i < req.session.tabs.length; i++) {
             const p = req.session.tabs[i];
-            try { tabs.push({ index: i, url: p.url(), title: await p.title().catch(() => ''), active: p === req.session.page }); }
+            try { tabs.push({ index: i, url: purgerTexte(p.url(), req.session), title: purgerTexte(await p.title().catch(() => ''), req.session), active: p === req.session.page }); }
             catch (e) { tabs.push({ index: i, error: 'page closed' }); }
         }
         res.json({ tabs, count: tabs.length, active: req.session.tabs.indexOf(req.session.page) });
@@ -5747,7 +5933,7 @@ app.get('/health', (req, res) => {
             id: sid.substring(0, 8) + '…',
             idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
-            url: s.page?.url?.()?.substring(0, 80) || '?',
+            url: (s.secure ? purgerTexte(s.page?.url?.() || '', s) : (s.page?.url?.() || '')).substring(0, 80) || '?',
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
         });
@@ -6235,21 +6421,9 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const startMs = Date.now();
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
-            // Secret du coffre : fill/type sur une cible seulement ; origine du frame vérifiée avant la saisie ; valeur jamais recopiée.
-            let secretOrigine = null;
-            let valeurSecrete = '';
-            try {
-                secretOrigine = origineSecret(act, req.session, {
-                    geste: actType,
-                    aCible: Boolean(act.ref || act.by_role || act.by_text || act.by_label || act.by_placeholder
-                        || act.by_test_id || act.by_css || act.by_xpath || act.by_alt || act.by_title),
-                });
-                valeurSecrete = secretOrigine ? (act.text || act.value || '') : '';
-                if (secretOrigine && !valeurSecrete) throw Object.assign(new Error('Secret vide.'), { code: 'secret_empty' });
-                if (secretOrigine) retenirValeurs(req.session, [valeurSecrete]);
-            } catch (e) {
+            if (present(act.secret_origin) || present(act.secret_field)) {
                 if (suivi) suivi.annuler();
-                results.push({ step: i, action: actType, success: false, error: masquerValeur(e.message, valeurSecrete), code: e.code, ...(e.details || {}), duration_ms: Date.now() - startMs });
+                results.push({ step: i, action: actType, success: false, error: 'Un secret ne se saisit plus par un geste.', code: 'secret_removed', fix: 'Utilisez pw_login.', duration_ms: Date.now() - startMs });
                 failed = true;
                 if (stop_on_error) break;
                 continue;
@@ -6279,21 +6453,6 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                     }
 
                     case 'fill': {
-                        if (secretOrigine) {
-                            // Cible comptée parmi les éléments visibles ; aucun repli, jamais le premier de plusieurs.
-                            const nthS = Number.isInteger(act.nth) && act.nth >= 0 ? act.nth : null;
-                            const c = await cibleDepuisParams(page, {
-                                ref: act.ref, by_role: act.by_role, by_name: act.by_name, by_text: act.by_text, by_label: act.by_label,
-                                by_placeholder: act.by_placeholder, by_test_id: act.by_test_id, by_alt: act.by_alt, by_title: act.by_title,
-                            }, req.sessionId, Number(act.timeout) > 0 ? Number(act.timeout) : NOT_FOUND_GRACE_MS);
-                            if (!c) throw erreurCodee('secret_requires_target', 'Champ du secret introuvable : saisie refusée.');
-                            await saisirSecret(c.liste || c.loc, secretOrigine, valeurSecrete, {
-                                champ: act.secret_field, timeout: Math.min(Number(act.timeout) || ACTION_TIMEOUT_MS, ACTION_TIMEOUT_MS * 2), nth: nthS,
-                                delaiAvant: req.recuA + BUDGET_CHAINE_MS - 400,
-                            });
-                            result = { success: true, action: 'fill' };
-                            break;
-                        }
                         const { locator } = await resolveChainTarget(act);
                         try { await locator.fill(act.text || act.value || '', { timeout: act.timeout || ACTION_TIMEOUT_MS }); }
                         catch {
@@ -6414,7 +6573,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         },
                         selector: act.selector,
                         ref: act.ref,
-                        value: secretOrigine ? '[secret]' : act.text || act.value,
+                        value: act.text || act.value,
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
@@ -6425,7 +6584,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
 
             } catch (e) {
                 if (suivi) suivi.annuler();
-                const msg = masquerValeur(sansAnsi(e.message || String(e)), valeurSecrete);
+                const msg = purgerTexte(sansAnsi(e.message || String(e)), req.session);
                 const failResult = {
                     step: i, action: actType, success: false, error: msg.substring(0, 200),
                     code: detailsErreur(e).code || codeErreur(msg), ...(e.details || {}),
@@ -6446,7 +6605,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 }
 
                 // Feature 4: Screenshot on failure
-                if (screenshot_on_fail && !secretOrigine) {
+                if (screenshot_on_fail) {
                     const ss = await screenshotOnFailure(page, req.sessionId, actType);
                     Object.assign(failResult, ss);
                 }
@@ -6483,14 +6642,14 @@ app.get('/sessions', (req, res) => {
             owner: s.owner || null,
             idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
             age_sec: Math.round((now - (s.createdAt || now)) / 1000),
-            url: s.page?.url?.()?.substring(0, 120) || '?',
+            url: (s.secure ? purgerTexte(s.page?.url?.() || '', s) : (s.page?.url?.() || '')).substring(0, 120) || '?',
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
             secure: Boolean(s.secure),
         });
     }
-    res.json({ count: list.length, max: MAX_SESSIONS, max_per_owner: MAX_SESSIONS_PER_OWNER, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
+    res.json({ count: list.length, total: sessions.size, max: MAX_SESSIONS, max_per_owner: MAX_SESSIONS_PER_OWNER, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
 });
 
 // ======================== FORCE CLEANUP ========================
@@ -6578,12 +6737,14 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             // Brief poll loop for url/title — they may settle after a navigation.
             const deadline = Date.now() + timeout_ms;
             let actual = '', pass = false;
+            // Session sécurisée : l'adresse et le titre sont purgés AVANT toute comparaison (aucun oracle sur une valeur saisie).
+            const vue = (t) => (req.session.secure ? purgerTexte(t, req.session) : t);
             while (Date.now() < deadline) {
-                if (assertion === 'url-equals')      { actual = page.url(); pass = actual === value; }
-                else if (assertion === 'url-contains') { actual = page.url(); pass = actual.includes(value); }
-                else if (assertion === 'url-matches')  { actual = page.url(); try { pass = new RegExp(value).test(actual); } catch (e) { return res.status(400).json({ error: `Invalid regex: ${e.message}` }); } }
-                else if (assertion === 'title-equals') { actual = await page.title().catch(() => ''); pass = actual === value; }
-                else if (assertion === 'title-contains') { actual = await page.title().catch(() => ''); pass = actual.includes(value); }
+                if (assertion === 'url-equals')      { actual = vue(page.url()); pass = actual === value; }
+                else if (assertion === 'url-contains') { actual = vue(page.url()); pass = actual.includes(value); }
+                else if (assertion === 'url-matches')  { actual = vue(page.url()); try { pass = new RegExp(value).test(actual); } catch (e) { return res.status(400).json({ error: `Invalid regex: ${e.message}` }); } }
+                else if (assertion === 'title-equals') { actual = vue(await page.title().catch(() => '')); pass = actual === value; }
+                else if (assertion === 'title-contains') { actual = vue(await page.title().catch(() => '')); pass = actual.includes(value); }
                 if (pass) break;
                 await new Promise(r => setTimeout(r, 200));
             }
@@ -6699,7 +6860,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
 app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const sid = req.body.session_id;
+        const sid = req.sessionId;
         const params = req.body;
         const loc = await locatorFromParams(page, params, req.sessionId);
         if (!loc) return res.status(400).json({ error: 'Provide ref/by_* params to identify the element' });
@@ -6725,7 +6886,7 @@ app.post('/element_screenshot', getSession, autoSnapshot, async (req, res) => {
 app.get('/observe', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const sid = req.query.session_id;
+        const sid = req.sessionId;
         const mode = ['indexed', 'ax', 'som'].includes(req.query.mode) ? req.query.mode : 'indexed';
         const viewportOnly = req.query.viewport_only !== 'false';
         const maxItems = Math.max(1, Math.min(parseInt(req.query.max_items) || 30, 200));

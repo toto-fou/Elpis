@@ -27,11 +27,7 @@ export interface ConversionChaine {
   readonly erreurs: string[];
 }
 
-/**
- * Convertit des étapes déjà jouées avec succès par `pw_chain` (même forme : `do`/`type`/`action`, `target`, `value`/`v`, `url`) en `{seq:[act…]}`.
- * Seules les cibles sémantiques passent (css=, xpath=, ref= et `selector` brut sont refusés) ; `goto` doit rester sur `origin`.
- * `options.parametres` (`{nom: valeur}`) remplace chaque occurrence de la valeur dans `v`, `url` et les cibles par `{nom}` ; l'appelant valide ensuite l'ensemble avec `validerProcedure`.
- */
+/** Étapes `pw_chain` réussies → `{seq:[act…]}` : cibles sémantiques seulement, `goto` sur `origin`, `options.parametres` ({nom: valeur}) remplace les valeurs par `{nom}` ; à valider ensuite avec `validerProcedure`. */
 export function chaineVersSeq(
   etapes: readonly unknown[],
   origin: string,

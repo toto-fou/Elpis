@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/browser/procedures/stockage.ts — procédures du compte (`ax_procedures`, versions gardées) et journal des exécutions (`ax_procedure_runs`) dans la base de l'hôte. */
+import { createHash } from "node:crypto";
+
 import type { Procedure } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 
@@ -28,11 +30,12 @@ const maintenant = (): number => Date.now() / 1000;
 /** Nouvelle version (dernière + 1) de la procédure du compte ; arbre écrit en JSON stable (l'ordre des clés est celui du schéma). */
 export async function sauvegarder(base: Base, owner: string, p: Procedure): Promise<ResultatSauvegarde> {
   const texte = JSON.stringify(p);
-  if (texte.length > QUOTAS.octets)
+  const octets = Buffer.byteLength(texte, "utf8");
+  if (octets > QUOTAS.octets)
     return {
       ok: false,
       code: "procedure_too_large",
-      message: `arbre de ${texte.length} octets (${QUOTAS.octets} au plus)`,
+      message: `arbre de ${octets} octets (${QUOTAS.octets} au plus)`,
     };
   return base.ecriture(async (x) => {
     const ligne = await x.get<{ v: number | null }>(
@@ -40,6 +43,11 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
       [owner, p.id],
     );
     const derniere = Number(ligne?.v ?? 0);
+    // Numéro jamais réutilisé : les versions déjà exécutées comptent aussi (une attente de confirmation ne doit pas retomber sur un autre arbre).
+    const vue = await x.get<{ v: number | null }>(
+      "SELECT MAX(version) AS v FROM ax_procedure_runs WHERE owner=? AND procedure_id=?",
+      [owner, p.id],
+    );
     if (derniere === 0) {
       const n = await x.get<{ n: number }>(
         "SELECT COUNT(DISTINCT id) AS n FROM ax_procedures WHERE owner=?",
@@ -52,7 +60,7 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
           message: `${QUOTAS.procedures} procédures au plus par compte`,
         } as const;
     }
-    const version = derniere + 1;
+    const version = Math.max(derniere, Number(vue?.v ?? 0)) + 1;
     const t = maintenant();
     await x.run(
       "INSERT INTO ax_procedures (owner, id, version, origin, description, tree_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -67,24 +75,40 @@ export async function sauvegarder(base: Base, owner: string, p: Procedure): Prom
   });
 }
 
-/** Arbre stocké (JSON relu tel quel, à revalider avant exécution) ; version 0 = la dernière. */
-export async function lire(base: Base, owner: string, id: string, version = 0): Promise<unknown> {
+/** Texte JSON et numéro de la version demandée (0 = la dernière), `undefined` si elle n'existe pas. */
+export async function lireTexte(
+  base: Base,
+  owner: string,
+  id: string,
+  version = 0,
+): Promise<{ texte: string; version: number } | undefined> {
   const l =
     version > 0
-      ? await base.get<{ tree_json: string }>(
-          "SELECT tree_json FROM ax_procedures WHERE owner=? AND id=? AND version=?",
+      ? await base.get<{ tree_json: string; version: number }>(
+          "SELECT tree_json, version FROM ax_procedures WHERE owner=? AND id=? AND version=?",
           [owner, id, version],
         )
-      : await base.get<{ tree_json: string }>(
-          "SELECT tree_json FROM ax_procedures WHERE owner=? AND id=? ORDER BY version DESC LIMIT 1",
+      : await base.get<{ tree_json: string; version: number }>(
+          "SELECT tree_json, version FROM ax_procedures WHERE owner=? AND id=? ORDER BY version DESC LIMIT 1",
           [owner, id],
         );
+  return l === undefined ? undefined : { texte: l.tree_json, version: Number(l.version) };
+}
+
+/** Arbre stocké relu tel quel (à revalider avant exécution) : `undefined` s'il n'existe pas, `null` si le JSON est illisible. */
+export async function lire(base: Base, owner: string, id: string, version = 0): Promise<unknown> {
+  const l = await lireTexte(base, owner, id, version);
   if (l === undefined) return undefined;
   try {
-    return JSON.parse(l.tree_json) as unknown;
+    return JSON.parse(l.texte) as unknown;
   } catch {
     return null;
   }
+}
+
+/** Empreinte d'une attente de confirmation : arbre exact, chemin du nœud et version. */
+export function empreinte(texte: string, chemin: string, version: number): string {
+  return createHash("sha256").update(`${texte}\n${chemin}\n${version}`, "utf8").digest("hex");
 }
 
 /** Dernière version de chaque procédure du compte, filtrée par origine exacte si donnée. */
@@ -147,14 +171,27 @@ export interface LigneExecution {
   readonly issue: string;
   readonly noeudEnEchec: string | null;
   readonly dureeMs: number;
+  /** Attente de confirmation seulement : `empreinte(arbre, chemin, version)`. */
+  readonly empreinte?: string;
 }
 
 /** Journal d'une exécution (issue, nœud en échec, durée ; jamais de valeur de paramètre) ; les plus anciennes au-delà du quota sont retirées. */
 export async function noterExecution(base: Base, e: LigneExecution): Promise<void> {
   await base.transaction(async (x) => {
     await x.run(
-      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [e.owner, e.procedureId, e.version, e.sessionId, e.debut, e.fin, e.issue, e.noeudEnEchec, e.dureeMs],
+      "INSERT INTO ax_procedure_runs (owner, procedure_id, version, session_id, started_at, ended_at, outcome, failed_path, duration_ms, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        e.owner,
+        e.procedureId,
+        e.version,
+        e.sessionId,
+        e.debut,
+        e.fin,
+        e.issue,
+        e.noeudEnEchec,
+        e.dureeMs,
+        e.empreinte ?? null,
+      ],
     );
     await x.run(
       `DELETE FROM ax_procedure_runs WHERE owner=? AND procedure_id=? AND id NOT IN
@@ -164,21 +201,52 @@ export async function noterExecution(base: Base, e: LigneExecution): Promise<voi
   });
 }
 
-/** Chemin du nœud qui attend une confirmation sur cette session, parmi ceux autorisés ; l'attente est consommée (reprise unique). */
+/** Remplace par `superseded` toute attente de confirmation en cours sur la session : une nouvelle exécution les annule. */
+export async function annulerAttentes(base: Base, owner: string, sessionId: string): Promise<void> {
+  await base.run(
+    "UPDATE ax_procedure_runs SET outcome='superseded' WHERE owner=? AND session_id=? AND outcome='needs_confirmation'",
+    [owner, sessionId],
+  );
+}
+
+/** Consomme l'attente de confirmation de la session si elle porte sur cette procédure, cette version, ce chemin et cet arbre (empreinte) et n'a pas expiré. */
 export async function reprendre(
   base: Base,
-  o: { owner: string; procedureId: string; version: number; sessionId: string; chemins: readonly string[] },
-): Promise<string | null> {
-  if (o.chemins.length === 0) return null;
+  o: {
+    owner: string;
+    procedureId: string;
+    version: number;
+    sessionId: string;
+    texte: string;
+    chemin: string;
+  },
+): Promise<boolean> {
   return base.ecriture(async (x) => {
-    const l = await x.get<{ id: number; failed_path: string | null }>(
-      `SELECT id, failed_path FROM ax_procedure_runs
+    const l = await x.get<{ id: number; failed_path: string | null; fingerprint: string | null }>(
+      `SELECT id, failed_path, fingerprint FROM ax_procedure_runs
         WHERE owner=? AND procedure_id=? AND version=? AND session_id=? AND outcome='needs_confirmation' AND ended_at>=?
         ORDER BY id DESC LIMIT 1`,
       [o.owner, o.procedureId, o.version, o.sessionId, maintenant() - REPRISE_S],
     );
-    if (l === undefined || l.failed_path === null || !o.chemins.includes(l.failed_path)) return null;
-    await x.run("UPDATE ax_procedure_runs SET outcome='confirmed' WHERE id=?", [l.id]);
-    return l.failed_path;
+    const valide =
+      l !== undefined &&
+      l.failed_path === o.chemin &&
+      l.fingerprint === empreinte(o.texte, o.chemin, o.version);
+    if (valide) await x.run("UPDATE ax_procedure_runs SET outcome='confirmed' WHERE id=?", [l.id]);
+    return valide;
   });
+}
+
+/** Chemin de la dernière attente de confirmation valide de la session (même procédure et version), `null` sinon. */
+export async function attenteEnCours(
+  base: Base,
+  o: { owner: string; procedureId: string; version: number; sessionId: string },
+): Promise<string | null> {
+  const l = await base.get<{ failed_path: string | null }>(
+    `SELECT failed_path FROM ax_procedure_runs
+      WHERE owner=? AND procedure_id=? AND version=? AND session_id=? AND outcome='needs_confirmation' AND ended_at>=?
+      ORDER BY id DESC LIMIT 1`,
+    [o.owner, o.procedureId, o.version, o.sessionId, maintenant() - REPRISE_S],
+  );
+  return l?.failed_path ?? null;
 }

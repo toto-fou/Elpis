@@ -21,6 +21,8 @@ export const LIMITES_PROCEDURE = {
   conditionProfondeur: 3,
   /** Profondeur de l'entrée JSON brute, contrôlée avant Zod (garde contre une pile profonde). */
   profondeurBrute: 64,
+  /** Valeurs visitées au plus dans l'entrée brute. */
+  valeursBrutes: 20_000,
 } as const;
 
 export const GESTES_PROCEDURE = [
@@ -56,6 +58,13 @@ const CLES_TOUTES = [...CLES_CIBLE, ...CLES_REFUSEES];
 const SEPARATEUR = new RegExp(String.raw`(?<!\\)\|(?=\s*(?:${CLES_TOUTES.join("|")})\s*=)`, "iu");
 const MODELE = /\{([A-Za-z_][A-Za-z0-9_]*)\}/gu;
 const NOM_PARAMETRE = /^[a-z][a-z0-9_]{0,31}$/u;
+const NOMS_RESERVES: ReadonlySet<string> = new Set([
+  "constructor",
+  "prototype",
+  "valueof",
+  "tostring",
+  "hasownproperty",
+]);
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 /** Vrai si la chaîne porte un caractère de contrôle (saut de ligne, tabulation, NUL…). */
 export function aControle(s: string): boolean {
@@ -84,7 +93,10 @@ export function refusCible(t: string): string | null {
       if (!/^\d{1,3}$/u.test(morceau.slice(i + 1).trim())) return "nth= attend un entier";
     } else {
       utile += 1;
-      if (!morceau.slice(i + 1).trim()) return `${cle}= vide`;
+      const valeur = morceau.slice(i + 1).trim();
+      if (!valeur) return `${cle}= vide`;
+      if (/^(css|xpath|ref)\s*[=:]/iu.test(valeur) || valeur.startsWith("//") || /^[#.][\w-]+$/u.test(valeur))
+        return `${cle}= : la valeur ressemble à un sélecteur CSS/XPath ou à une référence, refusée`;
     }
   }
   return utile > 0 ? null : "cible sans critère (role, name, text, label…)";
@@ -147,7 +159,7 @@ export interface Login {
   password_target?: string;
   username_target?: string;
   submit_target?: string;
-  wait_for?: string;
+  wait_for: string;
 }
 export type Noeud =
   | { seq: Noeud[] }
@@ -175,7 +187,7 @@ const schemaLogin = z.strictObject({
   password_target: texteBorne(LIMITES_PROCEDURE.longueurCible).optional(),
   username_target: texteBorne(LIMITES_PROCEDURE.longueurCible).optional(),
   submit_target: texteBorne(LIMITES_PROCEDURE.longueurCible).optional(),
-  wait_for: texteBorne(LIMITES_PROCEDURE.longueurCible).optional(),
+  wait_for: texteBorne(LIMITES_PROCEDURE.longueurCible),
 });
 const variantes: Record<string, z.ZodType> = {
   seq: z.strictObject({ seq: enfants }),
@@ -331,13 +343,15 @@ export function verifierProcedure(p: Procedure): string[] {
   if (noms.length > LIMITES_PROCEDURE.parametres)
     erreurs.push(`params : ${LIMITES_PROCEDURE.parametres} au plus`);
   for (const nom of noms)
-    if (!NOM_PARAMETRE.test(nom)) erreurs.push(`params.${nom} : nom a-z 0-9 _ (32 au plus)`);
+    if (!NOM_PARAMETRE.test(nom) || NOMS_RESERVES.has(nom))
+      erreurs.push(`params.${nom} : nom a-z 0-9 _ (32 au plus), hors noms réservés d'objet`);
   const m = mesurer(p.root);
   if (m.profondeur > LIMITES_PROCEDURE.profondeur)
     erreurs.push(`arbre trop profond : ${m.profondeur} niveaux (${LIMITES_PROCEDURE.profondeur} au plus)`);
   if (m.noeuds > LIMITES_PROCEDURE.noeuds)
     erreurs.push(`arbre trop grand : ${m.noeuds} nœuds (${LIMITES_PROCEDURE.noeuds} au plus)`);
   if (erreurs.length > 0 && m.noeuds > 10 * LIMITES_PROCEDURE.noeuds) return erreurs;
+  erreurs.push(...sousRetryInterdit(p.root));
   const utilises = new Map<string, string[]>();
   const noter = (s: string | undefined, ou: string): void => {
     if (s === undefined) return;
@@ -363,7 +377,7 @@ export function verifierProcedure(p: Procedure): string[] {
         erreurs.push(`${chemin}.login.creds : doit être exactement {parametre} (un paramètre de type creds)`);
       else {
         loginsCreds.add(g[1] as string);
-        if (p.params[g[1] as string] !== "creds")
+        if (!Object.hasOwn(p.params, g[1] as string) || p.params[g[1] as string] !== "creds")
           erreurs.push(`${chemin}.login.creds : le paramètre ${g[1]} doit être déclaré de type creds`);
       }
       if (l.password_target === undefined && l.username_target === undefined)
@@ -378,7 +392,7 @@ export function verifierProcedure(p: Procedure): string[] {
     }
   }
   for (const [nom, ou] of utilises) {
-    const type = p.params[nom];
+    const type = Object.hasOwn(p.params, nom) ? p.params[nom] : undefined;
     if (type === undefined)
       erreurs.push(`paramètre {${nom}} utilisé (${ou[0]}) mais non déclaré dans params`);
     else if (type === "creds")
@@ -387,10 +401,14 @@ export function verifierProcedure(p: Procedure): string[] {
   return erreurs;
 }
 
+/** Profondeur de l'entrée brute, sans récursion ; au-delà de `valeursBrutes` valeurs visitées elle vaut « trop profonde ». */
 function profondeurBrute(v: unknown): number {
   let max = 0;
+  let vues = 0;
   const pile: [unknown, number][] = [[v, 1]];
   for (let e = pile.pop(); e !== undefined; e = pile.pop()) {
+    vues += 1;
+    if (vues > LIMITES_PROCEDURE.valeursBrutes) return LIMITES_PROCEDURE.profondeurBrute + 1;
     if (e[0] === null || typeof e[0] !== "object") continue;
     max = Math.max(max, e[1]);
     if (max > LIMITES_PROCEDURE.profondeurBrute) return max;
@@ -399,12 +417,34 @@ function profondeurBrute(v: unknown): number {
   return max;
 }
 
+/** Gestes à effet unique : refusés sous un `retry` (un rejeu agirait deux fois) ; fill, select, check, uncheck, hover, goto et wait sont idempotents. */
+function sousRetryInterdit(racine: Noeud): string[] {
+  const erreurs: string[] = [];
+  const pile: [Noeud, string, boolean][] = [[racine, "0", false]];
+  for (let e = pile.pop(); e !== undefined; e = pile.pop()) {
+    const [n, chemin, dedans] = e;
+    if (dedans) {
+      if ("login" in n)
+        erreurs.push(`${chemin} : login interdit sous un retry (un usage du jeton serait rejoué)`);
+      else if ("act" in n && (n.confirm === true || n.act === "click" || n.act === "press"))
+        erreurs.push(
+          `${chemin} : ${n.confirm === true ? "confirm" : n.act} interdit sous un retry (le geste serait rejoué)`,
+        );
+    }
+    for (const [suffixe, f] of fils(n)) pile.push([f, `${chemin}.${suffixe}`, dedans || "retry" in n]);
+  }
+  return erreurs;
+}
+
 export type ResultatProcedure = { ok: true; procedure: Procedure } | { ok: false; erreurs: string[] };
 
 /** Valide une procédure inconnue (JSON reçu) : forme Zod, puis limites et règles croisées ; au plus 10 erreurs rendues. */
 export function validerProcedure(entree: unknown): ResultatProcedure {
   if (profondeurBrute(entree) > LIMITES_PROCEDURE.profondeurBrute)
     return { ok: false, erreurs: ["arbre trop profond"] };
+  const params = (entree as { params?: unknown } | null)?.params;
+  if (params !== null && typeof params === "object" && Object.hasOwn(params, "__proto__"))
+    return { ok: false, erreurs: ["params.__proto__ : nom réservé"] };
   const r = schemaBase.safeParse(entree);
   if (!r.success)
     return {

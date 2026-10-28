@@ -119,6 +119,7 @@ export const TABLES: readonly Table[] = [
       { name: "ended_at", type: "real", null: false },
       { name: "outcome", type: "text", null: false },
       { name: "failed_path", type: "text" },
+      { name: "fingerprint", type: "text" },
       { name: "duration_ms", type: "int", null: false, default: 0 },
     ],
     indexes: [{"name": "idx_ax_procedure_runs_proc", "cols": ["owner", "procedure_id", "started_at DESC"]}],

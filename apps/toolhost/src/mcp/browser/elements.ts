@@ -235,8 +235,16 @@ export function pwAct(s: ServicesBrowser) {
     if (a["option_value"]) corps["option_value"] = a["option_value"];
     if (typeof charge["nth"] === "number") corps["nth"] = charge["nth"];
     if (a["strict"] === true) corps["strict"] = true;
-    // Délai du geste imposé par le moteur de procédures (clé interne : le schéma MCP la refuse au modèle).
+    // Clés internes du moteur de procédures (le schéma MCP les refuse au modèle) : délai du geste, attente de présence, origine attendue, cible sans repli CSS.
     if (typeof a["_timeout_ms"] === "number") corps["timeout"] = a["_timeout_ms"];
+    if (typeof a["_presence_ms"] === "number") corps["presence_timeout"] = a["_presence_ms"];
+    if (typeof a["_expected_origin"] === "string" && a["_expected_origin"])
+      corps["expected_origin"] = a["_expected_origin"];
+    if (a["_sans_repli"] === true) corps["strict"] = true;
+    const delaiHttp =
+      typeof a["_timeout_ms"] === "number"
+        ? Math.max(client.delaiS, (2 * a["_timeout_ms"]) / 1000 + 5)
+        : client.delaiS;
     if (geste === "upload") {
       const f = await fichiersUpload(a["files"], o.appel.username);
       if ("refus" in f) return f.refus;
@@ -256,9 +264,13 @@ export function pwAct(s: ServicesBrowser) {
           fix: "pw_act(session_id, action='drag', target='css=#a', to='css=#b') — or direction=/amount= for an offset.",
         });
     }
-    const repli = dslToSelector(target);
+    const repli = a["_sans_repli"] === true ? "" : dslToSelector(target);
     if (repli) corps["selector"] = repli;
-    const r = await rappelOngletActif(client, sid, await client.req("POST", "/action", { json: corps }));
+    const r = await rappelOngletActif(
+      client,
+      sid,
+      await client.req("POST", "/action", { json: corps, timeout: delaiHttp }),
+    );
     if (ax !== null) {
       try {
         const apres = await urlApres(client, r, sid);

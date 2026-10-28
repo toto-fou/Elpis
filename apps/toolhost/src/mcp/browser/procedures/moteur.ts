@@ -127,7 +127,7 @@ function origineDe(u: string): string {
 /** Code et message d'un résultat d'outil en échec, `null` s'il a réussi. */
 function echec(r: unknown): { code: string; message: string } | null {
   if (!estDict(r)) return { code: "bad_result", message: "résultat illisible" };
-  const code = typeof r["error"] === "string" ? r["error"] : "";
+  const code = typeof r["error"] === "string" ? r["error"] : typeof r["code"] === "string" ? r["code"] : "";
   if (r["ok"] === false || code !== "") {
     const m = typeof r["message"] === "string" ? r["message"] : "";
     return { code: code || "failed", message: m.slice(0, 200) };
@@ -145,6 +145,7 @@ class Execution {
   private readonly abandon: Promise<never>;
   private readonly arreter: () => void;
   private annule = false;
+  private readonly confirmesFaits = new Set<string>();
   private readonly act: (a: Dict, c: ContexteAppel, b: Dict) => Promise<unknown>;
   private readonly connexion: (a: Dict, c: ContexteAppel, b: Dict) => Promise<unknown>;
 
@@ -219,7 +220,7 @@ class Execution {
 
   private sub(texte: string, mode: "texte" | "dsl" | "url"): string {
     return texte.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/gu, (_, nom: string) => {
-      const v = String(this.o.params[nom] ?? "");
+      const v = Object.hasOwn(this.o.params, nom) ? String(this.o.params[nom]) : "";
       return mode === "dsl" ? echapperDsl(v) : mode === "url" ? encodeURIComponent(v) : v;
     });
   }
@@ -305,6 +306,8 @@ class Execution {
       if (!this.urlConforme(u, c.url_path)) return false;
     }
     if (c.visible !== undefined) {
+      const refus = refusCible(c.visible);
+      if (refus !== null) return `invalid_target: ${refus}`;
       const v = await this.visible(c.visible);
       if (v !== true) return v;
     }
@@ -354,8 +357,15 @@ class Execution {
   private async attendre(c: Condition, ms: number): Promise<boolean | string> {
     const echeance = Date.now() + ms;
     for (;;) {
-      if (this.ctx.signal.aborted) return "cancelled";
-      const r = await this.instant(c);
+      if (this.ctx.signal.aborted || this.annule) return "cancelled";
+      if (this.ecoule > BUDGET.dureeMs) return "budget";
+      let r: boolean | string;
+      try {
+        r = await Promise.race([this.instant(c), this.abandon]);
+      } catch {
+        this.annule = true;
+        return "cancelled";
+      }
       if (r !== false) return r;
       if (Date.now() + BUDGET.pasMs > echeance) return false;
       await dormir(BUDGET.pasMs).catch(() => undefined);
@@ -371,15 +381,19 @@ class Execution {
       const stop = this.arret(path);
       if (stop) return stop;
       this.tentatives += 1;
-      const delai =
-        i < essais.length - 1 ? Math.min(n.timeout_ms ?? BUDGET.reserveMs, BUDGET.reserveMs) : n.timeout_ms;
+      // Seule l'attente de présence d'une cible de repli est courte : le geste garde son délai.
+      const presence =
+        i < essais.length - 1 ? Math.min(n.timeout_ms ?? BUDGET.reserveMs, BUDGET.reserveMs) : undefined;
       const r = await this.appeler(
         this.act,
         {
           action: GESTES[n.act] ?? n.act,
           target: cible,
           v,
-          ...(delai !== undefined ? { _timeout_ms: delai } : {}),
+          _expected_origin: this.p.origin,
+          _sans_repli: true,
+          ...(n.timeout_ms !== undefined ? { _timeout_ms: n.timeout_ms } : {}),
+          ...(presence !== undefined ? { _presence_ms: presence } : {}),
         },
         "pw_act",
       );
@@ -392,6 +406,10 @@ class Execution {
       const raison = `${e.code}${e.message ? `: ${e.message}` : ""}`;
       tried.push(cible || "(sans cible)");
       this.noter(path, n.act, cible || null, false, t, raison);
+      if (e.code === "origin_mismatch") {
+        this.rate(path, raison, tried);
+        return FAIL;
+      }
       if (SANS_EFFET.has(e.code) || REJOUABLES.has(n.act)) {
         this.rate(path, raison, tried);
         continue;
@@ -407,9 +425,22 @@ class Execution {
     if (n.expect !== undefined) {
       const r = await this.attendre(this.subCondition(n.expect), n.timeout_ms ?? BUDGET.attenteMs);
       if (r === "cancelled") return halte("cancelled");
+      if (r === "budget") {
+        this.rate(path, "budget_exceeded: durée", [cible]);
+        return halte("failed");
+      }
       if (r !== true) {
         const raison = r === false ? "expect_failed" : `expect_error: ${r}`;
         this.noter(path, n.act, cible || null, false, t, raison);
+        // Un clic ou une touche a agi : ni repli ni suite, aucun autre nœud ne doit croire que rien n'a eu lieu.
+        if (!REJOUABLES.has(n.act)) {
+          this.rate(
+            path,
+            `acted_unconfirmed: ${raison} (le geste a eu lieu, son effet n'est pas confirmé : arrêt)`,
+            [cible],
+          );
+          return halte("failed");
+        }
         this.rate(path, raison, [cible]);
         return FAIL;
       }
@@ -428,12 +459,19 @@ class Execution {
       const r = refusCible(c);
       if (r !== null) return this.refus(path, n, t, `invalid_target: ${r}`);
     }
-    if (n.confirm === true && !this.o.confirmed.includes(path)) {
-      const quoi = [n.act, cibles[0] ?? n.url ?? "", v && n.act !== "fill" ? v : v ? `← ${v}` : ""]
-        .filter(Boolean)
-        .join(" ");
-      this.confirmation = { path, description: quoi.slice(0, 240) };
-      return halte("needs_confirmation");
+    if (n.confirm === true) {
+      if (!this.o.confirmed.includes(path)) {
+        const cible =
+          cibles.length > 1
+            ? `l'une de [${cibles.join(" | ")}] (la première qui existe)`
+            : (cibles[0] ?? n.url ?? "");
+        const quoi = [n.act, cible, v && n.act !== "fill" ? v : v ? `← ${v}` : ""].filter(Boolean).join(" ");
+        this.confirmation = { path, description: quoi.slice(0, 400) };
+        return halte("needs_confirmation");
+      }
+      // Un accord vaut une exécution du nœud, jamais davantage dans le même appel.
+      if (this.confirmesFaits.has(path)) return this.refus(path, n, t, "confirm_already_used");
+      this.confirmesFaits.add(path);
     }
     if (n.act === "goto") return this.aller(n, path, t);
     if (origineDe(this.url) !== this.p.origin)
@@ -478,8 +516,18 @@ class Execution {
         this.annule = true;
         return halte("cancelled");
       }
+      if (this.ecoule > BUDGET.dureeMs) {
+        this.rate(path, "budget_exceeded: durée", cibles);
+        return halte("failed");
+      }
       for (const c of cibles) {
-        const r = await this.visible(c);
+        let r: boolean | string;
+        try {
+          r = await Promise.race([this.visible(c), this.abandon]);
+        } catch {
+          this.annule = true;
+          return halte("cancelled");
+        }
         if (r === true) {
           this.noter(path, "wait", c, true, t);
           return OK;
@@ -504,6 +552,14 @@ class Execution {
       return FAIL;
     }
     const cible = (k: string | undefined): string => (k === undefined ? "" : this.sub(k, "dsl"));
+    for (const k of [l.password_target, l.username_target, l.submit_target, l.wait_for]) {
+      const refus = k === undefined ? null : refusCible(cible(k));
+      if (refus !== null) {
+        this.noter(path, "login", null, false, t, `invalid_target: ${refus}`);
+        this.rate(path, `invalid_target: ${refus}`);
+        return FAIL;
+      }
+    }
     this.tentatives += 1;
     const r = await this.appeler(
       this.connexion,
@@ -528,9 +584,13 @@ class Execution {
       return halte("failed");
     }
     // Une navigation vers une page d'échec compte pour une réussite de pw_login : la cible d'arrivée tranche.
-    if (l.wait_for !== undefined) {
+    {
       const arrivee = await this.attendre({ visible: cible(l.wait_for) }, BUDGET.attenteMs);
       if (arrivee === "cancelled") return halte("cancelled");
+      if (arrivee === "budget") {
+        this.rate(path, "budget_exceeded: durée");
+        return halte("failed");
+      }
       if (arrivee !== true) {
         this.noter(path, "login", null, false, t, "login_not_confirmed");
         this.rate(path, "login_not_confirmed: la cible wait_for n'est pas apparue après la connexion");
@@ -605,7 +665,12 @@ class Execution {
     const stop = this.arret(path);
     if (stop) return stop;
     const t = Date.now();
-    const vrai = await this.instant(this.subCondition(n.if));
+    const vrai = await this.attendre(this.subCondition(n.if), 0);
+    if (vrai === "cancelled") return halte("cancelled");
+    if (vrai === "budget") {
+      this.rate(path, "budget_exceeded: durée");
+      return halte("failed");
+    }
     if (typeof vrai === "string") {
       this.noter(path, "if", null, false, t, `condition_error: ${vrai}`);
       this.rate(path, `condition_error: ${vrai}`);

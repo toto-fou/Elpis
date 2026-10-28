@@ -18,6 +18,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   profondeur et taille bornées) et supprime. Tables `ax_procedures` et `ax_procedure_runs`
   (migration `0029_procedures_ax`), purgées avec le compte. `chaineVersSeq` convertit des
   étapes `pw_chain` réussies en procédure (base de l'apprentissage, étape suivante).
+  Un clic ou une touche qui a agi n'est jamais rejoué (`retry`, `click`, `press`, `confirm` et `login`
+  incompatibles), `confirmed` ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
+  l'origine est vérifiée par le service juste avant chaque geste, `wait_for` est obligatoire dans `login`.
+- **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît (jusqu'à 8 s après le
+  changement de page) ; sinon `login_not_confirmed`.
 
 ### Sécurité
 

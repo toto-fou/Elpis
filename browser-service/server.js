@@ -2832,10 +2832,21 @@ app.post('/login', getSession, async (req, res) => {
                     await page.waitForTimeout(150);
                 }
                 if (issue !== 'wait_for' && issue !== 'no_change') await page.waitForLoadState('domcontentloaded', { timeout: Math.max(300, Math.min(3000, fin - Date.now())) }).catch(() => {});
+                // wait_for donné : une navigation ou un champ vidé ne suffisent pas, la cible d'arrivée doit apparaître (sinon identifiants refusés).
+                if (p.cw && !nouvelles.length && (issue === 'navigated' || issue === 'field_gone')) {
+                    const limite = Math.min(fin, Date.now() + 8000);
+                    let vu = false;
+                    while (!vu && Date.now() < limite) {
+                        vu = (await avecDelai(p.cw.candidats.filter({ visible: true }).count(), Math.max(300, Math.min(2000, limite - Date.now()))).catch(() => 0)) > 0;
+                        if (!vu) await page.waitForTimeout(150).catch(() => {});
+                    }
+                    if (!vu) issue = 'wait_for_missing';
+                }
                 // Requête interrompue par la garde réseau (adresse GET, autre origine) : la page est celle d'erreur du navigateur.
                 if (issue !== 'wait_for' && (s._blocages > blocages0 || /^chrome-error:/.test(page.url()))) issue = 'blocked';
-                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked', status: 'submitted', outcome: issue, navigated: issue === 'navigated', ...(nouvelles.length ? { opened_tab: true } : {}) } };
+                sortie = { statut: 200, corps: { ok: issue !== 'no_change' && issue !== 'blocked' && issue !== 'wait_for_missing', status: 'submitted', outcome: issue, navigated: issue === 'navigated', ...(nouvelles.length ? { opened_tab: true } : {}) } };
                 if (issue === 'no_change') sortie.corps = { ...sortie.corps, code: 'login_no_change', hint: "Rien n'a changé après la soumission (identifiants refusés, champ supplémentaire, double authentification…) : regardez la page." };
+                if (issue === 'wait_for_missing') sortie.corps = { ...sortie.corps, code: 'login_not_confirmed', hint: "La page a changé mais la cible wait_for n'est pas apparue (identifiants refusés, étape supplémentaire…) : regardez la page." };
                 if (issue === 'blocked') sortie.corps = { ...sortie.corps, code: 'login_request_blocked', hint: "Une requête portant l'identifiant a été interrompue (adresse GET, autre origine ou adresse interdite par la politique du navigateur) : cette page ne permet pas une connexion sûre." };
             } finally {
                 page.off('framenavigated', surNav);
@@ -2992,7 +3003,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         let cible = null;
         let cibleParams = null;
         // Attente de présence : le délai explicite de l'appelant (qui peut l'allonger), sinon 2 s.
-        const graceMs = Number(req.body.timeout) > 0 ? Number(req.body.timeout) : NOT_FOUND_GRACE_MS;
+        // `presence_timeout` (moteur de procédures) borne la seule attente de présence, le geste garde son délai propre.
+        const graceMs = Number(req.body.presence_timeout) > 0 ? Number(req.body.presence_timeout) : Number(req.body.timeout) > 0 ? Number(req.body.timeout) : NOT_FOUND_GRACE_MS;
         if (ref) {
             // Format ref : "loc_xxx" ou "loc_xxx#N" (index)
             const [baseRef, idxStr] = String(ref).split('#');
@@ -3039,6 +3051,14 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             extra = { ...extra, matched: cible.n,
                       ...(cible.nameMatch === 'substring' || cible.partial > cible.n ? { name_match: cible.nameMatch } : {}),
                       ...(avis.length ? { warning: avis.join(' ') } : {}) };
+        }
+
+        // Origine attendue (moteur de procédures) : vérifiée sous le verrou, sur le frame de l'élément, juste avant d'agir ; rien n'est fait en cas d'écart.
+        if (typeof req.body.expected_origin === 'string' && req.body.expected_origin) {
+            let origine = '';
+            try { origine = officialLocator ? await avecDelai(officialLocator.evaluate(() => location.origin), 3000) : new URL(page.url()).origin; } catch (_) { origine = ''; }
+            if (origine !== req.body.expected_origin)
+                return res.status(409).json({ error: `La page n'est pas sur l'origine attendue (${req.body.expected_origin}) : aucun geste n'a été fait.`, code: 'origin_mismatch', fix: 'Ouvrez le site de la procédure avant de la rejouer.' });
         }
 
         // ── Actions page-level (sans cible) ──

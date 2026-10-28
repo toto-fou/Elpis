@@ -321,10 +321,12 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   sur un autre site ni contenir de mot de passe : la connexion passe par votre
   [coffre](#identifiants-de-sites-creds) (`/creds`) comme d'habitude.
 - Une étape sensible peut demander votre **accord** avant d'agir (« Télécharger le relevé de
-  mars ? ») ; l'exécution reprend alors là où elle s'était arrêtée.
+  mars ? ») ; l'exécution reprend alors là où elle s'était arrêtée. Un accord vaut **une** exécution de
+  l'étape, valable 15 minutes sur la même session et pour la même version de la procédure : toute
+  autre exécution, ou une procédure modifiée entre-temps, redemande l'accord.
 - Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête
   proprement, dit où et pourquoi, et l'assistant reprend la main. Un clic dont on ne sait pas s'il a
-  eu lieu n'est jamais rejoué.
+  eu lieu, ou qui a eu lieu sans l'effet attendu, n'est jamais rejoué ni remplacé par un autre.
 - Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») ; il n'y a pas
   encore d'écran dédié.
 

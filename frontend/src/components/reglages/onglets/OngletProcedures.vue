@@ -99,7 +99,15 @@ onMounted(() => void p.chargerProcedures());
               class="flex items-center gap-2 text-xs"
             >
               <span class="font-medium text-slate-700 w-24 truncate" :title="q.name">{{ q.name }}</span>
-              <span class="text-slate-500 shrink-0">{{ q.type === "creds" ? "identifiant" : q.type }}</span>
+              <span class="text-slate-500 shrink-0">{{
+                q.type === "creds" ? "Identifiant (/creds)" : q.type
+              }}</span>
+              <span
+                v-if="q.type === 'creds'"
+                class="text-slate-500 flex-1"
+                title="Fourni à chaque exécution en conversation par la commande /creds ; jamais disponible en routine."
+                >fourni à chaque exécution en conversation ; jamais disponible en routine</span
+              >
               <template v-if="q.type !== 'creds' && p.choix[cleVersion(pr.id, v.version)]?.[q.name]">
                 <label class="flex items-center gap-1 shrink-0">
                   <input
@@ -120,6 +128,9 @@ onMounted(() => void p.chargerProcedures());
                 />
               </template>
             </div>
+            <p v-if="p.erreurNombre(pr.id, v.version)" class="text-xs text-red-600" role="alert">
+              {{ p.erreurNombre(pr.id, v.version) }}
+            </p>
             <div class="flex justify-end gap-2">
               <button
                 v-if="v.approved_at === null"

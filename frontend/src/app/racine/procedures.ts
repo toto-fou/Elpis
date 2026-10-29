@@ -61,6 +61,18 @@ export function creerProcedures(dep: DependancesProcedures) {
     } else dep.showToast(messageErreur(r) || "Résumé indisponible", "error");
   }
 
+  const DECIMAL = /^-?\d{1,15}(\.\d{1,15})?$/u;
+  /** Message clair si une valeur figée d'un paramètre `number` n'est pas un décimal simple (ni vide, ni hexadécimal, ni exposant). */
+  function erreurNombre(id: string, version: number): string {
+    const k = cleVersion(id, version);
+    for (const p of resumes.value[k]?.params ?? []) {
+      const c = choix.value[k]?.[p.name];
+      if (p.type === "number" && c && !c.libre && c.valeur !== "" && !DECIMAL.test(c.valeur))
+        return `${p.name} : nombre décimal simple attendu (ex. 12 ou -3.5)`;
+    }
+    return "";
+  }
+
   /** Tous les paramètres (hors creds) ont un choix explicite : libre, ou une valeur figée non vide. */
   function pret(id: string, version: number): boolean {
     const k = cleVersion(id, version);
@@ -142,6 +154,7 @@ export function creerProcedures(dep: DependancesProcedures) {
     chargerProcedures,
     voir,
     pret,
+    erreurNombre,
     approuver,
     retirer,
     supprimer,

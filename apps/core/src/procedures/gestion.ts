@@ -156,13 +156,18 @@ export async function approuverVersion(
     const c = Object.hasOwn(choix, nom) ? choix[nom] : undefined;
     if (c === undefined) erreurs.push(`paramètre ${nom} : choix requis (valeur figée ou libre)`);
     else if (c.mode === "fixed") {
-      const valeur = type === "number" ? Number(c.value) : String(c.value);
+      const texte = String(c.value);
+      const valeur = type === "number" ? Number(texte) : texte;
       if (
-        typeof valeur === "number"
-          ? !Number.isFinite(valeur)
-          : valeur.length > 500 || !valeur.isWellFormed() || /[\p{Cc}\p{Cf}]/u.test(valeur)
+        type === "number"
+          ? !/^-?\d{1,15}(\.\d{1,15})?$/u.test(texte)
+          : texte.length > 500 || !texte.isWellFormed() || /[\p{Cc}\p{Cf}]/u.test(texte)
       )
-        erreurs.push(`paramètre ${nom} : valeur figée invalide`);
+        erreurs.push(
+          type === "number"
+            ? `paramètre ${nom} : nombre décimal simple attendu (ex. 12 ou -3.5), ni vide, ni hexadécimal, ni exposant`
+            : `paramètre ${nom} : valeur figée invalide`,
+        );
       else retenus[nom] = { mode: "fixed", value: valeur };
     } else retenus[nom] = { mode: "free" };
   }

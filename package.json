@@ -13,7 +13,7 @@
     "frontend"
   ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @elpis/web",
+    "typecheck": "tsc -p tsconfig.json && node tools/verifier_motifs_secrets.mjs && npm run typecheck -w @elpis/web",
     "lint": "eslint --no-error-on-unmatched-pattern apps packages frontend/src frontend/test \"frontend/*.mts\"",
     "format": "prettier --no-error-on-unmatched-pattern --write \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check \"apps/**/*.{ts,mts,json}\" \"packages/**/*.{ts,mts,json}\" \"*.{mjs,mts}\" \"frontend/src/**/*.{ts,vue}\" \"frontend/test/**/*.ts\" \"frontend/*.{mts,json}\"",

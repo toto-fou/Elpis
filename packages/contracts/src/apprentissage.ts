@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/contracts/src/apprentissage.ts — apprentissage des procédures : gestes navigateur réussis d'une conversation ou d'un enregistrement du recorder → brouillon (gestes retenus, écartés, paramètres suggérés) → procédure NON approuvée validée par `validerProcedure` ; logique pure, partagée par le core et l'hôte d'outils. */
 import { refusCible, refusUrl, validerProcedure } from "./procedures";
+import { CHAMPS_SECRETS, CLES_URL_SECRETES } from "./motifs-secrets";
 import type { Act, Noeud, Procedure, ResultatProcedure } from "./procedures";
 
 type Dict = Record<string, unknown>;
@@ -68,7 +69,8 @@ export function chaineVersSeq(
     }
     const noeud: Act = { act };
     if (act === "goto") {
-      const brut = String(e["url"] ?? "");
+      // Le fragment (`#access_token=…`) n'est jamais gardé.
+      const brut = String(e["url"] ?? "").split("#")[0] ?? "";
       let relatif = brut;
       if (!brut.startsWith("/")) {
         try {
@@ -146,7 +148,7 @@ export type NoeudBrouillon =
 
 export interface Brouillon {
   readonly origin: string;
-  /** Origines rencontrées et nombre de gestes candidats (l'origine retenue est celle du premier geste, ou celle demandée). */
+  /** Origines rencontrées et nombre de gestes candidats (l'origine retenue est celle qui a le plus de gestes à effet, ou celle demandée). */
   readonly origines: readonly { readonly origin: string; readonly gestes: number }[];
   readonly noeuds: readonly NoeudBrouillon[];
   readonly params: readonly ParamSuggere[];
@@ -158,26 +160,35 @@ const COMPOSANTES = ["role", "name", "text", "label", "placeholder", "test_id", 
 
 const sansAccent = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase();
 
-// Aligné sur MOTS_SECRETS de browser-service/recorder_util.js, plus les termes français (accents et casse normalisés).
-const CHAMP_SECRET =
-  /pass(?:word|wd|phrase|code)?(?![a-z])|passw|pwd|(?<![a-z])mdp(?![a-z])|mot.?de.?passe|kennwort|contrase|(?<![a-z])(?:otp|totp|pin|cvc|cvv|iban|bic|rib|mfa|2fa)(?![a-z])|one.?time|(?:verif|confirm|secur|confidenti|recu|sms|reponse)\w*\W*(?:code|secrete?)|code\W*(?:de\W+)?(?:verif|confirm|secur|confidenti|recu|sms|pin)|security.?code|secret|token|api.?key|cryptogramme|numero.?de.?carte|card.?number|carte.?(?:bancaire|bleue)|reponse.?secrete/u;
+// Motifs partagés avec browser-service/recorder_util.js (`motifs-secrets.ts`, parité vérifiée) ; appliqués à un texte normalisé.
+const CHAMP_SECRET = new RegExp(CHAMPS_SECRETS.map(([, source]) => source).join("|"), "u");
 /** Cible de champ qui évoque un secret (mot de passe, OTP, code de vérification, carte, IBAN…) : sa valeur n'est jamais gardée en littéral ni affichée. */
 export function champSecret(cible: string): boolean {
   return CHAMP_SECRET.test(sansAccent(cible));
 }
 
-// Aligné sur masquerUrl / PARAMS_SECRETS de browser-service/recorder_util.js.
-const CLE_SENSIBLE =
-  /auth(?!or)|(?<![a-z])(?:code|key|sig|sid|jwt|otp|pin)(?![a-z])|session|sessid|signature|credential|ticket|saml|pass|pwd|token|secret|api.?key/u;
-/** Clé de requête dont la valeur est sensible (jeton, mot de passe, identifiant de session…). */
+const CLE_SENSIBLE = new RegExp(CLES_URL_SECRETES, "u");
+/** Clé de requête (ou de fragment) dont la valeur est sensible : jeton, mot de passe, identifiant de session, state, nonce… */
 export function cleSensible(cle: string): boolean {
-  return CLE_SENSIBLE.test(sansAccent(cle));
+  const n = sansAccent(cle);
+  return CLE_SENSIBLE.test(n) || CHAMP_SECRET.test(n);
+}
+
+/** Valeur qui ressemble à un secret quel que soit son nom : JWT, base64 (16 caractères ou plus avec `+ / =`), chaîne de 20 caractères ou plus mêlant lettres et chiffres. */
+export function valeurSensible(v: string): boolean {
+  return (
+    /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*$/u.test(v) ||
+    /^(?=.*[+/=])[A-Za-z0-9+/_-]{16,}={0,2}$/u.test(v) ||
+    /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_+/=-]{20,}$/u.test(v)
+  );
 }
 
 const OPAQUE_STRICT: readonly RegExp[] = [
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu,
   /^[a-f0-9]{8,}$/iu,
   /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/u,
+  /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*$/u,
+  /^(?=.*[+/=])[A-Za-z0-9+/_-]{16,}={0,2}$/u,
 ];
 /** Segment de chemin opaque (identifiant, jeton) : jamais gardé littéral dans un `goto`. */
 export const segmentOpaque = (seg: string): boolean => OPAQUE_STRICT.some((r) => r.test(seg));
@@ -517,9 +528,20 @@ function assembler(
   const origines = [...compte]
     .map(([origin, gestes]) => ({ origin, gestes }))
     .sort((a, b) => b.gestes - a.gestes);
-  // Par défaut : le site où l'utilisateur a commencé (premier geste), les autres origines restent proposées.
-  const premiere = candidats.find((c) => c.origin !== "")?.origin ?? "";
-  const origin = demandee !== undefined && compte.has(demandee) ? demandee : premiere;
+  // Par défaut : l'origine qui a le plus de gestes à effet, à égalité celle du dernier geste à effet ; les autres restent proposées.
+  const effets = new Map<string, number>();
+  let dernierSite = "";
+  for (const c of candidats)
+    if (c.act !== undefined && EFFETS_APPRIS.has(c.act.act) && c.origin !== "") {
+      effets.set(c.origin, (effets.get(c.origin) ?? 0) + 1);
+      dernierSite = c.origin;
+    }
+  const meilleure = Math.max(0, ...effets.values());
+  const aEgalite = [...effets].filter(([, n]) => n === meilleure).map(([o]) => o);
+  const parDefaut = aEgalite.includes(dernierSite)
+    ? dernierSite
+    : (aEgalite[0] ?? candidats.find((c) => c.origin !== "")?.origin ?? "");
+  const origin = demandee !== undefined && compte.has(demandee) ? demandee : parDefaut;
   const noeuds: NoeudBrouillon[] = [];
   const secrets = new Set<number>();
   for (const c of candidats) {
@@ -572,7 +594,7 @@ function suggererParametres(noeuds: readonly NoeudBrouillon[], secrets: Readonly
   for (const n of noeuds) {
     if (n.genre !== "act") continue;
     if (n.act.v !== undefined && (n.act.act === "fill" || n.act.act === "select")) {
-      const secret = secrets.has(n.id);
+      const secret = secrets.has(n.id) || valeurSensible(n.act.v);
       const existant = sortie.find((p) => p.champ === "v" && p.valeur === n.act.v && p.impose === secret);
       if (existant !== undefined) (existant.noeuds as number[]).push(n.id);
       else
@@ -600,7 +622,7 @@ function suggererParametres(noeuds: readonly NoeudBrouillon[], secrets: Readonly
           });
       for (const [k, val] of new URLSearchParams(requete)) {
         if (val === "") continue;
-        const sensible = cleSensible(k);
+        const sensible = cleSensible(k) || valeurSensible(val);
         sortie.push({
           nom: unique(slug(k, "valeur")),
           valeur: val,
@@ -694,6 +716,7 @@ function litteralSensible(b: Brouillon, seq: readonly Noeud[]): string | null {
   for (const n of seq) {
     if (!("act" in n)) continue;
     if (n.url !== undefined) {
+      if (n.url.includes("#")) return "fragment d'adresse conservé";
       const [chemin = "", requete = ""] = n.url.split("?");
       const opaques = opaquesDuChemin(chemin, false);
       if (
@@ -703,13 +726,13 @@ function litteralSensible(b: Brouillon, seq: readonly Noeud[]): string | null {
       )
         return "segment de chemin opaque conservé en littéral";
       for (const [k, val] of new URLSearchParams(requete))
-        if (cleSensible(k) && !/^\{[a-z0-9_]+\}$/u.test(val))
-          return `clé de requête sensible conservée (${k})`;
+        if ((cleSensible(k) || valeurSensible(val)) && !/^\{[a-z0-9_]+\}$/u.test(val))
+          return `valeur sensible conservée dans la requête (${k})`;
     }
     if (
       (n.act === "fill" || n.act === "select") &&
       n.v !== undefined &&
-      champSecret(n.t?.[0] ?? "") &&
+      (champSecret(n.t?.[0] ?? "") || valeurSensible(n.v)) &&
       !/^\{[a-z0-9_]+\}$/u.test(n.v)
     )
       return "saisie d'un champ secret conservée en littéral";

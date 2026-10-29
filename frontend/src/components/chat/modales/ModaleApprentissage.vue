@@ -117,7 +117,7 @@ watch(
             <label v-else class="flex items-center gap-2 text-xs text-slate-500">
               Site
               <select
-                class="border border-slate-200 rounded-md px-2 py-1 text-slate-800"
+                class="border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-800"
                 :value="a.brouillon.origin"
                 @change="a.changerOrigine(($event.target as HTMLSelectElement).value)"
               >
@@ -125,7 +125,7 @@ watch(
                   {{ o.origin }} ({{ o.gestes }} gestes)
                 </option>
               </select>
-              Les gestes des autres sites sont écartés.
+              Plusieurs sites dans cette conversation : les gestes des autres sites sont écartés.
             </label>
 
             <div v-if="a.brouillon.noeuds.length" class="space-y-1.5">

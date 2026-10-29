@@ -61,7 +61,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   `pw_procedure(action='learn_recorder')` rend un brouillon depuis le recorder (secrets déjà masqués) ; `/proc` prépare le message d'exécution d'une
   procédure. Tout ce qui est appris est une version non approuvée validée par les mêmes règles. `chaineVersSeq` et `sauvegarder` sont partagés
   (`@elpis/contracts`, `@elpis/db`). Les formes réelles des résultats d'outils sont reconnues ; aucune valeur sensible n'est gardée en littéral (champs secrets, clés
-  de requête et segments de chemin sensibles : paramètres imposés masqués, enregistrement refusé sinon) ; l'enregistrement exige l'empreinte de l'aperçu (409 si la conversation a changé).
+  de requête et segments de chemin sensibles : paramètres imposés masqués, enregistrement refusé sinon) ; l'enregistrement exige l'empreinte de l'aperçu (409 si la conversation a changé). Les fragments d'URL sont retirés, les valeurs de type JWT ou chaîne mixte longue sont masquées, la liste des motifs de secrets est partagée avec le recorder (test de parité dans `npm run typecheck`), l'origine proposée est celle qui a le plus de gestes à effet.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).
@@ -706,7 +706,7 @@ la version Python sont listés dans docs/ecarts-python.md.
   d'un autre.
   **Mise à jour** : `./elpis browser states` liste les états sans compte
   restants (identifiant, date, sites) ; `./elpis browser migrate-states
-  COMPTE ID…` rattache ceux d'un compte Elpis (`--all` : tous, s'ils sont
+COMPTE ID…` rattache ceux d'un compte Elpis (`--all` : tous, s'ils sont
   tous à lui) ; le même `load_state_id` les recharge ensuite pendant 30
   jours. Détail : docs/exploitation.md, « Mettre à jour ».
 
@@ -980,7 +980,7 @@ installation et configuration interactives en deux commandes.
   et `git://` retirés). Fonctionne avec un profil réseau isolé.
   `bubblewrap` (aperçus Office) devient un paquet de base —
   **installations existantes : `apt install bubblewrap`** (`./elpis
-  doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
+doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
   bloqué.
 - **Conteneurs** : seules les capacités nécessaires (`--cap-drop ALL`, puis
   celles qu'exigent l'entrypoint, sudo et apt) : plus de `NET_RAW`,
@@ -1046,8 +1046,8 @@ installation et configuration interactives en deux commandes.
   - le panneau Sampling et les propriétés d'un modèle lisaient `/props` en
     chargeant le modèle ; ces lectures passent `autoload=false`, et un
     modèle non lu ne laisse plus de capacités fausses en cache.
-  `/metrics` et `/slots` nomment le modèle chargé (fin des 400 « model name
-  is missing ») ; la jauge KV demande des modèles lancés avec `--metrics`.
+    `/metrics` et `/slots` nomment le modèle chargé (fin des 400 « model name
+    is missing ») ; la jauge KV demande des modèles lancés avec `--metrics`.
 - **Cycles d'import** : importer en premier
   `shared_infra/opencode/routes_cli.py`,
   `shared_infra/observability/routes_events.py` ou

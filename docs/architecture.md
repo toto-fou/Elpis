@@ -5,13 +5,14 @@
 > Guide utilisateur : [guide-utilisateur.md](guide-utilisateur.md).
 
 Les diagrammes sont en **Mermaid** (rendus inline par GitHub, GitLab, VS Code —
-et par la modale d'aide de l'application, onglet *Développeur*).
+et par la modale d'aide de l'application, onglet _Développeur_).
 
 ---
 
 ## Sommaire
 
 ### Vue d'ensemble
+
 - [Présentation technique](#présentation-technique)
 - [Stack technique](#stack-technique)
 - [Architecture globale](#architecture-globale)
@@ -19,9 +20,11 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Arborescence du projet](#arborescence-du-projet)
 
 ### Installation et configuration
+
 - Voir [configuration.md](configuration.md)
 
 ### Architecture interne
+
 - [Organisation modulaire du backend](#organisation-modulaire-du-backend)
 - [Base de données](#base-de-données)
 - [État partagé entre process](#état-partagé-entre-process)
@@ -35,6 +38,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Frontend](#frontend)
 
 ### Diagrammes de séquence
+
 - [Chat simple avec streaming](#chat-simple-avec-streaming)
 - [Chat avec outils (boucle agentique)](#chat-avec-outils-boucle-agentique)
 - [Sous-agents (outil `task`)](#sous-agents-outil-task)
@@ -44,6 +48,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Exécution d'une routine](#exécution-dune-routine)
 
 ### Référence API
+
 - [Conventions](#conventions-api)
 - [Authentification](#authentification)
 - [Conversations](#conversations)
@@ -68,6 +73,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Administration](#administration-api)
 
 ### Sous-systèmes
+
 - [Outils MCP locaux](#outils-mcp-locaux)
   - [Fichiers (`fs_tools`)](#fichiers-fs_tools)
   - [Terminal (`shell_tools`)](#terminal-shell_tools)
@@ -87,6 +93,7 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 - [Sécurité transverse](#sécurité-transverse)
 
 ### Annexes
+
 - [Tests](#tests)
 - [Problèmes connus](#problèmes-connus)
 - [Codes d'erreur HTTP](#codes-derreur-http)
@@ -100,17 +107,17 @@ et par la modale d'aide de l'application, onglet *Développeur*).
 
 Application multi-process :
 
-| Process | Port | Rôle |
-|---|---|---|
-| **main** | 8001 | Chat, sandbox, éditeur, routines, Studio, Remote code, statiques. Core TypeScript (`apps/core/dist/main.mjs`), un process, compte non privilégié |
-| **admin** | 8002 | Uniquement `/api/admin/*` + la console. Même core, un process, **même compte non privilégié** que main (jamais root) |
-| **toolhost** | 8765 | Hôte des outils MCP locaux (`apps/toolhost`, bundle Node) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal ; famille Office par un worker Python (`office/`) |
-| **llama-server** | 8080 | Moteur d'inférence local, autonome |
-| **browser-service** | 3000 | Node + Playwright (outils `pw_*`) — optionnel |
-| **rag_app** | 8000 (loopback) | Extracteur du RAG (Python, FastAPI, sans état) : texte structuré, pages rendues, localisation, OCR par un modèle de vision ; appelé par le core seul |
-| **qdrant** | 6333 (loopback) | Base vectorielle du RAG (binaire officiel) |
-| **Caddy** | 443/8443/80 | Frontal TLS local — optionnel |
-| **desktop-agent** | 8765 (sur la machine pilotée) | Contrôle d'écran Windows/Linux — optionnel |
+| Process             | Port                          | Rôle                                                                                                                                                                             |
+| ------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **main**            | 8001                          | Chat, sandbox, éditeur, routines, Studio, Remote code, statiques. Core TypeScript (`apps/core/dist/main.mjs`), un process, compte non privilégié                                 |
+| **admin**           | 8002                          | Uniquement `/api/admin/*` + la console. Même core, un process, **même compte non privilégié** que main (jamais root)                                                             |
+| **toolhost**        | 8765                          | Hôte des outils MCP locaux (`apps/toolhost`, bundle Node) : HTTP streamable `/mcp[/<famille>]` et SSE, API sandbox et terminal ; famille Office par un worker Python (`office/`) |
+| **llama-server**    | 8080                          | Moteur d'inférence local, autonome                                                                                                                                               |
+| **browser-service** | 3000                          | Node + Playwright (outils `pw_*`) — optionnel                                                                                                                                    |
+| **rag_app**         | 8000 (loopback)               | Extracteur du RAG (Python, FastAPI, sans état) : texte structuré, pages rendues, localisation, OCR par un modèle de vision ; appelé par le core seul                             |
+| **qdrant**          | 6333 (loopback)               | Base vectorielle du RAG (binaire officiel)                                                                                                                                       |
+| **Caddy**           | 443/8443/80                   | Frontal TLS local — optionnel                                                                                                                                                    |
+| **desktop-agent**   | 8765 (sur la machine pilotée) | Contrôle d'écran Windows/Linux — optionnel                                                                                                                                       |
 
 Les process main et admin partagent le **même secret de session** (injecté par
 `./elpis` ou l'unité systemd), ce qui rend un cookie valide indifféremment sur les deux ports.
@@ -125,24 +132,24 @@ RAG : **`shared_infra/`** (infrastructure rangée par famille).
 
 ## Stack technique
 
-| Composant | Technologie |
-|---|---|
-| Backend | Core et hôte d'outils : Node 24, TypeScript, Fastify ; moteur Office, extracteur du RAG, configuration : Python 3.11+ |
-| Base de données | SQLite 3 (WAL) par défaut ; PostgreSQL au choix (core : better-sqlite3, pg ; Python : pg8000) |
-| Client HTTP | undici (core, appels LLM) ; httpx (Python) |
-| Protocole outils | `@modelcontextprotocol/sdk` (TS) : stdio + SSE + HTTP |
-| Chiffrement au repos | `cryptography` / Fernet (clés API, secrets MCP) |
-| Frontend | Vue 3.5 + TypeScript strict, SFC compilés par Vite (`@elpis/web`, `frontend/dist`), contrats Zod (`@elpis/contracts`), tests Vitest ; racines SFC `App.vue` / `AppConsole.vue` |
-| Styles | Tailwind précompilé (`style.tailwind.css`, généré par `tools/generate_tailwind_css.mjs`) + `style.css` (tokens, skins) |
-| Éditeur | Monaco (paquet npm, ESM et workers, chargé à l'ouverture) |
-| Terminal | xterm.js (paquet npm, chargé à l'ouverture) |
-| Graphiques | Apache ECharts (chat), Chart.js (tableau de bord admin) — paquets npm, chargés à la demande |
-| Markdown | Marked + Highlight.js, purifié par DOMPurify |
-| Icônes | Phosphor |
-| Navigateur | Node 18+, Playwright/Firefox (`browser-service`) |
-| Contrôle d'écran | `desktop-agent` (pywinauto / AT-SPI) |
-| RAG | Core TS (collections, droits, découpage, BM25, embeddings, Qdrant, recherche, outils du chat) ; extracteur Python (pdfplumber, pypdfium2, LibreOffice, OCR par modèle de vision) dans une prison bubblewrap |
-| Frontal TLS | Caddy + PKI openssl locale (10 ans) |
+| Composant            | Technologie                                                                                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend              | Core et hôte d'outils : Node 24, TypeScript, Fastify ; moteur Office, extracteur du RAG, configuration : Python 3.11+                                                                                       |
+| Base de données      | SQLite 3 (WAL) par défaut ; PostgreSQL au choix (core : better-sqlite3, pg ; Python : pg8000)                                                                                                               |
+| Client HTTP          | undici (core, appels LLM) ; httpx (Python)                                                                                                                                                                  |
+| Protocole outils     | `@modelcontextprotocol/sdk` (TS) : stdio + SSE + HTTP                                                                                                                                                       |
+| Chiffrement au repos | `cryptography` / Fernet (clés API, secrets MCP)                                                                                                                                                             |
+| Frontend             | Vue 3.5 + TypeScript strict, SFC compilés par Vite (`@elpis/web`, `frontend/dist`), contrats Zod (`@elpis/contracts`), tests Vitest ; racines SFC `App.vue` / `AppConsole.vue`                              |
+| Styles               | Tailwind précompilé (`style.tailwind.css`, généré par `tools/generate_tailwind_css.mjs`) + `style.css` (tokens, skins)                                                                                      |
+| Éditeur              | Monaco (paquet npm, ESM et workers, chargé à l'ouverture)                                                                                                                                                   |
+| Terminal             | xterm.js (paquet npm, chargé à l'ouverture)                                                                                                                                                                 |
+| Graphiques           | Apache ECharts (chat), Chart.js (tableau de bord admin) — paquets npm, chargés à la demande                                                                                                                 |
+| Markdown             | Marked + Highlight.js, purifié par DOMPurify                                                                                                                                                                |
+| Icônes               | Phosphor                                                                                                                                                                                                    |
+| Navigateur           | Node 18+, Playwright/Firefox (`browser-service`)                                                                                                                                                            |
+| Contrôle d'écran     | `desktop-agent` (pywinauto / AT-SPI)                                                                                                                                                                        |
+| RAG                  | Core TS (collections, droits, découpage, BM25, embeddings, Qdrant, recherche, outils du chat) ; extracteur Python (pdfplumber, pypdfium2, LibreOffice, OCR par modèle de vision) dans une prison bubblewrap |
+| Frontal TLS          | Caddy + PKI openssl locale (10 ans)                                                                                                                                                                         |
 
 **Build du frontend** : Vite construit `frontend/dist/` à la préparation de la
 release (`make_release.sh`) ; le core sert les entrées par leur manifeste (noms
@@ -344,15 +351,15 @@ SQLite 3 en WAL (`user_db/app.db`) par défaut ; PostgreSQL au choix
 Pas d'ORM : le code écrit du SQL avec des `?` et lit les lignes par nom ou par
 position.
 
-| Module (`packages/db/src/`) | Rôle |
-|---|---|
-| `base.ts`, `ouvrir.ts` | contrat commun (exécution, transactions réentrantes par contexte async, points de sauvegarde) ; ouverture selon les réglages |
-| `sqlite.ts` | better-sqlite3 : lectures libres, écritures et transactions sérialisées, verrou des autres processus attendu sans bloquer |
-| `postgres.ts`, `sql.ts` | pg : pool borné, `?` → `$n`, valeurs et erreurs relues comme en SQLite |
-| `schema.ts`, `schema.gen.ts` | schéma de référence déclaratif (tables, index, clés étrangères), rendu pour chaque moteur ; plein texte |
-| `dialecte.ts` | ce qui diffère d'un moteur à l'autre : début d'écriture, identifiant inséré, `LIKE` sans casse, dates locales, JSON… |
-| `init.ts`, `demarrage.ts` | pose du schéma et migrations sous verrou (table `schema_migrations`, `MIGRATIONS_TS`), droits, nettoyage au démarrage |
-| `erreurs.ts` | erreurs classées comme celles de `sqlite3` (intégrité, opération, données…) |
+| Module (`packages/db/src/`)  | Rôle                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `base.ts`, `ouvrir.ts`       | contrat commun (exécution, transactions réentrantes par contexte async, points de sauvegarde) ; ouverture selon les réglages |
+| `sqlite.ts`                  | better-sqlite3 : lectures libres, écritures et transactions sérialisées, verrou des autres processus attendu sans bloquer    |
+| `postgres.ts`, `sql.ts`      | pg : pool borné, `?` → `$n`, valeurs et erreurs relues comme en SQLite                                                       |
+| `schema.ts`, `schema.gen.ts` | schéma de référence déclaratif (tables, index, clés étrangères), rendu pour chaque moteur ; plein texte                      |
+| `dialecte.ts`                | ce qui diffère d'un moteur à l'autre : début d'écriture, identifiant inséré, `LIKE` sans casse, dates locales, JSON…         |
+| `init.ts`, `demarrage.ts`    | pose du schéma et migrations sous verrou (table `schema_migrations`, `MIGRATIONS_TS`), droits, nettoyage au démarrage        |
+| `erreurs.ts`                 | erreurs classées comme celles de `sqlite3` (intégrité, opération, données…)                                                  |
 
 Copie entre moteurs : `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
 Le Python restant (assistant de configuration) lit la même base
@@ -379,47 +386,47 @@ erDiagram
 
 ### Tables
 
-| Domaine | Tables |
-|---|---|
-| **Comptes** | `users` (`settings_json`, `is_admin`, `must_change_pwd`, avatar), `groups`, `user_groups`, `revoked_sessions` |
-| **Conversations** | `chats` (`messages_json`, `meta_json` = toggles d'outils, `archived`), `saved_prompts`, `shared_prompts`, `prompt_templates` |
-| **Télémétrie** | `usage_events` (registre de conso, 1 ligne/tour), `metric_events` (compteurs), `tool_call_metrics`, `llm_calls`, `daily_usage_reports` |
-| **Mémoire** | `session_messages` + `session_messages_fts*` (FTS5) |
-| **Routines** | `editor_routines`, `editor_routine_runs`, `editor_webhook_deliveries` |
-| **Studio** | `editor_action_cache` (mémoire des ancres du ciblage live) — les scripts d'automatisation sont des fichiers de la sandbox (`automations/`), pas des lignes en base |
-| **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
-| **Connecteurs** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
-| **RAG** | `rag_collections` (propriétaire, visibilité, modèle d'embedding, compteurs), `rag_grants` (groupes d'une publication), `rag_documents`, `rag_jobs` (file d'indexation), `rag_hidden` (« Masquer de ma liste ») ; collections actives d'un chat dans `chats.meta_json.rag` |
-| **Images** | `generated_images` (une ligne par image : compte, conversation, modèle, chemin relatif du fichier et de sa vignette, mesures de durée) |
-| **Coffre** | `coffre_identifiants` (entrées du compte : nom, origine exacte, identifiant, mot de passe Fernet, usages), `coffre_jetons` (jetons `⟦creds:…⟧` d'une conversation : empreinte SHA-256, origine, source, échéance, usages restants) |
-| **Divers** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` |
+| Domaine           | Tables                                                                                                                                                                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Comptes**       | `users` (`settings_json`, `is_admin`, `must_change_pwd`, avatar), `groups`, `user_groups`, `revoked_sessions`                                                                                                                                                             |
+| **Conversations** | `chats` (`messages_json`, `meta_json` = toggles d'outils, `archived`), `saved_prompts`, `shared_prompts`, `prompt_templates`                                                                                                                                              |
+| **Télémétrie**    | `usage_events` (registre de conso, 1 ligne/tour), `metric_events` (compteurs), `tool_call_metrics`, `llm_calls`, `daily_usage_reports`                                                                                                                                    |
+| **Mémoire**       | `session_messages` + `session_messages_fts*` (FTS5)                                                                                                                                                                                                                       |
+| **Routines**      | `editor_routines`, `editor_routine_runs`, `editor_webhook_deliveries`                                                                                                                                                                                                     |
+| **Studio**        | `editor_action_cache` (mémoire des ancres du ciblage live) — les scripts d'automatisation sont des fichiers de la sandbox (`automations/`), pas des lignes en base                                                                                                        |
+| **Remote code**   | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings`                                                                                   |
+| **Connecteurs**   | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers`                                                                                                                                                                                           |
+| **RAG**           | `rag_collections` (propriétaire, visibilité, modèle d'embedding, compteurs), `rag_grants` (groupes d'une publication), `rag_documents`, `rag_jobs` (file d'indexation), `rag_hidden` (« Masquer de ma liste ») ; collections actives d'un chat dans `chats.meta_json.rag` |
+| **Images**        | `generated_images` (une ligne par image : compte, conversation, modèle, chemin relatif du fichier et de sa vignette, mesures de durée)                                                                                                                                    |
+| **Coffre**        | `coffre_identifiants` (entrées du compte : nom, origine exacte, identifiant, mot de passe Fernet, usages), `coffre_jetons` (jetons `⟦creds:…⟧` d'une conversation : empreinte SHA-256, origine, source, échéance, usages restants)                                        |
+| **Divers**        | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions`                                                                                                                                                                |
 
 Schémas de référence :
 
 #### `users`
 
-| Colonne | Type | Description |
-|---|---|---|
-| `id` | INTEGER PK | |
-| `username` | TEXT UNIQUE | |
-| `pass_salt` / `pass_hash` | TEXT | PBKDF2-HMAC-SHA256, 150 000 itérations, sel 16 o |
-| `created_at` | REAL | Timestamp Unix |
-| `is_admin` | INTEGER | |
-| `must_change_pwd` | INTEGER | Posé par une réinitialisation admin |
-| `avatar` | TEXT | |
-| `settings_json` | TEXT | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
+| Colonne                   | Type        | Description                                                             |
+| ------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `id`                      | INTEGER PK  |                                                                         |
+| `username`                | TEXT UNIQUE |                                                                         |
+| `pass_salt` / `pass_hash` | TEXT        | PBKDF2-HMAC-SHA256, 150 000 itérations, sel 16 o                        |
+| `created_at`              | REAL        | Timestamp Unix                                                          |
+| `is_admin`                | INTEGER     |                                                                         |
+| `must_change_pwd`         | INTEGER     | Posé par une réinitialisation admin                                     |
+| `avatar`                  | TEXT        |                                                                         |
+| `settings_json`           | TEXT        | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
 
 #### `chats`
 
-| Colonne | Type | Description |
-|---|---|---|
-| `id` | TEXT PK | Token hex |
-| `user_id` | INTEGER | Propriétaire |
-| `title` | TEXT | |
-| `messages_json` | TEXT | Historique complet (thinking **strippé** — live only) |
-| `meta_json` | TEXT | Toggles d'outils du chat (catégories + `ext:<id>` + `shared:<n>`) |
-| `updated_at` | REAL | Sert aussi de jeton de concurrence optimiste |
-| `archived` / `archived_at` | INTEGER / REAL | |
+| Colonne                    | Type           | Description                                                       |
+| -------------------------- | -------------- | ----------------------------------------------------------------- |
+| `id`                       | TEXT PK        | Token hex                                                         |
+| `user_id`                  | INTEGER        | Propriétaire                                                      |
+| `title`                    | TEXT           |                                                                   |
+| `messages_json`            | TEXT           | Historique complet (thinking **strippé** — live only)             |
+| `meta_json`                | TEXT           | Toggles d'outils du chat (catégories + `ext:<id>` + `shared:<n>`) |
+| `updated_at`               | REAL           | Sert aussi de jeton de concurrence optimiste                      |
+| `archived` / `archived_at` | INTEGER / REAL |                                                                   |
 
 #### `editor_routines` / `editor_routine_runs`
 
@@ -463,12 +470,12 @@ Code vivent en mémoire (`apps/core/src/tour/etat.ts`,
 un état partagé passe par l'un de ces canaux, jamais par une
 variable de module :
 
-| Canal | Module | Ce qu'il résout |
-|---|---|---|
-| **Base de données** | `packages/db` | Tout état devant survivre au process (chats, routines, sessions révoquées, reprise des sous-agents) |
-| **Canal interne main → admin** | `apps/core/src/evenements/canal.ts` (`/api/internal/events`) | Métriques en direct, journaux du staff, « Redémarrage nécessaire » : SSE à tampon circulaire, reprise par `Last-Event-ID` |
-| **Verrou `elpis.verrou.v1.1`** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` côté Python | Un seul planificateur actif (`apps/core/src/routines/meneur.ts`) ; côté Python, nettoyage de démarrage de la base, création du schéma et de la clé de chiffrement |
-| **Fichiers d'exécution** | `ELPIS_RUNTIME_DIR` : journal des runs (`tour/journal-run.ts`), journal JSONL commun (`evenements/journal-commun.ts`), cache des catégories d'outils (`outils/categories.ts`) | Se rattacher à un run après un redémarrage ; journal lu par la console ; outils découverts par un autre process |
+| Canal                          | Module                                                                                                                                                                        | Ce qu'il résout                                                                                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Base de données**            | `packages/db`                                                                                                                                                                 | Tout état devant survivre au process (chats, routines, sessions révoquées, reprise des sous-agents)                                                               |
+| **Canal interne main → admin** | `apps/core/src/evenements/canal.ts` (`/api/internal/events`)                                                                                                                  | Métriques en direct, journaux du staff, « Redémarrage nécessaire » : SSE à tampon circulaire, reprise par `Last-Event-ID`                                         |
+| **Verrou `elpis.verrou.v1.1`** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` côté Python                                                                     | Un seul planificateur actif (`apps/core/src/routines/meneur.ts`) ; côté Python, nettoyage de démarrage de la base, création du schéma et de la clé de chiffrement |
+| **Fichiers d'exécution**       | `ELPIS_RUNTIME_DIR` : journal des runs (`tour/journal-run.ts`), journal JSONL commun (`evenements/journal-commun.ts`), cache des catégories d'outils (`outils/categories.ts`) | Se rattacher à un run après un redémarrage ; journal lu par la console ; outils découverts par un autre process                                                   |
 
 Une annulation ne passe jamais par les événements système : un Stop arrête le
 tour par son AbortSignal ; le ✕ d'un sous-agent vise l'enfant, jamais le tour
@@ -491,17 +498,17 @@ lecture est remontée, jamais prise pour un verrou illisible. Attente de 10 ms
 doublée jusqu'à 200 ms, dans la limite du délai de la ressource ; une attente
 de plus de 30 s est journalisée avec le détenteur.
 
-| Ressource | Verrou | Délai | Péremption | Battement |
-|---|---|---|---|---|
-| Mémoire `USER.md`, `MEMORY.md` | `<fichier>.lock` | 5 s, puis erreur « occupé » | 120 s | non |
-| Journal de la mémoire | `.journal.jsonl.lock` | aucun | 120 s | non |
-| Skills | `<skills>/.skills_write.lock` | 5 s, puis sans verrou | 120 s | non |
-| Historique des fichiers | `file_history/<uid>/.lock` | 5 s, puis sans verrou | 120 s | non |
-| Cycle de vie du conteneur | `<sandboxes>/.lifecycle_locks/u<uid>.lock` | 120 s, puis sans verrou | 120 s | oui |
-| Migration `P` → `P/work` | `P/.work-migrating.lock` | aucun | 120 s | oui |
-| Pose du schéma | `<dossier de la base>/.init_db.lock` | aucun | 120 s | oui |
-| Nettoyage au démarrage | `<dossier de la base>/.startup_cleanup.lock` | un essai (pris : on passe) | 120 s | oui |
-| Secret de session, clé de chiffrement | `<dossier de la base>/.session_secret.lock`, `.encryption_key.lock` | aucun | 120 s | non |
+| Ressource                             | Verrou                                                              | Délai                       | Péremption | Battement |
+| ------------------------------------- | ------------------------------------------------------------------- | --------------------------- | ---------- | --------- |
+| Mémoire `USER.md`, `MEMORY.md`        | `<fichier>.lock`                                                    | 5 s, puis erreur « occupé » | 120 s      | non       |
+| Journal de la mémoire                 | `.journal.jsonl.lock`                                               | aucun                       | 120 s      | non       |
+| Skills                                | `<skills>/.skills_write.lock`                                       | 5 s, puis sans verrou       | 120 s      | non       |
+| Historique des fichiers               | `file_history/<uid>/.lock`                                          | 5 s, puis sans verrou       | 120 s      | non       |
+| Cycle de vie du conteneur             | `<sandboxes>/.lifecycle_locks/u<uid>.lock`                          | 120 s, puis sans verrou     | 120 s      | oui       |
+| Migration `P` → `P/work`              | `P/.work-migrating.lock`                                            | aucun                       | 120 s      | oui       |
+| Pose du schéma                        | `<dossier de la base>/.init_db.lock`                                | aucun                       | 120 s      | oui       |
+| Nettoyage au démarrage                | `<dossier de la base>/.startup_cleanup.lock`                        | un essai (pris : on passe)  | 120 s      | oui       |
+| Secret de session, clé de chiffrement | `<dossier de la base>/.session_secret.lock`, `.encryption_key.lock` | aucun                       | 120 s      | non       |
 
 ---
 
@@ -511,13 +518,13 @@ Le dossier `apps/core/src/contexte/` répond à « combien pèse ce prompt et qu
 doit-il contenir ? » par un seul chemin de code. Une responsabilité par
 module :
 
-| Module | Responsabilité |
-|---|---|
-| `tokens.ts` | **L'autorité de comptage.** Exact d'abord (`/tokenize` + `/apply-template` du serveur de la cible, cache), repli estimé **unique**. Personne d'autre ne compte des tokens |
-| `budget.ts` | **Tous** les ratios et planchers (réserve de sortie, tiers de compaction, queue protégée), lus dans `context_config.json › budgets` |
-| `elagage.ts` | Réduction ordonnée : élagage des sorties d'outils → élagage vision → budget dur |
-| `assemblage.ts` | Assemblage **byte-stable** de la tête système (invariant du cache de préfixe) |
-| `compresseur.ts`, `porte-compaction.ts`, `etat-compression.ts`, `compression/` | Porte, sérialiseur, résumeur et état persisté de la compaction |
+| Module                                                                         | Responsabilité                                                                                                                                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tokens.ts`                                                                    | **L'autorité de comptage.** Exact d'abord (`/tokenize` + `/apply-template` du serveur de la cible, cache), repli estimé **unique**. Personne d'autre ne compte des tokens |
+| `budget.ts`                                                                    | **Tous** les ratios et planchers (réserve de sortie, tiers de compaction, queue protégée), lus dans `context_config.json › budgets`                                       |
+| `elagage.ts`                                                                   | Réduction ordonnée : élagage des sorties d'outils → élagage vision → budget dur                                                                                           |
+| `assemblage.ts`                                                                | Assemblage **byte-stable** de la tête système (invariant du cache de préfixe)                                                                                             |
+| `compresseur.ts`, `porte-compaction.ts`, `etat-compression.ts`, `compression/` | Porte, sérialiseur, résumeur et état persisté de la compaction                                                                                                            |
 
 ### La tête système, byte-stable
 
@@ -593,19 +600,19 @@ et enregistre l'usage consommé.
 Le reste vit dans des modules de `apps/core/src/boucle/`. Aucun n'importe
 l'orchestrateur : c'est lui qui les importe.
 
-| Module (`apps/core/src/boucle/`) | Rôle | Interface |
-|---|---|---|
-| `run.ts` | état d'un run | `RunContext` (constantes du run), `RunRecord` (trace : événements, delta de l'historique d'outils, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées) |
-| `apps/core/src/outils/catalogue.ts` | outils du tour | `collectMcpTools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire) |
-| `tour-llm.ts` | un tour LLM | `callLlm(…) → LLMTurn` (mesure du contexte, compactions, séries de récupération) |
-| `flux-llm.ts` | transport d'un appel | flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur, disjoncteur |
-| `texte-direct.ts` | émission directe | `LiveText` : fenêtre de retenue et portail anti-balisage |
-| `reprise.ts`, `reprise-raisonnement.ts` | reprises automatiques | `ResumeState` (`take`, `restore`, `resetChain`, `plan`) |
-| `dispatch-outils.ts` | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
-| `execution-outils.ts` | ordonnancement d'un lot | `executeToolBatch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé |
-| `sortie.ts` | sorties du run | `finishOk`, `finishOnLimit`, `finishOnError` |
-| `contrat-resultat.ts` | échecs d'outil | `resultIsError`, `resultIsToolFailure` |
-| `@elpis/contracts` (`stream-events.gen.ts`) | registre du flux NDJSON | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
+| Module (`apps/core/src/boucle/`)            | Rôle                          | Interface                                                                                                                                                                                                                   |
+| ------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run.ts`                                    | état d'un run                 | `RunContext` (constantes du run), `RunRecord` (trace : événements, delta de l'historique d'outils, raisonnement, usage, lot en cours, fenêtre de contexte, marques d'élagage), `LoopDeps` (dépendances injectées)           |
+| `apps/core/src/outils/catalogue.ts`         | outils du tour                | `collectMcpTools` : outils MCP et intégrés en une charge utile `tools[]`, puis filtres (refus, catégories cochées, mode plan, mémoire)                                                                                      |
+| `tour-llm.ts`                               | un tour LLM                   | `callLlm(…) → LLMTurn` (mesure du contexte, compactions, séries de récupération)                                                                                                                                            |
+| `flux-llm.ts`                               | transport d'un appel          | flux SSE → réponse au format OpenAI, replis (sans flux, puis analyse du texte), reprise d'un flux coupé, arrêt côté moteur, disjoncteur                                                                                     |
+| `texte-direct.ts`                           | émission directe              | `LiveText` : fenêtre de retenue et portail anti-balisage                                                                                                                                                                    |
+| `reprise.ts`, `reprise-raisonnement.ts`     | reprises automatiques         | `ResumeState` (`take`, `restore`, `resetChain`, `plan`)                                                                                                                                                                     |
+| `dispatch-outils.ts`                        | exécution des appels d'outils | `openNativeRound`, `classifyTextReply`, `relaunchUnparsedCall`, `openTextRound`, `runToolBatch → BatchOutcome`, `ChannelSpec` (`NATIF`, `TEXTE`), `CycleGuard`, `TruncationGuard`, un appel isolé (`executeSingleToolCall`) |
+| `execution-outils.ts`                       | ordonnancement d'un lot       | `executeToolBatch` : série pour les outils mutants, parallèle borné sinon, ordre du modèle préservé                                                                                                                         |
+| `sortie.ts`                                 | sorties du run                | `finishOk`, `finishOnLimit`, `finishOnError`                                                                                                                                                                                |
+| `contrat-resultat.ts`                       | échecs d'outil                | `resultIsError`, `resultIsToolFailure`                                                                                                                                                                                      |
+| `@elpis/contracts` (`stream-events.gen.ts`) | registre du flux NDJSON       | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED`                                                                                                                                                                             |
 
 Les appels écrits en texte se lisent dans `boucle/analyse-appels.ts`
 (`extractToolCalls`, `stripToolCallMarkup`).
@@ -646,13 +653,13 @@ perdue dans le raisonnement est relancée, en nombre borné
   L'issue est explicite, et `LLMTurn.messages` est TOUJOURS la liste de
   travail à reprendre (la compaction et l'aplatissement la réaffectent) :
 
-  | Issue | Cas | Ce que fait la boucle |
-  |---|---|---|
-  | `ok` | réponse décodée | appels natifs, appels écrits en texte, reprise ou réponse finale |
-  | `retry` | contexte dépassé puis compacté, historique refusé puis aplati, hoquet du moteur | relance l'itération sans rien compter |
-  | `retry_counted` | réponse sans `choices` (série bornée) | `hardIter + 1`, puis relance |
-  | `stop_empty` | réponses vides en série | sortie par `finishOnLimit` avec cette cause |
-  | `fatal` | échec après les récupérations (`error`, `err_kind`) | `finishOnError` |
+  | Issue           | Cas                                                                             | Ce que fait la boucle                                            |
+  | --------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+  | `ok`            | réponse décodée                                                                 | appels natifs, appels écrits en texte, reprise ou réponse finale |
+  | `retry`         | contexte dépassé puis compacté, historique refusé puis aplati, hoquet du moteur | relance l'itération sans rien compter                            |
+  | `retry_counted` | réponse sans `choices` (série bornée)                                           | `hardIter + 1`, puis relance                                     |
+  | `stop_empty`    | réponses vides en série                                                         | sortie par `finishOnLimit` avec cette cause                      |
+  | `fatal`         | échec après les récupérations (`error`, `err_kind`)                             | `finishOnError`                                                  |
 
 - **`runToolBatch` → `BatchOutcome`.** Le noyau commun aux deux canaux :
   annulation, événements `tool_call`, exécution du lot (`executeToolBatch`,
@@ -684,11 +691,11 @@ perdue dans le raisonnement est relancée, en nombre borné
 jamais d'un objet partagé : les sous-routines rendent une décision, la boucle
 l'applique.
 
-| Compteur | Avance quand | Rôle |
-|---|---|---|
-| `effectiveIter` | un lot compte au moins un appel réussi | comparé au budget (`LLAMA_MAX_TOOL_ITERATIONS`, ou `sampling_override.max_tool_iterations`) ; affiché « tour n/max » |
-| `hardIter` | chaque lot exécuté, appel coupé, relance d'un appel illisible, reprise automatique, issue `retry_counted` | plafond dur `hardIterCap` (le plus grand de 2 × budget et budget + 10) : arrête une cascade d'échecs |
-| `malformedRetry` | chaque relance d'un appel illisible ou perdu | budget de relances, réarmé par une itération productive ou un appel texte lisible |
+| Compteur         | Avance quand                                                                                              | Rôle                                                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `effectiveIter`  | un lot compte au moins un appel réussi                                                                    | comparé au budget (`LLAMA_MAX_TOOL_ITERATIONS`, ou `sampling_override.max_tool_iterations`) ; affiché « tour n/max » |
+| `hardIter`       | chaque lot exécuté, appel coupé, relance d'un appel illisible, reprise automatique, issue `retry_counted` | plafond dur `hardIterCap` (le plus grand de 2 × budget et budget + 10) : arrête une cascade d'échecs                 |
+| `malformedRetry` | chaque relance d'un appel illisible ou perdu                                                              | budget de relances, réarmé par une itération productive ou un appel texte lisible                                    |
 
 Les arrêts volontaires (mur d'horloge `LLAMA_TOOL_LOOP_MAX_S`, appels coupés
 en série — cause `ctx_saturated` ou `gen_cap` —, boucle d'action, réponses
@@ -730,19 +737,19 @@ sequenceDiagram
     Note over R: flux fermé, run détaché ou clos
 ```
 
-| Module (`apps/core/src/`) | Rôle |
-|---|---|
-| `familles/chat.ts` | la route du flux, ouverture commune au tour « Images » et au réveilleur des tâches de fond |
-| `familles/chat-controle.ts` | « Répondre maintenant », Stop, Stop d'un sous-agent, état d'une génération, exécutions actives, rattachement (`/run/events`) |
-| `familles/chat-compression.ts` | compression manuelle et son état |
-| `tour/ouverture.ts`, `tour/admission.ts` | admission ; verrou de présence (`acquireGenPresence`, réservation jusqu'à `runTurn`), compactions manuelles en vol |
-| `tour/preparation.ts` | `prepareTurn` |
-| `tour/execution.ts` | `runTurn` (générateur NDJSON) : attente du moteur, boucle, titre, enregistrement, `final`, détachement |
-| `tour/evenements.ts` | pompe NDJSON (`drainCoalesced`), filtre des événements après un Stop, suivi du chargement d'un modèle (`queue_status`) |
-| `tour/persistance.ts` | message du tour ou partiel (`messageAssistant`, `messagePartiel`), écriture optimiste, écritures `meta_json` de fin de tour |
-| `tour/historique.ts` | historique client ↔ base ↔ modèle (`normalizeClientMessages`, `expandHistoryForLlm`), « Continuer » (`splitForContinue`) |
-| `tour/journal-run.ts`, `tour/suivi-run.ts` | journal des événements d'un run, relisible pour s'y rattacher, y compris après un redémarrage |
-| `tour/image.ts` | tour « Images » (corps avec `image_gen`) : après les mêmes gardes que le tour du modèle, confié au moteur d'images (`apps/core/src/images/`) ; même verrou de présence, même journal reprenable, exécution `kind=image` ; événements `image_progress`, `image`, `image_prompt`, `image_error` |
+| Module (`apps/core/src/`)                  | Rôle                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `familles/chat.ts`                         | la route du flux, ouverture commune au tour « Images » et au réveilleur des tâches de fond                                                                                                                                                                                                    |
+| `familles/chat-controle.ts`                | « Répondre maintenant », Stop, Stop d'un sous-agent, état d'une génération, exécutions actives, rattachement (`/run/events`)                                                                                                                                                                  |
+| `familles/chat-compression.ts`             | compression manuelle et son état                                                                                                                                                                                                                                                              |
+| `tour/ouverture.ts`, `tour/admission.ts`   | admission ; verrou de présence (`acquireGenPresence`, réservation jusqu'à `runTurn`), compactions manuelles en vol                                                                                                                                                                            |
+| `tour/preparation.ts`                      | `prepareTurn`                                                                                                                                                                                                                                                                                 |
+| `tour/execution.ts`                        | `runTurn` (générateur NDJSON) : attente du moteur, boucle, titre, enregistrement, `final`, détachement                                                                                                                                                                                        |
+| `tour/evenements.ts`                       | pompe NDJSON (`drainCoalesced`), filtre des événements après un Stop, suivi du chargement d'un modèle (`queue_status`)                                                                                                                                                                        |
+| `tour/persistance.ts`                      | message du tour ou partiel (`messageAssistant`, `messagePartiel`), écriture optimiste, écritures `meta_json` de fin de tour                                                                                                                                                                   |
+| `tour/historique.ts`                       | historique client ↔ base ↔ modèle (`normalizeClientMessages`, `expandHistoryForLlm`), « Continuer » (`splitForContinue`)                                                                                                                                                                      |
+| `tour/journal-run.ts`, `tour/suivi-run.ts` | journal des événements d'un run, relisible pour s'y rattacher, y compris après un redémarrage                                                                                                                                                                                                 |
+| `tour/image.ts`                            | tour « Images » (corps avec `image_gen`) : après les mêmes gardes que le tour du modèle, confié au moteur d'images (`apps/core/src/images/`) ; même verrou de présence, même journal reprenable, exécution `kind=image` ; événements `image_progress`, `image`, `image_prompt`, `image_error` |
 
 **Interfaces principales**
 
@@ -777,11 +784,11 @@ Tout appel de génération passe par l'ordonnanceur du process
 (`apps/core/src/llm/ordonnanceur/`, `LLMQueue` et `withLLM`), une file par
 serveur d'inférence :
 
-| Niveau | Rôle |
-|---|---|
-| Modèle (niveau 1) | Empêche un changement de modèle côté serveur pendant une génération : le modèle tenu accueille toute demande, un changement attend la fin des tours. Priorité `high` (chats) avant `low` (compaction, routines), avec une grâce de 8 s et un rang rendu à une demande `low` qui attend depuis plus de 30 s |
-| Créneaux (niveau 2) | Limite la concurrence par modèle (`/props.total_slots`, repli `LLAMA_MAX_CONCURRENCY`, ou réglages du connecteur) |
-| Disjoncteur (`disjoncteur.ts`) | ≥ `LLM_BREAKER_FAILS` échecs **transport** consécutifs → circuit ouvert `LLM_BREAKER_COOLDOWN_S` → échec immédiat sans occuper de créneau |
+| Niveau                         | Rôle                                                                                                                                                                                                                                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Modèle (niveau 1)              | Empêche un changement de modèle côté serveur pendant une génération : le modèle tenu accueille toute demande, un changement attend la fin des tours. Priorité `high` (chats) avant `low` (compaction, routines), avec une grâce de 8 s et un rang rendu à une demande `low` qui attend depuis plus de 30 s |
+| Créneaux (niveau 2)            | Limite la concurrence par modèle (`/props.total_slots`, repli `LLAMA_MAX_CONCURRENCY`, ou réglages du connecteur)                                                                                                                                                                                          |
+| Disjoncteur (`disjoncteur.ts`) | ≥ `LLM_BREAKER_FAILS` échecs **transport** consécutifs → circuit ouvert `LLM_BREAKER_COOLDOWN_S` → échec immédiat sans occuper de créneau                                                                                                                                                                  |
 
 Détail : [apps/core/src/llm/ordonnanceur/README.md](../apps/core/src/llm/ordonnanceur/README.md).
 
@@ -919,17 +926,17 @@ via `POST /api/admin/cache/invalidate`, ou par le bouton admin.
 
 ### Deux sources, deux rôles
 
-| Table | Ce qu'elle répond | Écrite par |
-|---|---|---|
+| Table              | Ce qu'elle répond                                                                                                                                  | Écrite par                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | **`usage_events`** | « Qui a consommé quoi, quand, par quel chemin ? » — **une ligne par tour LLM**, usage RÉEL du backend, avec `user_id`, `source`, `model`, `status` | `recordTurnUsage()` (`apps/core/src/observabilite/usage-contexte.ts`), appelée **dans la boucle LLM** |
-| `metric_events` | Compteurs non-LLM : connexions, écritures sandbox, RAG, latence, débit, `proc_*` | `logMetric()` (`observabilite/metriques-evenements.ts`) |
+| `metric_events`    | Compteurs non-LLM : connexions, écritures sandbox, RAG, latence, débit, `proc_*`                                                                   | `logMetric()` (`observabilite/metriques-evenements.ts`)                                               |
 
-**Pourquoi ce découpage.** La conso était mesurée *chez l'appelant* : la route
+**Pourquoi ce découpage.** La conso était mesurée _chez l'appelant_ : la route
 de chat journalisait les métriques du tour. Deux conséquences, toutes deux
 visibles dans la console :
 
 1. **Double comptage** — un tour outillé était journalisé par la boucle
-   (`mode=mcp_native`) *et* par la route (`mode=mcp`) : les KPI de tokens
+   (`mode=mcp_native`) _et_ par la route (`mode=mcp`) : les KPI de tokens
    valaient environ le double.
 2. **Angle mort hors heures** — routines, webhooks et sous-agents ne passent
    jamais par la route : leur consommation n'était journalisée nulle part, et
@@ -966,11 +973,11 @@ de `layout` porte `default` (appartenance au **set curé** affiché d'emblée, c
 `DEFAULT_WIDGETS`) et `purge` (périmètre de réinitialisation, cf. `purgeSpec`)
 — l'IHM n'a donc jamais à connaître le schéma.
 
-| Type | Format `data` |
-|---|---|
-| `value` | `{"value": 42, "unit": "users", "color": "blue", "icon": "ph-users", "detail": "…"}` |
-| `bar` / `line` / `doughnut` / `bar_stacked` | Format Chart.js (`labels` + `datasets` + `meta`) |
-| `table` | `{"columns": [{"key","label","align"}], "rows": [...]}` |
+| Type                                        | Format `data`                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `value`                                     | `{"value": 42, "unit": "users", "color": "blue", "icon": "ph-users", "detail": "…"}` |
+| `bar` / `line` / `doughnut` / `bar_stacked` | Format Chart.js (`labels` + `datasets` + `meta`)                                     |
+| `table`                                     | `{"columns": [{"key","label","align"}], "rows": [...]}`                              |
 
 ### Séries temporelles
 
@@ -990,8 +997,8 @@ Ajouter un widget : une entrée de plus dans l'une des familles de
 fournisseur({
   id: "mon_id",
   title: "Mon widget",
-  type: "bar",        // value | line | bar | doughnut | bar_stacked | table
-  width: "1/2",       // 1/4 | 1/2 | full
+  type: "bar", // value | line | bar | doughnut | bar_stacked | table
+  width: "1/2", // 1/4 | 1/2 | full
   getData: async (ctx, scope) => ({ labels: [], datasets: [] }),
 });
 ```
@@ -1010,20 +1017,20 @@ routines, Studio…) et `src/entries/admin.ts` (console), précédées de
 `apps/core/src/interface/pages.ts` remplace par les balises du manifeste Vite
 (noms hachés, cache long).
 
-| Zone | Rôle |
-|---|---|
-| `src/platform/http/` | Client REST typé : `ApiResult<T>` (succès, expiration, refus, conflit, annulation, réseau, erreur serveur, payload invalide), décodage `{"detail"}`/422, XHR rattaché à la session ; `fetchAuth`/`fetchJsonAuth` pour les derniers appelants historiques |
-| `src/platform/streams/ndjson.ts` | Lecteur NDJSON du flux de chat |
-| `src/features/auth/` | Session (machine d'état, génération, propriétaires de ressources), connexion, déconnexion, config publique, SSE système (`sse-systeme.ts`) |
-| `src/features/chat/` | Cœur du chat (`coeur/` : `setupChat`, vue du flux `vue-flux.ts`, envoi, reprise, arrêt, rattachement aux runs, parties reliées par `liens.ts`), reducer exhaustif sur `EvenementFlux`, composeur (`composeur/` : menu « / », templates, dépôt), historique et recherche, défilement virtuel, rendu Markdown/SVG purifié (`rendu/`), segments d'outils, modèles |
-| `src/components/chat/` | SFC du chat : colonne (`PageChat`), barre latérale, message, fenêtres (`modales/`) |
-| `src/features/editor/`, `src/components/editor/` | Éditeur : Monaco (ESM, workers), arborescence, onglets, vue scindée, sauvegarde (409/412/503), Git, terminal, aperçus, Office ; `src/features/terminal/` (xterm, sessions) |
-| `src/features/admin/`, `src/components/admin/` | Console : registre des pages (`registre.ts`), navigation, enregistrement par page, palette Ctrl+K (`champs.gen.ts`, généré), pages en SFC (`Page*.vue`) |
-| `src/features/reglages/`, `src/components/reglages/` | Paramètres : apparence et skins, prompts, archives, serveurs MCP, connecteurs, échantillonnage, mémoire |
-| `src/features/{routines,studio,images,voix,mascotte,skills,code}/` et `src/components/` du même nom | Routines, Studio d'automatisation, génération d'images, voix (AudioWorklet), mascottes, skills, page Remote code |
-| `src/utils/`, `src/modeles/` | Fonctions pures (JSON, ANSI, diff de lignes, édition minimale, modèle Office, scénarios et automatisations) |
-| `src/app/racine/`, `src/components/racine/` | Racine de la page : `creerRacine()` (état partagé, session et HTTP, montage des modules), couche commune (toasts, fenêtres de confirmation, menu contextuel), clavier (piège de focus, cascade d'Échap, raccourcis), clic extérieur, défilement du fil, notifications, reprise d'onglet ; `App.vue` (chat) et `AppConsole.vue` (console) |
-| `frontend/test/` | Tests Vitest (projet `web`, happy-dom), même découpage |
+| Zone                                                                                                | Rôle                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/platform/http/`                                                                                | Client REST typé : `ApiResult<T>` (succès, expiration, refus, conflit, annulation, réseau, erreur serveur, payload invalide), décodage `{"detail"}`/422, XHR rattaché à la session ; `fetchAuth`/`fetchJsonAuth` pour les derniers appelants historiques                                                                                                       |
+| `src/platform/streams/ndjson.ts`                                                                    | Lecteur NDJSON du flux de chat                                                                                                                                                                                                                                                                                                                                 |
+| `src/features/auth/`                                                                                | Session (machine d'état, génération, propriétaires de ressources), connexion, déconnexion, config publique, SSE système (`sse-systeme.ts`)                                                                                                                                                                                                                     |
+| `src/features/chat/`                                                                                | Cœur du chat (`coeur/` : `setupChat`, vue du flux `vue-flux.ts`, envoi, reprise, arrêt, rattachement aux runs, parties reliées par `liens.ts`), reducer exhaustif sur `EvenementFlux`, composeur (`composeur/` : menu « / », templates, dépôt), historique et recherche, défilement virtuel, rendu Markdown/SVG purifié (`rendu/`), segments d'outils, modèles |
+| `src/components/chat/`                                                                              | SFC du chat : colonne (`PageChat`), barre latérale, message, fenêtres (`modales/`)                                                                                                                                                                                                                                                                             |
+| `src/features/editor/`, `src/components/editor/`                                                    | Éditeur : Monaco (ESM, workers), arborescence, onglets, vue scindée, sauvegarde (409/412/503), Git, terminal, aperçus, Office ; `src/features/terminal/` (xterm, sessions)                                                                                                                                                                                     |
+| `src/features/admin/`, `src/components/admin/`                                                      | Console : registre des pages (`registre.ts`), navigation, enregistrement par page, palette Ctrl+K (`champs.gen.ts`, généré), pages en SFC (`Page*.vue`)                                                                                                                                                                                                        |
+| `src/features/reglages/`, `src/components/reglages/`                                                | Paramètres : apparence et skins, prompts, archives, serveurs MCP, connecteurs, échantillonnage, mémoire                                                                                                                                                                                                                                                        |
+| `src/features/{routines,studio,images,voix,mascotte,skills,code}/` et `src/components/` du même nom | Routines, Studio d'automatisation, génération d'images, voix (AudioWorklet), mascottes, skills, page Remote code                                                                                                                                                                                                                                               |
+| `src/utils/`, `src/modeles/`                                                                        | Fonctions pures (JSON, ANSI, diff de lignes, édition minimale, modèle Office, scénarios et automatisations)                                                                                                                                                                                                                                                    |
+| `src/app/racine/`, `src/components/racine/`                                                         | Racine de la page : `creerRacine()` (état partagé, session et HTTP, montage des modules), couche commune (toasts, fenêtres de confirmation, menu contextuel), clavier (piège de focus, cascade d'Échap, raccourcis), clic extérieur, défilement du fil, notifications, reprise d'onglet ; `App.vue` (chat) et `AppConsole.vue` (console)                       |
+| `frontend/test/`                                                                                    | Tests Vitest (projet `web`, happy-dom), même découpage                                                                                                                                                                                                                                                                                                         |
 
 ### Règles d'architecture
 
@@ -1124,9 +1131,9 @@ hérite de cette politique : ses scripts en ligne y sont bloqués. Deux cas :
 - **Export PDF** (`features/chat/export.ts`) : la fenêtre d'impression ne
   contient aucun script ; la page appelle `print()` une fois son document
   chargé. Relevé dans les vérifications navigateur :
-`ELPIS_CSP_JOURNAL=<fichier>` ;
-`ELPIS_CSP=report-only` pour signaler sans bloquer ; `ELPIS_CSP_POLITIQUE` pose
-la politique sur les pages des faux serveurs.
+  `ELPIS_CSP_JOURNAL=<fichier>` ;
+  `ELPIS_CSP=report-only` pour signaler sans bloquer ; `ELPIS_CSP_POLITIQUE` pose
+  la politique sur les pages des faux serveurs.
 
 ### Pièges connus
 
@@ -1158,7 +1165,7 @@ les autres couleurs sont sémantiques (statut).
 - **Plugins.** Importés (zip) ou créés depuis la console, rangés dans
   `SKINS_DIR` (`APP_SKINS_DIR` ou `skins.dir`, défaut `user_skins/`) :
   `<id>/skin.json` (`id, label, description, version, author, license,
-  darkBase, swatch, tokens: {light, dark}, css?, brand?`), `skin.css`
+darkBase, swatch, tokens: {light, dark}, css?, brand?`), `skin.css`
   facultatif, `assets/` (png, jpg, webp, gif). Validation stricte
   (`apps/core/src/apparence/skins.ts`) : jetons `--[a-z0-9-]`, valeurs sans
   `; { } < > \`, `url(` ni `@` ; feuille sans `@import`, sans URL externe (seuls
@@ -1174,7 +1181,7 @@ les autres couleurs sont sémantiques (statut).
   `GET /api/skins/{id}/skin.css`, `GET /api/skins/{id}/assets/{nom}` (skin
   activé ou administrateur ; aussi montées sur le process admin) ;
   `/api/admin/skins` (`GET`, `PUT` état, `POST` formulaire, `POST /import`,
-  `GET /{id}/export`, `DELETE /{id}`), page console *Système › Apparence*.
+  `GET /{id}/export`, `DELETE /{id}`), page console _Système › Apparence_.
 - **Habillages personnels.** Chaque compte peut avoir ses propres habillages,
   visibles par lui seul : un `skin.json` de **jetons seuls** (ni `skin.css`, ni
   image, ni `brand`, ni `mascot`), rangé dans
@@ -1492,29 +1499,29 @@ curl -X POST http://localhost:8001/api/login-lite \
 
 Réponse : `{"ok": true, "is_admin": false, "must_change_pwd": false}`
 
-| Endpoint | Description |
-|---|---|
-| `POST /api/logout-lite` | Déconnexion (révocation serveur + suppression du cookie avec les bons attributs) |
-| `GET /api/me-lite` | Infos de l'utilisateur connecté |
-| `GET /api/auth/check` | Sonde légère (`auth_request` pour un service proxifié) |
-| `POST /api/users/change-password` | Changement de mot de passe (garde cross-site stricte) |
+| Endpoint                          | Description                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| `POST /api/logout-lite`           | Déconnexion (révocation serveur + suppression du cookie avec les bons attributs) |
+| `GET /api/me-lite`                | Infos de l'utilisateur connecté                                                  |
+| `GET /api/auth/check`             | Sonde légère (`auth_request` pour un service proxifié)                           |
+| `POST /api/users/change-password` | Changement de mot de passe (garde cross-site stricte)                            |
 
 ---
 
 ## Conversations
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/saved/chats?archived=0\|1` | Lister |
-| `POST /api/saved/chats/new` | Créer — corps optionnel `{"plan_mode": bool}` : scelle la **lecture seule à la création** (`/plan` tapé sur un chat vierge, 422 si non booléen) |
-| `GET /api/saved/chats/{id}` | Récupérer (expose `tools` depuis `meta_json`) |
-| `PATCH /api/saved/chats/{id}` | Renommer |
-| `DELETE /api/saved/chats/{id}` | Supprimer |
-| `POST /api/saved/chats/{id}/archive` · `/unarchive` | (Dés)archiver |
-| `PUT /api/saved/chats/{id}/save-messages` | Persistance explicite (concurrence optimiste) |
-| `PUT /api/saved/chats/{id}/tools` | Toggles d'outils du chat |
-| `POST /api/saved/chats/delete-batch` · `/clear-all` | Suppression en masse |
-| `GET /api/saved/chats/search?q=` | Recherche titres + contenu |
+| Endpoint                                            | Description                                                                                                                                     |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/saved/chats?archived=0\|1`                | Lister                                                                                                                                          |
+| `POST /api/saved/chats/new`                         | Créer — corps optionnel `{"plan_mode": bool}` : scelle la **lecture seule à la création** (`/plan` tapé sur un chat vierge, 422 si non booléen) |
+| `GET /api/saved/chats/{id}`                         | Récupérer (expose `tools` depuis `meta_json`)                                                                                                   |
+| `PATCH /api/saved/chats/{id}`                       | Renommer                                                                                                                                        |
+| `DELETE /api/saved/chats/{id}`                      | Supprimer                                                                                                                                       |
+| `POST /api/saved/chats/{id}/archive` · `/unarchive` | (Dés)archiver                                                                                                                                   |
+| `PUT /api/saved/chats/{id}/save-messages`           | Persistance explicite (concurrence optimiste)                                                                                                   |
+| `PUT /api/saved/chats/{id}/tools`                   | Toggles d'outils du chat                                                                                                                        |
+| `POST /api/saved/chats/delete-batch` · `/clear-all` | Suppression en masse                                                                                                                            |
+| `GET /api/saved/chats/search?q=`                    | Recherche titres + contenu                                                                                                                      |
 
 **Plafond des conversations actives** — `app.max_recent_chats` (défaut `100`,
 champ admin « Conversations récentes », surchargeable par `APP_MAX_RECENT_CHATS`)
@@ -1536,9 +1543,10 @@ changement admin s'applique sans redémarrage.
 ```json
 {
   "chat_id": "a1b2c3d4e5f6",
-  "messages": [{"role": "user", "content": "Bonjour"}],
+  "messages": [{ "role": "user", "content": "Bonjour" }],
   "active_mcp_servers": [],
-  "model": null, "connector_id": null,
+  "model": null,
+  "connector_id": null,
   "thinking_mode": false,
   "is_continue": false,
   "ephemeral": false,
@@ -1548,18 +1556,18 @@ changement admin s'applique sans redémarrage.
 }
 ```
 
-| Champ | Type | Description |
-|---|---|---|
-| `chat_id` | string | Vide → création |
-| `messages` | array | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`CLIENT_ROLES`, `apps/core/src/tour/historique.ts`) |
-| `active_mcp_servers` | array | Catégories locales + `ext:<id>` + `shared:<n>` |
-| `model` / `connector_id` | string / int | Couple atomique (modèle, connecteur) |
-| `thinking_mode` | bool | Phase de réflexion |
-| `is_continue` | bool | Reprise d'une réponse tronquée |
-| `ephemeral` | bool | Ne pas persister le tour |
-| `pinned_skills` | array | Skills épinglés via `/skills` |
-| `sampling_override` | object | Panneau d'échantillonnage (dont `max_tool_iterations`) |
-| `resumable` | bool | Run **reprenable** (posé par le chat principal) : événements journalisés, déconnexion = **détachement** (le tour se termine côté serveur, outils ou non) — cf. ci-dessous |
+| Champ                    | Type         | Description                                                                                                                                                               |
+| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat_id`                | string       | Vide → création                                                                                                                                                           |
+| `messages`               | array        | Historique `[{role, content}]` — rôles acceptés : `user`, `assistant`, `system`, `tool`, `notice` (`CLIENT_ROLES`, `apps/core/src/tour/historique.ts`)                    |
+| `active_mcp_servers`     | array        | Catégories locales + `ext:<id>` + `shared:<n>`                                                                                                                            |
+| `model` / `connector_id` | string / int | Couple atomique (modèle, connecteur)                                                                                                                                      |
+| `thinking_mode`          | bool         | Phase de réflexion                                                                                                                                                        |
+| `is_continue`            | bool         | Reprise d'une réponse tronquée                                                                                                                                            |
+| `ephemeral`              | bool         | Ne pas persister le tour                                                                                                                                                  |
+| `pinned_skills`          | array        | Skills épinglés via `/skills`                                                                                                                                             |
+| `sampling_override`      | object       | Panneau d'échantillonnage (dont `max_tool_iterations`)                                                                                                                    |
+| `resumable`              | bool         | Run **reprenable** (posé par le chat principal) : événements journalisés, déconnexion = **détachement** (le tour se termine côté serveur, outils ou non) — cf. ci-dessous |
 
 > La **lecture seule** (`/plan`) n'est volontairement PAS dans ce tableau : elle
 > est relue en base (`meta_json["plan_mode"]`) par la préparation du tour
@@ -1592,35 +1600,35 @@ Registre de référence : `packages/contracts/src/stream-events.gen.ts`
 (`@elpis/contracts` ; l'interface ne lit et la route n'émet aucun type hors
 registre).
 
-| `type` | Description |
-|---|---|
-| `mode` | Mode du tour (classique, avec outils) |
-| `iteration` | Début d'une itération de la boucle (`n`, `max` : budget affiché) |
-| `thinking` | Indicateur « réflexion en cours » (queued, started, compacting…) |
-| `thinking_token` / `thinking_content` | Réflexion (jeton à jeton, puis bloc réconcilié) |
-| `content_token` / `content_replace` | Réponse (jeton à jeton ; texte affiché remplacé au nettoyage de fin) |
-| `tool_call` / `tool_call_delta` | Appel d'outil décidé ; arguments en cours de génération |
-| `tool_result` | Résultat d'un outil, avec `duration_ms` (durée de l'appel, affichée en direct ; non conservée au rechargement) |
-| `tool_progress` / `tool_log` / `shell_output` | Progression, journal, sortie en direct d'une commande |
-| `tool_limit` | Plafond d'itérations atteint |
-| `tool_history_partial` | **Delta** de l'historique d'outils (jamais un cumul) |
-| `task_step` | Cycle de vie d'un sous-agent (spawned, étapes, final) |
-| `todo_updated` | Liste de tâches mise à jour |
-| `annotation_frame` | Capture annotée (vision, bureau) |
-| `prompt_progress` | Progression du pré-remplissage du prompt |
-| `kv_cache` | Occupation du cache KV |
+| `type`                                                          | Description                                                                                                                      |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                                                          | Mode du tour (classique, avec outils)                                                                                            |
+| `iteration`                                                     | Début d'une itération de la boucle (`n`, `max` : budget affiché)                                                                 |
+| `thinking`                                                      | Indicateur « réflexion en cours » (queued, started, compacting…)                                                                 |
+| `thinking_token` / `thinking_content`                           | Réflexion (jeton à jeton, puis bloc réconcilié)                                                                                  |
+| `content_token` / `content_replace`                             | Réponse (jeton à jeton ; texte affiché remplacé au nettoyage de fin)                                                             |
+| `tool_call` / `tool_call_delta`                                 | Appel d'outil décidé ; arguments en cours de génération                                                                          |
+| `tool_result`                                                   | Résultat d'un outil, avec `duration_ms` (durée de l'appel, affichée en direct ; non conservée au rechargement)                   |
+| `tool_progress` / `tool_log` / `shell_output`                   | Progression, journal, sortie en direct d'une commande                                                                            |
+| `tool_limit`                                                    | Plafond d'itérations atteint                                                                                                     |
+| `tool_history_partial`                                          | **Delta** de l'historique d'outils (jamais un cumul)                                                                             |
+| `task_step`                                                     | Cycle de vie d'un sous-agent (spawned, étapes, final)                                                                            |
+| `todo_updated`                                                  | Liste de tâches mise à jour                                                                                                      |
+| `annotation_frame`                                              | Capture annotée (vision, bureau)                                                                                                 |
+| `prompt_progress`                                               | Progression du pré-remplissage du prompt                                                                                         |
+| `kv_cache`                                                      | Occupation du cache KV                                                                                                           |
 | `compression_start` / `compression_done` / `compression_capped` | Compaction du contexte ; `compression_start` porte `threshold` (seuil en jetons) et `reason` (`manual`, `overflow`, `threshold`) |
-| `compression_state` / `prune_state` | État de compaction (persisté par la route) ; état de l'élagage |
-| `llm_user_suffix` | Suffixe ajouté au message de l'utilisateur |
-| `queue_status` / `queue_cleared` | Attente d'un créneau du moteur ; créneau obtenu |
-| `rag_sources` | Passages numérotés par un outil `rag_*` (sources du tour) |
-| `notice` / `info` / `warning` / `log` | Messages d'état |
-| `final` | Réponse finale `{assistant, chat_id, metrics}` |
-| `error` | Erreur (avec le genre de la taxonomie) |
-| `ping` | Maintien de la connexion |
-| `session_expired` | Session expirée pendant le flux |
-| `run_started` / `replay_done` / `run_end` / `run_lost` | Flux de **rattachement** uniquement (`/run/events`) |
-| `journal_truncated` | Rattachement : journal plein, seuls les événements structurants suivent |
+| `compression_state` / `prune_state`                             | État de compaction (persisté par la route) ; état de l'élagage                                                                   |
+| `llm_user_suffix`                                               | Suffixe ajouté au message de l'utilisateur                                                                                       |
+| `queue_status` / `queue_cleared`                                | Attente d'un créneau du moteur ; créneau obtenu                                                                                  |
+| `rag_sources`                                                   | Passages numérotés par un outil `rag_*` (sources du tour)                                                                        |
+| `notice` / `info` / `warning` / `log`                           | Messages d'état                                                                                                                  |
+| `final`                                                         | Réponse finale `{assistant, chat_id, metrics}`                                                                                   |
+| `error`                                                         | Erreur (avec le genre de la taxonomie)                                                                                           |
+| `ping`                                                          | Maintien de la connexion                                                                                                         |
+| `session_expired`                                               | Session expirée pendant le flux                                                                                                  |
+| `run_started` / `replay_done` / `run_end` / `run_lost`          | Flux de **rattachement** uniquement (`/run/events`)                                                                              |
+| `journal_truncated`                                             | Rattachement : journal plein, seuls les événements structurants suivent                                                          |
 
 ### Ordre des événements d'un tour
 
@@ -1650,17 +1658,17 @@ inactif).
 Routes de `apps/core/src/familles/chat-controle.ts`, sauf la compression
 manuelle (`chat-compression.ts`) et la lecture seule (`chats.ts`).
 
-| Endpoint | Description |
-|---|---|
-| `POST /api/chat/cancel` | Annule la génération (AbortSignal du tour) |
-| `POST /api/chat/reasoning-end` | « Répondre maintenant » : coupe le raisonnement en cours |
-| `POST /api/chat/task-cancel` | Annule **un** sous-agent sans tuer le tour |
-| `POST /api/chat/{id}/compress` | Compaction manuelle (`/compact`) ; `POST /api/chat/compress` (sans identifiant) est obsolète et sans effet |
-| `PUT /api/saved/chats/{id}/plan-mode` | Bascule la **lecture seule** du chat (`/plan`) — booléen strict, 422 sinon |
-| `GET /api/chat/{id}/compression-state` | État de compaction |
-| `GET /api/chat/{id}/generation-status` | Génération en vol ? + de quoi s'y rattacher : `run_id`, `resumable`, `base_count`, `user_message`, `is_continue`, `engine_key`. Un journal clos (`final` émis) vaut « fini » même si le tour tient encore le verrou |
-| `GET /api/chat/{id}/run/events?run_id=&from=` | **Rattachement** : rejoue le journal du run puis suit le direct (NDJSON, même format que le flux d'envoi). `replay_done` marque le passage au direct ; `run_end` / `run_lost` terminent |
-| `GET /api/chats/active-runs` | Conversations de l'utilisateur dont un run tourne (pastilles de la barre latérale) |
+| Endpoint                                      | Description                                                                                                                                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/chat/cancel`                       | Annule la génération (AbortSignal du tour)                                                                                                                                                                          |
+| `POST /api/chat/reasoning-end`                | « Répondre maintenant » : coupe le raisonnement en cours                                                                                                                                                            |
+| `POST /api/chat/task-cancel`                  | Annule **un** sous-agent sans tuer le tour                                                                                                                                                                          |
+| `POST /api/chat/{id}/compress`                | Compaction manuelle (`/compact`) ; `POST /api/chat/compress` (sans identifiant) est obsolète et sans effet                                                                                                          |
+| `PUT /api/saved/chats/{id}/plan-mode`         | Bascule la **lecture seule** du chat (`/plan`) — booléen strict, 422 sinon                                                                                                                                          |
+| `GET /api/chat/{id}/compression-state`        | État de compaction                                                                                                                                                                                                  |
+| `GET /api/chat/{id}/generation-status`        | Génération en vol ? + de quoi s'y rattacher : `run_id`, `resumable`, `base_count`, `user_message`, `is_continue`, `engine_key`. Un journal clos (`final` émis) vaut « fini » même si le tour tient encore le verrou |
+| `GET /api/chat/{id}/run/events?run_id=&from=` | **Rattachement** : rejoue le journal du run puis suit le direct (NDJSON, même format que le flux d'envoi). `replay_done` marque le passage au direct ; `run_end` / `run_lost` terminent                             |
+| `GET /api/chats/active-runs`                  | Conversations de l'utilisateur dont un run tourne (pastilles de la barre latérale)                                                                                                                                  |
 
 ### Runs en arrière-plan et reprise de l'affichage
 
@@ -1696,18 +1704,18 @@ et un conflit dû à un simple renommage est rattrapé (`_persist_turn`).
 
 ## Modèles et connecteurs LLM
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/llm/models[?engine=conn:<id>]` | Modèles et états (chargé / déchargé) du serveur intégré, ou d'un connecteur llama.cpp (`router`, `can_manage`) |
-| `GET /api/llm/models/{id}/props[?engine=]` | Propriétés (intégré : ⚠ charge le modèle côté routeur ; connecteur : `autoload=false`) |
-| `GET /api/llm/models/{id}/effective-params[?engine=]` | Params après cascade (connecteur llama.cpp : son `/props`) |
-| `GET /api/llm/health` | État du moteur intégré |
-| `POST /api/llm/models/load` · `/unload` (`engine` dans le corps) · `GET /api/llm/models/load-progress` | Cycle de vie — droit « gérer les modèles » (politique par utilisateur / groupe), exclusivité du serveur visé |
-| `POST /api/llm/infill` | Fill-in-the-middle (éditeur) |
-| `GET /api/llm/queue-status` · `/stream` | File d'attente (poll + SSE) |
-| `GET/POST/PUT/DELETE /api/llm/connectors[/{id}]` | Connecteurs perso |
-| `POST /api/llm/connectors/{id}/test` | Test de connexion |
-| `GET /api/llm/connectors/{id}/models[?fresh=1]` | Découverte des modèles ; connecteur llama.cpp routeur : `statuses`, `router`, `can_manage`. `ok:false` = injoignable (jamais mis en cache côté sélecteur) |
+| Endpoint                                                                                               | Description                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/llm/models[?engine=conn:<id>]`                                                               | Modèles et états (chargé / déchargé) du serveur intégré, ou d'un connecteur llama.cpp (`router`, `can_manage`)                                            |
+| `GET /api/llm/models/{id}/props[?engine=]`                                                             | Propriétés (intégré : ⚠ charge le modèle côté routeur ; connecteur : `autoload=false`)                                                                    |
+| `GET /api/llm/models/{id}/effective-params[?engine=]`                                                  | Params après cascade (connecteur llama.cpp : son `/props`)                                                                                                |
+| `GET /api/llm/health`                                                                                  | État du moteur intégré                                                                                                                                    |
+| `POST /api/llm/models/load` · `/unload` (`engine` dans le corps) · `GET /api/llm/models/load-progress` | Cycle de vie — droit « gérer les modèles » (politique par utilisateur / groupe), exclusivité du serveur visé                                              |
+| `POST /api/llm/infill`                                                                                 | Fill-in-the-middle (éditeur)                                                                                                                              |
+| `GET /api/llm/queue-status` · `/stream`                                                                | File d'attente (poll + SSE)                                                                                                                               |
+| `GET/POST/PUT/DELETE /api/llm/connectors[/{id}]`                                                       | Connecteurs perso                                                                                                                                         |
+| `POST /api/llm/connectors/{id}/test`                                                                   | Test de connexion                                                                                                                                         |
+| `GET /api/llm/connectors/{id}/models[?fresh=1]`                                                        | Découverte des modèles ; connecteur llama.cpp routeur : `statuses`, `router`, `can_manage`. `ok:false` = injoignable (jamais mis en cache côté sélecteur) |
 
 ### Plusieurs serveurs d'inférence
 
@@ -1752,16 +1760,16 @@ main et admin rechargent à la lecture suivante au lieu d'attendre le TTL.
 
 ## Configuration utilisateur
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
-| `GET /api/config` · `PUT /api/config` | Copie personnelle de la config d'application |
-| `POST /api/settings/avatar` · `DELETE` | Avatar utilisateur (max 5 Mo) |
-| `POST /api/settings/assistant-avatar` | Refusée (403) : l'avatar de l'assistant est le logo de l'application ([écart](ecarts-python.md#avatar-de-lassistant-et-logo-de-lapplication)) |
-| `GET /avatars/{filename}` | Service des avatars (garde cross-site) |
-| `GET /api/users/lite` | Annuaire léger (partages) |
-| `GET /api/skins` | Skins activés par l'administrateur, défaut d'instance, mascottes (voir [Skins](#skins)) |
-| `GET /api/usage/me?days=7\|30\|90` | Consommation personnelle |
+| Endpoint                                  | Description                                                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`)                                                                       |
+| `GET /api/config` · `PUT /api/config`     | Copie personnelle de la config d'application                                                                                                  |
+| `POST /api/settings/avatar` · `DELETE`    | Avatar utilisateur (max 5 Mo)                                                                                                                 |
+| `POST /api/settings/assistant-avatar`     | Refusée (403) : l'avatar de l'assistant est le logo de l'application ([écart](ecarts-python.md#avatar-de-lassistant-et-logo-de-lapplication)) |
+| `GET /avatars/{filename}`                 | Service des avatars (garde cross-site)                                                                                                        |
+| `GET /api/users/lite`                     | Annuaire léger (partages)                                                                                                                     |
+| `GET /api/skins`                          | Skins activés par l'administrateur, défaut d'instance, mascottes (voir [Skins](#skins))                                                       |
+| `GET /api/usage/me?days=7\|30\|90`        | Consommation personnelle                                                                                                                      |
 
 Le `PUT /api/settings` applique une **fusion atomique** (`mergeUserSettings`
 dans une transaction d'écriture) : un PUT partiel n'efface jamais les autres réglages, et
@@ -1774,37 +1782,37 @@ il n'y a pas de course lecture-modification-écriture. `sandbox_mode` et
 
 ## Prompts
 
-| Endpoint | Description |
-|---|---|
-| `GET/POST /api/prompts` · `DELETE /api/prompts/{id}` | CRUD personnel |
-| `POST /api/prompts/share` | Partager (`{prompt_id, user_ids}`) |
-| `GET /api/prompts/shared` · `DELETE /api/prompts/shared/{id}` · `/all` · `POST /delete-batch` | Reçus |
-| `GET /api/inbox/count` | Compteur de partages en attente |
+| Endpoint                                                                                      | Description                        |
+| --------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `GET/POST /api/prompts` · `DELETE /api/prompts/{id}`                                          | CRUD personnel                     |
+| `POST /api/prompts/share`                                                                     | Partager (`{prompt_id, user_ids}`) |
+| `GET /api/prompts/shared` · `DELETE /api/prompts/shared/{id}` · `/all` · `POST /delete-batch` | Reçus                              |
+| `GET /api/inbox/count`                                                                        | Compteur de partages en attente    |
 
 ---
 
 ## Sandbox : fichiers, exécution, aperçu
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/sandbox/tree` | Arborescence |
-| `GET /api/sandbox/download?path=` · `POST /api/sandbox/download-multi` | Téléchargement |
-| `POST /api/sandbox/save` · `/mkdir` · `/rename` · `DELETE /api/sandbox/delete` | Mutations |
-| `POST /api/sandbox/upload` · `/upload-chunk` | Upload (par morceaux pour les gros volumes, `upload_id` isole le `.part` de chaque import) |
-| `POST /api/sandbox/upload-precheck` | Pré-contrôle AVANT envoi : refus si l'import dépasse `app.sandbox_import_max_pct` (60 %) de la capacité ou l'espace restant |
-| `DELETE /api/sandbox/upload-chunk` | Annulation : supprime le `.part` d'un import interrompu |
-| `GET /api/sandbox/search` · `POST /api/sandbox/grep` | Recherche nom / contenu |
-| `POST /api/sandbox/check-mtimes` | Détection de modifications externes |
-| `POST /api/sandbox/lint` | Lint |
-| `GET /api/sandbox/quota` | Quota disque (Mo arrondis + octets, `remaining_bytes`) |
-| `GET /api/sandbox/read-docx` | Extraction docx |
-| `GET /api/sandbox/serve/{path}` | Lecture d'un fichier (session ; document actif servi en `CSP: sandbox`) |
-| `GET /api/sandbox/preview-token` | Jeton d'URL de l'aperçu (1 h) |
-| `GET /api/sandbox/pv/{jeton}/{path}` | **Aperçu** d'un fichier : origine opaque, identité par jeton, refs `/x` réécrites vers le résolveur `~r/d<dossier>/` |
-| `ANY /api/sandbox/pvs/{jeton}/{port}/{path}` | **Proxy** d'aperçu (iframe) vers un serveur qui tourne dans la sandbox |
-| `ANY /api/sandbox/preview/{port}/{path}` | Même proxy, identité par session (ouverture directe) |
-| `POST /api/sandbox/clear` | Purge |
-| `GET/POST/DELETE /api/sandbox/me` · `POST /api/sandbox/me/restart` | Conteneur : état, profil réseau, redémarrage |
+| Endpoint                                                                       | Description                                                                                                                 |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/sandbox/tree`                                                        | Arborescence                                                                                                                |
+| `GET /api/sandbox/download?path=` · `POST /api/sandbox/download-multi`         | Téléchargement                                                                                                              |
+| `POST /api/sandbox/save` · `/mkdir` · `/rename` · `DELETE /api/sandbox/delete` | Mutations                                                                                                                   |
+| `POST /api/sandbox/upload` · `/upload-chunk`                                   | Upload (par morceaux pour les gros volumes, `upload_id` isole le `.part` de chaque import)                                  |
+| `POST /api/sandbox/upload-precheck`                                            | Pré-contrôle AVANT envoi : refus si l'import dépasse `app.sandbox_import_max_pct` (60 %) de la capacité ou l'espace restant |
+| `DELETE /api/sandbox/upload-chunk`                                             | Annulation : supprime le `.part` d'un import interrompu                                                                     |
+| `GET /api/sandbox/search` · `POST /api/sandbox/grep`                           | Recherche nom / contenu                                                                                                     |
+| `POST /api/sandbox/check-mtimes`                                               | Détection de modifications externes                                                                                         |
+| `POST /api/sandbox/lint`                                                       | Lint                                                                                                                        |
+| `GET /api/sandbox/quota`                                                       | Quota disque (Mo arrondis + octets, `remaining_bytes`)                                                                      |
+| `GET /api/sandbox/read-docx`                                                   | Extraction docx                                                                                                             |
+| `GET /api/sandbox/serve/{path}`                                                | Lecture d'un fichier (session ; document actif servi en `CSP: sandbox`)                                                     |
+| `GET /api/sandbox/preview-token`                                               | Jeton d'URL de l'aperçu (1 h)                                                                                               |
+| `GET /api/sandbox/pv/{jeton}/{path}`                                           | **Aperçu** d'un fichier : origine opaque, identité par jeton, refs `/x` réécrites vers le résolveur `~r/d<dossier>/`        |
+| `ANY /api/sandbox/pvs/{jeton}/{port}/{path}`                                   | **Proxy** d'aperçu (iframe) vers un serveur qui tourne dans la sandbox                                                      |
+| `ANY /api/sandbox/preview/{port}/{path}`                                       | Même proxy, identité par session (ouverture directe)                                                                        |
+| `POST /api/sandbox/clear`                                                      | Purge                                                                                                                       |
+| `GET/POST/DELETE /api/sandbox/me` · `POST /api/sandbox/me/restart`             | Conteneur : état, profil réseau, redémarrage                                                                                |
 
 > **Toutes les opérations sur `/work` passent par le conteneur.** Fichiers,
 > éditeur, archives et Git sont exécutés par l'agent de la sandbox
@@ -1843,24 +1851,24 @@ service depuis une URL), `POST /{id}/test`, `GET /{id}/repos`.
 
 ## Snapshots
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/sandbox/snapshots` | Lister |
-| `POST /api/sandbox/snapshots/create` | Créer (progression exposée) |
-| `POST /api/sandbox/snapshots/{id}/restore` | Restaurer |
-| `DELETE /api/sandbox/snapshots/{id}` | Supprimer |
+| Endpoint                                   | Description                 |
+| ------------------------------------------ | --------------------------- |
+| `GET /api/sandbox/snapshots`               | Lister                      |
+| `POST /api/sandbox/snapshots/create`       | Créer (progression exposée) |
+| `POST /api/sandbox/snapshots/{id}/restore` | Restaurer                   |
+| `DELETE /api/sandbox/snapshots/{id}`       | Supprimer                   |
 
 ---
 
 ## Terminal PTY
 
-| Endpoint | Description |
-|---|---|
-| `POST /api/terminal/sessions` · `GET` · `PATCH /{sid}` · `DELETE /{sid}` | Sessions nommées |
-| `WS /ws/terminal` · `WS /ws/terminal/{sid}` | Flux bidirectionnel |
-| `GET /api/terminal/stream` | Repli SSE (stdout base64, keepalive 15 s) |
-| `POST /api/terminal/input` · `/resize` · `/kill` | Session par défaut (legacy) |
-| `GET /api/admin/terminal/stats` | Statistiques (admin) |
+| Endpoint                                                                 | Description                               |
+| ------------------------------------------------------------------------ | ----------------------------------------- |
+| `POST /api/terminal/sessions` · `GET` · `PATCH /{sid}` · `DELETE /{sid}` | Sessions nommées                          |
+| `WS /ws/terminal` · `WS /ws/terminal/{sid}`                              | Flux bidirectionnel                       |
+| `GET /api/terminal/stream`                                               | Repli SSE (stdout base64, keepalive 15 s) |
+| `POST /api/terminal/input` · `/resize` · `/kill`                         | Session par défaut (legacy)               |
+| `GET /api/admin/terminal/stats`                                          | Statistiques (admin)                      |
 
 PTY servi par l'hôte d'outils (`apps/toolhost/src/terminal/`, node-pty),
 `umask 0022` (fichiers 0644, dossiers 0755, comme l'agent et les commandes),
@@ -1871,11 +1879,11 @@ des sessions inactives.
 
 ## Serveurs MCP (API)
 
-| Endpoint | Description |
-|---|---|
+| Endpoint                                                                  | Description                                                                                                                 |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/mcp/custom-servers` · `POST /api/mcp/upload` · `DELETE /{name}` | Serveurs uploadés (détection automatique de la commande : `package.json`, `start.txt`, `main.py`, `server.py`, `index.js`…) |
-| `GET /api/mcp/categories` | Catégories + descripteurs d'affichage |
-| `GET /api/mcp/shared-servers` · `POST` · `PUT /{id}` · `DELETE /{id}` | Bibliothèque partagée (admin en écriture) |
+| `GET /api/mcp/categories`                                                 | Catégories + descripteurs d'affichage                                                                                       |
+| `GET /api/mcp/shared-servers` · `POST` · `PUT /{id}` · `DELETE /{id}`     | Bibliothèque partagée (admin en écriture)                                                                                   |
 
 - **Bibliothèque partagée** (`mcp_shared_servers`) : ids publics `shared:<n>`,
   cohabitant avec les ids perso (`server_<timestamp>`) dans le même panneau. Le
@@ -1889,47 +1897,47 @@ des sessions inactives.
 
 ## Outils externes et jetons (API)
 
-| Endpoint | Description |
-|---|---|
-| `GET/POST/DELETE /api/mcp-bridge[/<famille>]` | Relais MCP public (HTTP streamable) vers le service d'outils : jeton personnel `ept_`/`pcr_` ou jeton OAuth, contrôle d'`Origin`, délégation signée vers le service |
-| `GET /api/tools/<famille>/openapi.json` · `POST /api/tools/<famille>/<outil>` | Façade OpenAPI 3.1 des mêmes outils (jeton `ept_`) |
-| `GET /api/tokens` · `POST /api/tokens` · `POST /api/tokens/{id}/regenerate` · `DELETE /api/tokens/{id}` | Jetons personnels du compte (Paramètres › Connexions), jeton montré une seule fois |
-| `GET /api/tokens/schema/{famille}` | `tools/list` d'une famille (blocs et schémas de Connexions) |
-| `GET /api/oauth/grants` · `DELETE /api/oauth/grants/{id}` | Applications OAuth autorisées par le compte |
-| `/.well-known/oauth-protected-resource[/…]` · `/.well-known/oauth-authorization-server` · `/oauth/register` · `/oauth/authorize` · `/oauth/token` · `/oauth/revoke` | Serveur d'autorisation OAuth 2.1 des clients MCP (RFC 9728, 8414, 7591, 8707, 7009) |
-| `GET /api/admin/users/{id}/access` · `POST /api/admin/users/{id}/access/revoke` | Admin : accès par jeton d'un compte, révocation en bloc |
+| Endpoint                                                                                                                                                            | Description                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET/POST/DELETE /api/mcp-bridge[/<famille>]`                                                                                                                       | Relais MCP public (HTTP streamable) vers le service d'outils : jeton personnel `ept_`/`pcr_` ou jeton OAuth, contrôle d'`Origin`, délégation signée vers le service |
+| `GET /api/tools/<famille>/openapi.json` · `POST /api/tools/<famille>/<outil>`                                                                                       | Façade OpenAPI 3.1 des mêmes outils (jeton `ept_`)                                                                                                                  |
+| `GET /api/tokens` · `POST /api/tokens` · `POST /api/tokens/{id}/regenerate` · `DELETE /api/tokens/{id}`                                                             | Jetons personnels du compte (Paramètres › Connexions), jeton montré une seule fois                                                                                  |
+| `GET /api/tokens/schema/{famille}`                                                                                                                                  | `tools/list` d'une famille (blocs et schémas de Connexions)                                                                                                         |
+| `GET /api/oauth/grants` · `DELETE /api/oauth/grants/{id}`                                                                                                           | Applications OAuth autorisées par le compte                                                                                                                         |
+| `/.well-known/oauth-protected-resource[/…]` · `/.well-known/oauth-authorization-server` · `/oauth/register` · `/oauth/authorize` · `/oauth/token` · `/oauth/revoke` | Serveur d'autorisation OAuth 2.1 des clients MCP (RFC 9728, 8414, 7591, 8707, 7009)                                                                                 |
+| `GET /api/admin/users/{id}/access` · `POST /api/admin/users/{id}/access/revoke`                                                                                     | Admin : accès par jeton d'un compte, révocation en bloc                                                                                                             |
 
 ## Exécutions (API)
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/runs/{id}` · `/timeline` · `/export` | Exécution du compte : agrégats, chronologie, export JSON aux secrets masqués (404 hors propriétaire) |
-| `GET /api/admin/runs/accounts` · `GET /api/admin/runs` | Staff : coût en ressources par compte, liste filtrable |
-| `GET /api/admin/runs/{id}/timeline` · `/export` | Admin : chronologie de n'importe quel compte |
+| Endpoint                                               | Description                                                                                          |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `GET /api/runs/{id}` · `/timeline` · `/export`         | Exécution du compte : agrégats, chronologie, export JSON aux secrets masqués (404 hors propriétaire) |
+| `GET /api/admin/runs/accounts` · `GET /api/admin/runs` | Staff : coût en ressources par compte, liste filtrable                                               |
+| `GET /api/admin/runs/{id}/timeline` · `/export`        | Admin : chronologie de n'importe quel compte                                                         |
 
 ---
 
 ## Skills (API)
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/skills` · `GET /api/skills/{name}` | Lister / détail (scope `user`/`learned`/`global`) |
-| `POST /api/skills` · `PUT /{name}` · `DELETE /{name}` | CRUD (learned/global ⇒ admin) — check+write atomiques (RLock + verrou de fichier) |
-| `GET /api/skills/file` · `GET /api/skills/{name}/export` | Ressources bundlées / export |
-| `POST /api/skills/import` · `/import-folder` | Import (`?overwrite=1` pour écraser) |
-| `POST /api/skills/promote` | `learned` → `global` (curation admin) |
+| Endpoint                                                 | Description                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GET /api/skills` · `GET /api/skills/{name}`             | Lister / détail (scope `user`/`learned`/`global`)                                 |
+| `POST /api/skills` · `PUT /{name}` · `DELETE /{name}`    | CRUD (learned/global ⇒ admin) — check+write atomiques (RLock + verrou de fichier) |
+| `GET /api/skills/file` · `GET /api/skills/{name}/export` | Ressources bundlées / export                                                      |
+| `POST /api/skills/import` · `/import-folder`             | Import (`?overwrite=1` pour écraser)                                              |
+| `POST /api/skills/promote`                               | `learned` → `global` (curation admin)                                             |
 
 ---
 
 ## Mémoire (API)
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/memory/state` | Contenu courant de MEMORY.md / USER.md + télémétrie |
+| Endpoint                               | Description                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/memory/state`                | Contenu courant de MEMORY.md / USER.md + télémétrie                                                                             |
 | `PUT /api/memory/state/{user\|memory}` | Réécrit les entrées d'un magasin (`{entries:[…]}`) — édition manuelle depuis Réglages → Mémoire ; liste vide ⇒ fichier supprimé |
-| `DELETE /api/memory/state` | Purge |
-| `GET /api/memory/audit` | Journal des écritures (succès/échecs par code) |
-| `/api/ax/*` | Mémoire d'accessibilité web : sites, arbres, statistiques, purges (plus d'identifiants : ils sont dans le coffre) |
+| `DELETE /api/memory/state`             | Purge                                                                                                                           |
+| `GET /api/memory/audit`                | Journal des écritures (succès/échecs par code)                                                                                  |
+| `/api/ax/*`                            | Mémoire d'accessibilité web : sites, arbres, statistiques, purges (plus d'identifiants : ils sont dans le coffre)               |
 
 ---
 
@@ -1945,12 +1953,12 @@ porte, et les erreurs de validation ne le recopient pas. Création, modification
 confirmation et suppression sont auditées (`coffre.create|update|confirm|delete` :
 entrée et champs touchés, jamais une valeur).
 
-| Endpoint | Description |
-|---|---|
+| Endpoint                                                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/coffre` · `POST /api/coffre` · `PUT /api/coffre/{id}` · `DELETE /api/coffre/{id}` | Entrées du compte (Paramètres › Coffre) ; mot de passe facultatif à la modification (vide = inchangé) ; **changer l'origine d'une entrée confirmée exige de ressaisir le mot de passe** ; `allow_insecure_tls` (« Certificat non vérifié accepté », faux par défaut ; **l'accorder exige de ressaisir le mot de passe**, comme changer l'origine, et l'audit note l'ancienne et la nouvelle origine) ; les jetons issus de l'entrée sont révoqués si origine, identifiant, mot de passe ou drapeau changent réellement (pas sur un simple renommage) |
-| `POST /api/coffre/{id}/confirmer` | Première confirmation d'une entrée reprise de l'ancienne mémoire AX (origine nulle) : l'origine saisie suffit (auditée) ; toute autre origine exige aussi `password` |
-| `GET /api/coffre/jetons?chat_id=` · `POST /api/coffre/jetons` | Jetons actifs d'une conversation ; création depuis une entrée confirmée (`entry_id`) ou un secret ponctuel (`origin`, `username`, `password`, `save` : l'enregistre dans le coffre, `allow_insecure_tls`). Le jeton en clair n'est rendu qu'à la création |
-| `POST /api/coffre/jetons/{id}/renouveler` · `DELETE /api/coffre/jetons/{id}` | Renouvelle un jeton encore valide (30 min, usages remis à 5 ; un jeton expiré ne se renouvelle pas) ou le révoque |
+| `POST /api/coffre/{id}/confirmer`                                                           | Première confirmation d'une entrée reprise de l'ancienne mémoire AX (origine nulle) : l'origine saisie suffit (auditée) ; toute autre origine exige aussi `password`                                                                                                                                                                                                                                                                                                                                                                                 |
+| `GET /api/coffre/jetons?chat_id=` · `POST /api/coffre/jetons`                               | Jetons actifs d'une conversation ; création depuis une entrée confirmée (`entry_id`) ou un secret ponctuel (`origin`, `username`, `password`, `save` : l'enregistre dans le coffre, `allow_insecure_tls`). Le jeton en clair n'est rendu qu'à la création                                                                                                                                                                                                                                                                                            |
+| `POST /api/coffre/jetons/{id}/renouveler` · `DELETE /api/coffre/jetons/{id}`                | Renouvelle un jeton encore valide (30 min, usages remis à 5 ; un jeton expiré ne se renouvelle pas) ou le révoque                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 **Jeton.** 192 bits aléatoires, seule l'empreinte SHA-256 est en base ; lié au compte,
 à **une conversation** et à une origine ; valable 30 min et 5 usages (un usage par
@@ -2105,7 +2113,7 @@ reste lisible et devinable par `by_text` (seule la valeur exacte est purgée) ; 
 un mot de passe de moins de 3 caractères n'est pas purgé ; le remplacement des documents perd
 l'état de page tenu en mémoire seulement (les cookies sont conservés) ; le marquage est un
 attribut que le script d'une page peut retirer (le remplacement, le masque par valeur et la
-purge ne s'y fient pas) ; une soumission GET *traitée* par le JavaScript de la page
+purge ne s'y fient pas) ; une soumission GET _traitée_ par le JavaScript de la page
 (`preventDefault`) n'est pas arrêtée ; les WebSockets ouverts avant la première saisie ne
 sont pas routés (ils meurent avec le document remplacé) ; l'exécution d'une requête portant le
 secret par le service (`route.fetch`) fait confiance à l'agent de proxy de Playwright (un test
@@ -2146,30 +2154,49 @@ s'appliquent comme pour un appel du modèle.
 **Format** (schéma Zod `validerProcedure`, `packages/contracts/src/procedures.ts`).
 
 ```json
-{"id": "releve-mensuel", "origin": "https://banque.exemple", "version": 1,
- "description": "Télécharger le relevé d'un mois",
- "params": {"compte": "creds", "mois": "string"},
- "root": {"seq": [
-   {"login": {"creds": "{compte}", "username_target": "label=Identifiant",
-              "password_target": "label=Mot de passe",
-              "submit_target": "role=button|name=Connexion",
-              "wait_for": "role=heading|name=Accueil"}},
-   {"act": "click", "t": ["role=link|name=Relevés", "text=Historique"],
-    "expect": {"url_path": "/releves*"}},
-   {"act": "select", "t": ["label=Mois"], "v": "{mois}"},
-   {"act": "click", "t": ["role=button|name=Télécharger"], "confirm": true,
-    "expect": {"text": "Relevé prêt"}}]}}
+{
+  "id": "releve-mensuel",
+  "origin": "https://banque.exemple",
+  "version": 1,
+  "description": "Télécharger le relevé d'un mois",
+  "params": { "compte": "creds", "mois": "string" },
+  "root": {
+    "seq": [
+      {
+        "login": {
+          "creds": "{compte}",
+          "username_target": "label=Identifiant",
+          "password_target": "label=Mot de passe",
+          "submit_target": "role=button|name=Connexion",
+          "wait_for": "role=heading|name=Accueil"
+        }
+      },
+      {
+        "act": "click",
+        "t": ["role=link|name=Relevés", "text=Historique"],
+        "expect": { "url_path": "/releves*" }
+      },
+      { "act": "select", "t": ["label=Mois"], "v": "{mois}" },
+      {
+        "act": "click",
+        "t": ["role=button|name=Télécharger"],
+        "confirm": true,
+        "expect": { "text": "Relevé prêt" }
+      }
+    ]
+  }
+}
 ```
 
-| Nœud | Sens |
-|---|---|
-| `{seq: [...]}` | Séquence : s'arrête au premier échec. |
-| `{sel: [...]}` | Sélecteur (repli) : s'arrête au premier succès. |
-| `{if: C, then?, else?}` | Condition ; seule (`{if: C}`, dans un `sel` par exemple) elle réussit si `C` est vraie. Avec `then`/`else`, une branche absente vaut succès. |
-| `{act, t?, v?, url?, expect?, confirm?, timeout_ms?}` | Geste : `goto`, `click`, `fill`, `select`, `press`, `check`, `uncheck`, `hover`, `wait`. `t` : cibles essayées dans l'ordre ; `v` : valeur ; `url` : chemin relatif ou URL de même origine (`goto`) ; `expect` : postcondition ; `confirm` : `true` (arrêt avant le geste à chaque exécution) ou `"once"` (jusqu'à une première exécution approuvée puis réussie). |
-| `{login: {creds, password_target?, username_target?, submit_target?, wait_for}}` | Délègue à `pw_login`. `creds` vaut exactement `{param}` d'un paramètre `creds` ; `wait_for` est **obligatoire** (il prouve que la connexion a réussi). |
-| `{retry: N, max: 1..3}` | Rejoue le sous-arbre `N` (au plus `max` essais au total) ; seuls `goto`, `wait`, `hover`, `wait_ms` et les conditions y sont admis : `fill` et `select` relancent des événements `input`/`change` (comme une frappe), `click`, `press`, `check`, `uncheck`, `confirm` et `login` agissent ; tous sont **refusés** sous un `retry`. |
-| `{wait_ms: n}` | Pause, 10 000 ms au plus. |
+| Nœud                                                                             | Sens                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `{seq: [...]}`                                                                   | Séquence : s'arrête au premier échec.                                                                                                                                                                                                                                                                                                                              |
+| `{sel: [...]}`                                                                   | Sélecteur (repli) : s'arrête au premier succès.                                                                                                                                                                                                                                                                                                                    |
+| `{if: C, then?, else?}`                                                          | Condition ; seule (`{if: C}`, dans un `sel` par exemple) elle réussit si `C` est vraie. Avec `then`/`else`, une branche absente vaut succès.                                                                                                                                                                                                                       |
+| `{act, t?, v?, url?, expect?, confirm?, timeout_ms?}`                            | Geste : `goto`, `click`, `fill`, `select`, `press`, `check`, `uncheck`, `hover`, `wait`. `t` : cibles essayées dans l'ordre ; `v` : valeur ; `url` : chemin relatif ou URL de même origine (`goto`) ; `expect` : postcondition ; `confirm` : `true` (arrêt avant le geste à chaque exécution) ou `"once"` (jusqu'à une première exécution approuvée puis réussie). |
+| `{login: {creds, password_target?, username_target?, submit_target?, wait_for}}` | Délègue à `pw_login`. `creds` vaut exactement `{param}` d'un paramètre `creds` ; `wait_for` est **obligatoire** (il prouve que la connexion a réussi).                                                                                                                                                                                                             |
+| `{retry: N, max: 1..3}`                                                          | Rejoue le sous-arbre `N` (au plus `max` essais au total) ; seuls `goto`, `wait`, `hover`, `wait_ms` et les conditions y sont admis : `fill` et `select` relancent des événements `input`/`change` (comme une frappe), `click`, `press`, `check`, `uncheck`, `confirm` et `login` agissent ; tous sont **refusés** sous un `retry`.                                 |
+| `{wait_ms: n}`                                                                   | Pause, 10 000 ms au plus.                                                                                                                                                                                                                                                                                                                                          |
 
 Condition : `{url_path?, visible?, text?, not?}` (toutes les clés données doivent tenir) ;
 `url_path` compare le chemin de la page (égalité, `*` = suite quelconque) sur l'origine de la
@@ -2266,8 +2293,8 @@ gardées par procédure). La suppression d'un compte efface procédures et exéc
   interrompt l'attente d'un geste en cours (`status: "cancelled"` ; le geste déjà parti peut aller à son terme
   dans le service).
 - Résultat (jamais d'exception) : `{ok, status: ok|failed|needs_confirmation|cancelled, procedure, version,
-  steps: [{path, act, target_used, ok, ms, reason?}], failed_at?: {path, reason, tried_targets}, node_path?,
-  description?, url, title, duration_ms, attempts}`. `path` numérote les nœuds (`0.2.then`, `0.1.retry`) ; `url`
+steps: [{path, act, target_used, ok, ms, reason?}], failed_at?: {path, reason, tried_targets}, node_path?,
+description?, url, title, duration_ms, attempts}`. `path` numérote les nœuds (`0.2.then`, `0.1.retry`) ; `url`
   et `title` sont lus en fin d'exécution et expurgés comme tout résultat `pw_*`.
 - Les paramètres sont validés **avant le premier geste** (tous présents, du bon type, pas de paramètre en trop ;
   une référence `⟦creds:…@origine⟧` doit viser l'origine de la procédure) ; leurs valeurs ne sont jamais
@@ -2300,10 +2327,11 @@ conversation.
 **Apprentissage.** Trois voies, toutes aboutissant à une version **non approuvée** validée par `validerProcedure` (aucune règle
 assouplie) ; la logique pure vit dans `packages/contracts/src/apprentissage.ts` (`chaineVersSeq`, `brouillonDepuisConversation`,
 `brouillonDepuisRecorder`, `construireProcedure`) et l'enregistrement dans `sauvegarder` de `@elpis/db` (partagé par le core et l'hôte).
-- *« Enregistrer comme procédure »* (menu de la conversation → fenêtre d'aperçu). Routes de session du process main
+
+- _« Enregistrer comme procédure »_ (menu de la conversation → fenêtre d'aperçu). Routes de session du process main
   `POST /api/procedures/apprendre/{brouillon,apercu,enregistrer}` (garde CSRF, JSON exigé, identité de l'hôte refusée, conversation d'un autre
   compte = 404) : le core relit `tool_history` de la conversation (`apps/core/src/procedures/apprentissage.ts`) et **recalcule le brouillon à
-  chaque appel** (jamais celui du client). Sont retenus les gestes **réussis** d'**une** origine (celle du premier geste, ou la demandée ; la page est suivie résultat après résultat, étape par étape dans `pw_chain`, d'après les formes RÉELLES des résultats : `pw_session` `{status: "started", url}`, `pw_act` `{status: "success", url}` ou `{ok: false, error}`, `pw_login` `{ok: true}`, étape de chaîne `{success, url?}`) :
+  chaque appel** (jamais celui du client). Sont retenus les gestes **réussis** d'**une** origine (celle qui compte le plus de gestes à effet click/press/fill/select/check, à égalité celle du dernier geste à effet, ou la demandée ; la fenêtre signale « Plusieurs sites dans cette conversation » quand il y en a plusieurs ; la page est suivie résultat après résultat, étape par étape dans `pw_chain`, d'après les formes RÉELLES des résultats : `pw_session` `{status: "started", url}`, `pw_act` `{status: "success", url}` ou `{ok: false, error}`, `pw_login` `{ok: true}`, étape de chaîne `{success, url?}`) :
   ouverture de session et `goto`, `pw_act` (click, fill, select, check, uncheck, hover, press), étapes réussies de `pw_chain` (converties par
   `chaineVersSeq`), `pw_login` (→ nœud `login` avec paramètre `creds`, jamais le jeton ni une valeur ; sans `wait_for` l'utilisateur le fournit).
   Écartés et listés avec leur raison : échecs, gestes ambigus, autre origine, cibles `css=`/`xpath=`/`ref=`, `secret=`, et **tout appel `pw_run`** (décision : ses gestes
@@ -2311,17 +2339,17 @@ assouplie) ; la logique pure vit dans `packages/contracts/src/apprentissage.ts` 
   constatée (`goto` sans redirection, clic qui a changé le chemin). Les valeurs saisies et les requêtes des `goto` sont **proposées** comme paramètres
   (nom suggéré d'après la cible) : l'utilisateur les garde littérales ou les transforme. **Jamais de littéral sensible** : une saisie dans un champ qui évoque un secret
   (mot de passe, OTP, code de vérification ou reçu par SMS, réponse secrète, MDP, carte, IBAN, CVC, PIN… : accents et casse normalisés, aligné sur `recorder_util.js`),
-  une clé de requête sensible (token, password, sid, session, auth, key, code, otp…) et un segment de chemin opaque (UUID, hexadécimal, identifiant long, ou suivant `/session/`) deviennent
+  une clé de requête sensible (token, jeton, password, sid, session, auth, key, api key, code, otp, hash, state, nonce, sig, signature, jwt, magic, reset, authorization…), une valeur qui ressemble à un secret (JWT, chaîne d'au moins 20 caractères mêlant lettres et chiffres, quelle que soit la clé ou le champ) et un segment de chemin opaque (UUID, hexadécimal, JWT, base64, identifiant long, ou suivant `/session/`) deviennent
   des paramètres **imposés** non décochables, valeur **masquée** dans la fenêtre ; les identifiants opaques d'un `expect.url_path` deviennent `*` ; `construireProcedure` REFUSE
-  toute procédure où un littéral sensible subsisterait. `confirm: true` est proposé sur **tous** les gestes à effet qui suivent la dernière saisie (fill/select) et sur le
+  toute procédure où un littéral sensible ou un fragment d'URL (`#…`, retiré partout, y compris dans `chaineVersSeq`) subsisterait. La liste des motifs de secrets est unique : `packages/contracts/src/motifs-secrets.ts` et `browser-service/motifs_secrets.js` (livré à part, donc deux copies identiques) ; `tools/verifier_motifs_secrets.mjs`, lancé par `npm run typecheck`, échoue si elles divergent. `confirm: true` est proposé sur **tous** les gestes à effet qui suivent la dernière saisie (fill/select) et sur le
   dernier geste à effet (rien ne permet de détecter un POST sensible), ajustable par geste. L'aperçu reprend le rendu de l'écran Procédures. Même nom et même origine :
   nouvelle version ; même nom pour un autre site : 409. `brouillon` et `apercu` rendent l'**empreinte** (sha256 du brouillon canonique) ; `enregistrer` exige cette empreinte et l'origine, recalcule le brouillon et répond **409** si la conversation a changé depuis l'aperçu (les choix sont indexés par position). Les cibles de repli de la mémoire AX ne sont **pas** ajoutées (limite).
-- *Recorder* : `pw_procedure(action='learn_recorder', session_id)` lit `GET /recorder/dump?format=json` de la session (propre au compte) et rend un
+- _Recorder_ : `pw_procedure(action='learn_recorder', session_id)` lit `GET /recorder/dump?format=json` de la session (propre au compte) et rend un
   **brouillon sans rien enregistrer** que le modèle complète puis `save` (les secrets sont déjà des variables `PASSWORD`/`OTP`… : motif identifiant
-  + mot de passe + validation → nœud `login` sans valeur ; autres gestes secrets, adresses masquées, cibles sans role/name/label/placeholder/text
-  écartés ; un `login` garde `text=TO_FILL` à remplacer, rien n'est deviné). Pas d'écran d'import : l'accès au recorder depuis le core serait
-  invasif et passer par l'hôte d'outils pour l'interface est disproportionné.
-- *`/proc`* : liste les procédures du compte (origine, dernière version, approuvée ou non) et insère dans la zone de saisie « Exécute la procédure
+  - mot de passe + validation → nœud `login` sans valeur ; autres gestes secrets, adresses masquées, cibles sans role/name/label/placeholder/text
+    écartés ; un `login` garde `text=TO_FILL` à remplacer, rien n'est deviné). Pas d'écran d'import : l'accès au recorder depuis le core serait
+    invasif et passer par l'hôte d'outils pour l'interface est disproportionné.
+- _`/proc`_ : liste les procédures du compte (origine, dernière version, approuvée ou non) et insère dans la zone de saisie « Exécute la procédure
   « x » (version N) avec : p = … » ; aucun appel d'outil depuis l'interface, le modèle exécute par `pw_run` avec les cartes d'accord habituelles.
 
 **`pw_chain` comme cas simple.** `chaineVersSeq(etapes, origin, {parametres})`
@@ -2333,14 +2361,14 @@ dans `erreurs`. Aucune étape n'en fait encore un outil : elle sert à l'apprent
 **Réparation par le modèle du chat.** Il n'y a aucun second modèle dans l'hôte d'outils : quand `pw_run` échoue de
 façon **réparable**, c'est le modèle de la conversation (ou de la routine) qui corrige l'arbre avec les outils.
 
-- *Réparable* : l'échec est constaté **avant toute action** (`element_not_found`, `ambiguous_target`,
+- _Réparable_ : l'échec est constaté **avant toute action** (`element_not_found`, `ambiguous_target`,
   `element_detached`, `option_not_found`, cible invalide après substitution) ou ne fait que lire (`expect` raté après
   `goto`/`hover`/`wait`, `wait` expiré, `if` seul faux) **et** aucun `click`, `press`, `fill`, `select`, `check` ni
   `uncheck` de cette exécution (ou de cette reprise) n'a réussi sans qu'un `expect` en confirme l'effet : sinon la
   réparation pourrait rejouer un geste qui a agi (le moteur le suit dans `Execution`, pas sur le seul nœud en échec).
   Les échecs ambigus, `acted_unconfirmed`, `origin_changed`, `origin_mismatch`, `login_*` et les budgets ne le sont **pas**.
-- *Contexte* : `failed_at.repair` = `{repair_id, path, reason, intent, intent_untrusted, node, tried_targets, codes, played,
-  warning, page}`. `intent` est le champ optionnel `note` du nœud (200 caractères), sinon celui du plus proche parent qui
+- _Contexte_ : `failed_at.repair` = `{repair_id, path, reason, intent, intent_untrusted, node, tried_targets, codes, played,
+warning, page}`. `intent` est le champ optionnel `note` du nœud (200 caractères), sinon celui du plus proche parent qui
   en porte un, sinon la description de la procédure ; `played` liste les gestes déjà joués dans l'exécution (chemin, `act`,
   cible utilisée, `expect_confirmed`) : ils ont eu lieu et ne sont pas rejoués. `page` est un instantané **compact**
   (`untrusted: true`) : origine + chemin, titre, au plus 40 candidats `{role, name, target}` (rôles interactifs avec nom
@@ -2348,21 +2376,21 @@ façon **réparable**, c'est le modèle de la conversation (ou de la routine) qu
   Il est demandé au service sans valeur (`no_values=true` : aucun nom ni texte tiré de la valeur d'un champ, comme en session
   sécurisée) et les champs de saisie dont le nom serait leur texte sont écartés ; ni texte libre ni sélecteur ; expurgé des
   secrets résolus. `intent`, notes et page sont des données non fiables.
-- *`repair_id`* : attente enregistrée comme la confirmation (`ax_procedure_runs`, issue `needs_repair`, jeton, page,
+- _`repair_id`_ : attente enregistrée comme la confirmation (`ax_procedure_runs`, issue `needs_repair`, jeton, page,
   exécution logique `chain`) : même compte, procédure, version et chemin, 15 minutes, **usage unique**, annulée
   (`superseded`) par toute autre exécution sur la session. Au plus **2 réparations par exécution logique** (suite de
   reprises) et **1 par nœud** ; au-delà `failed_at.repair_unavailable` et l'échec est final.
-- *`pw_procedure(action='repair', id, repair_id, node)`* : seulement pour la **dernière** version (sinon
+- _`pw_procedure(action='repair', id, repair_id, node)`_ : seulement pour la **dernière** version (sinon
   `repair_outdated`). Le nœud est validé comme un `save` **plus** ces règles (`verifierReparation`) :
   (a) chaque geste sous `confirm` du sous-arbre remplacé garde un correspondant de même `act` sous confirm (un
   `confirm: true` permanent reste `true`, il ne peut pas devenir `"once"`) et, pour un `goto`, la **même URL complète**
   (requête comprise) ; (b) tout `click`/`press`/`fill`/`select`/`check`/`uncheck` ou `goto` **nouveau** (sans
   correspondant de même `act` dans l'ancien sous-arbre, appariés par cible, puis `expect`, puis ordre) reçoit
   automatiquement `confirm: "once"` ; (c) un geste à effet **apparié dont la cible change** reçoit `confirm: "once"` si
-  l'une de trois gardes se déclenche : *anti-rejeu* (une cible du nouveau geste, ou le même nom accessible normalisé,
+  l'une de trois gardes se déclenche : _anti-rejeu_ (une cible du nouveau geste, ou le même nom accessible normalisé,
   figure dans les gestes déjà joués `played` ou dans un autre `act` de l'arbre hors du sous-arbre remplacé),
-  *changement de nom* (tout changement du nom accessible normalisé, sans accents ni casse ni ponctuation, dans un sens ou
-  l'autre : « Payer » → « Payer express », « Ne pas payer » → « Payer », « Relevés » → « Historique »), *historique* (la procédure n'a jamais eu d'exécution `ok`, toutes versions) ;
+  _changement de nom_ (tout changement du nom accessible normalisé, sans accents ni casse ni ponctuation, dans un sens ou
+  l'autre : « Payer » → « Payer express », « Ne pas payer » → « Payer », « Relevés » → « Historique »), _historique_ (la procédure n'a jamais eu d'exécution `ok`, toutes versions) ;
   sinon changer la cible du même geste ne demande rien ; (d) un `goto` neuf ne peut être qu'une URL déjà présente à
   l'identique (requête comprise, ancre ignorée) dans un `goto` de l'arbre ; **remplacer un `goto`** par une autre URL de
   l'origine (nouveau chemin, valeur de requête changée) est permis avec `confirm: "once"` ; (e) un `retry` neuf n'entoure
@@ -2373,14 +2401,14 @@ façon **réparable**, c'est le modèle de la conversation (ou de la routine) qu
   approbations `once` du nœud réparé et de ses descendants, marque l'attente `repaired` (seulement si elle est encore
   réservée : une attente annulée entre-temps n'est pas ressuscitée et la version écrite est retirée) et rend
   `{new_version, confirm_once, next}`.
-- *`confirm: "once"`* : l'accord est demandé tant que le geste (procédure, chemin, `act`, cibles, valeur et URL :
+- _`confirm: "once"`_ : l'accord est demandé tant que le geste (procédure, chemin, `act`, cibles, valeur et URL :
   empreinte sha256 des valeurs **substituées**) n'a pas été **approuvé par l'utilisateur** (accord humain consommé), **joué avec succès** puis suivi d'une exécution `ok` de la même chaîne (confirmation ou
   réparation comprises) ; ensuite il ne demande plus. L'approbation est stockée dans `ax_procedure_approvals`
   (migration `0032_approbations_procedures`, purgée avec le compte et la procédure) ; modifier le geste change son
   empreinte, une réparation qui le touche l'oublie. `needs_confirmation` précise alors `first_run_after_repair: true` (le marqueur vient d'une réparation ou d'un `save`).
   La `description` de tout accord inclut la page courante (origine + chemin + requête, purgés) et, pour un `goto`,
   l'URL complète visée après substitution.
-- *Reprise* : `pw_run(…, version=new_version, resume=repair_id)` reprend **au chemin réparé** sans rejouer ce qui le
+- _Reprise_ : `pw_run(…, version=new_version, resume=repair_id)` reprend **au chemin réparé** sans rejouer ce qui le
   précède, à condition d'être sur la même session, sur la même page (origine, chemin et requête triée) et avec
   l'arbre réparé exact (empreinte sha256) ; le `repair_id` est consommé une fois. Le modèle peut aussi relancer depuis
   le début : les gestes précédents ont déjà eu lieu. `get` rend `lineage`, `list` rend `parent_version`,
@@ -2399,15 +2427,15 @@ clic masqué par une modale échoue après le délai du geste, de façon ambigu�
 
 ## Routines et webhooks (API)
 
-| Endpoint | Description |
-|---|---|
-| `GET/POST /api/routines` · `GET/PUT/DELETE /{id}` | CRUD |
-| `POST /{id}/enable` · `/disable` | Activation |
-| `POST /{id}/run-now` | Exécution manuelle |
-| `GET /{id}/runs` | Journal |
-| `POST /{id}/runs/{run_id}/stop` | Arrêt (statut `cancelled`) |
-| `POST /{id}/webhook/rotate` · `/filter` · `/disable` | Déclencheur webhook |
-| `POST /api/webhooks/routines/{id}` | **Point d'entrée public** (secret + dédup + filtre) |
+| Endpoint                                             | Description                                         |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `GET/POST /api/routines` · `GET/PUT/DELETE /{id}`    | CRUD                                                |
+| `POST /{id}/enable` · `/disable`                     | Activation                                          |
+| `POST /{id}/run-now`                                 | Exécution manuelle                                  |
+| `GET /{id}/runs`                                     | Journal                                             |
+| `POST /{id}/runs/{run_id}/stop`                      | Arrêt (statut `cancelled`)                          |
+| `POST /{id}/webhook/rotate` · `/filter` · `/disable` | Déclencheur webhook                                 |
+| `POST /api/webhooks/routines/{id}`                   | **Point d'entrée public** (secret + dédup + filtre) |
 
 Le secret webhook est généré côté serveur, montré **une seule fois**, et
 strippé de toutes les lectures. La dédup des livraisons est en base, avec
@@ -2425,17 +2453,17 @@ runtime `elpis_auto` de l'agent, enregistré en fichier dans la sandbox
 (`automations/`), pas en base (les anciens scénarios rejouables ont été
 retirés par la migration `0017_drop_scenarios`).
 
-| Endpoint | Description |
-|---|---|
+| Endpoint                                                                                        | Description                                                                        |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `POST /api/desktop/run-automation` · `GET /run-automation/status` · `POST /run-automation/stop` | Exécution d'un script sur la cible (script + `lib/` + `assets/` poussés à l'agent) |
-| `POST /api/desktop/run-automation-matrix` | Même script sur plusieurs cibles, en séquence |
-| `GET /api/desktop/run-file` | Fichier d'un rapport d'exécution (capture, étape) relayé depuis la cible |
-| `POST /api/desktop/locate` | Localisation visuelle d'un élément décrit, pour un script en cours |
-| `POST /api/desktop/automation-bundle` | Zip autonome d'un script (script + runtime) |
-| `GET /api/desktop/targets` · `/monitors` · `/active-target` (+ POST) | Cibles et écrans |
-| `POST /api/desktop/capture` · `/read` · `/act` · `/launch` · `/wait-window` · `/select-monitor` | Pilotage |
-| `GET /api/desktop/frame/{token}` | Capture (propriété stricte du jeton) |
-| `GET /agent` · `/agent.ps1` · `/api/desktop/install.{sh,ps1}` · `/api/desktop/agent-bundle` | Installation de l'agent |
+| `POST /api/desktop/run-automation-matrix`                                                       | Même script sur plusieurs cibles, en séquence                                      |
+| `GET /api/desktop/run-file`                                                                     | Fichier d'un rapport d'exécution (capture, étape) relayé depuis la cible           |
+| `POST /api/desktop/locate`                                                                      | Localisation visuelle d'un élément décrit, pour un script en cours                 |
+| `POST /api/desktop/automation-bundle`                                                           | Zip autonome d'un script (script + runtime)                                        |
+| `GET /api/desktop/targets` · `/monitors` · `/active-target` (+ POST)                            | Cibles et écrans                                                                   |
+| `POST /api/desktop/capture` · `/read` · `/act` · `/launch` · `/wait-window` · `/select-monitor` | Pilotage                                                                           |
+| `GET /api/desktop/frame/{token}`                                                                | Capture (propriété stricte du jeton)                                               |
+| `GET /agent` · `/agent.ps1` · `/api/desktop/install.{sh,ps1}` · `/api/desktop/agent-bundle`     | Installation de l'agent                                                            |
 
 ---
 
@@ -2445,13 +2473,13 @@ Permet de télécharger OpenCode depuis n'importe quel poste du réseau (offline
 L'admin dépose les binaires dans `cli_dist/`. Gardé par `features.opencode`
 (404 si désactivé) ; routes **publiques** (pas d'auth, usage LAN).
 
-| Endpoint | Description |
-|---|---|
-| `GET /opencode` · `GET /opencode.ps1` | Alias courts (chemin affiché par l'app) |
-| `GET /api/cli/install.sh` · `/install.ps1` | Scripts rendus avec l'URL LAN réellement contactée |
-| `GET /api/cli/opencode.json` | Config générée à chaud (endpoint + modèles live) ; authentifié (session ou `x-elpis-token`) → + bloc `mcp` des outils ELPIS avec le jeton du compte |
-| `GET /api/cli/bundle/{os}` | Artefact `linux` / `macos` / `windows` (opencode **1.18.16**) |
-| `GET /api/cli/ca.crt` | CA locale (PEM) — **hors** gate `features.opencode` |
+| Endpoint                                   | Description                                                                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /opencode` · `GET /opencode.ps1`      | Alias courts (chemin affiché par l'app)                                                                                                             |
+| `GET /api/cli/install.sh` · `/install.ps1` | Scripts rendus avec l'URL LAN réellement contactée                                                                                                  |
+| `GET /api/cli/opencode.json`               | Config générée à chaud (endpoint + modèles live) ; authentifié (session ou `x-elpis-token`) → + bloc `mcp` des outils ELPIS avec le jeton du compte |
+| `GET /api/cli/bundle/{os}`                 | Artefact `linux` / `macos` / `windows` (opencode **1.18.16**)                                                                                       |
+| `GET /api/cli/ca.crt`                      | CA locale (PEM) — **hors** gate `features.opencode`                                                                                                 |
 
 > Sécurité : l'URL de base interpolée dans les scripts est **validée** contre
 > `^https?://[A-Za-z0-9.\-]+(:\d+)?$` avant rendu — empêche l'injection
@@ -2497,7 +2525,7 @@ partage les deux mêmes sources.
 greffon est présent, opencode lance un `npm install @opencode-ai/plugin` dans
 chaque dossier de config et **bloque le chargement des greffons** dessus
 (`config.ts › waitForDependencies`) : mesuré 30 s (1.17.7) / 71 s (1.18.16)
-*avec* Internet, et **jamais terminé** sans (réseau qui drop). Les installeurs
+_avec_ Internet, et **jamais terminé** sans (réseau qui drop). Les installeurs
 posent donc `node_modules/` (vide) + `package.json` + `package-lock.json`
 déclarant la dépendance : opencode considère ses dépendances satisfaites et ne
 touche plus au réseau (**11 s** réseau coupé, contre un TUI qui ne s'affichait
@@ -2535,7 +2563,7 @@ Backend : `apps/core/src/familles/code.ts` + magasin `apps/core/src/code/magasin
   encore en vol ne ressuscite pas le client ; un ingest lève le tombstone. Filet :
   TTL 40 s.
 - ⚠ **Un signal peut être ABSORBÉ** (v12). Selon le mode du terminal, un Ctrl-C
-  arrive au TUI comme une *touche* ou au process comme un *signal*, et le
+  arrive au TUI comme une _touche_ ou au process comme un _signal_, et le
   gestionnaire natif d'opentui peut l'avaler sans quitter. Le greffon annonçait
   alors sa mort puis continuait de tourner : page « déconnecté », CLI qui se
   croit active, commandes de la page dans le vide — le « remote reste actif mais
@@ -2553,7 +2581,7 @@ Backend : `apps/core/src/familles/code.ts` + magasin `apps/core/src/code/magasin
   transcript. Une commande qu'une CLI vivante peut encore prendre n'est jamais
   annulée.
 - **Permissions interactives** : shape v2 (`{id, permission, patterns[],
-  metadata, tool}`) et v1 acceptés, normalisés une seule fois
+metadata, tool}`) et v1 acceptés, normalisés une seule fois
   (`normalize_permission`). La page répond via
   `POST /api/code/sessions/{sid}/permissions/{pid}` (`once|always|reject`) →
   kind `permission` du pull → le greffon appelle l'API opencode.
@@ -2562,13 +2590,13 @@ Backend : `apps/core/src/familles/code.ts` + magasin `apps/core/src/code/magasin
   jusqu'à la réponse — sans remontée, la page voyait une session « occupée »
   sans fin et la question n'existait que dans le terminal. Shape 1.18.16 (lue
   dans le binaire) : `question.asked` = `{id "que_…", sessionID, questions[{question,
-  header, options[{label, description}], multiple?, custom?}], tool?}` ;
+header, options[{label, description}], multiple?, custom?}], tool?}` ;
   `question.replied` = `{sessionID, requestID, answers: string[][]}` ;
   `question.rejected` = `{sessionID, requestID}`. Normalisée et **bornée** au
   store (`normalize_question` : 20 questions, 30 options, 4000 car. — le payload
   est piloté par le modèle). La page répond via
   `POST /api/code/sessions/{sid}/questions/{qid}` — `{"answers": [["Postgres"],
-  ["tests", "docs"]]}` (un tableau de libellés PAR question, la saisie libre est
+["tests", "docs"]]}` (un tableau de libellés PAR question, la saisie libre est
   un libellé comme un autre) ou `{"reject": true}` — → kind `question` du pull
   (`{questionID, answers}` | `{questionID, response: "reject"}`) → le greffon
   appelle `POST /question/{requestID}/reply|reject`. 409 explicite si le greffon
@@ -2620,7 +2648,7 @@ Backend : `apps/core/src/familles/code.ts` + magasin `apps/core/src/code/magasin
 
 ### Frontend
 
-Deux vues. **Landing** = liste centrée groupée *Connectées / Historique*
+Deux vues. **Landing** = liste centrée groupée _Connectées / Historique_
 (badge par session, temps relatif, méta enrichies, dismiss, renommage inline).
 **Session** = transcript plein écran + composeur en parité visuelle avec la
 barre de prompt du chat, largeur = réglage `chat_width`.
@@ -2631,7 +2659,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
   chargerait le modèle). Limite inconnue → chip « N tk » sans %.
 - **Rendu riche** (`frontend/src/features/code/rendu.ts`, `components/code/PageCode.vue`) : markdown, thinking **replié par
   défaut**, erreurs en tokens de danger, et une **ligne par appel d'outil** —
-  celle du TUI : état, nom, *sujet* et *métrique* tirés des métadonnées que
+  celle du TUI : état, nom, _sujet_ et _métrique_ tirés des métadonnées que
   l'outil publie réellement (`filepath`/`filediff`, `command`+`exitCode`,
   `pattern`+`matches`, `todos`, `preview`, `truncated`). Ce que l'outil a fait
   se lit sans rien ouvrir ; le repli ne sert qu'aux paramètres et à la sortie
@@ -2647,14 +2675,14 @@ barre de prompt du chat, largeur = réglage `chat_width`.
   grise, jamais un crash.
 - **Un seul signal d'activité**, dans la colonne du message que la CLI écrit —
   donc aligné sur son texte, sans padding à régler. Il annonce la **phase
-  réelle** (réflexion / outil *nom* / rédaction) et sa durée. Le drapeau `busy`
+  réelle** (réflexion / outil _nom_ / rédaction) et sa durée. Le drapeau `busy`
   du store est doublé d'un garde-fou côté page (dernier message assistant
   `time.completed` ⇒ plus rien ne tourne) : opencode 1.18 publie surtout
   `session.status`, que le greffon v13 ne remonte pas, et l'indicateur restait
   allumé. L'horloge (1 s) n'est armée que pendant la génération.
 - **Erreur de tour** (`info.error`) et **message de résumé** (`info.summary`)
   rendus dans le transcript : l'erreur n'était qu'une toast fugace.
-- **Modes `plan` / `build`** (greffon v12) : ce sont les *agents primaires*
+- **Modes `plan` / `build`** (greffon v12) : ce sont les _agents primaires_
   d'opencode (touche `tab` du TUI). Le greffon pousse `client.agents`
   (`client.app.agents()`, filtré `mode === "primary"` et `!hidden` — donc ni les
   sous-agents `explore`/`general`, ni les internes `title`/`summary`/`compaction`),
@@ -2662,7 +2690,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
   relayé jusqu'à `promptAsync` (accepté par l'OpenAPI 1.17 **et** 1.18 — les
   postes non mis à jour continuent donc de fonctionner, sans le sélecteur).
   Côté page, on change de mode avec les **commandes `/plan` et `/build`** — une
-  commande *app* par agent primaire, générée depuis ce que la CLI a remonté (donc
+  commande _app_ par agent primaire, générée depuis ce que la CLI a remonté (donc
   aussi les agents primaires personnalisés), jamais en dur. Elles apparaissent
   dans le dropdown « / » comme `/model` ou `/compact`, et sont interceptées par
   l'interface (`codeAppCmds` — pas la liste statique `APP_CMDS`, sinon un
@@ -2678,7 +2706,7 @@ barre de prompt du chat, largeur = réglage `chat_width`.
 - **Diffs « comme opencode »** partout, en cartes colorisées repliées au-delà de
   12 lignes : `metadata.diff` des outils (**toujours visible, jamais derrière un
   clic** — c'est le résultat du tour), blocs de code `diff` **fermés** du
-  markdown (une fence encore ouverte en stream reste du texte), sorties qui *sont* un
+  markdown (une fence encore ouverte en stream reste du texte), sorties qui _sont_ un
   diff (heuristique `diff --git` / `---`+`+++`+`@@`, ≤ 200 k), part `patch`
   dépliable. Un `write` ne produit aucun diff côté opencode (il n'y a pas
   d'avant) : la carte « tout en ajouts » est fabriquée depuis `input.content`,
@@ -2703,12 +2731,12 @@ Dictée (voix → texte) et lecture des réponses (texte → voix). L'hôte appl
 ne calcule **rien** : il valide, borne et relaie vers deux services déportés,
 décrits dans `deploy/voice/`.
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/voice/status` | Disponibilité (instance + réglages du compte), langue, plafonds, voix |
+| Endpoint                     | Description                                                                                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/voice/status`      | Disponibilité (instance + réglages du compte), langue, plafonds, voix                                                                                      |
 | `POST /api/voice/transcribe` | Un énoncé en **WAV 16 kHz mono PCM 16 bits** → `{text}`. Un texte vide n'est pas une erreur : c'est le cas normal quand l'énoncé ne portait que du souffle |
-| `POST /api/voice/speak` | `{text, auto?}` → `audio/wav`. `auto: true` signale une lecture automatique et exige le réglage « Réponse vocale » |
-| `POST /api/admin/voice/test` | Sonde les deux services, **toujours HTTP 200** (`{ok, stt, tts}`), accepte des surcharges d'URL pour tester avant d'enregistrer |
+| `POST /api/voice/speak`      | `{text, auto?}` → `audio/wav`. `auto: true` signale une lecture automatique et exige le réglage « Réponse vocale »                                         |
+| `POST /api/admin/voice/test` | Sonde les deux services, **toujours HTTP 200** (`{ok, stt, tts}`), accepte des surcharges d'URL pour tester avant d'enregistrer                            |
 
 Codes d'erreur de `/transcribe` : `403` désactivée (instance ou compte) ·
 `413` trop gros · `415` pas un WAV 16 kHz mono · `502` injoignable · `504` timeout.
@@ -2740,19 +2768,19 @@ prononcé.
 
 ## Notifications, usage, événements
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/notifications?before=&limit=` | Liste + non-lus |
-| `GET /api/notifications/unread-count` | Badge |
-| `PATCH /{id}/read` · `/unread` · `POST /read-all` · `DELETE /{id}` · `POST /clear` | Gestion |
-| `GET /api/usage/me?days=` | Usage personnel (chats, tokens + origines, messages, routines) |
-| `GET /api/system-events` | Flux SSE consolidé |
-| `GET /api/health` · `GET /api/public-config` | Sondes publiques |
-| `GET /api/app-logo?v=…` | Logo de l'application (`app_info.logo_b64`), avatar de l'assistant ; adresse à empreinte donnée par `app_logo_url` de `/api/public-config` |
-| `GET /api/help/readme?doc=user\|dev` | Sert ce document et le guide utilisateur à la modale d'aide |
-| `POST /api/tools/extract-text` | Extraction texte d'un upload (**max 2 Mo**) |
-| `GET /api/playwright/screenshot/{filename}` | Capture, avec contrôle de propriété et suppression anti-rejeu |
-| `GET /api/charts/{chart_id}` | Graphique généré |
+| Endpoint                                                                           | Description                                                                                                                                |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/notifications?before=&limit=`                                            | Liste + non-lus                                                                                                                            |
+| `GET /api/notifications/unread-count`                                              | Badge                                                                                                                                      |
+| `PATCH /{id}/read` · `/unread` · `POST /read-all` · `DELETE /{id}` · `POST /clear` | Gestion                                                                                                                                    |
+| `GET /api/usage/me?days=`                                                          | Usage personnel (chats, tokens + origines, messages, routines)                                                                             |
+| `GET /api/system-events`                                                           | Flux SSE consolidé                                                                                                                         |
+| `GET /api/health` · `GET /api/public-config`                                       | Sondes publiques                                                                                                                           |
+| `GET /api/app-logo?v=…`                                                            | Logo de l'application (`app_info.logo_b64`), avatar de l'assistant ; adresse à empreinte donnée par `app_logo_url` de `/api/public-config` |
+| `GET /api/help/readme?doc=user\|dev`                                               | Sert ce document et le guide utilisateur à la modale d'aide                                                                                |
+| `POST /api/tools/extract-text`                                                     | Extraction texte d'un upload (**max 2 Mo**)                                                                                                |
+| `GET /api/playwright/screenshot/{filename}`                                        | Capture, avec contrôle de propriété et suppression anti-rejeu                                                                              |
+| `GET /api/charts/{chart_id}`                                                       | Graphique généré                                                                                                                           |
 
 Événements SSE émis :
 
@@ -2778,22 +2806,22 @@ data: {"type": "code.event", ...}
 > rôle implicite. Erreurs : `{detail, code}` (`CODES_ERREUR_ROUTES_RAG`,
 > `packages/contracts/src/rest/rag.ts`).
 
-| Endpoint | Rôle | Description |
-|---|---|---|
-| `GET /api/rag/etat` | compte | Droit RAG, services (extracteur, Qdrant, embeddings) et raison d'une panne, quotas et usage |
-| `GET /api/rag/collections[?masquees=1]` · `GET /{id}` | lecteur | Mes collections puis celles partagées avec moi (`hidden` pour celles que j'ai masquées) |
-| `POST /api/rag/collections` · `PATCH /{id}` · `DELETE /{id}` | propriétaire | Création sous quota ; nom, description, découpage, OCR (un changement relance l'indexation des documents concernés) ; suppression |
-| `PUT /{id}/publication` · `GET /api/rag/groupes-publication` | propriétaire | Privée, groupes dont je suis membre, ou tous les comptes (admin seulement) ; `allow_source_open` ; `notified` = comptes prévenus |
-| `PUT /{id}/masquage` | lecteur | « Masquer de ma liste » une collection partagée |
-| `GET /{id}/documents` · `GET /{id}/documents/{doc}` | lecteur | Documents (filtre, état, tri, pagination par 500) |
-| `POST /{id}/documents` | propriétaire | Dépôt multipart (1000 fichiers au plus, corps total borné par le quota du fichier) : `ajoute`, `remplace`, `deja_present` (même sha256) ou `refuse` par fichier |
-| `POST /{id}/import-sandbox` | propriétaire | Copie de fichiers de `/work` par l'hôte d'outils (500 chemins) |
-| `DELETE /{id}/documents/{doc}` · `POST /{id}/vider` · `POST /{id}/reindexer` | propriétaire | Suppression, vidage, réindexation |
-| `POST /{id}/recherche` | lecteur | Onglet Tester : passages comme l'assistant les recevra, carte des documents, estimation en jetons |
-| `GET /{id}/documents/{doc}/passages` · `/pages/{n}` · `POST /localiser` | lecteur | Visionneuse : fenêtre de passages, page rendue (WebP, cache), rectangles d'un passage ; débit borné par compte |
-| `GET /{id}/documents/{doc}/original` | propriétaire, ou lecteur si `allow_source_open` | Fichier d'origine |
-| `GET /api/rag/travaux` | compte | Mes travaux d'indexation (progression aussi par l'événement système `rag_job`) |
-| `PUT /api/saved/chats/{chat_id}/rag` | compte | Collections actives d'un chat (10 au plus, toutes lisibles), mode, `top_k` |
+| Endpoint                                                                     | Rôle                                            | Description                                                                                                                                                     |
+| ---------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/rag/etat`                                                          | compte                                          | Droit RAG, services (extracteur, Qdrant, embeddings) et raison d'une panne, quotas et usage                                                                     |
+| `GET /api/rag/collections[?masquees=1]` · `GET /{id}`                        | lecteur                                         | Mes collections puis celles partagées avec moi (`hidden` pour celles que j'ai masquées)                                                                         |
+| `POST /api/rag/collections` · `PATCH /{id}` · `DELETE /{id}`                 | propriétaire                                    | Création sous quota ; nom, description, découpage, OCR (un changement relance l'indexation des documents concernés) ; suppression                               |
+| `PUT /{id}/publication` · `GET /api/rag/groupes-publication`                 | propriétaire                                    | Privée, groupes dont je suis membre, ou tous les comptes (admin seulement) ; `allow_source_open` ; `notified` = comptes prévenus                                |
+| `PUT /{id}/masquage`                                                         | lecteur                                         | « Masquer de ma liste » une collection partagée                                                                                                                 |
+| `GET /{id}/documents` · `GET /{id}/documents/{doc}`                          | lecteur                                         | Documents (filtre, état, tri, pagination par 500)                                                                                                               |
+| `POST /{id}/documents`                                                       | propriétaire                                    | Dépôt multipart (1000 fichiers au plus, corps total borné par le quota du fichier) : `ajoute`, `remplace`, `deja_present` (même sha256) ou `refuse` par fichier |
+| `POST /{id}/import-sandbox`                                                  | propriétaire                                    | Copie de fichiers de `/work` par l'hôte d'outils (500 chemins)                                                                                                  |
+| `DELETE /{id}/documents/{doc}` · `POST /{id}/vider` · `POST /{id}/reindexer` | propriétaire                                    | Suppression, vidage, réindexation                                                                                                                               |
+| `POST /{id}/recherche`                                                       | lecteur                                         | Onglet Tester : passages comme l'assistant les recevra, carte des documents, estimation en jetons                                                               |
+| `GET /{id}/documents/{doc}/passages` · `/pages/{n}` · `POST /localiser`      | lecteur                                         | Visionneuse : fenêtre de passages, page rendue (WebP, cache), rectangles d'un passage ; débit borné par compte                                                  |
+| `GET /{id}/documents/{doc}/original`                                         | propriétaire, ou lecteur si `allow_source_open` | Fichier d'origine                                                                                                                                               |
+| `GET /api/rag/travaux`                                                       | compte                                          | Mes travaux d'indexation (progression aussi par l'événement système `rag_job`)                                                                                  |
+| `PUT /api/saved/chats/{chat_id}/rag`                                         | compte                                          | Collections actives d'un chat (10 au plus, toutes lisibles), mode, `top_k`                                                                                      |
 
 Formats acceptés : pdf, docx, pptx, xlsx, html, md, txt, csv, json, yaml.
 Routes de la console : voir [Administration](#administration-api).
@@ -2807,54 +2835,54 @@ Routes de la console : voir [Administration](#administration-api).
 
 ### Métriques et observabilité
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/admin/stats-dynamic[?ids=]` | Layout + data du dashboard (parallèle ; `ids` = rafraîchissement sélectif) |
-| `GET /api/admin/metrics/prometheus` | Export Prometheus — session admin **ou** jeton de scrape (`Authorization: Bearer` / `?token=`). Séries de conso sur **trois fenêtres** (`window="1d\|7d\|30d"`) : un collecteur ne peut pas reconstituer 30 jours depuis une jauge à 24 h |
-| `GET/POST /api/admin/metrics/scrape-token` | Jeton de scrape révocable (admin strict) |
-| `POST /api/admin/metrics/purge` | Purge sélective/totale, `dry_run` d'abord, journalisée à l'audit (admin strict) |
-| `GET /api/admin/export-metrics?target=` | Export CSV (`metric_events` ou `usage_events`) |
-| `GET /api/admin/logs/recent` | Ring buffer (300 dernières entrées) |
-| `GET /api/admin/report/daily[/list\|/auto]` · `POST /generate` · `POST /auto` | Digest quotidien |
-| `GET /api/admin/observability/tool-summary` · `/tool-failures` · `/audit-recent` | Santé des outils, audit |
-| `GET /api/admin/llm-traffic[/{call_id}]` · `DELETE` | Viewer du trafic LLM |
+| Endpoint                                                                         | Description                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/admin/stats-dynamic[?ids=]`                                            | Layout + data du dashboard (parallèle ; `ids` = rafraîchissement sélectif)                                                                                                                                                                |
+| `GET /api/admin/metrics/prometheus`                                              | Export Prometheus — session admin **ou** jeton de scrape (`Authorization: Bearer` / `?token=`). Séries de conso sur **trois fenêtres** (`window="1d\|7d\|30d"`) : un collecteur ne peut pas reconstituer 30 jours depuis une jauge à 24 h |
+| `GET/POST /api/admin/metrics/scrape-token`                                       | Jeton de scrape révocable (admin strict)                                                                                                                                                                                                  |
+| `POST /api/admin/metrics/purge`                                                  | Purge sélective/totale, `dry_run` d'abord, journalisée à l'audit (admin strict)                                                                                                                                                           |
+| `GET /api/admin/export-metrics?target=`                                          | Export CSV (`metric_events` ou `usage_events`)                                                                                                                                                                                            |
+| `GET /api/admin/logs/recent`                                                     | Ring buffer (300 dernières entrées)                                                                                                                                                                                                       |
+| `GET /api/admin/report/daily[/list\|/auto]` · `POST /generate` · `POST /auto`    | Digest quotidien                                                                                                                                                                                                                          |
+| `GET /api/admin/observability/tool-summary` · `/tool-failures` · `/audit-recent` | Santé des outils, audit                                                                                                                                                                                                                   |
+| `GET /api/admin/llm-traffic[/{call_id}]` · `DELETE`                              | Viewer du trafic LLM                                                                                                                                                                                                                      |
 
 ### Utilisateurs et groupes
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/admin/users-with-groups` | Liste + membership + profils réseau + accès serveurs (`llm_*` : réglage propre et effectif) |
-| `POST /api/admin/users/new` · `DELETE /{id}` | Créer / supprimer (cascade) |
-| `POST /api/admin/users/{id}/role` · `/sandbox-quota` · `/network-profile` | Rôle, quota, profil réseau **imposé** |
-| `POST /api/admin/reset-password` | Réinitialisation (pose `must_change_pwd`) |
-| `GET/POST/PUT/DELETE /api/admin/groups[/{id}]` · `PUT /api/admin/users/{id}/groups` | Groupes |
+| Endpoint                                                                                 | Description                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/admin/users-with-groups`                                                       | Liste + membership + profils réseau + accès serveurs (`llm_*` : réglage propre et effectif)                                                                                                                            |
+| `POST /api/admin/users/new` · `DELETE /{id}`                                             | Créer / supprimer (cascade)                                                                                                                                                                                            |
+| `POST /api/admin/users/{id}/role` · `/sandbox-quota` · `/network-profile`                | Rôle, quota, profil réseau **imposé**                                                                                                                                                                                  |
+| `POST /api/admin/reset-password`                                                         | Réinitialisation (pose `must_change_pwd`)                                                                                                                                                                              |
+| `GET/POST/PUT/DELETE /api/admin/groups[/{id}]` · `PUT /api/admin/users/{id}/groups`      | Groupes                                                                                                                                                                                                                |
 | `GET/PUT /api/admin/users/{id}/llm-access` · `GET/PUT /api/admin/groups/{id}/llm-access` | Serveurs utilisables (`engine_keys` : `null` = hérité/sans règle, `["*"]` = tous, sinon `builtin` / `conn:<id>`) et droit de gérer les modèles (`can_manage_models`) ; compte > union des groupes > tous, admin = tout |
-| `GET /api/admin/llm/engine-options` | Serveurs proposables (intégré + connecteurs partagés) |
+| `GET /api/admin/llm/engine-options`                                                      | Serveurs proposables (intégré + connecteurs partagés)                                                                                                                                                                  |
 
 ### Configuration et système
 
-| Endpoint | Description |
-|---|---|
-| `GET/POST /api/admin/config-file?type=main` | Édition JSON (backup `.bak` automatique) |
-| `GET/POST /api/admin/compression-config` | Règles de compaction |
-| `GET /api/admin/system-prompts[/{category}\|/_template\|/_preview]` · `PUT /{category}` | Prompts système |
-| `POST /api/admin/restart` · `/cache/invalidate` | Redémarrage, caches |
-| `GET /api/admin/backup?scope=` · `POST /api/admin/restore` | Sauvegarde / restauration |
-| `GET/POST /api/admin/backup/remote[/key\|/password\|/send\|/test]` | Sauvegarde distante (SFTP par clé, rsync par mot de passe, dossier monté) + planification « toutes les N heures/jours » (`apps/core/src/ops/sauvegarde-distante.ts`, dans main) |
-| `GET/POST /api/admin/executors` · `GET /healthcheck` | Config sandbox |
-| `GET /api/admin/sandbox/containers` · `POST /{id}/stop` · `DELETE /{id}` · `POST /api/admin/sandbox/gc` | Conteneurs |
-| `GET /api/admin/llm-capabilities` · `POST /probe` · `POST /api/admin/llm-scheduling-mode` | Capacités et planification |
-| `GET/POST/PUT/DELETE /api/admin/llm/connectors[/{id}]` · `POST /{id}/test` | Connecteurs partagés |
-| `GET/PUT /api/admin/llm/allowed-providers` | Types de fournisseurs autorisés aux utilisateurs |
-| `GET/POST /api/admin/security/https` | Toggle HTTPS (avec garde anti-lockout) |
-| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` · `/clear-user-revocation/{id}` | Sessions |
-| `POST /api/admin/rag-service/test` | Santé de l'extracteur du RAG (URL et jeton du formulaire ou enregistrés) |
-| `GET /api/admin/rag/etat` · `POST /api/admin/rag/essai/{service}` | État et essai des services du RAG (extracteur, Qdrant, embeddings, reclassement, OCR) |
-| `GET /api/admin/rag/collections` · `DELETE /{id}` | Métadonnées de toutes les collections ; suppression (jamais le contenu) |
-| `GET /api/admin/rag/comptes` · `PUT /{user_id}/quota` | Usage et quota RAG par compte |
-| `GET /api/admin/rag/travaux` · `POST /{job_id}/suspendre\|reprendre\|annuler` | Travaux d'indexation de l'instance |
-| `GET /api/admin/rag/reindexation` · `POST /api/admin/rag/reindexer` | Réindexation de toutes les collections (changement de modèle d'embedding) |
-| `POST /api/admin/internal/restart-self` | Contrôle interne (loopback) |
+| Endpoint                                                                                                      | Description                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET/POST /api/admin/config-file?type=main`                                                                   | Édition JSON (backup `.bak` automatique)                                                                                                                                        |
+| `GET/POST /api/admin/compression-config`                                                                      | Règles de compaction                                                                                                                                                            |
+| `GET /api/admin/system-prompts[/{category}\|/_template\|/_preview]` · `PUT /{category}`                       | Prompts système                                                                                                                                                                 |
+| `POST /api/admin/restart` · `/cache/invalidate`                                                               | Redémarrage, caches                                                                                                                                                             |
+| `GET /api/admin/backup?scope=` · `POST /api/admin/restore`                                                    | Sauvegarde / restauration                                                                                                                                                       |
+| `GET/POST /api/admin/backup/remote[/key\|/password\|/send\|/test]`                                            | Sauvegarde distante (SFTP par clé, rsync par mot de passe, dossier monté) + planification « toutes les N heures/jours » (`apps/core/src/ops/sauvegarde-distante.ts`, dans main) |
+| `GET/POST /api/admin/executors` · `GET /healthcheck`                                                          | Config sandbox                                                                                                                                                                  |
+| `GET /api/admin/sandbox/containers` · `POST /{id}/stop` · `DELETE /{id}` · `POST /api/admin/sandbox/gc`       | Conteneurs                                                                                                                                                                      |
+| `GET /api/admin/llm-capabilities` · `POST /probe` · `POST /api/admin/llm-scheduling-mode`                     | Capacités et planification                                                                                                                                                      |
+| `GET/POST/PUT/DELETE /api/admin/llm/connectors[/{id}]` · `POST /{id}/test`                                    | Connecteurs partagés                                                                                                                                                            |
+| `GET/PUT /api/admin/llm/allowed-providers`                                                                    | Types de fournisseurs autorisés aux utilisateurs                                                                                                                                |
+| `GET/POST /api/admin/security/https`                                                                          | Toggle HTTPS (avec garde anti-lockout)                                                                                                                                          |
+| `GET /api/admin/security/sessions` · `POST /revoke-all` · `/revoke-user/{id}` · `/clear-user-revocation/{id}` | Sessions                                                                                                                                                                        |
+| `POST /api/admin/rag-service/test`                                                                            | Santé de l'extracteur du RAG (URL et jeton du formulaire ou enregistrés)                                                                                                        |
+| `GET /api/admin/rag/etat` · `POST /api/admin/rag/essai/{service}`                                             | État et essai des services du RAG (extracteur, Qdrant, embeddings, reclassement, OCR)                                                                                           |
+| `GET /api/admin/rag/collections` · `DELETE /{id}`                                                             | Métadonnées de toutes les collections ; suppression (jamais le contenu)                                                                                                         |
+| `GET /api/admin/rag/comptes` · `PUT /{user_id}/quota`                                                         | Usage et quota RAG par compte                                                                                                                                                   |
+| `GET /api/admin/rag/travaux` · `POST /{job_id}/suspendre\|reprendre\|annuler`                                 | Travaux d'indexation de l'instance                                                                                                                                              |
+| `GET /api/admin/rag/reindexation` · `POST /api/admin/rag/reindexer`                                           | Réindexation de toutes les collections (changement de modèle d'embedding)                                                                                                       |
+| `POST /api/admin/internal/restart-self`                                                                       | Contrôle interne (loopback)                                                                                                                                                     |
 
 [↑ Sommaire](#sommaire)
 
@@ -2891,7 +2919,7 @@ coercitions d'entrée :
 ```
 
 Une erreur doit **enseigner comment se corriger** : `code` machine-lisible,
-`message` humain, `fix` (comment corriger *cet* appel), `next_action` (quoi
+`message` humain, `fix` (comment corriger _cet_ appel), `next_action` (quoi
 faire d'autre), `retryable`, plus du contexte structuré
 (`valid_choices`, `did_you_mean`…). Le wording est surchargeable à froid via
 `context_config.json › errors.<code>`.
@@ -2903,21 +2931,21 @@ d'outil est du contexte **permanent** pour le reste du run.
 
 **Catalogue** (~55 outils exposés) :
 
-| Famille (servie par) | Catégorie | Outils |
-|---|---|---|
-| `fs` (hôte d'outils) | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
-| `shell` (hôte d'outils) | `shell` | `execute_shell` |
-| `git` (hôte d'outils) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
-| `browser` (hôte d'outils) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_dialog`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_login`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory`, `pw_run`, `pw_procedure` |
-| `desktop` (hôte d'outils) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
-| `chart` (main) | `chart` | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
-| `office` (worker Python) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
-| `memory` (main) | `memory` | `memory`, `session_search` |
-| `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script` |
-| `todo` (main) | `task` (cachée) | `todowrite` |
-| `task` (core) | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
-| `ask_user`, `routine_save` (core) | builtin | questionnaire au-dessus de la barre de saisie ; routine créée en pause (réglage `routine_tool_enabled`) — construits **par tour** |
-| `rag` (core) | builtin | `rag_search`, `rag_read`, `rag_list` (si une collection est active dans le chat), `rag_index` (écriture) |
+| Famille (servie par)                          | Catégorie       | Outils                                                                                                                                                                                                                        |
+| --------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fs` (hôte d'outils)                          | `fs`            | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code`                                                                                                                                                  |
+| `shell` (hôte d'outils)                       | `shell`         | `execute_shell`                                                                                                                                                                                                               |
+| `git` (hôte d'outils)                         | `git`           | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential`                                                               |
+| `browser` (hôte d'outils)                     | `browser`       | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_dialog`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_login`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory`, `pw_run`, `pw_procedure`              |
+| `desktop` (hôte d'outils)                     | `desktop`       | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` en opt-in) |
+| `chart` (main)                                | `chart`         | un outil par type : `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30)                                                                                                             |
+| `office` (worker Python)                      | `office`        | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export`                                                                                                                             |
+| `memory` (main)                               | `memory`        | `memory`, `session_search`                                                                                                                                                                                                    |
+| `skill` (main) et `skill_run` (hôte d'outils) | `skill`         | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script`                                                                                                                                            |
+| `todo` (main)                                 | `task` (cachée) | `todowrite`                                                                                                                                                                                                                   |
+| `task` (core)                                 | builtin         | `task` (construit **par tour**, pas enregistré sur le serveur MCP)                                                                                                                                                            |
+| `ask_user`, `routine_save` (core)             | builtin         | questionnaire au-dessus de la barre de saisie ; routine créée en pause (réglage `routine_tool_enabled`) — construits **par tour**                                                                                             |
+| `rag` (core)                                  | builtin         | `rag_search`, `rag_read`, `rag_list` (si une collection est active dans le chat), `rag_index` (écriture)                                                                                                                      |
 
 ### Fichiers (`fs`)
 
@@ -2937,7 +2965,7 @@ d'outils, les liens résolus par l'agent.
 exécution **dans le conteneur Docker de l'utilisateur** via `bash -c`.
 
 **Aucune policy applicative.** La gate de validation shell a été **retirée** :
-le conteneur *est* la frontière (`docker exec -u 10001:10001`, réseau selon profil,
+le conteneur _est_ la frontière (`docker exec -u 10001:10001`, réseau selon profil,
 seules les capacités nécessaires, limites mémoire/CPU/PIDs).
 Toutes les fonctionnalités bash sont disponibles.
 
@@ -3016,14 +3044,14 @@ Gotchas :
 
 Six écarts mesurés sur banc réel, tous corrigés :
 
-| Symptôme | Cause | Correctif |
-|---|---|---|
-| `<select>` par libellé → timeout 10 s | `selectOption({value})` d'abord, timeout PLEIN avant repli | `selectOptionSmart()` lit les `<option>` puis choisit — 0,22 s |
-| Le modèle devine le libellé | `options` seulement en `level="full"` | jointes à **tous** les niveaux |
-| Dropdown non natif impilotable | `/handle_dropdown` relié à rien | `pw_act(action="pick")` |
-| Widgets GWT/GXT invisibles | `[onclick]` ne matche que l'ATTRIBUT | passe heuristique `cursor:pointer` + classe de widget, marquée `detected_by` |
-| `#gwt-uid-7` rendu comme ancre « stable » | filtre d'ids auto-générés incomplet | `isGeneratedId()` (⚠ garder `gwt-debug-*`, lui est stable) |
-| Aucun défilement de page | `scroll` mappé sur `scroll_into_view`, non traité sans cible | `scroll` = page / conteneur / mise à l'écran selon les arguments |
+| Symptôme                                  | Cause                                                        | Correctif                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `<select>` par libellé → timeout 10 s     | `selectOption({value})` d'abord, timeout PLEIN avant repli   | `selectOptionSmart()` lit les `<option>` puis choisit — 0,22 s               |
+| Le modèle devine le libellé               | `options` seulement en `level="full"`                        | jointes à **tous** les niveaux                                               |
+| Dropdown non natif impilotable            | `/handle_dropdown` relié à rien                              | `pw_act(action="pick")`                                                      |
+| Widgets GWT/GXT invisibles                | `[onclick]` ne matche que l'ATTRIBUT                         | passe heuristique `cursor:pointer` + classe de widget, marquée `detected_by` |
+| `#gwt-uid-7` rendu comme ancre « stable » | filtre d'ids auto-générés incomplet                          | `isGeneratedId()` (⚠ garder `gwt-debug-*`, lui est stable)                   |
+| Aucun défilement de page                  | `scroll` mappé sur `scroll_into_view`, non traité sans cible | `scroll` = page / conteneur / mise à l'écran selon les arguments             |
 
 ⚠ **`OFFICIAL_TRY_MS` (2,5 s)** — quand la couche outil joint un `selector` de
 repli, la tentative « locator officiel » doit échouer VITE, sinon elle mange le
@@ -3124,13 +3152,13 @@ décrit ce qu'il fait — les hints MCP (`readOnlyHint`, `destructiveHint`,
 permettent aux clients de sauter une confirmation, d'avertir sur un outil
 destructeur, ou de rejouer un échec idempotent :
 
-| Jeu | Sémantique |
-|---|---|
-| lecture seule | Lecture pure |
-| idempotent | Mutant mais idempotent (mêmes arguments → même résultat) |
-| mutant | Mutant, non idempotent |
-| destructeur | Destructeur (suppression, force-push) — l'UI le signale |
-| monde ouvert | Touche un réseau / service externe |
+| Jeu           | Sémantique                                               |
+| ------------- | -------------------------------------------------------- |
+| lecture seule | Lecture pure                                             |
+| idempotent    | Mutant mais idempotent (mêmes arguments → même résultat) |
+| mutant        | Mutant, non idempotent                                   |
+| destructeur   | Destructeur (suppression, force-push) — l'UI le signale  |
+| monde ouvert  | Touche un réseau / service externe                       |
 
 Les paramètres `_username` et `_chat_id` sont **injectés automatiquement** par
 le backend pour tout outil dont le préfixe est reconnu comme local.
@@ -3168,14 +3196,14 @@ protège l'hôte et les autres reste en place.
 
 Définis par l'admin dans `executors.network_profiles` :
 
-| Champ | Rôle |
-|---|---|
-| `id` / `name` / `description` | Identité |
-| `mode` | `none` \| `bridge` \| `allowlist_ip` |
-| `ips` | IP ou CIDR autorisés (mode allowlist) |
-| `domains` | Domaines résolus et autorisés |
-| `ports` | Ports autorisés |
-| `dns` | Résolveurs |
+| Champ                         | Rôle                                  |
+| ----------------------------- | ------------------------------------- |
+| `id` / `name` / `description` | Identité                              |
+| `mode`                        | `none` \| `bridge` \| `allowlist_ip`  |
+| `ips`                         | IP ou CIDR autorisés (mode allowlist) |
+| `domains`                     | Domaines résolus et autorisés         |
+| `ports`                       | Ports autorisés                       |
+| `dns`                         | Résolveurs                            |
 
 - **Résolution** : **toujours** passer par `resolve_network_profile_id()` —
   l'admin peut **imposer** un profil (`forced_network_profile_id`), qui prime
@@ -3216,7 +3244,7 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
   titres imposés) et **(3)** le budget d'itérations.
 - Une persona en lecture seule **nomme explicitement** les outils d'écriture
   qu'elle s'interdit — sinon elle contredirait le manifeste `# Active tools`,
-  qui liste ce que l'agent a *vraiment*.
+  qui liste ce que l'agent a _vraiment_.
 - `_DENY_BASE = {task, todowrite, ask_user}` est la seule barrière dure.
 - **Corollaire assumé** : aucun enfant intégré n'hérite des builtins du parent →
   pas de RAG ni de MCP externes en sous-agent intégré. Les agents **custom** ont
@@ -3243,12 +3271,12 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
 learned > global** ; matching **lexical déterministe** contre les `description`
 du frontmatter ; injection des top-N corps dans le prompt système.
 
-| Réglage | Défaut | Rôle |
-|---|---|---|
-| `skills.top_n` | 3 | Corps complets injectés |
-| `skills.min_score` | 1.0 | Score lexical minimal |
-| `skills.char_budget` | 12000 | Budget du bloc assemblé |
-| `skills.index_max` | 100 | Entrées de l'index injecté (0 = illimité) |
+| Réglage              | Défaut | Rôle                                      |
+| -------------------- | ------ | ----------------------------------------- |
+| `skills.top_n`       | 3      | Corps complets injectés                   |
+| `skills.min_score`   | 1.0    | Score lexical minimal                     |
+| `skills.char_budget` | 12000  | Budget du bloc assemblé                   |
+| `skills.index_max`   | 100    | Entrées de l'index injecté (0 = illimité) |
 
 Un skill est un **dossier** : `[<domaine>/]<name>/SKILL.md` + `scripts/`,
 `references/`, `assets/`. Les **packages** peuvent contenir des sous-skills
@@ -3331,14 +3359,14 @@ d'**entrées** séparées par `§` (seul sur sa ligne). Deux magasins :
 
 Voir [le diagramme](#exécution-dune-routine). Compléments :
 
-| Réglage | Défaut |
-|---|---|
-| `ROUTINES_PER_USER_CAP` | 5 runs simultanés |
-| `TICK_SECONDS` | 60 |
-| `HEARTBEAT_SECONDS` | 60 |
-| `ORPHAN_STALE_AFTER_S` | 300 |
-| `RUN_MAX_ATTEMPTS` / `RUN_RETRY_BACKOFF_S` | 2 / 3,0 s |
-| `ROUTINES_CHAIN_MAX_DEPTH` | 5 |
+| Réglage                                    | Défaut            |
+| ------------------------------------------ | ----------------- |
+| `ROUTINES_PER_USER_CAP`                    | 5 runs simultanés |
+| `TICK_SECONDS`                             | 60                |
+| `HEARTBEAT_SECONDS`                        | 60                |
+| `ORPHAN_STALE_AFTER_S`                     | 300               |
+| `RUN_MAX_ATTEMPTS` / `RUN_RETRY_BACKOFF_S` | 2 / 3,0 s         |
+| `ROUTINES_CHAIN_MAX_DEPTH`                 | 5                 |
 
 - Le planificateur (`apps/core/src/routines/planificateur.ts`) démarre dans
   main seulement, et n'agit que s'il tient le verrou de leader
@@ -3358,8 +3386,6 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
 ---
 
 ## Banque d'agents : les intégrés sont des modèles
-
-
 
 - Les cinq intégrés (`AGENTS` dans `apps/core/src/outils/integres/taches-agents.ts`) sont des
   **modèles**. Une entrée de `settings.custom_agents` qui porte le nom de l'un
@@ -3401,7 +3427,7 @@ Voir [le diagramme](#exécution-dune-routine). Compléments :
   64 bits) depuis la capture cliquée. N'affecte **que** le chemin Studio.
 - `desktop-agent/` — serveur Python sur la VM cible (port 8765 par défaut, sans authentification) ; backends pywinauto
   (Windows, IUIAutomation en MTA via comtypes) et AT-SPI (Linux). Bundle offline
-  + installeurs `.sh`/`.ps1`/`.bat`.
+  - installeurs `.sh`/`.ps1`/`.bat`.
 - ⚠ Le code COM n'est **pas** testable hors VM Windows.
 
 ---
@@ -3412,19 +3438,19 @@ Le RAG vit dans le core (`apps/core/src/rag/`, `packages/rag/` pour les
 clients Qdrant, embeddings et reclassement) ; seule la lecture des documents
 reste en Python, dans l'extracteur `rag_app`.
 
-| Brique | Où | Rôle |
-|---|---|---|
-| Droits | `rag/acces.ts` | Droit RAG du compte (`rag.groups` ; l'admin l'a toujours), rôle propriétaire ou lecteur, collections lisibles ; cache de 3 s invalidé entre processus |
-| Collections, publication | `rag/collections.ts`, `familles/rag.ts` | Une collection appartient à un compte ; visibilité privée, groupes ou tous ; un lecteur ne modifie rien |
-| Magasin | `rag/magasin.ts` | `<rag.store_dir>/<uid>/<collection>/sources/<doc>.<ext>` (original), `extraits/<doc>.json` (texte structuré, réindexation sans réextraire), `pages/<doc>/<n>.webp` (cache de rendus) ; chemins construits d'identifiants validés, aucun lien suivi ; `.purges/` garde les purges à refaire |
-| Dépôt | `rag/depot.ts` | Écriture en flux (`.part`, sha256, plafonds), quotas et doublons sous verrou |
-| Indexation | `rag/travailleur.ts`, `rag/indexeur.ts` | Meneur unique dans main ; file en base (`rag_jobs`), 2 documents à la fois sur l'instance et 1 par compte (`rag.indexation`), reprise après redémarrage ; extraction, découpage (512 jetons, chevauchement 64), embeddings par lots, BM25, écriture Qdrant puis retrait des anciens passages |
-| Qdrant | `rag/qdrant.ts` | Une collection `elpis_<uuid>` par collection (vecteurs `dense` et `bm25`) ; un changement de modèle d'embedding construit une nouvelle génération pendant que l'ancienne sert |
-| Recherche | `@elpis/rag`, `rag/essai.ts` | Mixte (dense + BM25, fusion RRF), par le sens ou mots exacts ; plusieurs collections fusionnées par RRF ; reclassement facultatif |
-| Chat | `rag/chat.ts`, `rag/outils-chat.ts` | Voir [Mode RAG](#mode-rag) |
-| Visionneuse | `rag/sources.ts`, `rag/rendu.ts` | Passages voisins, page rendue avec le passage surligné, original si permis |
-| Suppression d'un compte | `rag/nettoyage.ts`, `rag/avis.ts` | Lignes en base (cascade), puis fichiers du magasin et collections Qdrant ; les lecteurs de ses collections publiées sont prévenus |
-| Console | `rag/admin.ts` | Services, essais, quotas par compte, métadonnées de toutes les collections (jamais leur contenu), réindexation globale |
+| Brique                   | Où                                      | Rôle                                                                                                                                                                                                                                                                                         |
+| ------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Droits                   | `rag/acces.ts`                          | Droit RAG du compte (`rag.groups` ; l'admin l'a toujours), rôle propriétaire ou lecteur, collections lisibles ; cache de 3 s invalidé entre processus                                                                                                                                        |
+| Collections, publication | `rag/collections.ts`, `familles/rag.ts` | Une collection appartient à un compte ; visibilité privée, groupes ou tous ; un lecteur ne modifie rien                                                                                                                                                                                      |
+| Magasin                  | `rag/magasin.ts`                        | `<rag.store_dir>/<uid>/<collection>/sources/<doc>.<ext>` (original), `extraits/<doc>.json` (texte structuré, réindexation sans réextraire), `pages/<doc>/<n>.webp` (cache de rendus) ; chemins construits d'identifiants validés, aucun lien suivi ; `.purges/` garde les purges à refaire   |
+| Dépôt                    | `rag/depot.ts`                          | Écriture en flux (`.part`, sha256, plafonds), quotas et doublons sous verrou                                                                                                                                                                                                                 |
+| Indexation               | `rag/travailleur.ts`, `rag/indexeur.ts` | Meneur unique dans main ; file en base (`rag_jobs`), 2 documents à la fois sur l'instance et 1 par compte (`rag.indexation`), reprise après redémarrage ; extraction, découpage (512 jetons, chevauchement 64), embeddings par lots, BM25, écriture Qdrant puis retrait des anciens passages |
+| Qdrant                   | `rag/qdrant.ts`                         | Une collection `elpis_<uuid>` par collection (vecteurs `dense` et `bm25`) ; un changement de modèle d'embedding construit une nouvelle génération pendant que l'ancienne sert                                                                                                                |
+| Recherche                | `@elpis/rag`, `rag/essai.ts`            | Mixte (dense + BM25, fusion RRF), par le sens ou mots exacts ; plusieurs collections fusionnées par RRF ; reclassement facultatif                                                                                                                                                            |
+| Chat                     | `rag/chat.ts`, `rag/outils-chat.ts`     | Voir [Mode RAG](#mode-rag)                                                                                                                                                                                                                                                                   |
+| Visionneuse              | `rag/sources.ts`, `rag/rendu.ts`        | Passages voisins, page rendue avec le passage surligné, original si permis                                                                                                                                                                                                                   |
+| Suppression d'un compte  | `rag/nettoyage.ts`, `rag/avis.ts`       | Lignes en base (cascade), puis fichiers du magasin et collections Qdrant ; les lecteurs de ses collections publiées sont prévenus                                                                                                                                                            |
+| Console                  | `rag/admin.ts`                          | Services, essais, quotas par compte, métadonnées de toutes les collections (jamais leur contenu), réindexation globale                                                                                                                                                                       |
 
 ### Extracteur (`rag_app`)
 
@@ -3468,22 +3494,22 @@ indépendante de l'état de la feature Routines.
 
 ## Sécurité transverse
 
-| Mécanisme | Module | Note |
-|---|---|---|
-| **CSRF** | `packages/auth/src/csrf.ts` | Sur les requêtes mutantes ; `Sec-Fetch-Site` primaire, `Origin` en repli ; sans cookie ⇒ toléré ; exemptions `/api/sandbox/preview/`, `/api/webhooks/` ; les handshakes WebSocket sont contrôlés à part |
-| **Erreurs avalées** | `apps/core/src/observabilite/traces.ts` ; `shared_infra/observability/tracing.py` côté Python | Erreur volontairement avalée : comptée et journalisée avec sa pile, sans changer le flot ; jamais une annulation |
-| **Sessions** | `packages/config/src/vivant.ts` › `sessionCookieAttrs()` ; cookie signé `packages/auth/src/cookie.ts` | Source **unique** des attributs de cookie ; `max_age` aligné sur l'expiration logique |
-| **Révocation** | `revoked_sessions` + `security.session.global_min_ts` | Le logout révoque réellement côté serveur |
-| **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session vidée avant association du compte |
-| **Audit** | `packages/securite/src/audit.ts` | Toute tentative de login (succès/échec, IP réelle derrière proxies de confiance, motif) |
-| **Chiffrement au repos** | `packages/securite/src/chiffrement.ts` | Fernet pour clés API LLM et secrets MCP partagés (format lu aussi par le Python restant) |
-| **En-têtes de sécurité** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents, erreurs comprises |
-| **CSP des pages** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE` ; posées par `apps/core/src/familles/interface.ts` | Chat et console : `script-src 'self'`, ni script en ligne ni `eval`, selon `security.csp` (`enforce` par défaut). Aperçu HTML des blocs de code (`/apercu-code`) : sa propre politique, toujours posée (bac à sable `allow-scripts`, scripts du contenu en ligne, aucun accès réseau) |
-| **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | URLs Git distantes, diagnostic AX |
-| **Corps bornés** | `packages/http/src/app.ts` (`limiteCorps` par route) | Un envoi au-delà de la limite de sa route est refusé |
-| **Path traversal** | chemins de l'éditeur normalisés par l'hôte d'outils (`apps/toolhost/src/fichiers/`) ; liens résolus par l'agent du conteneur | Point de passage unique |
-| **Toolhost** | `apps/toolhost/src/porte.ts` | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `packages/securite/src/identite.ts`). `/mcp*` exige le Bearer |
-| **Frontière shell** | conteneur Docker | Le sandbox **est** la frontière ; pas de policy applicative |
+| Mécanisme                | Module                                                                                                                           | Note                                                                                                                                                                                                                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CSRF**                 | `packages/auth/src/csrf.ts`                                                                                                      | Sur les requêtes mutantes ; `Sec-Fetch-Site` primaire, `Origin` en repli ; sans cookie ⇒ toléré ; exemptions `/api/sandbox/preview/`, `/api/webhooks/` ; les handshakes WebSocket sont contrôlés à part                                                                               |
+| **Erreurs avalées**      | `apps/core/src/observabilite/traces.ts` ; `shared_infra/observability/tracing.py` côté Python                                    | Erreur volontairement avalée : comptée et journalisée avec sa pile, sans changer le flot ; jamais une annulation                                                                                                                                                                      |
+| **Sessions**             | `packages/config/src/vivant.ts` › `sessionCookieAttrs()` ; cookie signé `packages/auth/src/cookie.ts`                            | Source **unique** des attributs de cookie ; `max_age` aligné sur l'expiration logique                                                                                                                                                                                                 |
+| **Révocation**           | `revoked_sessions` + `security.session.global_min_ts`                                                                            | Le logout révoque réellement côté serveur                                                                                                                                                                                                                                             |
+| **Anti-fixation**        | `apps/core/src/familles/comptes.ts`                                                                                              | Session vidée avant association du compte                                                                                                                                                                                                                                             |
+| **Audit**                | `packages/securite/src/audit.ts`                                                                                                 | Toute tentative de login (succès/échec, IP réelle derrière proxies de confiance, motif)                                                                                                                                                                                               |
+| **Chiffrement au repos** | `packages/securite/src/chiffrement.ts`                                                                                           | Fernet pour clés API LLM et secrets MCP partagés (format lu aussi par le Python restant)                                                                                                                                                                                              |
+| **En-têtes de sécurité** | `packages/http/src/entetes.ts`                                                                                                   | `nosniff`, `Referrer-Policy`, `frame-ancestors` posés s'ils sont absents, erreurs comprises                                                                                                                                                                                           |
+| **CSP des pages**        | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE` ; posées par `apps/core/src/familles/interface.ts` | Chat et console : `script-src 'self'`, ni script en ligne ni `eval`, selon `security.csp` (`enforce` par défaut). Aperçu HTML des blocs de code (`/apercu-code`) : sa propre politique, toujours posée (bac à sable `allow-scripts`, scripts du contenu en ligne, aucun accès réseau) |
+| **Anti-SSRF**            | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts`                                                                    | URLs Git distantes, diagnostic AX                                                                                                                                                                                                                                                     |
+| **Corps bornés**         | `packages/http/src/app.ts` (`limiteCorps` par route)                                                                             | Un envoi au-delà de la limite de sa route est refusé                                                                                                                                                                                                                                  |
+| **Path traversal**       | chemins de l'éditeur normalisés par l'hôte d'outils (`apps/toolhost/src/fichiers/`) ; liens résolus par l'agent du conteneur     | Point de passage unique                                                                                                                                                                                                                                                               |
+| **Toolhost**             | `apps/toolhost/src/porte.ts`                                                                                                     | Hors `/health`, deux preuves : jeton de service en Bearer (`user_db/.local_mcp_token`) et identité signée (`X-Elpis-Identity`, HMAC du jeton, horodatage borné, `packages/securite/src/identite.ts`). `/mcp*` exige le Bearer                                                         |
+| **Frontière shell**      | conteneur Docker                                                                                                                 | Le sandbox **est** la frontière ; pas de policy applicative                                                                                                                                                                                                                           |
 
 > ⚠ **Agent desktop non authentifié.** `desktop-agent` n'a aucune couche
 > d'authentification : il suppose un réseau de confiance. Sa frontière est le
@@ -3527,7 +3553,8 @@ tool-calls non extraits.
 anciennes versions de llama.cpp le parsaient comme du JSON.
 **Solution** : mettre à jour llama.cpp.
 **Contournement** : repli `extractToolCalls()` (`apps/core/src/boucle/analyse-appels.ts`)
-+ seconde requête sans tools — fonctionne mais double les appels.
+
+- seconde requête sans tools — fonctionne mais double les appels.
 
 ### Slot `id_slot` non exposé
 
@@ -3578,20 +3605,20 @@ Certains modèles laissent leur conclusion dans la phase de réflexion.
 
 ## Codes d'erreur HTTP
 
-| Code | Signification |
-|---|---|
-| 200 / 201 / 204 | OK / créé / sans contenu |
-| 400 | Requête invalide (champ manquant, JSON non-objet) |
-| 401 | Non authentifié |
-| 403 | Refusé (admin requis, path traversal, cross-site) |
-| 404 | Introuvable — **ou feature globale désactivée** |
-| 409 | Conflit : username pris, `generation_running`, `compression_running`, conflit de version, profil réseau isolé (aperçu) |
-| 413 | Payload trop volumineux |
-| 429 | Trop de requêtes (rate limit) ou trop d'exécutions en cours pour l'utilisateur (`too_many_runs`, `llm.max_runs_per_user`) |
-| 500 | Erreur serveur |
-| 502 | LLM ou RAG indisponible |
-| 503 | Service indisponible (redémarrage, sandbox pas encore prête → **retry client**) |
-| 504 | Timeout LLM |
+| Code            | Signification                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 200 / 201 / 204 | OK / créé / sans contenu                                                                                                  |
+| 400             | Requête invalide (champ manquant, JSON non-objet)                                                                         |
+| 401             | Non authentifié                                                                                                           |
+| 403             | Refusé (admin requis, path traversal, cross-site)                                                                         |
+| 404             | Introuvable — **ou feature globale désactivée**                                                                           |
+| 409             | Conflit : username pris, `generation_running`, `compression_running`, conflit de version, profil réseau isolé (aperçu)    |
+| 413             | Payload trop volumineux                                                                                                   |
+| 429             | Trop de requêtes (rate limit) ou trop d'exécutions en cours pour l'utilisateur (`too_many_runs`, `llm.max_runs_per_user`) |
+| 500             | Erreur serveur                                                                                                            |
+| 502             | LLM ou RAG indisponible                                                                                                   |
+| 503             | Service indisponible (redémarrage, sandbox pas encore prête → **retry client**)                                           |
+| 504             | Timeout LLM                                                                                                               |
 
 ---
 
@@ -3634,4 +3661,4 @@ pip install pip-licenses && pip-licenses --format=markdown --with-urls > license
 
 ---
 
-*Documentation développeur Elpis.*
+_Documentation développeur Elpis._

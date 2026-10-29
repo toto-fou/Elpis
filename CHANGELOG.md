@@ -17,7 +17,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   pas de `css=`/`xpath=`, `goto` limité à l'origine, paramètre `creds` réservé à `login`,
   profondeur et taille bornées) et supprime. Tables `ax_procedures` et `ax_procedure_runs`
   (migration `0029_procedures_ax`), purgées avec le compte. `chaineVersSeq` convertit des
-  étapes `pw_chain` réussies en procédure (base de l'apprentissage, étape suivante).
+  étapes `pw_chain` réussies en procédure.
   Un clic ou une touche qui a agi n'est jamais rejoué (`retry`, `click`, `press`, `confirm` et `login`
   incompatibles), l'accord ne vaut que pour l'attente enregistrée (nœud, version et empreinte de l'arbre),
   l'origine est vérifiée par le service juste avant chaque geste, `wait_for` est obligatoire dans `login`.
@@ -29,11 +29,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   15 nœuds), enregistre la version suivante (`parent_version`, `repaired_path`, migration `0031_reparation_procedures`)
   et `pw_run(..., resume=repair_id)` reprend au nœud réparé sans rejouer ce qui précède. Au plus 2 réparations par
   exécution et 1 par nœud ; un échec après un geste à effet non confirmé par un `expect` n'est jamais réparable ; un geste
-  nouveau, un `goto` remplacé par une autre URL ou une cible changée qui déclenche l'une des gardes (anti-rejeu,
-  élargissement de la cible, historique) reçoit `confirm: "once"` (accord demandé jusqu'à une première exécution réussie, approbation
+  nouveau, un `goto` remplacé par une autre URL, tout changement de nom d'une cible à effet (dans un sens ou
+  l'autre) ou une cible changée qui déclenche l'anti-rejeu ou l'historique reçoit `confirm: "once"` (accord demandé jusqu'à une première exécution réussie, approbation
   stockée dans `ax_procedure_approvals`, migration `0032`), un `confirm: true` reste permanent ; les échecs ambigus, `acted_unconfirmed`, `origin_changed` et `login_*` ne sont jamais réparables.
-- **Accord humain des gestes sensibles de procédure.** Un geste sous `confirm` ne reprend plus sur un
-  `confirmed=[chemin]` fourni par le modèle (retiré, `confirmed_removed`) : `pw_run` crée côté serveur une demande
+- **Accord humain des gestes sensibles de procédure.** Un geste sous `confirm` ne reprend jamais sur un
+  `confirmed=[chemin]` fourni par le modèle (refusé, `confirmed_removed`) : `pw_run` crée côté serveur une demande
   d'accord (table `ax_procedure_demandes`, migration `0033`, 15 min, usage unique, liée au compte, à la conversation, à la
   session, à la procédure, à la version, au nœud, à la page et à l'**empreinte du geste après substitution des
   paramètres** : l'accord pour `to=alice` ne couvre pas `to=mallory`). Le chat affiche une carte « Confirmer » (geste,
@@ -41,32 +41,32 @@ selon [SemVer](https://semver.org/lang/fr/).
   de session du compte (`/api/procedures/approbations/:id/decision`), jamais par un outil, puis un message automatique
   « Approuvé : … » relance le modèle, qui rappelle `pw_run(..., approval=<id>)`. L'hôte consomme l'accord par le canal
   interne signé. Les gestes `confirm: "once"` ne sont validés qu'après un accord humain consommé **et** un geste réussi.
-  `pw_procedure(save)` ne peut ni retirer ni affaiblir un `confirm` de la dernière version, `delete` refuse une procédure
-  qui en porte. Routines et sous-agents s'arrêtent à `needs_confirmation` (demande visible, personne d'autre ne peut approuver).
-  La garde de similarité devient un élargissement : un mot de plus de 3 lettres ou un nombre absent de l'ancienne cible
+  `pw_procedure(save)` ne peut ni retirer ni affaiblir un `confirm` de la dernière version, `delete` ne refuse qu'une
+  version approuvée (`delete_approved`). Routines et sous-agents s'arrêtent à `needs_confirmation` (demande visible, personne d'autre ne peut approuver).
+  La garde de similarité est un élargissement : un mot de plus de 3 lettres ou un nombre absent de l'ancienne cible
   (« Payer » → « Payer express ») demande `confirm: "once"`. Le moteur résout ses cibles par nom accessible **exact**
-  (« Payer » ne clique plus « Payer express ») ; le `pw_act` du modèle ne change pas.
+  (« Payer » ne clique pas « Payer express ») ; le `pw_act` du modèle ne change pas.
 - **Versions approuvées et écran Procédures.** Chaque version enregistrée ou réparée par le modèle est non approuvée
   (`approved_at`, migration `0034`) ; routines, sous-agents et tout contexte sans humain n'exécutent que des versions
   approuvées par l'utilisateur (`version_not_approved`). Paramètres › Procédures liste les versions, résume leurs gestes,
   les approuve et les supprime ; `pw_procedure(delete)` refuse une version approuvée ; `confirm_protected` apparie sur le
-  geste entier (garde-fou, pas frontière). La carte d'accord refuse de se créer si un champ est tronqué, rend visibles les
-  caractères invisibles, et un nom de cible qui change (dans un sens ou l'autre) demande `once`.
+  geste entier (garde-fou, pas frontière). La carte d'accord refuse de se créer si un champ est tronqué et rend visibles les
+  caractères invisibles.
 - **Approbation avec paramètres et tours humains.** Seul un tour ouvert par l'utilisateur porte la marque `human_turn` (jamais un
   réveil de tâche, une routine ni un sous-agent) ; sans elle, seules les versions approuvées s'exécutent, `version` absente = dernière
   approuvée. L'approbation fige ou libère chaque paramètre (migration `0035`, `param_not_approved`), peut être retirée, n'est jamais
   purgée par la rotation des versions ; les chaînes d'un arbre refusent contrôle, format invisible et surrogates isolés.
 - **Apprentissage des procédures.** « Enregistrer comme procédure » (menu de la conversation) extrait les gestes navigateur réussis d'une
-  origine (écartés listés, paramètres proposés, connexion en nœud `login` sans valeur, `confirm` proposé sur le dernier geste à effet, aperçu) ;
+  origine (écartés listés, paramètres proposés, connexion en nœud `login` sans valeur, `confirm` proposé sur tous les gestes à effet qui suivent la dernière saisie et sur le dernier geste à effet, aperçu) ;
   `pw_procedure(action='learn_recorder')` rend un brouillon depuis le recorder (secrets déjà masqués) ; `/proc` prépare le message d'exécution d'une
   procédure. Tout ce qui est appris est une version non approuvée validée par les mêmes règles. `chaineVersSeq` et `sauvegarder` sont partagés
-  (`@elpis/contracts`, `@elpis/db`). Les formes réelles des résultats d'outils sont reconnues ; aucune valeur sensible n'est gardée en littéral (champs secrets, clés
-  de requête et segments de chemin sensibles : paramètres imposés masqués, enregistrement refusé sinon) ; l'enregistrement exige l'empreinte de l'aperçu (409 si la conversation a changé). Les fragments d'URL sont retirés, les valeurs de type JWT ou chaîne mixte longue sont masquées, la liste des motifs de secrets est partagée avec le recorder (test de parité dans `npm run typecheck`), l'origine proposée est celle qui a le plus de gestes à effet.
+  (`@elpis/contracts`, `@elpis/db`). Les résultats d'outils sont lus d'après leurs formes réelles ; aucune valeur sensible n'est gardée en littéral (champs secrets, clés
+  de requête, valeurs de type JWT ou chaîne mixte longue et segments de chemin opaques : paramètres imposés masqués, enregistrement refusé sinon ; fragments d'URL retirés) ; la liste des motifs de secrets est partagée avec le recorder (deux copies identiques, parité vérifiée par `npm run typecheck`) ; l'origine proposée est celle qui compte le plus de gestes à effet ; l'enregistrement exige l'empreinte de l'aperçu (409 si la conversation a changé).
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
-  (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
-  lente ne donne plus `login_timeout`).
+  (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend pas la navigation (une page suivante
+  lente ne donne pas `login_timeout`).
 - **Procédures** : le geste agit sur une poignée figée après contrôle de l'origine (redirection différée sans
-  effet), `fill`/`select`/`check`/`uncheck` ne sont plus rejouables (`retry` n'admet que `goto`, `wait`, `hover`),
+  effet), `fill`/`select`/`check`/`uncheck` ne sont jamais rejoués (`retry` n'admet que `goto`, `wait`, `hover`),
   l'accord est lié à la page d'arrêt, le compteur de versions ne recule jamais.
 
 ### Sécurité
@@ -78,7 +78,7 @@ selon [SemVer](https://semver.org/lang/fr/).
   (30 min, 5 usages) que le nouvel outil `pw_login` et `pw_session` (`creds=`) échangent
   avec le core contre la valeur, uniquement pour un champ dont le frame est sur l'origine
   du jeton. L'assistant ne saisit jamais un secret par un geste (`secret=` de `pw_act` et
-  `pw_chain` est retiré) : `pw_login` pré-contrôle les champs sans valeur, résout le jeton,
+  `pw_chain` est refusé, `secret_removed`) : `pw_login` pré-contrôle les champs sans valeur, résout le jeton,
   remplit, valide, attend puis **remplace les documents** qui ont reçu le secret (navigation
   GET, jamais un rechargement ; échec fermé : page puis session fermées) en une requête, sans rendre
   la main au modèle ni servir d'autre requête de la session entre-temps. Les résultats d'outils sont
@@ -706,7 +706,7 @@ la version Python sont listés dans docs/ecarts-python.md.
   d'un autre.
   **Mise à jour** : `./elpis browser states` liste les états sans compte
   restants (identifiant, date, sites) ; `./elpis browser migrate-states
-COMPTE ID…` rattache ceux d'un compte Elpis (`--all` : tous, s'ils sont
+  COMPTE ID…` rattache ceux d'un compte Elpis (`--all` : tous, s'ils sont
   tous à lui) ; le même `load_state_id` les recharge ensuite pendant 30
   jours. Détail : docs/exploitation.md, « Mettre à jour ».
 
@@ -980,7 +980,7 @@ installation et configuration interactives en deux commandes.
   et `git://` retirés). Fonctionne avec un profil réseau isolé.
   `bubblewrap` (aperçus Office) devient un paquet de base —
   **installations existantes : `apt install bubblewrap`** (`./elpis
-doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
+  doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
   bloqué.
 - **Conteneurs** : seules les capacités nécessaires (`--cap-drop ALL`, puis
   celles qu'exigent l'entrypoint, sudo et apt) : plus de `NET_RAW`,
@@ -1046,8 +1046,8 @@ doctor`) ; sur Ubuntu, l'installeur pose un profil AppArmor s'il est
   - le panneau Sampling et les propriétés d'un modèle lisaient `/props` en
     chargeant le modèle ; ces lectures passent `autoload=false`, et un
     modèle non lu ne laisse plus de capacités fausses en cache.
-    `/metrics` et `/slots` nomment le modèle chargé (fin des 400 « model name
-    is missing ») ; la jauge KV demande des modèles lancés avec `--metrics`.
+  `/metrics` et `/slots` nomment le modèle chargé (fin des 400 « model name
+  is missing ») ; la jauge KV demande des modèles lancés avec `--metrics`.
 - **Cycles d'import** : importer en premier
   `shared_infra/opencode/routes_cli.py`,
   `shared_infra/observability/routes_events.py` ou

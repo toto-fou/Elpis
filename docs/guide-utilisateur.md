@@ -339,7 +339,7 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   eu lieu, ou qui a eu lieu sans l'effet attendu, n'est jamais rejoué ni remplacé par un autre.
 - Si le site a seulement changé d'apparence (un lien renommé, un bouton déplacé), l'assistant **répare** la
   procédure lui-même : il voit les éléments de la page, corrige l'étape qui a échoué (sans pouvoir ajouter de
-  connexion, retirer une demande d'accord ni aller sur un autre site ), enregistre une nouvelle version puis reprend
+  connexion, retirer une demande d'accord ni aller sur un autre site), enregistre une nouvelle version puis reprend
   là où l'exécution s'était arrêtée. Au plus deux réparations par exécution, une par étape. Un geste ajouté ou modifié par une réparation
   (fermer une fenêtre imprévue, viser un autre bouton, aller sur une autre page) demande **votre accord la première fois**
   (carte marquée « Première exécution d'un geste réparé » ou « de ce geste ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
@@ -354,7 +354,7 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   (`learn_recorder`) : il vous le montre, le complète (cible attendue après connexion) puis l'enregistre, toujours non approuvé.
 - **`/proc`** : liste vos procédures ; en choisir une prépare le message « Exécute la procédure… avec : … » à compléter. L'assistant l'exécute, vos
   accords s'affichent comme d'habitude.
-- Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») .
+- Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures »), dans Paramètres › Procédures ou avec `/proc`.
 
 ### Serveurs MCP externes
 

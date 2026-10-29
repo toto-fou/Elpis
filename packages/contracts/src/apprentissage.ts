@@ -158,7 +158,13 @@ export interface Brouillon {
 const EFFETS_APPRIS: ReadonlySet<string> = new Set(["click", "press", "fill", "select", "check", "uncheck"]);
 const COMPOSANTES = ["role", "name", "text", "label", "placeholder", "test_id", "alt", "title"] as const;
 
-const sansAccent = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase();
+/** Texte sans accents, camelCase découpé en mots (`myTotpCode` → `my totp code`), en minuscules : les motifs s'appliquent à ce texte. */
+const sansAccent = (s: string): string =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/gu, "")
+    .replace(/([a-z])([A-Z])|([A-Z])([A-Z][a-z])/gu, "$1$3 $2$4")
+    .toLowerCase();
 
 // Motifs partagés avec browser-service/recorder_util.js (`motifs-secrets.ts`, parité vérifiée) ; appliqués à un texte normalisé.
 const CHAMP_SECRET = new RegExp(CHAMPS_SECRETS.map(([, source]) => source).join("|"), "u");

@@ -11,7 +11,7 @@ export const CHAMPS_SECRETS = [
   ],
   [
     "OTP",
-    "(?<![a-z])(?:otp|totp)(?![a-z])|one.?time|2fa|mfa|(?:verif|confirm|secur|confidenti|recu|sms)\\w*\\W*code|code\\W*(?:de\\W+)?(?:verif|confirm|secur|confidenti|recu|sms)",
+    "(?<![a-z])otp(?![a-z])|totp|one.?time|2fa|mfa|two.?factor|(?:verif|confirm|secur|confidenti|recu|sms)\\w*\\W*code|code\\W*(?:de\\W+)?(?:verif|confirm|secur|confidenti|recu|sms)",
   ],
   ["API_KEY", "api.?key|cle.?api"],
   ["TOKEN", "token|jeton"],
@@ -24,4 +24,4 @@ export const CHAMPS_SECRETS = [
 
 /** Clés de requête ou de fragment dont la valeur est sensible (en plus des champs secrets). */
 export const CLES_URL_SECRETES =
-  "authori[sz]|auth(?!or)|(?<![a-z])(?:code|key|sig|sid|jwt|otp|pin|hash|state|nonce|magic|reset)(?![a-z])|session|sessid|signature|credential|ticket|saml|magic|reset";
+  "authori[sz]|auth(?!or)|(?<![a-z])(?:code|key|sig|sid|jwt|otp|pin|hash|state|nonce|magic|reset|h)(?![a-z])|session|sessid|signature|credential|ticket|saml|magic|reset";

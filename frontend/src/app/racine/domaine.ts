@@ -5,6 +5,7 @@ import type { InjectionKey } from "vue";
 
 import type { EtatFenetre, MenuContextuel, Toast } from "./chrome";
 import type { SurfaceApprobations } from "./approbations";
+import type { SurfaceApprentissage } from "./apprentissage";
 import type { SurfaceCreds } from "./creds";
 import type { SurfaceProcedures } from "./procedures";
 
@@ -45,6 +46,7 @@ export interface DomaineConnexion {
 export const CLE_CHROME: InjectionKey<DomaineChrome> = Symbol("elpis:racine:chrome");
 export const CLE_CONNEXION: InjectionKey<DomaineConnexion> = Symbol("elpis:racine:connexion");
 export const CLE_CREDS: InjectionKey<SurfaceCreds> = Symbol("elpis:racine:creds");
+export const CLE_APPRENTISSAGE: InjectionKey<SurfaceApprentissage> = Symbol("elpis:racine:apprentissage");
 export const CLE_PROCEDURES: InjectionKey<SurfaceProcedures> = Symbol("elpis:racine:procedures");
 export const CLE_APPROBATIONS: InjectionKey<SurfaceApprobations> = Symbol("elpis:racine:approbations");
 
@@ -53,6 +55,7 @@ export function fournirDomainesRacine(racine: object): void {
   provide(CLE_CHROME, racine as DomaineChrome);
   provide(CLE_CONNEXION, racine as DomaineConnexion);
   if ("creds" in racine) provide(CLE_CREDS, racine.creds as SurfaceCreds);
+  if ("apprentissage" in racine) provide(CLE_APPRENTISSAGE, racine.apprentissage as SurfaceApprentissage);
   if ("procedures" in racine) provide(CLE_PROCEDURES, racine.procedures as SurfaceProcedures);
   if ("approbations" in racine) provide(CLE_APPROBATIONS, racine.approbations as SurfaceApprobations);
 }

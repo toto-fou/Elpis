@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/procedures-accords.ts — accords humains des gestes sensibles d'une procédure : demandes en attente d'une conversation et décision du compte connecté (jamais un outil). */
 import { HttpError } from "@elpis/commun";
-import { schemaCorpsApprobationVersion } from "@elpis/contracts";
+import { schemaCorpsApprentissage, schemaCorpsApprobationVersion } from "@elpis/contracts";
+import type { ChoixApprentissageDto } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 import { corpsJson, entrees, py } from "@elpis/http";
 import type { FastifyRequest } from "fastify";
 
+import {
+  apercuConversation,
+  brouillonConversation,
+  enregistrerConversation,
+  ErreurApprentissage,
+} from "../procedures/apprentissage";
 import { decider, demandesEnAttente } from "../procedures/demandes";
 import {
   approuverVersion,
@@ -70,6 +77,34 @@ export function creerFamilleAccordsProcedures(dep: DependancesAccords): Famille 
           return { ok: true, item };
         },
       },
+      ...["brouillon", "apercu", "enregistrer"].map((etape) => ({
+        methode: "POST" as const,
+        chemin: `/api/procedures/apprendre/${etape}`,
+        processus: ["main" as const],
+        acces: "session" as const,
+        traiter: async (req: FastifyRequest) => {
+          const { uid, owner } = compteHumain(req);
+          if (!/^application\/json\b/iu.test(String(req.headers["content-type"] ?? "")))
+            throw new HttpError(415, "JSON attendu.");
+          const corps = schemaCorpsApprentissage.safeParse(brutJson(req));
+          if (!corps.success) throw new HttpError(422, "Requête invalide.");
+          const { chat_id, origin, choix } = corps.data;
+          const defaut: ChoixApprentissageDto | undefined = choix;
+          try {
+            if (etape === "brouillon")
+              return await brouillonConversation(dep.base, uid, owner, chat_id, origin);
+            if (defaut === undefined) throw new HttpError(422, "Choix requis.");
+            if (etape === "apercu") return await apercuConversation(dep.base, uid, chat_id, origin, defaut);
+            return {
+              ok: true,
+              ...(await enregistrerConversation(dep.base, uid, owner, chat_id, origin, defaut)),
+            };
+          } catch (e) {
+            if (e instanceof ErreurApprentissage) throw new HttpError(e.statut, e.message);
+            throw e;
+          }
+        },
+      })),
       {
         methode: "GET",
         chemin: "/api/procedures",

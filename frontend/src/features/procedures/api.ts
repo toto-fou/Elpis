@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/procedures/api.ts — accords humains des gestes sensibles d'une procédure (`/api/procedures/approbations*`), réponses validées par les schémas de @elpis/contracts. */
-import type { ChoixParametre } from "@elpis/contracts";
+import type { ChoixApprentissageDto, ChoixParametre } from "@elpis/contracts";
+import type { ZodType } from "zod";
 import {
+  schemaReponseApercu,
   schemaReponseApprobations,
+  schemaReponseBrouillon,
+  schemaReponseEnregistrementProcedure,
   schemaReponseApprobationVersion,
   schemaReponseDecisionApprobation,
   schemaReponseProcedures,
@@ -58,5 +62,31 @@ export function creerApiProcedures(http: ClientHttp) {
       ),
     supprimer: (id: string, version?: number) =>
       http.requete(chemin(id, version), { method: "DELETE" }, { schema: schemaReponseSuppressionProcedure }),
+  };
+}
+
+/** « Enregistrer comme procédure » : brouillon d'une conversation, aperçu, enregistrement d'une version non approuvée. */
+export function creerApiApprentissage(http: ClientHttp) {
+  const post = <T>(
+    etape: string,
+    schema: ZodType<T>,
+    corps: { chat_id: string; origin?: string; choix?: ChoixApprentissageDto },
+  ) =>
+    http.requete(
+      `/api/procedures/apprendre/${etape}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) },
+      { schema },
+    );
+  return {
+    brouillon: (chat_id: string, origin?: string) =>
+      post("brouillon", schemaReponseBrouillon, { chat_id, ...(origin ? { origin } : {}) }),
+    apercu: (chat_id: string, choix: ChoixApprentissageDto, origin?: string) =>
+      post("apercu", schemaReponseApercu, { chat_id, choix, ...(origin ? { origin } : {}) }),
+    enregistrer: (chat_id: string, choix: ChoixApprentissageDto, origin?: string) =>
+      post("enregistrer", schemaReponseEnregistrementProcedure, {
+        chat_id,
+        choix,
+        ...(origin ? { origin } : {}),
+      }),
   };
 }

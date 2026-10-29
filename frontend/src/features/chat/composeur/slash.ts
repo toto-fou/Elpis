@@ -261,6 +261,44 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
   }
 
   // Prompts personnels et reçus en partage : deux routes, une liste.
+  // Procédures du compte pour `/proc` : une rangée par procédure (dernière version, approuvée ou non).
+  const procedures = ref<{ id: string; origin: string; version: number; approved: boolean }[]>([]);
+  let proceduresAt = 0;
+  async function chargerProcedures(): Promise<void> {
+    if (Date.now() - proceduresAt < CACHE_MS && procedures.value.length) return;
+    try {
+      const data = await lireJson("/api/procedures");
+      const items = data && Array.isArray(data.items) ? data.items : [];
+      procedures.value = items.flatMap((p: unknown) => {
+        if (!objet(p) || !Array.isArray(p.versions) || !objet(p.versions[0])) return [];
+        const v = p.versions[0];
+        return [
+          {
+            id: String(p.id),
+            origin: String(p.origin),
+            version: Number(v.version),
+            approved: v.approved_at !== null,
+          },
+        ];
+      });
+      proceduresAt = Date.now();
+    } catch {
+      /* la commande ne listera rien */
+    }
+  }
+
+  /** Message qui demande au modèle d'exécuter la procédure : paramètres à compléter, aucun appel d'outil depuis l'interface. */
+  async function messageProcedure(id: string): Promise<string | null> {
+    const p = procedures.value.find((x) => x.id === id);
+    if (!p) return null;
+    const data = await lireJson(`/api/procedures/${encodeURIComponent(id)}/versions/${p.version}`);
+    const params = data && Array.isArray(data.params) ? data.params : [];
+    const hors = params.flatMap((q: unknown) => (objet(q) && q.type !== "creds" ? [String(q.name)] : []));
+    const creds = params.some((q: unknown) => objet(q) && q.type === "creds");
+    const avec = hors.length ? ` avec : ${hors.map((n) => `${n} = …`).join(", ")}` : " (sans paramètre)";
+    return `Exécute la procédure « ${id} » (version ${p.version})${avec}${creds ? ". Identifiant : je te le donne avec /creds" : ""}.`;
+  }
+
   async function chargerPrompts(): Promise<void> {
     if (Date.now() - promptsAt < CACHE_MS && prompts.value.length) return;
     const out: PromptSlash[] = [];
@@ -345,6 +383,33 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
       when: () => !!templates,
       whenLabel: "Indisponible",
       run: async (a) => (templates ? templates.runTemplateByName(a[0] || "") : null),
+    },
+    {
+      name: "proc",
+      label: "Procédures",
+      icon: "ph-list-checks",
+      desc: "Lancer une procédure enregistrée : le message est préparé, l'assistant l'exécute",
+      args: [
+        {
+          name: "procedure",
+          label: "procédure",
+          get values(): ValeurArgument[] {
+            return procedures.value.map((p): ValeurArgument => ({
+              value: p.id,
+              label: `${p.origin} · v${p.version} ${p.approved ? "approuvée" : "non approuvée"}`,
+            }));
+          },
+        },
+      ],
+      when: (e) => !e.isStreaming,
+      whenLabel: "Hors génération",
+      run: async (a) => {
+        const texte = await messageProcedure(a[0] || "");
+        if (texte === null) return { ok: false, msg: "Procédure introuvable." };
+        inputMessage.value = texte;
+        void nextTick(() => inputRef.value?.focus());
+        return { ok: true, silent: true };
+      },
     },
     {
       name: "creds",
@@ -773,6 +838,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     }
     if ((cmd.args || []).length) {
       if (cmd.name === "template" && templates) await templates.loadTemplates();
+      if (cmd.name === "proc") await chargerProcedures();
       remplacer(slashRaw.value, "/" + cmd.name + " ");
       void nextTick(rafraichir);
       return;
@@ -881,6 +947,7 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
     if (c.head && "jobs".startsWith(String(c.name || "").toLowerCase()) && String(c.name || "").length >= 2)
       ctx.jobs?.actualiser();
     if (c.head && c.name.toLowerCase() === "rag") ctx.rag?.actualiser();
+    if (c.head && c.name.toLowerCase() === "proc") void chargerProcedures();
     if (
       templates &&
       c.head &&

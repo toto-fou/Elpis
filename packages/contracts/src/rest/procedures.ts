@@ -76,3 +76,57 @@ export const schemaReponseResumeProcedure = z.object({
 export const schemaReponseApprobationVersion = z.object({ ok: z.literal(true), approved_at: horodatage });
 export const schemaReponseRetraitApprobation = z.object({ ok: z.literal(true) });
 export const schemaReponseSuppressionProcedure = z.object({ ok: z.literal(true), deleted: entier });
+
+/** Apprentissage : brouillon d'une conversation, aperçu et enregistrement d'une version NON approuvée. */
+export const schemaNoeudBrouillon = z.object({
+  id: entier,
+  genre: z.enum(["act", "login"]),
+  source: z.string(),
+  /** Résumé lisible du nœud (jamais de valeur secrète). */
+  libelle: z.string(),
+  effet: z.boolean(),
+  confirmSuggere: z.boolean(),
+  /** Connexion : cible d'attente à fournir par l'utilisateur (jamais devinée). */
+  waitForRequis: z.boolean(),
+});
+export const schemaParamSuggere = z.object({
+  nom: z.string(),
+  valeur: z.string(),
+  noeuds: z.array(entier),
+  champ: z.enum(["v", "url"]),
+});
+export const schemaChoixApprentissage = z.object({
+  id: z.string().max(64),
+  description: z.string().max(500),
+  params: z.record(z.string(), z.boolean()),
+  confirm: z.record(z.string(), z.boolean()),
+  retires: z.array(entier).max(200),
+  wait_for: z.record(z.string(), z.string().max(200)),
+});
+export type ChoixApprentissageDto = z.infer<typeof schemaChoixApprentissage>;
+export const schemaCorpsApprentissage = z.object({
+  chat_id: z.string().min(1).max(200),
+  origin: z.string().max(300).optional(),
+  choix: schemaChoixApprentissage.optional(),
+});
+export const schemaReponseBrouillon = z.object({
+  origin: z.string(),
+  origines: z.array(z.object({ origin: z.string(), gestes: entier })),
+  noeuds: z.array(schemaNoeudBrouillon),
+  params: z.array(schemaParamSuggere),
+  ecartes: z.array(z.object({ raison: z.string(), quoi: z.string() })),
+  choix: schemaChoixApprentissage,
+  /** Procédures du compte de même identifiant : l'enregistrement crée alors une nouvelle version. */
+  existantes: z.array(z.object({ id: z.string(), origin: z.string() })),
+});
+export type BrouillonDto = z.infer<typeof schemaReponseBrouillon>;
+export const schemaReponseApercu = z.object({
+  ok: z.boolean(),
+  lines: z.array(z.string()),
+  erreurs: z.array(z.string()),
+});
+export const schemaReponseEnregistrementProcedure = z.object({
+  ok: z.literal(true),
+  id: z.string(),
+  version: entier,
+});

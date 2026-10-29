@@ -62,6 +62,16 @@ const RACCOURCI = "ml-auto font-mono text-[11px] text-slate-500";
       {{ f.libelle }}
     </button>
   </div>
+  <button
+    type="button"
+    role="menuitem"
+    :class="ITEM"
+    data-conv-action="apprendre"
+    title="Garder les gestes navigateur réussis de cette conversation comme procédure"
+    @click="emit('action', 'apprendre')"
+  >
+    <i class="ph ph-list-checks text-slate-500" aria-hidden="true"></i> Enregistrer comme procédure…
+  </button>
   <div class="h-px bg-slate-100 my-1 mx-2" role="separator"></div>
   <button
     type="button"

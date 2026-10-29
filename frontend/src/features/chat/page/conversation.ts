@@ -10,7 +10,7 @@ export const FORMATS_EXPORT = [
 
 export type FormatExport = (typeof FORMATS_EXPORT)[number]["id"];
 export type ActionConversation =
-  "renommer" | "rechercher" | "archiver" | "supprimer" | `exporter:${FormatExport}`;
+  "renommer" | "rechercher" | "apprendre" | "archiver" | "supprimer" | `exporter:${FormatExport}`;
 
 export interface CibleConversation {
   id: string;

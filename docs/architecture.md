@@ -2297,6 +2297,30 @@ erreurs, **pas** une frontière (une copie sous un autre id est une procédure n
 (origine, chemin, requête), pas à son contenu. Un `save` n'est pas contraint : un geste neuf sans `confirm` s'exécute sans demander en
 conversation.
 
+**Apprentissage.** Trois voies, toutes aboutissant à une version **non approuvée** validée par `validerProcedure` (aucune règle
+assouplie) ; la logique pure vit dans `packages/contracts/src/apprentissage.ts` (`chaineVersSeq`, `brouillonDepuisConversation`,
+`brouillonDepuisRecorder`, `construireProcedure`) et l'enregistrement dans `sauvegarder` de `@elpis/db` (partagé par le core et l'hôte).
+- *« Enregistrer comme procédure »* (menu de la conversation → fenêtre d'aperçu). Routes de session du process main
+  `POST /api/procedures/apprendre/{brouillon,apercu,enregistrer}` (garde CSRF, JSON exigé, identité de l'hôte refusée, conversation d'un autre
+  compte = 404) : le core relit `tool_history` de la conversation (`apps/core/src/procedures/apprentissage.ts`) et **recalcule le brouillon à
+  chaque appel** (jamais celui du client). Sont retenus les gestes **réussis** d'**une** origine (la plus fournie, ou la demandée) :
+  ouverture de session et `goto`, `pw_act` (click, fill, select, check, uncheck, hover, press), étapes réussies de `pw_chain` (converties par
+  `chaineVersSeq`), `pw_login` (→ nœud `login` avec paramètre `creds`, jamais le jeton ni une valeur ; sans `wait_for` l'utilisateur le fournit).
+  Écartés et listés avec leur raison : échecs, gestes ambigus, autre origine, cibles `css=`/`xpath=`/`ref=`, champs présumés secrets (une valeur saisie dans
+  un champ dont la cible évoque mot de passe, OTP, jeton… n'est jamais gardée), `secret=`, et **tout appel `pw_run`** (décision : ses gestes
+  appartiennent déjà à une procédure, on enregistre plutôt une nouvelle version de celle-ci). Un `expect: {url_path}` n'est déduit que d'une navigation
+  constatée (`goto` sans redirection, clic qui a changé le chemin). Les valeurs saisies et les requêtes des `goto` sont **proposées** comme paramètres
+  (nom suggéré d'après la cible) : l'utilisateur les garde littérales ou les transforme ; `confirm: true` est proposé sur le **dernier** geste à effet
+  (rien ne permet de détecter un POST sensible), ajustable par geste. L'aperçu reprend le rendu de l'écran Procédures. Même nom et même origine :
+  nouvelle version ; même nom pour un autre site : 409. Les cibles de repli de la mémoire AX ne sont **pas** ajoutées (limite).
+- *Recorder* : `pw_procedure(action='learn_recorder', session_id)` lit `GET /recorder/dump?format=json` de la session (propre au compte) et rend un
+  **brouillon sans rien enregistrer** que le modèle complète puis `save` (les secrets sont déjà des variables `PASSWORD`/`OTP`… : motif identifiant
+  + mot de passe + validation → nœud `login` sans valeur ; autres gestes secrets, adresses masquées, cibles sans role/name/label/placeholder/text
+  écartés ; un `login` garde `text=TO_FILL` à remplacer, rien n'est deviné). Pas d'écran d'import : l'accès au recorder depuis le core serait
+  invasif et passer par l'hôte d'outils pour l'interface est disproportionné.
+- *`/proc`* : liste les procédures du compte (origine, dernière version, approuvée ou non) et insère dans la zone de saisie « Exécute la procédure
+  « x » (version N) avec : p = … » ; aucun appel d'outil depuis l'interface, le modèle exécute par `pw_run` avec les cartes d'accord habituelles.
+
 **`pw_chain` comme cas simple.** `chaineVersSeq(etapes, origin, {parametres})`
 (`procedures/chaine.ts`) convertit des étapes `pw_chain` réussies (même forme que l'outil) en `{seq: [act…]}` :
 `type` devient `fill`, une adresse de l'origine devient un chemin relatif, `parametres` (`{nom: valeur}`)

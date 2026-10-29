@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/page/EnteteConversation.vue — en-tête flottant du chat : titre (double-clic pour le modifier) et menu « Conversation » ; mode plan et réglages vivent dans le composeur. -->
 <script setup lang="ts">
-import { nextTick, useTemplateRef } from "vue";
+import { inject, nextTick, useTemplateRef } from "vue";
+
+import { CLE_APPRENTISSAGE } from "../../../app/racine/domaine";
 
 import { executerConversation } from "../../../features/chat/page/conversation";
 import type { ActionConversation } from "../../../features/chat/page/conversation";
@@ -10,6 +12,8 @@ import { focusPremiere, naviguerMenu } from "../../../features/chat/page/menu-cl
 import MenuConversation from "./MenuConversation.vue";
 
 const ent = domaine(CLE_ENTETE);
+// Fournie par la racine du chat ; absente, l'entrée du menu ne fait rien.
+const appr = inject(CLE_APPRENTISSAGE, null);
 const bouton = useTemplateRef<HTMLButtonElement>("bouton");
 const menu = useTemplateRef<HTMLDivElement>("menu");
 
@@ -26,6 +30,10 @@ function fermer(rendreFocus: boolean): void {
 async function agir(action: ActionConversation): Promise<void> {
   fermer(true);
   const id = ent.currentChatId;
+  if (action === "apprendre") {
+    if (id) await appr?.ouvrir(id);
+    return;
+  }
   if (id) await executerConversation(action, { id, title: ent.currentChatTitle }, ent);
 }
 

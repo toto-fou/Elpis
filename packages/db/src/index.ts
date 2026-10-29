@@ -42,7 +42,8 @@ export {
   retirerIdentifiantsAxOrphelins,
   TABLE_IDENTIFIANTS_AX,
 } from "./coffre-heritage";
-export { retirerProceduresDuCompte } from "./procedures";
+export { QUOTAS, retirerProceduresDuCompte, sauvegarder } from "./procedures";
+export type { ProcedureAEnregistrer, ResultatSauvegarde } from "./procedures";
 export { BASELINE_COVERS, MIGRATIONS_PYTHON, TABLES } from "./schema.gen";
 export {
   decrireEmplacement,

@@ -30,6 +30,7 @@ import { creerClavier } from "./clavier";
 import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
+import { creerApprentissage } from "./apprentissage";
 import { creerApprobations } from "./approbations";
 import { creerCreds } from "./creds";
 import { creerProcedures } from "./procedures";
@@ -826,6 +827,11 @@ export function creerRacine(options: OptionsRacine = {}) {
   });
 
   const procedures = creerProcedures({ http, showToast: toasts.showToast });
+  const apprentissage = creerApprentissage({
+    http,
+    showToast: toasts.showToast,
+    ouvrirProcedures: () => void m.reglages?.openSettingsTab("procedures"),
+  });
   const approbations = creerApprobations({
     http,
     currentChatId,
@@ -1163,6 +1169,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     creds: proxyRefs(creds),
     approbations: proxyRefs(approbations),
     procedures: proxyRefs(procedures),
+    apprentissage: proxyRefs(apprentissage),
     appInfo,
     logoApp,
     imgZoom,

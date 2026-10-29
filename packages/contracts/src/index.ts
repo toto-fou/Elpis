@@ -5,6 +5,7 @@ export * from "./evenements";
 export * from "./stream-events.gen";
 export { schemasJson } from "./schemas";
 export * from "./procedures";
+export * from "./apprentissage";
 export * from "./rest/apparence";
 export * from "./rest/bureau";
 export * from "./rest/voix";

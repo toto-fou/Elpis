@@ -7,6 +7,8 @@ import type { Base } from "@elpis/db";
 import type { Dict } from "@elpis/commun";
 import {
   aConfirm,
+  brouillonDepuisRecorder,
+  construireProcedure,
   aControle,
   confirmesAffaiblis,
   mesurer,
@@ -26,7 +28,7 @@ import { jetonSeul, secretsRecents } from "../creds";
 import { lireSousAgent } from "@elpis/securite";
 
 import type { CompteSigne } from "../../../rappel";
-import { empreinteSubstituee, executer, pageCourante } from "./moteur";
+import { adresseSession, empreinteSubstituee, executer, pageCourante } from "./moteur";
 import { contexteReparation } from "./reparation";
 import {
   annulerAttentes,
@@ -609,6 +611,57 @@ export function pwProcedure(s: ServicesBrowser) {
         if (!r.ok) return errPw(r.code, "", { message: r.message });
         return { ok: true, action, id: r.id, version: r.version, nodes: mesurer(v.procedure.root).noeuds };
       }
+      if (action === "learn_recorder") {
+        // Brouillon d'après l'enregistrement du recorder de la session : jamais enregistré ici, aucune valeur secrète (le recorder les a déjà remplacées).
+        const o = await ouvrirAppel(ctx, s, a["session_id"]);
+        if (o.refus !== null) return o.refus;
+        const dump = await o.appel.client.req("GET", "/recorder/dump", {
+          params: { session_id: a["session_id"], format: "json" },
+        });
+        const script = estDict(dump) && typeof dump["script"] === "string" ? dump["script"] : "";
+        let evenements: unknown[] = [];
+        try {
+          const brut = JSON.parse(script) as unknown;
+          evenements = Array.isArray(brut) ? brut : [];
+        } catch {
+          evenements = [];
+        }
+        if (evenements.length === 0)
+          return errPw("recorder_empty", "", {
+            message: "no recorded events on this session",
+            fix: "pw_recorder(action='start') then act on the page (the user's own steps), then learn_recorder",
+          });
+        const b = brouillonDepuisRecorder(evenements, {
+          pageInitiale: await adresseSession(o.appel.client, String(a["session_id"])).catch(() => ""),
+        });
+        const manques = b.noeuds.flatMap((n) => (n.genre === "login" && !n.wait_for ? [n.id] : []));
+        const defauts = {
+          id: id || "recorded",
+          description: "Enregistré depuis le recorder",
+          params: Object.fromEntries(b.params.map((p) => [p.nom, true])),
+          confirm: Object.fromEntries(
+            b.noeuds.filter((n) => n.confirmSuggere).map((n) => [String(n.id), true]),
+          ),
+          retires: [] as number[],
+          wait_for: Object.fromEntries(manques.map((m) => [String(m), "text=TO_FILL"])),
+        };
+        const r = construireProcedure(b, defauts);
+        return {
+          ok: true,
+          action,
+          saved: false,
+          origin: b.origin,
+          steps: b.noeuds.map((n) =>
+            n.genre === "login"
+              ? "login (creds parameter, never a value)"
+              : `${n.act.act} ${n.act.url ?? n.act.t?.[0] ?? ""}`,
+          ),
+          discarded: b.ecartes,
+          suggested_params: b.params.map((p) => ({ name: p.nom, example: p.valeur })),
+          ...(r.ok ? { draft: r.procedure } : { draft_errors: r.erreurs }),
+          note: "DRAFT, nothing was saved: review it with the user, replace every text=TO_FILL (a login needs a wait_for target proving it worked), then pw_procedure(action='save', procedure=draft). A saved version is never approved: the user approves it in Paramètres › Procédures",
+        };
+      }
       if (action === "delete") {
         if (!id) return errPw("id_required", "", { message: "delete needs id", fix: FIX_LISTE });
         // Une version approuvée par l'utilisateur ne se supprime que depuis l'écran Procédures.
@@ -621,7 +674,7 @@ export function pwProcedure(s: ServicesBrowser) {
       }
       return errPw("unknown_action", "", {
         message: `action ${JSON.stringify(action)} unknown`,
-        fix: "use: list|get|save|repair|delete",
+        fix: "use: list|get|save|repair|delete|learn_recorder",
       });
     } catch (e) {
       return errPw("procedure_store_error", "", { message: messageErreur(e) });

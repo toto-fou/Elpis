@@ -56,6 +56,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   réveil de tâche, une routine ni un sous-agent) ; sans elle, seules les versions approuvées s'exécutent, `version` absente = dernière
   approuvée. L'approbation fige ou libère chaque paramètre (migration `0035`, `param_not_approved`), peut être retirée, n'est jamais
   purgée par la rotation des versions ; les chaînes d'un arbre refusent contrôle, format invisible et surrogates isolés.
+- **Apprentissage des procédures.** « Enregistrer comme procédure » (menu de la conversation) extrait les gestes navigateur réussis d'une
+  origine (écartés listés, paramètres proposés, connexion en nœud `login` sans valeur, `confirm` proposé sur le dernier geste à effet, aperçu) ;
+  `pw_procedure(action='learn_recorder')` rend un brouillon depuis le recorder (secrets déjà masqués) ; `/proc` prépare le message d'exécution d'une
+  procédure. Tout ce qui est appris est une version non approuvée validée par les mêmes règles. `chaineVersSeq` et `sauvegarder` sont partagés
+  (`@elpis/contracts`, `@elpis/db`).
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

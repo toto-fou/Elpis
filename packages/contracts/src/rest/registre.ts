@@ -163,6 +163,27 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     procedures.schemaCorpsDecisionApprobation,
   ),
   c("procedures", "GET", "/api/procedures", procedures.schemaReponseProcedures),
+  c(
+    "procedures",
+    "POST",
+    "/api/procedures/apprendre/brouillon",
+    procedures.schemaReponseBrouillon,
+    procedures.schemaCorpsApprentissage,
+  ),
+  c(
+    "procedures",
+    "POST",
+    "/api/procedures/apprendre/apercu",
+    procedures.schemaReponseApercu,
+    procedures.schemaCorpsApprentissage,
+  ),
+  c(
+    "procedures",
+    "POST",
+    "/api/procedures/apprendre/enregistrer",
+    procedures.schemaReponseEnregistrementProcedure,
+    procedures.schemaCorpsApprentissage,
+  ),
   c("procedures", "GET", "/api/procedures/:id/versions/:version", procedures.schemaReponseResumeProcedure),
   c(
     "procedures",

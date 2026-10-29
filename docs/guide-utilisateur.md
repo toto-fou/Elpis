@@ -344,6 +344,15 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   (fermer une fenêtre imprévue, viser un autre bouton, aller sur une autre page) demande **votre accord la première fois**
   (carte marquée « Première exécution d'un geste réparé » ou « de ce geste ») ; une fois approuvé et suivi d'une exécution réussie, il ne le
   redemande plus.
+- **Enregistrer ce que l'assistant a fait.** Menu « Conversation » › *Enregistrer comme procédure…* : une fenêtre montre les gestes
+  réussis sur le site (les échecs, clics ambigus, gestes sur un autre site et cibles non sémantiques sont écartés et listés, avec leur
+  raison), vous propose de transformer les valeurs saisies en paramètres, de demander votre accord sur chaque geste à effet (le dernier est
+  coché par défaut) et affiche l'aperçu. « Enregistrer » crée une version **non approuvée** ; « Ouvrir les procédures » mène à l'écran
+  où vous l'approuvez. Une connexion devient une étape « identifiant fourni par /creds » : aucun mot de passe n'est gardé.
+- **Depuis un enregistrement.** Après `pw_recorder` (start, vos gestes), demandez à l'assistant d'en tirer un brouillon
+  (`learn_recorder`) : il vous le montre, le complète (cible attendue après connexion) puis l'enregistre, toujours non approuvé.
+- **`/proc`** : liste vos procédures ; en choisir une prépare le message « Exécute la procédure… avec : … » à compléter. L'assistant l'exécute, vos
+  accords s'affichent comme d'habitude.
 - Les procédures enregistrées se consultent avec l'assistant (« liste mes procédures ») .
 
 ### Serveurs MCP externes

@@ -86,6 +86,13 @@ function lignes(n: Noeud, profondeur: number, sortie: string[]): void {
   }
 }
 
+/** Résumé lisible d'un arbre (même rendu que l'écran Procédures). */
+export function resumeArbre(racine: Noeud): string[] {
+  const sortie: string[] = [];
+  lignes(racine, 0, sortie);
+  return sortie.slice(0, 200);
+}
+
 /** Résumé d'une version : arbre lisible, paramètres déclarés et choix de l'approbation ; `null` si elle n'existe pas. */
 export async function resumerVersion(base: Base, owner: string, id: string, version: number) {
   const l = await base.get<Ligne>(

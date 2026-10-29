@@ -162,7 +162,7 @@ function echec(r: unknown): { code: string; message: string } | null {
 }
 
 /** Adresse courante d'une session (`/sessions` ne prend pas le verrou de la session). */
-async function adresseSession(client: ClientNavigateur, sessionId: string): Promise<string> {
+export async function adresseSession(client: ClientNavigateur, sessionId: string): Promise<string> {
   const r = await client.req("GET", "/sessions");
   const l = estDict(r) && Array.isArray(r["sessions"]) ? (r["sessions"] as unknown[]) : [];
   const x = l.find((e) => estDict(e) && e["session_id"] === sessionId);

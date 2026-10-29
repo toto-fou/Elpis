@@ -70,7 +70,7 @@ export function creerApiApprentissage(http: ClientHttp) {
   const post = <T>(
     etape: string,
     schema: ZodType<T>,
-    corps: { chat_id: string; origin?: string; choix?: ChoixApprentissageDto },
+    corps: { chat_id: string; origin?: string; choix?: ChoixApprentissageDto; empreinte?: string },
   ) =>
     http.requete(
       `/api/procedures/apprendre/${etape}`,
@@ -82,11 +82,7 @@ export function creerApiApprentissage(http: ClientHttp) {
       post("brouillon", schemaReponseBrouillon, { chat_id, ...(origin ? { origin } : {}) }),
     apercu: (chat_id: string, choix: ChoixApprentissageDto, origin?: string) =>
       post("apercu", schemaReponseApercu, { chat_id, choix, ...(origin ? { origin } : {}) }),
-    enregistrer: (chat_id: string, choix: ChoixApprentissageDto, origin?: string) =>
-      post("enregistrer", schemaReponseEnregistrementProcedure, {
-        chat_id,
-        choix,
-        ...(origin ? { origin } : {}),
-      }),
+    enregistrer: (chat_id: string, choix: ChoixApprentissageDto, origin: string, empreinte: string) =>
+      post("enregistrer", schemaReponseEnregistrementProcedure, { chat_id, choix, origin, empreinte }),
   };
 }

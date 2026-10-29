@@ -112,12 +112,14 @@ export interface Ecarte {
   readonly quoi: string;
 }
 
-/** Paramètre suggéré : valeur littérale d'un geste (`v` ou requête d'un `goto`) que l'utilisateur peut transformer en `{nom}`. */
+/** Paramètre suggéré : valeur littérale d'un geste (`v`, requête ou segment de chemin d'un `goto`) que l'utilisateur peut transformer en `{nom}` ; `impose` : jamais de littéral (champ ou clé sensible), `masque` : la valeur n'est jamais montrée. */
 export interface ParamSuggere {
   readonly nom: string;
   readonly valeur: string;
   readonly noeuds: readonly number[];
-  readonly champ: "v" | "url";
+  readonly champ: "v" | "url" | "chemin";
+  readonly impose: boolean;
+  readonly masque: boolean;
 }
 
 export type NoeudBrouillon =
@@ -127,7 +129,7 @@ export type NoeudBrouillon =
       readonly act: Act;
       readonly source: string;
       readonly effet: boolean;
-      /** `confirm: true` proposé par défaut (dernier geste à effet) : l'utilisateur ajuste. */
+      /** `confirm: true` proposé par défaut (gestes à effet après la dernière saisie, et dernier geste à effet) : l'utilisateur ajuste. */
       readonly confirmSuggere: boolean;
     }
   | {
@@ -144,7 +146,7 @@ export type NoeudBrouillon =
 
 export interface Brouillon {
   readonly origin: string;
-  /** Origines rencontrées et nombre de gestes candidats (l'origine retenue est la plus fournie, ou celle demandée). */
+  /** Origines rencontrées et nombre de gestes candidats (l'origine retenue est celle du premier geste, ou celle demandée). */
   readonly origines: readonly { readonly origin: string; readonly gestes: number }[];
   readonly noeuds: readonly NoeudBrouillon[];
   readonly params: readonly ParamSuggere[];
@@ -153,8 +155,54 @@ export interface Brouillon {
 
 const EFFETS_APPRIS: ReadonlySet<string> = new Set(["click", "press", "fill", "select", "check", "uncheck"]);
 const COMPOSANTES = ["role", "name", "text", "label", "placeholder", "test_id", "alt", "title"] as const;
-const SECRET_PRESUME =
-  /pass(?:word|wd|phrase|code)?(?![a-z])|passw|pwd|mot.?de.?passe|(?<![a-z])otp(?![a-z])|totp|2fa|mfa|token|secret|api.?key|(?<![a-z])(?:pin|cvc|cvv)(?![a-z])/iu;
+
+const sansAccent = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase();
+
+// Aligné sur MOTS_SECRETS de browser-service/recorder_util.js, plus les termes français (accents et casse normalisés).
+const CHAMP_SECRET =
+  /pass(?:word|wd|phrase|code)?(?![a-z])|passw|pwd|(?<![a-z])mdp(?![a-z])|mot.?de.?passe|kennwort|contrase|(?<![a-z])(?:otp|totp|pin|cvc|cvv|iban|bic|rib|mfa|2fa)(?![a-z])|one.?time|(?:verif|confirm|secur|confidenti|recu|sms|reponse)\w*\W*(?:code|secrete?)|code\W*(?:de\W+)?(?:verif|confirm|secur|confidenti|recu|sms|pin)|security.?code|secret|token|api.?key|cryptogramme|numero.?de.?carte|card.?number|carte.?(?:bancaire|bleue)|reponse.?secrete/u;
+/** Cible de champ qui évoque un secret (mot de passe, OTP, code de vérification, carte, IBAN…) : sa valeur n'est jamais gardée en littéral ni affichée. */
+export function champSecret(cible: string): boolean {
+  return CHAMP_SECRET.test(sansAccent(cible));
+}
+
+// Aligné sur masquerUrl / PARAMS_SECRETS de browser-service/recorder_util.js.
+const CLE_SENSIBLE =
+  /auth(?!or)|(?<![a-z])(?:code|key|sig|sid|jwt|otp|pin)(?![a-z])|session|sessid|signature|credential|ticket|saml|pass|pwd|token|secret|api.?key/u;
+/** Clé de requête dont la valeur est sensible (jeton, mot de passe, identifiant de session…). */
+export function cleSensible(cle: string): boolean {
+  return CLE_SENSIBLE.test(sansAccent(cle));
+}
+
+const OPAQUE_STRICT: readonly RegExp[] = [
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu,
+  /^[a-f0-9]{8,}$/iu,
+  /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/u,
+];
+/** Segment de chemin opaque (identifiant, jeton) : jamais gardé littéral dans un `goto`. */
+export const segmentOpaque = (seg: string): boolean => OPAQUE_STRICT.some((r) => r.test(seg));
+// Comme la mémoire AX (`/*`) : en plus, identifiants `ABC-123`, nombres de 3 chiffres ou plus et mélanges lettres-chiffres de 12 caractères ou plus.
+const segmentAx = (seg: string): boolean =>
+  segmentOpaque(seg) ||
+  /^[A-Z][A-Z0-9]{1,9}-\d+$/u.test(seg) ||
+  /^\d{3,}$/u.test(seg) ||
+  /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{12,}$/u.test(seg);
+
+/** Segments opaques d'un chemin : identifiants reconnus, et tout segment qui suit un segment sensible (`/session/…`, `/token/…`). */
+function opaquesDuChemin(chemin: string, large: boolean): boolean[] {
+  const segs = chemin.split("/");
+  return segs.map(
+    (s, i) =>
+      s !== "" && ((large ? segmentAx(s) : segmentOpaque(s)) || (i > 0 && cleSensible(segs[i - 1] ?? ""))),
+  );
+}
+const cheminSansOpaque = (chemin: string): string => {
+  const o = opaquesDuChemin(chemin, true);
+  return chemin
+    .split("/")
+    .map((s, i) => (o[i] === true ? "*" : s))
+    .join("/");
+};
 
 const texte = (x: unknown): string => (typeof x === "string" ? x : typeof x === "number" ? String(x) : "");
 const echappe = (v: string): string =>
@@ -187,26 +235,39 @@ const cheminDe = (u: string): string => {
     return "";
   }
 };
+const sansRequete = (u: string): string => u.split("?")[0]?.split("#")[0] ?? "";
 
-function reussi(r: unknown): { ok: boolean; raison: string } {
+/**
+ * Issue d'un appel d'après les VRAIES formes de résultat : `pw_session` rend `{status: "started", url}`, `pw_act` `{status: "success", url}` ou
+ * `{ok: false, error, url}`, `pw_login` `{ok: true, status: "submitted"}`, une étape de `pw_chain` `{success, url?}`.
+ */
+function issue(r: unknown): { ok: boolean; raison: string } {
   if (!estDict(r)) return { ok: false, raison: "résultat illisible" };
   const code = texte(r["code"]) || texte(r["error"]);
-  if (
-    /ambig/iu.test(JSON.stringify(r).slice(0, 4000)) &&
-    (r["success"] === false || r["ok"] === false || code !== "")
-  )
-    return { ok: false, raison: "geste ambigu" };
+  const statut = texte(r["status"]);
   if (
     r["ok"] === false ||
     r["success"] === false ||
     code !== "" ||
-    ["error", "failed", "fail"].includes(texte(r["status"]))
+    ["error", "failed", "fail"].includes(statut)
   )
-    return { ok: false, raison: `échec${code ? ` (${code})` : ""}` };
-  return {
-    ok: r["status"] === "success" || r["ok"] === true || r["success"] === true,
-    raison: "résultat non confirmé",
-  };
+    return {
+      ok: false,
+      raison: /ambig/iu.test(code) ? "geste ambigu" : `échec${code ? ` (${code.slice(0, 40)})` : ""}`,
+    };
+  if (["success", "started", "submitted"].includes(statut) || r["ok"] === true || r["success"] === true)
+    return { ok: true, raison: "" };
+  return { ok: false, raison: "résultat non confirmé" };
+}
+
+/** Page atteinte d'après un résultat (échec compris) : `url`, sinon `page_after.url`. */
+function urlDuResultat(r: unknown): string {
+  if (!estDict(r)) return "";
+  return (
+    texte(r["url"]) ||
+    texte(r["current_url"]) ||
+    (estDict(r["page_after"]) ? texte(r["page_after"]["url"]) : "")
+  );
 }
 
 function slug(s: string, secours: string): string {
@@ -236,6 +297,8 @@ interface Candidat {
   };
   readonly source: string;
   readonly origin: string;
+  /** Saisie dans un champ présumé secret : paramètre imposé, valeur masquée. */
+  readonly champSecret?: boolean;
 }
 
 /** Brouillon d'après les appels navigateur d'une conversation (ordre chronologique) : gestes réussis d'UNE origine ; `pw_run` écarté (ses gestes appartiennent déjà à une procédure). */
@@ -248,7 +311,7 @@ export function brouillonDepuisConversation(
   const pages = new Map<string, string>();
   const pageDe = (sid: string): string => pages.get(sid) ?? "";
   const majPage = (sid: string, r: unknown): void => {
-    const u = estDict(r) ? texte(r["url"]) || texte(r["current_url"]) : "";
+    const u = urlDuResultat(r);
     if (u !== "") pages.set(sid, u);
   };
   const noter = (raison: string, quoi: string): void =>
@@ -257,74 +320,93 @@ export function brouillonDepuisConversation(
     const sid = texte(a.args["session_id"]);
     if (a.outil === "pw_session") {
       if (texte(a.args["action"] ?? a.args["do"]) !== "start") continue;
-      const r = reussi(a.resultat);
+      const r = issue(a.resultat);
       const sidR = estDict(a.resultat) ? texte(a.resultat["session_id"]) || sid : sid;
       const url = texte(a.args["url"]);
+      majPage(sidR, a.resultat);
+      if (pageDe(sidR) === "" && url !== "" && r.ok) pages.set(sidR, url);
       if (!r.ok) {
-        noter(`ouverture de session : ${r.raison}`, url);
+        noter(`ouverture de session : ${r.raison}`, sansRequete(url));
         continue;
       }
-      majPage(sidR, a.resultat);
-      if (!pageDe(sidR) && url !== "") pages.set(sidR, url);
       if (url !== "")
         candidats.push({ act: gotoObserve(url, a.resultat), source: "pw_session", origin: origineDe(url) });
     } else if (a.outil === "pw_act") {
       const verbe = texte(a.args["do"] ?? a.args["action"] ?? a.args["op"]);
-      const brut = traiterGeste(verbe, a.args, a.resultat, pageDe(sid), options.fusionnerCible);
+      const page = pageDe(sid);
+      const brut = traiterGeste(verbe, a.args, a.resultat, page, options.fusionnerCible);
+      majPage(sid, a.resultat);
       if (brut === "ignore") continue;
       if ("ecarte" in brut)
-        noter(brut.ecarte, `${verbe} ${texte(a.args["target"]) || texte(a.args["name"])}`);
-      else candidats.push({ act: brut.act, source: "pw_act", origin: brut.origin });
-      if (!("ecarte" in brut)) majPage(sid, a.resultat);
+        noter(
+          brut.ecarte,
+          `${verbe} ${verbe === "goto" ? sansRequete(texte(a.args["url"])) : texte(a.args["target"]) || texte(a.args["name"])}`,
+        );
+      else
+        candidats.push({
+          act: brut.act,
+          source: "pw_act",
+          origin: brut.origin,
+          champSecret: brut.champSecret,
+        });
     } else if (a.outil === "pw_chain") {
       const actions = Array.isArray(a.args["actions"]) ? a.args["actions"] : [];
       const res = estDict(a.resultat) && Array.isArray(a.resultat["results"]) ? a.resultat["results"] : [];
+      let page = pageDe(sid);
+      let nonExecutees = 0;
       actions.forEach((etape, i) => {
         const e = estDict(etape) ? etape : {};
         const verbe = texte(e["action"] ?? e["do"] ?? e["type"]);
         const rr = res[i];
+        if (rr === undefined) {
+          nonExecutees += 1;
+          return;
+        }
         const ok = estDict(rr) && rr["success"] === true;
+        // La page est suivie étape par étape : chaque geste porte l'origine de la page où il a été joué.
+        const avant = page;
+        const urlEtape = estDict(rr) ? texte(rr["url"]) : "";
+        if (urlEtape !== "") page = urlEtape;
         if (!ok) {
-          if (rr !== undefined || verbe !== "")
-            noter(
-              estDict(rr) && texte(rr["code"])
-                ? `échec (${texte(rr["code"])})`
-                : "étape non exécutée ou en échec",
-              `${verbe} ${texte(e["target"])}`,
-            );
+          const code = estDict(rr) ? texte(rr["code"]) : "";
+          noter(
+            code ? `échec (${code.slice(0, 40)})` : "étape en échec",
+            `${verbe} ${verbe === "goto" ? sansRequete(texte(e["url"])) : texte(e["target"])}`,
+          );
           return;
         }
-        // Conversion pure partagée avec l'outil : une étape à la fois, sur l'origine de la page courante de la session.
-        const origin = origineDe(pageDe(sid));
-        if (origin === "" && verbe !== "goto") {
-          noter("page courante inconnue", `${verbe} ${texte(e["target"])}`);
+        const brutUrl = texte(e["url"]);
+        const origineEtape =
+          verbe === "goto"
+            ? brutUrl.startsWith("/")
+              ? origineDe(avant)
+              : origineDe(brutUrl)
+            : origineDe(avant);
+        if (origineEtape === "") {
+          noter("page courante inconnue", `${verbe} ${sansRequete(brutUrl) || texte(e["target"])}`);
           return;
         }
-        const conv = chaineVersSeq([e], origin, { fusionnerCible: options.fusionnerCible });
+        const conv = chaineVersSeq([e], origineEtape, { fusionnerCible: options.fusionnerCible });
         const act = conv.root !== null && "seq" in conv.root ? conv.root.seq[0] : undefined;
         if (act === undefined || !("act" in act)) {
           if (!/non convertible/u.test(conv.erreurs.join("")))
             noter(conv.erreurs.join(" ; ") || "étape non convertible", `${verbe} ${texte(e["target"])}`);
           return;
         }
-        if (act.act === "fill" && SECRET_PRESUME.test(act.t?.[0] ?? "")) {
-          noter("champ présumé secret : valeur jamais gardée", `${verbe} ${texte(e["target"])}`);
-          return;
-        }
-        candidats.push({
-          act,
-          source: "pw_chain",
-          origin: act.act === "goto" && !(act.url ?? "").startsWith("/") ? origineDe(act.url ?? "") : origin,
-        });
+        const secret =
+          act.act === "fill" || act.act === "select"
+            ? champSecret(act.t?.[0] ?? "") && act.v !== undefined
+            : false;
+        candidats.push({ act, source: "pw_chain", origin: origineEtape, champSecret: secret });
       });
-      majPage(
-        sid,
-        estDict(a.resultat) && estDict(a.resultat["page_after"]) ? a.resultat["page_after"] : a.resultat,
-      );
+      if (nonExecutees > 0) noter(`étapes non exécutées (${nonExecutees})`, "pw_chain");
+      const finale = estDict(a.resultat) ? urlDuResultat(a.resultat) : "";
+      pages.set(sid, finale !== "" ? finale : page);
     } else if (a.outil === "pw_login") {
-      const r = reussi(a.resultat);
+      const r = issue(a.resultat);
       const wait = texte(a.args["wait_for"]);
       const page = pageDe(sid);
+      majPage(sid, a.resultat);
       if (!r.ok) {
         noter(`connexion : ${r.raison}`, "pw_login");
         continue;
@@ -336,7 +418,6 @@ export function brouillonDepuisConversation(
         ...(wait ? { wait_for: wait } : {}),
       };
       candidats.push({ login, source: "pw_login", origin: origineDe(page) });
-      majPage(sid, a.resultat);
     } else if (a.outil === "pw_run") {
       noter(
         "procédure rejouée (pw_run) : ses gestes appartiennent déjà à une procédure, enregistrez plutôt une nouvelle version de celle-ci",
@@ -347,20 +428,18 @@ export function brouillonDepuisConversation(
   return assembler(candidats, ecartes, options.origin);
 }
 
-/** `goto` d'après une ouverture de session ou un `goto` : `expect.url_path` seulement si la page atteinte a le chemin demandé (aucune redirection constatée). */
+/** `goto` d'après une ouverture de session ou un `goto` : chemin relatif et requête ; `expect.url_path` seulement si la page atteinte a le chemin demandé (aucune redirection), identifiants opaques du chemin remplacés par `*`. */
 function gotoObserve(url: string, resultat: unknown): Act {
-  const finale = estDict(resultat) ? texte(resultat["url"]) : "";
+  const finale = urlDuResultat(resultat);
   const relatif = url.startsWith("/")
-    ? url
+    ? (url.split("#")[0] ?? url)
     : `${cheminDe(url)}${url.includes("?") ? `?${url.split("?")[1]?.split("#")[0] ?? ""}` : ""}`;
   const act: Act = { act: "goto", url: relatif || "/" };
-  if (
-    finale !== "" &&
-    cheminDe(finale) === cheminDe(url) &&
-    cheminDe(url) !== "" &&
-    !cheminDe(url).includes("*")
-  )
-    act.expect = { url_path: cheminDe(url) };
+  const demande = url.startsWith("/") ? sansRequete(url) : cheminDe(url);
+  if (finale !== "" && cheminDe(finale) === demande && demande !== "") {
+    const chemin = cheminSansOpaque(demande);
+    if (!chemin.includes("*") || chemin.split("/").some((s) => s === "*")) act.expect = { url_path: chemin };
+  }
   return act;
 }
 
@@ -370,7 +449,7 @@ function traiterGeste(
   resultat: unknown,
   page: string,
   fusion: (t: string, s: string) => string,
-): "ignore" | { act: Act; origin: string } | { ecarte: string } {
+): "ignore" | { act: Act; origin: string; champSecret: boolean } | { ecarte: string } {
   const act = (
     {
       goto: "goto",
@@ -386,7 +465,7 @@ function traiterGeste(
     } as Record<string, Act["act"]>
   )[verbe];
   if (act === undefined) return "ignore";
-  const r = reussi(resultat);
+  const r = issue(resultat);
   if (!r.ok) return { ecarte: r.raison };
   if (texte(args["secret"]) !== "") return { ecarte: "saisie d'un secret : jamais gardée" };
   if (act === "goto") {
@@ -395,7 +474,7 @@ function traiterGeste(
     if (origin === "") return { ecarte: "adresse ou page courante inconnue" };
     const g = gotoObserve(brut.startsWith("/") ? `${origin}${brut}` : brut, resultat);
     const e = refusUrl(g.url ?? "", origin);
-    return e === null ? { act: g, origin } : { ecarte: e };
+    return e === null ? { act: g, origin, champSecret: false } : { ecarte: e };
   }
   const origin = origineDe(page);
   if (origin === "") return { ecarte: "page courante inconnue" };
@@ -411,26 +490,21 @@ function traiterGeste(
     act === "select"
       ? texte(args["v"] ?? args["value"] ?? args["option_label"] ?? args["option_value"])
       : texte(args["v"] ?? args["value"] ?? args["key"]);
-  if (valeur !== "") {
-    if (act === "fill" && SECRET_PRESUME.test(cible))
-      return { ecarte: "champ présumé secret : valeur jamais gardée" };
-    noeud.v = valeur;
-  }
+  if (valeur !== "") noeud.v = valeur;
   if ((act === "fill" || act === "select" || act === "press") && valeur === "")
     return { ecarte: "valeur absente" };
-  // Navigation constatée par un clic : le chemin atteint devient la vérification.
-  if (act === "click" && estDict(resultat)) {
-    const apres = texte(resultat["url"]);
+  // Navigation constatée par un clic : le chemin atteint devient la vérification (identifiants opaques en `*`).
+  if (act === "click") {
+    const apres = urlDuResultat(resultat);
     if (
       apres !== "" &&
       cheminDe(apres) !== "" &&
       cheminDe(apres) !== cheminDe(page) &&
-      !cheminDe(apres).includes("*") &&
       origineDe(apres) === origin
     )
-      noeud.expect = { url_path: cheminDe(apres) };
+      noeud.expect = { url_path: cheminSansOpaque(cheminDe(apres)) };
   }
-  return { act: noeud, origin };
+  return { act: noeud, origin, champSecret: (act === "fill" || act === "select") && champSecret(cible) };
 }
 
 function assembler(
@@ -443,19 +517,24 @@ function assembler(
   const origines = [...compte]
     .map(([origin, gestes]) => ({ origin, gestes }))
     .sort((a, b) => b.gestes - a.gestes);
-  const origin = demandee !== undefined && compte.has(demandee) ? demandee : (origines[0]?.origin ?? "");
+  // Par défaut : le site où l'utilisateur a commencé (premier geste), les autres origines restent proposées.
+  const premiere = candidats.find((c) => c.origin !== "")?.origin ?? "";
+  const origin = demandee !== undefined && compte.has(demandee) ? demandee : premiere;
   const noeuds: NoeudBrouillon[] = [];
+  const secrets = new Set<number>();
   for (const c of candidats) {
     if (c.origin !== origin) {
       ecartes.push({
         raison: `autre origine (${c.origin || "inconnue"})`,
-        quoi: c.act ? `${c.act.act} ${c.act.url ?? c.act.t?.[0] ?? ""}`.slice(0, 120) : c.source,
+        quoi: c.act
+          ? `${c.act.act} ${sansRequete(c.act.url ?? "") || (c.act.t?.[0] ?? "")}`.slice(0, 120)
+          : c.source,
       });
       continue;
     }
     const id = noeuds.length;
     if (c.login) noeuds.push({ id, genre: "login", source: c.source, ...c.login, confirmSuggere: false });
-    else if (c.act)
+    else if (c.act) {
       noeuds.push({
         id,
         genre: "act",
@@ -464,13 +543,24 @@ function assembler(
         effet: EFFETS_APPRIS.has(c.act.act),
         confirmSuggere: false,
       });
+      if (c.champSecret) secrets.add(id);
+    }
   }
-  const dernier = [...noeuds].reverse().find((n) => n.genre === "act" && n.effet);
-  const finals = noeuds.map((n) => (n === dernier && n.genre === "act" ? { ...n, confirmSuggere: true } : n));
-  return { origin, origines, noeuds: finals, params: suggererParametres(finals), ecartes };
+  // `confirm` proposé : tout geste à effet qui suit la dernière saisie (fill/select), et le dernier geste à effet.
+  let derniereSaisie = -1;
+  noeuds.forEach((n, i) => {
+    if (n.genre === "act" && (n.act.act === "fill" || n.act.act === "select")) derniereSaisie = i;
+  });
+  const dernierEffet = noeuds.map((n) => n.genre === "act" && n.effet).lastIndexOf(true);
+  const finals = noeuds.map((n, i) =>
+    n.genre === "act" && n.effet && (i === dernierEffet || (derniereSaisie >= 0 && i > derniereSaisie))
+      ? { ...n, confirmSuggere: true }
+      : n,
+  );
+  return { origin, origines, noeuds: finals, params: suggererParametres(finals, secrets), ecartes };
 }
 
-function suggererParametres(noeuds: readonly NoeudBrouillon[]): ParamSuggere[] {
+function suggererParametres(noeuds: readonly NoeudBrouillon[], secrets: ReadonlySet<number>): ParamSuggere[] {
   const sortie: ParamSuggere[] = [];
   const pris = new Set<string>(["login"]);
   const unique = (nom: string): string => {
@@ -482,7 +572,8 @@ function suggererParametres(noeuds: readonly NoeudBrouillon[]): ParamSuggere[] {
   for (const n of noeuds) {
     if (n.genre !== "act") continue;
     if (n.act.v !== undefined && (n.act.act === "fill" || n.act.act === "select")) {
-      const existant = sortie.find((p) => p.champ === "v" && p.valeur === n.act.v);
+      const secret = secrets.has(n.id);
+      const existant = sortie.find((p) => p.champ === "v" && p.valeur === n.act.v && p.impose === secret);
       if (existant !== undefined) (existant.noeuds as number[]).push(n.id);
       else
         sortie.push({
@@ -490,20 +581,41 @@ function suggererParametres(noeuds: readonly NoeudBrouillon[]): ParamSuggere[] {
           valeur: n.act.v,
           noeuds: [n.id],
           champ: "v",
+          impose: secret,
+          masque: secret,
         });
     }
-    if (n.act.act === "goto" && n.act.url?.includes("?")) {
-      const requete = new URLSearchParams(n.act.url.split("?")[1]?.split("#")[0] ?? "");
-      for (const [k, val] of requete) {
-        if (val === "" || SECRET_PRESUME.test(k)) continue;
-        sortie.push({ nom: unique(slug(k, "valeur")), valeur: val, noeuds: [n.id], champ: "url" });
+    if (n.act.act === "goto" && n.act.url !== undefined) {
+      const [chemin = "", requete = ""] = n.act.url.split("?");
+      const opaques = opaquesDuChemin(chemin, false);
+      for (const [i, seg] of chemin.split("/").entries())
+        if (opaques[i] === true)
+          sortie.push({
+            nom: unique("identifiant"),
+            valeur: seg,
+            noeuds: [n.id],
+            champ: "chemin",
+            impose: true,
+            masque: true,
+          });
+      for (const [k, val] of new URLSearchParams(requete)) {
+        if (val === "") continue;
+        const sensible = cleSensible(k);
+        sortie.push({
+          nom: unique(slug(k, "valeur")),
+          valeur: val,
+          noeuds: [n.id],
+          champ: "url",
+          impose: sensible,
+          masque: sensible,
+        });
       }
     }
   }
   return sortie;
 }
 
-/** Choix de l'utilisateur dans l'aperçu : identifiant et description, paramètres gardés (`true`) ou littéraux, `confirm` par nœud, nœuds retirés, `wait_for` des connexions incomplètes. */
+/** Choix de l'utilisateur dans l'aperçu : identifiant et description, paramètres gardés (`true`) ou littéraux, `confirm` par nœud, nœuds retirés, `wait_for` des connexions incomplètes. Un paramètre imposé l'est toujours. */
 export interface ChoixApprentissage {
   readonly id: string;
   readonly description: string;
@@ -513,12 +625,13 @@ export interface ChoixApprentissage {
   readonly wait_for: Readonly<Record<string, string>>;
 }
 
-/** Procédure (toujours NON approuvée : c'est le stockage qui la crée ainsi) construite d'après le brouillon et les choix, validée sans aucune règle assouplie. */
+/** Procédure (toujours NON approuvée : c'est le stockage qui la crée ainsi) construite d'après le brouillon et les choix, validée sans aucune règle assouplie ; refusée si un littéral sensible subsiste. */
 export function construireProcedure(b: Brouillon, c: ChoixApprentissage): ResultatProcedure {
   const params: Procedure["params"] = {};
   const retires = new Set(c.retires);
   const seq: Noeud[] = [];
   let nLogin = 0;
+  const actifs = b.params.filter((p) => p.impose || c.params[p.nom] === true);
   for (const n of b.noeuds) {
     if (retires.has(n.id)) continue;
     if (n.genre === "login") {
@@ -539,36 +652,29 @@ export function construireProcedure(b: Brouillon, c: ChoixApprentissage): Result
     }
     const act: Act = { ...n.act };
     if (c.confirm[String(n.id)] === true) act.confirm = true;
-    seq.push(act);
-  }
-  for (const p of b.params) {
-    if (c.params[p.nom] !== true) continue;
-    let utilise = false;
-    for (const noeud of seq) {
-      if (!("act" in noeud)) continue;
-      const id = b.noeuds.find(
-        (n) =>
-          n.genre === "act" &&
-          n.act.act === noeud.act &&
-          n.act.t?.[0] === noeud.t?.[0] &&
-          n.act.v === noeud.v &&
-          n.act.url === noeud.url,
-      )?.id;
-      if (id === undefined || !p.noeuds.includes(id)) continue;
-      if (p.champ === "v" && noeud.v === p.valeur) {
-        noeud.v = `{${p.nom}}`;
-        utilise = true;
-      } else if (p.champ === "url" && noeud.url !== undefined) {
+    for (const p of actifs) {
+      if (!p.noeuds.includes(n.id)) continue;
+      if (p.champ === "v" && act.v === p.valeur) {
+        act.v = `{${p.nom}}`;
+        params[p.nom] = "string";
+      } else if (p.champ === "url" && act.url !== undefined) {
         const jeton = encodeURIComponent(p.valeur);
-        if (noeud.url.includes(`=${jeton}`)) {
-          noeud.url = noeud.url.split(`=${jeton}`).join(`={${p.nom}}`);
-          utilise = true;
+        const brut = `=${jeton}`;
+        const k = act.url.includes(brut) ? brut : `=${p.valeur}`;
+        if (act.url.includes(k)) {
+          act.url = act.url.split(k).join(`={${p.nom}}`);
+          params[p.nom] = "string";
         }
+      } else if (p.champ === "chemin" && act.url !== undefined && act.url.includes(`/${p.valeur}`)) {
+        act.url = act.url.split(`/${p.valeur}`).join(`/{${p.nom}}`);
+        params[p.nom] = "string";
       }
     }
-    if (utilise) params[p.nom] = "string";
+    seq.push(act);
   }
   if (seq.length === 0) return { ok: false, erreurs: ["aucun geste retenu"] };
+  const probleme = litteralSensible(b, seq);
+  if (probleme !== null) return { ok: false, erreurs: [probleme] };
   return validerProcedure({
     id: c.id,
     origin: b.origin,
@@ -577,6 +683,41 @@ export function construireProcedure(b: Brouillon, c: ChoixApprentissage): Result
     params,
     root: { seq },
   });
+}
+
+/** Vérification finale : aucune valeur masquée du brouillon, aucune clé de requête sensible ni segment de chemin opaque, aucune saisie de champ secret ne doit subsister en littéral. */
+function litteralSensible(b: Brouillon, seq: readonly Noeud[]): string | null {
+  const brut = JSON.stringify(seq);
+  for (const p of b.params)
+    if (p.masque && p.valeur.length >= 3 && brut.includes(JSON.stringify(p.valeur).slice(1, -1)))
+      return `littéral sensible conservé (${p.nom})`;
+  for (const n of seq) {
+    if (!("act" in n)) continue;
+    if (n.url !== undefined) {
+      const [chemin = "", requete = ""] = n.url.split("?");
+      const opaques = opaquesDuChemin(chemin, false);
+      if (
+        chemin
+          .split("/")
+          .some((_, i) => opaques[i] === true && !/^\{[a-z0-9_]+\}$/u.test(chemin.split("/")[i] ?? ""))
+      )
+        return "segment de chemin opaque conservé en littéral";
+      for (const [k, val] of new URLSearchParams(requete))
+        if (cleSensible(k) && !/^\{[a-z0-9_]+\}$/u.test(val))
+          return `clé de requête sensible conservée (${k})`;
+    }
+    if (
+      (n.act === "fill" || n.act === "select") &&
+      n.v !== undefined &&
+      champSecret(n.t?.[0] ?? "") &&
+      !/^\{[a-z0-9_]+\}$/u.test(n.v)
+    )
+      return "saisie d'un champ secret conservée en littéral";
+    const up = n.expect?.url_path;
+    if (up !== undefined && opaquesDuChemin(up, true).some((o, i) => o && up.split("/")[i] !== "*"))
+      return "identifiant opaque dans la vérification d'adresse";
+  }
+  return null;
 }
 
 /** Brouillon d'après un dump JSON du recorder (`GET /recorder/dump?format=json`, secrets déjà remplacés par une variable) ; identifiant + mot de passe + validation → nœud `login` (jamais de valeur), gestes secrets isolés écartés. */
@@ -591,7 +732,7 @@ export function brouillonDepuisRecorder(
   const notes = (raison: string, e: Dict): void =>
     void ecartes.push({
       raison,
-      quoi: `${texte(e["action"])} ${texte(e["url"]) || texte(e["selector"])}`.slice(0, 120),
+      quoi: `${texte(e["action"])} ${sansRequete(texte(e["url"])) || texte(e["selector"])}`.slice(0, 120),
     });
   const liste = evenements.filter(estDict);
   const cibleRec = (e: Dict): string => {
@@ -667,17 +808,18 @@ export function brouillonDepuisRecorder(
     const noeud: Act = { act: action === "type" ? "fill" : (action as Act["act"]), t: [cible] };
     const valeur = texte(e["value"]) || texte(e["key"]) || texte(e["option_label"]);
     if (valeur !== "") {
-      if (SECRET_PRESUME.test(cible)) {
-        notes("champ présumé secret : valeur jamais gardée", e);
-        continue;
-      }
       noeud.v = valeur;
     }
     if (["fill", "select", "press"].includes(noeud.act) && valeur === "") {
       notes("valeur absente", e);
       continue;
     }
-    candidats.push({ act: noeud, source: "recorder", origin: origineDe(page) });
+    candidats.push({
+      act: noeud,
+      source: "recorder",
+      origin: origineDe(page),
+      champSecret: champSecret(cible) && valeur !== "",
+    });
   }
   return assembler(candidats, ecartes, options.origin);
 }

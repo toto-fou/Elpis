@@ -2303,16 +2303,19 @@ assouplie) ; la logique pure vit dans `packages/contracts/src/apprentissage.ts` 
 - *« Enregistrer comme procédure »* (menu de la conversation → fenêtre d'aperçu). Routes de session du process main
   `POST /api/procedures/apprendre/{brouillon,apercu,enregistrer}` (garde CSRF, JSON exigé, identité de l'hôte refusée, conversation d'un autre
   compte = 404) : le core relit `tool_history` de la conversation (`apps/core/src/procedures/apprentissage.ts`) et **recalcule le brouillon à
-  chaque appel** (jamais celui du client). Sont retenus les gestes **réussis** d'**une** origine (la plus fournie, ou la demandée) :
+  chaque appel** (jamais celui du client). Sont retenus les gestes **réussis** d'**une** origine (celle du premier geste, ou la demandée ; la page est suivie résultat après résultat, étape par étape dans `pw_chain`, d'après les formes RÉELLES des résultats : `pw_session` `{status: "started", url}`, `pw_act` `{status: "success", url}` ou `{ok: false, error}`, `pw_login` `{ok: true}`, étape de chaîne `{success, url?}`) :
   ouverture de session et `goto`, `pw_act` (click, fill, select, check, uncheck, hover, press), étapes réussies de `pw_chain` (converties par
   `chaineVersSeq`), `pw_login` (→ nœud `login` avec paramètre `creds`, jamais le jeton ni une valeur ; sans `wait_for` l'utilisateur le fournit).
-  Écartés et listés avec leur raison : échecs, gestes ambigus, autre origine, cibles `css=`/`xpath=`/`ref=`, champs présumés secrets (une valeur saisie dans
-  un champ dont la cible évoque mot de passe, OTP, jeton… n'est jamais gardée), `secret=`, et **tout appel `pw_run`** (décision : ses gestes
+  Écartés et listés avec leur raison : échecs, gestes ambigus, autre origine, cibles `css=`/`xpath=`/`ref=`, `secret=`, et **tout appel `pw_run`** (décision : ses gestes
   appartiennent déjà à une procédure, on enregistre plutôt une nouvelle version de celle-ci). Un `expect: {url_path}` n'est déduit que d'une navigation
   constatée (`goto` sans redirection, clic qui a changé le chemin). Les valeurs saisies et les requêtes des `goto` sont **proposées** comme paramètres
-  (nom suggéré d'après la cible) : l'utilisateur les garde littérales ou les transforme ; `confirm: true` est proposé sur le **dernier** geste à effet
-  (rien ne permet de détecter un POST sensible), ajustable par geste. L'aperçu reprend le rendu de l'écran Procédures. Même nom et même origine :
-  nouvelle version ; même nom pour un autre site : 409. Les cibles de repli de la mémoire AX ne sont **pas** ajoutées (limite).
+  (nom suggéré d'après la cible) : l'utilisateur les garde littérales ou les transforme. **Jamais de littéral sensible** : une saisie dans un champ qui évoque un secret
+  (mot de passe, OTP, code de vérification ou reçu par SMS, réponse secrète, MDP, carte, IBAN, CVC, PIN… : accents et casse normalisés, aligné sur `recorder_util.js`),
+  une clé de requête sensible (token, password, sid, session, auth, key, code, otp…) et un segment de chemin opaque (UUID, hexadécimal, identifiant long, ou suivant `/session/`) deviennent
+  des paramètres **imposés** non décochables, valeur **masquée** dans la fenêtre ; les identifiants opaques d'un `expect.url_path` deviennent `*` ; `construireProcedure` REFUSE
+  toute procédure où un littéral sensible subsisterait. `confirm: true` est proposé sur **tous** les gestes à effet qui suivent la dernière saisie (fill/select) et sur le
+  dernier geste à effet (rien ne permet de détecter un POST sensible), ajustable par geste. L'aperçu reprend le rendu de l'écran Procédures. Même nom et même origine :
+  nouvelle version ; même nom pour un autre site : 409. `brouillon` et `apercu` rendent l'**empreinte** (sha256 du brouillon canonique) ; `enregistrer` exige cette empreinte et l'origine, recalcule le brouillon et répond **409** si la conversation a changé depuis l'aperçu (les choix sont indexés par position). Les cibles de repli de la mémoire AX ne sont **pas** ajoutées (limite).
 - *Recorder* : `pw_procedure(action='learn_recorder', session_id)` lit `GET /recorder/dump?format=json` de la session (propre au compte) et rend un
   **brouillon sans rien enregistrer** que le modèle complète puis `save` (les secrets sont déjà des variables `PASSWORD`/`OTP`… : motif identifiant
   + mot de passe + validation → nœud `login` sans valeur ; autres gestes secrets, adresses masquées, cibles sans role/name/label/placeholder/text

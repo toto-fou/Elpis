@@ -346,8 +346,9 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   redemande plus.
 - **Enregistrer ce que l'assistant a fait.** Menu « Conversation » › *Enregistrer comme procédure…* : une fenêtre montre les gestes
   réussis sur le site (les échecs, clics ambigus, gestes sur un autre site et cibles non sémantiques sont écartés et listés, avec leur
-  raison), vous propose de transformer les valeurs saisies en paramètres, de demander votre accord sur chaque geste à effet (le dernier est
-  coché par défaut) et affiche l'aperçu. « Enregistrer » crée une version **non approuvée** ; « Ouvrir les procédures » mène à l'écran
+  raison), vous propose de transformer les valeurs saisies en paramètres, de demander votre accord sur chaque geste à effet (ceux qui suivent la dernière
+  saisie, et le dernier geste, sont cochés par défaut) et affiche l'aperçu. Un champ secret (mot de passe, code reçu, carte, IBAN…), un jeton dans l'adresse ou un identifiant de
+  session deviennent des paramètres **obligatoires** dont la valeur n'est jamais affichée ni gardée. Si la conversation a changé entre l'aperçu et l'enregistrement, rouvrez la fenêtre. « Enregistrer » crée une version **non approuvée** ; « Ouvrir les procédures » mène à l'écran
   où vous l'approuvez. Une connexion devient une étape « identifiant fourni par /creds » : aucun mot de passe n'est gardé.
 - **Depuis un enregistrement.** Après `pw_recorder` (start, vos gestes), demandez à l'assistant d'en tirer un brouillon
   (`learn_recorder`) : il vous le montre, le complète (cible attendue après connexion) puis l'enregistre, toujours non approuvé.

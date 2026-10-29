@@ -24,6 +24,7 @@ export function creerApprentissage(dep: DependancesApprentissage) {
   const choix = ref<ChoixApprentissageDto | null>(null);
   const apercu = ref<{ lines: string[]; erreurs: string[] }>({ lines: [], erreurs: [] });
   const occupe = ref(false);
+  const apercuEmpreinte = ref("");
   const termine = ref<{ id: string; version: number } | null>(null);
   let chatId = "";
   let origine: string | undefined;
@@ -88,7 +89,10 @@ export function creerApprentissage(dep: DependancesApprentissage) {
     if (!c || occupe.value) return;
     occupe.value = true;
     try {
-      const r = await api.enregistrer(chatId, c, origine);
+      const b = brouillon.value;
+      if (!b) return;
+      // L'origine et l'empreinte de l'aperçu sont renvoyées : si la conversation a changé, le serveur refuse (409).
+      const r = await api.enregistrer(chatId, c, b.origin, apercuEmpreinte.value || b.empreinte);
       if (r.type === "ok") {
         termine.value = { id: r.valeur.id, version: r.valeur.version };
         dep.showToast("Version enregistrée, à approuver", "success");
@@ -96,6 +100,10 @@ export function creerApprentissage(dep: DependancesApprentissage) {
     } finally {
       occupe.value = false;
     }
+  }
+
+  function changerOrigine(origin: string): void {
+    void ouvrir(chatId, origin);
   }
 
   function fermer(): void {
@@ -119,6 +127,7 @@ export function creerApprentissage(dep: DependancesApprentissage) {
     occupe,
     termine,
     ouvrir,
+    changerOrigine,
     fermer,
     garde,
     basculerGarde,

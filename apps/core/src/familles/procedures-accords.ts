@@ -88,7 +88,7 @@ export function creerFamilleAccordsProcedures(dep: DependancesAccords): Famille 
             throw new HttpError(415, "JSON attendu.");
           const corps = schemaCorpsApprentissage.safeParse(brutJson(req));
           if (!corps.success) throw new HttpError(422, "Requête invalide.");
-          const { chat_id, origin, choix } = corps.data;
+          const { chat_id, origin, choix, empreinte } = corps.data;
           const defaut: ChoixApprentissageDto | undefined = choix;
           try {
             if (etape === "brouillon")
@@ -97,7 +97,7 @@ export function creerFamilleAccordsProcedures(dep: DependancesAccords): Famille 
             if (etape === "apercu") return await apercuConversation(dep.base, uid, chat_id, origin, defaut);
             return {
               ok: true,
-              ...(await enregistrerConversation(dep.base, uid, owner, chat_id, origin, defaut)),
+              ...(await enregistrerConversation(dep.base, uid, owner, chat_id, origin, defaut, empreinte)),
             };
           } catch (e) {
             if (e instanceof ErreurApprentissage) throw new HttpError(e.statut, e.message);

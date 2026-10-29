@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/procedures/apprentissage.ts — « Enregistrer comme procédure » : gestes navigateur réussis de l'historique d'une conversation → brouillon, aperçu et version NON approuvée (aucune règle de validation assouplie, aucun secret gardé). */
+import { createHash } from "node:crypto";
+
 import { brouillonDepuisConversation, construireProcedure } from "@elpis/contracts";
 import type {
   AppelNavigateur,
@@ -74,10 +76,35 @@ const slug = (s: string): string => {
   return /^[a-z0-9]/u.test(b) ? b : "procedure";
 };
 
-export function libelleNoeud(n: Brouillon["noeuds"][number]): string {
+/** Texte d'un geste pour la fenêtre : les valeurs masquées (jeton, champ secret…) y sont remplacées par « ••• ». */
+export function libelleNoeud(n: Brouillon["noeuds"][number], params: Brouillon["params"]): string {
   if (n.genre === "login") return "Connexion (identifiant fourni à chaque exécution par /creds)";
   const a = n.act;
-  return `${a.act} ${a.act === "goto" ? (a.url ?? "") : (a.t?.[0] ?? "")}${a.v !== undefined ? ` ← « ${a.v} »` : ""}`.trim();
+  const masquer = (t: string): string => {
+    let r = t;
+    for (const p of params)
+      if (p.masque && p.valeur !== "" && p.noeuds.includes(n.id))
+        r = r.split(p.valeur).join("•••").split(encodeURIComponent(p.valeur)).join("•••");
+    return r;
+  };
+  return masquer(
+    `${a.act} ${a.act === "goto" ? (a.url ?? "") : (a.t?.[0] ?? "")}${a.v !== undefined ? ` ← « ${a.v} »` : ""}`.trim(),
+  );
+}
+
+/** Empreinte du brouillon canonique (origine, gestes, cibles, valeurs proposées : les valeurs masquées n'y entrent que hachées par l'ensemble). */
+export function empreinteBrouillon(b: Brouillon): string {
+  const canon = JSON.stringify({
+    origin: b.origin,
+    noeuds: b.noeuds.map((n) =>
+      n.genre === "login"
+        ? { id: n.id, login: [n.username_target, n.password_target, n.submit_target, n.wait_for] }
+        : { id: n.id, act: n.act, effet: n.effet, c: n.confirmSuggere },
+    ),
+    params: b.params.map((p) => [p.nom, p.champ, p.valeur, p.noeuds, p.impose]),
+    ecartes: b.ecartes.map((e) => [e.raison, e.quoi]),
+  });
+  return createHash("sha256").update(canon, "utf8").digest("hex");
 }
 
 /** Brouillon recalculé côté serveur d'après la conversation du compte (jamais celui du client). */
@@ -124,16 +151,17 @@ export async function brouillonConversation(
   return {
     origin: b.origin,
     origines: [...b.origines],
+    empreinte: empreinteBrouillon(b),
     noeuds: b.noeuds.map((n) => ({
       id: n.id,
       genre: n.genre,
       source: n.source,
-      libelle: libelleNoeud(n),
+      libelle: libelleNoeud(n, b.params),
       effet: n.genre === "act" && n.effet,
       confirmSuggere: n.confirmSuggere,
       waitForRequis: n.genre === "login" && !n.wait_for,
     })),
-    params: [...b.params].map((p) => ({ ...p, noeuds: [...p.noeuds] })),
+    params: [...b.params].map((p) => ({ ...p, valeur: p.masque ? "" : p.valeur, noeuds: [...p.noeuds] })),
     ecartes: [...b.ecartes],
     choix: { ...choixParDefaut(b, titre), retires: [] },
     existantes: existantes.map((e) => ({ id: String(e.id), origin: String(e.origin) })),
@@ -150,9 +178,10 @@ export async function apercuConversation(
 ) {
   const { b } = await brouillonDe(base, uid, chatId, origin);
   const r = construireProcedure(b, choix as ChoixApprentissage);
+  const empreinte = empreinteBrouillon(b);
   return r.ok
-    ? { ok: true, lines: resumeArbre(r.procedure.root), erreurs: [] }
-    : { ok: false, lines: [], erreurs: r.erreurs };
+    ? { ok: true, lines: resumeArbre(r.procedure.root), erreurs: [], empreinte }
+    : { ok: false, lines: [], erreurs: r.erreurs, empreinte };
 }
 
 /** Crée la version NON approuvée (nouvelle procédure, ou nouvelle version d'une procédure de même origine). */
@@ -163,8 +192,14 @@ export async function enregistrerConversation(
   chatId: string,
   origin: string | undefined,
   choix: ChoixApprentissageDto,
+  empreinte: string | undefined,
 ): Promise<{ id: string; version: number }> {
+  if (origin === undefined || empreinte === undefined)
+    throw new ErreurApprentissage(422, "Origine et empreinte de l'aperçu requises.");
   const { b } = await brouillonDe(base, uid, chatId, origin);
+  // Les choix sont indexés par position : si la conversation a changé depuis l'aperçu, rien n'est enregistré.
+  if (empreinteBrouillon(b) !== empreinte)
+    throw new ErreurApprentissage(409, "La conversation a changé, rouvrez l'aperçu.");
   const r = construireProcedure(b, choix as ChoixApprentissage);
   if (!r.ok) throw new ErreurApprentissage(422, r.erreurs.join(" ; "));
   const existante = await base.get<{ origin: string }>(

@@ -111,7 +111,22 @@ watch(
                 />
               </label>
             </div>
-            <p class="text-xs text-slate-500">Site : {{ a.brouillon.origin }}</p>
+            <p v-if="a.brouillon.origines.length < 2" class="text-xs text-slate-500">
+              Site : {{ a.brouillon.origin }}
+            </p>
+            <label v-else class="flex items-center gap-2 text-xs text-slate-500">
+              Site
+              <select
+                class="border border-slate-200 rounded-md px-2 py-1 text-slate-800"
+                :value="a.brouillon.origin"
+                @change="a.changerOrigine(($event.target as HTMLSelectElement).value)"
+              >
+                <option v-for="o in a.brouillon.origines" :key="o.origin" :value="o.origin">
+                  {{ o.origin }} ({{ o.gestes }} gestes)
+                </option>
+              </select>
+              Les gestes des autres sites sont écartés.
+            </label>
 
             <div v-if="a.brouillon.noeuds.length" class="space-y-1.5">
               <h4 class="text-xs font-semibold text-slate-600">Gestes retenus</h4>
@@ -140,13 +155,21 @@ watch(
             <div v-if="a.brouillon.params.length" class="space-y-1.5">
               <h4 class="text-xs font-semibold text-slate-600">Paramètres proposés</h4>
               <label v-for="p in a.brouillon.params" :key="p.nom" class="flex items-center gap-2 text-xs">
-                <input v-model="choix.params[p.nom]" type="checkbox" />
+                <input
+                  v-if="p.impose"
+                  type="checkbox"
+                  checked
+                  disabled
+                  title="Valeur sensible : jamais gardée en clair, le paramètre est obligatoire"
+                />
+                <input v-else v-model="choix.params[p.nom]" type="checkbox" />
                 <span class="font-medium text-slate-700">{{ p.nom }}</span>
-                <span class="text-slate-500 truncate" :title="p.valeur"
+                <span v-if="p.masque" class="text-slate-500 truncate">valeur masquée</span>
+                <span v-else class="text-slate-500 truncate" :title="p.valeur"
                   >valeur actuelle : « {{ p.valeur }} »</span
                 >
                 <span class="text-slate-400 shrink-0">{{
-                  choix.params[p.nom] ? "paramètre" : "littéral"
+                  p.impose ? "paramètre imposé" : choix.params[p.nom] ? "paramètre" : "littéral"
                 }}</span>
               </label>
             </div>

@@ -93,7 +93,11 @@ export const schemaParamSuggere = z.object({
   nom: z.string(),
   valeur: z.string(),
   noeuds: z.array(entier),
-  champ: z.enum(["v", "url"]),
+  champ: z.enum(["v", "url", "chemin"]),
+  /** Jamais de littéral (champ ou clé sensible) : le paramètre n'est pas décochable. */
+  impose: z.boolean(),
+  /** La valeur n'est jamais montrée (`valeur` vide). */
+  masque: z.boolean(),
 });
 export const schemaChoixApprentissage = z.object({
   id: z.string().max(64),
@@ -108,6 +112,8 @@ export const schemaCorpsApprentissage = z.object({
   chat_id: z.string().min(1).max(200),
   origin: z.string().max(300).optional(),
   choix: schemaChoixApprentissage.optional(),
+  /** Empreinte du brouillon relue à l'aperçu : l'enregistrement la compare à celle de la conversation actuelle. */
+  empreinte: z.string().max(100).optional(),
 });
 export const schemaReponseBrouillon = z.object({
   origin: z.string(),
@@ -115,6 +121,7 @@ export const schemaReponseBrouillon = z.object({
   noeuds: z.array(schemaNoeudBrouillon),
   params: z.array(schemaParamSuggere),
   ecartes: z.array(z.object({ raison: z.string(), quoi: z.string() })),
+  empreinte: z.string(),
   choix: schemaChoixApprentissage,
   /** Procédures du compte de même identifiant : l'enregistrement crée alors une nouvelle version. */
   existantes: z.array(z.object({ id: z.string(), origin: z.string() })),
@@ -124,6 +131,7 @@ export const schemaReponseApercu = z.object({
   ok: z.boolean(),
   lines: z.array(z.string()),
   erreurs: z.array(z.string()),
+  empreinte: z.string(),
 });
 export const schemaReponseEnregistrementProcedure = z.object({
   ok: z.literal(true),

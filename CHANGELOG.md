@@ -60,7 +60,8 @@ selon [SemVer](https://semver.org/lang/fr/).
   origine (écartés listés, paramètres proposés, connexion en nœud `login` sans valeur, `confirm` proposé sur le dernier geste à effet, aperçu) ;
   `pw_procedure(action='learn_recorder')` rend un brouillon depuis le recorder (secrets déjà masqués) ; `/proc` prépare le message d'exécution d'une
   procédure. Tout ce qui est appris est une version non approuvée validée par les mêmes règles. `chaineVersSeq` et `sauvegarder` sont partagés
-  (`@elpis/contracts`, `@elpis/db`).
+  (`@elpis/contracts`, `@elpis/db`). Les formes réelles des résultats d'outils sont reconnues ; aucune valeur sensible n'est gardée en littéral (champs secrets, clés
+  de requête et segments de chemin sensibles : paramètres imposés masqués, enregistrement refusé sinon) ; l'enregistrement exige l'empreinte de l'aperçu (409 si la conversation a changé).
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

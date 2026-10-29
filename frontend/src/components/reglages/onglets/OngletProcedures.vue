@@ -75,16 +75,6 @@ onMounted(() => void p.chargerProcedures());
             Approuvée
           </span>
           <button
-            v-else
-            type="button"
-            class="px-2 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
-            title="Autoriser cette version à s'exécuter sans vous (routines, sous-agents)"
-            :disabled="p.occupee"
-            @click="p.approuver(pr.id, v.version)"
-          >
-            Approuver
-          </button>
-          <button
             type="button"
             class="px-2 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
             :title="
@@ -98,10 +88,61 @@ onMounted(() => void p.chargerProcedures());
             {{ p.armee === cleVersion(pr.id, v.version) ? "Confirmer" : "Supprimer" }}
           </button>
         </div>
-        <pre
-          v-if="p.ouverte === cleVersion(pr.id, v.version)"
-          class="text-xs text-slate-700 bg-slate-50 rounded-md p-2 overflow-x-auto whitespace-pre-wrap"
-          >{{ (p.resumes[cleVersion(pr.id, v.version)] ?? ["Chargement…"]).join("\n") }}</pre>
+        <div v-if="p.ouverte === cleVersion(pr.id, v.version)" class="space-y-2">
+          <pre
+            class="text-xs text-slate-700 bg-slate-50 rounded-md p-2 overflow-x-auto whitespace-pre-wrap"
+            >{{ (p.resumes[cleVersion(pr.id, v.version)]?.lines ?? ["Chargement…"]).join("\n") }}</pre>
+          <template v-if="p.resumes[cleVersion(pr.id, v.version)]">
+            <div
+              v-for="q in p.resumes[cleVersion(pr.id, v.version)]?.params ?? []"
+              :key="q.name"
+              class="flex items-center gap-2 text-xs"
+            >
+              <span class="font-medium text-slate-700 w-24 truncate" :title="q.name">{{ q.name }}</span>
+              <span class="text-slate-500 shrink-0">{{ q.type === "creds" ? "identifiant" : q.type }}</span>
+              <template v-if="q.type !== 'creds' && p.choix[cleVersion(pr.id, v.version)]?.[q.name]">
+                <label class="flex items-center gap-1 shrink-0">
+                  <input
+                    v-model="p.choix[cleVersion(pr.id, v.version)]![q.name]!.libre"
+                    type="checkbox"
+                    :disabled="v.approved_at !== null"
+                  />
+                  Libre (choisie par l'assistant)
+                </label>
+                <input
+                  v-if="!p.choix[cleVersion(pr.id, v.version)]![q.name]!.libre"
+                  v-model="p.choix[cleVersion(pr.id, v.version)]![q.name]!.valeur"
+                  type="text"
+                  class="border border-slate-200 rounded-md px-2 py-1 flex-1 min-w-0"
+                  placeholder="Valeur figée"
+                  :aria-label="`Valeur figée de ${q.name}`"
+                  :disabled="v.approved_at !== null"
+                />
+              </template>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                v-if="v.approved_at === null"
+                type="button"
+                class="px-2 py-1 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                :disabled="p.occupee || !p.pret(pr.id, v.version)"
+                title="Autoriser cette version à s'exécuter sans vous (routines, sous-agents), avec ces paramètres"
+                @click="p.approuver(pr.id, v.version)"
+              >
+                Approuver
+              </button>
+              <button
+                v-else
+                type="button"
+                class="px-2 py-1 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                :disabled="p.occupee"
+                @click="p.retirer(pr.id, v.version)"
+              >
+                Retirer l'approbation
+              </button>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </div>

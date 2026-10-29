@@ -71,9 +71,12 @@ const NOMS_RESERVES: ReadonlySet<string> = new Set([
   "hasownproperty",
 ]);
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
-/** Vrai si la chaîne porte un caractère de contrôle (saut de ligne, tabulation, NUL…) ou de format invisible (bidi, largeur nulle, BOM : affichage trompeur). */
+/** Vrai si la chaîne porte un caractère de contrôle (saut de ligne, tabulation, NUL…) ou de format invisible (bidi, largeur nulle, BOM : affichage trompeur), ou un surrogate isolé. */
 export function aControle(s: string): boolean {
-  return Array.from(s).some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127 || /\p{Cf}/u.test(c));
+  return (
+    !s.isWellFormed() ||
+    Array.from(s).some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127 || /\p{Cf}/u.test(c))
+  );
 }
 
 /** Noms de gabarits `{nom}` d'une chaîne, dans l'ordre. */
@@ -459,6 +462,24 @@ function sousRetryInterdit(racine: Noeud): string[] {
 
 export type ResultatProcedure = { ok: true; procedure: Procedure } | { ok: false; erreurs: string[] };
 
+/** Chemin de la première chaîne (valeur ou clé) de l'entrée brute qui porte un caractère interdit (`aControle`), `null` sinon ; la profondeur est déjà bornée. */
+function chaineSuspecte(x: unknown, chemin: string): string | null {
+  if (typeof x === "string") return aControle(x) ? chemin || "(racine)" : null;
+  if (Array.isArray(x)) {
+    for (const [i, e] of x.entries()) {
+      const r = chaineSuspecte(e, `${chemin}.${i}`);
+      if (r !== null) return r;
+    }
+  } else if (x !== null && typeof x === "object") {
+    for (const [k, e] of Object.entries(x)) {
+      if (aControle(k)) return `${chemin}.${k.slice(0, 20)}`;
+      const r = chaineSuspecte(e, `${chemin}.${k}`);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 /** Valide une procédure inconnue (JSON reçu) : forme Zod, puis limites et règles croisées ; au plus 10 erreurs rendues. */
 export function validerProcedure(entree: unknown): ResultatProcedure {
   if (profondeurBrute(entree) > LIMITES_PROCEDURE.profondeurBrute)
@@ -466,6 +487,12 @@ export function validerProcedure(entree: unknown): ResultatProcedure {
   const params = (entree as { params?: unknown } | null)?.params;
   if (params !== null && typeof params === "object" && Object.hasOwn(params, "__proto__"))
     return { ok: false, erreurs: ["params.__proto__ : nom réservé"] };
+  const suspecte = chaineSuspecte(entree, "");
+  if (suspecte !== null)
+    return {
+      ok: false,
+      erreurs: [`${suspecte} : caractère de contrôle, de format invisible ou surrogate isolé interdit`],
+    };
   const r = schemaBase.safeParse(entree);
   if (!r.success)
     return {
@@ -719,8 +746,7 @@ export function verifierReparation(
     if (!EFFETS.has(x.act) || memeCible(o, x)) continue;
     if ((x.t ?? []).some((t) => dehors.has(nomNormalise(t))))
       aMarquer.set(x, "cible déjà jouée ou présente ailleurs dans l'arbre");
-    else if (cibleElargie(o.t, x.t))
-      aMarquer.set(x, "cible apportant un mot ou un nombre absent de l'ancienne");
+    else if (cibleElargie(o.t, x.t)) aMarquer.set(x, "cible dont le nom change");
     else if (!contexte.dejaReussi) aMarquer.set(x, "la procédure n'a jamais réussi");
   }
   // (c) goto.

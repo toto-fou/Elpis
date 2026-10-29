@@ -689,6 +689,7 @@ export async function* runTurn(
               ephemeral: plan.ephemeral,
               denyToolNames: plan.denyTools,
               readOnly: plan.planMode,
+              humanTurn: plan.origin === "user",
               userSuffixRoom: SUFFIXE_LLM_MAX - (suffixeTour ? longueurPy(suffixeTour) + 2 : 0),
               slot,
             });

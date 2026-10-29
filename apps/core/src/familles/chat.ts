@@ -35,6 +35,8 @@ export function corpsDuTour(octets: Uint8Array): Dict {
 }
 
 async function streamer(dep: DependancesChat, req: FastifyRequest, rep: FastifyReply): Promise<void> {
+  // Un tour de chat est une action de l'utilisateur : jamais l'identité signée de l'hôte d'outils (le modèle).
+  if (req.identiteToolhost) throw new HttpError(403, "Réservé à la session de l'utilisateur.");
   const uid = utilisateur(req);
   const data = corpsDuTour(req.corpsBrut);
   if (data["image_gen"] !== null && data["image_gen"] !== undefined)

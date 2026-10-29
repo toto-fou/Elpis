@@ -52,6 +52,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   les approuve et les supprime ; `pw_procedure(delete)` refuse une version approuvée ; `confirm_protected` apparie sur le
   geste entier (garde-fou, pas frontière). La carte d'accord refuse de se créer si un champ est tronqué, rend visibles les
   caractères invisibles, et un nom de cible qui change (dans un sens ou l'autre) demande `once`.
+- **Approbation avec paramètres et tours humains.** Seul un tour ouvert par l'utilisateur porte la marque `human_turn` (jamais un
+  réveil de tâche, une routine ni un sous-agent) ; sans elle, seules les versions approuvées s'exécutent, `version` absente = dernière
+  approuvée. L'approbation fige ou libère chaque paramètre (migration `0035`, `param_not_approved`), peut être retirée, n'est jamais
+  purgée par la rotation des versions ; les chaînes d'un arbre refusent contrôle, format invisible et surrogates isolés.
 - **`pw_login`** : avec `wait_for`, la connexion n'est réussie que si la cible apparaît avant la fin du budget
   (40 s) ; sinon `login_not_confirmed`. Le clic de soumission n'attend plus la navigation (une page suivante
   lente ne donne plus `login_timeout`).

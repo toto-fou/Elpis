@@ -106,6 +106,7 @@ export const TABLES: readonly Table[] = [
       { name: "parent_version", type: "int" },
       { name: "repaired_path", type: "text" },
       { name: "approved_at", type: "real" },
+      { name: "approved_params", type: "text" },
     ],
     pk: ["owner", "id", "version"],
     indexes: [{"name": "idx_ax_procedures_origin", "cols": ["owner", "origin"]}],

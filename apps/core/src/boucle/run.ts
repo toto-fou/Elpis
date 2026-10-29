@@ -176,6 +176,8 @@ export interface ChampsRun {
   liveShell: boolean;
   /** Périmètre du sous-agent qui fait ce run, `null` pour un tour de premier niveau. */
   subagent?: SousAgent | null;
+  /** Un humain a ouvert ce tour (jamais un réveil de tâche, une routine ni un sous-agent). */
+  humanTurn?: boolean;
   wrapupSuffix?: string | null;
   startTime: number;
   modelHasVision: boolean;

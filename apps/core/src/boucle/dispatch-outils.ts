@@ -526,6 +526,7 @@ export function buildCallMeta(o: {
   runLogTok: string;
   userId?: number | null;
   subagent?: SousAgent | null;
+  humanTurn?: boolean;
 }): Dict | null {
   if (!o.isLocal) return null;
   const meta: Dict = { username: o.username };
@@ -535,6 +536,8 @@ export function buildCallMeta(o: {
   meta["call_id"] = strPy(o.callId);
   meta["log_token"] = `${o.runLogTok}:${strPy(o.callId)}`;
   if (o.subagent) meta["subagent"] = sousAgentEnDict(o.subagent);
+  // Marque signée par le core : seul un tour ouvert par l'utilisateur compte comme « humain présent » (jamais un sous-agent).
+  if (o.humanTurn === true && !o.subagent) meta["human_turn"] = "1";
   return meta;
 }
 
@@ -762,6 +765,7 @@ export async function openNativeRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        humanTurn: ctx.c.humanTurn === true,
       }),
       args_error: argsError,
     });
@@ -923,6 +927,7 @@ export function openTextRound(
         runLogTok: ctx.c.runLogTok,
         userId: ctx.c.userId,
         subagent: ctx.c.subagent,
+        humanTurn: ctx.c.humanTurn === true,
       }),
     });
   });

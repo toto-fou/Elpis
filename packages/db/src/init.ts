@@ -71,6 +71,12 @@ export const MIGRATIONS_TS: readonly Migration[] = [
       for (const t of ["ax_procedures", "ax_procedure_demandes"]) await addMissingColumns(x, tableParNom(t));
     },
   },
+  {
+    name: "0035_parametres_approuves",
+    migrer: async (x) => {
+      await addMissingColumns(x, tableParNom("ax_procedures"));
+    },
+  },
 ];
 
 export interface RapportInit {

@@ -53,6 +53,26 @@ export const schemaProcedureListee = z.object({
 export type ProcedureListee = z.infer<typeof schemaProcedureListee>;
 export const schemaReponseProcedures = z.object({ items: z.array(schemaProcedureListee) });
 /** Résumé lisible d'une version : une ligne par nœud, indentée par profondeur. */
-export const schemaReponseResumeProcedure = z.object({ lines: z.array(z.string()), readable: z.boolean() });
+export const schemaChoixParametre = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("fixed"), value: z.union([z.string(), z.number()]) }),
+  z.object({ mode: z.literal("free") }),
+]);
+export type ChoixParametre = z.infer<typeof schemaChoixParametre>;
+/** Approbation d'une version : un choix pour CHAQUE paramètre déclaré hors `creds` (figé, ou libre), jamais implicite. */
+export const schemaCorpsApprobationVersion = z.object({ params: z.record(z.string(), schemaChoixParametre) });
+export const schemaReponseResumeProcedure = z.object({
+  lines: z.array(z.string()),
+  readable: z.boolean(),
+  approved: z.boolean(),
+  /** Paramètres déclarés ; `choice` : le choix de l'approbation (`null` : non approuvée ou approuvée sans choix). */
+  params: z.array(
+    z.object({
+      name: z.string(),
+      type: z.enum(["string", "number", "creds"]),
+      choice: schemaChoixParametre.nullable(),
+    }),
+  ),
+});
 export const schemaReponseApprobationVersion = z.object({ ok: z.literal(true), approved_at: horodatage });
+export const schemaReponseRetraitApprobation = z.object({ ok: z.literal(true) });
 export const schemaReponseSuppressionProcedure = z.object({ ok: z.literal(true), deleted: entier });

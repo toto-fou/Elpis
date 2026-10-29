@@ -32,7 +32,8 @@ import {
   annulerAttentes,
   approbations,
   approuveesDe,
-  versionApprouvee,
+  derniereApprouvee,
+  etatApprobation,
   rendreConfirmation,
   dejaReussi,
   oublierApprobations,
@@ -54,6 +55,7 @@ import {
   sauvegarder,
   supprimer,
 } from "./stockage";
+import type { ParamApprouve } from "./stockage";
 
 const PARAM_LONGUEUR = 500;
 const FIX_LISTE = "pw_procedure(action='list') lists the saved procedures";
@@ -141,6 +143,8 @@ function contexteHumain(ctx: ContexteAppel): boolean {
   const chat = readMetaField(ctx, "chat_id") ?? "";
   return (
     getAccessToken()?.claims["trusted_meta"] === true &&
+    // Marque posée par le core pour les seuls tours ouverts par l'utilisateur (refus par défaut : réveil de tâche, routine…).
+    readMetaField(ctx, "human_turn") === "1" &&
     chat !== "" &&
     !chat.startsWith("routine:") &&
     !lireSousAgent(ctx.meta?.["subagent"])
@@ -160,6 +164,30 @@ async function venantDUneReparation(
   return rp !== null && (chemin === rp || chemin.startsWith(`${rp}.`));
 }
 
+/** Sans humain : un paramètre figé impose sa valeur (injectée si absente, `param_not_approved` si une autre est donnée), un paramètre libre est accepté, aucun choix = refus ; les paramètres `creds` ne sont pas concernés. */
+function appliquerParamsApprouves(
+  p: Procedure,
+  brut: unknown,
+  choix: Record<string, ParamApprouve> | null,
+): { ok: true; params: Record<string, unknown> } | { ok: false; erreurs: string[] } {
+  const donnes: Record<string, unknown> = estDict(brut) ? { ...(brut as Dict) } : {};
+  const erreurs: string[] = [];
+  for (const [nom, type] of Object.entries(p.params)) {
+    if (type === "creds") continue;
+    const c = choix !== null && Object.hasOwn(choix, nom) ? choix[nom] : undefined;
+    if (c === undefined || (c.mode !== "fixed" && c.mode !== "free")) {
+      erreurs.push(`parameter ${nom}: the user approved no value for it (neither fixed nor free)`);
+      continue;
+    }
+    if (c.mode === "free") continue;
+    const donnee = Object.hasOwn(donnes, nom) ? donnes[nom] : undefined;
+    if (donnee !== undefined && donnee !== null && String(donnee) !== String(c.value))
+      erreurs.push(`parameter ${nom}: the user fixed it to another value`);
+    else donnes[nom] = c.value;
+  }
+  return erreurs.length > 0 ? { ok: false, erreurs } : { ok: true, params: donnes };
+}
+
 /** `pw_run` : valide la procédure et les paramètres, puis la rejoue (budget, annulation, arrêt sur geste ambigu) et journalise l'issue. */
 export function pwRun(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
@@ -171,8 +199,11 @@ export function pwRun(s: ServicesBrowser) {
         message: "the procedure store is unavailable (no database)",
       });
     const id = String(a["procedure"] ?? "").trim();
-    const demandee = Number(a["version"] ?? 0) > 0 ? Number(a["version"]) : 0;
+    let demandee = Number(a["version"] ?? 0) > 0 ? Number(a["version"]) : 0;
+    const humain = contexteHumain(ctx);
     try {
+      // Sans humain, « la dernière version » est la dernière APPROUVÉE par l'utilisateur.
+      if (!humain && demandee === 0) demandee = (await derniereApprouvee(ax, username, id)) ?? 0;
       const brut = await lireTexte(ax, username, id, demandee);
       if (brut === undefined)
         return errPw("procedure_not_found", "", {
@@ -192,7 +223,23 @@ export function pwRun(s: ServicesBrowser) {
           message: v.erreurs.join(" ; "),
           fix: "save a corrected version with pw_procedure(action='save')",
         });
-      const params = validerParametres(v.procedure, a["params"]);
+      let paramsBruts: unknown = a["params"];
+      if (!humain) {
+        const etat = await etatApprobation(ax, username, v.procedure.id, version);
+        if (!etat.approved)
+          return errPw("version_not_approved", "", {
+            message: `version ${version} of ${v.procedure.id} was not approved by the user: without a human in the conversation (routine, sub-agent, server-opened turn) only approved versions run. Nothing was done`,
+            fix: "tell the user to approve this version in Paramètres › Procédures (a version created or repaired by the model is never approved)",
+          });
+        const appliques = appliquerParamsApprouves(v.procedure, a["params"], etat.params);
+        if (!appliques.ok)
+          return errPw("param_not_approved", "", {
+            message: `${appliques.erreurs.join(" ; ")}. Nothing was done`,
+            fix: "tell the user: parameters are fixed or free at approval time (Paramètres › Procédures); use the approved value, or ask them to approve again",
+          });
+        paramsBruts = appliques.params;
+      }
+      const params = validerParametres(v.procedure, paramsBruts);
       if (!params.ok)
         return errPw("params_invalid", "", {
           message: params.erreurs.join(" ; "),
@@ -201,11 +248,6 @@ export function pwRun(s: ServicesBrowser) {
             .join(", ")}}`,
         });
       const sessionId = String(a["session_id"]);
-      if (!contexteHumain(ctx) && !(await versionApprouvee(ax, username, v.procedure.id, version)))
-        return errPw("version_not_approved", "", {
-          message: `version ${version} of ${v.procedure.id} was not approved by the user: without a human in the conversation (routine, sub-agent) only approved versions run. Nothing was done`,
-          fix: "tell the user to approve this version in Paramètres › Procédures (a version created or repaired by the model is never approved)",
-        });
       if (a["confirmed"] !== undefined)
         return errPw("confirmed_removed", "", {
           message:
@@ -365,20 +407,22 @@ export function pwRun(s: ServicesBrowser) {
         const c = await compteAccord(s, ctx, username);
         if ("raison" in c) demandeRefus = c.raison;
         else {
-          demande =
-            (await s.rappel?.creerDemandeApprobation(c.compte, {
-              session_id: sessionId,
-              procedure_id: v.procedure.id,
-              version,
-              path: r.node_path,
-              fingerprint: r.accord.fp,
-              description: r.description ?? "",
-              gesture: r.accord.gesture,
-              page,
-              once: r.first_run_after_repair === true,
-              repaired: await venantDUneReparation(ax, username, v.procedure.id, version, r.node_path),
-            })) ?? null;
-          if (demande === null) demandeRefus = "the approval service did not answer";
+          const cree = await s.rappel?.creerDemandeApprobation(c.compte, {
+            session_id: sessionId,
+            procedure_id: v.procedure.id,
+            version,
+            path: r.node_path,
+            fingerprint: r.accord.fp,
+            description: r.description ?? "",
+            gesture: r.accord.gesture,
+            page,
+            once: r.first_run_after_repair === true,
+            repaired: await venantDUneReparation(ax, username, v.procedure.id, version, r.node_path),
+          });
+          if (cree === undefined || cree === null)
+            demandeRefus = "approval_unavailable: the approval service did not answer";
+          else if ("refus" in cree) demandeRefus = `${cree.refus.code}: ${cree.refus.message}`;
+          else demande = cree;
         }
       }
       const { failed_at: fa, onceFaits: _once, accord: _accord, ...reste } = r;

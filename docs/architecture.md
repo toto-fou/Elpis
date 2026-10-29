@@ -2285,8 +2285,10 @@ sans procédure ; la protection porte donc sur les **rejeux sans humain**, pas s
 Chaque version (`ax_procedures.approved_at`, migration `0034_versions_approuvees`) est **non approuvée** quand elle est créée par
 `save` ou `repair` ; seul l'utilisateur l'approuve, depuis Paramètres › Procédures (`POST /api/procedures/:id/versions/:version/approve`,
 route de session, jamais un outil ni l'identité de l'hôte). Un contexte sans humain (client non fiable, conversation de routine
-`routine:…`, sous-agent, pas de conversation) n'exécute **que** des versions approuvées : sinon `version_not_approved`, aucun geste ; la
-version à approuver est visible dans l'écran. En conversation une version non approuvée s'exécute avec ses `confirm` (cartes d'accord) ;
+`routine:…`, sous-agent, pas de conversation, **tour sans la marque `human_turn`** : le core ne pose `_meta.human_turn` que pour un tour ouvert par
+une requête de session de l'utilisateur — message, « Continuer », message automatique après son clic —, jamais pour un réveil de tâche
+(`origin: job_wake`), une routine ou un sous-agent ; refus par défaut) n'exécute **que** des versions approuvées : sinon `version_not_approved`, aucun geste ; la
+version à approuver est visible dans l'écran. Sans humain, `version` absente ou 0 désigne la dernière version **approuvée**. À l'approbation l'utilisateur choisit pour chaque paramètre (hors `creds`) une valeur **figée** ou **libre** (migration `0035_parametres_approuves`, `approved_params`) : sans humain, un paramètre figé refuse toute autre valeur (`param_not_approved`) et se remplit s'il est absent, un paramètre sans choix refuse l'exécution. La rotation des 50 versions ne purge jamais une version approuvée (`version_quota` si toutes le sont). Toute chaîne d'un arbre enregistré est refusée si elle porte un caractère de contrôle, de format invisible ou un surrogate isolé. En conversation une version non approuvée s'exécute avec ses `confirm` (cartes d'accord) ;
 une première exécution réussie ne l'approuve **pas**. L'écran liste procédures et versions (origine, description, date, réparation,
 état), résume l'arbre (gestes, cibles, URL, `confirm`), approuve et supprime (`DELETE /api/procedures/:id[/versions/:version]`). Par
 l'outil, `pw_procedure(delete)` refuse une version approuvée (`delete_approved`) ; les versions jamais approuvées se suppriment.

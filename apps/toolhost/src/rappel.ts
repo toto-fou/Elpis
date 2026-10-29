@@ -293,7 +293,7 @@ export class ClientRappel {
   async creerDemandeApprobation(
     compte: CompteSigne,
     demande: DemandeAccord,
-  ): Promise<{ id: string; expires_at: number } | null> {
+  ): Promise<{ id: string; expires_at: number } | { refus: { code: string; message: string } } | null> {
     const d = await this.appeler(
       "POST",
       "/api/internal/procedures/demande",
@@ -304,8 +304,18 @@ export class ClientRappel {
       undefined,
       false,
     );
-    const id = d === null ? undefined : getPy(d, "id");
-    if (d === null || !veritePy(getPy(d, "ok")) || typeof id !== "string") return null;
+    if (d === null) return null;
+    const id = getPy(d, "id");
+    if (!veritePy(getPy(d, "ok")) || typeof id !== "string") {
+      const code = getPy(d, "code");
+      const message = getPy(d, "message");
+      return {
+        refus: {
+          code: typeof code === "string" ? code : "approval_refused",
+          message: typeof message === "string" ? message : "the approval request was refused",
+        },
+      };
+    }
     return { id, expires_at: Number(getPy(d, "expires_at")) || 0 };
   }
 

@@ -331,7 +331,7 @@ réfléchir à chaque clic, donc beaucoup plus vite.
   reste affichée dans la conversation, vous seul pouvez l'approuver.
 - Seule une version que **vous** avez approuvée (Paramètres › Procédures) s'exécute sans vous : dans une routine ou un
   sous-agent, une version enregistrée ou réparée par l'assistant s'arrête (`version_not_approved`) tant que vous ne l'avez pas
-  approuvée. Cet écran liste les procédures et leurs versions, résume leurs gestes, permet d'approuver et de supprimer. En
+  approuvée. À l'approbation, vous choisissez pour chaque paramètre (hors identifiant) une valeur figée ou « Libre » : une routine ne peut pas viser une autre valeur que celle que vous avez figée. Un réveil de tâche ouvert par le serveur compte comme sans vous. Vous pouvez retirer une approbation. Cet écran liste les procédures et leurs versions, résume leurs gestes, permet d'approuver et de supprimer. En
   conversation, l'assistant peut aussi agir directement sur le site : la protection porte sur les rejeux sans vous, et l'accord
   est lié à l'adresse de la page, pas à son contenu.
 - Si le site a changé (un bouton renommé, une fenêtre imprévue), l'exécution s'arrête

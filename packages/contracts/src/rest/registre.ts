@@ -169,6 +169,13 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "POST",
     "/api/procedures/:id/versions/:version/approve",
     procedures.schemaReponseApprobationVersion,
+    procedures.schemaCorpsApprobationVersion,
+  ),
+  c(
+    "procedures",
+    "POST",
+    "/api/procedures/:id/versions/:version/unapprove",
+    procedures.schemaReponseRetraitApprobation,
   ),
   c("procedures", "DELETE", "/api/procedures/:id", procedures.schemaReponseSuppressionProcedure),
   c(

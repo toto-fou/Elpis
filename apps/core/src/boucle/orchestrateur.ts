@@ -156,6 +156,8 @@ export interface OptionsRun {
   userId?: number | null;
   /** Périmètre d'un sous-agent (`task`) : manifeste filtré, porté au `_meta` des appels locaux, sans alerte disque. */
   subagent?: SousAgent | null;
+  /** Tour ouvert par une action de l'utilisateur (message, « Continuer », message automatique après son clic) : seul cas où un humain est là. */
+  humanTurn?: boolean;
   /** Budget de temps de la boucle (s), plus court que `LLAMA_TOOL_LOOP_MAX_S` : arrêt propre avec synthèse. */
   wallclockS?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
@@ -365,6 +367,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     priority: o.priority ?? "high",
     liveShell: o.liveShell ?? false,
     subagent: o.subagent ?? null,
+    humanTurn: o.humanTurn === true,
     wrapupSuffix: o.wrapupSuffix ?? null,
     startTime,
     modelHasVision,

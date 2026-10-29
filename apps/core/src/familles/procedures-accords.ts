@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/procedures-accords.ts — accords humains des gestes sensibles d'une procédure : demandes en attente d'une conversation et décision du compte connecté (jamais un outil). */
 import { HttpError } from "@elpis/commun";
+import { schemaCorpsApprobationVersion } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 import { corpsJson, entrees, py } from "@elpis/http";
 import type { FastifyRequest } from "fastify";
@@ -10,6 +11,7 @@ import {
   approuverVersion,
   listerProcedures,
   resumerVersion,
+  retirerApprobation,
   supprimerProcedure,
 } from "../procedures/gestion";
 import type { Famille } from "../routes";
@@ -96,9 +98,28 @@ export function creerFamilleAccordsProcedures(dep: DependancesAccords): Famille 
         traiter: async (req) => {
           const { owner } = compteHumain(req);
           const { id, version } = chemin(req);
-          const t = await approuverVersion(dep.base, owner, id, version);
-          if (t === null) throw new HttpError(404, "Version introuvable.");
-          return { ok: true, approved_at: t };
+          if (!/^application\/json\b/iu.test(String(req.headers["content-type"] ?? "")))
+            throw new HttpError(415, "JSON attendu.");
+          const corps = schemaCorpsApprobationVersion.safeParse(brutJson(req));
+          if (!corps.success)
+            throw new HttpError(422, "Un choix (figé ou libre) est requis pour chaque paramètre.");
+          const r = await approuverVersion(dep.base, owner, id, version, corps.data.params);
+          if (r === null) throw new HttpError(404, "Version introuvable.");
+          if (!r.ok) throw new HttpError(422, r.erreurs.join(" ; "));
+          return { ok: true, approved_at: r.at };
+        },
+      },
+      {
+        methode: "POST",
+        chemin: "/api/procedures/:id/versions/:version/unapprove",
+        processus: ["main"],
+        acces: "session",
+        traiter: async (req) => {
+          const { owner } = compteHumain(req);
+          const { id, version } = chemin(req);
+          if (!(await retirerApprobation(dep.base, owner, id, version)))
+            throw new HttpError(404, "Version introuvable.");
+          return { ok: true };
         },
       },
       {
@@ -129,6 +150,14 @@ export function creerFamilleAccordsProcedures(dep: DependancesAccords): Famille 
       },
     ],
   };
+}
+
+function brutJson(req: FastifyRequest): unknown {
+  try {
+    return corpsJson(req);
+  } catch {
+    return null;
+  }
 }
 
 function chemin(req: FastifyRequest): { id: string; version: number } {

@@ -76,6 +76,21 @@ export async function sauvegarder(
           message: `${QUOTAS.procedures} procédures au plus par compte`,
         } as const;
     }
+    // Rotation : les plus anciennes versions NON approuvées partent ; une version approuvée par l'utilisateur n'est jamais purgée.
+    const gardees = await x.all<{ version: number; approved_at: number | null }>(
+      "SELECT version, approved_at FROM ax_procedures WHERE owner=? AND id=? ORDER BY version",
+      [owner, p.id],
+    );
+    const aRetirer = gardees.length - QUOTAS.versions + 1;
+    const purgeables = gardees.filter((g) => g.approved_at === null || g.approved_at === undefined);
+    if (aRetirer > purgeables.length)
+      return {
+        ok: false,
+        code: "version_quota",
+        message: `${QUOTAS.versions} versions approuvées par l'utilisateur : aucune ne peut être purgée, il doit en supprimer dans Paramètres › Procédures`,
+      } as const;
+    for (const g of purgeables.slice(0, Math.max(0, aRetirer)))
+      await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=? AND version=?", [owner, p.id, g.version]);
     const version = Math.max(derniere, Number(vue?.v ?? 0), Number(compteur?.v ?? 0)) + 1;
     await x.run(
       "INSERT INTO ax_procedure_counters (owner, id, last_version) VALUES (?, ?, ?) ON CONFLICT (owner, id) DO UPDATE SET last_version = excluded.last_version",
@@ -98,11 +113,6 @@ export async function sauvegarder(
         reparation?.chemin ?? null,
       ],
     );
-    await x.run("DELETE FROM ax_procedures WHERE owner=? AND id=? AND version<=?", [
-      owner,
-      p.id,
-      version - QUOTAS.versions,
-    ]);
     return { ok: true, id: p.id, version, texte: stocke } as const;
   });
 }
@@ -542,6 +552,43 @@ export async function filiation(
         parent_version: l.parent_version === null ? null : Number(l.parent_version),
         repaired_path: l.repaired_path,
       };
+}
+
+/** Choix de l'utilisateur pour un paramètre à l'approbation : valeur figée, ou libre (choisie par l'assistant). */
+export type ParamApprouve =
+  { readonly mode: "fixed"; readonly value: string | number } | { readonly mode: "free" };
+
+/** Approbation d'une version : approuvée ou non, et choix par paramètre (`null` : approuvée sans choix, aucun paramètre n'est libre). */
+export async function etatApprobation(
+  base: Base,
+  owner: string,
+  id: string,
+  version: number,
+): Promise<{ approved: boolean; params: Record<string, ParamApprouve> | null }> {
+  const l = await base.get<{ approved_at: number | null; approved_params: string | null }>(
+    "SELECT approved_at, approved_params FROM ax_procedures WHERE owner=? AND id=? AND version=?",
+    [owner, id, version],
+  );
+  if (l === undefined || l.approved_at === null || l.approved_at === undefined)
+    return { approved: false, params: null };
+  let params: Record<string, ParamApprouve> | null = null;
+  try {
+    const brut = JSON.parse(l.approved_params ?? "null") as unknown;
+    if (brut !== null && typeof brut === "object" && !Array.isArray(brut))
+      params = brut as Record<string, ParamApprouve>;
+  } catch {
+    params = null;
+  }
+  return { approved: true, params };
+}
+
+/** Dernière version approuvée par l'utilisateur, `null` s'il n'y en a pas. */
+export async function derniereApprouvee(base: Base, owner: string, id: string): Promise<number | null> {
+  const l = await base.get<{ v: number | null }>(
+    "SELECT MAX(version) AS v FROM ax_procedures WHERE owner=? AND id=? AND approved_at IS NOT NULL",
+    [owner, id],
+  );
+  return l?.v === null || l?.v === undefined ? null : Number(l.v);
 }
 
 /** Vrai si l'utilisateur a approuvé cette version (écran Procédures) ; une version créée par `save` ou `repair` ne l'est jamais. */

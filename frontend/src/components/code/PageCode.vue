@@ -1005,7 +1005,7 @@ function poserSaisie(el: unknown): void {
                   >
                     <i
                       class="shrink-0 ph"
-                      :class="c.app ? 'ph-sliders text-blue-500' : 'ph-slash-forward text-blue-400'"
+                      :class="c.app ? 'ph-sliders text-blue-500' : 'ph-command text-blue-400'"
                       style="font-size: 14px"
                     ></i>
                     <div class="flex-1 min-w-0 leading-tight">

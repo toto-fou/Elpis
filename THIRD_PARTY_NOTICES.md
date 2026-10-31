@@ -138,7 +138,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | @fastify/merge-json-schemas | 0.2.1 | MIT |
 | @fastify/multipart | 10.1.2 | MIT |
 | @fastify/proxy-addr | 5.1.1 | MIT |
-| @fastify/send | 4.1.1 | MIT |
+| @fastify/send | 4.2.0 | MIT |
 | @fastify/websocket | 11.3.3 | MIT |
 | @lukeed/ms | 2.0.2 | MIT |
 | @modelcontextprotocol/sdk | 1.32.1 | MIT |

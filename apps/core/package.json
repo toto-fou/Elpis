@@ -31,7 +31,7 @@
     "@elpis/skills": "0.1.1",
     "@elpis/verrous": "0.1.1",
     "@fastify/multipart": "10.1.2",
-    "@fastify/send": "4.1.1",
+    "@fastify/send": "4.2.0",
     "@fastify/websocket": "11.3.3",
     "@modelcontextprotocol/sdk": "1.32.1",
     "better-sqlite3": "13.0.3",

@@ -239,7 +239,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-@fastify/send 4.1.1 — MIT
+@fastify/send 4.2.0 — MIT
 ==============================================================================
 
 MIT License

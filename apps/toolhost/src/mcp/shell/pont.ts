@@ -10,7 +10,14 @@ import type { AgentBac, DonneesEnvoi, ExecResult, OptionsExec } from "@elpis/bac
 import { decoderRemplace } from "@elpis/bac";
 import { fixePy, journalDe, longueurPy, prefixePy, reprPy, suffixePy } from "@elpis/commun";
 import type { Dict, Journal } from "@elpis/commun";
-import { LIVE_KIND_SHELL, LIVE_LOGGER_SHELL, Heartbeat, liveNotify, readMetaField } from "@elpis/outils-mcp";
+import {
+  err,
+  LIVE_KIND_SHELL,
+  LIVE_LOGGER_SHELL,
+  Heartbeat,
+  liveNotify,
+  readMetaField,
+} from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 import { auditCodeExec, toContainer } from "@elpis/securite";
 
@@ -132,6 +139,19 @@ export interface OptionsShell {
   readonly streamLive?: boolean;
   /** Flux non textuel remplacé par un résumé et toujours sauvé (`execute_shell`, harnais N-18). */
   readonly resumerBinaire?: boolean;
+  /** Abandon de l'appel (Stop, annulation ou délai du sous-agent) : la commande est tuée dans le conteneur ; jamais posé pour un lancement en fond, dont le processus doit survivre. */
+  readonly signal?: AbortSignal;
+}
+
+/** Résultat d'une commande interrompue par l'abandon de son appel : la commande a pu agir avant d'être tuée. */
+export function enveloppeAnnulee(outil: string): Dict {
+  return err(
+    "cancelled",
+    `${outil} was cancelled: its request was abandoned (turn stopped, sub-agent cancelled or timed out) and the command was killed in the container. It may have acted partly before that.`,
+    {
+      fix: "Check the sandbox state (git status, the files it touches) before retrying; never assume the command did not run.",
+    },
+  );
 }
 
 /** Message d'une exception comme `str(e)` de Python (`AgentError` : `code: message`). */
@@ -674,6 +694,7 @@ export class PontExec {
         ...(o.stdin !== null ? { stdin: o.stdin } : {}),
         timeoutS: o.timeoutS,
         ...(flux !== null || copies.out !== null ? { onChunk: surMorceau } : {}),
+        ...(o.signal !== undefined ? { signal: o.signal } : {}),
       });
     } catch (e) {
       battement?.stop();

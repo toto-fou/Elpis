@@ -1316,6 +1316,25 @@ sequenceDiagram
   depuis les events et l'enveloppe d'erreur porte le `task_id` à reprendre.
 - **Annulation par-enfant** : `POST /api/chat/task-cancel` annule UN
   sous-agent sans toucher au tour parent (`outils/integres/taches-agents.ts`).
+- **Commande de premier plan tuée à l'abandon** : l'annulation d'un enfant, son
+  délai et le Stop du tour passent tous par l'`AbortSignal` de l'appel d'outil
+  (`signalEnfant` = signal du tour + arrêt de l'enfant). Le client MCP de l'hôte
+  d'outils (`annulable`) envoie alors `notifications/cancelled`, que le SDK du
+  serveur rend en `ctx.signal` de l'outil (une session MCP fermée abandonne de
+  même ses requêtes en cours). `execute_shell` et `skill_run_script` de premier
+  plan transmettent ce signal à `UserSandbox.exec` (`OptionsShell.signal`) : le
+  client `docker exec` est tué, puis un second `docker exec` (`SCRIPT_TUER_EXEC`,
+  `packages/bac/src/conteneur.ts`) tue dans le conteneur les processus de CET exec,
+  reconnus à l'identifiant que l'hôte a posé en `$0` de l'enveloppe et que
+  `ELPIS_EXEC_ID` propage (même mécanisme que le délai : TERM, 5 s de grâce, KILL,
+  descendants sortis du groupe compris ; `timeout` relaie TERM à son groupe).
+  L'outil rend alors `cancelled` en JSON (« la commande a pu agir en partie ») :
+  il ne lève pas. Jamais tuées par ce chemin : `execute_shell(background=true)`
+  (lancement seul, sans signal : son processus doit survivre), `shell_job` et
+  `execute_shell(on_timeout="detach_and_wake")` (l'attente cesse, la commande
+  continue comme un job). Un détachement du client (onglet fermé) n'est pas un
+  abandon : le run se détache et son signal n'est pas touché. Valable pour le
+  tour principal : un Stop arrête la commande au premier plan.
 - **Aucune récursion** : un sous-agent ne reçoit jamais `task`, quel que soit
   `TASK_SUBAGENT_DEPTH` (sans effet) ; le core et l'hôte d'outils refusent un
   appel `task` venu d'un sous-agent.
@@ -1651,9 +1670,9 @@ manuelle (`chat-compression.ts`) et la lecture seule (`chats.ts`).
 
 | Endpoint | Description |
 |---|---|
-| `POST /api/chat/cancel` | Annule la génération (AbortSignal du tour) |
+| `POST /api/chat/cancel` | Annule la génération (AbortSignal du tour) ; la commande shell de premier plan est tuée dans le conteneur |
 | `POST /api/chat/reasoning-end` | « Répondre maintenant » : coupe le raisonnement en cours |
-| `POST /api/chat/task-cancel` | Annule **un** sous-agent sans tuer le tour |
+| `POST /api/chat/task-cancel` | Annule **un** sous-agent sans tuer le tour (sa commande shell de premier plan est tuée) |
 | `POST /api/chat/{id}/compress` | Compaction manuelle (`/compact`) ; `POST /api/chat/compress` (sans identifiant) est obsolète et sans effet |
 | `PUT /api/saved/chats/{id}/plan-mode` | Bascule la **lecture seule** du chat (`/plan`) — booléen strict, 422 sinon |
 | `GET /api/chat/{id}/compression-state` | État de compaction |

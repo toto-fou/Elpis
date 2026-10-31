@@ -1,5 +1,5 @@
 # desktop-agent — Linux dependencies
-fastapi==0.157.0
+fastapi==0.162.0
 uvicorn[standard]==0.54.0
 Pillow==13.0.0
 mss==10.2.0

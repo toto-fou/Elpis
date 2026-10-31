@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/bac/src/conteneur.ts — conteneur Docker persistant d'un compte (executors/_user_sandbox.py) : options de lancement, création, réconciliations, arrêt, purge, agent et exec. */
+import { randomUUID } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { lookup } from "node:dns/promises";
 
@@ -68,15 +69,21 @@ const FORMAT_STATS =
 const SCRIPT_DROITS =
   'chown "$1" /work && chmod 0755 /work || exit 1; ' +
   '[ "$2" = 1 ] || exit 0; chown -R "$1" /work && chmod -R go-w /work';
-/** `timeout -k 5` dans son groupe (stdin gardé, INT/QUIT non ignorés) ; à l'échéance, le groupe et les processus marqués `ELPIS_EXEC_ID` (sortis par setsid ou setpgid) ont 5 s puis sont tués. */
+/** `timeout -k 5` dans son groupe (stdin gardé, INT/QUIT non ignorés) ; à l'échéance, le groupe et les processus marqués `ELPIS_EXEC_ID` (sortis par setsid ou setpgid) ont 5 s puis sont tués ; `$0` (autre que `--`) impose l'identifiant, que l'hôte retrouve pour tuer cet exec à l'abandon. */
 export const ENVELOPPE_EXEC =
-  'umask 0022; t="$1"; shift; exec 3<&0; u=$$; read -r u </proc/sys/kernel/random/uuid 2>/dev/null; ' +
+  'umask 0022; t="$1"; shift; exec 3<&0; u=$$; read -r u </proc/sys/kernel/random/uuid 2>/dev/null; [ "$0" = -- ] || u="$0"; ' +
   'env --default-signal=INT,QUIT ELPIS_EXEC_ID="$u" timeout -k 5 "$t" "$@" <&3 3<&- & p=$!; exec 3<&-; ' +
   'wait "$p" 2>/dev/null; rc=$?; if [ "$rc" -eq 124 ]; then ' +
   'm() { grep -lsxzF "ELPIS_EXEC_ID=$u" /proc/[0-9]*/environ | sed "s,^/proc/,,;s,/.*,,"; }; ' +
   'k=$(m); [ -z "$k" ] || kill -TERM $k 2>/dev/null; n=0; ' +
   'while [ "$n" -lt 5 ] && { kill -0 "-$p" 2>/dev/null || [ -n "$(m)" ]; }; do sleep 1; n=$((n + 1)); done; ' +
   'kill -KILL "-$p" $(m) 2>/dev/null; fi; exit "$rc"';
+
+/** Tue les processus marqués `ELPIS_EXEC_ID=$1` (une retentative après 1 s si l'exec n'a pas encore démarré) : TERM, 5 s de grâce, puis KILL ; `timeout` relaie TERM à son groupe. */
+export const SCRIPT_TUER_EXEC =
+  'u="$1"; m() { grep -lsxzF "ELPIS_EXEC_ID=$u" /proc/[0-9]*/environ | sed "s,^/proc/,,;s,/.*,,"; }; ' +
+  'k=$(m); [ -n "$k" ] || { sleep 1; k=$(m); }; [ -n "$k" ] || exit 0; kill -TERM $k 2>/dev/null; n=0; ' +
+  'while [ "$n" -lt 5 ] && [ -n "$(m)" ]; do sleep 1; n=$((n + 1)); done; kill -KILL $(m) 2>/dev/null; exit 0';
 
 /** Délais et attentes du Python, réglables par les tests. */
 export const reglagesBac = {
@@ -86,6 +93,8 @@ export const reglagesBac = {
   attenteCreationMs: 800,
   /** Attente de la fin d'un `docker exec` tué (ms). */
   attenteTueMs: 2_000,
+  /** Délai de l'appel qui tue dans le conteneur les processus d'un exec abandonné (s) : 1 s de retentative, 5 s de grâce, marge. */
+  tuerExecS: 15,
 };
 
 /** `SandboxAdminConfig` : `ConfigBac` et l'image effective. */
@@ -853,7 +862,7 @@ export class UserSandbox implements BacPourAgent {
     }
   }
 
-  /** `exec` : commande dans le conteneur (umask 0022, `timeout` côté conteneur, sans net_admin), sortie bornée. */
+  /** `exec` : commande dans le conteneur (umask 0022, `timeout` côté conteneur, sans net_admin), sortie bornée ; avec `signal`, l'abandon tue aussi la commande dans le conteneur (le client `docker exec` tué ne l'arrête pas). */
   async exec(cmd: readonly string[], options: OptionsExec = {}): Promise<ExecResult> {
     const signal = options.signal;
     const st = await this.ensureRunning(signal);
@@ -872,13 +881,14 @@ export class UserSandbox implements BacPourAgent {
       env.set("GIT_CONFIG_VALUE_0", "*");
     }
     for (const [k, v] of env) args.push("-e", `${k}=${v}`);
+    const idExec = signal === undefined ? null : randomUUID();
     args.push(
       this.containerName,
       ...prefixe,
       "sh",
       "-c",
       ENVELOPPE_EXEC,
-      "--",
+      idExec ?? "--",
       String(Math.trunc(delai)),
       ...cmd,
     );
@@ -936,7 +946,10 @@ export class UserSandbox implements BacPourAgent {
       proc.stdout.destroy();
       proc.stderr.destroy();
       await Promise.race([proc.fin.catch(() => undefined), attendre(reglagesBac.attenteTueMs)]);
-      if (issue === "annule") throw signal?.reason as Error;
+      if (issue === "annule") {
+        if (idExec !== null) await this.tuerExec(idExec, utilisateur, prefixe);
+        throw signal?.reason as Error;
+      }
       if (issue !== "delai") throw issue.erreur;
       timedOut = true;
     } else if (codeFin === 124) timedOut = true;
@@ -957,6 +970,29 @@ export class UserSandbox implements BacPourAgent {
       executor_tag: `docker.user.${this.username}`,
       container_id: st.container_id,
     };
+  }
+
+  /** Tue dans le conteneur les processus de l'exec `id` (même mécanisme que le délai) ; au mieux : une panne du démon laisse la commande finir d'elle-même à son délai. */
+  private async tuerExec(id: string, utilisateur: string, prefixe: readonly string[]): Promise<void> {
+    try {
+      await this.appel(
+        [
+          "exec",
+          "--user",
+          utilisateur,
+          this.containerName,
+          ...prefixe,
+          "sh",
+          "-c",
+          SCRIPT_TUER_EXEC,
+          "tuer-exec",
+          id,
+        ],
+        reglagesBac.tuerExecS,
+      );
+    } catch (e) {
+      journalDe("sandbox").warn(`[sandbox] exec ${id} non tué dans ${this.containerName} : ${String(e)}`);
+    }
   }
 
   /** `stats` : `docker stats --no-stream` du conteneur, `{}` en cas d'échec. */

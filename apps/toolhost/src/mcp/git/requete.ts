@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/git/requete.ts — `git_query` (git_tools.py) : requêtes en lecture seule (status, log, diff, show, blame, branches, tags, remotes, conflicts, grep, files, find_text, read, repos). */
-import path from "node:path";
 
 import type { Dict } from "@elpis/commun";
 import { intPy, longueurPy, lowerPy, prefixePy, splitlinesPy, stripPy } from "@elpis/commun";
@@ -16,6 +15,7 @@ import {
   BILAN_STAT,
   brancheCourante,
   cheminSur,
+  cwdConteneur,
   depotSur,
   echecGit,
   entierPy,
@@ -154,7 +154,7 @@ export async function texteTolerant(esp: Espace, rel: string, maxOctets: number)
   return t.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
 
-/** `git_query(action='repos')` : dépôts du bac (profondeur ≤ 3), branche, base et propreté de chacun (entrée partielle si git échoue). */
+/** `git_query(action='repos')` : dépôts du bac (profondeur ≤ 3), branche, base et propreté de chacun (entrée partielle si git échoue), racine vue du conteneur. */
 async function depots(c: CompteGit): Promise<Dict> {
   const trouves: Dict[] = [];
   for (const rel of await c.esp.gitDepots({ depth: 3, limit: 50 })) {
@@ -169,12 +169,7 @@ async function depots(c: CompteGit): Promise<Dict> {
     if (rel.split("/").includes(USER_GIT_SUBDIR)) entree["legacy_layout"] = true;
     trouves.push(entree);
   }
-  const sb = c.esp.racine;
-  return ok({
-    repos: trouves,
-    count: trouves.length,
-    sandbox_root: path.relative(path.dirname(path.dirname(sb)), sb),
-  });
+  return ok({ repos: trouves, count: trouves.length, sandbox_root: cwdConteneur("") });
 }
 
 async function fichiers(c: CompteGit, rp: string, motif: string, maxCount: number): Promise<Dict> {

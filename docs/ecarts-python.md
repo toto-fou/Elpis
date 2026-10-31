@@ -146,6 +146,8 @@ reporter à la main.
   garde `cmd`, `returncode`, `stdout`, `stderr` ; le Python rendait `ok: true` avec le code de retour. Seul `grep`
   sans résultat (code 1, rien sur stderr) reste un succès. `cherry_check` d'une référence impossible à appliquer
   (inconnue, commit de fusion) est une erreur ; le Python répondait `would_apply_cleanly: true`.
+- **`git_query(action="repos")`** : `sandbox_root` vaut `/work`, la racine que voit le modèle ; le Python rendait
+  `<compte>/work`, un chemin relatif de l'arborescence de l'hôte qu'un agent pouvait prendre pour un chemin du bac.
 - **`git_query(diff|show)`** : au-delà de 6 000 caractères, seuls le `--stat` (6 000 caractères au plus, bilan
   gardé) et le début du diff coupé sur une fin de ligne sont rendus, avec `truncated`, la taille totale et un
   `hint` ; le Python rendait 20 000 caractères coupés en pleine ligne. Un petit diff est inchangé.

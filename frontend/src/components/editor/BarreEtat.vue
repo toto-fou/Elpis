@@ -93,7 +93,8 @@ const ed = domaineEditeur();
         </button></span
       >
       <span v-if="ed.dirtyTabs.has(ed.activeTabPath)" class="ml-auto shrink-0"
-        ><i class="ph ph-circle-fill text-amber-500"></i> non sauvegardé</span
+        ><span class="inline-block w-2 h-2 rounded-full bg-amber-500 align-middle" aria-hidden="true"></span>
+        non sauvegardé</span
       >
       <span v-else class="ml-auto shrink-0"
         ><i class="ph ph-check-circle text-emerald-500"></i> sauvegardé</span

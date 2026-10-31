@@ -25,7 +25,7 @@ const ed = domaineEditeur();
         <i
           class="ph text-sm"
           :class="
-            ed.editorCtxMenu.hasSelection ? 'ph-text-select text-blue-400' : 'ph-cursor-text text-slate-500'
+            ed.editorCtxMenu.hasSelection ? 'ph-selection text-blue-400' : 'ph-cursor-text text-slate-500'
           "
         ></i>
         <span class="text-[11px] text-slate-400 font-medium truncate">

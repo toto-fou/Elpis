@@ -69,7 +69,7 @@ const APP_ICON_PRESETS = [
   "ph-key",
   "ph-eye",
   "ph-compass",
-  "ph-map",
+  "ph-map-trifold",
   "ph-globe",
   "ph-anchor",
   "ph-airplane",

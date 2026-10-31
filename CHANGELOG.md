@@ -16,6 +16,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   la page Code, l'aide des raccourcis et le menu Code utilisaient des icônes
   absentes de la graisse Phosphor livrée (`ph-map`, `ph-slash-forward`,
   `ph-circle-fill`, `ph-text-select`) et n'affichaient rien.
+- **Secrets : emplacements de format laissés intacts.** Le masquage ne prend plus
+  pour un secret une affectation dont la valeur commence par `{nom}`,
+  `%(nom)s` ou `%s` : c'est un gabarit, pas une valeur.
 
 ### Pour l'exploitant
 

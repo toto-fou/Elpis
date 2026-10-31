@@ -44,7 +44,7 @@ const ed = domaineEditeur();
                     Affichage: 'ph-monitor',
                     Onglets: 'ph-tabs',
                     Arbre: 'ph-tree-structure',
-                  }[group.title] || 'ph-circle-fill'
+                  }[group.title] || 'ph-dot-outline'
                 "
               ></i>
               {{ group.title }}

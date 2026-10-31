@@ -12,6 +12,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   `sandbox_root` vaut `/work`, le chemin que voit le modèle, et non plus un
   chemin relatif de l'hôte (`<compte>/work`) qu'un agent pouvait prendre pour un
   chemin du bac.
+- **Interface : icônes sans glyphe remplacées.** La barre d'état de l'éditeur,
+  la page Code, l'aide des raccourcis et le menu Code utilisaient des icônes
+  absentes de la graisse Phosphor livrée (`ph-map`, `ph-slash-forward`,
+  `ph-circle-fill`, `ph-text-select`) et n'affichaient rien.
 
 ### Pour l'exploitant
 

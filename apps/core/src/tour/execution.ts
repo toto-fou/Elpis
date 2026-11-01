@@ -48,7 +48,7 @@ import type { OutilIntegre } from "../outils/catalogue";
 import { buildImageBuiltinTool } from "../outils/integres/image";
 import { buildQuestionBuiltinTool } from "../outils/integres/question";
 import { buildRoutineBuiltinTool } from "../outils/integres/routine";
-import { buildTaskBuiltinTool } from "../outils/integres/taches-agents";
+import { buildTaskBuiltinTool } from "../outils/integres/task";
 import { creerOutilsChatRag } from "../rag/outils-chat";
 import type { OutilsChatRag } from "../rag/outils-chat";
 import { reclamerVerrou } from "./admission";
@@ -68,7 +68,7 @@ import {
 } from "./evenements";
 import { CANCEL_PLACEHOLDER, compactionPourMessage, fcMerge } from "./historique";
 import { erreurPourMessage, JournalEtapes } from "./journal-etapes";
-import { RunJournal } from "./journal-run";
+import { marquerAnnonce, RunJournal } from "./journal-run";
 import {
   CONTINUE_ADDITIVE_METRICS,
   messageAssistant,
@@ -622,15 +622,13 @@ export async function* runTurn(
                   signal: controleur.signal,
                 })
               : null;
+            let slotParent: number | null = null;
             const taskBuiltin = plan.agentsOn
               ? buildTaskBuiltinTool({
-                  parentMcpConfigs: plan.activeMcpServers,
-                  parentBuiltinTools: rag.outils?.outils ?? null,
                   username: plan.username,
                   chatId,
                   model: selectedModel,
                   samplingOverride: plan.samplingOverride,
-                  memoryEnabled: plan.memoryOn,
                   isCancelled: estAnnule,
                   signal: controleur.signal,
                   onEvent,
@@ -640,6 +638,8 @@ export async function* runTurn(
                     : [],
                   userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid),
                   userId: uid,
+                  thinkingMode: plan.thinkingMode,
+                  slotParent: () => slotParent,
                 })
               : {};
             const imageBuiltin: Record<string, OutilIntegre> = plan.imageToolOn
@@ -691,6 +691,10 @@ export async function* runTurn(
               readOnly: plan.planMode,
               userSuffixRoom: SUFFIXE_LLM_MAX - (suffixeTour ? longueurPy(suffixeTour) + 2 : 0),
               slot,
+              slotPrefere: () => slotParent,
+              surSlot: (pris) => {
+                slotParent = pris;
+              },
             });
             thinkingText =
               estDict(metrics) && typeof metrics["thinking"] === "string" ? metrics["thinking"] : "";
@@ -795,6 +799,8 @@ export async function* runTurn(
         }
       }
       let planDone = false;
+      if (persisted && plan.isContinue)
+        for (const run of plan.runsAnnonces ?? []) marquerAnnonce(uid, chatId, run);
       if (doPrune || doTools || planOff || doCtx || suffixes) {
         try {
           const ok = await finalizeTurnMeta(db, uid, chatEffectif, {
@@ -808,7 +814,10 @@ export async function* runTurn(
             suffixDropFromRank: rangSuffixe,
           });
           planDone = ok && planOff;
-          if (suffixes) issueJobs.suffixe = ok;
+          if (suffixes) {
+            issueJobs.suffixe = ok;
+            if (ok) for (const run of plan.runsAnnonces ?? []) marquerAnnonce(uid, chatId, run);
+          }
         } catch (e) {
           log.debug(`[chat.worker.4] ${String(e)}`);
         }

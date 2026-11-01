@@ -45,7 +45,7 @@ import { continueFinalSupport } from "../llm/parametres";
 import { diffusion, ErreurPortAbsent } from "../llm/ports";
 import { buildDefaultManager } from "../memoire/gestionnaire";
 import type { MemoryManager } from "../memoire/gestionnaire";
-import { hasActiveAgents } from "../outils/integres/taches-agents";
+import { hasActiveAgents } from "../outils/integres/task/roster";
 import { assembleSystemMessages } from "../prompts/systeme";
 import {
   annonceRagDuTour,
@@ -60,11 +60,13 @@ import {
   expandHistoryForLlm,
   graftStoppedTurnState,
   greffeSourcesRag,
+  joindreALaReprise,
   lastUserText,
   msgText,
   normalizeClientMessages,
   recentUserText,
 } from "./historique";
+import { preparerAnnonceEnfants } from "./enfants-interrompus";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -121,6 +123,8 @@ export interface TurnPlan {
   readonly depth?: number;
   /** Événements de jobs joints à la question (suffixe persisté, rejoué octet pour octet). */
   readonly jobSuffix?: string | null;
+  /** Runs interrompus annoncés par ce tour (suffixe, ou consigne de « Continuer ») : marqués une fois le tour enregistré. */
+  readonly runsAnnonces?: readonly string[];
   /** Bloc `<rag_context>` joint à la question, devant les événements de jobs (même suffixe persisté). */
   readonly ragSuffix?: string | null;
   /** Instantané sans secret ni adresse, porté par le registre des tours pendant le tour. */
@@ -568,6 +572,7 @@ export async function prepareTurn(
     }
   }
   let jobSuffix: string | null = null;
+  let runsAnnonces: string[] = [];
   if (!ephemeral && reveil === null) jobsTour()?.tourUtilisateur(uid, chatId);
   if (!ephemeral && !isContinue && reveil === null) {
     try {
@@ -575,7 +580,23 @@ export async function prepareTurn(
     } catch (e) {
       log.warn(`[jobs] événements non joints au message : ${String(e)}`);
     }
+    try {
+      const perdus = preparerAnnonceEnfants(uid, chatId, username, runId);
+      if (perdus !== null) {
+        jobSuffix = [perdus.texte, jobSuffix].filter((s): s is string => Boolean(s)).join("\n\n");
+        runsAnnonces = perdus.runs;
+      }
+    } catch (e) {
+      log.debug(`[chat.enfants_interrompus] ${String(e)}`);
+    }
   }
+  if (!ephemeral && isContinue && reveil === null)
+    try {
+      const perdus = preparerAnnonceEnfants(uid, chatId, username, runId);
+      if (perdus !== null && joindreALaReprise(msgsForLlm, perdus.texte)) runsAnnonces = perdus.runs;
+    } catch (e) {
+      log.debug(`[chat.enfants_interrompus] ${String(e)}`);
+    }
   const suffixe = suffixeDeQuestion(ragSuffix, jobSuffix);
   if (suffixe) joindreALaQuestion(msgsForLlm, suffixe);
   const plan: TurnPlan = {
@@ -623,6 +644,7 @@ export async function prepareTurn(
     wake: reveil?.wake ?? null,
     depth: reveil?.depth ?? 0,
     jobSuffix,
+    runsAnnonces,
     ragSuffix,
     instantane: {
       run_id: runId,

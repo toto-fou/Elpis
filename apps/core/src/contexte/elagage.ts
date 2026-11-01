@@ -160,8 +160,9 @@ function nombre(v: unknown): string | null {
 
 /** Statut et faits triviaux d'une sortie : JSON (`ok`, `error`, code retour, nombre de résultats) ou texte brut. */
 function statutEtFaits(content: string): [string, string[]] {
-  const debut = content.trimStart();
-  const lu = debut.startsWith("{") ? chargerJson(content) : ({ ok: false } as const);
+  const corps = sansJalonHarnais(content);
+  const debut = corps.trimStart();
+  const lu = debut.startsWith("{") ? chargerJson(corps) : ({ ok: false } as const);
   if (!lu.ok || !estDict(lu.valeur))
     return [/^(error|erreur|traceback|exception)\b/i.test(debut) ? "error" : "ok", []];
   const d = lu.valeur;
@@ -278,8 +279,10 @@ function estOutilEcriture(nom: unknown): boolean {
 
 /** Identité stable d'un tool_result : id | longueur | 48 premiers | 48 derniers points de code. */
 export function pruneKey(m: Dict): string | null {
-  const c = m["content"];
-  if (typeof c !== "string" || !c) return null;
+  const brut = m["content"];
+  if (typeof brut !== "string" || !brut) return null;
+  const c = sansJalonHarnais(brut);
+  if (!c) return null;
   const id = lire(m, "tool_call_id");
   const demi = /[\uD800-\uDFFF]/.test(c);
   const bords = demi ? `${prefixePy(c, 48)}|${suffixePy(c, 48)}` : `${c.slice(0, 48)}|${c.slice(-48)}`;
@@ -315,6 +318,14 @@ export function isEphemeral(m: unknown): boolean {
 
 export function ephemeral(role: string, content: string): Dict {
   return { role, content, _ephemeral: true };
+}
+
+/** Résultat d'outil sans la ligne `<harness_status>` que la boucle peut lui avoir ajoutée en queue (réflexion rendue au moteur) : sa clé d'élagage et son statut restent ceux du résultat. */
+export function sansJalonHarnais(content: string): string {
+  if (!content.endsWith("</harness_status>")) return content;
+  const debut = content.lastIndexOf("<harness_status>");
+  if (debut === 0) return "";
+  return debut > 1 && content.slice(debut - 2, debut) === "\n\n" ? content.slice(0, debut - 2) : content;
 }
 
 function aCleInterne(m: Dict): boolean {
@@ -688,7 +699,38 @@ function compactFilesChanged(content: string): string {
   return pyJsonDumps(d, { ensureAscii: false });
 }
 
-/** Vue modèle d'un résultat d'outil à l'émission : desktop compacté, diff retiré, marqueurs de tour des gabarits rendus inertes (page, fichier, sortie ou rapport tiers), cap dérivé du n_ctx. */
+/** Note d'un résultat coupé à l'émission : qui coupe, combien, et comment lire le reste (écart voulu au Python, qui ne donnait que le nombre de caractères omis). */
+export function noteCoupeEmission(outil: string, omis: number): string {
+  const suite =
+    outil === "read_file"
+      ? "read the rest in smaller parts with start_line/end_line, line_ranges or grep"
+      : "ask for a smaller output (a filter, a range or fewer items)";
+  return `\n…[result truncated by the harness to fit the model's context: ${omis} chars omitted; ${suite}]`;
+}
+
+/** Balises que seul le harnais écrit (jalons, brief, règles et messages du parent d'un enfant, annonces, tâches ouvertes, événements de job, bloc `<task>`) rendues inertes dans un texte tiers. */
+export function neutraliserBalisesHarnais(texte: string): string {
+  return texte.replace(
+    /<(\/?\s*(?:harness_status|task_context|interrupted_subagents|todo_status|job_event|subagent_rules|parent_instruction|task(?:_meta|_result)?))(?=[\s>/]|$)/giu,
+    "&lt;$1",
+  );
+}
+
+const CADRE_TACHE =
+  /^(<task id="[^"<>\n]*" state="[^"<>\n]*">\n<task_meta>[^<>\n]*<\/task_meta>\n<task_result>\n)([\s\S]*)(\n<\/task_result>\n<\/task>)$/u;
+const CADRE_FIN_FOND = /^(<job_event [^<>\n]*>\n[^<>\n]*\n)([\s\S]*)(\n<\/job_event>)$/u;
+
+/** Balises du harnais inertes dans un résultat, sauf le cadre que le harnais vient de bâtir pour tout ce résultat : bloc de `task`, fin d'un enfant en fond rendue par `task_wait` / `task_status`. */
+export function neutraliserResultat(outil: string, texte: string): string {
+  const fond = outil === "task_wait" || outil === "task_status" ? CADRE_FIN_FOND.exec(texte) : null;
+  if (fond) return fond[1]! + neutraliserResultat("task", fond[2]!) + fond[3]!;
+  const tache = outil === "task" ? CADRE_TACHE.exec(texte) : null;
+  return tache
+    ? tache[1]! + neutraliserBalisesHarnais(tache[2]!) + tache[3]!
+    : neutraliserBalisesHarnais(texte);
+}
+
+/** Vue modèle d'un résultat d'outil à l'émission : desktop compacté, diff retiré, marqueurs de tour et balises du harnais rendus inertes (page, fichier, sortie ou rapport tiers), cap dérivé du n_ctx. */
 export function prepareToolResultForModel(
   toolName: string,
   content: unknown,
@@ -709,13 +751,13 @@ export function prepareToolResultForModel(
   } else if (prune === "diff" || (!prune && (toolName === "edit_file" || toolName === "write_file"))) {
     texte = stripModelDiff(texte);
   }
-  texte = neutraliserMarqueursTour(texte);
+  texte = neutraliserResultat(toolName, neutraliserMarqueursTour(texte));
   const longueur = texte.length > cap ? longueurCp(texte) : texte.length;
   if (longueur > cap) {
     if (prune === "head_tail" || toolName === "task" || (!prune && toolName === "execute_shell")) {
       texte = truncateHeadTail(texte, cap, "result truncated at emission, tail preserved");
     } else {
-      texte = prefixePy(texte, cap) + `\n…[result truncated, ${longueur - cap} chars omitted]`;
+      texte = prefixePy(texte, cap) + noteCoupeEmission(toolName, longueur - cap);
     }
   }
   return texte;

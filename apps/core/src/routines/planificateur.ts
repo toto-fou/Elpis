@@ -196,9 +196,9 @@ export function minutesNonEvaluees(maintenant: Date, derniere: string): number {
   return Math.floor((apres - avant) / 60_000) - 1;
 }
 
-/** Outils retirés à une routine : `ask_user`, `routine_save` et les sous-agents (`task`, `task_status`, `task_wait`) en dur, plus ceux de la politique du registre. */
+/** Outils retirés à une routine : `ask_user`, `routine_save` et les sous-agents (`task`, `task_status`, `task_wait`, `task_send`) en dur, plus ceux de la politique du registre. */
 export function deniedForRoutine(): Set<string> {
-  const dur = ["ask_user", "routine_save", "task", "task_status", "task_wait"];
+  const dur = ["ask_user", "routine_save", "task", "task_status", "task_wait", "task_send"];
   try {
     return new Set([...dur, ...toolsDeniedFor("routine", dur)]);
   } catch {
@@ -746,6 +746,7 @@ export class Planificateur {
         } catch {
           memoire = false;
         }
+        let slotParent: number | null = null;
         let sortie: SortieRun | null = null;
         const refuses = deniedForRoutine();
         for (let essai = 1; essai <= REGLAGES.runMaxAttempts; essai++) {
@@ -766,6 +767,10 @@ export class Planificateur {
                 memoryEnabled: memoire,
                 denyToolNames: refuses,
                 slot,
+                slotPrefere: () => slotParent,
+                surSlot: (pris) => {
+                  slotParent = pris;
+                },
               });
             const file = fileLlm();
             sortie = file

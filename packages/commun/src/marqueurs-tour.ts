@@ -52,12 +52,13 @@ export function restaurerMarqueursTour(texte: string): string {
   return texte.includes(GLUON) ? texte.replace(RESTAURER, (m) => m.slice(0, -GLUON.length)) : texte;
 }
 
-/** Outils dont les arguments finissent dans un prompt (mémoire, corps d'un skill, liste de tâches, brief d'un sous-agent, routine) : ils gardent le gluon, un marqueur recopié y reste inerte ; `skill_add_file` n'en est pas (ses fichiers sont des scripts exécutés ou relus par un outil). */
+/** Outils dont les arguments finissent dans un prompt (mémoire, corps d'un skill, liste de tâches, brief ou message d'un sous-agent, routine, persona d'un agent) : ils gardent le gluon, un marqueur recopié y reste inerte ; `skill_add_file` n'en est pas (ses fichiers sont des scripts exécutés ou relus par un outil). */
 export const OUTILS_SANS_RESTAURATION: ReadonlySet<string> = new Set([
   "memory",
   "skill_save",
   "todowrite",
   "task",
+  "task_send",
   "routine_save",
 ]);
 

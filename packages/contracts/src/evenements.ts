@@ -44,11 +44,12 @@ const erreurImage = {
   retryable: z.boolean(),
 };
 
-/** Issue d'un sous-agent vue par le harnais (jamais déclarée par l'agent, sauf `blocked`/`partial` lus sur sa ligne `Status:`). */
+/** Issue d'un sous-agent : la déclaration de sa ligne `Status:` (`done`, `partial`, `blocked`, ou `unknown` s'il n'en a pas écrit de lisible) corrigée par les limites que le harnais constate (`budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled`). */
 export const STATUTS_TACHE = [
   "done",
   "partial",
   "blocked",
+  "unknown",
   "budget_exhausted",
   "timeout",
   "unavailable",
@@ -56,6 +57,10 @@ export const STATUTS_TACHE = [
   "cancelled",
 ] as const;
 export type StatutTache = (typeof STATUTS_TACHE)[number];
+
+/** Issue d'une vérification (agent `verify`) déclarée sur la ligne `Verdict:` de tête de son rapport ; `Status` dit seulement si le travail est fait. */
+export const VERDICTS_TACHE = ["pass", "fail", "inconclusive"] as const;
+export type VerdictTache = (typeof VERDICTS_TACHE)[number];
 
 export const schemaFichierTache = z.strictObject({
   path: z.string(),
@@ -67,47 +72,41 @@ export type FichierTache = z.infer<typeof schemaFichierTache>;
 
 /** Bloc de métadonnées du harnais joint au résultat de `task` (`<task_meta>`), à l'étape finale et au run persisté. */
 export const schemaBilanTache = z.strictObject({
+  /** Légende des champs pour le modèle, en tête du premier `<task_meta>` de la conversation seulement (jamais dans l'étape finale ni le run persisté). */
+  legend: z.string().optional(),
   status: z.enum(STATUTS_TACHE),
   stop_reason: z.string().optional(),
   /** Appels d'outils de ce lancement, puis cumulés sur les reprises par `task_id`. */
   tool_calls: entier,
   tool_calls_total: entier,
-  /** Budget d'itérations de ce lancement ; une reprise le remet à zéro (`budget_reset`). */
-  tool_budget: entier,
   /** Points d'étape `<harness_status>` envoyés à l'agent : appels faits à l'envoi (`at`), texte sans balises. */
   budget_warnings: z.array(z.strictObject({ at: entier, text: z.string() })).optional(),
   iterations: entier,
   resumed: z.boolean(),
-  budget_reset: z.boolean(),
   duration_s: z.number(),
-  /** Fichiers sûrs : écrits par les outils de fichiers ou git de l'agent, ou relevés par son shell sans autre run du compte. */
+  /** Attente avant la place au moteur (s), depuis l'appel `task` : l'échéance de `max_seconds` compte `queued_s + duration_s` ; absent sur les anciens runs et les refus. */
+  queued_s: z.number().optional(),
+  /** Fichiers écrits par les outils de fichiers ou git de l'agent, ou relevés par son shell. */
   files_changed: z.array(schemaFichierTache),
-  /** Relevés par le shell pendant qu'un autre run du compte pouvait écrire : auteur incertain. */
-  files_changed_candidates: z.array(schemaFichierTache).optional(),
-  /** Posé avec `files_changed_candidates`. */
-  files_changed_attribution: z.literal("uncertain").optional(),
-  /** Autres runs du compte qui ont tourné en même temps (id de sous-agent, `chat:<id>` d'une boucle de premier niveau). */
-  overlapped_with: z.array(z.string()).optional(),
+  /** Un autre run du compte qui peut écrire a tourné pendant celui-ci : `files_changed` peut contenir ses fichiers. */
+  concurrent: z.literal(true).optional(),
   git: z.strictObject({
     branch: z.string().optional(),
     commits: z.array(z.string()),
-    pr_url: z.string().optional(),
+    /** Index git changé par `git_action` (stage, unstage, stash, stash_pop, merge) : le relevé des fichiers ne le voit pas. */
+    index_changed: z.literal(true).optional(),
+    /** Chemins passés à `git_action(stage)` (`.` : toutes les modifications) ; un `unstage` peut en avoir retiré. */
+    staged: z.array(z.string()).optional(),
   }),
   errors: entier,
   read_only: z.boolean(),
-  read_only_source: z.enum(["admin_forced", "task", "user", "admin_default"]).nullable(),
-  writable_paths: z.array(z.string()).optional(),
-  /** Seuls write_file, edit_file, manage_files et git_write sont bornés ; le shell ne l'est pas. */
-  writable_paths_scope: z.literal("file_tools_only").optional(),
   remaining_work: z.string().optional(),
-  /** Champs d'`output_schema` absents du rapport final (`status: partial`). */
-  missing_fields: z.array(z.string()).optional(),
+  /** Ligne `Verdict:` de tête d'un rapport `verify` (`fail` : un test ou une commande a échoué, même si le travail est `done`) ; absent si l'agent n'en a pas écrit de lisible. */
+  verdict: z.enum(VERDICTS_TACHE).optional(),
   report_chars: entier,
   /** Rapport plus long que le plafond : texte complet sauvé dans le bac à ce chemin. */
   report_saved_to: z.string().optional(),
   secrets_masked: entier.optional(),
-  /** `unavailable` : cause du refus avant lancement. */
-  reason: z.string().optional(),
 });
 export type BilanTache = z.infer<typeof schemaBilanTache>;
 
@@ -125,10 +124,36 @@ const etapeOutil = {
   tokens: entier,
 };
 
+/** Consommation rapportée par le moteur (TS) : entrée (part en cache comprise), sortie (réflexion comprise), part en cache, réflexion. */
+const consoEtape = {
+  input_tokens: entier,
+  output_tokens: entier,
+  cache_tokens: entier.optional(),
+  think_tokens: entier.optional(),
+};
+
 const taskStep = z.discriminatedUnion("status", [
-  ev("task_step", { ...etapeCommune, status: z.literal("spawned"), resumed: z.boolean(), depth: entier }),
-  ev("task_step", { ...etapeCommune, status: z.literal("tick"), tokens: entier }),
+  /** `background` : lancé en fond (`task(background=true)`), il survit au tour (TS). */
+  ev("task_step", {
+    ...etapeCommune,
+    status: z.literal("spawned"),
+    resumed: z.boolean(),
+    depth: entier,
+    background: z.literal(true).optional(),
+  }),
+  /** `tokens` : occupation du contexte de l'enfant ; la consommation cumulée suit chaque requête ; `started` : l'enfant a sa place au moteur, son horloge part (TS). */
+  ev("task_step", {
+    ...etapeCommune,
+    status: z.literal("tick"),
+    started: z.literal(true).optional(),
+    tokens: entier,
+    ...consoEtape,
+    input_tokens: entier.optional(),
+    output_tokens: entier.optional(),
+  }),
   ev("task_step", { ...etapeCommune, status: z.literal("text"), text: z.string() }),
+  /** Message du parent remis à l'enfant en fond (`task_send`), avant sa requête suivante au moteur. */
+  ev("task_step", { ...etapeCommune, status: z.literal("parent"), text: z.string() }),
   ev("task_step", { ...etapeCommune, status: z.literal("running"), ...etapeOutil, args_preview: z.string() }),
   ev("task_step", {
     ...etapeCommune,
@@ -143,12 +168,14 @@ const taskStep = z.discriminatedUnion("status", [
     state: z.enum(["completed", "failed", "incomplete", "cancelled", "timeout"]),
     steps_total: entier,
     context_tokens: entier,
-    input_tokens: entier,
-    output_tokens: entier,
+    ...consoEtape,
+    /** Jetons de réflexion mesurés (ou estimés) de l'enfant ; absent sur les anciens runs. */
+    think_tokens: entier.optional(),
     duration_ms: entier,
     transcript: z.array(
       z.union([
         z.strictObject({ text: z.string() }),
+        z.strictObject({ parent: z.string() }),
         z.strictObject({
           tool: z.string(),
           call_id: z.string().nullable(),
@@ -224,7 +251,16 @@ export const SCHEMAS_EVENEMENTS = {
     tool_calls_done: entier,
     reason: z.enum(["empty_choices", "max_iter_reached"]),
     limit_kind: z.enum(["hard", "effective"]),
-    stop_reason: z.enum(["steps", "hard", "wallclock", "ctx_saturated", "gen_cap", "cycle", "empty_choices"]),
+    stop_reason: z.enum([
+      "steps",
+      "hard",
+      "wallclock",
+      "wrap_up",
+      "ctx_saturated",
+      "gen_cap",
+      "cycle",
+      "empty_choices",
+    ]),
   }),
   tool_history_partial: ev("tool_history_partial", { tool_history: z.array(dict) }),
   shell_output: ev("shell_output", {

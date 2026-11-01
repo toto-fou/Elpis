@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/jobs/branchements.ts — tâches de fond posées dans main : ports du tour, de la boucle et des conversations, réveilleur démarré et arrêté avec le process. */
+/** apps/core/src/jobs/branchements.ts — tâches de fond posées dans main : ports du tour, de la boucle, des conversations et des sous-agents en fond, réveilleur démarré et arrêté avec le process. */
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 
@@ -7,6 +7,8 @@ import { installerJobsBoucle } from "../boucle/ports";
 import { installerCrochetsConversations } from "../chats/stockage";
 import { installerJobsActifs } from "../contexte/ports";
 import type { CycleDeVie } from "../cycle";
+import { annulerEnFond } from "../outils/integres/task/fond";
+import { installerTachesFond } from "../outils/ports";
 import { installerJobsTour } from "../tour/ports-jobs";
 import { hoteJobsParDefaut } from "./hote";
 import type { PortHoteJobs } from "./hote";
@@ -19,6 +21,7 @@ export function installerServiceJobs(service: ServiceJobs | null): void {
   installerJobsTour(service);
   installerJobsBoucle(service);
   installerJobsActifs(service === null ? null : (u, c) => service.ligneAncre(u, c));
+  installerTachesFond(service === null ? null : service.portTaches());
   installerCrochetsConversations(
     service === null
       ? null
@@ -40,6 +43,7 @@ export function brancherJobs(
     hote: o.hote ?? hoteJobsParDefaut(base),
     publier,
     arret: cycle.signalArret,
+    annulerAgent: annulerEnFond,
     ...(o.horloge ? { horloge: o.horloge } : {}),
   });
   installerServiceJobs(service);

@@ -3,6 +3,7 @@
 import { config, reloadCompressionConfigFromDisk } from "@elpis/config";
 import {
   arrondiEntierPy,
+  CancelledError,
   estDict,
   estErreurAnnulation,
   intPy,
@@ -36,6 +37,8 @@ import { currentTarget } from "../llm/cible";
 import { declaredWindow } from "../llm/fenetre-contexte";
 import { nativeReasoningTokens } from "../llm/jetons-raisonnement";
 import { getModelContextSize } from "../llm/modeles";
+import { currentEngine } from "../llm/moteurs";
+import { reflexionDuTourRendue } from "../llm/parametres";
 import {
   errorBodyText,
   KIND_CONTEXT_OVERFLOW,
@@ -48,6 +51,7 @@ import {
 } from "../llm/reprises";
 import { journal } from "../journal";
 import type { Dict } from "../python";
+import { stripToolCallMarkup } from "./analyse-appels";
 import { extractThinking } from "./chat-commun";
 import { emit } from "./evenements";
 import { dormir, executionEnCours, logMetric, tokenHex } from "./ports";
@@ -57,6 +61,8 @@ import { clipThinkingHistory } from "./run";
 import type { LoopDeps, RunContext, RunRecord } from "./run";
 import { watchLlmCall } from "./surveillance";
 import { LiveText } from "./texte-direct";
+import { usageRequeteCoupee } from "./usage-requete";
+import type { FluxCoupe } from "./usage-requete";
 
 const log = journal("boucle.tour-llm");
 
@@ -203,7 +209,7 @@ export class LLMTurnState {
   }
 }
 
-export type TurnOutcome = "ok" | "retry" | "retry_counted" | "stop_empty" | "fatal";
+export type TurnOutcome = "ok" | "retry" | "retry_counted" | "stop_empty" | "fatal" | "echeance";
 
 /** Issue d'un tour LLM ; `messages` est TOUJOURS la liste de travail courante (compaction, aplatissement). */
 export interface LLMTurn {
@@ -245,7 +251,63 @@ const OPTION_FENETRE: Readonly<Partial<Record<string, string>>> = {
   sglang: " (--context-length)",
 };
 
-/** Un tour LLM (tête d'itération → réponse décodée) ; une panne devient une issue, une annulation remonte après l'instantané. */
+/** Coupure du flux à l'échéance du run ou à la conclusion demandée par le parent, distincte de l'annulation : `null` sans mur ni canal, et pas de minuterie pour le premier appel d'un run déjà hors délai (la tête de boucle le laisse partir). */
+function coupureAEcheance(
+  resteS: number | null,
+  iteration: number,
+  conclure: AbortSignal | null,
+): { ctrl: AbortController; liberer: () => void } | null {
+  const minute = resteS !== null && !(resteS <= 0 && iteration === 0);
+  if (!minute && conclure === null) return null;
+  const ctrl = new AbortController();
+  const couper = (): void => ctrl.abort(new CancelledError("échéance du run atteinte"));
+  const minuterie = minute ? setTimeout(couper, Math.max(0, (resteS ?? 0) * 1000)) : null;
+  minuterie?.unref();
+  if (conclure?.aborted) couper();
+  else conclure?.addEventListener("abort", couper, { once: true });
+  return {
+    ctrl,
+    liberer: () => {
+      if (minuterie) clearTimeout(minuterie);
+      conclure?.removeEventListener("abort", couper);
+    },
+  };
+}
+
+/** Génération coupée à l'échéance : deltas d'appel effacés, texte et réflexion reçus gardés (assistant sans appel d'outil), rien n'est exécuté. */
+export async function garderGenerationCoupee(
+  ctx: RunContext,
+  rec: RunRecord,
+  workingMessages: Dict[],
+  turn: LLMTurn,
+): Promise<void> {
+  if (rec.deltaPendingIter !== null) {
+    await emit(ctx.c.onEvent, {
+      type: "tool_call_delta",
+      reset: true,
+      index: -1,
+      iter: rec.deltaPendingIter,
+    });
+    rec.deltaPendingIter = null;
+  }
+  const nouveau = stripToolCallMarkup(turn.live.parts.join(""));
+  if (nouveau) await turn.live.emitRest(nouveau, { replaceOnDivergence: false });
+  const pensee = stripPy(stripToolCallMarkup(turn.iterThinking));
+  if (pensee) {
+    rec.allThinking.push(pensee);
+    clipThinkingHistory(rec.allThinking);
+  }
+  const texte = stripPy(stripToolCallMarkup(turn.iterClean));
+  if (!texte) return;
+  const garde: Dict = { role: "assistant", content: texte };
+  const rendue =
+    pensee !== "" &&
+    (ctx.c.reflexionRendue ?? reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride));
+  workingMessages.push(rendue ? { ...garde, reasoning_content: pensee } : garde);
+  rec.runToolHistory.push(garde);
+}
+
+/** Un tour LLM (tête d'itération → réponse décodée) ; une panne devient une issue, une annulation remonte après l'instantané, l'échéance du run (`murRestantS`) coupe le flux en issue `echeance`. */
 export async function callLlm(
   ctx: RunContext,
   rec: RunRecord,
@@ -253,7 +315,12 @@ export async function callLlm(
   resume: ResumeState,
   deps: LoopDeps,
   workingMessages: Dict[],
-  o: { iteration: number; effectiveIter: number },
+  o: {
+    iteration: number;
+    effectiveIter: number;
+    murRestantS?: (() => number | null) | null;
+    conclure?: AbortSignal | null;
+  },
 ): Promise<LLMTurn> {
   const { onEvent, model, username, chatId, samplingOverride, thinkingMode, toolsPayload, signal } = ctx.c;
   const iteration = o.iteration;
@@ -332,6 +399,11 @@ export async function callLlm(
   const fitStats: Dict = {};
   let compacted: unknown[] = workingMessages;
   let raw: Dict;
+  let coupure: ReturnType<typeof coupureAEcheance> = null;
+  let fluxCoupe: FluxCoupe | null = null;
+  let envoyee = false;
+  /** Requête coupée : son usage tel que le flux l'a vu rapporté par le moteur. */
+  const noterCoupee = (): void => rec.noterCoupee(usageRequeteCoupee(fluxCoupe));
   try {
     if (!rec.ctxSize || rec.ctxSize <= 0) {
       try {
@@ -434,6 +506,7 @@ export async function callLlm(
           }),
         );
         workingMessages = messages;
+        rec.travail = workingMessages;
         if (stats["reason"] === "max_rounds_reached") st.comprCapped = true;
         const nouvel = stats["new_state"];
         if (estDict(nouvel))
@@ -518,34 +591,63 @@ export async function callLlm(
       });
     }
 
+    rec.envoye = compacted.filter(estDict);
     resumeReq = resume.take();
     resumeConsumed = true;
     const t0 = performance.now();
-    raw = await ctx.appelLLM(async () => {
-      if (ctx.c.slot?.mode === "optimized") {
-        const attenteMs = Math.trunc(performance.now() - t0);
-        executionEnCours()?.ajouterAttente(attenteMs);
-        logMetric("llm_wait_time_ms", attenteMs, { model: modele || "", mode: "optimized", iteration });
-      }
-      return deps.stream(compacted, toolsPayload, {
-        modelOverride: model,
-        userId: username,
-        onThinkingToken: onThink,
-        onContentToken: (t) => live.onToken(t),
-        onToolCallDelta,
-        onPromptProgress,
-        isCancelled: ctx.c.isCancelled,
-        signal,
-        samplingOverride,
-        thinkingMode,
-        chatId,
-        resumeThink: resumeReq.think,
-        resumeNativeOk: resumeReq.nativeOk,
-        resumeContent: resumeReq.content,
+    coupure = coupureAEcheance(o.murRestantS?.() ?? null, iteration, o.conclure ?? null);
+    const signalFlux = coupure
+      ? signal
+        ? AbortSignal.any([signal, coupure.ctrl.signal])
+        : coupure.ctrl.signal
+      : signal;
+    try {
+      raw = await ctx.appelLLM(async () => {
+        if (ctx.c.slot?.mode === "optimized") {
+          const attenteMs = Math.trunc(performance.now() - t0);
+          executionEnCours()?.ajouterAttente(attenteMs);
+          logMetric("llm_wait_time_ms", attenteMs, { model: modele || "", mode: "optimized", iteration });
+        }
+        envoyee = true;
+        return deps.stream(compacted, toolsPayload, {
+          modelOverride: model,
+          userId: username,
+          onThinkingToken: onThink,
+          onContentToken: (t) => live.onToken(t),
+          onToolCallDelta,
+          onPromptProgress,
+          isCancelled: ctx.c.isCancelled,
+          signal: signalFlux,
+          samplingOverride,
+          thinkingMode,
+          chatId,
+          ...ctx.optionsSlot(),
+          resumeThink: resumeReq.think,
+          resumeNativeOk: resumeReq.nativeOk,
+          resumeContent: resumeReq.content,
+          surFluxCoupe: (f) => {
+            fluxCoupe = f;
+          },
+        });
       });
-    });
+    } finally {
+      coupure?.liberer();
+    }
   } catch (llmErr) {
+    if (coupure?.ctrl.signal.aborted && !ctx.cancelled()) {
+      log.warn(
+        `[run_chat_multi_mcp] échéance du run atteinte en pleine génération (iter ${iteration}) — flux coupé, partiel gardé, appels à moitié émis abandonnés`,
+      );
+      const tous = rec.allThinking;
+      if (resumeReq.think && tous.length && tous[tous.length - 1] === resumeReq.think) tous.pop();
+      if (envoyee) noterCoupee();
+      return fin("echeance", {
+        iterClean: (resumeReq.content ?? "") + live.parts.join(""),
+        iterThinking: (resumeReq.think ?? "") + thinkingParts.join(""),
+      });
+    }
     if (estErreurAnnulation(llmErr) || signal?.aborted) {
+      if (envoyee) noterCoupee();
       await rec.emitPartialSnapshot(onEvent);
       throw llmErr;
     }
@@ -594,6 +696,7 @@ export async function callLlm(
         if (estErreurAnnulation(e) || signal?.aborted) await rec.emitPartialSnapshot(onEvent);
         throw e;
       }
+      rec.travail = workingMessages;
       if (stats["compressed"]) {
         st.compactionsThisRun += 1;
         rec.budgetDropFloor = 0;
@@ -629,6 +732,7 @@ export async function callLlm(
         text: "Historique de conversation incompatible avec le moteur — récupération automatique en cours (les détails d'outils des tours précédents sont simplifiés en texte).",
       });
       workingMessages = flattenToolMessages(workingMessages);
+      rec.travail = workingMessages;
       rec.budgetDropFloor = 0;
       st.realCtxMsgCount = null;
       st.occAnchorTok = null;

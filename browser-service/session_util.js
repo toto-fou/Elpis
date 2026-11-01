@@ -112,6 +112,25 @@ export function ownerFromRequest(req) {
     return safeOwner(b ?? q ?? '');
 }
 
+/** Sessions que ferme le nettoyage de ``owner`` : les siennes et celles des sous-agents de son groupe. */
+export function sessionsANettoyer(sessions, owner) {
+    const o = safeOwner(owner);
+    const sids = [];
+    if (!o) return sids;
+    for (const [sid, s] of sessions) if (s && (s.owner === o || (s.group || s.owner) === o)) sids.push(sid);
+    return sids;
+}
+
+/** Sessions de sous-agents de tous les comptes (propriétaire dérivé ``s_…`` hors de son groupe) ouvertes depuis ``ageMinMs`` au moins ; jamais celle d'un compte. */
+export function sessionsEnfantsAnciennes(sessions, { ageMinMs, now = Date.now() }) {
+    const sids = [];
+    for (const [sid, s] of sessions) {
+        const enfant = !!s && !!s.group && s.owner !== s.group && String(s.owner || '').startsWith('s_');
+        if (enfant && now - (s.createdAt || 0) >= ageMinMs) sids.push(sid);
+    }
+    return sids;
+}
+
 /** La session appartient-elle à ce propriétaire ? (jamais pour un vide) */
 export function ownerMatches(session, owner) {
     const o = safeOwner(owner);
@@ -205,22 +224,63 @@ export function planArtifactPurge(entries, { now = Date.now(), maxAgeMs, keep } 
 }
 
 
+// Quotas de sessions, lus de l'environnement : `BROWSER_MAX_SESSIONS` (comptes) et `BROWSER_MAX_CHILD_SESSIONS` (sous-agents) pour tout le service,
+// `BROWSER_MAX_SESSIONS_PER_OWNER` (un propriétaire) et `BROWSER_MAX_SESSIONS_PER_GROUP` (le compte et ses sous-agents, jamais sous le quota d'un propriétaire).
+export function quotasSessions(env = process.env) {
+    const lire = (nom, defaut) => Math.max(1, parseInt(env[nom] || String(defaut), 10) || defaut);
+    const maxPerOwner = lire('BROWSER_MAX_SESSIONS_PER_OWNER', 3);
+    return {
+        maxTotal: lire('BROWSER_MAX_SESSIONS', 10),
+        maxChildren: lire('BROWSER_MAX_CHILD_SESSIONS', 6),
+        maxPerOwner,
+        maxPerGroup: Math.max(maxPerOwner, lire('BROWSER_MAX_SESSIONS_PER_GROUP', 4)),
+    };
+}
+
+// Sessions d'un groupe : celles du compte (propriétaire = groupe) et celles de ses sous-agents à session isolée.
+export function occupationGroupe(sessions, group) {
+    let compte = 0;
+    let enfants = 0;
+    for (const s of sessions.values()) {
+        if (!s || (s.group || s.owner) !== group) continue;
+        if (s.owner === group) compte += 1;
+        else enfants += 1;
+    }
+    return { compte, enfants };
+}
+
+// Places que les sous-agents se partagent : le groupe moins la session du compte, ou la place qui lui reste réservée
+// tant qu'il n'en a pas (le chat n'est jamais refusé parce que ses enfants occupent tout).
+export function placesEnfants(occupation, maxPerGroup) {
+    return Math.max(0, maxPerGroup - Math.max(1, occupation.compte));
+}
+
 // Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
-// JAMAIS celle d'un autre compte : au quota du compte, sa plus ancienne cède
-// la place ; plafond global atteint sans session du compte à céder → refus.
-// → { evict: sid|null, refuse: bool }
-export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, now = Date.now() } = {}) {
+// JAMAIS celle d'un autre propriétaire : au quota du propriétaire, ou du
+// GROUPE (le compte et ses sous-agents, chacun a son propriétaire dérivé),
+// sa plus ancienne session cède la place ; sans session à céder, le plafond
+// du groupe ou le plafond global refuse. Un sous-agent n'évince donc ni la
+// session du compte ni celle d'un frère ; une place du groupe reste au compte, et les enfants ont leur plafond global (`maxChildren`).
+// → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
+export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, maxChildren = maxTotal, now = Date.now() } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
+    const enfant = owner !== group;
     const own = [];
     let total = 0;
     for (const [sid, s] of sessions) {
-        total += 1;
+        if ((!!s && (s.group || s.owner) !== s.owner) === enfant) total += 1;
         if (s && s.owner === owner) own.push([sid, age(s)]);
     }
     own.sort((a, b) => a[1] - b[1]);
-    if (own.length >= maxPerOwner || (total >= maxTotal && own.length)) {
+    const occupation = occupationGroupe(sessions, group);
+    const groupePlein = owner === group
+        ? occupation.compte + occupation.enfants >= maxPerGroup
+        : occupation.enfants >= placesEnfants(occupation, maxPerGroup);
+    const plafond = enfant ? maxChildren : maxTotal;
+    if (own.length >= maxPerOwner || ((total >= plafond || groupePlein) && own.length)) {
         return { evict: own[0][0], refuse: false };
     }
-    if (total >= maxTotal) return { evict: null, refuse: true };
+    if (groupePlein) return { evict: null, refuse: true, cause: 'groupe' };
+    if (total >= plafond) return { evict: null, refuse: true, cause: 'global' };
     return { evict: null, refuse: false };
 }

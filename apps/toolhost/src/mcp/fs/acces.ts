@@ -139,7 +139,7 @@ function parents(rel: string): string[] {
 const sous = (d: string, nom: string): string => (d ? `${d}/${nom}` : nom);
 
 /** Chemin réel de `rel` comme l'agent le résout (liens suivis, 40 sauts au plus), `null` s'il sort de /work. */
-export async function cheminReel(esp: Espace, rel: string): Promise<string | null> {
+async function cheminReel(esp: Espace, rel: string): Promise<string | null> {
   let reste = rel.split("/");
   let fait: string[] = [];
   let sauts = 0;

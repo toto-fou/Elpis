@@ -433,7 +433,7 @@ Sections :
 | `mcp` | `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
 | `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
 | `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
-| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` vrai, les autres faux), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3). Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
+| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` et `web` vrais, les autres faux : un agent `web` garde tout son navigateur, seules les écritures dans le bac sont retirées ; la valeur écrite par la console, ou posée par le compte pour son agent, l'emporte), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3 ; sur llama.cpp, plafonné à `total_slots − 1` pour laisser un slot au parent, cf. [Sous-agents](architecture.md#sous-agents-outil-task) ; la description de `task` ne le cite pas, « bounded by the server »), `max_tasks_per_turn` (lancements `task` au plus par tour de l'agent principal, 1 à 100, défaut 12 ; une reprise par `task_id` n'y compte pas, elle est limitée à 3 par agent et par tour) et `max_child_tokens_per_turn` (jetons d'entrée + sortie cumulés au plus des enfants d'un tour, ceux en cours comptés au mieux de l'usage déjà connu, `0` ou 10 000 à 50 000 000, défaut `0` : sans plafond) — au-delà, un nouveau lancement est refusé avant de démarrer (`task_budget_exhausted`, avec `fix`), les enfants déjà lancés continuent ; vaut pour le chat (une routine n'a pas de sous-agents), relu à chaque lancement, jamais annoncé dans la description de `task`. `thinking.defaults.<type>` (réflexion : `off`, `on` ou `inherit` = celle du tour de l'agent principal ; `implement` et `verify` `on`, `explore`, `web` et `pr` `off`, `custom` `inherit`), `thinking_budget_tokens` (budget de réflexion d'un sous-agent, 512 à 131072, défaut `llama.thinking_budget_tokens`, cf. [Réflexion des sous-agents](#réflexion-des-sous-agents-agentsthinking)). `background_max` (sous-agents lancés en fond, `task(background=true)`, actifs au plus pour un compte, toutes conversations comprises, 1 à 10, défaut 2 ; sur llama.cpp, plafonné aussi à `total_slots − 1`, partagé avec les sous-agents synchrones du compte ; au-delà, `background_limit`) et `background_timeout_s` (délai d'un sous-agent en fond, 300 à 21 600 s, défaut 3600 : son `max_seconds` y est borné et la fin propre — échéance souple, rapport — s'y mesure comme pour un lancement synchrone, que borne `llm.task.child_timeout_s`), `user_browser_session_allowed` (vrai par défaut ; une valeur qui n'est pas un booléen la ferme ; faux : aucun sous-agent ne reçoit la session web du compte, même réglé « Ma session web » dans la page Agents, Console › Sandbox › Sous-agents › Navigateur) ; un lancement en fond compte dans `max_tasks_per_turn` et ses jetons dans `max_child_tokens_per_turn` du tour qui le lance, tant que ce tour tourne. Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
 | `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (tâches de fond), `disk.warn_pct` / `disk.refuse_pct` (espace disque des bacs en %, 85 et 97 par défaut, relus à chaud : alerte des outils qui écrivent, puis refus des écritures et des nouvelles tâches ; Console › Sandbox › Limites) |
@@ -446,6 +446,64 @@ Sections :
 | `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
 | `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
 | `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
+
+### Publication par les sous-agents
+
+`git_submit` (pousser la branche et ouvrir la pull request, visibles hors de la
+machine) n'est jamais offert à un sous-agent : l'agent `pr` prépare la branche et le
+commit, puis rend l'appel `git_submit` exact, que l'assistant lance lui-même dans le chat,
+où vous voyez l'appel. **Cette règle ne couvre que l'outil `git_submit` d'Elpis.** Un
+agent du compte auquel vous attachez un serveur MCP tiers (`mcp_server_ids` d'une entrée
+de `custom_agents`) qui sait publier (le serveur GitHub : `create_pull_request`,
+`push_files`, `merge_pull_request`…) publie seul, comme le ferait l'assistant lui-même :
+Elpis ne sait pas ce que fait un outil tiers, et le shell d'un agent qui l'a pousse comme
+le profil réseau du bac le permet. Ne rattachez à un agent que les serveurs dont vous
+acceptez qu'il se serve seul, ou désactivez leurs outils d'écriture dans le panneau MCP.
+
+### Réflexion des sous-agents (`agents.thinking`)
+
+Un sous-agent (outil `task`) est le meilleur endroit pour réfléchir : sa réflexion
+reste dans son contexte isolé et seul son rapport remonte. Console › Sandbox ›
+Sous-agents règle le mode par type d'agent, et la page Agents le fait par
+agent du compte.
+
+- **Mode** : `off` (pas de réflexion), `on`, ou `inherit` (« Comme la conversation » dans
+  l'interface : celle du tour de l'agent principal, case « Réflexion » du chat ou de la routine). Défauts
+  livrés : `implement` et `verify` `on`, `explore`, `web` et `pr` `off`,
+  `custom` (agents du compte) `inherit`.
+- **Priorité** : le choix du compte pour un agent (`thinking` d'une entrée de
+  `custom_agents`, agent personnel ou surcharge d'un livré), sinon le défaut de
+  l'administrateur pour son type.
+- **Effectif = mode voulu ET moteur qui l'honore.** Le mode est calculé une fois,
+  au lancement de l'enfant (reprise par `task_id` comprise) : il ne varie jamais
+  entre deux itérations d'un même enfant, la tête du prompt en dépend. Il ne
+  charge jamais de modèle et, au moindre échec, la réflexion est coupée. Un
+  enfant qui ne réfléchit pas ne reçoit ni `reasoning_effort`, ni
+  `thinking_budget_tokens`, ni `preserve_reasoning` de l'agent principal.
+  `think_tokens` de l'étape finale `task_step` et du run compte ses jetons de
+  réflexion, et la carte du chat n'affiche « réflexion » que s'ils sont mesurés
+  (> 0).
+- **`thinking_budget_tokens`** : budget de réflexion d'un enfant qui réfléchit
+  (512 à 131072, défaut `llama.thinking_budget_tokens` du moteur, 8192). Posé
+  dans l'échantillonnage de l'enfant (`thinking_budget_tokens`), sauf si l'agent
+  principal en impose déjà un plus bas.
+
+| | llama.cpp | vLLM | SGLang | generic, cloud |
+|---|---|---|---|---|
+| Interrupteur | `enable_thinking` du gabarit, si le gabarit du modèle déclare la réflexion (`/props`) | `enable_thinking` toujours accepté (sans effet sur un modèle qui ne raisonne pas) | idem vLLM | aucun : l'enfant ne réfléchit pas |
+| Budget | Elpis demande au moteur de fermer le raisonnement à ce seuil | non appliqué (Elpis ne sait pas le fermer) | non appliqué | — |
+| Raisonnement conservé | non (la réflexion des tours d'outils n'est pas renvoyée au moteur) | non | celui du chat (éteint par défaut), effectif si un `--reasoning-parser` est actif | — |
+
+« Raisonnement conservé » n'est jamais imposé à un sous-agent : il garde
+l'échantillonnage du chat qui le lance, où l'option est éteinte par défaut.
+Activée dans le chat (SGLang), la réflexion de chaque appel d'outil de l'enfant
+repart au moteur : son préfixe se prolonge d'un tour à l'autre et RadixAttention
+le réutilise, mais sa fenêtre se remplit d'autant plus vite. Cette réflexion
+n'est pas enregistrée dans l'historique du chat, mais l'enregistrement de
+reprise de l'enfant la garde (`reasoning_content` de ses messages assistant) :
+une reprise par `task_id` renvoie au moteur le même préfixe. La description de
+l'outil `task` ne dit rien du mode : elle fait partie de la tête de l'agent
+principal et ne change pas avec ces réglages.
 
 ### RAG (`rag`)
 
@@ -714,7 +772,7 @@ comme absente.
 | `LLAMA_MAX_MODELS` | `llama.max_models` | `1` | Modèles simultanés côté serveur |
 | `LLAMA_MAX_TOOL_ITERATIONS` | `llama.max_tool_iterations` | `200` | Itérations **productives** max par tour |
 | `LLAMA_TOOL_TIMEOUT_S` | `llama.tool_timeout_s` | `300` | Borne dure par appel d'outil |
-| `LLAMA_TOOL_LOOP_MAX_S` | `llama.tool_loop_max_s` | `0` (off) | Budget mur d'horloge d'un tour outillé |
+| `LLAMA_TOOL_LOOP_MAX_S` | `llama.tool_loop_max_s` | `0` (off) | Budget mur d'horloge d'un tour outillé : à son terme, la génération en cours est coupée (texte reçu gardé), puis tour de synthèse sans outils |
 | `LLAMA_THINKING_BUDGET_TOKENS` | `llama.thinking_budget_tokens` | `8192` | Budget de réflexion (chat simple ; clampé `[512..131072]`, alias llama.cpp `reasoning_budget_tokens`) |
 | `LLAMA_MAX_TOKENS_CHAT` | `llama.max_tokens_chat` | `16384` | Cap théorique de génération (mode chat) : longueur « Auto » et réserve de sortie. Une longueur choisie dans le panneau Génération n'est bornée que par la place libre de la fenêtre (fenêtre − prompt estimé − marge), pour tous les moteurs |
 | `LLAMA_MAX_TOKENS_THINKING` | `llama.max_tokens_thinking` | `24576` | Cap théorique (mode thinking) — sert surtout la **réserve de prompt** depuis `thinking_output_uncapped` |
@@ -754,7 +812,7 @@ comme absente.
 
 | Variable | Clé JSON | Défaut |
 |---|---|---|
-| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` |
+| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — délai **dur** d'un sous-agent, plafond du `max_seconds` de `task`, compté dès l'entrée dans `task`, attente d'une place au moteur comprise (`queued_s` du bilan ; `duration_s` part de cette place) ; l'agent doit finir avant son échéance souple, `délai − réserve` (réserve : `min(⅓ du délai, max(120 s, délai / 10))`, de quoi faire la synthèse) : à cette échéance, la génération en cours est coupée et chacun de ses appels d'outils aussi (au plus 3 s après), puis l'agent rédige son rapport ; au délai dur (moteur bloqué ou trop lent), le rapport rendu est la synthèse déjà produite, ou un rapport partiel assemblé par le harnais |
 | `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **sans effet** en TS : un sous-agent ne lance jamais de sous-agent (lu pour la compatibilité de `config.json`) |
 | `APP_TASK_RESUME_TTL_S` | `llm.task.resume_ttl_s` | `21600` |
 | `APP_TASK_RESUME_MAX` | `llm.task.resume_max` | `200` |
@@ -1132,8 +1190,23 @@ restreint le RÉSEAU LOCAL aux hôtes et réseaux qu'elle nomme (les
 destinations publiques restent joignables, les refus ci-dessus restent
 absolus). Les sessions, états sauvegardés,
 téléchargements et références visuelles sont rangés par compte ; au plus 3
-sessions par compte (`BROWSER_MAX_SESSIONS_PER_OWNER`) et 10 en tout, une
-nouvelle session ne ferme jamais celle d'un autre compte.
+sessions par propriétaire (`BROWSER_MAX_SESSIONS_PER_OWNER`), au plus 4 pour un compte et
+ses sous-agents ensemble (`BROWSER_MAX_SESSIONS_PER_GROUP`, jamais en dessous du quota par
+propriétaire), 10 en tout pour les comptes (`BROWSER_MAX_SESSIONS`) et, à part, 6 en tout pour les
+sous-agents (`BROWSER_MAX_CHILD_SESSIONS`) : un sous-agent ne prend jamais la place d'un compte ;
+une nouvelle session ne ferme jamais
+celle d'un autre compte, ni la session du compte ou d'un frère quand c'est un sous-agent
+qui la demande. Chaque sous-agent `task` qui pilote le navigateur a sa session privée, qui
+compte dans le quota de groupe de son compte, dont une place reste à la session du chat :
+avec le chat et les trois agents `web` que `agents.max_parallel` lance par défaut, les
+quatre places suffisent. Au quota, le démarrage est refusé par l'erreur `browser_quota` (avec
+son `fix`, lisible par le modèle), et le lancement d'un agent `web` l'est avant même qu'il
+essaie (`task_unavailable`). Relevez `BROWSER_MAX_SESSIONS_PER_GROUP` (agents en parallèle
++ 1 pour la session du chat) si vous montez `agents.max_parallel`, et `BROWSER_MAX_CHILD_SESSIONS`
+si plusieurs comptes lancent des agents `web` en parallèle.
+Redémarrez le service avec le core. Un service ou un hôte d'outils plus ancien que le
+core ne connaît pas le quota par groupe (chaque enfant compte à part) ni la
+fermeture sûre des sessions d'un enfant : mettez-les à jour ensemble.
 
 ⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
 l'adresse de l'hôte ou un conteneur local est désormais refusée.

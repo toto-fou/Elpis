@@ -10,13 +10,12 @@ import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenGit from "@elpis/outils-mcp/goldens/git.json" with { type: "json" };
 import { lireSousAgent } from "@elpis/securite";
 
-import { refusEcritureResolue, sousAgentBorne } from "../ecriture-sous-agent";
 import { brancherRappelProfil, Espace } from "../espace";
 import { gitAction } from "./action";
 import type { ArgsActionGit } from "./action";
 import { gitClone, gitSetCredential } from "./clone";
 import type { ArgsClone, EnregistrerIdentifiant } from "./clone";
-import { CompteGit, depotSur, errGit, fichierDuDepot, strExc } from "./commun";
+import { CompteGit, errGit, strExc } from "./commun";
 import { gitWrite } from "./ecriture";
 import type { ArgsEcritureGit } from "./ecriture";
 import { gitQuery } from "./requete";
@@ -149,19 +148,6 @@ const IDENTIFIANT: Signature = {
   provider_type: py.str().defaut(""),
 };
 
-/** `git_write` d'un sous-agent borné : fichier du dépôt tel que l'outil l'écrira (ancien rangement `git_repos/`, liens suivis) ; une faute d'argument est laissée à l'outil. */
-async function refusGitWriteResolu(c: CompteGit, a: Dict, ctx: ContexteAppel): Promise<Dict | null> {
-  const sa = sousAgentBorne(ctx);
-  if (sa === null) return null;
-  let rel: string;
-  try {
-    rel = fichierDuDepot(await depotSur(c.esp, strPy(a["repo"] ?? "")), strPy(a["path"] ?? ""));
-  } catch {
-    return null;
-  }
-  return refusEcritureResolue(c.esp, sa.writable_paths, [rel]);
-}
-
 /** Outils de la famille `git`, dans l'ordre de `register` (git_tools.py), chacun sur le bac du compte de l'appel (panne de l'espace → `unexpected: …`). */
 export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
   const g = goldenGit as Golden;
@@ -191,10 +177,7 @@ export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
     }),
     outilDuGolden(g, "git_write", {
       signature: ECRITURE,
-      traiter: surCompte(
-        async (c, a, ctx) =>
-          (await refusGitWriteResolu(c, a, ctx)) ?? gitWrite(c, a as unknown as ArgsEcritureGit),
-      ),
+      traiter: surCompte((c, a) => gitWrite(c, a as unknown as ArgsEcritureGit)),
     }),
     outilDuGolden(g, "git_action", {
       signature: ACTION,

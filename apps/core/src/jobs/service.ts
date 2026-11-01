@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/jobs/service.ts — tâches de fond du process main : enregistrement, événements reçus, livraison (résultat d'outil, message, réveil), réveilleur (regroupement, saisie, file par compte, profondeur, quotas), arrêts, plafond de durée, rétention, reprise au démarrage. */
+/** apps/core/src/jobs/service.ts — tâches de fond du process main (commandes de l'hôte d'outils, sous-agents en fond) : enregistrement, événements reçus, livraison (résultat d'outil, message, réveil), réveilleur (regroupement, saisie, file par compte, profondeur, quotas), arrêts, plafond de durée, rétention, reprise au démarrage. */
 import { randomBytes } from "node:crypto";
 
 import { getUser, getUserSettings } from "@elpis/auth";
-import { estDict, HttpError, poserCle } from "@elpis/commun";
+import { estDict, HttpError, poserCle, pyJsonDumps } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 
 import { getChat, mergeMetaJson } from "../chats/stockage";
 import { stripSummaryMessages } from "../contexte/etat-compression";
 import { journal } from "../journal";
+import { err } from "../outils/erreur-outil";
+import type { FinFond, InscriptionFond, PortTachesFond } from "../outils/ports";
 import { instantaneTour, isGenerationActive, surFinDeTour } from "../tour/etat";
 import { runTurn } from "../tour/execution";
 import { ouvrirTour } from "../tour/ouverture";
@@ -17,6 +19,7 @@ import type { IssueTour } from "../tour/ports-jobs";
 import { HoteIndisponible } from "./hote";
 import type { ParArret, PortHoteJobs } from "./hote";
 import {
+  agentsActifs,
   auDelaDuPlafond,
   compterActifs,
   confirmer,
@@ -26,6 +29,7 @@ import {
   echouerLancementsPerdus,
   EN_VOL,
   enAttente,
+  enregistrerAgent,
   enregistrerJob,
   estActif,
   estTerminal,
@@ -39,8 +43,10 @@ import {
   livrerDuJob,
   nombreEvenements,
   poserArret,
+  poserDetail,
   poserLancement,
   prendre,
+  prendreDuJob,
   relacherEnVol,
   supprimerJobs,
   detacherJobsDesChats,
@@ -51,7 +57,7 @@ import type { EvenementEnAttente, Job } from "./magasin";
 import { reglagesJobs } from "./reglages";
 import type { ReglagesJobs } from "./reglages";
 import { assainirCharge, cheminJournal, nombre, REVEILLANTS, rendreLot, resumeReveil } from "./rendu";
-import type { EvenementARendre } from "./rendu";
+import type { ChargeEvenement, EvenementARendre } from "./rendu";
 
 const log = journal("jobs");
 
@@ -90,6 +96,8 @@ export interface DependancesJobs {
   readonly horloge?: Horloge;
   readonly arret?: AbortSignal;
   readonly reglages?: () => ReglagesJobs;
+  /** Annule un sous-agent en fond actif dans ce process ; faux s'il n'y est pas (perdu). */
+  readonly annulerAgent?: (uid: number, childId: string) => boolean;
 }
 
 export interface CorpsEnregistrement {
@@ -200,6 +208,21 @@ function erreurAdmission(e: unknown): boolean {
   );
 }
 
+/** Enveloppe d'un sous-agent en fond perdu avec le process (redémarrage du core) : `task_id` à reprendre. */
+export function enveloppePerdue(taskId: string, agent: string): string {
+  return pyJsonDumps(
+    err(
+      "task_lost",
+      `background sub-agent '${agent}' was interrupted by a restart of the server before its report`,
+      {
+        task_id: taskId,
+        nextAction:
+          "pass task_id to task() to resume this agent from its last checkpoint (calls made after it may have run: check the state first); if it cannot be resumed, start a fresh agent",
+      },
+    ),
+  );
+}
+
 export class ServiceJobs {
   private readonly base: Base;
   private readonly hote: PortHoteJobs;
@@ -240,6 +263,7 @@ export class ServiceJobs {
     this.desabonner = surFinDeTour((uid, chatId) => this.surFinDeTour(uid, chatId));
     const rendus = await relacherEnVol(this.base);
     if (rendus) log.info(`[jobs] ${rendus} événement(s) d'un run interrompu rendus non livrés`);
+    await this.perdreAgents();
     for (const { uid, chatId } of await conversationsEnAttente(this.base)) {
       this.marques.add(cle(uid, chatId));
       this.relancer(uid, chatId, 0);
@@ -363,7 +387,8 @@ export class ServiceJobs {
   /** `POST /api/internal/jobs/delivered` : événements du job livrés par le résultat de `execute_shell` (aucun réveil). */
   async marquerLivre(uid: number, jobId: string): Promise<Dict> {
     const job = await lireJob(this.base, uid, jobId);
-    if (job === null) return { ok: false, error: "job_not_found", message: `Unknown job ${jobId}.` };
+    if (job === null || job.kind !== "shell")
+      return { ok: false, error: "job_not_found", message: `Unknown job ${jobId}.` };
     const n = await livrerDuJob(this.base, uid, jobId, this.maintenant());
     if (n > 0) await this.publierJob(job);
     return { ok: true, delivered: n };
@@ -402,7 +427,7 @@ export class ServiceJobs {
           continue;
         }
         const job = await lireJob(tx, uid, jobId);
-        const charge = job === null ? null : assainirCharge(brut, r.event_max_bytes);
+        const charge = job === null || job.kind !== "shell" ? null : assainirCharge(brut, r.event_max_bytes);
         if (job === null || charge === null) {
           refuses++;
           continue;
@@ -466,8 +491,9 @@ export class ServiceJobs {
       started_at: job.startedAt,
       ended_at: job.endedAt,
       last_line: job.lastLine,
-      log: cheminJournal(job.id),
+      log: job.kind === "agent" ? "" : cheminJournal(job.id),
       pending_events: await compterEnAttente(this.base, job.userId, job.id),
+      ...(job.kind === "agent" ? { kind: "agent", agent: job.detail } : {}),
     };
   }
 
@@ -898,16 +924,190 @@ export class ServiceJobs {
     const cibles = demandes === null ? actifs : actifs.filter((j) => demandes.includes(j.id));
     const introuvables = demandes === null ? [] : demandes.filter((id) => !cibles.some((j) => j.id === id));
     const ids = cibles.map((j) => j.id);
-    if (ids.length) {
-      await poserArret(this.base, uid, ids, "user");
+    const agents = cibles.filter((j) => j.kind === "agent");
+    const commandes = ids.filter((id) => !agents.some((j) => j.id === id));
+    if (ids.length) await poserArret(this.base, uid, ids, "user");
+    for (const j of agents) await this.arreterAgent(uid, j);
+    if (commandes.length) {
       try {
-        await this.hote.tuer(uid, ids, "user", false);
+        await this.hote.tuer(uid, commandes, "user", false);
       } catch (e) {
         log.warn({ err: e }, `[jobs] arrêt demandé non transmis (user=${uid})`);
         throw new HttpError(502, "sandbox_unavailable");
       }
     }
     return { ok: true, stopped: ids, not_found: introuvables };
+  }
+
+  /** Sous-agent en fond arrêté : annulé dans ce process (sa fin `killed` arrive par `terminer`), sinon déjà perdu, clos ici. */
+  private async arreterAgent(uid: number, j: Job): Promise<void> {
+    const childId = String(j.detail["child_id"] ?? "");
+    if (childId && this.dep.annulerAgent?.(uid, childId)) return;
+    await this.terminerAgent(uid, j.id, {
+      etat: "killed",
+      declencheur: "killed",
+      taskId: childId,
+      agent: String(j.detail["agent"] ?? ""),
+      enveloppe: pyJsonDumps(
+        err("task_cancelled", "background sub-agent stopped by the user (it was no longer running)", {
+          ...(childId ? { task_id: childId } : {}),
+        }),
+      ),
+      detail: { ...j.detail, state: "cancelled" },
+      resume: "arrêté",
+      dureeS: Math.max(0, this.maintenant() - (j.startedAt ?? j.createdAt)),
+    });
+  }
+
+  // ── Sous-agents en fond (outil task) ──────────────────────────────────────
+
+  /** Port posé pour `task(background=true)`. */
+  portTaches(): PortTachesFond {
+    return {
+      inscrire: (uid, chatId, d) => this.inscrireAgent(uid, chatId, d),
+      progresser: (uid, jobId, detail, ligne) => this.progresserAgent(uid, jobId, detail, ligne),
+      terminer: (uid, jobId, fin) => this.terminerAgent(uid, jobId, fin),
+      prendreRapport: (uid, chatId, jobId, signal) => this.prendreRapportAgent(uid, chatId, jobId, signal),
+      tourActif: (uid, chatId, runId) =>
+        !!runId && String(instantaneTour(uid, chatId)?.["run_id"] ?? "") === runId,
+    };
+  }
+
+  /** Inscription d'un sous-agent en fond : conversation enregistrée et tour de premier niveau actif exigés, au plus `max` actifs pour le compte ; sans réveil au-delà de la profondeur de chaîne. */
+  async inscrireAgent(
+    uid: number,
+    chatId: string,
+    d: { callId: string; label: string; max: number; detail: Dict },
+  ): Promise<InscriptionFond> {
+    const conv = await lireConversation(this.base, uid, chatId);
+    const inst = instantaneTour(uid, chatId);
+    if (conv === null || inst === null || inst["ephemeral"] === true)
+      return {
+        ok: false,
+        error: "not_available_here",
+        message:
+          "A background sub-agent needs a saved conversation with an active top-level turn (not a routine, webhook or ephemeral chat).",
+        fix: "run the agent without background=true",
+      };
+    const r = this.reglages();
+    const depth = Math.max(0, Math.trunc(nombre(inst["depth"]) ?? 0));
+    const e = await enregistrerAgent(
+      this.base,
+      {
+        uid,
+        chatId,
+        callId: d.callId,
+        label: Array.from(d.label).slice(0, 60).join(""),
+        wake: depth < r.max_depth,
+        depth,
+        turn: { ...inst },
+        detail: d.detail,
+      },
+      d.max,
+      this.maintenant(),
+    );
+    if (!e.ok)
+      return {
+        ok: false,
+        error: "background_limit",
+        message: `Too many background sub-agents for this account (${e.actifs.length}/${e.max}): ${e.actifs
+          .map((j) => `${String(j.detail["child_id"] ?? j.id)} "${j.label}"`)
+          .join(", ")}.`,
+        fix: "wait for one to end (task_wait), stop one, or run this agent without background=true",
+      };
+    await this.publierJob(e.job);
+    return { ok: true, jobId: e.job.id, runId: String(inst["run_id"] ?? "") };
+  }
+
+  /** Progression d'un sous-agent en fond (étape, jetons, dernière note) : détail en base et `chat_job` publié. */
+  async progresserAgent(uid: number, jobId: string, detail: Dict, ligne: string): Promise<void> {
+    const job = await poserDetail(this.base, uid, jobId, detail, Array.from(ligne).slice(0, 200).join(""));
+    if (job !== null) await this.publierJob(job);
+  }
+
+  /** Fin d'un sous-agent en fond : état terminal, détail final, événement porteur de l'enveloppe ; livré comme ceux des commandes (résultat d'outil, message, réveil sauf `killed`). */
+  async terminerAgent(uid: number, jobId: string, fin: FinFond): Promise<void> {
+    const t = this.maintenant();
+    let chatId: string | null = null;
+    let neuf: Job | null = null;
+    let livre = true;
+    await this.base.ecriture(async (tx) => {
+      const job = await lireJob(tx, uid, jobId);
+      if (job === null || job.kind !== "agent" || estTerminal(job.state)) return;
+      await tx.run("UPDATE shell_jobs SET detail_json=? WHERE id=?", [JSON.stringify(fin.detail), jobId]);
+      const charge: ChargeEvenement = {
+        seq: job.lastSeq + 1,
+        ts: t,
+        trigger: fin.declencheur,
+        spec: fin.declencheur,
+        state: fin.etat,
+        exit_code: null,
+        signal: null,
+        duration_s: Math.round(fin.dureeS),
+        line: Array.from(fin.resume).slice(0, 200).join(""),
+        context: [],
+        tail: [],
+        log_lines: null,
+        log_bytes: null,
+        by: fin.declencheur === "killed" ? "user" : fin.declencheur === "lost" ? "core" : null,
+        still_running: false,
+        synthetic: fin.declencheur === "lost",
+        task: { task_id: fin.taskId, agent: fin.agent, envelope: fin.enveloppe },
+      };
+      const ins = await insererEvenement(tx, job, charge, fin.declencheur, null, t);
+      if (ins === null) return;
+      chatId = job.chatId;
+      neuf = ins.job;
+      livre = ins.livre;
+    });
+    if (chatId === null || neuf === null) return;
+    if (!livre) this.marques.add(cle(uid, chatId));
+    await this.publierJob(neuf);
+    if (!livre && REVEILLANTS.has(fin.declencheur)) this.signaler(uid, chatId);
+  }
+
+  /** Rapport d'un sous-agent fini pris pour le résultat d'outil du tour en cours (`task_wait`, `task_status`), confirmé ou rendu avec ce tour ; appel abandonné (`signal`) : rien de pris, il reste à livrer. */
+  async prendreRapportAgent(
+    uid: number,
+    chatId: string,
+    jobId: string,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    const runId = String(instantaneTour(uid, chatId)?.["run_id"] ?? "");
+    if (!runId || signal?.aborted) return null;
+    const evts = await prendreDuJob(this.base, uid, chatId, jobId, marque("tool", runId), this.maintenant());
+    if (!evts.length) return null;
+    if (signal?.aborted) {
+      await liberer(
+        this.base,
+        evts.map((e) => e.id),
+      );
+      this.marques.add(cle(uid, chatId));
+      return null;
+    }
+    this.noter(runId, "tool", evts);
+    return this.rendre(evts, null);
+  }
+
+  /** Démarrage : un sous-agent en fond vivait dans le process arrêté ; il est clos `lost` et annoncé par son événement (qui réveille), `task_id` compris. */
+  private async perdreAgents(): Promise<void> {
+    const perdus = await agentsActifs(this.base);
+    for (const j of perdus) {
+      const taskId = String(j.detail["child_id"] ?? "");
+      const agent = String(j.detail["agent"] ?? "");
+      await this.terminerAgent(j.userId, j.id, {
+        etat: "lost",
+        declencheur: "lost",
+        taskId,
+        agent,
+        enveloppe: enveloppePerdue(taskId, agent),
+        detail: { ...j.detail, state: "lost" },
+        resume: "interrompu par le redémarrage du serveur",
+        dureeS: Math.max(0, this.maintenant() - (j.startedAt ?? j.createdAt)),
+      });
+    }
+    if (perdus.length)
+      log.info(`[jobs] ${perdus.length} sous-agent(s) en fond perdu(s) au redémarrage, annoncé(s)`);
   }
 
   /** `PUT /api/saved/chats/:chat_id/wake` ; coupé, un réveil en file est retiré ; réactivé, les événements en attente peuvent réveiller. */
@@ -929,10 +1129,11 @@ export class ServiceJobs {
     if (!actifs.length) return "";
     const items = actifs
       .reverse()
-      .map(
-        (j) =>
-          `${j.id} "${j.label}" wake_on=${j.wakeOn.join(",")}` +
-          (j.resumeNote ? ` resume_note="${j.resumeNote}"` : ""),
+      .map((j) =>
+        j.kind === "agent"
+          ? `${j.id} sub-agent task_id=${String(j.detail["child_id"] ?? "")} "${j.label}"`
+          : `${j.id} "${j.label}" wake_on=${j.wakeOn.join(",")}` +
+            (j.resumeNote ? ` resume_note="${j.resumeNote}"` : ""),
       );
     const ligne = `active jobs (you will be woken automatically, do not poll): ${items.join("; ")}`;
     return Array.from(ligne).slice(0, 2000).join("");
@@ -955,7 +1156,13 @@ export class ServiceJobs {
 
   /** Conversations supprimées : jobs arrêtés et purgés sur l'hôte, lignes effacées, réveils oubliés (JB-20). */
   async apresSuppression(uid: number, chatIds: readonly string[]): Promise<void> {
-    const ids = await detacherJobsDesChats(this.base, uid, chatIds);
+    const detaches = await detacherJobsDesChats(this.base, uid, chatIds);
+    for (const j of detaches)
+      if (j.kind === "agent" && j.detail["child_id"])
+        this.dep.annulerAgent?.(uid, String(j.detail["child_id"]));
+    const agents = detaches.filter((j) => j.kind === "agent").map((j) => j.id);
+    if (agents.length) this.fond(supprimerJobs(this.base, agents));
+    const ids = detaches.filter((j) => j.kind !== "agent").map((j) => j.id);
     const f = this.file(uid);
     for (const c of chatIds) {
       const k = cle(uid, c);
@@ -1040,7 +1247,10 @@ export class ServiceJobs {
       const neuf = await lireJob(this.base, j.userId, j.id);
       if (neuf) await this.publierJob(neuf);
     }
-    for (const [uid, ids] of parCompte(await terminesAvant(this.base, t - r.retention_days * 86400)))
+    const anciens = await terminesAvant(this.base, t - r.retention_days * 86400);
+    const agents = anciens.filter((j) => j.kind === "agent").map((j) => j.id);
+    if (agents.length) await supprimerJobs(this.base, agents);
+    for (const [uid, ids] of parCompte(anciens.filter((j) => j.kind !== "agent")))
       if (await this.tuer(uid, ids, "core", true)) await supprimerJobs(this.base, ids);
   }
 }

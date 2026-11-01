@@ -258,6 +258,11 @@ export function encoderParams(params: Dict | null): string {
   return paires.join("&");
 }
 
+/** Adresse du service navigateur : `PLAYWRIGHT_API_URL`, `http://localhost:3000` par défaut (client, AX et nettoyage du core). */
+export function urlServiceNavigateur(): string {
+  return process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000";
+}
+
 export interface OptionsClientNavigateur {
   /** Propriétaire transmis à chaque requête (`pw_owner` du compte) ; obligatoire. */
   owner: string;
@@ -305,7 +310,7 @@ export class ClientNavigateur {
   constructor(o: OptionsClientNavigateur) {
     if (!o.owner) throw new Error("client du service navigateur sans propriétaire");
     this.owner = o.owner;
-    this.base = o.base ?? process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000";
+    this.base = o.base ?? urlServiceNavigateur();
     this.delaiS = o.delaiS ?? intPy(process.env["PLAYWRIGHT_TIMEOUT"] ?? "10");
   }
 

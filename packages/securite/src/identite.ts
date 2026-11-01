@@ -19,7 +19,7 @@ import { compareDigest } from "./mots-de-passe";
 import { decoderUtf8Py, encoderUtf8Py, estDict, estErreurPython, getPy, ouPy } from "./outils";
 import { comptesBranches } from "./ports";
 import { lireSousAgent, sousAgentEnDict } from "./sous-agent";
-import type { SousAgent } from "./sous-agent";
+import type { SousAgentHote } from "./sous-agent";
 
 export const IDENTITY_HEADER = "x-elpis-identity";
 export const MAX_SKEW_S = 60;
@@ -27,7 +27,7 @@ export const DELEGATION_HEADER = "x-elpis-mcp-client";
 export const DELEGATION_AUDIENCE = "elpis-mcp";
 export const REGISTRY_MAX = 2048;
 
-/** Champs du dataclass Python (forme signée) ; `is_admin` : admin plein (== 1), jamais le modérateur ; `forced_network_profile_id` : imposition vue par main, `null` = non transmise ; `subagent` : périmètre d'un sous-agent (propre au TS). */
+/** Champs du dataclass Python (forme signée) ; `is_admin` : admin plein (== 1), jamais le modérateur ; `forced_network_profile_id` : imposition vue par main, `null` = non transmise ; `subagent` : type, id et session de navigateur d'un sous-agent (propre au TS). */
 export interface Identity {
   user_id: number;
   username: string;
@@ -36,7 +36,7 @@ export interface Identity {
   chat_id: string;
   is_admin: boolean;
   forced_network_profile_id: string | null;
-  subagent?: SousAgent | null;
+  subagent?: SousAgentHote | null;
 }
 
 export type ChampsIdentite = Pick<Identity, "user_id" | "username"> & Partial<Identity>;
@@ -99,7 +99,7 @@ export function identityFromDict(d: Record<string, unknown>): Identity | null {
 }
 
 /** Champ `subagent` lu s'il est porté (absent : la forme d'avant le champ). */
-function avecSousAgent(brut: unknown): { subagent?: SousAgent } {
+function avecSousAgent(brut: unknown): { subagent?: SousAgentHote } {
   const sa = lireSousAgent(brut);
   return sa === null ? {} : { subagent: sa };
 }
@@ -339,7 +339,7 @@ function lireMeta(meta: unknown, cle: string): unknown {
     : null;
 }
 
-/** Identité du `_meta` d'un appel MCP : `username` requis, `user_id` à 0 s'il manque ou ne se lit pas, périmètre de sous-agent s'il est porté. */
+/** Identité du `_meta` d'un appel MCP : `username` requis, `user_id` à 0 s'il manque ou ne se lit pas, sous-agent (type, id, session de navigateur) s'il est porté. */
 export function fromMeta(meta: unknown): Identity | null {
   if (meta === null || meta === undefined) return null;
   const username = stripPy(strPy(ouPy(lireMeta(meta, "username"), "")));

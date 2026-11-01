@@ -102,6 +102,15 @@ export function resumeInstruction(contenu: unknown): string {
   return THINK_ONLY_RE.test(texteOu(contenu, "")) ? RESUME_AFTER_THINK_INSTRUCTION : RESUME_ANSWER;
 }
 
+/** « Continuer » : texte joint à la consigne de reprise qui clôt les messages (ajoutée par `expandHistoryForLlm`, jamais enregistrée) ; sans elle (préremplissage natif), rien : l'historique n'est jamais réécrit. */
+export function joindreALaReprise(msgs: Dict[], texte: string): boolean {
+  const fin = msgs.at(-1);
+  const c = fin?.["content"];
+  if (fin?.["role"] !== "user" || (c !== RESUME_ANSWER && c !== RESUME_AFTER_THINK_INSTRUCTION)) return false;
+  msgs[msgs.length - 1] = { ...fin, content: mergeUserSuffix(c, texte) };
+  return true;
+}
+
 /** Signatures (id + nom + préfixe) des entrées agentiques d'une entrée de `tool_history` ; vide pour du texte. */
 export function toolEntrySigs(h: unknown): Set<string> {
   const sigs = new Set<string>();

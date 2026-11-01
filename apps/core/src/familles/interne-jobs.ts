@@ -115,7 +115,7 @@ export function creerFamilleInterneJobs(dep: DependancesInterneJobs): Famille {
               started_at: j.startedAt,
               ended_at: j.endedAt,
             })),
-            active_jobs: await compterActifs(base, uid, chatId),
+            active_jobs: await compterActifs(base, uid, chatId, true),
             max_jobs: chatId === null ? r.max_per_user : r.max_per_chat,
           };
         },

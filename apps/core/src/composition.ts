@@ -121,6 +121,7 @@ import { brancherObservabilite } from "./observabilite/branchements";
 import { brancherMoteurMetriques } from "./observabilite/demarrage";
 import { brancherHistoriqueJournal, ecrivainDuProcess, journalAcces } from "./observabilite/journal-acces";
 import { getCategories } from "./outils/categories";
+import { fermerNavigateursEnfantsOrphelins } from "./outils/integres/task/controles";
 import { brancherInvalidationOutils, brancherOutilsMcp, prechaufferOutilsMcp } from "./outils/mcp/clients";
 import {
   creerServeurEnProcessus,
@@ -327,6 +328,23 @@ export function brancherPlanificateur(mode: ModeApp, base: Base, cycle: CycleDeV
   return planificateur;
 }
 
+/** Sessions de navigateur des sous-agents laissées par le process précédent fermées au démarrage de main, en arrière-plan et en un appel ; `BROWSER_CHILD_CLEANUP=0` le coupe (tests). */
+export function brancherNettoyageNavigateursEnfants(
+  cycle: CycleDeVie,
+  journal: Journal,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  if (["0", "false", "no", ""].includes((env["BROWSER_CHILD_CLEANUP"] ?? "1").trim().toLowerCase())) return;
+  cycle.auDemarrage(
+    "sessions de navigateur des sous-agents du process précédent",
+    async () => {
+      const n = await fermerNavigateursEnfantsOrphelins();
+      if (n > 0) journal.info(`${n} session(s) de navigateur de sous-agents du process précédent fermée(s)`);
+    },
+    { modes: ["main"], arrierePlan: true },
+  );
+}
+
 /** Pré-chauffage des outils MCP au démarrage de main seul, en arrière-plan (`prewarm_mcp_pool`) ; `MCP_PREWARM=0` le coupe. */
 export function brancherPrechauffageMcp(
   mode: ModeApp,
@@ -382,6 +400,7 @@ export async function composer(
   const cycle = options.cycle ?? new CycleDeVie(journal.child({ domaine: "cycle" }));
   const planificateur = brancherPlanificateur(mode, base, cycle);
   brancherPrechauffageMcp(mode, cycle);
+  brancherNettoyageNavigateursEnfants(cycle, journal);
   const relais = mode === "main" ? creerRelais({ journal: jr, arret: cycle.signalArret, auth }) : undefined;
   if (relais !== undefined) cycle.alArret("relais vers l'hôte d'outils", () => relais.fermer());
   cycle.alArret("connexions aux agents bureau", () => fermerAgentsBureau());

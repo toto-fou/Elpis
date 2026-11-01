@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/jobs/magasin.ts — tables `shell_jobs` et `shell_job_events` : enregistrement sous limites atomiques, états, événements dédoublonnés `(job_id, seq)`, prise atomique des non livrés, listes, purges. */
+/** apps/core/src/jobs/magasin.ts — tables `shell_jobs` et `shell_job_events` : commandes et sous-agents en fond enregistrés sous limites atomiques, états, événements dédoublonnés `(job_id, seq)`, prise atomique des non livrés, listes, purges. */
 import { randomBytes } from "node:crypto";
 
 import { estDict, pyJsonLoads } from "@elpis/commun";
@@ -35,7 +35,13 @@ export interface Job {
   readonly endedAt: number | null;
   /** Résultat déjà rendu par `execute_shell` (detach_and_wake) : tout événement du job est livré d'office. */
   readonly inline: boolean;
+  /** `shell` : commande sur l'hôte d'outils ; `agent` : sous-agent lancé en fond, dans le process du core. */
+  readonly kind: GenreJob;
+  /** Sous-agent : identifiant, type, appel, progression, consommation, issue (`detail_json`). */
+  readonly detail: Dict;
 }
+
+export type GenreJob = "shell" | "agent";
 
 /** Événement non livré joint à son job (ce que le réveilleur et la livraison lisent). */
 export interface EvenementEnAttente {
@@ -123,6 +129,8 @@ export function jobDeLigne(r: Dict): Job {
     startedAt: num(r["started_at"]),
     endedAt: num(r["ended_at"]),
     inline: Number(r["inline_result"] ?? 0) !== 0,
+    kind: r["kind"] === "agent" ? "agent" : "shell",
+    detail: dictJson(r["detail_json"]),
   };
 }
 
@@ -132,6 +140,87 @@ export function estActif(e: EtatJob): boolean {
 
 export function estTerminal(e: EtatJob): boolean {
   return ETATS_TERMINAUX.includes(e);
+}
+
+async function nouvelId(tx: Executeur): Promise<string> {
+  for (let i = 0; i < 8; i++) {
+    const essai = `j-${randomBytes(4).toString("hex")}`;
+    if (!(await tx.get("SELECT 1 FROM shell_jobs WHERE id=?", [essai]))) return essai;
+  }
+  throw new Error("identifiant de job introuvable");
+}
+
+export interface DemandeAgent {
+  readonly uid: number;
+  readonly chatId: string;
+  readonly callId: string;
+  readonly label: string;
+  readonly wake: boolean;
+  readonly depth: number;
+  readonly turn: Dict;
+  readonly detail: Dict;
+}
+
+/** Inscrit un sous-agent lancé en fond (`kind='agent'`, déjà `running`) sous verrou d'écriture : au plus `max` actifs pour le compte, comptés à part des commandes. */
+export async function enregistrerAgent(
+  base: Base,
+  d: DemandeAgent,
+  max: number,
+  maintenant: number,
+): Promise<Enregistrement> {
+  return base.ecriture(async (tx) => {
+    const actifs = (
+      await tx.all(
+        `SELECT * FROM shell_jobs WHERE user_id=? AND state IN ${ACTIFS_SQL} AND kind='agent' ORDER BY created_at`,
+        [d.uid],
+      )
+    ).map(jobDeLigne);
+    if (actifs.length >= max) return { ok: false as const, portee: "user" as const, actifs, max };
+    const id = await nouvelId(tx);
+    await tx.run(
+      "INSERT INTO shell_jobs(id, user_id, chat_id, call_id, label, command, state, wake_on_json, wake, depth, " +
+        "turn_json, created_at, started_at, kind, detail_json) VALUES (?, ?, ?, ?, ?, '', 'running', ?, ?, ?, ?, ?, ?, 'agent', ?)",
+      [
+        id,
+        d.uid,
+        d.chatId,
+        d.callId,
+        d.label,
+        JSON.stringify(["exit"]),
+        d.wake ? 1 : 0,
+        d.depth,
+        JSON.stringify(d.turn),
+        maintenant,
+        maintenant,
+        JSON.stringify(d.detail),
+      ],
+    );
+    const job = jobDeLigne((await tx.get("SELECT * FROM shell_jobs WHERE id=?", [id]))!);
+    return { ok: true as const, job, actifsChat: actifs.filter((j) => j.chatId === d.chatId).length + 1 };
+  });
+}
+
+/** Progression d'un sous-agent en fond : détail et dernière ligne ; rend le job, `null` s'il n'est plus là ou plus actif. */
+export async function poserDetail(
+  x: Executeur,
+  uid: number,
+  id: string,
+  detail: Dict,
+  ligne: string,
+): Promise<Job | null> {
+  const r = await x.run(
+    `UPDATE shell_jobs SET detail_json=?, last_line=? WHERE id=? AND user_id=? AND kind='agent' AND state IN ${ACTIFS_SQL}`,
+    [JSON.stringify(detail), ligne, id, uid],
+  );
+  if (r.changes === 0) return null;
+  return lireJob(x, uid, id);
+}
+
+/** Sous-agents en fond encore actifs en base (de tous les comptes) : au démarrage, ils ont été perdus avec le process. */
+export async function agentsActifs(x: Executeur): Promise<Job[]> {
+  return (
+    await x.all(`SELECT * FROM shell_jobs WHERE kind='agent' AND state IN ${ACTIFS_SQL} ORDER BY created_at`)
+  ).map(jobDeLigne);
 }
 
 /** Enregistre un job sous verrou d'écriture : limites par conversation puis par compte vérifiées dans la même transaction (JB-10). */
@@ -144,7 +233,7 @@ export async function enregistrerJob(
   return base.ecriture(async (tx) => {
     const duCompte = (
       await tx.all(
-        `SELECT * FROM shell_jobs WHERE user_id=? AND state IN ${ACTIFS_SQL} ORDER BY created_at`,
+        `SELECT * FROM shell_jobs WHERE user_id=? AND state IN ${ACTIFS_SQL} AND kind <> 'agent' ORDER BY created_at`,
         [d.uid],
       )
     ).map(jobDeLigne);
@@ -153,12 +242,7 @@ export async function enregistrerJob(
       return { ok: false as const, portee: "chat" as const, actifs: duChat, max: limites.parChat };
     if (duCompte.length >= limites.parCompte)
       return { ok: false as const, portee: "user" as const, actifs: duCompte, max: limites.parCompte };
-    let id = "";
-    for (let i = 0; i < 8 && !id; i++) {
-      const essai = `j-${randomBytes(4).toString("hex")}`;
-      if (!(await tx.get("SELECT 1 FROM shell_jobs WHERE id=?", [essai]))) id = essai;
-    }
-    if (!id) throw new Error("identifiant de job introuvable");
+    const id = await nouvelId(tx);
     await tx.run(
       "INSERT INTO shell_jobs(id, user_id, chat_id, call_id, label, command, cwd, state, wake_on_json, resume_note, " +
         "wake, depth, turn_json, host, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'starting', ?, ?, ?, ?, ?, ?, ?)",
@@ -207,27 +291,41 @@ export async function listerJobs(x: Executeur, uid: number, chatId: string | nul
   return lignes.map(jobDeLigne);
 }
 
-/** Jobs actifs de tous les comptes (veille confiée aux hôtes d'outils). */
+/** Commandes actives de tous les comptes (veille confiée aux hôtes d'outils ; un sous-agent n'y est jamais). */
 export async function jobsActifs(x: Executeur): Promise<Job[]> {
-  return (await x.all(`SELECT * FROM shell_jobs WHERE state IN ${ACTIFS_SQL} ORDER BY created_at`)).map(
-    jobDeLigne,
-  );
+  return (
+    await x.all(
+      `SELECT * FROM shell_jobs WHERE state IN ${ACTIFS_SQL} AND kind <> 'agent' ORDER BY created_at`,
+    )
+  ).map(jobDeLigne);
 }
 
-export async function compterActifs(x: Executeur, uid: number, chatId: string | null): Promise<number> {
+/** Jobs actifs de la conversation (ou du compte) ; `commandes` : sans les sous-agents en fond, comme la limite des commandes. */
+export async function compterActifs(
+  x: Executeur,
+  uid: number,
+  chatId: string | null,
+  commandes = false,
+): Promise<number> {
+  const genre = commandes ? " AND kind <> 'agent'" : "";
   const r =
     chatId === null
-      ? await x.get(`SELECT COUNT(*) AS n FROM shell_jobs WHERE user_id=? AND state IN ${ACTIFS_SQL}`, [uid])
+      ? await x.get(
+          `SELECT COUNT(*) AS n FROM shell_jobs WHERE user_id=? AND state IN ${ACTIFS_SQL}${genre}`,
+          [uid],
+        )
       : await x.get(
-          `SELECT COUNT(*) AS n FROM shell_jobs WHERE user_id=? AND chat_id=? AND state IN ${ACTIFS_SQL}`,
+          `SELECT COUNT(*) AS n FROM shell_jobs WHERE user_id=? AND chat_id=? AND state IN ${ACTIFS_SQL}${genre}`,
           [uid, chatId],
         );
   return Number(r?.["n"] ?? 0);
 }
 
-/** Dernier seq acquitté du compte : le plus grand reçu pour un de ses jobs. */
+/** Dernier seq acquitté du compte : le plus grand reçu pour une de ses commandes (un sous-agent en fond numérote les siens à part). */
 export async function dernierSeqDuCompte(x: Executeur, uid: number): Promise<number> {
-  const r = await x.get("SELECT MAX(last_seq) AS s FROM shell_jobs WHERE user_id=?", [uid]);
+  const r = await x.get("SELECT MAX(last_seq) AS s FROM shell_jobs WHERE user_id=? AND kind <> 'agent'", [
+    uid,
+  ]);
   return Number(r?.["s"] ?? 0);
 }
 
@@ -244,11 +342,11 @@ export async function poserLancement(
       maj.state === "running"
         ? await tx.run(
             "UPDATE shell_jobs SET state='running', pid=?, started_at=COALESCE(started_at, ?) " +
-              "WHERE id=? AND user_id=? AND (state='starting' OR (state='running' AND pid IS NULL))",
+              "WHERE id=? AND user_id=? AND kind <> 'agent' AND (state='starting' OR (state='running' AND pid IS NULL))",
             [maj.pid, maintenant, id, uid],
           )
         : await tx.run(
-            "UPDATE shell_jobs SET state='failed', ended_at=?, last_line=? WHERE id=? AND user_id=? AND state IN ('starting', 'running')",
+            "UPDATE shell_jobs SET state='failed', ended_at=?, last_line=? WHERE id=? AND user_id=? AND kind <> 'agent' AND state IN ('starting', 'running')",
             [maintenant, maj.erreur, id, uid],
           );
     if (r.changes === 0) return null;
@@ -270,7 +368,9 @@ export async function poserArret(
 export async function echouerLancementsPerdus(base: Base, avant: number, maintenant: number): Promise<Job[]> {
   return base.ecriture(async (tx) => {
     const lignes = (
-      await tx.all("SELECT * FROM shell_jobs WHERE state='starting' AND created_at < ?", [avant])
+      await tx.all("SELECT * FROM shell_jobs WHERE state='starting' AND created_at < ? AND kind <> 'agent'", [
+        avant,
+      ])
     ).map(jobDeLigne);
     for (const j of lignes)
       await tx.run(
@@ -378,6 +478,29 @@ export async function enAttente(x: Executeur, uid: number, chatId: string): Prom
   return lignes.map(evenementDeLigne).filter((e): e is EvenementEnAttente => e !== null);
 }
 
+/** Prise atomique des non livrés d'UN job de la conversation (rapport d'un sous-agent en fond rendu par `task_wait` ou `task_status`). */
+export async function prendreDuJob(
+  base: Base,
+  uid: number,
+  chatId: string,
+  jobId: string,
+  marque: string,
+  maintenant: number,
+): Promise<EvenementEnAttente[]> {
+  return base.ecriture(async (tx) => {
+    const r = await tx.run(
+      "UPDATE shell_job_events SET delivered_at=?, delivered_in=? WHERE user_id=? AND chat_id=? AND job_id=? AND delivered_at IS NULL",
+      [maintenant, marque, uid, chatId, jobId],
+    );
+    if (r.changes === 0) return [];
+    const lignes = await tx.all(
+      SELECT_ATTENTE + "WHERE e.user_id=? AND e.job_id=? AND e.delivered_in=? ORDER BY e.id",
+      [uid, jobId, marque],
+    );
+    return lignes.map(evenementDeLigne).filter((e): e is EvenementEnAttente => e !== null);
+  });
+}
+
 /** Prise atomique des non livrés d'une conversation (`UPDATE … WHERE delivered_at IS NULL`, marque unique) : ni perte ni doublon (JB-08). */
 export async function prendre(
   base: Base,
@@ -479,23 +602,23 @@ export async function conversationsEnAttente(x: Executeur): Promise<{ uid: numbe
 /** Jobs d'une conversation supprimée : hors de toute liste, gardés jusqu'à leur purge sur l'hôte (réessayée par le balayage). */
 export const DETACHE = "chat_deleted";
 
-/** Détache les jobs de conversations supprimées (événements effacés, état terminal, purge due) ; rend leurs ids. */
+/** Détache les jobs de conversations supprimées (événements effacés, état terminal, purge due) ; rend leurs ids et leur genre. */
 export async function detacherJobsDesChats(
   base: Base,
   uid: number,
   chatIds: readonly string[],
-): Promise<string[]> {
+): Promise<{ id: string; kind: GenreJob; detail: Dict }[]> {
   if (!chatIds.length) return [];
   return base.ecriture(async (tx) => {
-    const ids: string[] = [];
+    const ids: { id: string; kind: GenreJob; detail: Dict }[] = [];
     for (let i = 0; i < chatIds.length; i += 500) {
       const tranche = chatIds.slice(i, i + 500);
       const marques = tranche.map(() => "?").join(",");
-      const lignes = await tx.all(`SELECT id FROM shell_jobs WHERE user_id=? AND chat_id IN (${marques})`, [
+      const lignes = await tx.all(`SELECT * FROM shell_jobs WHERE user_id=? AND chat_id IN (${marques})`, [
         uid,
         ...tranche,
       ]);
-      ids.push(...lignes.map((l) => String(l["id"])));
+      ids.push(...lignes.map(jobDeLigne).map((j) => ({ id: j.id, kind: j.kind, detail: j.detail })));
       await tx.run(`DELETE FROM shell_job_events WHERE user_id=? AND chat_id IN (${marques})`, [
         uid,
         ...tranche,
@@ -523,7 +646,7 @@ export async function chatsAvecJobActif(x: Executeur, uid: number): Promise<Set<
 export async function auDelaDuPlafond(x: Executeur, avant: number): Promise<Job[]> {
   return (
     await x.all(
-      `SELECT * FROM shell_jobs WHERE state IN ${ACTIFS_SQL} AND COALESCE(started_at, created_at) < ? AND kill_by <> 'max_runtime'`,
+      `SELECT * FROM shell_jobs WHERE state IN ${ACTIFS_SQL} AND COALESCE(started_at, created_at) < ? AND kill_by <> 'max_runtime' AND kind <> 'agent'`,
       [avant],
     )
   ).map(jobDeLigne);

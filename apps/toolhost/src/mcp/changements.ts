@@ -235,13 +235,9 @@ export class WorkChanges {
 
   /** Ajoute `files_changed` (le total si tronqué ; chevauché par un autre relevé : la note et `files_changed_attribution: "uncertain"`) à un résultat. */
   attach<T>(resultat: T): T {
-    if (
-      this.changes.length &&
-      resultat !== null &&
-      typeof resultat === "object" &&
-      !Array.isArray(resultat)
-    ) {
-      const r = resultat as Dict;
+    if (resultat === null || typeof resultat !== "object" || Array.isArray(resultat)) return resultat;
+    const r = resultat as Dict;
+    if (this.changes.length) {
       r["files_changed"] = this.changes;
       if (this.total > this.changes.length) r["files_changed_total"] = this.total;
       if (this.chevauche) {

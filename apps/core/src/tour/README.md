@@ -85,4 +85,6 @@ Ce qui peut s'intercaler, et les variantes :
 - **Panne** : `error`, puis un `final` partiel.
 - **Stop pendant l'attente** : un `final` partiel (scénarios `flux_route_outils_stop_file*`).
 - **Stop pendant la génération** : plus aucun événement, sauf le `final` partiel et le `task_step` `status=final`
-  d'un sous-agent (état terminal de sa ligne).
+  d'un sous-agent (état terminal de sa ligne). L'instantané `tool_history_partial` rend, pour l'appel `task` en
+  vol, le `task_cancelled` avec son `task_id` plutôt que la sentinelle (l'outil le dépose dans le lot partiel :
+  `AppelIntegre.rendreSiAnnule`), sans changer ni l'ordre ni les types des événements.

@@ -42,7 +42,7 @@ import { getImageConfig } from "../images/config";
 import type { Journal } from "../journal";
 import type { ModeApp } from "../mode";
 import { sanitizeStoredOverride } from "../llm/parametres";
-import { validateCustomAgents } from "../outils/integres/taches-agents";
+import { validateCustomAgents } from "../outils/integres/task/roster";
 
 export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "mcp_servers",

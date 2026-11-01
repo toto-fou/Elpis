@@ -136,7 +136,6 @@ export interface PortVisionBureau {
   trackLastScreenshotForVision(chatKey: string, chemin: string): Promise<void>;
   clearLastScreenshotFor(chatKey: string): void;
   modelSupportsVision(model: string): Promise<boolean>;
-  imageToolTimeoutS(): number;
 }
 
 let visionBureau: PortVisionBureau | null = null;

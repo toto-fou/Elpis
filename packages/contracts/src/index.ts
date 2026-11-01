@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** packages/contracts/src/index.ts — contrats partagés : flux NDJSON, formes d'erreur, REST (session, chats, runs), SSE système, WebSocket du terminal. */
+export * from "./capacites-agent";
 export * from "./erreurs";
 export * from "./evenements";
 export * from "./stream-events.gen";

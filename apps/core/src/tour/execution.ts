@@ -47,6 +47,7 @@ import { LLMFailure, llmErrorKind } from "../llm/reprises";
 import type { OutilIntegre } from "../outils/catalogue";
 import { buildImageBuiltinTool } from "../outils/integres/image";
 import { buildQuestionBuiltinTool } from "../outils/integres/question";
+import { buildAgentBuiltinTool } from "../outils/integres/agent-save";
 import { buildRoutineBuiltinTool } from "../outils/integres/routine";
 import { buildTaskBuiltinTool } from "../outils/integres/task";
 import { creerOutilsChatRag } from "../rag/outils-chat";
@@ -656,6 +657,13 @@ export async function* runTurn(
             const routineBuiltin: Record<string, OutilIntegre> = plan.routineToolOn
               ? buildRoutineBuiltinTool({ base: db, userId: uid })
               : {};
+            const agentBuiltin: Record<string, OutilIntegre> = plan.agentToolOn
+              ? buildAgentBuiltinTool({
+                  base: db,
+                  userId: uid,
+                  serveurs: () => agentMcpConfigs(db, plan.userSettings, uid),
+                })
+              : {};
             const questionBuiltin: Record<string, OutilIntegre> = plan.questionToolOn
               ? buildQuestionBuiltinTool()
               : {};
@@ -664,6 +672,7 @@ export async function* runTurn(
               ...taskBuiltin,
               ...imageBuiltin,
               ...routineBuiltin,
+              ...agentBuiltin,
               ...questionBuiltin,
             };
             [assistant, , metrics] = await reglages.boucle({

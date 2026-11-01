@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/agents/PageAgents.vue — page Agents plein écran (menu Plus) : en-tête (retour, interrupteur global, actions de l'agent ouvert ; création par la carte en pointillés), grille ou fiche. -->
+<!-- frontend/src/components/agents/PageAgents.vue — page Agents plein écran (menu Plus) : en-tête (retour, assistant de création, interrupteur global, actions de l'agent ouvert ; création par la carte en pointillés), grille ou fiche. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { rangeeDuFormulaire } from "../../features/agents/page";
 import { domaineReglages } from "../../features/reglages/domaine";
+import BoutonAssistant from "../communs/BoutonAssistant.vue";
 import FicheAgent from "./FicheAgent.vue";
 import GrilleAgents from "./GrilleAgents.vue";
 
@@ -66,6 +67,12 @@ const PRIMAIRE =
       </div>
 
       <template v-if="!fiche">
+        <BoutonAssistant
+          :classe="BOUTON"
+          title="Créer un agent en dialoguant : l'assistant pose les questions et l'enregistre désactivé"
+          data-agents-assistant
+          @click="rg.ouvrirAssistant('agent')"
+        />
         <label
           class="inline-flex items-center gap-2 h-8 text-[13px] text-slate-700 cursor-pointer"
           title="Désactivés par défaut. Activés, l'assistant peut déléguer une sous-mission (explorer, implémenter, vérifier, chercher sur le web, ouvrir une PR) via l'outil task."

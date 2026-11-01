@@ -468,6 +468,17 @@ chaque type (`implement` et `verify` réfléchissent, `explore`, `web` et `pr` n
 si le modèle ne réfléchit pas ; la carte de l'agent indique « réflexion » quand
 des jetons de réflexion ont été mesurés.
 
+**Créer un agent avec l'assistant.** Sur la page Agents, bouton **Assistant** (dans l'en-tête, ou la carte « Créer
+avec l'assistant » tant que vous n'avez aucun agent personnel) : donnez un nom et la mission, éventuellement les
+outils et les contraintes. L'assistant ouvre un chat, vous pose deux séries de questions au plus (mission et
+résultat attendu, outils et serveurs MCP, lecture seule, budget, réflexion), rédige la fiche complète
+avec sa persona en anglais, vous la montre, puis l'enregistre **après votre accord** (outil `agent_save`). L'agent est
+toujours créé **désactivé** et dans sa propre session web : relisez-le et activez-le depuis la page Agents (bouton
+« Ouvrir dans Agents » sous le résultat), où vous cochez « Ma session web » s'il doit utiliser la vôtre. Un agent du
+même nom n'est remplacé que si vous le demandez, et il l'est en entier : désactivé, session web revenue à la sienne.
+Si l'administrateur a coupé les sous-agents, l'assistant rédige l'agent sans pouvoir l'enregistrer ; l'outil n'existe
+ni en mode plan, ni dans une routine, ni dans un sous-agent, ni quand l'assistant est réveillé par une tâche de fond.
+
 **Page blanche.** Un agent démarre à blanc : l'assistant lui écrit un brief complet,
 et l'enfant reste isolé de la discussion. L'assistant peut lui transmettre en plus ce
 que la conversation sait déjà (votre dernière demande, les fichiers lus ou écrits

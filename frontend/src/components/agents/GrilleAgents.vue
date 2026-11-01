@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/agents/GrilleAgents.vue — vue grille de la page Agents : avertissements, groupes « Livrés » et « Personnels », carte « Nouvel agent ». -->
+<!-- frontend/src/components/agents/GrilleAgents.vue — vue grille de la page Agents : avertissements, groupes « Livrés » et « Personnels », carte « Nouvel agent » (et carte de l'assistant tant qu'aucun agent personnel n'existe). -->
 <script setup lang="ts">
 import { computed } from "vue";
 
 import { groupesAgents } from "../../features/agents/page";
 import { domaineReglages } from "../../features/reglages/domaine";
+import BoutonAssistant from "../communs/BoutonAssistant.vue";
 import CarteAgent from "./CarteAgent.vue";
 
 const rg = domaineReglages();
@@ -50,6 +51,14 @@ const aucunActif = computed(
             >
               <i class="ph ph-plus" aria-hidden="true"></i> Nouvel agent
             </button>
+          </li>
+          <li v-if="g.id === 'perso' && !g.agents.length" class="flex">
+            <BoutonAssistant
+              classe="flex-1 min-h-[7.5rem] flex items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-slate-300 text-[13.5px] text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              libelle="Créer avec l'assistant"
+              data-agents-assistant-vide
+              @click="rg.ouvrirAssistant('agent')"
+            />
           </li>
         </ul>
       </section>

@@ -1315,7 +1315,7 @@ sequenceDiagram
     participant E as Enfant (runChatMultiMcp)
     participant C as Client
     P->>T: task(subagent_type="explore", prompt="…")
-    T->>T: persona AGENT_TASK_EXPLORE + catégories du type<br/>refus = {task, task_status, task_wait, task_send, todowrite, ask_user, routine_save}
+    T->>T: persona AGENT_TASK_EXPLORE + catégories du type<br/>refus = {task, task_status, task_wait, task_send, todowrite, ask_user, routine_save, agent_save}
     T-->>C: event task_step {spawned, child_id}
     loop boucle de l'enfant (budget du type)
         E->>E: appels d'outils dans SON contexte
@@ -1364,8 +1364,8 @@ ne connaît plus `task` que par sa borne propre (`bornesDuLot`) et le refus d'un
   web). Le **manifeste de l'enfant décide seul** de ses outils (`collectMcpTools` avec
   `sousAgent`, `outilPermisSousAgent`) : catégories du type, retraits du type
   (`OUTILS_RETIRES_PAR_TYPE`), réglage de la console (`toolsDeniedFor("subagent")`), refus de base
-  (`task`, `task_status`, `task_wait`, `task_send`, `todowrite`, `ask_user`, `routine_save`) et
-  `OUTILS_JAMAIS_SOUS_AGENT` (`shell_job`, `task`, `ask_user`, `routine_save`, `git_submit`,
+  (`task`, `task_status`, `task_wait`, `task_send`, `todowrite`, `ask_user`, `routine_save`, `agent_save`) et
+  `OUTILS_JAMAIS_SOUS_AGENT` (`shell_job`, `task`, `ask_user`, `routine_save`, `agent_save`, `git_submit`,
   `git_set_credential` : ce qui sort du bac, publication ou identifiant git du compte). Un enfant
   n'appelle pas ce qu'il ne voit pas ; l'hôte d'outils ne réapplique pas ce périmètre (le `_meta` des
   appels locaux ne porte que `type`, `id` et `browser_session`). **Lecture seule** (`read_only` de
@@ -2707,7 +2707,7 @@ intégrés (`rag_*`, `generate_image`, `ask_user`) avant envoi. Seuls
 prompt d'un autre tour : `memory`, `skill_save` (corps du skill), `todowrite`
 (rappel de tâches en début de tour), `task` (brief d'un sous-agent), `task_send` (message à un
 sous-agent en fond), `routine_save`
-(prompt de la routine) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
+(prompt de la routine) et `agent_save` (persona d'un agent) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
 `skill_add_file` est restauré comme les autres : ses fichiers sont des scripts exécutés
 par `skill_run_script` ou relus par un outil (résultat neutralisé à l'émission).
 **Limite de la restauration** : elle retire tout U+2060 qui suit un début de marqueur de
@@ -2750,7 +2750,7 @@ renvoyé au moteur restent tels qu'il les a émis.
 | `skill` (main) et `skill_run` (hôte d'outils) | `skill` | `skill_save`, `skill_add_file`, `skill_get`, `skill_read_file`, `skill_run_script` |
 | `todo` (main) | `task` (cachée) | `todowrite` |
 | `task` (core) | builtin | `task` (construit **par tour**, pas enregistré sur le serveur MCP) |
-| `ask_user`, `routine_save` (core) | builtin | questionnaire au-dessus de la barre de saisie ; routine créée en pause (réglage `routine_tool_enabled`) — construits **par tour** |
+| `ask_user`, `routine_save`, `agent_save` (core) | builtin | questionnaire au-dessus de la barre de saisie ; routine créée en pause (réglage `routine_tool_enabled`) ; agent personnel enregistré désactivé (sous-agents permis par l'administrateur) — construits **par tour** |
 | `rag` (core) | builtin | `rag_search`, `rag_read`, `rag_list` (si une collection est active dans le chat), `rag_index` (écriture) |
 
 ### Fichiers (`fs`)
@@ -3121,7 +3121,7 @@ détruisait la bibliothèque.
 processus (`SKILLS_FILELOCK=1`). Le check et l'écriture sont dans la même section
 critique.
 
-Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`, `creer-une-routine`, `apparence`) ; les
+Bibliothèque livrée : les skills d'assistant seulement (`creer-un-skill`, `creer-une-routine`, `creer-un-agent`, `apparence`) ; les
 skills métier sont ceux des comptes ou de l'admin. ⚠ Ne pas bundler de `.md` orphelin ; purger les
 `__pycache__` avant packaging.
 
@@ -3135,6 +3135,23 @@ outils sont actifs, hors mode plan, et que le réglage `routine_tool_enabled` n'
 les outils sont actifs, mode plan compris. Ni l'un ni l'autre n'est proposé à un tour éphémère (Studio). Ils sont
 refusés en dur, quel que soit le registre : `deniedForRoutine` les ajoute à la politique `deny_for`, et
 `OUTILS_JAMAIS_SOUS_AGENT` ainsi que la liste de refus des sous-agents les écartent.
+
+**Assistant d'agent.** L'entrée `agent` de `ASSISTANTS` (nom, mission, outils, contraintes) épingle le skill livré
+`creer-un-agent` (catégorie `skill`) ; la page Agents l'ouvre par le bouton Assistant de l'en-tête et par une carte
+tant qu'aucun agent personnel n'existe. Le prérequis `fonction:agents` de `manquantes` lit `features` : sous-agents
+coupés par l'administrateur, un toast dit que l'agent sera rédigé sans être enregistré. Côté core,
+`outils/integres/agent-save.ts` (`agent_save`) contrôle la fiche en anglais (nom hors noms livrés et réservés,
+persona et description non vides, catégories locales connues, `mcp_server_ids` parmi les serveurs du compte ouverts
+aux agents, budgets bornés, réflexion), puis la passe à `validateCustomAgents`, la validation de PUT
+`/api/settings`, et l'écrit dans `custom_agents` du compte avec `enabled: false`, sous `mergeUserSettings`. Un nom
+déjà pris est refusé (`agent_exists`) sauf `replace: true`, qui remplace la fiche entière (agent désactivé, session
+web revenue privée : la note du résultat le dit) ; au-delà de `CUSTOM_AGENTS_MAX`, `agents_limit`. Il est proposé
+quand les outils sont actifs, hors mode plan, tour éphémère et tour de réveil (`job_wake` : une injection lue dans
+un événement de job ne réécrit pas un agent du compte), si `AGENTS_ENABLED` est vrai (la case
+du compte n'y entre pas : on crée un agent désactivé même sous-agents éteints), et refusé en dur aux sous-agents
+(`OUTILS_JAMAIS_SOUS_AGENT`, liste de refus) et aux routines (`deniedForRoutine`). Sous son résultat,
+l'action « Ouvrir dans Agents » (`elpis:ouvrir-agent`) rouvre la page Agents, qui relit les réglages, sur la fiche
+de l'agent.
 
 **Assistant d'habillage.** L'entrée `apparence` de `ASSISTANTS` épingle le skill livré `apparence` (catégorie `skill`
 seule, pour lire les références ; `ask_user` est un intégré générique) ; le modèle répond par un bloc

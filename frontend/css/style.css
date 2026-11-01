@@ -2228,6 +2228,32 @@ body.elpis-dark-surface .group:hover .group-hover\:text-slate-800      { color: 
    déjà arrondi, jamais sur la rangée pleine largeur. */
 .set-block--flush { padding: 0; }
 
+/* Contrôle segmenté d'un réglage à 2 ou 3 choix : piste neutre, choix actif en relief (aria-pressed). */
+.set-seg {
+    display: inline-flex;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface-3);
+}
+.set-seg__btn {
+    min-height: 2rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    color: var(--text-600);
+    transition: background-color .15s ease, color .15s ease;
+}
+.set-seg__btn:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-4); }
+.set-seg__btn[aria-pressed="true"] {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text-900);
+}
+.set-seg__btn:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+.set-seg__btn:disabled { cursor: not-allowed; opacity: .7; }
+
 /* ================================================================
  *  COMPOSANTS CONSOLE ADMIN  (.adm-*)
  * ================================================================

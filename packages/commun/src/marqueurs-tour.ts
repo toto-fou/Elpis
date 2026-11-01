@@ -60,6 +60,7 @@ export const OUTILS_SANS_RESTAURATION: ReadonlySet<string> = new Set([
   "task",
   "task_send",
   "routine_save",
+  "agent_save",
 ]);
 
 /** Objet simple (littéral ou sans prototype), pas un tampon, une carte ou une date. */

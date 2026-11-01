@@ -26,6 +26,7 @@ const VERBES: Readonly<Record<string, string>> = {
   memory: "Consulte la mémoire",
   ask_user: "Demande",
   routine_save: "Crée la routine",
+  agent_save: "Crée l'agent",
   generate_image: "Génère",
   task_status: "Regarde où en est l'agent",
   task_wait: "Attend l'agent",

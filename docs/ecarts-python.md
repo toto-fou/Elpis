@@ -192,6 +192,8 @@ reporter à la main.
   notification MCP `ask_user: questionnaire of N question(s) displayed` n'existe plus, et la catégorie « Skills »
   ne le coupe plus.
 - **`routine_save`** (propre au TS) : outil intégré du tour, sans famille MCP ; réglage `routine_tool_enabled`.
+- **`agent_save`** (propre au TS) : outil intégré du tour, sans famille MCP ; agent personnel écrit dans
+  `custom_agents` désactivé ; proposé si `AGENTS_ENABLED`, refusé aux sous-agents, aux routines et en mode plan.
 
 ## Contexte (élagage et compression)
 

@@ -45,7 +45,7 @@ import type { ModeReflexion, ReglagesAgents } from "./reglages";
 
 const log = journal("outils.taches-agents");
 
-const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save"];
+const DENY_BASE = ["task", "todowrite", "ask_user", "routine_save", "agent_save"];
 
 /** Outils refusés à un enfant de ce type : fixes, réglage de la console pour les sous-agents, retraits propres à l'agent. */
 export function outilsRefusesEnfant(s: AgentSpec): Set<string> {
@@ -56,6 +56,7 @@ export function outilsRefusesEnfant(s: AgentSpec): Set<string> {
     "task_send",
     "ask_user",
     "routine_save",
+    "agent_save",
     ...toolsDeniedFor("subagent", DENY_BASE),
     ...s.denyExtra,
   ]);

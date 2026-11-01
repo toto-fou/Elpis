@@ -30,6 +30,8 @@ skills/
     SKILL.md
   creer-une-routine/       ← assistant de création de routine (livré)
     SKILL.md
+  creer-un-agent/          ← assistant de création d'agent personnel (livré)
+    SKILL.md
   apparence/               ← assistant d'habillage personnel (livré)
     SKILL.md               ← entretien ask_user, UN bloc ```elpis-skin de jetons
     references/            ← jetons.md (liste, requis, contrastes), exemples.md (2 habillages valides)

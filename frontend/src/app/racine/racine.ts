@@ -32,7 +32,7 @@ import { creerClicExterieur } from "./clic-exterieur";
 import { creerDefilementChat } from "./defilement";
 import { creerNotifications } from "./notifications";
 import { creerOpencode } from "./opencode";
-import { EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
+import { EVT_OUVRIR_AGENT, EVT_OUVRIR_ROUTINE } from "../../features/chat/outils/actions-resultat";
 import { brouillonAvecCorrection, EVT_SKIN_CORRECTION } from "../../features/reglages/skins-perso";
 import { pageConsole } from "../page";
 import { creerSessionOnglet } from "./session-onglet";
@@ -973,6 +973,14 @@ export function creerRacine(options: OptionsRacine = {}) {
   const avantDechargement = (): void => so.sauverSession();
   const surOuvrirRoutine = (ev: Event): void =>
     void n.ouvrirRoutine((ev as CustomEvent<{ id?: unknown }>).detail?.id);
+  /** Agent enregistré par l'assistant : page Agents relue, fiche de l'agent ouverte s'il y figure. */
+  const surOuvrirAgent = (ev: Event): void => {
+    const nom = (ev as CustomEvent<{ name?: unknown }>).detail?.name;
+    void ctx.openAgentsPage().then(() => {
+      const rangee = m.reglages?.agentBank.value.find((a) => !a.template && a.name === nom);
+      if (rangee) m.reglages?.startEditAgent(rangee);
+    });
+  };
   const surCorrectionSkin = (ev: Event): void => {
     const texte = (ev as CustomEvent<{ texte?: unknown }>).detail?.texte;
     if (typeof texte !== "string" || !texte) return;
@@ -985,6 +993,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     document.addEventListener("keydown", clavier.onGlobalKeydown, { capture: true });
     window.addEventListener("beforeunload", avantDechargement);
     window.addEventListener(EVT_OUVRIR_ROUTINE, surOuvrirRoutine);
+    window.addEventListener(EVT_OUVRIR_AGENT, surOuvrirAgent);
     window.addEventListener(EVT_SKIN_CORRECTION, surCorrectionSkin);
     document.addEventListener("dragend", importBac.finDeGlisser);
     // Capture : avant tout stopPropagation des lignes de l'arbre.
@@ -1007,6 +1016,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     document.removeEventListener("keydown", clavier.onGlobalKeydown, { capture: true });
     window.removeEventListener("beforeunload", avantDechargement);
     window.removeEventListener(EVT_OUVRIR_ROUTINE, surOuvrirRoutine);
+    window.removeEventListener(EVT_OUVRIR_AGENT, surOuvrirAgent);
     window.removeEventListener(EVT_SKIN_CORRECTION, surCorrectionSkin);
     document.removeEventListener("dragend", importBac.finDeGlisser);
     document.removeEventListener("drop", importBac.finDeGlisser, true);

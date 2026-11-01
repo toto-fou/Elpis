@@ -26,12 +26,13 @@ export const TYPES_AGENTS_LIVRES = ["explore", "implement", "verify", "web", "pr
 export const TYPE_AGENT_PERSONNALISE = "custom";
 export const TYPES_AGENTS_REGLABLES: readonly string[] = [...TYPES_AGENTS_LIVRES, TYPE_AGENT_PERSONNALISE];
 
-/** Jamais offerts à un sous-agent (ni réveil, ni sous-agent, ni question à l'humain, ni création de routine, ni publication ni identifiant git du compte : hors du bac), registre ou non. */
+/** Jamais offerts à un sous-agent (ni réveil, ni sous-agent, ni question à l'humain, ni création de routine ou d'agent, ni publication ni identifiant git du compte : hors du bac), registre ou non. */
 export const OUTILS_JAMAIS_SOUS_AGENT: ReadonlySet<string> = new Set([
   "shell_job",
   "task",
   "ask_user",
   "routine_save",
+  "agent_save",
   "git_submit",
   "git_set_credential",
 ]);

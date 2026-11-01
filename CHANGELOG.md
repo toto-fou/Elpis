@@ -328,6 +328,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   sous chaque groupe l'effet du choix retenu (fichiers en écriture ou en lecture seule,
   réflexion, et pour un agent qui a des outils web, session privée ou « Ma session
   web »). Ouvrir l'ancien onglet redirige vers la page.
+- **Page Agents : création par l'assistant.** Un bouton Assistant (en-tête, et carte
+  tant qu'aucun agent personnel n'existe) ouvre un chat cadré par le skill livré
+  `creer-un-agent` : entretien en deux tours au plus, fiche complète montrée (persona en
+  anglais), puis enregistrement par le nouvel outil `agent_save`, toujours
+  **désactivé** ; un agent du même nom n'est remplacé que sur demande, et la note dit
+  alors que la fiche est remplacée en entier. L'outil n'est proposé ni en mode plan, ni
+  dans un tour de réveil, ni à une routine, ni à un sous-agent, ni quand
+  l'administrateur a coupé les sous-agents.
 - **Sous-agents : fenêtre, ligne et jetons.** Un clic sur la ligne d'un sous-agent (ou
   son icône œil) ouvre une fenêtre centrée au lieu du volet étroit à droite du fil :
   agent et mission, état, horloge et jetons, Arrêter ; puis la consigne, le bilan, le

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/outils/actions-resultat.ts — registre des actions proposées sous le résultat d'un outil réussi (ex. ouvrir la routine créée) ; chaque entrée = un outil, une action. */
+/** frontend/src/features/chat/outils/actions-resultat.ts — registre des actions proposées sous le résultat d'un outil réussi (ex. ouvrir la routine ou l'agent créé) ; chaque entrée = un outil, une action. */
 import { enObjet } from "./sortie";
 import type { EtapeOutil } from "./types";
 
@@ -12,6 +12,7 @@ export interface ActionResultat {
 }
 
 export const EVT_OUVRIR_ROUTINE = "elpis:ouvrir-routine";
+export const EVT_OUVRIR_AGENT = "elpis:ouvrir-agent";
 
 const ACTIONS: Readonly<Record<string, (r: Record<string, unknown>) => ActionResultat | null>> = {
   routine_save: (r) =>
@@ -21,6 +22,15 @@ const ACTIONS: Readonly<Record<string, (r: Record<string, unknown>) => ActionRes
           icone: "ph-clock-countdown",
           evenement: EVT_OUVRIR_ROUTINE,
           detail: { id: r["id"] },
+        }
+      : null,
+  agent_save: (r) =>
+    r["ok"] === true && typeof r["name"] === "string"
+      ? {
+          libelle: "Ouvrir dans Agents",
+          icone: "ph-robot",
+          evenement: EVT_OUVRIR_AGENT,
+          detail: { name: r["name"] },
         }
       : null,
 };

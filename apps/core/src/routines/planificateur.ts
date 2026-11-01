@@ -196,9 +196,9 @@ export function minutesNonEvaluees(maintenant: Date, derniere: string): number {
   return Math.floor((apres - avant) / 60_000) - 1;
 }
 
-/** Outils retirés à une routine : `ask_user`, `routine_save` et les sous-agents (`task`, `task_status`, `task_wait`, `task_send`) en dur, plus ceux de la politique du registre. */
+/** Outils retirés à une routine : `ask_user`, `routine_save`, `agent_save` et les sous-agents (`task`, `task_status`, `task_wait`, `task_send`) en dur, plus ceux de la politique du registre. */
 export function deniedForRoutine(): Set<string> {
-  const dur = ["ask_user", "routine_save", "task", "task_status", "task_wait", "task_send"];
+  const dur = ["ask_user", "routine_save", "agent_save", "task", "task_status", "task_wait", "task_send"];
   try {
     return new Set([...dur, ...toolsDeniedFor("routine", dur)]);
   } catch {

@@ -115,6 +115,8 @@ export interface TurnPlan {
   readonly titleContent: string | null;
   readonly imageToolOn: boolean;
   readonly routineToolOn: boolean;
+  /** `agent_save` : outils actifs, hors mode plan, tour éphémère et tour de réveil, sous-agents permis par l'administrateur. */
+  readonly agentToolOn: boolean;
   readonly questionToolOn: boolean;
   /** Tour de réveil ouvert par le serveur (`job_wake`), absent pour un message de l'utilisateur. */
   readonly origin?: "user" | "job_wake";
@@ -404,7 +406,8 @@ export async function prepareTurn(
   const planMode = chatReadFailed
     ? await getChatPlanMode(base, uid, chatId)
     : veritePy((existingChat ?? {})["plan_mode"]);
-  if (planMode) denyTools = new Set([...(denyTools ?? []), "task", "generate_image", "routine_save"]);
+  if (planMode)
+    denyTools = new Set([...(denyTools ?? []), "task", "generate_image", "routine_save", "agent_save"]);
   let imageToolOn = false;
   if (mcpOn && !planMode && toolEnabledIn(settings)) {
     try {
@@ -639,6 +642,7 @@ export async function prepareTurn(
     titleContent,
     imageToolOn,
     routineToolOn,
+    agentToolOn: mcpOn && !planMode && !ephemeral && reveil === null && Boolean(config.AGENTS_ENABLED),
     questionToolOn: mcpOn && !ephemeral,
     origin: reveil === null ? "user" : "job_wake",
     wake: reveil?.wake ?? null,

@@ -739,6 +739,8 @@ export const TABLES: readonly Table[] = [
       { name: "started_at", type: "real", default: null },
       { name: "ended_at", type: "real", default: null },
       { name: "inline_result", type: "int", null: false, default: 0 },
+      { name: "kind", type: "text", null: false, default: "shell" },
+      { name: "detail_json", type: "text", null: false, default: "{}" },
     ],
     fks: [{"cols": ["user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
     indexes: [{"name": "idx_shell_jobs_user", "cols": ["user_id", "state"]}, {"name": "idx_shell_jobs_chat", "cols": ["user_id", "chat_id"]}],

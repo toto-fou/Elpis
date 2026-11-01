@@ -63,6 +63,7 @@ import { LLAMA_TOOL_PARALLELISM } from "../../llm/constantes";
 import { estDict, lire, poser, prefixePy, splitlinesPy } from "../../python";
 import type { Dict } from "../../python";
 import { ingestTools } from "../categories";
+import { err } from "../erreur-outil";
 import { installerManifesteMcp } from "../ports";
 import { serveurEnProcessus, transportEnProcessus } from "./en-processus";
 import { toolTraits } from "../traits";
@@ -1238,12 +1239,11 @@ export function toolTimeoutJson(toolName: string, timeoutS: number): string {
       ok: false,
       error: "timeout",
       message:
-        `L'outil '${toolName}' n'a pas répondu en ${Math.trunc(timeoutS)}s — ` +
-        "attente abandonnée ; il peut encore s'exécuter côté serveur.",
+        `Tool '${toolName}' did not answer within ${Math.trunc(timeoutS)} s: ` +
+        "the wait was abandoned and it may still be running on the server.",
       fix:
-        "Vérifie l'état (fichier, dépôt, processus) avant de relancer ; " +
-        "puis relance une action plus ciblée/rapide, ou découpe le " +
-        "travail en étapes plus petites.",
+        "Check the state (files, repository, processes) before retrying, then retry a narrower or faster " +
+        "action, or split the work into smaller steps.",
     },
     { ensureAscii: false },
   );
@@ -1362,7 +1362,18 @@ export async function executerOutilMcp(
 ): Promise<string> {
   const cfg = toolCfgMap.get(toolName);
   if (cfg === undefined || Object.keys(cfg).length === 0)
-    return pyJsonDumps({ error: `Outil '${toolName}' inconnu ou désactivé.` }, { ensureAscii: false });
+    return pyJsonDumps(
+      err(
+        "tool_not_available",
+        `${toolName} is not available in this run (unknown, disabled or not offered here)`,
+        {
+          fix:
+            "Use only the tools listed for you. A sub-agent leaves this step to its parent and lists it under " +
+            "'Left open' in its report; otherwise tell the user which tool is missing.",
+        },
+      ),
+      { ensureAscii: false },
+    );
   const pool = options.pool ?? poolMcp;
   try {
     const res = await pool.callTool(cfg, toolName, finalArgs, {

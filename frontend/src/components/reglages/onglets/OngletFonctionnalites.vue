@@ -407,13 +407,9 @@ const rg = domaineReglages();
       et
       <button
         class="underline underline-offset-2 hover:text-slate-700 transition-colors"
-        @click="
-          rg.settingsTab = 'agents';
-          rg.loadMcpUserCategories();
-          rg.loadAgentTemplates();
-        "
+        @click="rg.openSettingsTab('agents')"
       >
-        Agents</button
+        la page Agents</button
       >.
     </p>
   </div>

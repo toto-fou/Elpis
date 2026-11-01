@@ -43,7 +43,6 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         icone: "ph-sparkle",
         mots: "cle api fournisseur openai modele",
       },
-      { id: "agents", libelle: "Agents", icone: "ph-users-three", mots: "sous-agent categories outils" },
       { id: "prompts", libelle: "Prompts", icone: "ph-bookmarks-simple", mots: "gabarit template systeme" },
       { id: "skills", libelle: "Skills", icone: "ph-graduation-cap", mots: "competence" },
       { id: "memory", libelle: "Mémoire", icone: "ph-brain", mots: "souvenir note" },

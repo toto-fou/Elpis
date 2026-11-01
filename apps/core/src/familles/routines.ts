@@ -102,7 +102,7 @@ async function champsModifies(
   if (a("task_prompt")) f["task_prompt"] = reqStr(data, "task_prompt", PROMPT_MAX);
   if (a("model")) f["model"] = reqStr(data, "model", 200);
   if (a("connector_id")) f["connector_id"] = await validerConnecteur(base, data, uid);
-  for (const k of ["thinking_mode", "enabled", "agents_enabled"]) if (a(k)) f[k] = veritePy(data[k]);
+  for (const k of ["thinking_mode", "enabled"]) if (a(k)) f[k] = veritePy(data[k]);
   if (Object.hasOwn(f, "model") && !f["model"]) f["model"] = null;
   if (a("mcp_servers") || a("active_mcp_servers")) f["mcp_servers"] = referencesMcp(mcpDuCorps(data));
   if (a("trigger_after_id") || a("trigger_after_on")) {

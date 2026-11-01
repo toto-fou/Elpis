@@ -434,7 +434,7 @@ paragraphes de conclusion au lieu de 40 000 tokens de fouille.
 | `explore` | Exploration en lecture seule : localiser, lire, juger, remonter l'historique Git | Fichiers, Git |
 | `implement` | Écrire le changement dans la sandbox et le vérifier (ne commite pas) | Fichiers, Terminal, Git |
 | `verify` | Lancer les tests et les commandes, diagnostiquer les échecs, ne rien modifier | Terminal, Fichiers, Git |
-| `web` | Recherche web en pilotant un vrai navigateur | Navigateur, Fichiers |
+| `web` | Recherche web en pilotant un vrai navigateur, en lecture seule par défaut | Navigateur, Fichiers |
 | `pr` | Brancher, commiter, ouvrir la pull request du travail déjà en place | Git, Fichiers |
 
 Un sous-agent est **un chat dont les cases du panneau MCP sont déjà
@@ -442,15 +442,170 @@ cochées** : il reçoit des catégories entières. Sa spécialisation vient de s
 **persona** (« tu es en lecture seule ») et de son **budget d'itérations**, pas
 d'une liste d'outils rognée.
 
-**Vos agents personnalisés.** Paramètres → Agents : nom, description, prompt
-système, catégories d'outils, serveurs MCP externes. Jusqu'à 10 agents.
+**Vos agents personnalisés.** Page Agents (volet latéral › Plus) : une grille de
+cartes (Livrés, puis Personnels) et, au clic sur une carte, la fiche de l'agent
+(Général, Outils, Droits, Instructions) : nom, description, prompt
+système, catégories d'outils, serveurs MCP externes, lecture seule,
+**réflexion** et session web. Jusqu'à 30 agents personnels. Attention : aucun agent ne
+publie par `git_submit`, l'outil Git d'Elpis, mais cette règle ne couvre que lui. Un agent à qui vous attachez un
+serveur MCP externe capable de publier (le serveur GitHub, par exemple : créer une
+pull request, pousser des fichiers) publie **sans** demander, comme le ferait
+l'assistant : ne lui attachez que des serveurs dont vous acceptez qu'il se serve
+seul, ou désactivez leurs outils d'écriture dans le panneau MCP.
+
+**Lecture seule.** `explore` et `web` sont livrés en lecture seule : ils lisent
+(fichiers, pages web) mais n'écrivent rien dans votre bac ; un agent `web` garde
+tout son navigateur, seules les écritures de fichiers lui sont retirées.
+L'administrateur règle ce défaut pour chaque type (Console › Sandbox ›
+Sous-agents), chaque agent a sa case « Lecture seule » dans l'onglet Droits de la page Agents
+(votre choix l'emporte sur le défaut, sauf si l'administrateur l'impose) et
+l'assistant peut la demander pour une mission.
+
+**La réflexion d'un agent.** Un agent peut réfléchir avant d'agir : sa réflexion
+reste dans son contexte isolé et seul son rapport remonte. L'onglet Droits d'un
+agent propose « Comme la conversation », « Activée » ou « Désactivée » ; par défaut, l'administrateur fixe le mode de
+chaque type (`implement` et `verify` réfléchissent, `explore`, `web` et `pr` non). Sans effet
+si le modèle ne réfléchit pas ; la carte de l'agent indique « réflexion » quand
+des jetons de réflexion ont été mesurés.
+
+**Créer un agent avec l'assistant.** Sur la page Agents, bouton **Assistant** (dans l'en-tête, ou la carte « Créer
+avec l'assistant » tant que vous n'avez aucun agent personnel) : donnez un nom et la mission, éventuellement les
+outils et les contraintes. L'assistant ouvre un chat, vous pose deux séries de questions au plus (mission et
+résultat attendu, outils et serveurs MCP, lecture seule, budget, réflexion), rédige la fiche complète
+avec sa persona en anglais, vous la montre, puis l'enregistre **après votre accord** (outil `agent_save`). L'agent est
+toujours créé **désactivé** et dans sa propre session web : relisez-le et activez-le depuis la page Agents (bouton
+« Ouvrir dans Agents » sous le résultat), où vous cochez « Ma session web » s'il doit utiliser la vôtre. Un agent du
+même nom n'est remplacé que si vous le demandez, et il l'est en entier : désactivé, session web revenue à la sienne.
+Si l'administrateur a coupé les sous-agents, l'assistant rédige l'agent sans pouvoir l'enregistrer ; l'outil n'existe
+ni en mode plan, ni dans une routine, ni dans un sous-agent, ni quand l'assistant est réveillé par une tâche de fond.
+
+**Page blanche.** Un agent démarre à blanc : l'assistant lui écrit un brief complet,
+et l'enfant reste isolé de la discussion. L'assistant peut lui transmettre en plus ce
+que la conversation sait déjà (votre dernière demande, les fichiers lus ou écrits
+dans le tour, le dépôt et la branche, les tâches ouvertes de la liste) : l'agent les
+reçoit comme des données, le brief reste sa consigne.
+
+**Le navigateur d'un agent.** Un agent qui pilote le navigateur (`web`) travaille
+dans **sa propre session**, à profil vide : il ne voit ni vos connexions ni vos
+cookies, ne touche pas à vos onglets ni à ceux d'un autre agent, et sa session est
+fermée à la fin de sa mission, quelle qu'en soit l'issue. Des agents `web`
+simultanés ont chacun la leur, dans la limite de quatre sessions par compte (la vôtre
+comprise, réglable par l'administrateur) : au-delà, l'agent n'est pas lancé et
+l'assistant le sait. Pour qu'un agent utilise **votre** session connectée, choisissez
+« Ma session web » dans l'onglet Droits de sa fiche (l'administrateur peut l'interdire
+à tous) : il travaille alors avec vos connexions, dans un onglet à lui, et ne peut pas
+fermer la session. Décocher la case vaut aussi pour un agent déjà lancé : repris, il
+repart dans sa propre session. Ce choix n'apparaît que pour un agent qui a des outils
+web ; sous chaque groupe de l'onglet Droits, une ligne dit ce que fait l'option retenue.
+
+**Publier une branche.** `git_submit` (pousser la branche et ouvrir la demande de
+fusion) est visible hors de votre machine : aucun agent ne l'appelle. L'agent `pr`
+prépare la branche et le commit, puis rend l'appel exact ; c'est l'assistant qui le
+lance, dans le chat, où vous le voyez. De même, aucun agent n'enregistre d'identifiant
+Git (`git_set_credential`) : il est rangé avec votre compte, hors du bac.
+
+**Plusieurs agents à la fois.** Les agents qu'un même message lance partent ensemble,
+dans la limite réglée par l'administrateur. Le harnais ne les ordonne pas : c'est
+l'assistant qui répartit le travail (des fichiers distincts pour chacun, l'un après
+l'autre, ou un fichier de synchronisation qu'il nomme dans leurs consignes). Quand un
+autre agent du compte écrivait en même temps, la carte le signale : certains fichiers
+modifiés peuvent être les siens.
+
+**Les plafonds d'un tour.** Pour qu'un tour ne délègue pas sans fin, l'administrateur
+règle (Console › Sandbox › Sous-agents) le nombre de lancements d'agents par tour (12
+par défaut ; un même agent n'est repris que trois fois au plus
+par tour, en plus) et, s'il le souhaite, un plafond de jetons consommés par les
+agents d'un tour, ceux qui travaillent encore compris au mieux de ce qui est connu
+(aucun par défaut). Au plafond, l'assistant ne
+peut plus en lancer : il termine avec ce que ses agents ont rapporté, ou vous
+demande comment continuer ; les agents déjà lancés vont jusqu'au bout. Les routines
+ont les mêmes plafonds.
+
+**La durée d'un agent.** L'assistant peut borner une mission (`max_seconds`, au
+plus le délai de l'administrateur, 1 heure par défaut). Le décompte part dès
+l'entrée dans la délégation. L'agent reçoit une échéance un peu plus courte, qui
+laisse la place de son rapport (2 minutes en général, au plus un tiers du délai
+pour une mission courte). À cette échéance, le texte que le modèle était en train
+d'écrire est interrompu et gardé, une action encore en cours est arrêtée (son
+résultat est dit non confirmé) et aucune nouvelle ne part, puis l'agent rédige son
+rapport. Si le modèle reste bloqué jusqu'au délai, aucun nouvel appel ne lui est
+fait : la carte porte le début de son rapport, ou un rapport partiel assemblé par
+Elpis (dernier message de l'agent, actions faites ou restées en cours, fichiers
+modifiés, travail restant), et l'assistant peut le reprendre (`task_id`) avec
+l'historique déjà fait.
+
+**Arrêter ou redémarrer en plein travail.** Si vous arrêtez le tour pendant qu'un
+agent travaille, puis cliquez sur « Continuer », l'assistant retrouve l'identifiant
+de l'agent (`task_id`) et peut le reprendre là où il en était. Pendant son travail,
+l'agent garde un point de reprise, pris au début de chaque étape qui suit une série
+d'appels terminée (en mémoire tout de suite, sur le disque toutes les 10 secondes au
+plus, sans ralentir le serveur) : si le serveur redémarre brutalement en plein
+travail, l'agent se reprend depuis ce point. Ce qui était en cours à cet instant est
+perdu : la réponse que le modèle était en train d'écrire et la série d'appels en vol
+(une commande de plusieurs minutes comprise, qui a pu agir sans laisser de trace),
+plus les dix dernières secondes si leur point n'était pas encore écrit. L'agent est
+prévenu de vérifier l'état des fichiers avant de répéter une écriture ou une
+commande. Au premier message que vous envoyez ensuite dans la conversation,
+l'assistant reçoit la liste des agents interrompus (leur identifiant et leur
+mission) : dites-lui « reprends » ou « continue » pour qu'il les relance.
 
 **Ce que vous voyez.** Chaque délégation apparaît comme une carte dans le fil,
-avec l'agent choisi, sa mission, un compteur de tokens et une **icône œil** qui
-ouvre le déroulé complet de l'enfant (ses appels d'outils, son rapport). Une
-croix annule *un* sous-agent sans tuer le tour en cours.
+avec l'agent choisi, sa mission, son contexte en jetons et une **icône œil**
+qui ouvre, dans une fenêtre large, la consigne, le bilan, le rapport et le déroulé complet de
+l'enfant (ses appels d'outils). Une
+croix annule *un* sous-agent sans tuer le tour en cours. Le nombre de jetons est,
+comme au pied du message principal, le contexte de la dernière requête de l'agent tel
+que le moteur l'a rapporté : il ne dépasse jamais la fenêtre du modèle. Il est mis à
+jour à chaque requête, sur la ligne de l'agent dans tous les déroulés ; l'infobulle
+ajoute l'entrée cumulée sur tous ses appels au moteur (chaque appel relit le contexte,
+ce cumul peut donc dépasser la fenêtre), le cache et la sortie. Rien n'est estimé :
+une requête coupée (échéance, arrêt) dont le moteur n'a pas rapporté l'usage (vLLM,
+SGLang) ne compte pas, et la réflexion n'apparaît que si le moteur la compte.
 
-> Les sous-agents sont **désactivés par défaut** (Paramètres → Agents). Un
+**Les agents en fond.** Pour une mission longue dont il n'a pas besoin tout de suite,
+l'assistant peut lancer un agent **en fond** : il rend la main aussitôt et continue
+son tour (ou vous répond), pendant que l'agent travaille. La carte porte
+« en fond » et reste vivante après la fin du tour, et après un rechargement de la
+page ; la liste des tâches de fond (puce de la barre de prompt, ou `/jobs`) le
+montre aussi, marqué « sous-agent », avec son étape et ses jetons. Son rapport arrive
+tout seul : avec le prochain résultat d'outil si l'assistant travaille encore, sinon
+dans un nouveau message qui réveille la conversation, comme une tâche de fond
+(« Ne pas me réveiller » s'applique). L'assistant peut regarder où il en est (ses
+dernières étapes comprises) ou l'attendre un moment, sans relancer de question. Il
+peut aussi lui écrire en cours de route, pour préciser ou changer la consigne, ou lui
+demander de conclure tout de suite avec ce qu'il a : l'agent lit le message avant son
+étape suivante, et sa fenêtre le montre dans le déroulé, sous « Message de
+l'assistant ». Un agent qui conclut ainsi rend un rapport partiel et peut être repris
+ensuite. Le bouton Stop du tour **ne l'arrête
+pas** : seule sa croix, ou « Arrêter » dans la liste des tâches de fond, le fait (son
+rapport partiel vous est alors joint au message suivant, sans réveil). Un agent en
+fond a son propre délai (1 heure par défaut) et s'arrête proprement avant, comme les
+autres ; l'administrateur règle combien peuvent tourner ensemble pour un compte (2 par
+défaut) et ce délai (Console › Sandbox › Sous-agents). Chaque agent en fond garde une
+place du moteur pendant que vous continuez, et chaque réveil est un appel au modèle
+de plus. Si le serveur redémarre, l'agent est perdu : l'assistant en est prévenu avec
+son identifiant, pour le reprendre.
+
+**Le statut d'un agent.** Le badge de la carte reprend la ligne `Status:` que
+l'agent écrit **tout en haut** de son rapport (terminé, partiel, bloqué), corrigée
+par ce que le harnais constate (budget épuisé, délai dépassé, erreur, annulé). Seules
+les premières lignes comptent, avant le premier titre : un `Status: done` cité plus
+bas (une page web recopiée sous « Evidence », une citation, un bloc de code) ne
+décide de rien. Un agent qui n'écrit pas de ligne lisible reçoit **« statut
+inconnu »** : ce n'est jamais compté comme terminé. Un agent `verify` écrit en plus
+`Verdict: pass | fail | inconclusive` : un test en échec bien diagnostiqué est un
+travail « terminé » avec le verdict « vérification échouée », sans coche verte. Seuls
+les fichiers modifiés, les commits, les erreurs et le nombre d'appels sont relevés par
+le harnais lui-même ; la coche verte du fil ne s'affiche que pour un agent déclaré
+terminé (et, pour `verify`, dont la vérification a réussi) ; un agent partiel, bloqué,
+au statut inconnu ou à la vérification échouée a un signe d'avertissement. Vérifiez le
+travail d'un agent qui écrit (relire le diff, ou lancer un agent `verify`) avant de le
+tenir pour fait.
+
+Un `git_action` qui touche l'index (stage, stash…) apparaît sous Git (« Index
+modifié »).
+
+> Les sous-agents sont **désactivés par défaut** (page Agents, interrupteur « Sous-agents »). Un
 > enfant ne peut pas déléguer à son tour, n'a pas de todo-list propre et ne peut
 > pas vous poser de question — il n'a pas d'interface.
 
@@ -1021,13 +1176,11 @@ L'édition se fait en plein écran, par onglets :
 | **Prompt** | Le prompt système et la tâche à exécuter |
 | **MCP** | Les outils locaux et serveurs externes disponibles pendant le run |
 | **Skills** | Les skills attachés |
-| **Agents** | Autoriser (ou non) la délégation à des sous-agents |
 
 Le modèle et le mode réflexion se choisissent également.
 
-> ⚠ Les sous-agents sont un choix **par routine**, jamais hérité de votre
-> réglage de chat : un run sans personne devant l'écran qui ouvre des boucles
-> agentiques supplémentaires, ça se décide explicitement.
+Une routine n'a pas de sous-agents : c'est une tâche récurrente qu'un seul
+agent mène, même si les sous-agents sont activés pour vos conversations.
 
 ### Déclencheurs
 

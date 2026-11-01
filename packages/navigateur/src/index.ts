@@ -6,6 +6,7 @@ export {
   proprietaire,
   PW_VERB_ALIASES,
   pwOwner,
+  pwOwnerEnfant,
   pwOwnerPath,
   pwOwnersDir,
   pwVerbOf,
@@ -81,6 +82,7 @@ export {
   sansAnsi,
   SCREENSHOT_URL_PREFIX,
   screenshotResult,
+  urlServiceNavigateur,
   waitPayload,
 } from "./client";
 export type { Echec, Locateur, OptionsClientNavigateur, OptionsRequete } from "./client";

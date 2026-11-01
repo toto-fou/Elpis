@@ -34,12 +34,19 @@ function plage(n: number): number[] {
   return Array.from({ length: Math.max(0, n) }, (_, i) => i);
 }
 
-/** `id_slot` pour llama-server : hash stable du chat (KV chaud), dévié vers un slot libre si le sien est occupé ; -1 = au serveur de choisir. */
+/** Options du choix d'un slot : `avoidOwn` écarte celui que la clé préfère, `avoid` d'autres slots (parent en attente, frères en cours), `prefere` le slot que l'appelant veut retrouver (son dernier). */
+export interface OptionsSlot {
+  avoidOwn?: boolean;
+  avoid?: Iterable<number> | null;
+  prefere?: number | null;
+}
+
+/** `id_slot` pour llama-server : le slot préféré s'il est libre et non évité, sinon hash stable de la clé (KV chaud) dévié vers un slot libre si le sien est occupé ou évité ; -1 = au serveur de choisir. */
 export function resolveSlotId(
   chatId: unknown,
   totalSlots: number | null | undefined,
   busySlots: Iterable<number> | null = null,
-  options: { avoidOwn?: boolean } = {},
+  options: OptionsSlot = {},
 ): number {
   const repli = LLAMA_FORCE_IDLE_SLOT ? -1 : 0;
   if (!LLAMA_PIN_SLOT_BY_CHAT || totalSlots === null || totalSlots === undefined || totalSlots <= 1)
@@ -53,35 +60,72 @@ export function resolveSlotId(
   const preferred = Number.parseInt(digest.slice(0, 8), 16) % totalSlots;
   const second = Number.parseInt(digest.slice(8, 16), 16);
   const occupes = new Set(busySlots ?? []);
-  if (options.avoidOwn) {
-    const autres = plage(totalSlots).filter((s) => s !== preferred && !occupes.has(s));
-    return autres.length > 0 ? (autres[second % autres.length] ?? preferred) : preferred;
-  }
-  if (occupes.size === 0 || !occupes.has(preferred)) return preferred;
-  const libres = plage(totalSlots).filter((s) => !occupes.has(s));
+  const evites = new Set(options.avoid ?? []);
+  if (options.avoidOwn) evites.add(preferred);
+  const voulu = options.prefere;
+  if (
+    voulu !== null &&
+    voulu !== undefined &&
+    Number.isInteger(voulu) &&
+    voulu >= 0 &&
+    voulu < totalSlots &&
+    !evites.has(voulu) &&
+    !occupes.has(voulu)
+  )
+    return voulu;
+  if (!evites.has(preferred) && !occupes.has(preferred)) return preferred;
+  const libres = plage(totalSlots).filter((s) => !evites.has(s) && !occupes.has(s));
   return libres.length > 0 ? (libres[second % libres.length] ?? preferred) : preferred;
 }
 
-/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot. */
-export async function resolveSlotIdAsync(
-  chatId: unknown,
-  options: { avoidOwn?: boolean } = {},
-): Promise<number> {
-  let total: number;
+/** Options asynchrones : `avoid` et `prefere` sont relus au moment du choix, `surSlot` rappelé dans la foulée avec le slot retenu (≥ 0). */
+export interface OptionsSlotAsync {
+  avoidOwn?: boolean;
+  avoid?: (() => Iterable<number>) | null;
+  prefere?: (() => number | null) | null;
+  surSlot?: ((slot: number) => void) | null;
+}
+
+/** `total_slots` du serveur visé (cache de l'intégré, sonde d'un connecteur) ; 0 si inconnu ou sans slots, ne lève jamais. */
+async function totalSlotsVises(): Promise<number> {
   try {
-    total = getCachedTotalSlots();
-    if (!currentEngine().isBuiltin) total = await getModelTotalSlots();
+    const total = getCachedTotalSlots();
+    return currentEngine().isBuiltin ? total : await getModelTotalSlots();
   } catch {
-    return LLAMA_FORCE_IDLE_SLOT ? -1 : 0;
+    return 0;
   }
-  if (total <= 1) return resolveSlotId(chatId, total || 0, null);
+}
+
+/** `resolveSlotId` avec `total_slots` connu (sondé pour un connecteur) et l'occupation de `/slots`, sauté s'il n'y a qu'un slot ; un slot préféré vu occupé est revérifié sur un relevé frais (le cache de 2 s garde le dernier appel de l'appelant). */
+export async function resolveSlotIdAsync(chatId: unknown, options: OptionsSlotAsync = {}): Promise<number> {
+  const total = await totalSlotsVises();
+  if (total <= 1) return resolveSlotId(chatId, total, null);
+  const prefere = options.prefere?.() ?? null;
   let occupes: ReadonlySet<number> | null;
   try {
     occupes = await getBusySlotsSnapshot();
+    if (prefere !== null && occupes?.has(prefere)) occupes = await getBusySlotsSnapshot({ frais: true });
   } catch {
     occupes = null;
   }
-  return resolveSlotId(chatId, total, occupes, { avoidOwn: options.avoidOwn ?? false });
+  const slot = resolveSlotId(chatId, total, occupes, {
+    avoidOwn: options.avoidOwn ?? false,
+    avoid: options.avoid?.() ?? null,
+    prefere,
+  });
+  if (slot >= 0) options.surSlot?.(slot);
+  return slot;
+}
+
+/** `demande` requêtes simultanées au plus : sur llama.cpp un slot reste au parent qui attend (`total_slots − 1`, au moins 1) ; sinon, ou total inconnu, `demande`. */
+export async function plafondParSlots(demande: number): Promise<number> {
+  try {
+    if (!currentEngine().profil.capacites.slots) return demande;
+    const total = await totalSlotsVises();
+    return total > 0 ? Math.min(demande, Math.max(1, total - 1)) : demande;
+  } catch {
+    return demande;
+  }
 }
 
 export const LLAMA_CACHE_PROMPT = interrupteurEnv("LLAMA_CACHE_PROMPT");
@@ -110,7 +154,7 @@ export function effectiveGenerationCap(thinkingMode: boolean, ctxSize: number | 
   return minPy(cap, maxPy(LLAMA_GEN_CAP_FLOOR, entierPy(ctxSize * LLAMA_GEN_CAP_CTX_RATIO)));
 }
 
-/** Borne `max_tokens`/`n_predict` au cap effectif : injecté s'il manque, clampé s'il est explicite, omis en sortie non plafonnée. */
+/** Longueur par défaut (aucune demandée) : le cap effectif injecté, ou omise en sortie non plafonnée ; une longueur explicite reste, `bornerLongueurALaFenetre` la ramène à la place libre. */
 export function clampGenerationBudget(
   payload: Record<string, unknown>,
   samplingParams: Readonly<Record<string, unknown>>,
@@ -139,8 +183,41 @@ export function clampGenerationBudget(
     if (npResiduel) delete payload["n_predict"];
     return;
   }
-  if (positif("max_tokens")) payload["max_tokens"] = minPy(entierPy(valeur("max_tokens")), cap);
-  if (positif("n_predict")) payload["n_predict"] = minPy(entierPy(valeur("n_predict")), cap);
+}
+
+const CLES_LONGUEUR = ["max_tokens", "max_completion_tokens", "n_predict"] as const;
+export const MARGE_LONGUEUR_MIN = 512;
+export const MARGE_LONGUEUR_RATIO = 0.02;
+
+/** Place laissée à la sortie : fenêtre − prompt estimé − marge d'estimation ; 0 si la fenêtre est inconnue. */
+export function placeDeSortie(ctxSize: number, promptTokens: number): number {
+  if (!(ctxSize > 0)) return 0;
+  const marge = maxPy(MARGE_LONGUEUR_MIN, entierPy(ctxSize * MARGE_LONGUEUR_RATIO));
+  return maxPy(0, ctxSize - maxPy(0, promptTokens) - marge);
+}
+
+export interface LongueurBornee {
+  cle: string;
+  demandee: number;
+  envoyee: number;
+}
+
+/** Longueur explicite ramenée à la place libre, pour tous les moteurs ; place nulle ou fenêtre inconnue : laissée au moteur. */
+export function bornerLongueurALaFenetre(
+  payload: Record<string, unknown>,
+  ctxSize: number,
+  promptTokens: number,
+): LongueurBornee[] {
+  const place = placeDeSortie(ctxSize, promptTokens);
+  if (place <= 0) return [];
+  const bornees: LongueurBornee[] = [];
+  for (const cle of CLES_LONGUEUR) {
+    const v = payload[cle];
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= place) continue;
+    payload[cle] = place;
+    bornees.push({ cle, demandee: v, envoyee: place });
+  }
+  return bornees;
 }
 
 export const LLAMA_TOOL_PARALLELISM = nombreEnv("LLAMA_TOOL_PARALLELISM", 8, entierPy);
@@ -156,10 +233,17 @@ export const LLAMA_TOOL_SERIAL_PREFIXES: readonly string[] = (
   .filter((p) => p !== "");
 
 export const TASK_CHILD_TIMEOUT_S = config.TASK_CHILD_TIMEOUT_S || 3600;
-/** Lu pour la parité avec le Python, sans effet : un sous-agent ne lance jamais de sous-agent. */
-export const TASK_SUBAGENT_DEPTH = maxPy(1, config.TASK_SUBAGENT_DEPTH || 1);
+/** Attente de `task_wait` : défaut et plafond (s). */
+export const ATTENTE_DEFAUT_S = 300;
+export const ATTENTE_MAX_S = 1800;
 export const TASK_RESUME_TTL_S = config.TASK_RESUME_TTL_S || 21600;
 export const TASK_RESUME_MAX = config.TASK_RESUME_MAX || 200;
+/** Plafond de la mémoire des reprises (taille JSON approchée) : au-delà, le plus ancien est évincé de la mémoire et ne se reprend plus que depuis le disque, où il n'est écrit que s'il tient dans 8 Mio et si le dossier est accepté. */
+export const TASK_RESUME_MAX_BYTES = 32 * 1024 * 1024;
+/** Écart minimal (s) entre deux écritures disque du point de reprise d'un sous-agent en cours : le point est posé au début d'une itération qui suit un lot d'outils fini, en mémoire tout de suite et sur le disque à ce rythme au plus (la dernière demande part à l'échéance) ; un arrêt brutal du core perd la génération et le lot en vol, et ces secondes de points non écrits. */
+export const TASK_CHECKPOINT_S = 10;
+/** Reprises d'un même `task_id` au plus par tour de l'agent principal : une reprise ne compte pas dans `max_tasks_per_turn`, mais un agent repris en boucle est refusé au-delà. */
+export const TASK_RESUMES_MAX_PAR_TOUR = 3;
 export const TASK_MAX_ITERS_EXPLORE = maxPy(1, config.TASK_MAX_ITERS_EXPLORE || 60);
 export const TASK_MAX_ITERS_IMPLEMENT = maxPy(1, config.TASK_MAX_ITERS_IMPLEMENT || 100);
 export const TASK_MAX_ITERS_VERIFY = maxPy(1, config.TASK_MAX_ITERS_VERIFY || 60);

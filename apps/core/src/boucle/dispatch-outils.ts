@@ -26,18 +26,18 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { ConfigMcp } from "@elpis/mcp";
-import { REFUS_TACHE_SOUS_AGENT, sousAgentEnDict } from "@elpis/securite";
+import { REFUS_TACHE_SOUS_AGENT, restaurerArgsOutil, sousAgentEnDict } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
 import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
-import { LLAMA_TOOL_TIMEOUT_S } from "../llm/constantes";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
 import { noterObservation } from "../llm/sonde-moteur";
 import { journal } from "../journal";
-import type { OutilIntegre } from "../outils/catalogue";
-import { categorize, isHidden, toolPolicy } from "../outils/categories";
+import type { ContexteParent, OutilIntegre } from "../outils/catalogue";
+import { categorize, isHidden } from "../outils/categories";
+import { toolTimeoutS } from "../outils/delais";
 import { err } from "../outils/erreur-outil";
 import {
   executerOutilMcp,
@@ -45,7 +45,7 @@ import {
   TOOL_QUEUE_WAIT_S,
   toolTimeoutJson,
 } from "../outils/mcp/clients";
-import { reglagesAgents } from "../outils/integres/reglages-taches";
+import { bornesDuLot } from "../outils/integres/task/tour";
 import type { Dict } from "../python";
 import { fetchRelayedBytes } from "../relais/services";
 import * as Analyse from "./analyse-appels";
@@ -387,47 +387,33 @@ export class CycleGuard {
 
 // ── Appel isolé ──────────────────────────────────────────────────────────────
 
-const TOOL_TIMEOUT_DEFAULTS: Readonly<Record<string, number>> = {
-  execute_shell: 610.0,
-  pw_wait: 330.0,
-  desktop_shell: 610.0,
-};
-
-/** Borne d'un outil : surcharge à froid, `task` (délai du sous-agent + 60 s), image, politique déclarée, repli par nom, défaut global. */
-export function toolTimeoutS(toolName: string): number {
-  try {
-    const v = CTX.toolTimeoutS(toolName);
-    if (v > 0) return v;
-  } catch (e) {
-    log.debug(`tool_timeout_s : ${String(e)}`);
-  }
-  if (toolName === "task") return Number(config.TASK_CHILD_TIMEOUT_S ?? 1800) + 60.0;
-  if (toolName === "generate_image") {
-    const port = portVisionBureau();
-    if (port !== null) return port.imageToolTimeoutS();
-  }
-  try {
-    const pv = toolPolicy(toolName)["timeout_s"];
-    if (pv && Number(pv) > 0) return Number(pv);
-  } catch (e) {
-    log.debug(`tool_timeout_policy : ${String(e)}`);
-  }
-  return TOOL_TIMEOUT_DEFAULTS[toolName] ?? LLAMA_TOOL_TIMEOUT_S;
-}
-
-/** Attente bornée et annulable ; `null` à l'échéance. */
-async function borne<T>(p: Promise<T>, s: number, signal?: AbortSignal): Promise<{ v: T } | null> {
+/** Attente bornée et annulable ; `null` à l'échéance ; `abandon` est levé dès que l'attente cesse sans résultat. */
+async function borne<T>(
+  p: Promise<T>,
+  s: number,
+  signal?: AbortSignal,
+  abandon?: AbortController,
+): Promise<{ v: T } | null> {
   let minuterie: NodeJS.Timeout | undefined;
   let surAbandon: (() => void) | undefined;
   try {
     return await Promise.race([
       p.then((v) => ({ v })),
       new Promise<null>((ok) => {
-        minuterie = setTimeout(() => ok(null), Math.max(0, s * 1000));
+        minuterie = setTimeout(
+          () => {
+            ok(null);
+            abandon?.abort();
+          },
+          Math.max(0, s * 1000),
+        );
       }),
       new Promise<never>((_ok, ko) => {
         if (!signal) return;
-        surAbandon = () => ko(signal.reason ?? new CancelledError("User cancelled"));
+        surAbandon = () => {
+          ko(signal.reason ?? new CancelledError("User cancelled"));
+          abandon?.abort(signal.reason);
+        };
         if (signal.aborted) surAbandon();
         else signal.addEventListener("abort", surAbandon, { once: true });
       }),
@@ -438,24 +424,50 @@ async function borne<T>(p: Promise<T>, s: number, signal?: AbortSignal): Promise
   }
 }
 
+/** Marge (s) laissée à l'hôte d'outils pour rendre son propre délai (commande tuée, sortie gardée) avant que le core ne coupe l'appel à l'échéance. */
+export const GRACE_ECHEANCE_S = 3;
+
+/** Appel d'un sous-agent coupé par son échéance souple : jamais exécuté (`demarre` faux) ou interrompu, exécution NON confirmée. */
+function coupureEcheanceJson(toolName: string, demarre: boolean, conclu = false): string {
+  const fix =
+    "Do not retry it and start nothing new: write your final report now and list under 'Left open' what this call was meant to do.";
+  const cause = conclu ? "your parent asked you to wrap up" : "this sub-agent's time limit was reached";
+  return pyJsonDumps(
+    demarre
+      ? err(
+          conclu ? "wrap_up" : "timeout",
+          `${toolName} was cut off because ${cause}: execution NOT confirmed (it may have acted in part)`,
+          { fix },
+        )
+      : err(conclu ? "wrap_up" : "time_limit", `${toolName} was NOT executed: ${cause}`, { fix }),
+    { ensureAscii: false },
+  );
+}
+
 /** Un appel d'outil : intégré (borne et annulation) ou serveur MCP ; toujours rendu en JSON, seule l'annulation remonte. */
-export async function executeSingleToolCall(
+async function appelerOutil(
   toolName: string,
   finalArgs: Dict,
   toolCfgMap: ReadonlyMap<string, ConfigMcp>,
   builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>,
-  o: RappelsOutil = {},
+  o: RappelsOutil,
 ): Promise<unknown> {
   const handler = builtinHandlers.get(toolName);
   if (handler) {
     const bto = toolTimeoutS(toolName);
+    const abandon = new AbortController();
     try {
       o.signal?.throwIfAborted();
       const t0 = performance.now();
-      const bh: unknown = handler(finalArgs, { callId: o.callId ?? null });
+      const bh: unknown = handler(restaurerArgsOutil(toolName, finalArgs), {
+        callId: o.callId ?? null,
+        ...(o.parent ? { parent: o.parent } : {}),
+        ...(o.rendreSiAnnule ? { rendreSiAnnule: o.rendreSiAnnule } : {}),
+        signal: abandon.signal,
+      });
       if (bh instanceof Promise) {
         const reste = Math.max(0.5, bto - (performance.now() - t0) / 1000);
-        const r = await borne(bh, reste, o.signal);
+        const r = await borne(bh, reste, o.signal, abandon);
         return r === null ? toolTimeoutJson(toolName, bto) : r.v;
       }
       return bh;
@@ -464,14 +476,49 @@ export async function executeSingleToolCall(
       return pyJsonDumps({ error: flattenExceptionMessage(e) }, { ensureAscii: false });
     }
   }
-  return executerOutilMcp(toolCfgMap, toolName, finalArgs, {
-    meta: o.meta ?? null,
-    onProgress: o.onProgress ?? null,
-    onLog: o.onLog ?? null,
-    timeoutS: toolTimeoutS(toolName),
-    queueTimeoutS: TOOL_QUEUE_WAIT_S,
-    signal: o.signal,
-  });
+  return executerOutilMcp(
+    toolCfgMap,
+    toolName,
+    isLocalTool(toolCfgMap, toolName) ? finalArgs : restaurerArgsOutil(toolName, finalArgs),
+    {
+      meta: o.meta ?? null,
+      onProgress: o.onProgress ?? null,
+      onLog: o.onLog ?? null,
+      timeoutS: toolTimeoutS(toolName),
+      queueTimeoutS: TOOL_QUEUE_WAIT_S,
+      signal: o.signal,
+    },
+  );
+}
+
+/** Appel d'un outil ; celui d'un sous-agent ne court pas au-delà de son échéance souple (file du pool et délai propre de l'outil compris) ni de la conclusion demandée par son parent : coupé, il suit le chemin d'une exécution non confirmée, jamais rejoué. */
+export async function executeSingleToolCall(
+  toolName: string,
+  finalArgs: Dict,
+  toolCfgMap: ReadonlyMap<string, ConfigMcp>,
+  builtinHandlers: ReadonlyMap<string, OutilIntegre["handler"]>,
+  o: RappelsOutil = {},
+): Promise<unknown> {
+  const echeance = o.sousAgent?.deadline_ms;
+  if (echeance === undefined) return appelerOutil(toolName, finalArgs, toolCfgMap, builtinHandlers, o);
+  const conclure = o.conclure ?? null;
+  const reste = echeance - performance.now();
+  if (conclure?.aborted || reste <= 0) return coupureEcheanceJson(toolName, false, conclure?.aborted);
+  const coupe = new AbortController();
+  const minuterie = setTimeout(() => coupe.abort(), reste + GRACE_ECHEANCE_S * 1000);
+  const couper = (): void => coupe.abort();
+  conclure?.addEventListener("abort", couper, { once: true });
+  const signal = o.signal ? AbortSignal.any([o.signal, coupe.signal]) : coupe.signal;
+  try {
+    return await appelerOutil(toolName, finalArgs, toolCfgMap, builtinHandlers, { ...o, signal });
+  } catch (e) {
+    if (coupe.signal.aborted && !o.signal?.aborted)
+      return coupureEcheanceJson(toolName, true, conclure?.aborted);
+    throw e;
+  } finally {
+    clearTimeout(minuterie);
+    conclure?.removeEventListener("abort", couper);
+  }
 }
 
 /** Actif d'un hôte d'outils DISTANT rapatrié par le relais à `chemin` ; vrai s'il est présent. */
@@ -720,7 +767,9 @@ export async function openNativeRound(
   const round: Dict = { role: "assistant", content: o.iterClean || null, tool_calls: o.toolCalls };
   if (o.msg["_anthropic_thinking"]) round["_anthropic_thinking"] = o.msg["_anthropic_thinking"];
   const pensee = stripPy(stripToolCallMarkup(o.iterThinking || ""));
-  const rendue = pensee !== "" && reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride);
+  const rendue =
+    pensee !== "" &&
+    (ctx.c.reflexionRendue ?? reflexionDuTourRendue(currentEngine().profil, ctx.c.samplingOverride));
   workingMessages.push(rendue ? { ...round, reasoning_content: pensee } : round);
   rec.runToolHistory.push(round);
   const prepared: Dict[] = [];
@@ -957,9 +1006,28 @@ async function avecEvenementsJobs(
   }
 }
 
+/** Ajoute `ligne` (après une ligne vide) au contenu texte du dernier résultat d'outil du lot en queue de `messages` ; faux, rien n'est changé, sans tel résultat ou si son contenu n'est pas du texte. */
+export function jalonDansDernierResultat(messages: Dict[], ligne: string): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m["role"] === "assistant") return false;
+    if (m["role"] !== "tool") continue;
+    const contenu = m["content"];
+    if (typeof contenu !== "string") return false;
+    messages[i] = { ...m, content: stripPy(contenu) ? `${contenu}\n\n${ligne}` : ligne };
+    return true;
+  }
+  return false;
+}
+
 export interface BatchOutcome {
   hadSuccess: boolean;
   cycleHardStopped: boolean;
+}
+
+/** Ce que le run expose à `task` le temps de l'appel (cf. `ContexteParent`). */
+function contexteParent(rec: RunRecord): ContexteParent {
+  return { demande: rec.demande, envoye: rec.envoye, outilsDuTour: [...rec.runToolHistory] };
 }
 
 /** Noyau commun aux deux canaux : annulation, `tool_call`, exécution (série ou parallèle), post-traitement dans l'ordre du modèle, anti-boucle. */
@@ -991,18 +1059,27 @@ export async function runToolBatch(
     if (toolIsInternal(strPy(p["tool_name"]))) evt["internal"] = true;
     await emit(onEvent, evt);
   }
+  const resultsOut = rec.ouvrirLot(prepared);
+  const bornes = await bornesDuLot(prepared, username);
+  const lecteurParent = (): ContexteParent => contexteParent(rec);
   const resultats = await executeToolBatch(prepared, {
-    resultsOut: rec.ouvrirLot(prepared),
-    executeSingle: (nom, args, r) =>
-      ctx.c.subagent && nom === "task"
-        ? Promise.resolve(
-            pyJsonDumps(
-              err(REFUS_TACHE_SOUS_AGENT.code, REFUS_TACHE_SOUS_AGENT.message, {
-                fix: REFUS_TACHE_SOUS_AGENT.fix,
-              }),
-            ),
-          )
-        : executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, r),
+    resultsOut,
+    executeSingle: (nom, args, r) => {
+      if (ctx.c.subagent && nom === "task")
+        return Promise.resolve(
+          pyJsonDumps(
+            err(REFUS_TACHE_SOUS_AGENT.code, REFUS_TACHE_SOUS_AGENT.message, {
+              fix: REFUS_TACHE_SOUS_AGENT.fix,
+            }),
+          ),
+        );
+      return executeSingleToolCall(nom, args, ctx.c.toolCfgMap, ctx.c.builtinHandlers, {
+        ...r,
+        sousAgent: ctx.c.subagent ?? null,
+        conclure: ctx.c.conclure ?? null,
+        ...(nom === "task" ? { parent: lecteurParent } : {}),
+      });
+    },
     recordMetric: deps.recordMetric,
     isToolFailure: resultIsToolFailure,
     onEvent,
@@ -1013,7 +1090,7 @@ export async function runToolBatch(
     emitProgressLog: true,
     isCancelled: ctx.c.isCancelled,
     signal,
-    tachesSimultanees: reglagesAgents().max_parallel,
+    bornes,
   });
 
   const port = portVisionBureau();

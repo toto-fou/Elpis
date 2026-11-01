@@ -1,12 +1,17 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/outils/LignesAgents.vue — sous-agents d'un tour, une ligne chacun comme une étape (nom, étape courante, horloge ; fini : bilan court, état) ; lancés ensemble, groupés sous « 2 agents · 1 fini » ; un clic ouvre le volet de l'agent. -->
+<!-- frontend/src/components/chat/outils/LignesAgents.vue — sous-agents d'un tour, une ligne chacun comme une étape (nom, étape courante, jetons consommés, horloge ; fini : bilan court, état) ; lancés ensemble, groupés sous « 2 agents · 1 fini » ; un clic ouvre la fenêtre de l'agent. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { bilanCourtAgent, etapeCouranteAgent, resumeAgents } from "../../../features/chat/outils/agents";
+import {
+  bilanCourtAgent,
+  etapeCouranteAgent,
+  jetonsAgent,
+  resumeAgents,
+} from "../../../features/chat/outils/agents";
+import { statutReserve } from "../../../features/chat/outils/bilan-tache";
 import { fmtDuree } from "../../../features/chat/outils/format";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
-import { fmtTokenCount } from "../../../utils/utils-purs";
 
 export interface AgentLigne {
   run: ExecutionSousAgent;
@@ -33,7 +38,8 @@ function horloge(r: ExecutionSousAgent): string {
 function icone(r: ExecutionSousAgent): string {
   if (r.state === "running")
     return r.id ? "ph-spinner-gap animate-spin text-blue-500" : "ph-hourglass-medium text-slate-400";
-  if (r.state === "completed") return "ph-check text-emerald-600";
+  if (r.state === "completed")
+    return statutReserve(r) === null ? "ph-check text-emerald-600" : "ph-warning-circle text-amber-600";
   if (r.state === "failed" || r.state === "timeout") return "ph-x-circle text-red-500";
   if (r.state === "cancelled") return "ph-stop-circle text-slate-400";
   return "ph-warning-circle text-amber-600";
@@ -42,12 +48,12 @@ function icone(r: ExecutionSousAgent): string {
 function detail(r: ExecutionSousAgent): string {
   if (r.state !== "running") return bilanCourtAgent(r);
   if (!r.id) return "en attente";
-  return r.cancelRequested ? "arrêt demandé" : etapeCouranteAgent(r) || "démarre";
+  const etape = r.cancelRequested ? "arrêt demandé" : etapeCouranteAgent(r) || "démarre";
+  return r.background ? `${etape} · en fond` : etape;
 }
 
 function infobulle(r: ExecutionSousAgent): string {
-  const t = typeof r.tokens === "number" && r.tokens > 0 ? fmtTokenCount(r.tokens) + " jetons" : "";
-  return [r.label || "", t].filter(Boolean).join(" · ");
+  return [r.label || "", jetonsAgent(r).detail].filter(Boolean).join("\n");
 }
 </script>
 
@@ -81,6 +87,12 @@ function infobulle(r: ExecutionSousAgent): string {
         <span class="flex-1 min-w-0 truncate"
           ><b class="font-semibold">{{ nom(a.run) }}</b
           >{{ " · " + detail(a.run) }}</span
+        >
+        <span
+          v-if="jetonsAgent(a.run).conso"
+          class="shrink-0 text-[12px] text-slate-500 tabular-nums"
+          data-jetons-agent
+          >{{ jetonsAgent(a.run).conso }}</span
         >
         <span class="shrink-0 text-[12px] text-slate-500 tabular-nums">{{ horloge(a.run) }}</span>
         <i class="ph ph-caret-right shrink-0 text-[11px] text-slate-400" aria-hidden="true"></i>

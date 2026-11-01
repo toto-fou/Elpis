@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/assistants.ts — descripteurs des assistants de création (skill, routine, apparence) : cadrage, outils à cocher, skill épinglé et message d'amorce ; un nouvel assistant = un descripteur ici. */
+/** frontend/src/features/chat/coeur/assistants.ts — descripteurs des assistants de création (skill, routine, apparence, agent) : cadrage, outils à cocher, skill épinglé et message d'amorce ; un nouvel assistant = un descripteur ici. */
 
 export interface ChampAssistant {
   cle: string;
@@ -14,6 +14,8 @@ export interface ChampAssistant {
 
 /** Préfixe d'une clé `manquantes` qui désigne un réglage du compte coupé plutôt qu'une catégorie d'outils. */
 export const PREFIXE_REGLAGE = "reglage:";
+/** Préfixe d'une clé `manquantes` qui désigne une fonction de l'instance coupée par l'administrateur (`features`). */
+export const PREFIXE_FONCTION = "fonction:";
 
 export interface DescripteurAssistant {
   id: string;
@@ -23,7 +25,7 @@ export interface DescripteurAssistant {
   bouton: string;
   /** Catégories d'outils cochées dans le chat neuf. */
   categories: string[];
-  /** Toasts d'un prérequis absent : clé = catégorie d'outils manquante, ou `reglage:<clé>` d'un réglage du compte coupé. */
+  /** Toasts d'un prérequis absent : clé = catégorie d'outils manquante, `reglage:<clé>` d'un réglage du compte coupé ou `fonction:<clé>` d'une fonction coupée par l'administrateur. */
   manquantes?: Record<string, string>;
   skill: { name: string; description: string };
   amorce: string;
@@ -141,6 +143,41 @@ export const ASSISTANTS: Readonly<Record<string, DescripteurAssistant>> = {
     amorce: "Je veux créer un habillage personnel. Voici le cadrage initial :",
     consigne:
       "Mène l'entretien pour le reste avec ask_user (deux tours au plus), puis envoie UN bloc elpis-skin : je le prévisualiserai et l'importerai moi-même.",
+  },
+  agent: {
+    id: "agent",
+    titre: "Créer un agent avec l'assistant",
+    intro:
+      "Décris la mission ici — l'assistant précisera les outils et les droits par un questionnaire dans le chat, puis enregistrera l'agent désactivé.",
+    champs: [
+      { cle: "nom", libelle: "Nom", type: "input", requis: true, placeholder: "revue-sql" },
+      {
+        cle: "mission",
+        libelle: "Mission",
+        type: "textarea",
+        requis: true,
+        placeholder: "Relire les migrations SQL avant leur mise en production et signaler les risques.",
+      },
+      { cle: "outils", libelle: "Outils", type: "input", placeholder: "Fichiers, Git, serveur MCP Jira…" },
+      {
+        cle: "contraintes",
+        libelle: "Contraintes",
+        type: "textarea",
+        placeholder: "Lecture seule ; ne jamais toucher au dossier deploy/.",
+      },
+    ],
+    bouton: "Commencer l'entretien",
+    categories: ["skill"],
+    manquantes: {
+      skill:
+        "Outils « Skills » indisponibles : l’assistant ne pourra pas consulter vos skills pour rédiger l’agent",
+      [`${PREFIXE_FONCTION}agents`]:
+        "Sous-agents coupés par l’administrateur : l’assistant rédigera l’agent sans pouvoir l’enregistrer",
+    },
+    skill: { name: "creer-un-agent", description: "Entretien guidé de création d'agent personnel" },
+    amorce: "Je veux créer un nouvel agent personnel. Voici le cadrage initial :",
+    consigne:
+      "Mène l'entretien pour le reste avec ask_user (deux tours au plus), montre la fiche complète, puis enregistre l'agent (désactivé) après mon accord.",
   },
 };
 

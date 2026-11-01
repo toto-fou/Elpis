@@ -22,6 +22,7 @@ import { castFloat, greatest, nullsFirst } from "@elpis/db";
 import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
 
+import { urlServiceNavigateur } from "./client";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -376,7 +377,7 @@ export async function detectSessionUrl(
   }
   if (!sessionId || !owner) return null;
   try {
-    const base = process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000";
+    const base = urlServiceNavigateur();
     const qs = new URLSearchParams({
       session_id: sessionId,
       owner: pwOwner(owner),

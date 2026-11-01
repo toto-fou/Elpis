@@ -6,7 +6,14 @@ import { computed } from "vue";
 import type { ReponseJobs, ResumeJob } from "@elpis/contracts";
 
 import { utiliserHorloge } from "../../../features/chat/jobs/horloge";
-import { dureeJob, issueJob, jobActif, libelleArme, libelleJob } from "../../../features/chat/jobs/format";
+import {
+  dureeJob,
+  issueJob,
+  jobActif,
+  libelleArme,
+  libelleJob,
+  progressionAgent,
+} from "../../../features/chat/jobs/format";
 import type { IssueJob } from "../../../features/chat/jobs/format";
 import type { PorteeJobs } from "../../../features/chat/jobs/jobs";
 
@@ -44,6 +51,8 @@ const titre = computed(() =>
     : `Tâches de fond actives : ${props.actifsTotal} sur le compte`,
 );
 const nActifsVue = computed(() => props.jobs.filter(jobActif).length);
+// La limite affichée est celle des commandes : les sous-agents en fond ont leur propre plafond.
+const nCommandesVue = computed(() => props.jobs.filter((j) => jobActif(j) && j.kind !== "agent").length);
 const enAttente = computed(() => props.fileReveil.length);
 const LIMITE_AFFICHEES = 20;
 /** Tâches du volet : toutes les actives, puis les terminées les plus récentes, 20 au plus en tout. */
@@ -104,7 +113,9 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
         <div class="px-3 py-2 flex items-center gap-2 border-b border-slate-100 bg-slate-50">
           <i class="ph ph-timer text-slate-500 text-base"></i>
           <span class="text-xs font-bold text-slate-800">Tâches de fond</span>
-          <span class="text-xs text-slate-500 tabular-nums">{{ nActifsVue }} / {{ props.limite }}</span>
+          <span class="text-xs text-slate-500 tabular-nums" data-jobs-limite
+            >{{ nCommandesVue }} / {{ props.limite }}</span
+          >
           <button
             v-if="nActifsVue > 0"
             data-jobs-stop-all
@@ -158,6 +169,13 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
                 :class="[ICONE_ISSUE[issueJob(j)], CLASSE_ISSUE[issueJob(j)]]"
                 aria-hidden="true"
               ></i>
+              <span
+                v-if="j.kind === 'agent'"
+                class="shrink-0 px-1.5 rounded bg-slate-100 text-slate-600"
+                title="Sous-agent lancé en fond par l'assistant"
+                data-jobs-agent
+                >sous-agent</span
+              >
               <span class="font-medium text-slate-800 min-w-0 break-words">{{ j.label || j.command }}</span>
               <span
                 class="ml-auto shrink-0 text-slate-500"
@@ -179,10 +197,13 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
                 {{ j.chat_title || "Conversation" }}
               </button>
             </div>
+            <div v-if="progressionAgent(j)" class="mt-1 text-slate-500" data-jobs-progression>
+              {{ progressionAgent(j) }}
+            </div>
             <div v-if="j.last_line" class="mt-1 font-mono text-slate-500 break-all" data-jobs-last>
               {{ j.last_line }}
             </div>
-            <div v-if="j.wake_on.length" class="mt-1 flex flex-wrap gap-1">
+            <div v-if="j.wake_on.length && j.kind !== 'agent'" class="mt-1 flex flex-wrap gap-1">
               <span
                 v-for="(w, wi) in j.wake_on"
                 :key="wi"
@@ -193,6 +214,7 @@ const ICONE_ISSUE: Readonly<Record<IssueJob, string>> = {
             </div>
             <div class="mt-1.5 flex items-center gap-2">
               <button
+                v-if="j.kind !== 'agent'"
                 data-jobs-log
                 class="flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-600 hover:bg-slate-100"
                 @click="emit('journal', j)"

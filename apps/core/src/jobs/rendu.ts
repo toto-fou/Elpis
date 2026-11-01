@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/jobs/rendu.ts — événements d'un job : charge reçue assainie et bornée, texte `<job_event>` remis au modèle (cadre de donnée, journal échappé, 3 Ko par événement, 8 Ko par lot ; JB-14, JB-15), résumés en français. */
+/** apps/core/src/jobs/rendu.ts — événements d'un job : charge reçue assainie et bornée, texte `<job_event>` remis au modèle (cadre de donnée, journal échappé, 3 Ko par événement, 8 Ko par lot ; JB-14, JB-15 ; fin d'un sous-agent en fond rendue entière), résumés en français. */
 import { estDict, FlottantPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { neutraliserMarqueursTour } from "@elpis/securite";
+
+import { neutraliserBalisesHarnais, neutraliserResultat } from "../contexte/elagage";
 
 export const ETATS_JOB = ["starting", "running", "exited", "killed", "lost", "failed"] as const;
 export type EtatJob = (typeof ETATS_JOB)[number];
@@ -53,6 +56,26 @@ export interface ChargeEvenement {
   by: "agent" | "user" | "core" | null;
   still_running: boolean;
   synthetic: boolean;
+  /** Fin d'un sous-agent en fond (posée par le core seul, jamais reçue de l'hôte) : son `task_id`, son type et l'enveloppe de `task`. */
+  task?: TacheFond;
+}
+
+export interface TacheFond {
+  task_id: string;
+  agent: string;
+  envelope: string;
+}
+
+const ENVELOPPE_MAX = 64 * 1024;
+
+/** Fin de sous-agent relue en base, `undefined` si absente ou mal formée. */
+function tacheLue(v: unknown): TacheFond | undefined {
+  if (!estDict(v) || typeof v["task_id"] !== "string" || typeof v["envelope"] !== "string") return undefined;
+  return {
+    task_id: texteBorne(v["task_id"], 64),
+    agent: texteBorne(v["agent"], 64),
+    envelope: texteBorne(v["envelope"], ENVELOPPE_MAX),
+  };
 }
 
 /** Événement prêt à rendre : charge et ce que le core sait du job. */
@@ -94,8 +117,8 @@ function lignes(v: unknown, max: number): string[] {
     .map((l) => texteBorne(l, LIGNE_MAX));
 }
 
-/** Charge reçue de l'hôte d'outils assainie (champs connus, lignes de 200 caractères), bornée à `maxOctets` en JSON ; `null` si elle est illisible. */
-export function assainirCharge(brut: unknown, maxOctets: number): ChargeEvenement | null {
+/** Charge reçue de l'hôte d'outils assainie (champs connus, lignes de 200 caractères), bornée à `maxOctets` en JSON ; `null` si elle est illisible ; `interne` : charge posée par le core (fin de sous-agent gardée). */
+export function assainirCharge(brut: unknown, maxOctets: number, interne = false): ChargeEvenement | null {
   if (!estDict(brut)) return null;
   const trigger = brut["trigger"];
   const state = brut["state"];
@@ -119,6 +142,8 @@ export function assainirCharge(brut: unknown, maxOctets: number): ChargeEvenemen
     still_running: brut["still_running"] === true,
     synthetic: brut["synthetic"] === true,
   };
+  const tache = interne ? tacheLue(brut["task"]) : undefined;
+  if (tache) c.task = tache;
   while (octets(JSON.stringify(c)) > maxOctets && (c.tail.length || c.context.length)) {
     if (c.tail.length) c.tail.shift();
     else c.context.shift();
@@ -129,7 +154,7 @@ export function assainirCharge(brut: unknown, maxOctets: number): ChargeEvenemen
 /** Charge relue en base (déjà assainie à l'arrivée). */
 export function lireCharge(json: string): ChargeEvenement | null {
   try {
-    return assainirCharge(JSON.parse(json) as unknown, Number.MAX_SAFE_INTEGER);
+    return assainirCharge(JSON.parse(json) as unknown, Number.MAX_SAFE_INTEGER, true);
   } catch {
     return null;
   }
@@ -160,9 +185,9 @@ function attribut(v: string): string {
   return v.replace(/&/gu, "&amp;").replace(/"/gu, "&quot;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
 }
 
-/** Balise `job_event` (ouvrante ou fermante) neutralisée dans un texte non sûr (JB-14). */
+/** Balise `job_event` (ouvrante ou fermante), balises du harnais et marqueurs de tour des gabarits neutralisés dans un texte non sûr (JB-14). */
 export function echapper(s: string): string {
-  return s.replace(/<(\/?)(job_event)/giu, "<\\$1$2");
+  return neutraliserMarqueursTour(neutraliserBalisesHarnais(s.replace(/<(\/?)(job_event)/giu, "<\\$1$2")));
 }
 
 export function cheminJournal(jobId: string): string {
@@ -171,11 +196,9 @@ export function cheminJournal(jobId: string): string {
 
 function ouverture(e: EvenementARendre): string {
   const c = e.charge;
-  const attrs: [string, string][] = [
-    ["id", e.jobId],
-    ["label", e.label],
-    ["trigger", c.trigger],
-  ];
+  const attrs: [string, string][] = [["id", e.jobId]];
+  if (c.task) attrs.push(["kind", "sub-agent"], ["task_id", c.task.task_id]);
+  attrs.push(["label", e.label], ["trigger", c.trigger]);
   if (c.spec !== c.trigger) attrs.push(["spec", c.spec]);
   attrs.push(["state", c.state]);
   if (c.exit_code !== null) attrs.push(["exit_code", String(c.exit_code)]);
@@ -217,8 +240,21 @@ function couper(s: string, max: number): string {
   return t;
 }
 
-/** Un événement en `<job_event>`, au plus `max` octets : fin du journal, puis contexte, raccourcis d'abord. */
+/** Fin d'un sous-agent en fond : l'enveloppe de `task` entière (rapport déjà borné par le harnais) sous le cadre de donnée ; balises de job, balises du harnais hors du vrai bloc de `task` et marqueurs de tour neutralisés. */
+function rendreFinTache(e: EvenementARendre, t: TacheFond): string {
+  const cadre = `sub-agent report (${CADRE_DONNEE}):`;
+  const enveloppe = t.envelope.replace(/<(\/?)(job_event)/giu, "<\\$1$2");
+  return [
+    ouverture(e),
+    cadre,
+    neutraliserMarqueursTour(neutraliserResultat("task", enveloppe)),
+    "</job_event>",
+  ].join("\n");
+}
+
+/** Un événement en `<job_event>`, au plus `max` octets : fin du journal, puis contexte, raccourcis d'abord ; la fin d'un sous-agent n'est jamais raccourcie. */
 export function rendreEvenement(e: EvenementARendre, max: number): string {
+  if (e.charge.task) return rendreFinTache(e, e.charge.task);
   const queue = [...e.charge.tail];
   const contexte = [...e.charge.context];
   let note = e.resumeNote;
@@ -235,7 +271,7 @@ export function rendreEvenement(e: EvenementARendre, max: number): string {
   return t;
 }
 
-/** Lot d'événements : chacun borné, le tout au plus `maxLot` octets ; au-delà `+N events: call shell_job status` ; en-tête de réveil (profondeur de chaîne) en tête si demandé. */
+/** Lot d'événements : chacun borné, le tout au plus `maxLot` octets ; au-delà `+N events: call shell_job status` ; en-tête de réveil (profondeur de chaîne) en tête si demandé ; la fin d'un sous-agent passe toujours, hors du compte du lot. */
 export function rendreLot(
   evenements: readonly EvenementARendre[],
   o: { maxEvenement: number; maxLot: number; entete: { profondeur: number; max: number } | null },
@@ -243,16 +279,26 @@ export function rendreLot(
   const entete = o.entete === null ? null : enteteReveil(o.entete.profondeur, o.entete.max);
   const parts: string[] = entete === null ? [] : [entete];
   let taille = entete === null ? 0 : octets(entete);
-  for (let i = 0; i < evenements.length; i++) {
-    const bloc = rendreEvenement(evenements[i]!, o.maxEvenement);
-    const reste = evenements.length - i - 1;
+  const commandes = evenements.filter((e) => !e.charge.task);
+  let vus = 0;
+  let coupe = false;
+  for (const e of evenements) {
+    const bloc = rendreEvenement(e, o.maxEvenement);
+    if (e.charge.task) {
+      parts.push(bloc);
+      continue;
+    }
+    if (coupe) continue;
+    const reste = commandes.length - vus - 1;
     const reserve = reste > 0 ? 64 : 0;
-    if (taille + octets(bloc) + 1 + reserve > o.maxLot && (i > 0 || entete !== null)) {
-      parts.push(`+${evenements.length - i} events: call shell_job status`);
-      return parts.join("\n");
+    if (taille + octets(bloc) + 1 + reserve > o.maxLot && (vus > 0 || entete !== null)) {
+      parts.push(`+${commandes.length - vus} events: call shell_job status`);
+      coupe = true;
+      continue;
     }
     parts.push(bloc);
     taille += octets(bloc) + 1;
+    vus++;
   }
   return parts.join("\n");
 }
@@ -270,6 +316,12 @@ export function phraseFr(e: EvenementARendre): string {
   const nom = e.label || e.jobId;
   const valeur = c.spec.includes(":") ? c.spec.slice(c.spec.indexOf(":") + 1) : "";
   const duree = c.duration_s !== null ? `, ${dureeFr(c.duration_s)}` : "";
+  if (c.task)
+    return c.trigger === "lost"
+      ? `${nom} : sous-agent interrompu (redémarrage du serveur)`
+      : c.trigger === "killed"
+        ? `${nom} : sous-agent arrêté`
+        : `${nom} : sous-agent terminé${duree}`;
   switch (c.trigger) {
     case "exit":
       return `${nom} terminé, code ${c.exit_code ?? "?"}${c.signal ? ` (${c.signal})` : ""}${duree}`;

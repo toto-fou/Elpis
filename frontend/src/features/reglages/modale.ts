@@ -131,7 +131,6 @@ export function creerModale(
       sandbox: () => dep.loadSandboxState(),
       connectors: () => dep.loadGitConnectors(),
       connexions: () => dep.loadConnexions(),
-      agents: () => ctx.loadMcpUserCategories?.(),
       skills: () => ctx.openSkillsTab?.(),
     };
   }
@@ -162,6 +161,12 @@ export function creerModale(
 
   /** Ouvre sur un onglet précis ; « onglet:vue » cible une sous-vue (« prompts:templates »). */
   async function openSettingsTab(tab?: string): Promise<void> {
+    // L'ancien onglet Agents est devenu une page : la modale se referme (ou ne s'ouvre pas) et la page s'ouvre.
+    if (tab === "agents") {
+      if (showSettingsModal.value) await closeSettings();
+      if (!showSettingsModal.value) await ctx.openAgentsPage?.();
+      return;
+    }
     await openSettings();
     if (!tab) return;
     const [cible = tab, sous = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];

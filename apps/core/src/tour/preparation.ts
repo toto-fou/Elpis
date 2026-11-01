@@ -32,7 +32,7 @@ import { tokenHex } from "../boucle/ports";
 import { getChat, getChatPlanMode, setTitleIfDefault, upsertChat } from "../chats/stockage";
 import { applyPersistedState, extractCompressionState } from "../contexte/etat-compression";
 import { mergeUserSuffix } from "../contexte/elagage";
-import { resolveMaxRounds, resolveThreshold } from "../contexte/porte-compaction";
+import { compactionActive, resolveMaxRounds, resolveThreshold } from "../contexte/porte-compaction";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
 import { journal } from "../journal";
 import { readyFor, toolEnabledIn } from "../images/acces";
@@ -45,7 +45,7 @@ import { continueFinalSupport } from "../llm/parametres";
 import { diffusion, ErreurPortAbsent } from "../llm/ports";
 import { buildDefaultManager } from "../memoire/gestionnaire";
 import type { MemoryManager } from "../memoire/gestionnaire";
-import { hasActiveAgents } from "../outils/integres/taches-agents";
+import { hasActiveAgents } from "../outils/integres/task/roster";
 import { assembleSystemMessages } from "../prompts/systeme";
 import {
   annonceRagDuTour,
@@ -60,11 +60,13 @@ import {
   expandHistoryForLlm,
   graftStoppedTurnState,
   greffeSourcesRag,
+  joindreALaReprise,
   lastUserText,
   msgText,
   normalizeClientMessages,
   recentUserText,
 } from "./historique";
+import { preparerAnnonceEnfants } from "./enfants-interrompus";
 import type { Persister } from "./persistance";
 import { jobsTour } from "./ports-jobs";
 import type { OrigineReveil } from "./ports-jobs";
@@ -113,6 +115,8 @@ export interface TurnPlan {
   readonly titleContent: string | null;
   readonly imageToolOn: boolean;
   readonly routineToolOn: boolean;
+  /** `agent_save` : outils actifs, hors mode plan, tour éphémère et tour de réveil, sous-agents permis par l'administrateur. */
+  readonly agentToolOn: boolean;
   readonly questionToolOn: boolean;
   /** Tour de réveil ouvert par le serveur (`job_wake`), absent pour un message de l'utilisateur. */
   readonly origin?: "user" | "job_wake";
@@ -121,6 +125,8 @@ export interface TurnPlan {
   readonly depth?: number;
   /** Événements de jobs joints à la question (suffixe persisté, rejoué octet pour octet). */
   readonly jobSuffix?: string | null;
+  /** Runs interrompus annoncés par ce tour (suffixe, ou consigne de « Continuer ») : marqués une fois le tour enregistré. */
+  readonly runsAnnonces?: readonly string[];
   /** Bloc `<rag_context>` joint à la question, devant les événements de jobs (même suffixe persisté). */
   readonly ragSuffix?: string | null;
   /** Instantané sans secret ni adresse, porté par le registre des tours pendant le tour. */
@@ -362,8 +368,7 @@ export async function prepareTurn(
     agentsOn = hasActiveAgents(Array.isArray(agents) ? agents : []);
   }
   const liveShellOn = veritePy(getOu(settings, "live_shell_enabled", true));
-  const compressionOn =
-    Boolean(config.COMPRESSION_ENABLED) && veritePy(getOu(settings, "compression_enabled", false));
+  const compressionOn = compactionActive(settings);
   const compactionThreshold = resolveThreshold(settings);
   const compactionMaxRounds = resolveMaxRounds(settings);
   const mcpOn = veritePy(getOu(settings, "enable_mcp", true));
@@ -401,7 +406,8 @@ export async function prepareTurn(
   const planMode = chatReadFailed
     ? await getChatPlanMode(base, uid, chatId)
     : veritePy((existingChat ?? {})["plan_mode"]);
-  if (planMode) denyTools = new Set([...(denyTools ?? []), "task", "generate_image", "routine_save"]);
+  if (planMode)
+    denyTools = new Set([...(denyTools ?? []), "task", "generate_image", "routine_save", "agent_save"]);
   let imageToolOn = false;
   if (mcpOn && !planMode && toolEnabledIn(settings)) {
     try {
@@ -569,6 +575,7 @@ export async function prepareTurn(
     }
   }
   let jobSuffix: string | null = null;
+  let runsAnnonces: string[] = [];
   if (!ephemeral && reveil === null) jobsTour()?.tourUtilisateur(uid, chatId);
   if (!ephemeral && !isContinue && reveil === null) {
     try {
@@ -576,7 +583,23 @@ export async function prepareTurn(
     } catch (e) {
       log.warn(`[jobs] événements non joints au message : ${String(e)}`);
     }
+    try {
+      const perdus = preparerAnnonceEnfants(uid, chatId, username, runId);
+      if (perdus !== null) {
+        jobSuffix = [perdus.texte, jobSuffix].filter((s): s is string => Boolean(s)).join("\n\n");
+        runsAnnonces = perdus.runs;
+      }
+    } catch (e) {
+      log.debug(`[chat.enfants_interrompus] ${String(e)}`);
+    }
   }
+  if (!ephemeral && isContinue && reveil === null)
+    try {
+      const perdus = preparerAnnonceEnfants(uid, chatId, username, runId);
+      if (perdus !== null && joindreALaReprise(msgsForLlm, perdus.texte)) runsAnnonces = perdus.runs;
+    } catch (e) {
+      log.debug(`[chat.enfants_interrompus] ${String(e)}`);
+    }
   const suffixe = suffixeDeQuestion(ragSuffix, jobSuffix);
   if (suffixe) joindreALaQuestion(msgsForLlm, suffixe);
   const plan: TurnPlan = {
@@ -619,11 +642,13 @@ export async function prepareTurn(
     titleContent,
     imageToolOn,
     routineToolOn,
+    agentToolOn: mcpOn && !planMode && !ephemeral && reveil === null && Boolean(config.AGENTS_ENABLED),
     questionToolOn: mcpOn && !ephemeral,
     origin: reveil === null ? "user" : "job_wake",
     wake: reveil?.wake ?? null,
     depth: reveil?.depth ?? 0,
     jobSuffix,
+    runsAnnonces,
     ragSuffix,
     instantane: {
       run_id: runId,

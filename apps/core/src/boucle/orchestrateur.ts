@@ -16,20 +16,24 @@ import { assembleOperationalContext } from "../contexte/assemblage";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
 import { LLAMA_MAX_TOOL_ITERATIONS } from "../llm/constantes";
 import { resolveContextWindow } from "../llm/fenetre-contexte";
+import { currentEngine } from "../llm/moteurs";
 import type { Slot } from "../llm/ordonnanceur";
+import { reflexionDuTourRendue } from "../llm/parametres";
 import { verifyLlmAvailability } from "../llm/sante";
 import { journal } from "../journal";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
 import { collectMcpTools } from "../outils/catalogue";
 import type { OutilIntegre } from "../outils/catalogue";
-import { debutBoucle } from "../outils/integres/bilan-taches";
+import { debutBoucle } from "../outils/integres/task/concurrence";
 import { renderChecklist } from "../outils/integres/format-todo";
 import type { Dict } from "../python";
-import { llamaChatCompaction } from "./appels-uniques";
+import { compactionAvecSlot, llamaChatCompaction } from "./appels-uniques";
 import {
   classifyTextReply,
   CycleGuard,
+  jalonDansDernierResultat,
   NATIF,
   openNativeRound,
   openTextRound,
@@ -45,11 +49,13 @@ import type { SurEvenement } from "./evenements";
 import { llamaChatWithToolsStream } from "./flux-llm";
 import { portTodos, portVisionBureau, recordTurnUsage, sandboxLimitsText, tokenHex } from "./ports";
 import { ResumeState } from "./reprise";
-import { RunContext, RunRecord } from "./run";
+import { contentText, RunContext, RunRecord } from "./run";
 import type { LoopDeps } from "./run";
 import { finishOk, finishOnError, finishOnLimit } from "./sortie";
 import type { SortieRun } from "./sortie";
-import { callLlm, LLMTurnState } from "./tour-llm";
+import { callLlm, garderGenerationCoupee, LLMTurnState } from "./tour-llm";
+import { travailCanonique } from "./travail";
+import type { UsageRun } from "./usage-requete";
 
 const log = journal("boucle.orchestrateur");
 
@@ -104,7 +110,7 @@ export function harnessStatusLine(
   return `<harness_status>${corps}</harness_status>`;
 }
 
-/** Bloc `<todo_status>` de début de tour quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
+/** Bloc `<todo_status>` de début de tour (contenus aux marqueurs de tour inertes) quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
 export async function todoStatusReminder(username: string, chatId: string | null): Promise<string | null> {
   if (!chatId || chatId === "default") return null;
   const port = portTodos();
@@ -121,11 +127,17 @@ export async function todoStatusReminder(username: string, chatId: string | null
   if (!ouvertes) return null;
   return (
     `<todo_status>Your session todo list from previous turns still has ${ouvertes} open task(s):\n` +
-    renderChecklist(todos) +
+    neutraliserMarqueursTour(renderChecklist(todos)) +
     "\nUnless the user's latest message changes the plan, resume this work: set the task you start to in_progress, " +
     "mark each task completed as soon as it is done (or cancelled if obsolete) — always via todowrite with the FULL " +
     "updated list, every item with its content (copied verbatim) and its status.</todo_status>"
   );
+}
+
+/** Canal du parent vers un enfant en fond (`task_send`) : messages prêts à poser avant la prochaine requête, conclusion demandée. */
+export interface CanalParent {
+  recevoir(): string[];
+  readonly conclure: AbortSignal;
 }
 
 export interface OptionsRun {
@@ -156,18 +168,45 @@ export interface OptionsRun {
   userId?: number | null;
   /** Périmètre d'un sous-agent (`task`) : manifeste filtré, porté au `_meta` des appels locaux, sans alerte disque. */
   subagent?: SousAgent | null;
-  /** Budget de temps de la boucle (s), plus court que `LLAMA_TOOL_LOOP_MAX_S` : arrêt propre avec synthèse. */
-  wallclockS?: number | null;
+  /** Échéance souple absolue en temps monotone du process (`performance.now()`, ms) fixée par l'appelant, prélude et attente de slot compris (un sous-agent : début de `task`) : jalons, coupure de la génération en cours et arrêt propre avec synthèse s'y mesurent ; absente, seul `LLAMA_TOOL_LOOP_MAX_S` joue. */
+  echeanceMs?: number | null;
   /** Ajouté à la consigne de synthèse quand un budget s'épuise (rapport d'un sous-agent). */
   wrapupSuffix?: string | null;
+  /** Reçoit le texte de la synthèse finale au fil de sa génération : un délai dur qui l'interrompt en garde ce qui a été produit. */
+  surTexteSynthese?: ((delta: string) => void) | null;
+  /** Reçoit l'usage cumulé du run après chaque requête au moteur, requêtes coupées comprises (ce que le moteur a rapporté, zéro sinon) : consommation d'un sous-agent en direct. */
+  surUsage?: ((u: UsageRun) => void) | null;
   /** Place (caractères) du suffixe de la question dans celui enregistré, pour un rejeu à l'octet ; absent = sans borne. */
   userSuffixRoom?: number | null;
   /** Chaque `<harness_status>` envoyé au modèle ; `finDeBudget` : ligne « Wrap up » ou « LAST » (bilan d'un sous-agent). */
   surPointEtape?: ((p: { texte: string; finDeBudget: boolean }) => void) | null;
   /** Slot du tour (`withLLM(…, { outils: true })`) ; absent, les appels partent sans file. */
   slot?: Slot | null;
+  /** Clé d'affinité de slot llama.cpp, distincte du chatId (défaut : le chatId) : un sous-agent garde le même slot d'un lancement à l'autre. */
+  slotKey?: string | null;
+  /** Slots que les appels du run ne prennent pas si un autre est libre (parent en attente, frères en cours) ; absent, aucune exclusion. */
+  slotAvoid?: (() => Iterable<number>) | null;
+  /** Slot que les appels du run préfèrent s'il est libre et non évité (le dernier du sous-agent), relu à chaque choix. */
+  slotPrefere?: (() => number | null) | null;
+  /** Reçoit le slot retenu pour chaque appel (≥ 0) : le parent y note celui que ses sous-agents doivent éviter. */
+  surSlot?: ((slot: number) => void) | null;
+  /** Canal du parent (enfant en fond) : ses messages sont posés en `user` avant chaque requête ; sa conclusion vaut l'échéance souple (génération coupée, synthèse). */
+  canal?: CanalParent | null;
+  /** Reçoit, une fois le contexte assemblé, le lecteur des messages de travail courants en forme canonique (tête brute, ce que le moteur a vu, paires appel/résultat complètes) : reprise d'un sous-agent. */
+  exposerTravail?: ((lire: () => Dict[]) => void) | null;
   /** Points de substitution des tests (fonction de flux, métrique d'outil, résumé de compaction). */
   deps?: Partial<LoopDeps>;
+}
+
+/** Dernière demande de l'utilisateur (héritage `inherit` d'un enfant) : jamais le message d'un réveil par un job (`<job_event>`), que l'utilisateur n'a pas écrit. */
+export function derniereDemandeUtilisateur(messages: readonly unknown[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!estDict(m) || m["role"] !== "user") continue;
+    const texte = contentText(m["content"]);
+    if (m["origin"] !== "job_wake" && !/^\s*(?:\[Automatic wake-up|<job_event\b)/u.test(texte)) return texte;
+  }
+  return "";
 }
 
 /** Usage d'un run mort annulé ou sur une exception, s'il a consommé quelque chose et n'est pas déjà enregistré. */
@@ -241,18 +280,19 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     sousAgent: o.subagent ?? null,
     signal,
   });
-  const { toolCfgMap, toolsPayload, builtinHandlers, connectedServerNames } = catalogue;
+  const { toolCfgMap, toolsPayload, builtinHandlers } = catalogue;
   const allowed = [...new Set([...toolCfgMap.keys(), ...builtinHandlers.keys()])].sort();
-  if (onEvent && connectedServerNames.length)
+  if (onEvent && catalogue.connectedServerNames.length)
     await emit(onEvent, {
       type: "mode",
-      text: `Connecté : ${connectedServerNames.join(", ")} (${toolsPayload.length} outil(s))`,
+      text: `Connecté : ${catalogue.connectedServerNames.join(", ")} (${toolsPayload.length} outil(s))`,
     });
   const [assemble, ax] = await assembleOperationalContext(o.messages, {
     allowedToolNames: allowed,
     username,
   });
   let workingMessages = assemble as Dict[];
+  const demande = derniereDemandeUtilisateur(workingMessages);
   const rappel = allowed.includes("todowrite") ? await todoStatusReminder(username, chatId) : null;
   const brut = [rappel, ax].filter(Boolean).join("\n\n");
   const room = o.userSuffixRoom;
@@ -269,7 +309,10 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       workingMessages.push(ephemeral("user", suffixe));
   }
   const rec = new RunRecord();
+  rec.demande = demande;
   rec.usageAcc = acc;
+  rec.surUsage = o.surUsage ?? null;
+  rec.travail = workingMessages;
 
   let maxIter = LLAMA_MAX_TOOL_ITERATIONS;
   const plafondUi = Math.max(500, LLAMA_MAX_TOOL_ITERATIONS * 4);
@@ -308,9 +351,15 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     maxIter,
   });
   let emptyChoicesStop = false;
-  const murGlobal = Number(config.LLAMA_TOOL_LOOP_MAX_S || 0);
-  const murS = o.wallclockS && o.wallclockS > 0 ? Math.min(o.wallclockS, murGlobal || Infinity) : murGlobal;
+  const murS = Number(config.LLAMA_TOOL_LOOP_MAX_S || 0);
   const debutBoucle = performance.now() / 1000;
+  const echeanceMs = o.echeanceMs && o.echeanceMs > 0 ? o.echeanceMs : null;
+  /** Temps restant (s) avant le mur de la boucle, le plus proche de l'échéance absolue et du mur relatif ; `null` sans mur. */
+  const murRestantS = (): number | null => {
+    const relatif = murS > 0 ? murS - (performance.now() / 1000 - debutBoucle) : null;
+    const absolu = echeanceMs !== null ? (echeanceMs - performance.now()) / 1000 : null;
+    return relatif === null || (absolu !== null && absolu < relatif) ? absolu : relatif;
+  };
   const cycle = new CycleGuard();
   let cycleHardStopped = false;
   rec.runPruneKeys = new Set((o.pruneKeys ?? []).filter((k): k is string => typeof k === "string"));
@@ -322,15 +371,23 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
   let forcedStop = false;
   const resume = new ResumeState();
   let wallclockStop = false;
+  let wrapUpStop = false;
+  const conclure = o.canal?.conclure ?? null;
+  /** Messages du parent posés en `user` (gardés dans l'historique de reprise) avant la prochaine requête au moteur. */
+  const poserMessagesParent = (): void => {
+    for (const texte of o.canal?.recevoir() ?? []) workingMessages.push({ role: "user", content: texte });
+  };
+  const reflexionRendue = reflexionDuTourRendue(currentEngine().profil, o.samplingOverride ?? null);
 
-  const injecterPointEtape = (): void => {
+  /** Jalon du budget : dans le dernier résultat d'outil du lot quand la réflexion est rendue au moteur (un message `user` mi-tour lui ferait retirer cette réflexion par le gabarit), sinon message éphémère. */
+  const injecterPointEtape = (natif: boolean): void => {
     const hardLeft = Math.max(0, capDur - hardIter);
     const u = (rec.lastRaw["usage"] || {}) as Dict;
     const occ = intPy(u["prompt_tokens"] || 0) + intPy(u["completion_tokens"] || 0);
     if (limitesSandbox === null)
       limitesSandbox = allowed.includes("execute_shell") ? (sandboxLimitsText() ?? "") : "";
     const ligne = harnessStatusLine(effectiveIter, budget, {
-      wallLeftS: murS > 0 ? murS - (performance.now() / 1000 - debutBoucle) : null,
+      wallLeftS: murRestantS(),
       hardLeft,
       ctxLeft: occ ? rec.ctxSize - occ : null,
       ctxSize: rec.ctxSize,
@@ -341,7 +398,8 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     if (cle === dernierJalon) return;
     dernierJalon = cle;
     if (limitesSandbox && ligne.includes("Sandbox limits:")) limitesSandbox = "";
-    workingMessages.push(ephemeral("user", ligne));
+    if (!(reflexionRendue && natif && jalonDansDernierResultat(workingMessages, ligne)))
+      workingMessages.push(ephemeral("user", ligne));
     o.surPointEtape?.({
       texte: ligne,
       finDeBudget: estFinDeBudget(effectiveIter, budget, hardLeft),
@@ -356,6 +414,7 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     userId: o.userId ?? null,
     samplingOverride: o.samplingOverride ?? null,
     thinkingMode: o.thinkingMode ?? false,
+    reflexionRendue,
     isCancelled: o.isCancelled ?? null,
     signal,
     slot: o.slot ?? null,
@@ -365,7 +424,14 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     priority: o.priority ?? "high",
     liveShell: o.liveShell ?? false,
     subagent: o.subagent ?? null,
+    conclure: o.canal?.conclure ?? null,
     wrapupSuffix: o.wrapupSuffix ?? null,
+    surTexteSynthese: o.surTexteSynthese ?? null,
+    slotKey: o.slotKey ?? null,
+    slotAvoid: o.slotAvoid ?? null,
+    slotPrefere: o.slotPrefere ?? null,
+    surSlot: o.surSlot ?? null,
+    compactionThreshold: o.compactionThreshold ?? null,
     startTime,
     modelHasVision,
     chatKeySuffix,
@@ -383,7 +449,29 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     recordMetric:
       o.deps?.recordMetric ??
       ((...a: unknown[]) => recordToolCallMetricSafe(...(a as Parameters<typeof recordToolCallMetricSafe>))),
-    llamaChat: o.deps?.llamaChat ?? llamaChatCompaction,
+    llamaChat:
+      o.deps?.llamaChat ?? (ctx.c.subagent ? compactionAvecSlot(ctx.optionsSlot()) : llamaChatCompaction),
+  };
+
+  o.exposerTravail?.(() => travailCanonique(ctx, rec, o.messages));
+
+  /** Mur d'horloge atteint ou conclusion demandée par le parent : plus d'outil ni de génération, sortie par le tour de synthèse sans outils. */
+  const arretMur = async (): Promise<void> => {
+    forcedStop = true;
+    wrapUpStop = conclure?.aborted === true;
+    wallclockStop = !wrapUpStop;
+    await emit(onEvent, {
+      type: "notice",
+      level: "warn",
+      message: wrapUpStop
+        ? "conclusion demandée par l'agent parent — synthèse et arrêt"
+        : "budget de temps de la tâche atteint — synthèse et arrêt",
+    });
+    log.warn(
+      wrapUpStop
+        ? "[run_chat_multi_mcp] conclusion demandée par le parent → synthèse"
+        : `[run_chat_multi_mcp] budget mur d'horloge atteint (mur ${murS}s, échéance ${echeanceMs ?? "aucune"}) → synthèse`,
+    );
   };
 
   while (effectiveIter < budget && hardIter < capDur && !forcedStop) {
@@ -393,15 +481,9 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       await rec.emitPartialSnapshot(onEvent);
       throw new CancelledError("User cancelled");
     }
-    if (murS > 0 && performance.now() / 1000 - debutBoucle > murS && (effectiveIter > 0 || hardIter > 0)) {
-      forcedStop = true;
-      wallclockStop = true;
-      await emit(onEvent, {
-        type: "notice",
-        level: "warn",
-        message: "budget de temps de la tâche atteint — synthèse et arrêt",
-      });
-      log.warn(`[run_chat_multi_mcp] budget mur d'horloge (${murS}s) atteint → synthèse`);
+    poserMessagesParent();
+    if (conclure?.aborted || ((murRestantS() ?? 1) < 0 && (effectiveIter > 0 || hardIter > 0))) {
+      await arretMur();
       continue;
     }
     const iteration = hardIter;
@@ -415,8 +497,20 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
     });
     await emit(onEvent, { type: "mode", text: "Réflexion…" });
 
-    const turn = await callLlm(ctx, rec, st, resume, deps, workingMessages, { iteration, effectiveIter });
+    const turn = await callLlm(ctx, rec, st, resume, deps, workingMessages, {
+      iteration,
+      effectiveIter,
+      murRestantS,
+      conclure,
+    });
     workingMessages = turn.messages;
+    rec.travail = workingMessages;
+    if (turn.outcome === "echeance") {
+      await garderGenerationCoupee(ctx, rec, workingMessages, turn);
+      hardIter += 1;
+      await arretMur();
+      continue;
+    }
     if (turn.outcome === "retry") continue;
     if (turn.outcome === "retry_counted") {
       hardIter += 1;
@@ -532,12 +626,14 @@ async function runImpl(o: OptionsRun, acc: Dict): Promise<SortieRun> {
       log.info(
         `[run_chat_multi_mcp] iter ${iteration} (${channel.name}) non productive — effective_iter reste à ${effectiveIter}/${budget} (hard ${hardIter}/${capDur})`,
       );
-    injecterPointEtape();
+    injecterPointEtape(channel === NATIF);
   }
+  poserMessagesParent();
   return finishOnLimit(ctx, rec, resume, deps, workingMessages, {
     effectiveIter,
     hardIter,
     wallclockStop,
+    wrapUpStop,
     ctxSaturatedStop: trunc.stop === "ctx_saturated",
     genCapStop: trunc.stop === "gen_cap",
     cycleHardStopped,

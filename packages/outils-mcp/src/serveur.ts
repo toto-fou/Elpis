@@ -21,7 +21,7 @@ import {
 import type { Dict } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
 import { compilerSchema, FAMILY_NAMES, meilleureErreur, opencodeFamilies } from "@elpis/mcp";
-import { avecIdentite, creerIdentite, fromMeta, refusSousAgent } from "@elpis/securite";
+import { avecIdentite, creerIdentite, fromMeta, restaurerArgsOutil } from "@elpis/securite";
 import type { Identity } from "@elpis/securite";
 import { Protocol } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -35,7 +35,7 @@ import { validerArguments } from "./arguments";
 import type { Signature } from "./arguments";
 import { avecJeton, NIVEAUX_JOURNAL } from "./contexte";
 import type { ContexteAppel, JetonAcces, NiveauJournal, OptionsJournal } from "./contexte";
-import { err, tokenIdentity } from "./boite";
+import { tokenIdentity } from "./boite";
 import { ErreurOutil, LimiteConcurrence, LimiteDebit } from "./limites";
 import { estEnveloppeErreur } from "./modeles";
 import { famillesCachees } from "./portee";
@@ -549,7 +549,7 @@ export class ServeurOutils {
     if (!r.ok) throw new ErreurOutil(r.texte);
     let valeur: unknown;
     try {
-      valeur = await outil.traiter(r.valeurs, ctx, args);
+      valeur = await outil.traiter(restaurerArgsOutil(outil.nom, r.valeurs), ctx, args);
     } catch (e) {
       if (e instanceof ErreurOutil) throw e;
       log().error(`Error calling tool '${outil.nom}'`, e);
@@ -579,20 +579,10 @@ export class ServeurOutils {
             throw new ErreurOutil(
               `outil ${reprPy(nom)} non exposé à ce client (famille ${reprPy(outil.famille)})`,
             );
-          const refus = refusSousAgent(
-            ident?.subagent,
-            nom,
-            args,
-            lectureSeuleAnnotee(outil),
-            outil.famille === "browser",
-          );
-          if (refus !== null)
-            throw new ErreurOutil(
-              pyJsonDumps(err(refus.code, refus.message, { fix: refus.fix }), { ensureAscii: false }),
-            );
+          const aExecuter = restaurerArgsOutil(nom, args);
           const compte = compteAppel(ctx.meta);
           this.debit?.verifier(compte, nom);
-          const executer = (): Promise<Dict> => this.executer(outil, args, ctx);
+          const executer = (): Promise<Dict> => this.executer(outil, aExecuter, ctx);
           return this.concurrence
             ? await this.concurrence.executer(compte, executer, ctx.signal)
             : await executer();
@@ -779,12 +769,6 @@ function avecTitre(definition: Dict): Dict {
   const sortie: Dict = { name: definition["name"], title: titre };
   for (const k of clesOrdonnees(definition)) if (k !== "name" && k !== "title") sortie[k] = definition[k];
   return sortie;
-}
-
-/** Annotation `readOnlyHint` publiée par l'outil (périmètre d'un sous-agent en lecture seule). */
-function lectureSeuleAnnotee(outil: DefinitionOutil): boolean {
-  const ann = outil.definition["annotations"];
-  return estDict(ann) && ann["readOnlyHint"] === true;
 }
 
 /** `_user_from_ctx` : compte du jeton client, sinon `_meta.username` brut, sinon aucun. */

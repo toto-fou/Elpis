@@ -7,8 +7,6 @@ import { extractPwScreenshotUrl, pwVerbOf, trackPwSessionOwnership } from "@elpi
 import { desktopFramePath, extractDesktopFrame, registerDesktopFrameOwner } from "../bureau";
 import { getChatTodos } from "../chats/stockage";
 import { installerPromptsCapacites } from "../contexte/ports";
-import { QUEUE_MAX_S } from "../images/base";
-import { getImageConfig } from "../images/config";
 import { installerAppelEnrichissement, installerFileImages } from "../images/ports";
 import { avecLLM, ordonnanceur } from "../llm/ordonnanceur/process";
 import { currentEngine } from "../llm/moteurs";
@@ -43,7 +41,6 @@ export const visionDuProcess: PortVisionBureau = {
   trackLastScreenshotForVision,
   clearLastScreenshotFor,
   modelSupportsVision,
-  imageToolTimeoutS: () => QUEUE_MAX_S + Number(getImageConfig().timeout_sec) + 60.0,
 };
 
 /** `get_chat_todos` du compte, son id gardé en mémoire comme `_TCM_UID_CACHE` (pas de lecture de `users` à chaque tour). */

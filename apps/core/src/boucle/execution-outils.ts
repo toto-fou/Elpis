@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/boucle/execution-outils.ts — exécution d'un lot d'appels d'outils : série pour les mutants, parallèle borné sinon (sous-agents `task` consécutifs ensemble, à la seule borne de l'administrateur, hors LLAMA_TOOL_PARALLELISM), progression et journaux, télémétrie, aucun frère orphelin. */
+/** apps/core/src/boucle/execution-outils.ts — exécution d'un lot d'appels d'outils : série pour les mutants, parallèle borné sinon (appels consécutifs d'un outil à borne propre ensemble, à cette seule borne, hors LLAMA_TOOL_PARALLELISM), progression et journaux, télémétrie, aucun frère orphelin. */
 import {
   CancelledError,
   estDict,
@@ -11,9 +11,11 @@ import {
   strPy,
   utf8Remplace,
 } from "@elpis/commun";
+import type { SousAgent } from "@elpis/securite";
 
 import { LLAMA_TOOL_PARALLELISM } from "../llm/constantes";
 import { journal } from "../journal";
+import type { ContexteParent } from "../outils/catalogue";
 import { categorize } from "../outils/categories";
 import { flattenExceptionMessage } from "../outils/mcp/clients";
 import { toolTraits } from "../outils/traits";
@@ -37,8 +39,16 @@ export interface RappelsOutil {
   meta?: Dict | null;
   /** Id de l'appel du modèle : les `task_step` d'un sous-agent le portent. */
   callId?: string | null;
+  /** Périmètre du sous-agent qui appelle : son échéance souple borne l'appel. */
+  sousAgent?: SousAgent | null;
+  /** Conclusion demandée par le parent du sous-agent : elle coupe l'appel comme l'échéance souple. */
+  conclure?: AbortSignal | null;
+  /** Contexte du run appelant, transmis à l'outil intégré `task` (héritage `inherit`). */
+  parent?: (() => ContexteParent) | null;
   onProgress?: ((p: Progression) => void | Promise<void>) | null;
   onLog?: ((params: Dict) => void | Promise<void>) | null;
+  /** Un outil intégré y enregistre le résultat à rendre si le tour est annulé pendant l'appel (cf. `AppelIntegre`). */
+  rendreSiAnnule?: ((fournir: () => string | null) => void) | null;
   signal?: AbortSignal | undefined;
 }
 
@@ -170,6 +180,15 @@ function attendreMs(ms: number): Promise<void> {
   });
 }
 
+/** Résultat d'un appel du lot qui n'a jamais démarré (place du sémaphore, appel suivant d'un lot en série) quand le tour s'arrête : rien n'a été fait. */
+export const NON_DEMARRE = pyJsonDumps(
+  {
+    error: "not_started",
+    message: "interrupted before starting: the tool was NOT run and nothing changed; run it again if needed",
+  },
+  { ensureAscii: false },
+);
+
 export interface OptionsLot {
   executeSingle: ExecuteSingle;
   recordMetric: (...args: unknown[]) => unknown;
@@ -183,8 +202,8 @@ export interface OptionsLot {
   isCancelled?: (() => boolean) | null;
   signal?: AbortSignal | undefined;
   resultsOut?: Map<number, string>;
-  /** Appels `task` consécutifs lancés ensemble au plus (1 : l'un après l'autre). */
-  tachesSimultanees?: number;
+  /** Bornes propres par outil : ses appels consécutifs partent ensemble, au plus `n` à la fois (1 : l'un après l'autre), hors LLAMA_TOOL_PARALLELISM. */
+  bornes?: ReadonlyMap<string, number>;
 }
 
 /** Exécute `prepared` (`{call_id, tool_name, final_args, meta, args_error}`) dans l'ordre du modèle ; rend `index → résultat JSON`. */
@@ -192,12 +211,19 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
   const resultats = o.resultsOut ?? new Map<number, string>();
   const parallelisme = Math.max(1, LLAMA_TOOL_PARALLELISM);
   const sem = new Semaphore(parallelisme);
-  const limiteTaches = Math.max(1, Math.trunc(o.tachesSimultanees ?? 1));
-  const semTaches = new Semaphore(limiteTaches);
+  const limite = (nom: string): number => Math.max(1, Math.trunc(o.bornes?.get(nom) ?? 1));
+  const semPropres = new Map([...(o.bornes?.keys() ?? [])].map((nom) => [nom, new Semaphore(limite(nom))]));
   const emitProgressLog = o.emitProgressLog ?? true;
   const annulationReelle = (signalLot?: AbortSignal): boolean =>
     Boolean((o.isCancelled && o.isCancelled()) || o.signal?.aborted || signalLot?.aborted);
   let instantaneDuLot = false;
+  const demarres = new Set<number>();
+  /** Instantané d'annulation : les appels jamais démarrés y reçoivent `NON_DEMARRE`, pas la sentinelle d'un appel qui a pu agir. */
+  const instantane = async (): Promise<void> => {
+    for (let k = 0; k < prepared.length; k++)
+      if (!demarres.has(k) && !resultats.has(k)) resultats.set(k, NON_DEMARRE);
+    await o.onCancelSnapshot();
+  };
 
   const execOne = async (idx: number, p: Dict, signalLot?: AbortSignal): Promise<void> => {
     const nom = strPy(p["tool_name"]);
@@ -229,11 +255,28 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
           },
         }
       : {};
-    const borne = nom === "task" ? semTaches : sem;
+    let rendu: (() => string | null) | null = null;
+    const rappelsOutil: RappelsOutil = {
+      ...rappels,
+      rendreSiAnnule: (fournir) => {
+        rendu = fournir;
+      },
+    };
+    /** Annulation réelle : le résultat que l'outil a promis de rendre part dans le lot partiel, que l'instantané matérialise ; sans lui, la sentinelle. */
+    const deposerRendu = (): void => {
+      if (rendu === null || resultats.has(idx)) return;
+      try {
+        const r = rendu();
+        if (typeof r === "string" && r) resultats.set(idx, r);
+      } catch {
+        // la sentinelle reste le repli
+      }
+    };
+    const borne = semPropres.get(nom) ?? sem;
     await borne.prendre();
     if (annulationReelle(signalLot)) {
       borne.rendre();
-      if (!instantaneDuLot) await o.onCancelSnapshot();
+      if (!instantaneDuLot) await instantane();
       throw new CancelledError("User cancelled");
     }
     let duree: number;
@@ -241,18 +284,20 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     try {
       const t0 = performance.now();
       try {
+        demarres.add(idx);
         const r = p["args_error"]
           ? { ok: false, error: p["args_error"] }
           : await o.executeSingle(nom, p["final_args"] as Dict, {
               meta: (p["meta"] as Dict | null) ?? null,
               callId,
-              ...rappels,
+              ...rappelsOutil,
               signal,
             });
         resultats.set(idx, typeof r === "string" ? r : pyJsonDumps(r));
       } catch (e) {
         if (annulationReelle(signalLot)) {
-          if (!instantaneDuLot) await o.onCancelSnapshot();
+          deposerRendu();
+          if (!instantaneDuLot) await instantane();
           throw e;
         }
         resultats.set(
@@ -331,7 +376,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
       }
     } catch (e) {
       if (estErreurAnnulation(e) || annulationReelle(signalLot)) {
-        if (annulationReelle(signalLot) && !instantaneDuLot) await o.onCancelSnapshot();
+        if (annulationReelle(signalLot) && !instantaneDuLot) await instantane();
         throw e;
       }
     }
@@ -353,7 +398,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
       await Promise.all(taches);
       if (premier === undefined) return;
       if (annulationReelle()) {
-        await o.onCancelSnapshot();
+        await instantane();
         throw new CancelledError("User cancelled");
       }
       throw premier;
@@ -365,12 +410,13 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
   let i = 0;
   const n = prepared.length;
   while (i < n) {
-    const estTache = (k: number): boolean => strPy(prepared[k]!["tool_name"]) === "task";
-    if (limiteTaches > 1 && estTache(i) && i + 1 < n && estTache(i + 1)) {
+    const nomI = strPy(prepared[i]!["tool_name"]);
+    const meme = (k: number): boolean => strPy(prepared[k]!["tool_name"]) === nomI;
+    if (semPropres.has(nomI) && limite(nomI) > 1 && i + 1 < n && meme(i + 1)) {
       let j = i;
-      while (j < n && estTache(j)) j++;
+      while (j < n && meme(j)) j++;
       log.info(
-        `[execute_tool_batch] Iter ${o.iteration} : ${j - i} sous-agents en parallèle (au plus ${limiteTaches} à la fois)`,
+        `[execute_tool_batch] Iter ${o.iteration} : ${j - i} appels ${nomI} en parallèle (au plus ${limite(nomI)} à la fois)`,
       );
       const items: [number, Dict][] = [];
       for (let k = i; k < j; k++) items.push([k, prepared[k]!]);

@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/envoi.ts — envoi d'un message (porté d'`app-chat.js`) : commande « / » tapée, mode Images, mode plan scellé, pièces jointes, commande /image et variantes, chats pré-configurés (assistants de skill et de routine, document), copie d'une réponse. */
+/** frontend/src/features/chat/coeur/envoi.ts — envoi d'un message (porté d'`app-chat.js`) : commande « / » tapée, mode Images, mode plan scellé, pièces jointes, commande /image et variantes, chats pré-configurés (assistants de skill, de routine, d'habillage et d'agent, document), copie d'une réponse. */
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 import { journal } from "../../../platform/journal";
 import { imageVariantRequest, parseImageCommand } from "../../images/formats";
 import type { SurfaceImages } from "../../images/images";
 import { nextTick } from "vue";
 
-import { ASSISTANTS, lignesCadrage, PREFIXE_REGLAGE, valeursInitiales } from "./assistants.ts";
+import {
+  ASSISTANTS,
+  lignesCadrage,
+  PREFIXE_FONCTION,
+  PREFIXE_REGLAGE,
+  valeursInitiales,
+} from "./assistants.ts";
 import type { CoeurChat } from "./liens.ts";
 import type { MessageChat, Objet } from "./types.ts";
 
@@ -233,8 +240,9 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     return { ok: true, silent: true };
   }
 
-  async function copyAssistantMessage(content: string | null | undefined): Promise<void> {
-    if (!content) return;
+  async function copyAssistantMessage(contenu: string | null | undefined): Promise<void> {
+    if (!contenu) return;
+    const content = restaurerMarqueursTour(contenu);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(content);
       else {
@@ -277,7 +285,12 @@ export function creerEnvoi(c: CoeurChat, dep: DependancesEnvoi) {
     for (const cat of o.categories) if (cat in lt) lt[cat] = true;
     for (const [cle, message] of Object.entries(o.manquantes ?? {})) {
       const reglage = cle.startsWith(PREFIXE_REGLAGE) ? cle.slice(PREFIXE_REGLAGE.length) : null;
-      const absent = reglage ? r.settings.value[reglage] === false : !(cle in lt);
+      const fonction = cle.startsWith(PREFIXE_FONCTION) ? cle.slice(PREFIXE_FONCTION.length) : null;
+      const absent = reglage
+        ? r.settings.value[reglage] === false
+        : fonction
+          ? r.features?.value?.[fonction] === false
+          : !(cle in lt);
       if (absent) ctx.showToast(message, "info");
     }
     e.localTools.value = lt;

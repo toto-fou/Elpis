@@ -3,8 +3,8 @@
 import { computed, ref } from "vue";
 import type { Ref } from "vue";
 import type { ResumeSkill, RunRoutine } from "@elpis/contracts";
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 
-import { BUILTIN_AGENTS } from "../../utils/utils-purs";
 import type { ApiRoutines, CorpsFiltreWebhook, RoutineListee } from "./api";
 import {
   MAX_SKILLS_ROUTINE,
@@ -72,7 +72,6 @@ export interface FormulaireRoutine {
   task_prompt: string;
   thinking_mode: boolean;
   enabled: boolean;
-  agents_enabled: boolean;
   localCats: string[];
   externalServers: ServeurExterne[];
   skills: string[];
@@ -116,7 +115,6 @@ function formulaireVide(): FormulaireRoutine {
     task_prompt: "",
     thinking_mode: false,
     enabled: true,
-    agents_enabled: false,
     localCats: [],
     externalServers: [],
     skills: [],
@@ -457,7 +455,6 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
       task_prompt: r.task_prompt || "",
       thinking_mode: !!r.thinking_mode,
       enabled: !!r.enabled,
-      agents_enabled: !!r.agents_enabled,
       localCats: parsed.localCats,
       externalServers: parsed.externalServers,
       skills: Array.isArray(r.skills) ? r.skills.filter((id) => typeof id === "string" && id.trim()) : [],
@@ -528,7 +525,6 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
       task_prompt: f.task_prompt || "",
       thinking_mode: !!f.thinking_mode,
       enabled: !!f.enabled,
-      agents_enabled: !!f.agents_enabled,
       mcp_servers: construireServeursMcp(),
       skills: elaguer(f.skills),
       trigger_after_id: f.trigger_after_id || null,
@@ -774,7 +770,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     expandedRunId.value = expandedRunId.value === id ? null : id;
   }
   async function copyRunDetail(run: RunRoutine): Promise<void> {
-    const t = texteDetailRun(run);
+    const t = restaurerMarqueursTour(texteDetailRun(run));
     if (!t) return;
     try {
       await navigator.clipboard.writeText(t);
@@ -810,7 +806,6 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     routineDirty,
     routineEditTabs: ONGLETS_EDITION,
     routineIsEditing,
-    ROUTINE_BUILTIN_AGENTS: BUILTIN_AGENTS,
     ROUTINE_KEEP_MAX: PLAFOND_CONSERVATION,
     ROUTINE_NOTIFY_MODES: MODES_NOTIFICATION,
     notifyOnLabel: libelleNotification,

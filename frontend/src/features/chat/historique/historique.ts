@@ -272,13 +272,11 @@ export function construireMessages(
       msg.taskRuns = m.task_runs.filter(enregistrement).map((r) => {
         const { harness, ...reste } = r;
         const bilan = lireBilanTache(harness);
+        // `tokens` : contexte occupé seul ; la consommation (input/output/cache/think_tokens) reste telle qu'enregistrée.
         return {
           ...reste,
           ...(bilan ? { harness: bilan } : {}),
-          tokens:
-            Number(r.context_tokens) > 0
-              ? Number(r.context_tokens)
-              : (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0),
+          ...(Number(r.context_tokens) > 0 ? { tokens: Number(r.context_tokens) } : {}),
         };
       });
     }

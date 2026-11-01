@@ -280,13 +280,20 @@ export function parseBusy(slots: readonly unknown[]): ReadonlySet<number> {
   return occupes;
 }
 
-/** Slots occupés du serveur de la cible (TTL 2 s, échec mémorisé 30 s) ; `null` pour un moteur sans slots. */
-export async function getBusySlotsSnapshot(): Promise<ReadonlySet<number> | null> {
+/** Slots occupés du serveur de la cible (TTL 2 s, échec mémorisé 30 s) ; `frais` relit `/slots` malgré le TTL (pas pendant un échec mémorisé) ; `null` pour un moteur sans slots. */
+export async function getBusySlotsSnapshot(
+  options: { frais?: boolean } = {},
+): Promise<ReadonlySet<number> | null> {
   const maintenant = monotonic();
+  const frais = options.frais ?? false;
   const eng = currentEngine();
   if (!eng.profil.capacites.slots) return null;
-  if (!eng.isBuiltin) return busySlotsOther(eng, maintenant);
-  if (slotsBusyCache !== null && maintenant - slotsBusyTs < SLOTS_SNAPSHOT_TTL) return slotsBusyCache;
+  if (!eng.isBuiltin) return busySlotsOther(eng, maintenant, frais);
+  if (
+    slotsBusyCache !== null &&
+    (slotsBusyTs > maintenant || (!frais && maintenant - slotsBusyTs < SLOTS_SNAPSHOT_TTL))
+  )
+    return slotsBusyCache;
   const slots = await llamaGet("/slots", 2.0);
   if (!Array.isArray(slots)) {
     slotsBusyTs = maintenant + Math.max(0.0, SLOTS_FAIL_TTL - SLOTS_SNAPSHOT_TTL);
@@ -298,9 +305,14 @@ export async function getBusySlotsSnapshot(): Promise<ReadonlySet<number> | null
   return slotsBusyCache;
 }
 
-async function busySlotsOther(eng: EngineRef, maintenant: number): Promise<ReadonlySet<number> | null> {
+async function busySlotsOther(
+  eng: EngineRef,
+  maintenant: number,
+  frais: boolean,
+): Promise<ReadonlySet<number> | null> {
   const hit = slotsBusyOther.get(eng.key);
-  if (hit !== undefined && maintenant < hit[1]) return hit[0];
+  if (hit !== undefined && maintenant < hit[1] && !(frais && hit[1] - maintenant <= SLOTS_SNAPSHOT_TTL))
+    return hit[0];
   const slots = await llamaGet("/slots", 2.0);
   if (!Array.isArray(slots)) {
     const snap = hit !== undefined && hit[0] !== null ? hit[0] : new Set<number>();

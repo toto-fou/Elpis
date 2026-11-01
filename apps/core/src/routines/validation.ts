@@ -235,7 +235,7 @@ export async function chargeRoutine(base: Base, data: Dict, uid: number): Promis
     enabled: Object.hasOwn(data, "enabled") ? veritePy(data["enabled"]) : true,
     trigger_after_id: afterId,
     trigger_after_on: afterOn,
-    agents_enabled: veritePy(lire(data, "agents_enabled")),
+    agents_enabled: false,
     runs_keep: historique["runs_keep"] ?? 0,
     notify_on: historique["notify_on"] ?? "all",
     notify_keep: historique["notify_keep"] ?? 0,

@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/agents.ts — Paramètres › Agents : banque d'agents (modèles livrés surchargeables) et agents personnalisés, case « Lecture seule » (défaut et imposition de l'administrateur), formulaire, validations miroir du serveur. */
+/** frontend/src/features/reglages/agents.ts — page Agents : rangées d'agents (modèles livrés surchargeables, agents personnalisés) avec leurs capacités, éditeur en place, lecture seule (défaut et imposition de l'administrateur), réflexion (choix du compte, sinon défaut de l'administrateur), formulaire, validations miroir du serveur. */
 import {
+  capacitesAgent,
   DEFAUTS_REGLAGES_AGENTS,
   schemaReponseModelesAgents,
   TYPES_AGENTS_REGLABLES,
 } from "@elpis/contracts";
-import type { LectureSeuleAgents, TypeAgentReglable } from "@elpis/contracts";
+import type {
+  CleCapaciteAgent,
+  EtatCapaciteAgent,
+  LectureSeuleAgents,
+  ModeReflexionAgent,
+  ReflexionAgents,
+  TypeAgentReglable,
+} from "@elpis/contracts";
 import type { Ref } from "vue";
 
 import { BUILTIN_AGENTS, RESERVED_AGENT_NAMES } from "../../utils/utils-purs";
@@ -31,6 +39,116 @@ export interface ModeleAgent {
 /** D'où vient la lecture seule affichée : imposée par l'administrateur, case du compte, ou défaut de l'administrateur. */
 export type SourceLectureSeule = "imposee" | "compte" | "defaut";
 
+/** D'où vient la réflexion affichée : choix du compte, ou défaut de l'administrateur. */
+export type SourceReflexion = "compte" | "defaut";
+
+export const LIBELLES_REFLEXION: Readonly<Record<ModeReflexionAgent, string>> = {
+  off: "désactivée",
+  on: "activée",
+  inherit: "héritée",
+};
+
+/** Choix de la réflexion dans l'éditeur, dans l'ordre d'affichage. */
+export const CHOIX_REFLEXION: readonly { valeur: ModeReflexionAgent; libelle: string; aide: string }[] = [
+  {
+    valeur: "inherit",
+    libelle: "Comme la conversation",
+    aide: "Suit le réglage de la conversation qui lance l'agent",
+  },
+  {
+    valeur: "on",
+    libelle: "Activée",
+    aide: "Réfléchit avant d'agir ; sans effet si le modèle ne réfléchit pas",
+  },
+  { valeur: "off", libelle: "Désactivée", aide: "Répond plus vite, sans réfléchir" },
+];
+
+const LIBELLES_CAPACITES: Readonly<Record<CleCapaciteAgent, string>> = {
+  lire: "Lire",
+  modifier: "Modifier",
+  terminal: "Terminal",
+  git: "Git",
+  web: "Web",
+};
+const SOURCES_LECTURE_SEULE: Readonly<Record<SourceLectureSeule, string>> = {
+  imposee: "imposé par l'administrateur",
+  compte: "votre réglage",
+  defaut: "défaut de l'administrateur",
+};
+
+export interface PuceAgent {
+  cle: string;
+  libelle: string;
+  /** `oui` : accordée ; `lecture_seule` : capacités retirées par la lecture seule (une puce) ; `accent` : réflexion activée. */
+  etat: EtatCapaciteAgent | "accent";
+  titre: string;
+  /** Texte pour les lecteurs d'écran. */
+  lecteur: string;
+}
+
+/** Socle d'un agent personnel sans catégorie : `default_on` des catégories offertes, sinon fs/shell/git (comme le serveur). */
+export function socleAgentPersonnel(
+  categories: readonly { name: string; default_on?: boolean }[] | undefined,
+): string[] {
+  const actives = (categories ?? []).filter((c) => c.default_on).map((c) => c.name);
+  return actives.length ? actives : [...CATEGORIES_PAR_DEFAUT];
+}
+
+/** Catégories d'outils effectives d'une rangée : les siennes, sinon le socle pour un agent personnel sans catégorie ni serveur MCP. */
+export function categoriesEffectives(row: RangeeAgent, socle: readonly string[]): string[] {
+  return row.tool_categories.length || row.mcp_server_ids.length || row.template
+    ? row.tool_categories
+    : [...socle];
+}
+
+/** Puces d'une rangée : les capacités accordées seulement, une puce « Lecture seule » pour celles qu'elle retire, la réflexion si elle est activée, les serveurs MCP ; vide si les catégories d'un modèle sont inconnues. */
+export function pucesAgent(row: RangeeAgent, socle: readonly string[]): PuceAgent[] {
+  const type = typeReglable(row.name, row.template);
+  if (row.template && !row.tool_categories.length) return [];
+  const categories = categoriesEffectives(row, socle);
+  const capacites = capacitesAgent({ type, categories, lectureSeule: row.read_only });
+  const puces: PuceAgent[] = capacites
+    .filter((c) => c.etat === "oui")
+    .map((c) => {
+      const libelle = LIBELLES_CAPACITES[c.cle];
+      return {
+        cle: c.cle,
+        libelle,
+        etat: "oui",
+        titre: `${libelle} : accordé`,
+        lecteur: `${libelle}, accordé`,
+      };
+    });
+  const retirees = capacites.filter((c) => c.etat === "lecture_seule").map((c) => LIBELLES_CAPACITES[c.cle]);
+  const accord = retirees.length > 1 ? "retirés" : "retiré";
+  if (retirees.length)
+    puces.push({
+      cle: "lecture_seule",
+      libelle: "Lecture seule",
+      etat: "lecture_seule",
+      titre: `Lecture seule (${SOURCES_LECTURE_SEULE[row.read_only_source]}) : ${retirees.join(", ")} ${accord}`,
+      lecteur: `Lecture seule, ${retirees.join(", ")} ${accord}`,
+    });
+  if (row.thinking === "on")
+    puces.push({
+      cle: "reflexion",
+      libelle: "Réflexion",
+      etat: "accent",
+      titre: `Réflexion activée (${row.thinking_source === "compte" ? "votre réglage" : "défaut de l'administrateur"})`,
+      lecteur: "Réflexion activée",
+    });
+  const n = row.mcp_server_ids.length;
+  if (n)
+    puces.push({
+      cle: "mcp",
+      libelle: `+ ${n} serveur${n > 1 ? "s" : ""} MCP`,
+      etat: "oui",
+      titre: "Serveurs MCP externes de l'agent",
+      lecteur: `${n} serveur${n > 1 ? "s" : ""} MCP`,
+    });
+  return puces;
+}
+
 export interface RangeeAgent {
   name: string;
   template: boolean;
@@ -46,6 +164,9 @@ export interface RangeeAgent {
   read_only: boolean;
   read_only_forced: boolean;
   read_only_source: SourceLectureSeule;
+  thinking: ModeReflexionAgent;
+  thinking_source: SourceReflexion;
+  user_browser_session: boolean;
   _tplPrompt?: string;
   _tplCats?: string[];
   _tplIters?: number;
@@ -64,7 +185,12 @@ export interface FormulaireAgent {
   mcp_server_ids: string[];
   max_iters: number | string;
   enabled: boolean;
-  read_only?: boolean;
+  /** Choix du compte ; `null` : défaut de l'administrateur. */
+  read_only: boolean | null;
+  /** Choix du compte ; vide : défaut de l'administrateur. */
+  thinking: ModeReflexionAgent | "";
+  /** « Ma session web » : l'agent peut utiliser la session connectée du compte. */
+  user_browser_session: boolean;
   _tplPrompt?: string;
   _tplCats?: string[];
   _tplIters?: number;
@@ -171,12 +297,14 @@ function surchargeVide(e: AgentPerso | null | undefined): boolean {
       !(e.mcp_server_ids ?? []).length &&
       !((e.max_iters ?? 0) > 0) &&
       e.enabled !== false &&
-      typeof e.read_only !== "boolean")
+      typeof e.read_only !== "boolean" &&
+      !e.thinking &&
+      !e.user_browser_session)
   );
 }
 
 /** Clé de la politique de l'administrateur : un livré par son nom, tout autre agent sous `custom`. */
-function typeReglable(nom: string, livre: boolean): TypeAgentReglable {
+export function typeReglable(nom: string, livre: boolean): TypeAgentReglable {
   const t = TYPES_AGENTS_REGLABLES.find((x) => x === nom);
   return livre && t ? t : "custom";
 }
@@ -192,7 +320,11 @@ export function creerAgents(
   const agentTemplates: Ref<ModeleAgent[]> = ref([]);
   const agentForm: Ref<FormulaireAgent | null> = ref(null);
   const agentFormError = ref("");
+  let etatInitialForm = "";
   const agentReadOnlyPolicy: Ref<LectureSeuleAgents> = ref(clonerValeur(DEFAUTS_REGLAGES_AGENTS.read_only));
+  const agentThinkingPolicy: Ref<ReflexionAgents> = ref(clonerValeur(DEFAUTS_REGLAGES_AGENTS.thinking));
+  /** Faux : l'administrateur interdit la session web du compte à tout sous-agent. */
+  const agentSessionWebPermise = ref(true);
   let modelesCharges = false;
   const icones: Record<string, string> = {};
   BUILTIN_AGENTS.forEach((a) => {
@@ -210,12 +342,15 @@ export function creerAgents(
       if (d && d.templates.length) {
         agentTemplates.value = d.templates;
         agentReadOnlyPolicy.value = d.read_only_policy;
+        agentThinkingPolicy.value = d.thinking_policy;
+        agentSessionWebPermise.value = d.user_browser_session_allowed !== false;
         modelesCharges = true;
         return;
       }
     } catch {
       /* repli ci-dessous */
     }
+    showToast("Modèles d'agents indisponibles : capacités affichées comme inconnues.", "error");
     if (!agentTemplates.value.length) {
       agentTemplates.value = BUILTIN_AGENTS.map((a) => ({
         name: a.name,
@@ -246,6 +381,56 @@ export function creerAgents(
     return { read_only: p.defaults[type], read_only_forced: false, read_only_source: "defaut" };
   }
 
+  /** Choix du compte si posé, sinon défaut de l'administrateur pour le type. */
+  function reflexion(
+    type: TypeAgentReglable,
+    propre: ModeReflexionAgent | undefined,
+  ): Pick<RangeeAgent, "thinking" | "thinking_source"> {
+    if (propre) return { thinking: propre, thinking_source: "compte" };
+    return { thinking: agentThinkingPolicy.value.defaults[type], thinking_source: "defaut" };
+  }
+
+  /** Type, valeurs effectives et défauts de l'administrateur pour l'agent du formulaire. */
+  const agentFormChoix = computed(() => {
+    const f = agentForm.value;
+    const type = f ? typeReglable(f.name.trim().toLowerCase(), f._template) : "custom";
+    const defautLs = agentReadOnlyPolicy.value.defaults[type];
+    const impose = agentReadOnlyPolicy.value.forced[type];
+    const defautRefl = agentThinkingPolicy.value.defaults[type];
+    return {
+      lectureSeule: {
+        defaut: defautLs,
+        impose,
+        valeur: impose || (f?.read_only ?? defautLs),
+        posee: !impose && typeof f?.read_only === "boolean",
+      },
+      reflexion: { defaut: defautRefl, valeur: f?.thinking || defautRefl, posee: !!f?.thinking },
+      sessionWeb: {
+        permise: agentSessionWebPermise.value,
+        valeur: agentSessionWebPermise.value && !!f?.user_browser_session,
+      },
+    };
+  });
+
+  /** Un choix égal au défaut de l'administrateur n'est pas écrit : le compte suit alors ce défaut. */
+  function choisirLectureSeule(v: boolean): void {
+    const f = agentForm.value;
+    if (!f || agentFormChoix.value.lectureSeule.impose) return;
+    f.read_only = v === agentFormChoix.value.lectureSeule.defaut ? null : v;
+  }
+  function choisirReflexion(m: ModeReflexionAgent): void {
+    if (agentForm.value) agentForm.value.thinking = m === agentFormChoix.value.reflexion.defaut ? "" : m;
+  }
+  function choisirSessionWeb(v: boolean): void {
+    if (agentForm.value && agentSessionWebPermise.value) agentForm.value.user_browser_session = v;
+  }
+  function revenirDefautLectureSeule(): void {
+    if (agentForm.value) agentForm.value.read_only = null;
+  }
+  function revenirDefautReflexion(): void {
+    if (agentForm.value) agentForm.value.thinking = "";
+  }
+
   /** Une seule liste : modèles surchargés en place, puis agents personnalisés, avec leurs valeurs effectives. */
   const agentBank = computed<RangeeAgent[]>(() => {
     const liste = settings.value.custom_agents ?? [];
@@ -268,6 +453,8 @@ export function creerAgents(
         mcp_server_ids: o.mcp_server_ids ?? [],
         max_iters: o.max_iters || t.max_iters || 0,
         ...lectureSeule(typeReglable(t.name, true), o.read_only),
+        ...reflexion(typeReglable(t.name, true), o.thinking),
+        user_browser_session: o.user_browser_session === true,
         _tplPrompt: t.prompt || "",
         _tplCats: t.tool_categories || [],
         _tplIters: t.max_iters || 0,
@@ -291,6 +478,8 @@ export function creerAgents(
         mcp_server_ids: a.mcp_server_ids ?? [],
         max_iters: a.max_iters || 0,
         ...lectureSeule("custom", a.read_only),
+        ...reflexion("custom", a.thinking),
+        user_browser_session: a.user_browser_session === true,
       });
     });
     return rangees;
@@ -315,8 +504,18 @@ export function creerAgents(
       mcp_server_ids: [],
       max_iters: "",
       enabled: true,
+      read_only: null,
+      thinking: "",
+      user_browser_session: false,
       ...prefill,
     };
+    etatInitialForm = JSON.stringify(agentForm.value);
+  }
+
+  /** Valeur posée par le compte dans sa surcharge (même si l'administrateur l'impose), sinon `null`. */
+  function propreLectureSeule(row: RangeeAgent): boolean | null {
+    const v = row._idx >= 0 ? (settings.value.custom_agents ?? [])[row._idx]?.read_only : undefined;
+    return typeof v === "boolean" ? v : null;
   }
 
   /** Un modèle s'ouvre pré-rempli de sa persona livrée ; son nom ne se saisit pas (une variante se fait par « Dupliquer »). */
@@ -333,15 +532,34 @@ export function creerAgents(
       mcp_server_ids: [...(row.mcp_server_ids || [])],
       max_iters: row.template ? (row._ownIters ?? "") : row.max_iters > 0 ? row.max_iters : "",
       enabled: row.enabled !== false,
+      read_only: propreLectureSeule(row),
+      thinking: row.thinking_source === "compte" ? row.thinking : "",
+      user_browser_session: row.user_browser_session,
       _tplPrompt: row._tplPrompt || "",
       _tplCats: row._tplCats || [],
       _tplIters: row._tplIters || 0,
       _tplSummary: row._tplSummary || "",
     };
+    etatInitialForm = JSON.stringify(agentForm.value);
   }
   function cancelAgentForm(): void {
     agentForm.value = null;
     agentFormError.value = "";
+  }
+  /** Retour ou Échap depuis la fiche : confirmation seulement si le formulaire a changé depuis son ouverture. */
+  async function leaveAgentForm(): Promise<void> {
+    if (!agentForm.value) return;
+    if (
+      JSON.stringify(agentForm.value) !== etatInitialForm &&
+      !(await openConfirm(
+        "Abandonner les modifications ?",
+        "Les changements de cet agent ne seront pas enregistrés.",
+        true,
+        "Abandonner",
+      ))
+    )
+      return;
+    cancelAgentForm();
   }
   function restoreTemplatePrompt(): void {
     if (agentForm.value?._template) agentForm.value.prompt = agentForm.value._tplPrompt ?? "";
@@ -365,8 +583,10 @@ export function creerAgents(
       n += 1;
       name = row.name + "-" + n;
     }
-    const ro =
+    const ro: Partial<FormulaireAgent> =
       row.read_only !== agentReadOnlyPolicy.value.defaults.custom ? { read_only: row.read_only } : {};
+    const th: Partial<FormulaireAgent> =
+      row.thinking !== agentThinkingPolicy.value.defaults.custom ? { thinking: row.thinking } : {};
     startCreateAgent({
       name,
       description: row.description || "",
@@ -374,7 +594,9 @@ export function creerAgents(
       tool_categories: [...(row.tool_categories || [])],
       mcp_server_ids: [...(row.mcp_server_ids || [])],
       max_iters: row.max_iters > 0 ? row.max_iters : "",
+      user_browser_session: row.user_browser_session,
       ...ro,
+      ...th,
     });
   }
 
@@ -396,26 +618,6 @@ export function creerAgents(
       if (row.template && surchargeVide(e)) liste.splice(row._idx, 1);
     } else if (row.template) {
       liste.push({ name: row.name, enabled: false });
-    } else {
-      return;
-    }
-    await persistance.persistKeys(["custom_agents"], { rollback: restaurerAgents(avant) });
-  }
-
-  /** Case « Lecture seule » : une valeur égale au défaut de l'administrateur n'est pas écrite, le compte suit alors ce défaut. */
-  async function toggleAgentReadOnly(row: RangeeAgent | null | undefined): Promise<void> {
-    if (!row || row.read_only_forced) return;
-    const liste = settings.value.custom_agents ?? (settings.value.custom_agents = []);
-    const avant = clonerValeur(liste);
-    const voulu = !row.read_only;
-    const defaut = agentReadOnlyPolicy.value.defaults[typeReglable(row.name, row.template)];
-    const e = row._idx >= 0 ? liste[row._idx] : undefined;
-    if (e) {
-      if (voulu === defaut) delete e.read_only;
-      else e.read_only = voulu;
-      if (row.template && surchargeVide(e)) liste.splice(row._idx, 1);
-    } else if (row.template) {
-      liste.push({ name: row.name, read_only: voulu });
     } else {
       return;
     }
@@ -484,7 +686,7 @@ export function creerAgents(
     const cats = [...new Set(f.tool_categories)];
     const mcpIds = [...new Set(f.mcp_server_ids)];
     const iters = parseInt(String(f.max_iters), 10);
-    const roPropre = f._idx >= 0 ? liste[f._idx]?.read_only : f.read_only;
+    const roPropre = f.read_only;
     const avant = clonerValeur(liste);
     if (f._template) {
       // Surcharge d'un modèle : seuls les écarts sont écrits.
@@ -499,6 +701,8 @@ export function creerAgents(
         sur.max_iters = Math.min(iters, CUSTOM_ITERS_MAX);
       if (f.enabled === false) sur.enabled = false;
       if (typeof roPropre === "boolean") sur.read_only = roPropre;
+      if (f.thinking) sur.thinking = f.thinking;
+      if (f.user_browser_session) sur.user_browser_session = true;
       if (surchargeVide(sur)) {
         if (f._idx >= 0) liste.splice(f._idx, 1);
       } else if (f._idx >= 0) liste.splice(f._idx, 1, sur);
@@ -514,6 +718,8 @@ export function creerAgents(
       if (Number.isFinite(iters) && iters > 0) entree.max_iters = Math.min(iters, CUSTOM_ITERS_MAX);
       if (f.enabled === false) entree.enabled = false;
       if (typeof roPropre === "boolean") entree.read_only = roPropre;
+      if (f.thinking) entree.thinking = f.thinking;
+      if (f.user_browser_session) entree.user_browser_session = true;
       if (f._idx >= 0) liste.splice(f._idx, 1, entree);
       else liste.push(entree);
     }
@@ -540,17 +746,24 @@ export function creerAgents(
     agentFormError,
     agentTemplates,
     agentReadOnlyPolicy,
+    agentThinkingPolicy,
+    agentFormChoix,
+    choisirLectureSeule,
+    choisirReflexion,
+    choisirSessionWeb,
+    revenirDefautLectureSeule,
+    revenirDefautReflexion,
     loadAgentTemplates,
     agentBank,
     agentCustomCount,
     startCreateAgent,
     startEditAgent,
     cancelAgentForm,
+    leaveAgentForm,
     restoreTemplatePrompt,
     agentFormPromptDiffers,
     duplicateAgent,
     toggleAgentEnabled,
-    toggleAgentReadOnly,
     resetAgentToTemplate,
     insertAgentTemplate,
     toggleAgentCat,

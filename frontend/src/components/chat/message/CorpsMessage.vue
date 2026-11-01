@@ -1,13 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/chat/message/CorpsMessage.vue — corps d'un message du fil : le travail selon le déroulé choisi (classique, en bloc, chronologie, journal), statut, contenu et pièces jointes, fichiers modifiés, interruption, pied (ou l'attente d'un réveil, `attente`), incidents. -->
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
 
 import type { ResumeJob } from "@elpis/contracts";
 
 import { textesDuTour } from "../../../features/chat/message/chronologie";
 import { graphiquesNonCites } from "../../../features/chat/message/graphiques-tour";
-import { CLE_FIL, domaine } from "../../../features/chat/page/domaines";
+import { avecJobFond } from "../../../features/chat/outils/agents";
+import { CLE_FIL, CLE_PAGE, domaine } from "../../../features/chat/page/domaines";
 import { preferencesChat } from "../../../features/reglages/affichage-chat";
 import { domaineRagOptionnel } from "../../../features/rag/domaine";
 
@@ -35,7 +36,12 @@ const props = withDefaults(
   { pied: true, texte: undefined, attente: () => [] },
 );
 const fil = domaine(CLE_FIL);
+const page = inject(CLE_PAGE, null);
 const pref = preferencesChat();
+// Sous-agents en fond : leur état suit leur job une fois le tour fini (et au rechargement).
+const runsAffiches = computed(() =>
+  (props.entry.msg.taskRuns ?? []).map((r) => avecJobFond(r, page?.jobsChat ?? [])),
+);
 // Déroulé classique : le premier affichage (réflexion en tête, travail replié, captures en carrousel).
 const classique = computed(() => pref.deroule === "classic");
 const DEROULES_FIL = { timeline: FilTour, work_block: FilBloc, terminal: FilJournal } as const;
@@ -92,8 +98,8 @@ function masquerBouton(e: Event): void {
     <CapturesWeb :entry="entry" />
 
     <SousAgents
-      v-if="entry.msg.taskRuns && entry.msg.taskRuns.length"
-      :runs="entry.msg.taskRuns"
+      v-if="runsAffiches.length"
+      :runs="runsAffiches"
       :logo-app="fil.logoApp"
       @deroule="fil.openTaskModal(entry, $event)"
       @arreter="fil.cancelTaskRun"

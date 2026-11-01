@@ -96,27 +96,31 @@ export {
   toContainer,
 } from "./confinement";
 export type { DossierParcouru, EntreeBrute, OptionsEcritureSous, OptionsLexical } from "./confinement";
+export {
+  GLUON,
+  neutraliserJetonsRole,
+  neutraliserMarqueursTour,
+  OUTILS_SANS_RESTAURATION,
+  restaurerArgsOutil,
+  restaurerMarqueursArgs,
+  restaurerMarqueursTour,
+} from "@elpis/commun/marqueurs-tour";
 export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {
-  cheminsEcrits,
   envShellSousAgent,
   FIX_SOUS_AGENT,
   lireSousAgent,
   outilPermisSousAgent,
   OUTILS_JAMAIS_SOUS_AGENT,
-  OUTILS_RETIRES_PAR_TYPE,
-  refusSousAgent,
   REFUS_FOND_SOUS_AGENT,
   REFUS_TACHE_SOUS_AGENT,
-  refusHorsChemins,
   relatifBac,
   SHELL_SOUS_AGENT_DELAI_DEFAUT_S,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
   sousAgentEnDict,
-  sousPrefixes,
   TYPE_AGENT_PERSONNALISE,
   TYPES_AGENTS_LIVRES,
   TYPES_AGENTS_REGLABLES,
 } from "./sous-agent";
-export type { RefusSousAgent, SousAgent } from "./sous-agent";
+export type { SessionNavigateur, SousAgent, SousAgentHote } from "./sous-agent";

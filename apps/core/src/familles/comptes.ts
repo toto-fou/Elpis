@@ -52,8 +52,8 @@ import { ecrireReglages, lireReglages } from "../comptes/reglages";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
 import type { ModeApp } from "../mode";
-import { reglagesAgents } from "../outils/integres/reglages-taches";
-import { agentTemplates } from "../outils/integres/taches-agents";
+import { reglagesAgents } from "../outils/integres/task/reglages";
+import { agentTemplates } from "../outils/integres/task/roster";
 import type { Famille } from "../routes";
 import {
   corpsJson,
@@ -457,7 +457,12 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         traiter: async (req) => {
           utilisateur(req);
           const r = reglagesAgents();
-          return { templates: await agentTemplates(r), read_only_policy: r.read_only };
+          return {
+            templates: await agentTemplates(r),
+            read_only_policy: r.read_only,
+            thinking_policy: r.thinking,
+            user_browser_session_allowed: r.user_browser_session_allowed,
+          };
         },
       },
       {

@@ -10,6 +10,7 @@ import {
   strPy,
   stripPy,
 } from "@elpis/commun";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import type { LlamaChatFn } from "../contexte/compresseur";
 import type { Priorite } from "../llm/ordonnanceur";
@@ -24,7 +25,15 @@ import { reconcileThinkingContent } from "./reconciliation-raisonnement";
 
 const log = journal("boucle.appels-uniques");
 
-export interface OptionsAppelUnique {
+/** Affinité de slot llama.cpp d'un run (cf. `OptionsRun`), pour qu'un appel unique le suive. */
+export interface AffiniteSlot {
+  slotKey?: string | null;
+  slotAvoid?: (() => Iterable<number>) | null;
+  slotPrefere?: (() => number | null) | null;
+  surSlot?: ((slot: number) => void) | null;
+}
+
+export interface OptionsAppelUnique extends AffiniteSlot {
   userId?: unknown;
   modelOverride?: string | null;
   samplingOverride?: Dict | null;
@@ -55,6 +64,10 @@ export async function llamaChatStreamTokens(
       samplingOverride: o.samplingOverride ?? null,
       chatId: o.chatId ?? null,
       slotAvoidOwn: o.slotAvoidOwn ?? false,
+      slotKey: o.slotKey ?? null,
+      slotAvoid: o.slotAvoid ?? null,
+      slotPrefere: o.slotPrefere ?? null,
+      surSlot: o.surSlot ?? null,
       samplingTask: "chat",
       isCancelled: o.isCancelled ?? null,
       signal: o.signal,
@@ -144,15 +157,20 @@ export async function llamaChat(
   return [contenu, meta];
 }
 
-/** Résumé de compaction pour B1-18 : appel unique dans le slot déjà tenu par l'appelant. */
-export const llamaChatCompaction: LlamaChatFn = (messages, o) =>
-  llamaChat(messages, {
-    userId: o.userId,
-    modelOverride: o.modelOverride,
-    samplingOverride: o.samplingOverride,
-    signal: o.signal,
-    usageScope: o.usageScope,
-  });
+/** Résumé de compaction pour B1-18 : appel unique dans le slot déjà tenu par l'appelant, sur l'affinité de slot du run s'il en a une (sous-agent : sans elle, le serveur choisit et peut prendre le slot du parent ou d'un frère). */
+export function compactionAvecSlot(slot: AffiniteSlot = {}): LlamaChatFn {
+  return (messages, o) =>
+    llamaChat(messages, {
+      userId: o.userId,
+      modelOverride: o.modelOverride,
+      samplingOverride: o.samplingOverride,
+      signal: o.signal,
+      usageScope: o.usageScope,
+      ...slot,
+    });
+}
+
+export const llamaChatCompaction: LlamaChatFn = compactionAvecSlot();
 
 /** Appel unique HORS d'un tour : dans la file LLM (sa propre admission) quand elle est posée. */
 export function horsTour<T>(
@@ -199,7 +217,9 @@ export async function generateChatTitle(
       { role: "system", content: TITLE_PROMPT },
       {
         role: "user",
-        content: question + (reponse ? `\n\n[the assistant's reply was about: ${reponse}]` : ""),
+        content: neutraliserMarqueursTour(
+          question + (reponse ? `\n\n[the assistant's reply was about: ${reponse}]` : ""),
+        ),
       },
     ];
     const arret = new AbortController();

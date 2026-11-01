@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/jobs.ts — tâches de fond `shell_job` : liste et arrêt, file de réveil du compte, interrupteur « Ne pas me réveiller », résumé d'un réveil. */
+/** packages/contracts/src/rest/jobs.ts — tâches de fond (`shell_job`, sous-agents en fond) : liste et arrêt, file de réveil du compte, interrupteur « Ne pas me réveiller », résumé d'un réveil. */
 import { z } from "zod";
 
 import { entier, horodatage } from "./commun";
@@ -26,6 +26,38 @@ export const DECLENCHEURS_JOB = [
 export const schemaDeclencheurJob = z.enum(DECLENCHEURS_JOB);
 export type DeclencheurJob = z.infer<typeof schemaDeclencheurJob>;
 
+/** État d'un sous-agent lancé en fond (`kind: "agent"`), tenu par le core : progression, consommation, issue. */
+export const schemaAgentFond = z.object({
+  child_id: z.string(),
+  agent: z.string(),
+  call_id: z.string().optional(),
+  label: z.string().optional(),
+  /** `running`, puis l'état du run (`completed`, `failed`, `incomplete`, `cancelled`, `timeout`) ou `lost` (redémarrage). */
+  state: z.string(),
+  /** Statut du bloc du harnais une fois fini. */
+  status: z.string().optional(),
+  step: entier.optional(),
+  max_steps: entier.optional(),
+  tool_calls: entier.optional(),
+  last_tool: z.string().optional(),
+  last_text: z.string().optional(),
+  input_tokens: entier.optional(),
+  output_tokens: entier.optional(),
+  cache_tokens: entier.optional(),
+  think_tokens: entier.optional(),
+  context_tokens: entier.optional(),
+  /** Départ réel (s, epoch) : place obtenue au moteur ; absent tant qu'il attend. */
+  started_at: z.number().optional(),
+  /** Attente avant la place au moteur (s), depuis l'appel `task` ; posée au départ, puis à la fin. */
+  queued_s: z.number().optional(),
+  duration_s: z.number().optional(),
+  /** Bloc du harnais (`<task_meta>`) une fois fini, relu par l'interface avec `schemaBilanTache`. */
+  harness: z.record(z.string(), z.unknown()).optional(),
+  /** Début du rapport (2 000 caractères au plus), secrets masqués. */
+  result: z.string().optional(),
+});
+export type AgentFond = z.infer<typeof schemaAgentFond>;
+
 export const schemaResumeJob = z.object({
   id: z.string(),
   chat_id: z.string(),
@@ -45,6 +77,9 @@ export const schemaResumeJob = z.object({
   log: z.string(),
   /** Événements pas encore remis au modèle. */
   pending_events: entier,
+  /** Sous-agent lancé en fond (`task(background=true)`) ; absent : commande de l'hôte d'outils. */
+  kind: z.literal("agent").optional(),
+  agent: schemaAgentFond.optional(),
 });
 export type ResumeJob = z.infer<typeof schemaResumeJob>;
 

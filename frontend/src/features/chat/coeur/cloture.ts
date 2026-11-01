@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/coeur/cloture.ts — clôture d'un tour arrêté ou en échec : étapes en cours arrêtées (durée figée), sous-agents annulés, budget de tours retiré. */
+/** frontend/src/features/chat/coeur/cloture.ts — clôture d'un tour arrêté ou en échec : étapes en cours arrêtées (durée figée), sous-agents annulés (sauf ceux en fond), budget de tours retiré. */
 import type { EntreeDeroule, EtapeChat, ExecutionTache, MessageChat, OutilSousAgent } from "./types.ts";
 
 export const ETAPE_ARRETEE = "stopped";
@@ -33,9 +33,10 @@ export function cloreTour(m: MessageChat, maintenant = Date.now()): Partial<Mess
   const steps = m.toolSteps;
   if (steps?.some((s) => s.status === "running"))
     p.toolSteps = steps.map((s) => (s.status === "running" ? arreterEtape(s, maintenant) : s));
+  // Un sous-agent en fond survit au tour : seul son ✕ l'arrête.
   const runs = m.taskRuns;
-  if (runs?.some((x) => x.state === "running"))
-    p.taskRuns = runs.map((x) => (x.state === "running" ? annulerSousAgent(x) : x));
+  const coupe = (x: ExecutionTache): boolean => x.state === "running" && !x.background;
+  if (runs?.some(coupe)) p.taskRuns = runs.map((x) => (coupe(x) ? annulerSousAgent(x) : x));
   if (m.iterBudget) p.iterBudget = null;
   return Object.keys(p).length ? p : null;
 }

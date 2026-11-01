@@ -5,6 +5,7 @@ import { readdir, stat } from "node:fs/promises";
 import { comparePointsDeCode, strPy, stripPy } from "@elpis/commun";
 import { config, racineDepot } from "@elpis/config";
 import { FAMILY_CATEGORY, load as chargerManifeste } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
 import { journal } from "../journal";
@@ -89,7 +90,7 @@ function surcharge(chemin: string, defaut: string): string {
 
 // ── Bloc des skills ──────────────────────────────────────────────────────
 
-/** Index (garde-fou anti mauvais matching) puis corps des skills épinglés, sous `SKILLS_CHAR_BUDGET` ; `null` si rien. */
+/** Index (garde-fou anti mauvais matching) puis corps des skills épinglés, sous `SKILLS_CHAR_BUDGET`, marqueurs de tour inertes ; `null` si rien. */
 async function blocSkills(
   uid: number | null,
   epingles: readonly unknown[] | null,
@@ -156,7 +157,7 @@ async function blocSkills(
       parties.push(blocs.join("\n\n"));
     }
   }
-  return parties.length > 0 ? parties.join("\n\n") : null;
+  return parties.length > 0 ? neutraliserMarqueursTour(parties.join("\n\n")) : null;
 }
 
 // ── Assemblage ───────────────────────────────────────────────────────────
@@ -180,7 +181,7 @@ export interface MessageSysteme {
   content: string;
 }
 
-/** Un seul message système, blocs dans un ordre figé (le variable en dernier pour le cache de préfixe) ; vide si rien. */
+/** Un seul message système, blocs dans un ordre figé (le variable en dernier pour le cache de préfixe), mémoire et skills (écrits par des outils) aux marqueurs de tour neutralisés ; vide si rien. */
 export async function assembleSystemMessages(e: EntreesSysteme): Promise<MessageSysteme[]> {
   const parties: string[] = [];
   const custom = stripPy(e.customSys || "");
@@ -192,7 +193,7 @@ export async function assembleSystemMessages(e: EntreesSysteme): Promise<Message
   if (modele) execution.push(`Backing model: ${modele}.`);
   if (execution.length > 0) parties.push(execution.join("\n"));
   if (e.planMode) parties.push((await chargerFragment("PLAN_MODE")) || PLAN_MODE_BLOCK);
-  const memoire = stripPy(e.memoryBlock || "");
+  const memoire = neutraliserMarqueursTour(stripPy(e.memoryBlock || ""));
   if (memoire) parties.push(memoire);
   const epingles = e.pinnedSkills ?? null;
   const aEpingles = epingles !== null && epingles.length > 0;

@@ -2,6 +2,7 @@
 /** frontend/src/features/chat/page/types.ts — domaines de la page de chat (en-tête, fil, composeur, modèles, images) lus et modifiés par ses composants. */
 import type { SurfaceChat } from "../coeur/chat";
 import type { PieceJointe } from "../composeur/composeur";
+import type { CacheConversation } from "../coeur/formats";
 import type { CollectionActiveChat } from "../../rag/collections-chat";
 import type { DonneesParametres, SurchargeEchantillonnage } from "../../reglages/echantillonnage";
 
@@ -33,7 +34,7 @@ export interface DomaineEntete {
   readonly selectedConnector: string | null;
   readonly activeModelIds: readonly string[];
   readonly showSamplingPanel: boolean;
-  readonly features: { opencode?: boolean };
+  readonly features: { opencode?: boolean; agents?: boolean };
   showChatMenu: boolean;
   showExportFormatMenu: boolean;
   messageSearchActive: boolean;
@@ -237,6 +238,8 @@ export interface SanteMoteur {
   kv_cache?: { used: number; total: number; pct: number } | null;
   props?: { n_ctx?: number; model?: unknown } | null;
   charge?: ChargeVisible | null;
+  /** La capacité de la jauge KV est la fenêtre d'une requête (llama.cpp) ; faux pour un pool partagé (vLLM, SGLang). */
+  kvEstFenetre?: boolean;
 }
 
 /** Profil du moteur déclaré, décrit par le serveur. */
@@ -336,6 +339,8 @@ export interface DomaineModeles {
   pickReasoningEffort(v: string | null): void;
   readonly liveGen: StatsDirect | null;
   readonly ctxUsage: OccupationContexte | null;
+  /** Cache repris (jetons relus, entrée totale, part) sur la conversation ouverte ; null sans mesure. */
+  readonly cacheConversation: CacheConversation | null;
   fmtCtxUsage(u: OccupationContexte): string;
 }
 
@@ -448,7 +453,7 @@ export type DomaineBarre = Pick<
   readonly currentChatId: string | null;
   readonly editorFullscreen: boolean;
   readonly showEditor: boolean;
-  readonly features: { opencode?: boolean };
+  readonly features: { opencode?: boolean; agents?: boolean };
   readonly settings: {
     enable_mcp?: boolean;
     enable_editor?: boolean;
@@ -491,6 +496,7 @@ export type DomaineBarre = Pick<
   /** Le compte a le droit RAG : l'entrée « RAG » du sous-menu « Plus » n'existe que pour lui. */
   readonly ragAllowed: boolean;
   openRagPage(): unknown;
+  openAgentsPage(): unknown;
   openStudio(): unknown;
   openCodePage(): unknown;
   openSettings(): unknown;

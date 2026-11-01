@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/reglages/types.ts — types communs des réglages du compte : document `settings`, serveurs MCP, agents, contexte hôte et liens entre familles. */
+import type { ModeReflexionAgent } from "@elpis/contracts";
 import type * as Vue from "vue";
 import type { Ref } from "vue";
 
@@ -39,6 +40,9 @@ export interface AgentPerso {
   max_iters?: number;
   enabled?: boolean;
   read_only?: boolean;
+  thinking?: ModeReflexionAgent;
+  /** L'agent peut utiliser la session web du compte (posé seulement à vrai). */
+  user_browser_session?: true;
   [cle: string]: unknown;
 }
 
@@ -149,6 +153,7 @@ export interface CtxReglages {
   nextTick?: () => Promise<void>;
   loadAvailableModels?(): Promise<unknown>;
   loadMcpUserCategories?(): unknown;
+  openAgentsPage?(): unknown;
   openSkillsTab?(): unknown;
   loadSandboxFiles?(): unknown;
   checkExternalModsSoon?(delai: number): unknown;

@@ -271,6 +271,7 @@ const MODELES: Cles<DomaineModeles> = {
   pickReasoningEffort: true,
   liveGen: true,
   ctxUsage: true,
+  cacheConversation: true,
   fmtCtxUsage: true,
 };
 
@@ -370,6 +371,7 @@ const BARRE: Cles<DomaineBarre> = {
   openImageGallery: true,
   ragAllowed: true,
   openRagPage: true,
+  openAgentsPage: true,
   openStudio: true,
   openCodePage: true,
   openSettings: true,

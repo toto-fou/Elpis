@@ -10,11 +10,14 @@ import type { Dict } from "../python";
 import { resultIsToolFailure } from "./contrat-resultat";
 import type { SurEvenement } from "./evenements";
 import type { ConfigMcp } from "@elpis/mcp";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 import type { OutilIntegre } from "../outils/catalogue";
 
 import type { LlamaChatFn } from "../contexte/compresseur";
+import type { CompactionThreshold } from "../contexte/porte-compaction";
 import type { OptionsFlux } from "./flux-llm";
+import type { UsageRequete, UsageRun } from "./usage-requete";
 
 const log = journal("boucle.run");
 
@@ -176,7 +179,19 @@ export interface ChampsRun {
   liveShell: boolean;
   /** Périmètre du sous-agent qui fait ce run, `null` pour un tour de premier niveau. */
   subagent?: SousAgent | null;
+  /** Conclusion demandée par le parent (`task_send` wrap_up) : coupe aussi l'appel d'outil en cours de l'enfant. */
+  conclure?: AbortSignal | null;
   wrapupSuffix?: string | null;
+  surTexteSynthese?: ((delta: string) => void) | null;
+  /** La réflexion des tours d'outils repart au moteur (`reasoning_content`), décidé une fois par run ; absent, relu du profil du moteur. */
+  reflexionRendue?: boolean;
+  /** Affinité de slot llama.cpp du run (cf. `OptionsRun`). */
+  slotKey?: string | null;
+  slotAvoid?: (() => Iterable<number>) | null;
+  slotPrefere?: (() => number | null) | null;
+  surSlot?: ((slot: number) => void) | null;
+  /** Seuil de compaction du run, tel que reçu ; `null` : celui de l'instance. */
+  compactionThreshold?: CompactionThreshold | null;
   startTime: number;
   modelHasVision: boolean;
   chatKeySuffix: string;
@@ -203,16 +218,28 @@ export class RunContext {
     return Boolean((this.c.isCancelled && this.c.isCancelled()) || this.c.signal?.aborted);
   }
 
+  /** Affinité de slot à joindre aux options de chaque appel au moteur du run. */
+  optionsSlot(): Pick<OptionsFlux, "slotKey" | "slotAvoid" | "slotPrefere" | "surSlot"> {
+    const { slotKey, slotAvoid, slotPrefere, surSlot } = this.c;
+    return {
+      ...(slotKey ? { slotKey } : {}),
+      ...(slotAvoid ? { slotAvoid } : {}),
+      ...(slotPrefere ? { slotPrefere } : {}),
+      ...(surSlot ? { surSlot } : {}),
+    };
+  }
+
   /** Un appel au moteur dans le slot du tour (créneau repris puis rendu en optimized). */
   appelLLM<T>(fn: () => Promise<T>): Promise<T> {
     return this.c.slot ? this.c.slot.appelLLM(fn) : fn();
   }
 }
 
-const SENTINELLE = pyJsonDumps(
+/** Résultat d'un appel dont l'exécution a été interrompue sans confirmation (matérialisation du lot, reprise d'un sous-agent). */
+export const SENTINELLE = pyJsonDumps(
   {
     error:
-      "interrompu par l'utilisateur avant la fin — exécution NON confirmée (l'outil a pu agir en partie) : vérifier l'état avant de le relancer",
+      "interrupted before completion: execution NOT confirmed (the tool may have partly acted); check the state before running it again",
   },
   { ensureAscii: false },
 );
@@ -222,6 +249,12 @@ export class RunRecord {
   usageAcc: Dict | null = null;
   events: Dict[] = [];
   runToolHistory: Dict[] = [];
+  /** Liste de travail courante de la boucle (tête assemblée comprise), posée à chaque remplacement : compaction, aplatissement. */
+  travail: Dict[] = [];
+  /** Messages envoyés au dernier appel du moteur (forme d'entrée du flux, après élagage et ajustement au contexte), copie de la liste. */
+  envoye: Dict[] = [];
+  /** Dernière demande de l'utilisateur, avant les blocs que le harnais lui ajoute (héritée par un sous-agent `inherit`). */
+  demande = "";
   allThinking: string[] = [];
   lastRaw: Dict = {};
   cumulIn = 0;
@@ -231,6 +264,10 @@ export class RunRecord {
   cumulToolIn = 0;
   toolDefsTokens: number | null = null;
   cumulReasoning: number | null = null;
+  /** Requêtes coupées (échéance, délai, annulation) : usage rapporté par le moteur, hors des cumuls des requêtes abouties. */
+  coupees: UsageRequete = { entree: 0, sortie: 0, cache: 0 };
+  /** Reçoit l'usage cumulé après chaque requête (`OptionsRun.surUsage`). */
+  surUsage: ((u: UsageRun) => void) | null = null;
   batchPartial = new Map<number, string>();
   batchPrepared: Dict[] = [];
   deltaPendingIter: number | null = null;
@@ -282,6 +319,31 @@ export class RunRecord {
       inflight_in: 0,
     });
     if (o.recorded) this.usageAcc["recorded"] = true;
+    this.publierUsage();
+  }
+
+  /** Usage rapporté d'une requête coupée ajouté à part (les métriques du run restent celles des requêtes abouties), puis publié. */
+  noterCoupee(u: UsageRequete): void {
+    if (u.entree <= 0 && u.sortie <= 0) return;
+    const c = this.coupees;
+    this.coupees = { entree: c.entree + u.entree, sortie: c.sortie + u.sortie, cache: c.cache + u.cache };
+    this.publierUsage();
+  }
+
+  /** Usage cumulé (requêtes abouties et coupées, rapporté par le moteur) remis à `surUsage` ; réflexion seulement si le moteur la rapporte, jamais estimée ; jamais d'échec. */
+  publierUsage(): void {
+    if (this.surUsage === null) return;
+    const c = this.coupees;
+    try {
+      this.surUsage({
+        entree: this.cumulIn + c.entree,
+        sortie: this.cumulOut + c.sortie,
+        cache: this.cumulCacheRead + c.cache,
+        reflexion: this.cumulReasoning ?? 0,
+      });
+    } catch (e) {
+      log.debug(`usage du run non publié : ${String(e)}`);
+    }
   }
 
   /** Delta du run sans `assistant.tool_calls` terminal orphelin, borné. */
@@ -315,13 +377,16 @@ export class RunRecord {
       const prev = deja.get(cid);
       if (prev !== undefined) {
         if (res !== undefined && prev["content"] === SENTINELLE) {
-          prev["content"] = res;
+          prev["content"] = neutraliserMarqueursTour(res);
           reels++;
         }
         return;
       }
       if (res === undefined) res = SENTINELLE;
-      else reels++;
+      else {
+        res = neutraliserMarqueursTour(res);
+        reels++;
+      }
       this.runToolHistory.push({ role: "tool", tool_call_id: cid, content: res });
     });
     if (reels)

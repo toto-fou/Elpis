@@ -184,7 +184,8 @@ export function masquerSecretsTexte(texte: string): { texte: string; n: number }
     });
   }
   t = t.replace(AFFECTATION_TEXTE, (tout, nom: string, sep: string, valeur: string) => {
-    if (!NOM_SECRET_TEXTE.test(nom) || EXEMPLE.test(valeur) || /^\$\w|^\$\{|\*{4}/u.test(valeur)) return tout;
+    if (!NOM_SECRET_TEXTE.test(nom) || EXEMPLE.test(valeur) || /^\$\w|^\$\{|^\{|^%[(\w]|\*{4}/u.test(valeur))
+      return tout;
     n++;
     return `${nom}${sep}****`;
   });

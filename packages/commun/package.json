@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./empreinte": "./src/empreinte.ts",
-    "./couleurs": "./src/couleurs.ts"
+    "./couleurs": "./src/couleurs.ts",
+    "./marqueurs-tour": "./src/marqueurs-tour.ts"
   }
 }

@@ -192,6 +192,8 @@ reporter à la main.
   notification MCP `ask_user: questionnaire of N question(s) displayed` n'existe plus, et la catégorie « Skills »
   ne le coupe plus.
 - **`routine_save`** (propre au TS) : outil intégré du tour, sans famille MCP ; réglage `routine_tool_enabled`.
+- **`agent_save`** (propre au TS) : outil intégré du tour, sans famille MCP ; agent personnel écrit dans
+  `custom_agents` désactivé ; proposé si `AGENTS_ENABLED`, refusé aux sous-agents, aux routines et en mode plan.
 
 ## Contexte (élagage et compression)
 
@@ -210,6 +212,11 @@ reporter à la main.
   ne réindexe ni ces sorties ni les marqueurs (le Python indexait le marqueur lui-même). Un tour arrêté (Stop) ou en
   erreur du moteur enregistre aussi les clés déjà élaguées, qui ne sont donc ni reprises ni réindexées. Un tour
   éphémère n'indexe rien, ni à l'élagage ni à la compression (le Python indexait les tours compressés).
+- **Résultat coupé à l'émission** : un résultat d'outil plus long que la part du contexte qui lui revient finit
+  par `…[result truncated by the harness to fit the model's context: N chars omitted; …]`, qui dit qui coupe et
+  comment lire le reste (`start_line`/`end_line`, `line_ranges` ou `grep` pour `read_file`, une sortie plus petite
+  sinon). Le Python ne disait que `…[result truncated, N chars omitted]` : un agent pouvait croire à une coupure du
+  transport.
 
 ## Conversations
 
@@ -259,7 +266,10 @@ aucune capacité n'est deviné.
   `supports_preserve_reasoning` quand `/server_info` annonce un parseur de réflexion, avec
   `preserve_reasoning_default: false` ; activé, la réflexion de chaque appel d'outil du tour repart au moteur dans le
   `reasoning_content` du message assistant, sans le balisage d'appel, comptée par `tokens.ts` pendant ce tour et jamais
-  enregistrée. Le Python ne la rendait à aucun moteur.
+  enregistrée dans l'historique du chat (seul l'enregistrement de reprise d'un sous-agent, propre au TS, la garde pour
+  que son préfixe reparte à l'identique). Le Python ne la rendait à aucun moteur. Dans ce cas seulement, le jalon `<harness_status>` du budget
+  n'est pas un message `user` mi-tour (le gabarit retirerait la réflexion des assistants précédents) mais la fin du
+  dernier résultat d'outil du lot, hors `tool_history`.
 - **`</think>` orphelin** (serveur sans `--reasoning-parser`, gabarit qui ouvre `<think>` dans le prompt) : le texte
   qui le précède devient la réflexion en fin d'itération, comme dans le Python ; en plus, la bulle en direct est
   resynchronisée (`content_replace`), la narration d'un round d'outils ne garde ni la réflexion ni la balise, et le
@@ -304,6 +314,10 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   quel, en direct comme au rechargement) ; seul le pourcentage l'est. Un avis part une fois par tour si cette fenêtre
   est lue sur le moteur ou déclarée sur le connecteur. La jauge en direct ajoute à part les jetons générés que le
   dernier prompt mesuré ne compte pas, et la capacité du cache KV de vLLM ou SGLang ne sert plus de fenêtre.
+- **Longueur explicite** (`max_tokens`, `max_completion_tokens`, `n_predict` de l'échantillonnage) : elle n'est plus
+  plafonnée par la réserve de sortie sur llama.cpp (le Python la ramenait à ce plafond, jamais à la place libre) ; elle
+  est ramenée à la place libre de la fenêtre (fenêtre − prompt estimé − marge) à l'envoi, pour tous les moteurs, et
+  laissée telle quelle si la fenêtre est inconnue. Seule la longueur par défaut garde le plafond fixe.
 
 ## Console : secrets de config.json masqués
 
@@ -379,6 +393,9 @@ d'exploitation Python) sont retirés en 0.1.0 : core, hôte d'outils, familles d
 
 Le Python n'a pas d'équivalent : son mode `background` lançait un processus détaché, sans suivi ni réveil.
 
+- **Sous-agents en fond** : `task(background=true)` inscrit l'enfant dans `shell_jobs` (`kind = 'agent'`, colonnes
+  `kind` et `detail_json` ajoutées par `createAll`, sans migration numérotée) ; la liste, l'arrêt, la livraison et
+  le réveil sont ceux des jobs, la veille et l'arrêt par l'hôte d'outils les ignorent (cf. « Sous-agents »).
 - **Outil `shell_job`** : `start`, `status`, `logs`, `kill`, `list` ; une tâche peut réveiller l'agent à sa fin
   ou sur un motif de sortie (`wake_on`). Il n'existe que si la famille `shell` est native. `execute_shell` avec
   `on_timeout="detach_and_wake"` convertit en tâche une commande qui dépasse son délai (champs `detached`,
@@ -430,6 +447,10 @@ Le Python n'a pas d'équivalent : son mode `background` lançait un processus d�
 - **Stop pendant un appel à l'hôte d'outils intégré** : le core envoie `notifications/cancelled` (le Python n'en
   envoyait à aucun serveur ; les serveurs MCP externes restent ainsi). `execute_shell(on_timeout="detach_and_wake")`
   cesse alors d'attendre : la commande continue comme un job ordinaire, sans que son résultat soit marqué livré.
+  Une commande de premier plan (`execute_shell`, `skill_run_script`) est au contraire **tuée dans le conteneur** :
+  tuer le client `docker exec` ne l'arrête pas, l'hôte lance donc un second `docker exec` qui tue les processus
+  marqués `ELPIS_EXEC_ID` de CET exec (TERM, 5 s, KILL ; les descendants sortis du groupe par `setsid` compris),
+  puis rend `cancelled` (la commande a pu agir en partie). Le Python la laissait finir à son délai.
 - **Conversation supprimée** : ses tâches sont arrêtées et retirées des listes (`kill_by=chat_deleted`) ; leurs
   fichiers sont purgés par le balayage de rétention, réessayé jusqu'à réussir.
 - **Limites connues** : une entrée de `wake_on` est bornée à 300 caractères ; le quota horaire de réveils,
@@ -613,44 +634,51 @@ Le Python donnait au sous-agent des familles d'outils entières, rendait son seu
 même après un plafond) et exécutait les `task` d'un message l'un après l'autre. Le TS :
 
 - **Aucune imbrication** : le Python donnait `task` à un sous-agent quand `llm.task.subagent_depth` (1 à 3) le
-  permettait. Le TS ne le donne jamais, quel que soit ce réglage (lu, sans effet) : `task` est absent du manifeste
-  d'un sous-agent, et un appel `task` venu d'un sous-agent est refusé par le core et par l'hôte d'outils
-  (`not_available_here`).
-- **Profils par type** (`packages/securite/src/sous-agent.ts`, même règle pour le manifeste du core et l'hôte
-  d'outils) : `shell_job` jamais offert ; `verify` sans `write_file`, `edit_file`, `manage_files` ni git d'écriture ;
+  permettait. Le TS ne le donne jamais, quel que soit ce réglage (lu, sans effet ; la constante `TASK_SUBAGENT_DEPTH`
+  n'existe pas côté core et le test des vecteurs de `llm/constantes` la saute) : `task` est absent du manifeste
+  d'un sous-agent, et un appel `task` venu d'un sous-agent est refusé par le core (`not_available_here`).
+- **Profils par type** (`packages/securite/src/sous-agent.ts`, appliqués au manifeste de l'enfant seul : il
+  n'appelle pas ce qu'il ne voit pas) : `shell_job` et `git_submit` jamais offerts ; `verify` sans `write_file`, `edit_file`, `manage_files` ni git d'écriture ;
   `implement` sans `git_commit`, `git_submit`, `git_start_work`, `git_abandon` ; `execute_shell` sans les paramètres
   `on_timeout` ni `background` : rien ne doit survivre au sous-agent. `detach_and_wake` passé quand même retombe sur
   `kill` avec `on_timeout_fallback` ; `background=true` est refusé (`not_available_here`) ; le shell reste plafonné
   à 300 s. L'agent principal garde `background`.
 - **Lecture seule** : seuls les outils annotés `readOnlyHint` (et les `pw_*` du seul serveur d'outils intégré, pas
   ceux d'un serveur MCP tiers) restent ; ni écriture, ni commit, ni job, ni shell. Effective = imposée par l'administrateur, OU `task(read_only=true)`, OU case du compte (si posée,
-  sinon défaut de l'administrateur : `explore` vrai). Réglages : section `agents` de config.json,
+  sinon défaut de l'administrateur : `explore` et `web` vrais). Réglages : section `agents` de config.json,
   `GET/POST /api/admin/agents`, `read_only` d'une entrée de `custom_agents`.
 - **Limite assumée : le shell n'est pas borné.** La lecture seule retire le shell entier : un `verify` en lecture
-  seule ne lance aucun test (il décrit ce qu'il aurait lancé sous « Left open », `Status: blocked`). `writable_paths`
-  ne borne que les outils de fichiers (`write_file`, `edit_file`, `manage_files`, `git_write`), pas le shell : le
-  bloc le dit (`writable_paths_scope: "file_tools_only"`). Le « pas de commit » d'`implement` retire `git_commit`,
-  `git_submit`, `git_start_work` et `git_abandon`, mais ne tient pas face au shell : `git commit` y reste possible
-  et seule la consigne l'interdit. Le bac à sable du compte reste la vraie frontière de sécurité ; ni shell borné ni
-  hook git ne sont posés.
-- **Défense en profondeur** : le core porte `subagent: {type, read_only, writable_paths}` dans le `_meta` des appels
-  locaux (champ facultatif de l'enveloppe d'identité, absent pour un tour de premier niveau : forme signée
-  inchangée) ; l'hôte d'outils refuse ce qui sort du périmètre (`read_only_subagent`, `not_available_for_subagent`,
-  `not_available_here`, `path_not_writable`) avant d'exécuter l'outil, puis vérifie `writable_paths` sur le chemin
-  résolu par l'agent du bac (liens internes suivis, ancien rangement `git_repos/` de `git_write`).
-- **Paramètres de `task`** : `read_only`, `max_iterations` (borné par le type), `max_seconds` (arrêt propre avec
-  synthèse avant la limite), `writable_paths` (préfixes du bac, appliqués par `write_file`, `edit_file`,
-  `manage_files` et `git_write` ; le shell n'est pas borné, le bloc le dit : `writable_paths_scope:
-  "file_tools_only"`), `output_schema` (champs exigés dans le rapport ; manquants : `status: partial`). Définition
-  publiée : note 5 (parallélisme) remplacée, note 6 (bloc du harnais) ajoutée ; déclaré dans
-  `apps/core/test/outils/integres/ecart-tache.ts`.
+  seule ne lance aucun test (il décrit ce qu'il aurait lancé sous « Left open », `Status: blocked`). Le « pas de
+  commit » d'`implement` retire `git_commit`, `git_submit`, `git_start_work` et `git_abandon`, mais ne tient pas
+  face au shell : `git commit` y reste possible et seule la consigne l'interdit. Le bac à sable du compte reste la
+  vraie frontière ; l'hôte d'outils ne réapplique pas le périmètre (le `_meta` des appels locaux ne porte que
+  `type`, `id` et `browser_session` du sous-agent).
+- **Héritage** (propre au TS) : tout enfant part d'un contexte neuf (le Python aussi) ; `inherit: true` joint à
+  `<task_context>` un bloc de données bâti par le harnais (dernière demande de l'utilisateur, fichiers des outils du
+  tour, dépôt et branche, todos ouverts ; 4 000 caractères au plus, balises et marqueurs neutralisés).
+- **Paramètres de `task`** : `read_only`, `background`, `max_seconds` (arrêt propre avec synthèse avant la limite :
+  échéance absolue comptée dès l'entrée dans `task`, réserve `min(⅓ du délai, max(120 s, délai / 10))` ; la
+  génération en cours et chaque appel d'outil de l'enfant sont coupés par le core à l'échéance souple ; au délai
+  dur, `partial_report` rendu sans appel au moteur, synthèse en cours ou rapport assemblé par le harnais, le Python
+  rendait une enveloppe sans texte), `inherit`. Le budget d'itérations est celui du type ; la session du
+  navigateur est un réglage de l'agent (« Ma session web », interdiction possible par l'administrateur) ; aucun
+  sous-agent ne publie (`pr` rend l'appel `git_submit`, le parent le lance). Une reprise par `task_id` continue
+  l'agent tel qu'il a été lancé ; l'appel n'y donne que `prompt`, `max_seconds` et `background`. Définition
+  publiée : description en quatre notes (brief complet ; reprise ; travail non montré ; quand ne pas déléguer,
+  parallélisme et coordination des écritures par le parent), roster aux seuls résumés (celui de `pr` changé), huit
+  paramètres, textes de 1 850 caractères ; la légende du bloc du harnais n'est pas dans la définition mais dans le
+  premier bloc de la conversation (`legend`) ; déclaré dans `apps/core/test/outils/integres/task/ecart-tache.ts`.
 - **Bloc du harnais** (`schemaBilanTache`) : `<task_meta>{…}</task_meta>` avant `<task_result>`, ou champ `harness`
   des enveloppes d'erreur ; aussi à l'étape finale `task_step` et dans `task_runs[]` du message. Le JSON du bloc
   n'a ni `<` ni `>` (échappés en `\u003c`, `\u003e`) et les balises `<task…>` du rapport sont neutralisées
   (`&lt;task_meta`) : le sous-agent ne peut pas imiter le bloc. Statuts `done`,
-  `partial`, `blocked` (lus sur la ligne `Status:` du rapport), `budget_exhausted`, `timeout`, `unavailable`,
-  `error`, `cancelled` ; appels comptés par le harnais, cumul sur les reprises (`tool_calls_total`) et budget remis à
-  zéro (`budget_reset`) ; fichiers modifiés, branche, commits et PR relevés sur les résultats d'outils ; branche
+  `partial`, `blocked`, `unknown` (lus sur la ligne `Status:` de tête du rapport, hors citations et blocs de code, titre H1 de tête et rapport enveloppé dans un bloc de code tolérés, casse,
+  gras, puces et synonymes `failed`/`failure` → `blocked`, `complete(d)` → `done`, `incomplete` → `partial`, et en français `fait`/`fini`/`terminé(e)` → `done`,
+  `partiel(le)` → `partial`, `bloqué(e)` → `blocked` tolérés ;
+  ligne absente, valeur inconnue ou gabarit `done | partial | blocked` recopié : `unknown`, jamais `done` par défaut ;
+  le Python rendait `done` faute de ligne), `verdict` (`pass`, `fail`, `inconclusive`, ligne `Verdict:` d'un agent
+  `verify`, propre au TS), `budget_exhausted`, `timeout`, `unavailable`, `error`, `cancelled` ; appels comptés par le harnais, cumul sur les
+  reprises (`tool_calls_total`) ; fichiers modifiés et `concurrent`, branche, commits et PR relevés sur les résultats d'outils ; branche
   relue en fin de run quand l'agent a appelé le shell ou un outil git (N2 : une branche créée par `git checkout -b`
   au shell n'était pas vue) : un seul `git_query(action="branches")` en lecture, sur le dépôt du dernier outil git
   (`repo`), sinon le `cwd` du shell ; échec ou dépôt inconnu : valeur relevée gardée ; erreurs ;
@@ -660,7 +688,7 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   « Wrap up » ou « LAST » sans atteindre la limite (N7 ; `budget_exhausted` reste réservé à la limite atteinte). La
   carte du chat montre « arrêt sur budget » et, dans les détails, la cause en français et les avertissements.
 - **Fenêtre de fin de budget** (`harnessStatusLine`, toute boucle) : le Python envoyait « only N left. Wrap up… Do
-  not start anything new » dès 5 itérations restantes, quel que soit le budget ; avec `max_iterations=10`, cet ordre
+  not start anything new » dès 5 itérations restantes, quel que soit le budget ; avec un budget de 10, cet ordre
   tombait à 5/10, en même temps que le jalon de mi-parcours, et l'agent concluait à la moitié. Le TS réduit
   cette fenêtre au quart d'un budget de moins de 20 (`fenetreFinBudget` : 1 pour 4, 2 pour 10, 5 dès 20) : « Wrap up »
   ne tombe jamais avant les trois quarts ; les jalons de 50 % et 75 % gardent le texte de plan. Budgets de 20 et plus
@@ -668,45 +696,92 @@ même après un plafond) et exécutait les `task` d'un message l'un après l'aut
   (`apps/core/test/boucle/ecart-budget.ts`).
 - **Étapes `task_step`** : chacune porte le `call_id` de l'appel `task` du parent (le chat rattache la ligne par
   lui, jamais au premier run sans id) ; un refus avant lancement (`task_unavailable`, `bad_args`, type inconnu…)
-  émet une étape finale (`state: "failed"`, `child_id` vide, bloc `status: unavailable` ou `error` avec `reason`)
-  qui ferme la ligne, et le run est gardé dans `task_runs[]`.
+  émet une étape finale (`state: "failed"`, `child_id` vide, bloc `status: unavailable` ou `error`)
+  qui ferme la ligne, et le run est gardé dans `task_runs[]`. **Consommation** (propre au TS) : l'étape `tick`
+  porte en plus, après chaque requête de l'enfant, `input_tokens`, `output_tokens`, `cache_tokens`,
+  `think_tokens` et `tokens_estimated` (le Python n'y mettait que `tokens`, l'occupation du contexte) ; l'étape
+  finale et le run persisté gagnent `cache_tokens` et `tokens_estimated`, et leurs `input_tokens` /
+  `output_tokens` comptent aussi les requêtes coupées (échéance, délai dur, annulation : le Python rendait 0 sans
+  métriques).
+- **Lancement en fond** (propre au TS : le Python n'avait que `task` synchrone) : paramètre `background` de
+  `task`, outils `task_status` et `task_wait` (définitions fixes, offertes avec `task`, refusées à tout
+  sous-agent). L'enfant est une tâche de fond (`shell_jobs.kind = 'agent'`, état dans `detail_json`) : réponse
+  immédiate (`task_id`, `job_id`), relais au tour tant qu'il tourne, fin livrée comme un événement de job
+  (`<job_event kind="sub-agent" task_id=…>` portant l'enveloppe de `task`), ni le Stop ni l'annulation du tour ne
+  l'arrêtent, `lost` annoncé au redémarrage. Réglages `agents.background_max` (2) et
+  `agents.background_timeout_s` (3600 s). Étape `spawned` : `background: true`. Détail :
+  [architecture](architecture.md#sous-agents-outil-task).
+- **Canal du parent** (propre au TS) : `task_status` rend aussi `recent` (cinq derniers appels de l'enfant) ;
+  `task_send(task_id, message, wrap_up?)` pose un message sous `<parent_instruction>` avant la prochaine requête
+  d'un enfant en fond, et `wrap_up` le fait conclure par la clôture de l'échéance souple (cause `wrap_up` de
+  `tool_limit`, `stop_reason: wrap_up` du bilan, étape `task_step` `status: "parent"`, entrée `{ parent }` du
+  relevé). Refusé aux sous-agents et aux routines.
+- **Plafonds par tour** (propre au TS) : `agents.max_tasks_per_turn` (lancements neufs, défaut 12, 1 à 100 ; une
+  reprise par `task_id` n'y compte pas mais est limitée à 3 par agent et par tour) et `agents.max_child_tokens_per_turn`
+  (jetons des enfants finis et, au mieux, de ceux en cours, défaut 0 = sans plafond) ; au-delà, `task_budget_exhausted`
+  avant tout lancement (le Python n'avait aucun plafond par tour), chat et routines ; non annoncés dans la description.
 - **Parallélisme** : les `task` consécutifs d'une même réponse partent ensemble, `agents.max_parallel` à la fois (1
-  à 10, défaut 3, relu à chaud ; `LLAMA_TOOL_PARALLELISM` ne les bride pas) ; le bloc liste les autres runs du
-  compte qui ont tourné en même temps (`overlapped_with` : sous-agents de tout chat, `chat:<id>` d'une boucle de
-  premier niveau autre que la parente).
+  à 10, défaut 3, relu à chaud, plafonné à `total_slots − 1` sur llama.cpp ; `LLAMA_TOOL_PARALLELISM` ne les bride
+  pas), sans ordonnancement des écritures : le parent coordonne (fichiers disjoints, l'un après l'autre, ou fichier
+  de synchro nommé dans les briefs, que les personas `implement` et `pr` lisent et complètent).
 - **Fichiers modifiés sous parallélisme** (N1) : le shell relève tout le bac du compte, pas les seules écritures de
-  l'agent. `files_changed` ne garde que les fichiers sûrs : écrits par les outils de fichiers ou git de l'agent
-  (`write_file`, `edit_file`, `manage_files`, `git_*`), ou relevés par son shell sans qu'aucun autre run du compte
-  capable d'écrire n'ait été actif pendant la commande. Les autres partent dans `files_changed_candidates`, avec
-  `files_changed_attribution: "uncertain"` et `overlapped_with`. Un sous-agent en lecture seule (sans outil
-  d'écriture ni shell, `explore` par défaut) a toujours `files_changed: []`. Les runs sont suivis en mémoire par le
-  processus du core (`debutTrace`, `debutBoucle`, `chevauchements` de `bilan-taches.ts`) : un autre processus du
-  core, le terminal, l'éditeur ou un job détaché ne sont pas vus. La carte montre les fichiers sûrs, puis les
-  candidats sous « Peut-être modifiés par un autre agent ».
+  l'agent. `files_changed` garde ce que ses outils ont écrit ou relevé, et `concurrent: true` dit qu'un autre run du
+  compte capable d'écrire (sous-agent de tout chat, boucle de premier niveau autre que la parente, la parente aussi
+  pour un enfant en fond) a tourné en même
+  temps : certains fichiers peuvent être les siens. Les runs sont suivis en mémoire par le processus du core
+  (`debutTrace`, `debutBoucle`, `finTrace` de `task/concurrence.ts`) : un autre processus du core, le terminal,
+  l'éditeur ou un job détaché ne sont pas vus.
 - **Contrôles avant lancement** : `web` sonde le service navigateur (`pw_session(action="health")`) et rend
   `task_unavailable` sans lancer l'agent ; un sous-agent `pr` voit `git_start_work` et `git_commit` refuser
   (`no_remote`) un dépôt sans `origin`, avant de brancher ou de committer.
 - **Consignes et rapport** : bloc `<subagent_rules>` dans le prompt système (sous-agent, réveil impossible, délai du
-  shell 120 s par défaut et 300 s au plus, lecture seule ou chemins écrivables, 4 caractères d'un secret au plus,
-  gabarit commun Status / Answer / Evidence / Changes / Left open) ; `verify` lance son shell avec
+  shell 120 s par défaut et 300 s au plus, 4 caractères d'un secret au plus, gabarit commun Status / Answer /
+  Evidence / Changes / Left open, seul gabarit : les cinq personas rangent leurs sections propres sous ces titres
+  et leurs exemples le suivent, avec une ligne `Status:` juste), identique d'un appel à l'autre ; la lecture seule, la
+  date, le budget, la session du navigateur et l'héritage vont dans `<task_context>`, en tête du premier message user (écart au Python,
+  qui les mettait dans le système : tête byte-stable, cf. [architecture](architecture.md#sous-agents-outil-task)) ;
+  `verify` lance son shell avec
   `PYTHONDONTWRITEBYTECODE=1` et `PYTEST_ADDOPTS="-p no:cacheprovider"`, `implement` avec
   `PYTHONDONTWRITEBYTECODE=1` seul (N9 : plus de `__pycache__` laissé en important un module) ; le `fix` d'un délai dépassé n'oriente plus
   vers `shell_job` ; `disk_warning` retiré des résultats vus par un sous-agent ; secrets du rapport masqués par la
   recherche de `git_commit` (déplacée dans `@elpis/securite`) ; rapport rendu plafonné à 8 000 caractères, texte
   complet sauvé dans `/work/.tool-output/task-<id>.md`.
-- **Persona et lecture seule** (N8) : en lecture seule, `<subagent_rules>` dit que les outils d'écriture, de commit
-  et le shell décrits plus haut (par la persona) ne sont pas offerts, et qu'un besoin de changement ou de commande se
-  décrit sous `## Left open` avec `Status: blocked` ; les personas `implement` et `verify` renvoient à ces règles, celle
+- **Persona et lecture seule** (N8) : en lecture seule, `<task_context>` dit que les outils d'écriture, de commit
+  et le shell décrits par la persona ne sont pas offerts, et qu'un besoin de changement ou de commande se
+  décrit sous `## Left open` avec `Status: blocked` ; les personas `implement` et `verify` renvoient à ce bloc, celle
   de `pr` ne dit plus que les outils d'écriture sont toujours dans le manifeste.
+- **Réflexion des sous-agents** (propre au TS) : réglée par type
+  (`agents.thinking.defaults`, `off` / `on` / `inherit`, défauts `implement` et `verify` `on`, `custom` `inherit`),
+  par agent du compte (`thinking` d'une entrée de `custom_agents`, prioritaire) et la borne par
+  `agents.thinking_budget_tokens` ; elle n'est effective que si le moteur l'honore (llama.cpp : gabarit du modèle ;
+  vLLM et SGLang : toujours), est calculée une fois au lancement de l'enfant ; `preserve_reasoning` n'est pas imposé
+  (celui du chat, éteint par défaut). Un enfant qui ne réfléchit pas perd `reasoning_effort`, `thinking_budget_tokens` et
+  `preserve_reasoning` de l'agent principal. L'étape finale porte `think_tokens` (jetons mesurés) ;
+  `GET /api/settings/agent-templates` rend `thinking_policy` et `user_browser_session_allowed`.
 - **`GET /api/settings/agent-templates`** rend en plus `read_only_default` et `read_only_forced` par modèle et
   `read_only_policy` ; les personas `system_prompts/AGENT_TASK_*.md` ne disent plus que les outils d'écriture sont
   dans le manifeste (le différentiel des réglages compare les en-têtes et la forme de cette route, plus son corps).
-- Tests des mainteneurs : `apps/core/test/outils/integres/{sous-agents,taches-agents,taches-bornes,controles-taches}.test.ts`,
+- Tests des mainteneurs : `apps/core/test/outils/integres/task/*.test.ts` (rangés comme `task/`),
   `apps/core/test/boucle/{dispatch-outils,orchestrateur}.test.ts`, `apps/toolhost/test/sous-agents.test.ts`,
   `packages/securite/test/sous-agent.test.ts`, `packages/outils-mcp/test/serveur.test.ts`,
   `packages/contracts/test/core/admin-agents.test.ts`, `frontend/test/chat/coeur/coeur.test.ts`,
   `frontend/test/chat/outils/bilan-sous-agent.test.ts`,
   `tests/frontend/reel/sous-agents-reel-verify.mjs`.
+- **Résultats rendus par le harnais en anglais** : un appel interrompu sans confirmation (`interrupted before
+  completion…`), un appel jamais démarré (`not_started`) et un outil resté sans réponse dans son délai (`Tool '…'
+  did not answer within N s…`) ; le Python les rendait en français (`apps/core/test/ecart-delai-outil.ts`, vecteurs
+  ramenés dans `apps/core/test/boucle/run.test.ts`). De même, l'appel d'un outil absent du manifeste du run
+  (inconnu, désactivé, jamais offert à un sous-agent) rend l'erreur `tool_not_available` en anglais avec un `fix`,
+  au lieu de `Outil 'x' inconnu ou désactivé.` (`apps/core/test/ecart-outil-indisponible.ts`).
+- **Routines sans sous-agents** : le Python offrait `task` à une routine dont `agents_enabled` était coché.
+  Le TS ne le fait jamais (une routine est une tâche récurrente qu'un seul agent mène) : `task`, `task_status`,
+  `task_wait` et `task_send` sont refusés en dur, `agents_enabled` est ignoré à l'écriture et rendu faux (colonne et champ
+  d'API gardés ; vecteurs ramenés par `apps/core/test/ecart-routines-sans-agents.ts`).
+- **Balises du harnais inertes** dans un résultat d'outil et dans le rapport d'un enfant (`harness_status`,
+  `task_context`, `interrupted_subagents`, `todo_status`, `job_event`, `subagent_rules`, `parent_instruction`,
+  `task`, `task_meta`, `task_result`) : un texte tiers, une page lue par le parent comprise, ne peut plus imiter un jalon ni un bloc
+  `<task_meta>` ; seul le cadre que le harnais bâtit pour tout le résultat reste intact (bloc de `task`, fin d'un
+  enfant en fond rendue par `task_wait` / `task_status`, `neutraliserResultat`) ; le Python ne les neutralisait pas.
 
 ## Agent du bac (Python)
 

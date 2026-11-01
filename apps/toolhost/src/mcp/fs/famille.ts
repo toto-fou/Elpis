@@ -3,15 +3,13 @@
 import type { PortProfilRappel } from "@elpis/bac";
 import type { Dict } from "@elpis/commun";
 import { py } from "@elpis/http";
-import { getUsername, outilDuGolden } from "@elpis/outils-mcp";
+import { outilDuGolden } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenFs from "@elpis/outils-mcp/goldens/fs.json" with { type: "json" };
-import { cheminsEcrits } from "@elpis/securite";
 
 import { gardeDisque, politiqueFs, sousGardeDisque } from "../disque";
 import type { GardeDisque } from "../disque";
-import { refusFichiersResolus } from "../ecriture-sous-agent";
-import { brancherRappelProfil, Espace } from "../espace";
+import { brancherRappelProfil } from "../espace";
 import { enrichirErreur } from "./edition";
 import { editFile, writeFile } from "./ecriture";
 import type { ArgsEcriture, ArgsEdition } from "./ecriture";
@@ -137,8 +135,7 @@ const CODE: Signature = {
 /** Outils de la famille `fs`, dans l'ordre de `register` (fs_tools.py) ; `disque` : garde de remplissage des écritures (harnais N-08). */
 export function outilsFs(disque: GardeDisque | null = null): DefinitionOutil[] {
   const g = goldenFs as Golden;
-  const garde = async (outil: string, v: Dict, ctx: ContexteAppel, f: () => Promise<Dict>): Promise<Dict> =>
-    (await refusFichiersResolus(ctx, cheminsEcrits(outil, v), () => Espace.pour(getUsername(ctx)))) ??
+  const garde = (outil: string, v: Dict, ctx: ContexteAppel, f: () => Promise<Dict>): Promise<Dict> =>
     sousGardeDisque(disque, ctx, politiqueFs(outil, v), f);
   return [
     outilDuGolden(g, "read_file", {

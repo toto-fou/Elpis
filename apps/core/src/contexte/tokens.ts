@@ -196,6 +196,16 @@ export function measuredPromptTokens(
   return total + Math.max(0, intPy(options.extraFixed || 0));
 }
 
+/** Prompt d'une requête prête à partir (messages et définitions d'outils), au ratio mesuré, sans I/O. */
+export function measuredRequestTokens(
+  messages: readonly unknown[],
+  tools: readonly unknown[] | null | undefined,
+  modelId: string | null = null,
+): number {
+  const defs = tools?.length ? intPy(weightedLen(JSON.stringify(tools)) / measuredCharsPerToken(modelId)) : 0;
+  return measuredPromptTokens(messages, { modelId, extraFixed: defs });
+}
+
 /** Estimation d'un texte brut (chars pondérés / 3.3). */
 export function estTokensText(s: string | null | undefined): number {
   return intPy(weightedLen(s) / CHARS_PER_TOKEN);

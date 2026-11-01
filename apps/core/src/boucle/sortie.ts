@@ -21,6 +21,8 @@ import type { ResumeState } from "./reprise";
 import { clipThinkingHistory, contentText } from "./run";
 import type { LoopDeps, RunContext, RunRecord } from "./run";
 import type { LiveText } from "./texte-direct";
+import { usageRequeteCoupee } from "./usage-requete";
+import type { FluxCoupe } from "./usage-requete";
 
 const log = journal("boucle.sortie");
 
@@ -34,6 +36,11 @@ export const MAX_STEPS_WRAPUP =
   "(real results only), list what remains to be done, and recommend the next action. Do not attempt any tool call.";
 
 export const WRAPUP_BY_KIND: Readonly<Record<string, string>> = {
+  wrap_up:
+    "[SYSTEM] WRAP-UP REQUESTED. Your parent agent asked you to conclude now (the step and time budgets were NOT " +
+    "exhausted) and tools are disabled for this turn. Respond with TEXT ONLY: summarize concisely what was actually " +
+    "accomplished (real results only), list what remains to be done, and recommend the next action. Do not attempt " +
+    "any tool call.",
   wallclock:
     "[SYSTEM] TIME BUDGET REACHED. The wall-clock budget for this task ran out (the step budget was NOT exhausted) " +
     "and tools are disabled for this turn. Respond with TEXT ONLY: state that the time limit was reached, summarize " +
@@ -280,6 +287,8 @@ export interface CausesArret {
   effectiveIter: number;
   hardIter: number;
   wallclockStop: boolean;
+  /** Conclusion demandée par le parent d'un enfant en fond (`task_send` wrap_up). */
+  wrapUpStop: boolean;
   ctxSaturatedStop: boolean;
   genCapStop: boolean;
   cycleHardStopped: boolean;
@@ -298,19 +307,21 @@ export async function finishOnLimit(
   const { onEvent, model, username, chatId, samplingOverride, toolsPayload, startTime, signal } = ctx.c;
   const budget = ctx.c.effectiveIterBudget;
   const capDur = ctx.c.hardIterCap;
-  const cause = a.wallclockStop
-    ? "wallclock"
-    : a.ctxSaturatedStop
-      ? "ctx_saturated"
-      : a.genCapStop
-        ? "gen_cap"
-        : a.cycleHardStopped
-          ? "cycle"
-          : a.emptyChoicesStop
-            ? "empty_choices"
-            : a.effectiveIter >= budget
-              ? "steps"
-              : "hard";
+  const cause = a.wrapUpStop
+    ? "wrap_up"
+    : a.wallclockStop
+      ? "wallclock"
+      : a.ctxSaturatedStop
+        ? "ctx_saturated"
+        : a.genCapStop
+          ? "gen_cap"
+          : a.cycleHardStopped
+            ? "cycle"
+            : a.emptyChoicesStop
+              ? "empty_choices"
+              : a.effectiveIter >= budget
+                ? "steps"
+                : "hard";
   const genre = cause === "hard" ? "hard" : "effective";
   if (cause === "steps")
     log.warn(
@@ -343,7 +354,13 @@ export async function finishOnLimit(
   const consigne =
     (WRAPUP_BY_KIND[cause] ?? MAX_STEPS_WRAPUP) + (ctx.c.wrapupSuffix ? `\n${ctx.c.wrapupSuffix}` : "");
   let dernierUsage: Dict = { ...((rec.lastRaw["usage"] || {}) as Dict) };
-  if (!a.cycleHardStopped && appelsFaits > 0 && !(ctx.c.isCancelled && ctx.c.isCancelled())) {
+  /** Synthèse coupée (délai dur, annulation) : son usage tel que le flux l'a vu rapporté par le moteur. */
+  const coupee: { flux: FluxCoupe | null; envoyee: boolean } = { flux: null, envoyee: false };
+  if (
+    !a.cycleHardStopped &&
+    (appelsFaits > 0 || a.wallclockStop || a.wrapUpStop) &&
+    !(ctx.c.isCancelled && ctx.c.isCancelled())
+  ) {
     try {
       const outilsTok = rec.toolsTokCounted ? intPy(rec.toolsTokCounted[0]) : 0;
       const msgs = await fitContext([...workingMessages, { role: "user", content: consigne }], {
@@ -356,19 +373,24 @@ export async function finishOnLimit(
         pruneKeys: rec.runPruneKeys,
         signal,
       });
-      const brut = await ctx.appelLLM(() =>
-        deps.stream(msgs, toolsPayload, {
+      const brut = await ctx.appelLLM(() => {
+        coupee.envoyee = true;
+        return deps.stream(msgs, toolsPayload, {
           modelOverride: model,
           userId: username,
-          onContentToken: () => undefined,
+          onContentToken: (t) => ctx.c.surTexteSynthese?.(t),
+          surFluxCoupe: (f) => {
+            coupee.flux = f;
+          },
           isCancelled: ctx.c.isCancelled,
           signal,
           samplingOverride,
           thinkingMode: false,
           chatId,
+          ...ctx.optionsSlot(),
           toolChoice: "none",
-        }),
-      );
+        });
+      });
       const usage = (brut["usage"] || {}) as Dict;
       if (intPy(usage["prompt_tokens"] || 0) > 0) dernierUsage = { ...usage };
       rec.cumulIn += Number(usage["prompt_tokens"] ?? 0);
@@ -392,6 +414,7 @@ export async function finishOnLimit(
       if (synthese && onEvent) await emit(onEvent, { type: "content_token", text: synthese });
     } catch (e) {
       if (estErreurAnnulation(e) || signal?.aborted) {
+        if (coupee.envoyee) rec.noterCoupee(usageRequeteCoupee(coupee.flux));
         await rec.emitPartialSnapshot(onEvent);
         throw e;
       }
@@ -423,6 +446,11 @@ export async function finishOnLimit(
     partiel =
       "Le moteur a renvoyé plusieurs réponses vides d'affilée : je m'arrête pour ne pas boucler. Le travail déjà " +
       "effectué est conservé — relancez avec « Continuer ».";
+  if (a.wrapUpStop && vide())
+    partiel =
+      "My parent asked me to wrap up before I could write my report." +
+      (appelsFaits ? ` ${appelsFaits} tool call(s) succeeded.` : "") +
+      " The work is not finished: resume this agent with its task_id to continue.";
   if (vide()) {
     const outils = appelsFaits ? ` ${appelsFaits} appel(s) d'outil ont abouti.` : "";
     const constat = a.wallclockStop

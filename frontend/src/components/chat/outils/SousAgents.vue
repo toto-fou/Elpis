@@ -1,21 +1,24 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/chat/outils/SousAgents.vue — lignes persistantes des sous-agents (outil task) : état, jetons, étape, bilan du harnais (statut, appels, durée, lecture seule, détails dépliables), déroulé et arrêt. -->
+<!-- frontend/src/components/chat/outils/SousAgents.vue — lignes persistantes des sous-agents (outil task) : état, jetons consommés (contexte en infobulle), étape, bilan du harnais (statut, appels, durée, lecture seule, détails dépliables), déroulé et arrêt. -->
 <script setup lang="ts">
 import { computed, ref, useId } from "vue";
 
 import {
+  aReflechi,
   arretSurBudget,
   classeStatutTache,
+  classeVerdictTache,
   detailsTache,
   fmtAppelsTache,
   fmtDureeTache,
   libelleEtatRun,
-  libelleSourceLectureSeule,
   libelleStatutTache,
+  libelleVerdictTache,
   resumeDetailsTache,
   signeEtatRun,
+  statutReserve,
 } from "../../../features/chat/outils/bilan-tache";
-import { fmtTokensCourt } from "../../../features/chat/outils/format";
+import { jetonsAgent } from "../../../features/chat/outils/agents";
 import type { ExecutionSousAgent } from "../../../features/chat/outils/types";
 import DetailsSousAgent from "./DetailsSousAgent.vue";
 
@@ -37,14 +40,18 @@ function basculer(i: number): void {
 }
 // Bilan affiché une fois le run fini : pendant le direct, la ligne garde son étape.
 const lignes = computed(() =>
-  props.runs.map((run) => ({ run, bilan: run.state !== "running" && run.harness ? run.harness : null })),
+  props.runs.map((run) => ({
+    run,
+    bilan: run.state !== "running" && run.harness ? run.harness : null,
+    jetons: jetonsAgent(run),
+  })),
 );
 </script>
 
 <template>
   <div class="task-runs" role="status" aria-live="polite">
     <div
-      v-for="({ run, bilan }, rui) in lignes"
+      v-for="({ run, bilan, jetons }, rui) in lignes"
       :key="'trun' + rui"
       :style="run.depth ? { paddingLeft: run.depth * 1.25 + 'rem' } : null"
     >
@@ -57,7 +64,7 @@ const lignes = computed(() =>
               ? 'ph-hourglass-medium'
               : run.state === 'running'
                 ? 'ph-spinner-gap animate-spin is-running'
-                : SIGNES[signeEtatRun(run.state)]
+                : SIGNES[signeEtatRun(run.state, statutReserve(run))]
           "
         ></i>
         <img
@@ -70,12 +77,20 @@ const lignes = computed(() =>
           >{{ run.agent }}<template v-if="run.label"> — {{ run.label }}</template></span
         >
         <span
-          v-if="typeof run.tokens === 'number'"
+          v-if="jetons.conso"
           class="task-run-tokens"
           :class="{ 'is-live': run.state === 'running' }"
+          :title="jetons.detail"
+          data-task-conso
+          >{{ jetons.conso }}</span
         >
-          {{ fmtTokensCourt(run.tokens) }} jetons
-        </span>
+        <span
+          v-if="run.background"
+          class="task-run-meta"
+          title="Lancé en fond : il continue après la fin du tour et son rapport arrive plus tard ; le Stop du tour ne l'arrête pas"
+          data-task-fond
+          >· en fond</span
+        >
         <span v-if="run.state === 'running' && !run.id" class="task-run-meta">· En attente</span>
         <span v-else-if="run.state === 'running' && run.progress" class="task-run-meta">
           · étape {{ run.progress.step
@@ -113,10 +128,25 @@ const lignes = computed(() =>
         <span class="task-run-badge" :class="classeStatutTache(bilan.status)" data-task-status>{{
           libelleStatutTache(bilan.status)
         }}</span>
-        <span class="task-run-meta" title="Appels d'outils de ce lancement sur son budget" data-task-calls
+        <span
+          v-if="bilan.verdict"
+          class="task-run-badge"
+          :class="classeVerdictTache(bilan.verdict)"
+          title="Verdict déclaré par l'agent de vérification"
+          data-task-verdict
+          >{{ libelleVerdictTache(bilan.verdict) }}</span
+        >
+        <span class="task-run-meta" title="Appels d'outils de ce lancement" data-task-calls
           >{{ fmtAppelsTache(bilan) }} appels</span
         >
         <span class="task-run-meta" data-task-duration>· {{ fmtDureeTache(bilan) }}</span>
+        <span
+          v-if="aReflechi(run)"
+          class="task-run-meta"
+          title="L'agent a réfléchi avant d'agir ; sa réflexion ne remonte pas dans le chat"
+          data-task-thinking
+          >· réflexion</span
+        >
         <span
           v-if="arretSurBudget(bilan)"
           class="task-run-meta"
@@ -124,15 +154,7 @@ const lignes = computed(() =>
           data-task-arret
           >· arrêt sur budget</span
         >
-        <span
-          v-if="bilan.read_only"
-          class="task-run-ro"
-          :title="
-            bilan.read_only_source
-              ? 'Lecture seule : ' + libelleSourceLectureSeule(bilan.read_only_source)
-              : 'Lecture seule'
-          "
-          data-task-ro
+        <span v-if="bilan.read_only" class="task-run-ro" title="Lecture seule" data-task-ro
           ><i class="ph ph-lock-simple" aria-hidden="true"></i>lecture seule</span
         >
         <button

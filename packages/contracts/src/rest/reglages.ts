@@ -2,7 +2,7 @@
 /** packages/contracts/src/rest/reglages.ts — réglages du compte (`/api/settings`), avatars, modèles de sous-agents, aide en ligne. */
 import { z } from "zod";
 
-import { schemaLectureSeuleAgents } from "./admin-agents";
+import { modeReflexionAgent, schemaLectureSeuleAgents, schemaReflexionAgents } from "./admin-agents";
 import { dictionnaire, entier } from "./commun";
 
 const reglagesEcrivables = {
@@ -76,6 +76,8 @@ const reglagesEcrivables = {
   footer_metrics: z.enum(["full", "essential", "hidden"]),
   /** Densité du fil : confortable (défaut), compacte. */
   thread_density: z.enum(["comfortable", "compact"]),
+  /** Réglages du panneau Génération (échantillonnage, longueur, réflexion, tours d'outils), communs à tous les chats du compte. */
+  sampling_override: dictionnaire,
 };
 
 /** Corps du PUT : clés connues de la liste blanche, toutes facultatives ; le serveur ignore les autres. */
@@ -148,7 +150,7 @@ export type Reglages = z.infer<typeof schemaReglages>;
 export const schemaReponseAvatar = z.object({ ok: z.literal(true), avatar: z.string() });
 export type ReponseAvatar = z.infer<typeof schemaReponseAvatar>;
 
-/** Entrée canonique de `custom_agents` : agent personnel, ou surcharge d'un livré (même nom) ; `read_only` : case « Lecture seule » du compte, absente = défaut de l'administrateur pour le type (`custom` pour un agent personnel). */
+/** Entrée canonique de `custom_agents` : agent personnel, ou surcharge d'un livré (même nom) ; `read_only` : case « Lecture seule » du compte, `thinking` : réflexion de l'agent, absents = défaut de l'administrateur pour le type (`custom` pour un agent personnel) ; `user_browser_session` : l'agent peut utiliser la session web du compte. */
 export const schemaEntreeAgentCompte = z.looseObject({
   name: z.string(),
   description: z.string(),
@@ -158,6 +160,8 @@ export const schemaEntreeAgentCompte = z.looseObject({
   max_iters: entier.optional(),
   enabled: z.literal(false).optional(),
   read_only: z.boolean().optional(),
+  thinking: modeReflexionAgent.optional(),
+  user_browser_session: z.literal(true).optional(),
 });
 export type EntreeAgentCompte = z.infer<typeof schemaEntreeAgentCompte>;
 
@@ -171,10 +175,12 @@ export const schemaModeleAgent = z.object({
   read_only_default: z.boolean(),
   read_only_forced: z.boolean(),
 });
-/** `read_only_policy` : défauts et impositions par type, `custom` valant pour les agents personnels. */
+/** `read_only_policy` et `thinking_policy` : réglages de l'administrateur par type, `custom` valant pour les agents personnels ; `user_browser_session_allowed` : faux, la case « session web » est grisée (absent : permise). */
 export const schemaReponseModelesAgents = z.object({
   templates: z.array(schemaModeleAgent),
   read_only_policy: schemaLectureSeuleAgents,
+  thinking_policy: schemaReflexionAgents,
+  user_browser_session_allowed: z.boolean().optional(),
 });
 export type ReponseModelesAgents = z.infer<typeof schemaReponseModelesAgents>;
 

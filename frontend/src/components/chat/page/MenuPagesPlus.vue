@@ -22,7 +22,12 @@ const position = ref({ left: 0, top: 0 });
 const idMenu = props.compact ? "elpis-menu-plus-rail" : "elpis-menu-plus";
 
 const pages = computed(() =>
-  pagesPlus({ rag: b.ragAllowed, images: b.imageAvailable, opencode: !!b.features.opencode }),
+  pagesPlus({
+    rag: b.ragAllowed,
+    images: b.imageAvailable,
+    opencode: !!b.features.opencode,
+    agents: !!b.features.agents,
+  }),
 );
 const active = computed(() => pagePlusActive(b.currentView, pages.value));
 // Les deux vues du volet restent montées : seule celle qui est affichée ouvre son sous-menu.
@@ -32,6 +37,7 @@ const ouvrirPage: Record<PagePlus["vue"], () => unknown> = {
   rag: () => b.openRagPage(),
   bibliotheque: () => b.openImageGallery("all"),
   studio: () => b.openStudio(),
+  agents: () => b.openAgentsPage(),
   code: () => b.openCodePage(),
 };
 

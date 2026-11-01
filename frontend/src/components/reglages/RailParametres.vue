@@ -26,10 +26,6 @@ function choisir(id: string): void {
     usage: () => rg.loadUsageData(),
     connexions: () => rg.loadConnexions(),
     memory: () => rg.loadUserMemory(),
-    agents: () => {
-      void rg.loadMcpUserCategories();
-      void rg.loadAgentTemplates();
-    },
     prompts: () => {
       void rg.loadSavedPrompts();
       void rg.loadPromptTemplates();

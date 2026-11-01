@@ -17,6 +17,7 @@ import {
 } from "@elpis/commun";
 
 import { stripInternalKeys } from "../contexte/elagage";
+import { measuredRequestTokens } from "../contexte/tokens";
 
 import { currentTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
@@ -36,6 +37,7 @@ import {
 } from "../llm/fournisseurs/llama-flux";
 import { buildLlamaPayload, consumeLlamaSse, SseStreamResult } from "../llm/fournisseurs/llamacpp";
 import * as oai from "../llm/fournisseurs/openai-compat";
+import { bornerLongueurALaFenetre } from "../llm/constantes";
 import { getModelContextSize } from "../llm/modeles";
 import { currentEngine } from "../llm/moteurs";
 import {
@@ -67,6 +69,7 @@ import { coalesceSystemMessages, extractThinking, http4xx } from "./chat-commun"
 import { captureLlmExchange } from "./journal-llm";
 import { controleRaisonnement } from "./ports";
 import { buildContentResumeTail, buildResumeTail } from "./reprise-raisonnement";
+import type { FluxCoupe } from "./usage-requete";
 
 const log = journal("boucle.flux-llm");
 
@@ -93,6 +96,13 @@ export interface OptionsFlux {
   /** Profil d'échantillonnage (`chat` pour les appels uniques sans outils, sinon `tools`/`thinking`). */
   samplingTask?: string;
   slotAvoidOwn?: boolean;
+  /** Affinité de slot llama.cpp : clé hachée (défaut : le chatId), slots à éviter, slot préféré (le dernier de l'appelant), observateur du slot retenu. */
+  slotKey?: string | null;
+  slotAvoid?: (() => Iterable<number>) | null;
+  slotPrefere?: (() => number | null) | null;
+  surSlot?: ((slot: number) => void) | null;
+  /** Reçoit ce que le flux a vu d'une requête annulée (usage, `timings` par jeton de llama.cpp, progression du préremplissage) : sa consommation n'est pas perdue. */
+  surFluxCoupe?: ((f: FluxCoupe) => void) | null;
 }
 
 /** Tâches d'arrêt détachées, gardées jusqu'à leur fin. */
@@ -496,6 +506,20 @@ export async function llamaChatWithToolsStream(
   if (o.resumeThink !== null && o.resumeThink !== undefined && llamacppSrv)
     resumeNative = Boolean(resumeNativeOk && continueFinalSupport(targetModel) !== false);
 
+  // Une longueur demandée plus grande que la place libre partirait en refus « contexte dépassé » (SGLang, vLLM) : elle est réduite à l'envoi.
+  const bornerALaFenetre = async (p: Dict): Promise<void> => {
+    let ctx: number;
+    try {
+      ctx = await getModelContextSize(targetModel);
+    } catch {
+      ctx = 0;
+    }
+    const m = Array.isArray(p["messages"]) ? (p["messages"] as unknown[]) : [];
+    const outils = Array.isArray(p["tools"]) ? (p["tools"] as unknown[]) : null;
+    for (const b of bornerLongueurALaFenetre(p, ctx, measuredRequestTokens(m, outils, targetModel)))
+      log.info(`[LLM_REQ ${reqId}] ${b.cle} ramené de ${b.demandee} à ${b.envoyee} (fenêtre ${ctx})`);
+  };
+
   const construire = async (nativeResume: boolean): Promise<Dict> => {
     let m: unknown[] = msgs;
     let tm = thinkingMode;
@@ -522,12 +546,17 @@ export async function llamaChatWithToolsStream(
       reasoningEffort: sanitizeReasoningEffort(o.samplingOverride),
       preserveReasoning: sanitizePreserveReasoning(o.samplingOverride),
       slotAvoidOwn: o.slotAvoidOwn ?? false,
+      slotKey: o.slotKey ?? null,
+      slotAvoid: o.slotAvoid ?? null,
+      slotPrefere: o.slotPrefere ?? null,
+      surSlot: o.surSlot ?? null,
     });
     Object.assign(p, drapeaux);
     if (toolsPayload && toolsPayload.length) {
       p["tools"] = outilsPourEnvoi(toolsPayload);
       p["tool_choice"] = toolChoice === "auto" || toolChoice === "none" ? toolChoice : "auto";
     }
+    await bornerALaFenetre(p);
     oai.sanitizePayload(p, target);
     return p;
   };
@@ -551,6 +580,7 @@ export async function llamaChatWithToolsStream(
 
   const retries = Number(config.LLAMA_RETRIES);
   let lastErr: unknown = null;
+  let fluxVu: SseStreamResult | null = null;
   for (let attempt = 0; attempt < retries + 1; attempt++) {
     let contentParts: string[] = [];
     let thinkingParts: string[] = [];
@@ -568,6 +598,7 @@ export async function llamaChatWithToolsStream(
       });
       let sse = new SseStreamResult();
       sse.debutMs = debutMs;
+      fluxVu = sse;
       try {
         if (resp.statusCode >= 400) await auMieux("lecture du corps d'erreur", () => resp.aread());
         if (resp.statusCode === 500) return await repli500(client, reqUrl, reqHeaders, payload, o);
@@ -611,6 +642,7 @@ export async function llamaChatWithToolsStream(
           });
           if (reprise === null) throw coupure;
           sse = reprise;
+          fluxVu = sse;
           contentParts = sse.contentParts;
           thinkingParts = sse.thinkingParts;
           toolCallsAcc = sse.toolCallsAcc;
@@ -709,6 +741,9 @@ export async function llamaChatWithToolsStream(
     } catch (e) {
       if (estErreurAnnulation(e) || o.signal?.aborted) {
         fireCancelStream(client, target, convId, targetModel);
+        const vu = fluxVu;
+        if (vu !== null)
+          o.surFluxCoupe?.({ usage: vu.usage, timings: vu.timings, progression: vu.promptProgress });
         throw e;
       }
       lastErr = e;

@@ -14,7 +14,7 @@ import { getLlmClient } from "../llm/client-http";
 import { engineCaps } from "../llm/fournisseurs/llama-capacites";
 import { endReasoning } from "../llm/fournisseurs/llama-flux";
 import { BUILTIN_KEY, resolveEngineForUser } from "../llm/moteurs";
-import { cancelChild } from "../outils/integres/taches-agents";
+import { cancelChild } from "../outils/integres/task/registre";
 import { getRun } from "../routines/magasin";
 import { planificateurDuProcess } from "../routines/planificateur";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";

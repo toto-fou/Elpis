@@ -2,6 +2,7 @@
 /** apps/core/src/contexte/etat-compression.ts — état persisté de la compression (porteur du résumé, ligne META, tours couverts). */
 import { intPy, maxPy, minPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { estDict, lire } from "../python";
 import type { Dict } from "../python";
@@ -45,7 +46,7 @@ function noteSurchargee(): string {
   }
 }
 
-/** Message system porteur : marqueurs, note de ré-injection (`compression.reinjection_note`, `{n}`), registre hors marqueurs. */
+/** Message system porteur : marqueurs, note de ré-injection (`compression.reinjection_note`, `{n}`), registre hors marqueurs ; résumé et registre aux marqueurs de tour inertes. */
 export function formatSummaryAsSystemMessage(
   summaryXml: string,
   turnsCompressed: number,
@@ -56,8 +57,8 @@ export function formatSummaryAsSystemMessage(
     "period. The messages that follow are the most recent, up-to-date ones.)";
   const ov = noteSurchargee();
   if (ov) note = ov.includes("{n}") ? ov.replaceAll("{n}", strPy(turnsCompressed)) : ov;
-  let body = `${SUMMARY_MARKER_START}\n${stripPy(summaryXml)}\n${SUMMARY_MARKER_END}\n\n${note}`;
-  if (stripPy(ledgerBlock || "")) body += `\n\n${stripPy(ledgerBlock)}`;
+  let body = `${SUMMARY_MARKER_START}\n${neutraliserMarqueursTour(stripPy(summaryXml))}\n${SUMMARY_MARKER_END}\n\n${note}`;
+  if (stripPy(ledgerBlock || "")) body += `\n\n${neutraliserMarqueursTour(stripPy(ledgerBlock))}`;
   return { role: "system", content: body };
 }
 

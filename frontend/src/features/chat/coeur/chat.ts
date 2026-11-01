@@ -101,6 +101,8 @@ export function setupChat(
       activeModelIds: e.activeModelIds,
       selectedConnector: e.selectedConnector,
       selectedEngineMeta: e.selectedEngineMeta,
+      settings,
+      ctxUsage: e.ctxUsage,
     } as unknown as RefsEchantillonnage,
     { fetchAuth: ctx.fetchAuth, showToast: ctx.showToast },
   );
@@ -154,6 +156,9 @@ export function setupChat(
       },
       get rag() {
         return ctx.ragCommande ?? null;
+      },
+      get agents() {
+        return ctx.agentsCommande ?? null;
       },
       get userName() {
         const u = user.value;
@@ -621,6 +626,7 @@ export function setupChat(
     conversationTooLong: e.conversationTooLong,
     ctxRealPct: e.ctxRealPct,
     ctxUsage: e.ctxUsage,
+    cacheConversation: Vue.computed(() => formats.cacheConversationDe(messages.value, e.selectedModel.value)),
     fmtCtxUsage: formats.fmtCtxUsage,
     applyChatCtxUsage: outils.applyChatCtxUsage,
     toolLimitLabel: formats.toolLimitLabel,
@@ -698,6 +704,10 @@ export function setupChat(
     effectiveParamsLoading: ech["effectiveParamsLoading"],
     ignoredByEngine: ech["ignoredByEngine"],
     isIgnoredByEngine: ech["isIgnoredByEngine"],
+    raisonIgnore: ech["raisonIgnore"],
+    modeLongueur: ech["modeLongueur"],
+    choisirModeLongueur: ech["choisirModeLongueur"],
+    placeFenetre: ech["placeFenetre"],
     openSamplingPanel: ech["openSamplingPanel"],
     closeSamplingPanel: ech["closeSamplingPanel"],
     loadEffectiveParams: ech["loadEffectiveParams"],

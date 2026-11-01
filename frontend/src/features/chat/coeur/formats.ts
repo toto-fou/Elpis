@@ -12,6 +12,7 @@ const LIBELLES_ARRET: Readonly<Record<string, string>> = {
   steps: "Budget de tours atteint",
   hard: "Trop d'appels d'outils en échec",
   wallclock: "Budget de temps atteint",
+  wrap_up: "Conclusion demandée par l'agent parent",
   ctx_saturated: "Contexte saturé",
   gen_cap: "Appels d'outils trop longs",
   cycle: "Boucle d'action détectée",
@@ -106,6 +107,29 @@ function postes(m: Objet | null | undefined): DetailTokens {
 export function cachePctOf(m: Objet | null | undefined): number {
   if (!m || !(nombre(m["cache_read_input_tokens"]) > 0) || !(nombre(m["input_tokens"]) > 0)) return 0;
   return postes(m).cache_pct;
+}
+
+export interface CacheConversation {
+  lu: number;
+  entree: number;
+  pct: number;
+}
+
+/** Cache repris par le modèle choisi sur la conversation (tous les modèles si `modele` est vide) ; null si aucun jeton relu. */
+export function cacheConversationDe(
+  messages: readonly MessageChat[],
+  modele: string,
+): CacheConversation | null {
+  let lu = 0;
+  let entree = 0;
+  for (const m of messages) {
+    if (m.role !== "assistant" || !m.metrics) continue;
+    if (modele && m.metrics["model"] !== modele) continue;
+    const b = postes(m.metrics);
+    lu += b.cache;
+    entree += b.input;
+  }
+  return lu > 0 && entree > 0 ? { lu, entree, pct: Math.round((lu / entree) * 100) } : null;
 }
 
 export function cacheTitle(m: Objet | null | undefined): string {
@@ -260,6 +284,8 @@ export function toolIconFor(name: unknown): string {
   const n = String(name || "").toLowerCase();
   const a = (...xs: string[]): boolean => xs.some((x) => n.includes(x));
   if (n === "shell_job") return "ph-timer";
+  if (n === "task_status" || n === "task_wait") return "ph-hourglass-medium";
+  if (n === "task_send") return "ph-chat-circle-text";
   if (a("search", "grep", "find")) return "ph-magnifying-glass";
   if (a("write", "save", "create")) return "ph-pencil-simple-line";
   if (a("edit", "replace", "patch")) return "ph-pencil-simple";

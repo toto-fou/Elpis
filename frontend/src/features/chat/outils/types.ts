@@ -105,15 +105,22 @@ export type PatchUiMessage = Readonly<Record<string, unknown>>;
 
 export interface ExecutionSousAgent {
   id?: string | null;
-  /** Appel `task` qui l'a lancé (ligne du fil, volet de l'agent). */
+  /** Appel `task` qui l'a lancé (ligne du fil, fenêtre de l'agent). */
   callId?: string | null;
   agent?: string;
   label?: string | null;
   depth?: number;
   state?: string;
+  /** Occupation du contexte de l'agent (dernière requête), affichée à part de sa consommation. */
   tokens?: number | null;
   progress?: { step?: number; max_steps?: number | null } | null;
   steps_total?: number | null;
+  /** Consommation rapportée par le moteur, cumulée sur ses requêtes : entrée (part en cache comprise), sortie (réflexion comprise). */
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_tokens?: number | null;
+  /** Jetons de réflexion mesurés (étape finale, run persisté) ; absent sur les anciens runs. */
+  think_tokens?: number | null;
   transcript?: readonly unknown[] | null;
   cancelRequested?: boolean;
   /** Bloc du harnais validé à la réception ; absent sur les anciens runs. */
@@ -123,6 +130,9 @@ export interface ExecutionSousAgent {
   duration_ms?: number | null;
   /** Horodatage du lancement (direct) : horloge de la ligne et du volet. */
   startedAt?: number;
+  /** Lancé en fond (`task(background=true)`) : il survit au tour, son état suit son job. */
+  background?: boolean;
+  job_id?: string | null;
 }
 
 export interface TacheSession {

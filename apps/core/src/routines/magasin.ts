@@ -140,7 +140,7 @@ export function rowToRoutine(row: Ligne): Dict {
   d["thinking_mode"] = veritePy(d["thinking_mode"]);
   d["enabled"] = veritePy(d["enabled"]);
   d["connector_id"] = veritePy(d["connector_id"]) ? intPy(d["connector_id"]) : null;
-  d["agents_enabled"] = veritePy(d["agents_enabled"]);
+  d["agents_enabled"] = false;
   const secret = d["webhook_secret"];
   delete d["webhook_secret"];
   d["webhook_has_secret"] = veritePy(secret);

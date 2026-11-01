@@ -464,7 +464,7 @@ async function versAssistantSkill(): Promise<void> {
           </label>
         </section>
 
-        <!-- ═══════ Outils : MCP, skills, agents ═══════ -->
+        <!-- ═══════ Outils : MCP, skills ═══════ -->
         <section v-show="rt.routineEditTab === 'tools'" class="space-y-3">
           <!-- Serveurs MCP : UN seul conteneur, deux groupes séparés par un filet -->
           <div>
@@ -665,56 +665,6 @@ async function versAssistantSkill(): Promise<void> {
                 </span>
               </div>
             </div>
-          </div>
-        </section>
-
-        <!-- ═══════ AGENTS ═══════ -->
-        <!-- Opt-in PAR ROUTINE de l'outil ``task`` -->
-        <section v-show="rt.routineEditTab === 'tools'" class="space-y-3 mt-6 pt-5 border-t border-slate-100">
-          <!-- Interrupteur MAÎTRE d'instance coupé : on le DIT au lieu de laisser cocher une case que le serveur ignorera. -->
-          <p
-            v-if="!rt.features?.agents"
-            class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
-          >
-            Sous-agents désactivés sur cette instance (réglage administrateur).
-          </p>
-          <label
-            class="relative flex items-center gap-2 w-fit"
-            :class="rt.features?.agents ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'"
-          >
-            <input
-              v-model="rt.routineForm.agents_enabled"
-              type="checkbox"
-              :disabled="!rt.features?.agents"
-              class="peer absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
-            <span class="text-xs text-slate-600">Déléguer à des sous-agents</span>
-          </label>
-          <div
-            v-if="rt.routineForm.agents_enabled && rt.features?.agents"
-            class="border border-slate-200 rounded-lg p-3 space-y-1.5"
-          >
-            <div class="text-[11px] font-medium text-slate-500">Agents disponibles pendant l’exécution</div>
-            <div class="flex flex-wrap gap-1">
-              <span
-                v-for="a in rt.ROUTINE_BUILTIN_AGENTS"
-                :key="a.name"
-                :title="a.hint"
-                class="text-[11px] px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 font-mono"
-                >{{ a.name }}</span
-              >
-              <span
-                v-for="a in rt.settings.custom_agents || []"
-                :key="'c:' + a.name"
-                :title="a.description || 'agent personnalisé'"
-                class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-mono"
-                >{{ a.name }}</span
-              >
-            </div>
-            <p class="text-[10px] text-slate-400">
-              Contexte, jetons et écritures sandbox propres à chaque agent — comptés dans le journal du run.
-            </p>
           </div>
         </section>
 

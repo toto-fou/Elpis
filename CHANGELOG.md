@@ -70,6 +70,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   skills, liste de tâches, résumé de compaction, brief d'un sous-agent, prompt d'une
   routine, titre) neutralisent leurs marqueurs à leur rendu dans le prompt.
 
+### Sous-agents
+
+- **Routines sans sous-agents.** Une routine est une tâche récurrente qu'un seul agent
+  mène : `task`, `task_status`, `task_wait` et `task_send` lui sont refusés, la section
+  Sous-agents quitte son formulaire et sa fiche ; `agents_enabled` d'une routine est
+  ignoré et rendu faux (colonne et champ d'API gardés).
+
 ### Pour l'exploitant
 
 - **Habillages personnels : `skins.user_custom` et `skins.user_max`.** Actifs

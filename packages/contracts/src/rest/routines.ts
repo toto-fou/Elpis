@@ -27,6 +27,7 @@ export const schemaRoutine = z.object({
   webhook_filter: dictionnaire,
   trigger_after_id: entier.nullable(),
   trigger_after_on: z.enum(["ok", "error", "always"]),
+  /** Toujours faux : une routine n'a pas de sous-agents (champ gardé pour les clients existants). */
   agents_enabled: z.boolean(),
   connector_id: entier.nullable(),
   webhook_has_secret: z.boolean(),
@@ -55,6 +56,7 @@ export const schemaCorpsRoutine = z.object({
   enabled: z.boolean().optional(),
   trigger_after_id: z.union([entier, z.string(), z.null()]).optional(),
   trigger_after_on: z.enum(["ok", "error", "always"]).optional(),
+  /** Ignoré : une routine n'a pas de sous-agents. */
   agents_enabled: z.boolean().optional(),
   runs_keep: z.union([entier, z.string(), z.null()]).optional(),
   notify_on: z.enum(["all", "error", "none"]).nullable().optional(),

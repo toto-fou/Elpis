@@ -1021,13 +1021,11 @@ L'édition se fait en plein écran, par onglets :
 | **Prompt** | Le prompt système et la tâche à exécuter |
 | **MCP** | Les outils locaux et serveurs externes disponibles pendant le run |
 | **Skills** | Les skills attachés |
-| **Agents** | Autoriser (ou non) la délégation à des sous-agents |
 
 Le modèle et le mode réflexion se choisissent également.
 
-> ⚠ Les sous-agents sont un choix **par routine**, jamais hérité de votre
-> réglage de chat : un run sans personne devant l'écran qui ouvre des boucles
-> agentiques supplémentaires, ça se décide explicitement.
+Une routine n'a pas de sous-agents : c'est une tâche récurrente qu'un seul
+agent mène, même si les sous-agents sont activés pour vos conversations.
 
 ### Déclencheurs
 

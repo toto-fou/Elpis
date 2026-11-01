@@ -740,3 +740,7 @@ L'agent du bac reste en Python. Trois exceptions à la règle « pas de correcti
 
 L'agent est monté depuis le dépôt : après une mise à jour, l'hôte d'outils le relance au premier appel quand son
 empreinte change.
+- **Routines sans sous-agents** : le Python offrait `task` à une routine dont `agents_enabled` était coché.
+  Le TS ne le fait jamais (une routine est une tâche récurrente qu'un seul agent mène) : `task`, `task_status`
+  et `task_wait` sont refusés en dur, `agents_enabled` est ignoré à l'écriture et rendu faux (colonne et champ
+  d'API gardés ; vecteurs ramenés par `apps/core/test/ecart-routines-sans-agents.ts`).

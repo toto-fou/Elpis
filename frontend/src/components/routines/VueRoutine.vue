@@ -89,13 +89,6 @@ const vu = computed(() => rt.viewed as RoutineListee);
                 <div class="text-[11px] font-semibold text-slate-500 mb-0.5">Réflexion</div>
                 <div class="text-slate-700">{{ vu.thinking_mode ? "Activée" : "Désactivée" }}</div>
               </div>
-              <!-- Sous-agents : lisible SANS ouvrir l'éditeur — un réglage qui change ce que la routine fait toute seule doit -->
-              <div>
-                <div class="text-[11px] font-semibold text-slate-500 mb-0.5">Sous-agents</div>
-                <div :class="vu.agents_enabled ? 'text-slate-700' : 'text-slate-400'">
-                  {{ vu.agents_enabled ? "Activés" : "Désactivés" }}
-                </div>
-              </div>
               <!-- Historique : ce que la routine garde (journal) et ce qu'elle pousse au centre de notifications — lisible sans -->
               <div data-routine-history-view>
                 <div class="text-[11px] font-semibold text-slate-500 mb-0.5">Journal</div>

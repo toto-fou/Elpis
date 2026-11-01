@@ -28,14 +28,7 @@ import {
 import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import {
-  clientBuiltinRef,
-  personalToConfig,
-  resolveConfig,
-  resolveExternalCfg,
-  resolveForAgents,
-  sharedId,
-} from "@elpis/mcp";
+import { clientBuiltinRef, personalToConfig, resolveConfig, resolveExternalCfg, sharedId } from "@elpis/mcp";
 import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { extractThinking } from "../boucle/chat-commun";
@@ -54,8 +47,6 @@ import { getLlmHealth } from "../llm/sante";
 import { pousserNotification } from "../notifications/envoi";
 import { pruneRefNotifications } from "../notifications/stockage";
 import { toolsDeniedFor } from "../outils/categories";
-import type { OutilIntegre } from "../outils/catalogue";
-import { buildTaskBuiltinTool } from "../outils/integres/taches-agents";
 import { buildAttachedSkillsBlock } from "../prompts/systeme";
 import {
   admitAndInsertRun,
@@ -205,9 +196,9 @@ export function minutesNonEvaluees(maintenant: Date, derniere: string): number {
   return Math.floor((apres - avant) / 60_000) - 1;
 }
 
-/** Outils retirés à une routine : `ask_user` et `routine_save` en dur, plus ceux de la politique du registre. */
+/** Outils retirés à une routine : `ask_user`, `routine_save` et les sous-agents (`task`, `task_status`, `task_wait`) en dur, plus ceux de la politique du registre. */
 export function deniedForRoutine(): Set<string> {
-  const dur = ["ask_user", "routine_save"];
+  const dur = ["ask_user", "routine_save", "task", "task_status", "task_wait"];
   try {
     return new Set([...dur, ...toolsDeniedFor("routine", dur)]);
   } catch {
@@ -755,41 +746,6 @@ export class Planificateur {
         } catch {
           memoire = false;
         }
-        const usage: Dict = {};
-        let integres: Record<string, OutilIntegre> | null = null;
-        if (veritePy(routine["agents_enabled"])) {
-          if (veritePy(config.AGENTS_ENABLED)) {
-            try {
-              const serveursAgents = await resolveForAgents(this.base, reglages, { allowStdio: stdioOk });
-              const outils = buildTaskBuiltinTool({
-                parentMcpConfigs: mcpConfigs,
-                parentBuiltinTools: null,
-                username,
-                chatId: cleRun,
-                model: modele,
-                samplingOverride: null,
-                memoryEnabled: memoire,
-                isCancelled: estAnnule,
-                signal,
-                onEvent: null,
-                usageSink: usage,
-                customAgents: (ouPy(lire(reglages, "custom_agents"), []) as unknown[]) ?? [],
-                userMcpConfigs: serveursAgents,
-                userId: compte,
-                priority: "low",
-                runner: this.runner,
-              });
-              integres = Object.keys(outils).length ? outils : null;
-            } catch (e) {
-              if (estErreurAnnulation(e)) throw e;
-              log.warn(`[ROUTINES] run ${runId} : sous-agents non câblés (${reprErreur(e)})`);
-              integres = null;
-            }
-          } else
-            log.info(
-              `[ROUTINES] run ${runId} : sous-agents demandés mais coupés au niveau instance (AGENTS_ENABLED)`,
-            );
-        }
         let sortie: SortieRun | null = null;
         const refuses = deniedForRoutine();
         for (let essai = 1; essai <= REGLAGES.runMaxAttempts; essai++) {
@@ -801,7 +757,7 @@ export class Planificateur {
                 onEvent: null,
                 username,
                 model: modele,
-                builtinTools: integres,
+                builtinTools: null,
                 isCancelled: estAnnule,
                 signal,
                 chatId: cleRun,
@@ -835,8 +791,8 @@ export class Planificateur {
         } catch {
           resume = prefixePy(brut, 4000);
         }
-        const jetonsEntree = intPy(ouPy(m["input_tokens"], 0)) + intPy(ouPy(usage["input_tokens"], 0));
-        const jetonsSortie = intPy(ouPy(m["output_tokens"], 0)) + intPy(ouPy(usage["output_tokens"], 0));
+        const jetonsEntree = intPy(ouPy(m["input_tokens"], 0));
+        const jetonsSortie = intPy(ouPy(m["output_tokens"], 0));
         if (veritePy(m["ended_with_error"])) {
           const marque = await markRunError(this.base, runId, {
             error: "génération interrompue (erreur LLM) — réponse partielle conservée",

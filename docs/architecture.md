@@ -2862,9 +2862,9 @@ Voir [le diagramme](#sous-agents-outil-task) pour le flux. Points de conception 
 - **Registres en mémoire** : les sous-agents actifs et annulés vivent dans
   main (un seul process) ; la reprise passe par un magasin partagé, qui
   survit au tour parent.
-- **Opt-in** : per-user `settings.agents_enabled` (défaut OFF), per-routine
-  `agents_enabled` (défaut OFF, **jamais** hérité du chat), interrupteur maître
-  d'instance `llm.task.enabled` exposé au front comme `features.agents`.
+- **Opt-in** : per-user `settings.agents_enabled` (défaut OFF) et interrupteur maître
+  d'instance `llm.task.enabled` exposé au front comme `features.agents`. Une routine
+  n'en a jamais : son `agents_enabled` est ignoré à l'écriture et rendu faux.
 
 ---
 

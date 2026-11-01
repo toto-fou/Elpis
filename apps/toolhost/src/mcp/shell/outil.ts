@@ -41,7 +41,7 @@ import { executerDetache } from "./jobs/detache";
 import { shellJob } from "./jobs/outil";
 import type { AppuisJobs, ArgsJob, PortRappelJobs } from "./jobs/outil";
 import { veilleurJobs } from "./jobs/veilleur";
-import { PontExec, reglagesPont } from "./pont";
+import { enveloppeAnnulee, PontExec, reglagesPont } from "./pont";
 import type { OptionsShell } from "./pont";
 import { ATTENTE_DISQUE_MS, auPlus, rappelQuota, refusDisque, sousGardeDisque } from "../disque";
 import type { GardeDisque } from "../disque";
@@ -358,9 +358,11 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
         autoSpillRel: autoSpill,
         spillOverChars: a.plancherDebord(),
         resumerBinaire: true,
+        ...(args.background ? {} : { signal: ctx.signal }),
       });
     } catch (e) {
       await wc?.fin();
+      if (ctx.signal?.aborted) return { ...enveloppeAnnulee("execute_shell"), cmd: args.command };
       return errShell(`executor unavailable: ${strErreurAnglais(e)}`, REDEMARRER, { cmd: args.command });
     }
     if (args.background) {

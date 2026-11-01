@@ -31,7 +31,10 @@ autres routes du chat :
   rendrait 409 sur ce chat jusqu'au redémarrage.
 - **Adresses des serveurs MCP** : résolues côté serveur à la préparation, jamais reprises du client.
 - **Annulation** : par l'AbortSignal du tour (Stop : drapeau, contrôleur abandonné, session du moteur arrêtée),
-  jamais par les événements système (vérifié par les tests des mainteneurs). Le partiel est enregistré.
+  jamais par les événements système (vérifié par les tests des mainteneurs). Le partiel est enregistré. Le signal
+  atteint l'hôte d'outils (`notifications/cancelled`) : la commande shell de premier plan y est tuée dans le
+  conteneur (voir « Sous-agents » de `docs/architecture.md`) ; un client déconnecté dont le run se détache
+  n'abandonne rien.
 - **Client déconnecté** : le run se détache s'il est reprenable (`resumable`), si un outil a déjà tourné ou si
   `llm.detach_run_on_disconnect` est actif ; sinon il s'arrête en enregistrant le partiel. Un Stop l'arrête
   toujours. On s'y rattache par `GET /api/chat/{id}/run/events`, y compris après un redémarrage

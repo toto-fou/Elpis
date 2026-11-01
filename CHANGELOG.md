@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Secrets : emplacements de format laissés intacts.** Le masquage ne prend plus
+  pour un secret une affectation dont la valeur commence par `{nom}`,
+  `%(nom)s` ou `%s` : c'est un gabarit, pas une valeur.
 - **Git : `git_query(action="repos")` rend la racine du bac vue du conteneur.**
   `sandbox_root` vaut `/work`, le chemin que voit le modèle, et non plus un
   chemin relatif de l'hôte (`<compte>/work`) qu'un agent pouvait prendre pour un

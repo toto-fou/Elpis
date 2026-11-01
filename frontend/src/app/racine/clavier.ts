@@ -328,6 +328,12 @@ export function creerClavier(s: EtatClavier) {
       else s.currentView.value = "chat";
       return true;
     }
+    if (vue === "agents") {
+      // Dans la fiche, Échap revient à la grille ; sur la grille, au chat.
+      if (r?.agentForm.value) void r.leaveAgentForm();
+      else s.currentView.value = "chat";
+      return true;
+    }
     if (vue === "rag") {
       if (m.rag?.echapPage()) return true;
       if (m.rag) m.rag.fermer();

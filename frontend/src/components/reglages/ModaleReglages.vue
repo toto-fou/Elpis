@@ -4,7 +4,6 @@
 import { domaineReglages } from "../../features/reglages/domaine";
 import RecadrageImage from "../communs/RecadrageImage.vue";
 import OngletSkills from "../skills/OngletSkills.vue";
-import OngletAgents from "./onglets/OngletAgents.vue";
 import OngletApparence from "./onglets/OngletApparence.vue";
 import OngletArchives from "./onglets/OngletArchives.vue";
 import OngletChat from "./onglets/OngletChat.vue";
@@ -87,8 +86,6 @@ const rg = domaineReglages();
             <OngletSkills />
 
             <OngletMemoire v-if="rg.settingsTab === 'memory'" />
-
-            <OngletAgents v-if="rg.settingsTab === 'agents'" />
 
             <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
 

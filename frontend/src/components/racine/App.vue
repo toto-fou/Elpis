@@ -38,13 +38,13 @@ import FicheOutil from "../chat/modales/FicheOutil.vue";
 import FormulaireAssistant from "../chat/modales/FormulaireAssistant.vue";
 import GalerieImages from "../chat/modales/GalerieImages.vue";
 import ModaleAPropos from "../chat/modales/ModaleAPropos.vue";
+import ModaleAgent from "../chat/modales/ModaleAgent.vue";
 import ModaleAide from "../chat/modales/ModaleAide.vue";
 import ModaleAx from "../chat/modales/ModaleAx.vue";
 import ModaleOpenCode from "../chat/modales/ModaleOpenCode.vue";
 import ModaleTransfert from "../chat/modales/ModaleTransfert.vue";
 import ProprietesModele from "../chat/modales/ProprietesModele.vue";
 import RemplissageTemplate from "../chat/modales/RemplissageTemplate.vue";
-import VoletAgent from "../chat/modales/VoletAgent.vue";
 import VisionneuseImages from "../chat/modales/VisionneuseImages.vue";
 import ZoomImage from "../chat/modales/ZoomImage.vue";
 import PageCode from "../code/PageCode.vue";
@@ -55,6 +55,7 @@ import ModaleReglages from "../reglages/ModaleReglages.vue";
 import PanneauGeneration from "../reglages/PanneauGeneration.vue";
 import PanneauMcp from "../reglages/PanneauMcp.vue";
 import BulleSource from "../rag/BulleSource.vue";
+import PageAgents from "../agents/PageAgents.vue";
 import PageRag from "../rag/PageRag.vue";
 import VisionneuseSource from "../rag/VisionneuseSource.vue";
 import PageRoutines from "../routines/PageRoutines.vue";
@@ -151,10 +152,10 @@ fournirDomaineModales(r, false);
       <!-- Source citée d'une réponse du RAG : volet à droite du chat, à la place de l'éditeur de la sandbox. -->
       <VisionneuseSource v-if="!(r.showEditor && r.settings.enable_editor)" />
       <PanneauMcp />
-      <VoletAgent />
       <PanneauGeneration />
       <PageEditeur />
       <PageRoutines />
+      <PageAgents />
       <PageRag v-if="r.ragPage" />
       <PageStudio />
       <PageCode />
@@ -170,6 +171,7 @@ fournirDomaineModales(r, false);
   <ModalesGroupes />
   <ProprietesModele />
   <DetailsExecution />
+  <ModaleAgent />
   <ModaleAPropos />
   <ModaleOpenCode />
   <ModaleAide />

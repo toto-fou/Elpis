@@ -319,6 +319,15 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Page Agents.** Les agents ne sont plus un onglet des Paramètres : une page dédiée
+  s'ouvre depuis le sous-menu Plus (visible si les sous-agents sont permis) ou par la
+  commande `/agents` (`/agents on`, `/agents off`). Grille de cartes (livrés, puis
+  personnels) avec état écrit et interrupteur, bande fixe de cinq capacités (Lire,
+  Modifier, Terminal, Git, Web) ; la fiche d'un agent a quatre onglets (Général,
+  Outils, Droits, Instructions) et ses actions dans l'en-tête. L'onglet Droits écrit
+  sous chaque groupe l'effet du choix retenu (fichiers en écriture ou en lecture seule,
+  réflexion, et pour un agent qui a des outils web, session privée ou « Ma session
+  web »). Ouvrir l'ancien onglet redirige vers la page.
 - **Sous-agents : fenêtre, ligne et jetons.** Un clic sur la ligne d'un sous-agent (ou
   son icône œil) ouvre une fenêtre centrée au lieu du volet étroit à droite du fil :
   agent et mission, état, horloge et jetons, Arrêter ; puis la consigne, le bilan, le

@@ -13,6 +13,12 @@ export interface ChampAdmin {
   control: string;
 }
 
+/** Nom accessible du contrôle sans le « : <libellé> » qui le distingue à l'écran : la palette affiche déjà le libellé. */
+function sansSuffixeLibelle(nom: string, libelle: string): string {
+  const suffixe = ` : ${libelle}`;
+  return nom.toLowerCase().endsWith(suffixe.toLowerCase()) ? nom.slice(0, -suffixe.length) : nom;
+}
+
 interface Rangee {
   label: string;
   hint: string;
@@ -108,7 +114,7 @@ class Indexeur {
           path: df.slice(i + 1),
           label,
           hint: (row?.hint || (a.get("title") ?? "")).trim(),
-          control: (a.get("aria-label") ?? "").trim(),
+          control: sansSuffixeLibelle((a.get("aria-label") ?? "").trim(), label),
         });
       }
     }

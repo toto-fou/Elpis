@@ -12,6 +12,7 @@ import { setupAuth } from "../../features/auth/auth";
 import { GestionnaireSession } from "../../features/auth/session";
 import { setupChat } from "../../features/chat/coeur/chat";
 import { LOGO_ELPIS } from "../../features/communs/logo";
+import type { AgentsSlash } from "../../features/chat/composeur/slash";
 import type { CtxChat, MessageChat, RefsRacineChat } from "../../features/chat/coeur/types";
 import { purificateur } from "../../features/chat/rendu/instance";
 import { creerImportSandbox } from "../../features/editor/import-sandbox";
@@ -451,6 +452,20 @@ function creerCtx(l: LiensCtx) {
     get ragCommande() {
       return m.rag ? m.rag.commande : null;
     },
+    /** Commande `/agents` : ouvre la page, active ou désactive les sous-agents du compte. */
+    get agentsCommande(): AgentsSlash | null {
+      const r = m.reglages;
+      if (!r) return null;
+      return {
+        disponible: () => !!refs.features.value["agents"],
+        actifs: () => !!refs.settings.value.agents_enabled,
+        ouvrir: () => this.openAgentsPage(),
+        basculer: async (on: boolean) => {
+          refs.settings.value.agents_enabled = on;
+          await r.persistAgentsEnabled();
+        },
+      };
+    },
     /** Ce que le RAG lit du chat : collections actives, pièces jointes, fil. */
     chatPourRag() {
       const c = m.chat;
@@ -481,6 +496,21 @@ function creerCtx(l: LiensCtx) {
     },
     loadMcpUserCategories(): unknown {
       return m.chat ? m.chat.loadMcpUserCategories() : Promise.resolve();
+    },
+    /** Ouvre la page Agents sur la grille et relit ses données (réglages, catégories d'outils, modèles livrés). */
+    async openAgentsPage(): Promise<void> {
+      m.reglages?.cancelAgentForm();
+      refs.currentView.value = "agents";
+      await Promise.all([
+        m.reglages?.loadSettingsData(),
+        m.chat?.loadMcpUserCategories(),
+        m.reglages?.loadAgentTemplates(true),
+      ]).catch(() => undefined);
+    },
+    /** Referme la page Agents sur le chat, brouillon d'agent abandonné. */
+    closeAgentsPage(): void {
+      m.reglages?.cancelAgentForm();
+      refs.currentView.value = "chat";
     },
     openSkillsTab(): unknown {
       return m.skills ? m.skills.openSkillsTab() : Promise.resolve();
@@ -1112,6 +1142,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     ...m.code,
     ...m.mascotte,
     ragPage: m.rag ? reactive(m.rag) : null,
+    openAgentsPage: ctx.openAgentsPage,
+    closeAgentsPage: ctx.closeAgentsPage,
     openRagPage: m.rag ? m.rag.ouvrir : () => undefined,
     closeRagPage: m.rag ? m.rag.fermer : () => undefined,
     ragAllowed: m.rag ? m.rag.autorise : ref(false),

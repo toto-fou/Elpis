@@ -77,6 +77,10 @@ export interface RacineReglages {
   toggleTool(nom: string): void;
   resetCatTools(cat: CategorieOutilsRacine): void;
   loadMcpUserCategories(): unknown;
+  /** Page Agents : vue courante, ouverture sur la grille et retour au chat. */
+  currentView: string;
+  openAgentsPage(): unknown;
+  closeAgentsPage(): unknown;
   openSkillsTab(): unknown;
   ouvrirAssistant(id: string, pre?: Record<string, string>): void;
   openAxModal(): unknown;
@@ -138,6 +142,9 @@ const CLES: Readonly<Record<keyof RacineReglages | "showSamplingPanel", true>> =
   toggleTool: true,
   resetCatTools: true,
   loadMcpUserCategories: true,
+  currentView: true,
+  openAgentsPage: true,
+  closeAgentsPage: true,
   openSkillsTab: true,
   ouvrirAssistant: true,
   openAxModal: true,

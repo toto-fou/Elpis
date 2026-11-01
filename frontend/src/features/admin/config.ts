@@ -141,7 +141,7 @@ function completerConfig(brut: Noeud): ConfigAdmin {
   if (!c["app_info"]) {
     c["app_info"] = {
       name: "Elpis",
-      version: "0.1.1",
+      version: "0.1.2",
       team_name: "",
       engine: "llama.cpp",
       description: "",

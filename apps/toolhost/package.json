@@ -1,6 +1,6 @@
 {
   "name": "@elpis/toolhost",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -13,21 +13,21 @@
     "licences": "tsx scripts/construire.ts --licences"
   },
   "dependencies": {
-    "@elpis/auth": "0.1.1",
-    "@elpis/bac": "0.1.1",
-    "@elpis/bureau": "0.1.1",
-    "@elpis/commun": "0.1.1",
-    "@elpis/config": "0.1.1",
-    "@elpis/db": "0.1.1",
-    "@elpis/fichiers": "0.1.1",
-    "@elpis/http": "0.1.1",
-    "@elpis/images": "0.1.1",
-    "@elpis/mcp": "0.1.1",
-    "@elpis/navigateur": "0.1.1",
-    "@elpis/outils-mcp": "0.1.1",
-    "@elpis/securite": "0.1.1",
-    "@elpis/skills": "0.1.1",
-    "@elpis/verrous": "0.1.1",
+    "@elpis/auth": "0.1.2",
+    "@elpis/bac": "0.1.2",
+    "@elpis/bureau": "0.1.2",
+    "@elpis/commun": "0.1.2",
+    "@elpis/config": "0.1.2",
+    "@elpis/db": "0.1.2",
+    "@elpis/fichiers": "0.1.2",
+    "@elpis/http": "0.1.2",
+    "@elpis/images": "0.1.2",
+    "@elpis/mcp": "0.1.2",
+    "@elpis/navigateur": "0.1.2",
+    "@elpis/outils-mcp": "0.1.2",
+    "@elpis/securite": "0.1.2",
+    "@elpis/skills": "0.1.2",
+    "@elpis/verrous": "0.1.2",
     "@modelcontextprotocol/sdk": "1.32.1",
     "fastify": "5.12.7",
     "node-pty": "1.1.0",
@@ -36,6 +36,6 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
-    "@elpis/core": "0.1.1"
+    "@elpis/core": "0.1.2"
   }
 }

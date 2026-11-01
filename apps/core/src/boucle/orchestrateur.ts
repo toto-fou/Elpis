@@ -104,7 +104,7 @@ export function harnessStatusLine(
   return `<harness_status>${corps}</harness_status>`;
 }
 
-/** Bloc `<todo_status>` de début de tour quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
+/** Bloc `<todo_status>` de début de tour (contenus aux marqueurs de tour inertes) quand la liste persistée du chat garde des tâches ouvertes ; `null` sinon. */
 export async function todoStatusReminder(username: string, chatId: string | null): Promise<string | null> {
   if (!chatId || chatId === "default") return null;
   const port = portTodos();

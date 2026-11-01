@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/rendu/enrichissement.ts — passe d'enrichissement des blocs d'un corps Markdown : en-tête et Copier, aperçu HTML, coloration différée, graphiques, Mermaid, SVG ; idempotente (data-cb-done). */
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 import DOMPurify from "dompurify";
 
 import { ensureVendor } from "../../../platform/vendor.ts";
@@ -519,7 +520,8 @@ function boutonApercu(pre: HTMLElement, wrapper: HTMLElement, rawText: string): 
   return previewBtn;
 }
 
-function boutonCopier(rawText: string): HTMLButtonElement {
+function boutonCopier(brut: string): HTMLButtonElement {
+  const rawText = restaurerMarqueursTour(brut);
   const btn = document.createElement("button");
   btn.className = "copy-btn";
   btn.title = "Copier";

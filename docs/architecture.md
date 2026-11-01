@@ -1371,8 +1371,10 @@ sequenceDiagram
   à ces collections) et `rag_index` (écriture, exclu du mode plan).
 - **Données, pas consignes** : le texte des passages, des noms et des
   descriptions est neutralisé avant d'atteindre le modèle (chevrons, jetons de
-  rôle entre crochets comme `[INST]`) ; les passages d'un autre compte portent
-  le nom de leur auteur.
+  rôle entre crochets comme `[INST]`, par `neutraliserJetonsRole` de
+  `@elpis/securite`, source commune avec les autres résultats d'outils, voir
+  « Marqueurs de tour inertes ») ; les passages d'un autre compte portent le nom
+  de leur auteur.
 - **Sources** : `rag_sources` part dès qu'un outil a numéroté des passages ;
   les sources sont enregistrées avec le message et ne repartent jamais au
   modèle (`apps/core/src/tour/README.md`).
@@ -2455,6 +2457,81 @@ faire d'autre), `retryable`, plus du contexte structuré
 parsable indiquant ce qui a été omis et comment obtenir le reste — un résultat
 d'outil est du contexte **permanent** pour le reste du run.
 
+**Marqueurs de tour inertes** : le texte qu'un outil rend au modèle (page `pw_*`,
+fichier, sortie de commande, serveur MCP tiers, rapport d'un sous-agent,
+événements de jobs) peut porter des marqueurs de gabarit (`<|im_end|>` de ChatML,
+Qwen, gpt-oss Harmony ou Llama 3, `<｜User｜>` de DeepSeek, `<start_of_turn>` de
+Gemma, `[INST]`, `<think>`…) que llama.cpp, vLLM et SGLang lisent comme de vrais
+jetons spéciaux une fois le gabarit rendu : un document pourrait fermer le tour de
+l'outil et en ouvrir un `system`. `prepareToolResultForModel`
+(`contexte/elagage.ts`), point unique avant le plafond d'émission, passe tout
+résultat par `neutraliserMarqueursTour` (`packages/commun/src/marqueurs-tour.ts`,
+réexporté par `@elpis/securite` ; sans dépendance, l'interface en reprend la
+restauration) : un joint de mots U+2060 (sans largeur) après le premier signe du
+marqueur (`<` U+2060 `|im_end|>`), rien d'autre. La liste est **fermée, aux familles
+courantes** : ChatML et dérivés, Harmony, Llama 2/3/4, Mistral, Phi, Cohere, DeepSeek,
+Gemma (dont FunctionGemma et Gemma 4), Qwen/Hermes, GLM (`[gMASK]`, `<arg_key>`),
+MiniMax-M2 (`]~!b[`, `]~b]`, `[e~[`, `<minimax:tool_call>`), Seed-OSS (`<seed:…>`),
+Nemotron (`<extra_id_N>`, `<SPECIAL_N>`, `<TOOLCALL>`) ; un gabarit d'une autre
+famille n'est pas couvert tant qu'on ne l'a pas ajouté. Le texte reste lisible ; les
+`<` ordinaires (code, HTML, génériques) et les `[INFO]` des journaux ne sont pas
+touchés, sauf `<s>` et `</s>` : marqueurs de Llama 2 et Mistral, ce sont aussi les
+balises HTML du texte barré, qui reçoivent donc le joint comme les autres ; la fonction est déterministe et idempotente (le cache de préfixe du moteur
+en dépend). La `tool_history` enregistrée est la version que le moteur a reçue ;
+l'interface montre le texte d'origine en direct (l'événement `tool_result` porte le
+résultat avant neutralisation) et le retrouve au rechargement : `features/chat/outils/segments.ts`
+retire le joint (`restaurerMarqueursTour`) des seuls résultats d'outils, comme en direct, et
+la copie le retire (réponse, bloc de code, rapport d'un sous-agent, sortie de routine). Le
+texte de l'assistant n'est jamais restauré avant son rendu Markdown, ni en direct ni
+rechargé : un `<s>` ou un `<think>` qu'il cite reste le même texte dans les deux cas. Les résultats d'un lot interrompu et les événements de jobs
+passent par la même fonction. Le comptage de jetons voit le texte envoyé (un caractère
+de plus par marqueur, `contexte/tokens.ts` n'a rien à changer). `read_file` est
+neutralisé comme le reste (un dépôt cloné est la voie d'injection la plus courante).
+**Restauration des arguments** : ce que le modèle recopie d'un résultat vers un outil
+doit retrouver son texte, sinon le fichier, la commande ou la page écrits portent un
+joint invisible. Elle se fait dans la garde centrale de l'hôte d'outils
+(`ServeurOutils.appeler`, `packages/outils-mcp/src/serveur.ts`) pour **tous** les
+outils locaux (`read_file`, `execute_shell`, `shell_job`, `git_*`, `docx_edit`,
+`pptx_edit`, `desktop_*`, `pw_*`, `manage_files`, `skill_run_script`…), **avant**
+`refusSousAgent` (qui contrôle les chemins et les actions réellement exécutés), puis
+sur les valeurs validées ; les outils n'ont plus à le faire. Le core n'y touche pas
+pour les outils de l'hôte (`DEFAULT_LOCAL_PYTHON`, `identity: "meta"`) : **l'hôte
+d'outils, local ou distant, se met donc à jour avec le core** (comme le service
+navigateur), sinon un hôte plus ancien écrit le joint invisible dans les fichiers, les
+commandes et les pages. Dans le core,
+`executeSingleToolCall` restaure aussi les arguments des **outils MCP tiers** et des
+intégrés (`rag_*`, `generate_image`, `ask_user`) avant envoi. Seuls
+`OUTILS_SANS_RESTAURATION` gardent le joint, parce que ce qu'ils écrivent finit dans le
+prompt d'un autre tour : `memory`, `skill_save` (corps du skill), `todowrite`
+(rappel de tâches en début de tour), `task` (brief d'un sous-agent) et `routine_save`
+(prompt de la routine) ; `skill_get` et `skill_read_file` ne reçoivent que des noms.
+`skill_add_file` est restauré comme les autres : ses fichiers sont des scripts exécutés
+par `skill_run_script` ou relus par un outil (résultat neutralisé à l'émission).
+**Limite de la restauration** : elle retire tout U+2060 qui suit un début de marqueur de
+la liste, y compris un U+2060 voulu (un `old_string` d'`edit_file` copié d'un fichier qui
+contient réellement `<` U+2060 `|im_start|>` devient `<|im_start|>` et ne s'y retrouve pas) ;
+le mécanisme ne distingue pas les deux, c'est le prix d'un joint sans état.
+Les résultats déjà enregistrés gardent leur texte en base ; ceux d'un chat antérieur à
+la neutralisation sont neutralisés quand l'historique est rejoué au modèle
+(`expandHistoryForLlm`, idempotent : un résultat récent garde ses octets, un ancien
+change une fois le préfixe du cache). Le RAG garde sa neutralisation
+propre (`neutraliserJetonsRole`, crochets larges, chevrons échappés).
+**Neutralisation au rendu** : la restauration des arguments laisse les magasins que le
+modèle alimente par ses arguments (ou qu'une page alimente par ses noms) porter le texte
+brut ; chaque rendu qui réinjecte un tel magasin dans un prompt neutralise donc ses
+marqueurs (même fonction, idempotente et déterministe : le préfixe ne bouge pas) :
+la mémoire AX apprise de `pw_act`/`pw_chain` et des pages (`buildAxMemoryBlock`, suffixe de
+la question), la mémoire (`MarkdownMemoryProvider`), l'index et les corps des skills
+(`blocSkills`, aussi pour les enfants et les routines), le rappel `<todo_status>`, le résumé
+et le registre de compaction (`formatSummaryAsSystemMessage`) et leur entrée
+(`serializeForCompression`), le brief d'un sous-agent (`task`), le prompt et le contexte
+d'une routine (dont la sortie d'une routine amont et l'événement déclencheur), l'entrée
+du titre d'un chat. Les événements de jobs, les résultats d'outils (dont `pw_memory`,
+`session_search`, `skill_get`) et les rapports de sous-agents passent déjà par
+`prepareToolResultForModel` ; les ancres de la mémoire du bureau (`desktop_*`, requête vers
+identifiant d'élément) ne sont jamais rendues en texte dans un prompt. Limite : les
+arguments d'appel que le modèle a lui-même écrits et qui reviennent dans l'historique
+renvoyé au moteur restent tels qu'il les a émis.
 **Catalogue** (~55 outils exposés) :
 
 | Famille (servie par) | Catégorie | Outils |

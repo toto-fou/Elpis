@@ -966,7 +966,12 @@ distant (elles écrivent dans sa base) ; ``skill_run``
 ``127.0.0.1`` dans l'exemple : l'app joint l'hôte par ``Caddyfile.toolhost``
 (TLS, ``reverse_proxy 127.0.0.1:8765``). Sans ce frontal, ``0.0.0.0`` (ou l'IP
 privée) est nécessaire, port filtré à l'hôte Elpis. ``app.memory_dir`` / ``APP_MEMORY_DIR`` :
-racine du magasin mémoire (défaut : racine des sandboxes).
+racine du magasin mémoire (défaut : racine des sandboxes). **Mise à jour** : l'hôte
+d'outils, local ou distant, se met à jour avec le core (comme le service navigateur) :
+il retire le joint invisible (U+2060) que le core glisse dans les marqueurs de tour des
+résultats, des arguments des outils qu'il sert (``identity: "meta"``), que le core lui
+envoie tels que le modèle les a écrits ; un hôte plus ancien écrirait ce joint dans les
+fichiers, les commandes et les pages.
 
 **Hôte d'outils TypeScript.** Le service ``toolhost`` de
 ``./elpis`` (unité ``elpis-toolhost``) est le bundle Node ``apps/toolhost/dist/main.mjs`` ;

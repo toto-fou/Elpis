@@ -3,6 +3,7 @@
 import { computed, ref } from "vue";
 import type { Ref } from "vue";
 import type { ResumeSkill, RunRoutine } from "@elpis/contracts";
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 
 import { BUILTIN_AGENTS } from "../../utils/utils-purs";
 import type { ApiRoutines, CorpsFiltreWebhook, RoutineListee } from "./api";
@@ -774,7 +775,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     expandedRunId.value = expandedRunId.value === id ? null : id;
   }
   async function copyRunDetail(run: RunRoutine): Promise<void> {
-    const t = texteDetailRun(run);
+    const t = restaurerMarqueursTour(texteDetailRun(run));
     if (!t) return;
     try {
       await navigator.clipboard.writeText(t);

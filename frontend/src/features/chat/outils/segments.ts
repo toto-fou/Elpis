@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/chat/outils/segments.ts — segments texte/outils d'un message assistant (porté de `chat/_tool_segments.js`) : reconstruction depuis la `tool_history` persistée et libellés partagés entre le direct et le rechargement. */
+import { restaurerMarqueursTour } from "@elpis/commun/marqueurs-tour";
 import type { MetaOutils } from "@elpis/contracts";
 
 import type { EtapeOutil } from "./types.ts";
@@ -198,7 +199,7 @@ export function parseToolHistorySegments(
       const st = typeof id === "string" && id ? parId[id] : undefined;
       if (st) {
         const c = e["content"];
-        const resStr = typeof c === "string" ? c : c == null ? "" : JSON.stringify(c);
+        const resStr = restaurerMarqueursTour(typeof c === "string" ? c : c == null ? "" : JSON.stringify(c));
         st._is_error = resultIsError(resStr);
         st.result = resStr.slice(0, RESULTAT_RECHARGE_MAX);
         if (resStr.length > RESULTAT_RECHARGE_MAX) st.resultLength = resStr.length;

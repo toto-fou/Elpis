@@ -96,6 +96,15 @@ export {
   toContainer,
 } from "./confinement";
 export type { DossierParcouru, EntreeBrute, OptionsEcritureSous, OptionsLexical } from "./confinement";
+export {
+  GLUON,
+  neutraliserJetonsRole,
+  neutraliserMarqueursTour,
+  OUTILS_SANS_RESTAURATION,
+  restaurerArgsOutil,
+  restaurerMarqueursArgs,
+  restaurerMarqueursTour,
+} from "@elpis/commun/marqueurs-tour";
 export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {

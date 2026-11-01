@@ -16,6 +16,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { clipResumeThinking, RESUME_AFTER_THINK_INSTRUCTION } from "../boucle/reprise-raisonnement";
 import { AppelsParId, mergeUserSuffix, pruneKey, userSuffixSig } from "../contexte/elagage";
@@ -420,6 +421,17 @@ export interface OptionsExpansion {
   userSuffixes?: unknown;
 }
 
+/** Contenu d'un résultat d'outil rejoué : marqueurs de tour neutralisés (chat enregistré avant leur neutralisation à l'émission) ; idempotent, un résultat récent garde ses octets. */
+function resultatRejoue(contenu: unknown): unknown {
+  if (typeof contenu === "string") return neutraliserMarqueursTour(contenu);
+  if (!Array.isArray(contenu)) return contenu;
+  return contenu.map((p: unknown) =>
+    estDict(p) && p["type"] === "text" && typeof p["text"] === "string"
+      ? { ...p, text: neutraliserMarqueursTour(p["text"]) }
+      : p,
+  );
+}
+
 function suiteDeReprise(rt: unknown, resumeNative: boolean): Dict[] {
   const clip = clipResumeThinking(strPy(rt));
   if (resumeNative) return [{ role: "assistant", content: "", reasoning_content: clip }];
@@ -429,7 +441,7 @@ function suiteDeReprise(rt: unknown, resumeNative: boolean): Dict[] {
   ];
 }
 
-/** Historique client → messages OpenAI : `tool_history` intercalée (préfixe rejoué des formats cumulatifs coupé), résultats élagués en condensé d'une ligne, suffixes de questions, reprise d'un « Continuer ». */
+/** Historique client → messages OpenAI : `tool_history` intercalée (préfixe rejoué des formats cumulatifs coupé), résultats élagués en condensé d'une ligne, marqueurs de tour des résultats neutralisés, suffixes de questions, reprise d'un « Continuer ». */
 export function expandHistoryForLlm(messages: Dict[], o: OptionsExpansion = {}): Dict[] {
   const isContinue = o.isContinue ?? false;
   const pruned = new Set((o.prunedKeys ?? []).filter((k): k is string => typeof k === "string"));
@@ -480,7 +492,8 @@ export function expandHistoryForLlm(messages: Dict[], o: OptionsExpansion = {}):
         const hr = h["role"];
         if (hr !== "assistant" && hr !== "tool" && hr !== "user") continue;
         const e: Dict = { role: hr };
-        if ("content" in h) e["content"] = h["content"] ?? null;
+        if ("content" in h)
+          e["content"] = hr === "tool" ? resultatRejoue(h["content"] ?? null) : (h["content"] ?? null);
         if (hr === "assistant" && veritePy(h["tool_calls"])) e["tool_calls"] = h["tool_calls"];
         appels.noter(h);
         if (hr === "tool" && veritePy(h["tool_call_id"])) {

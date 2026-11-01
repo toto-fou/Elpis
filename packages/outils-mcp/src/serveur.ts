@@ -21,7 +21,7 @@ import {
 import type { Dict } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
 import { compilerSchema, FAMILY_NAMES, meilleureErreur, opencodeFamilies } from "@elpis/mcp";
-import { avecIdentite, creerIdentite, fromMeta, refusSousAgent } from "@elpis/securite";
+import { avecIdentite, creerIdentite, fromMeta, refusSousAgent, restaurerArgsOutil } from "@elpis/securite";
 import type { Identity } from "@elpis/securite";
 import { Protocol } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -549,7 +549,7 @@ export class ServeurOutils {
     if (!r.ok) throw new ErreurOutil(r.texte);
     let valeur: unknown;
     try {
-      valeur = await outil.traiter(r.valeurs, ctx, args);
+      valeur = await outil.traiter(restaurerArgsOutil(outil.nom, r.valeurs), ctx, args);
     } catch (e) {
       if (e instanceof ErreurOutil) throw e;
       log().error(`Error calling tool '${outil.nom}'`, e);
@@ -579,10 +579,11 @@ export class ServeurOutils {
             throw new ErreurOutil(
               `outil ${reprPy(nom)} non exposé à ce client (famille ${reprPy(outil.famille)})`,
             );
+          const aExecuter = restaurerArgsOutil(nom, args);
           const refus = refusSousAgent(
             ident?.subagent,
             nom,
-            args,
+            aExecuter,
             lectureSeuleAnnotee(outil),
             outil.famille === "browser",
           );
@@ -592,7 +593,7 @@ export class ServeurOutils {
             );
           const compte = compteAppel(ctx.meta);
           this.debit?.verifier(compte, nom);
-          const executer = (): Promise<Dict> => this.executer(outil, args, ctx);
+          const executer = (): Promise<Dict> => this.executer(outil, aExecuter, ctx);
           return this.concurrence
             ? await this.concurrence.executer(compte, executer, ctx.signal)
             : await executer();

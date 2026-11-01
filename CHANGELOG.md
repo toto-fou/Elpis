@@ -319,6 +319,16 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Sous-agents : fenêtre, ligne et jetons.** Un clic sur la ligne d'un sous-agent (ou
+  son icône œil) ouvre une fenêtre centrée au lieu du volet étroit à droite du fil :
+  agent et mission, état, horloge et jetons, Arrêter ; puis la consigne, le bilan, le
+  rendu à l'assistant (Copier) et le déroulé, où un message envoyé par l'assistant à un
+  agent en fond apparaît comme son tour. La ligne, la fenêtre et la liste des tâches de
+  fond affichent le contexte de la dernière requête de l'agent tel que le moteur l'a
+  rapporté (il ne dépasse jamais la fenêtre du modèle) ; l'infobulle ajoute l'entrée
+  cumulée sur ses appels au moteur, le cache et la sortie. Rien n'est estimé : la
+  réflexion n'apparaît que si le moteur la compte, et une requête coupée ne compte que
+  ce que le moteur a rapporté. L'horloge part quand l'agent a sa place au moteur.
 - **Panneau Génération refondu.** Jauge de contexte (occupation, fenêtre, réserve de
   sortie et marge hachurées, point de compaction, lien « Régler » vers Paramètres ›
   Compaction), section Sortie (Température, Longueur « Auto » ou « Limiter »). Les

@@ -371,6 +371,7 @@ const BARRE: Cles<DomaineBarre> = {
   openImageGallery: true,
   ragAllowed: true,
   openRagPage: true,
+  openAgentsPage: true,
   openStudio: true,
   openCodePage: true,
   openSettings: true,

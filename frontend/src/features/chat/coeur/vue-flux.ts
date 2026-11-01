@@ -697,7 +697,6 @@ export function creerVueFlux(c: CoeurChat) {
             label: chaine(args?.["description"]),
             prompt: chaine(args?.["prompt"]),
             state: "running",
-            startedAt: Date.now(),
             tokens: 0,
             steps_total: 0,
             tools: [],
@@ -1102,16 +1101,20 @@ export function creerVueFlux(c: CoeurChat) {
       .catch(() => null);
   }
 
+  // Consommation rapportée par le moteur (étape « tick » à chaque requête, étape finale) ; `tokens` reste le contexte.
+  function lireConso(run: ExecutionTache, d: DonneesFlux): void {
+    for (const k of ["input_tokens", "output_tokens", "cache_tokens", "think_tokens"] as const) {
+      const v = d[k];
+      if (typeof v === "number") run[k] = v;
+    }
+  }
+
   function finSousAgent(run: ExecutionTache, d: DonneesFlux): void {
     run.state = chaine(d["state"]) || "completed";
     run.steps_total = Number(d["steps_total"]) || 0;
-    run.input_tokens = Number(d["input_tokens"]) || 0;
-    run.output_tokens = Number(d["output_tokens"]) || 0;
+    lireConso(run, d);
     run.duration_ms = Number(d["duration_ms"]) || 0;
-    run.tokens =
-      Number(d["context_tokens"]) > 0
-        ? Number(d["context_tokens"])
-        : run.tokens || run.input_tokens + run.output_tokens;
+    if (Number(d["context_tokens"]) > 0) run.tokens = Number(d["context_tokens"]);
     run.progress = null;
     if (Array.isArray(d["transcript"]) && d["transcript"].length)
       run.transcript = d["transcript"] as EntreeDeroule[];
@@ -1176,12 +1179,18 @@ export function creerVueFlux(c: CoeurChat) {
       annulationDifferee(run, cid);
     }
     if (typeof d["tokens"] === "number") run.tokens = d["tokens"];
+    if (d["status"] === "tick") lireConso(run, d);
+    // L'horloge part quand l'agent a sa place au moteur, pas pendant son attente.
+    if (d["status"] === "tick" && d["started"] === true && typeof run.startedAt !== "number")
+      run.startedAt = Date.now();
     const statut = d["status"];
     if (statut === "spawned") {
       if (typeof d["depth"] === "number") run.depth = d["depth"];
-    } else if (statut === "text") {
+      if (d["background"] === true) run.background = true;
+    } else if (statut === "text" || statut === "parent") {
       const tr = [...(run.transcript || [])];
-      if (tr.length < 120 && d.text) tr.push({ text: String(d.text) });
+      if (tr.length < 120 && d.text)
+        tr.push(statut === "text" ? { text: String(d.text) } : { parent: String(d.text) });
       run.transcript = tr;
     } else if (statut === "final") finSousAgent(run, d);
     else if (statut !== "tick") etapeSousAgent(run, d);

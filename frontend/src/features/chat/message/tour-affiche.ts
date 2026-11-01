@@ -6,6 +6,7 @@ import type { ResumeJob } from "@elpis/contracts";
 
 import { preferencesChat } from "../../reglages/affichage-chat.ts";
 import { CLE_MODALES } from "../modales/domaine.ts";
+import { avecJobFond } from "../outils/agents.ts";
 import { fmtCompression, fmtDuree } from "../outils/format.ts";
 import type { EtapeOutil } from "../outils/types.ts";
 import { CLE_FIL, CLE_PAGE, domaine } from "../page/domaines.ts";
@@ -114,7 +115,9 @@ export function utiliserTour(entree: () => EntreeMessage) {
     const runs = msg().taskRuns ?? [];
     return b.agents.flatMap((a) => {
       const run = runs[a.ri];
-      return run ? [{ run, ri: a.ri, callId: a.etape.callId ?? null }] : [];
+      return run
+        ? [{ run: avecJobFond(run, page?.jobsChat ?? []), ri: a.ri, callId: a.etape.callId ?? null }]
+        : [];
     });
   }
   function jobDe(b: BlocJob): ResumeJob | null {

@@ -34,7 +34,7 @@ export interface DomaineEntete {
   readonly selectedConnector: string | null;
   readonly activeModelIds: readonly string[];
   readonly showSamplingPanel: boolean;
-  readonly features: { opencode?: boolean };
+  readonly features: { opencode?: boolean; agents?: boolean };
   showChatMenu: boolean;
   showExportFormatMenu: boolean;
   messageSearchActive: boolean;
@@ -453,7 +453,7 @@ export type DomaineBarre = Pick<
   readonly currentChatId: string | null;
   readonly editorFullscreen: boolean;
   readonly showEditor: boolean;
-  readonly features: { opencode?: boolean };
+  readonly features: { opencode?: boolean; agents?: boolean };
   readonly settings: {
     enable_mcp?: boolean;
     enable_editor?: boolean;
@@ -496,6 +496,7 @@ export type DomaineBarre = Pick<
   /** Le compte a le droit RAG : l'entrée « RAG » du sous-menu « Plus » n'existe que pour lui. */
   readonly ragAllowed: boolean;
   openRagPage(): unknown;
+  openAgentsPage(): unknown;
   openStudio(): unknown;
   openCodePage(): unknown;
   openSettings(): unknown;

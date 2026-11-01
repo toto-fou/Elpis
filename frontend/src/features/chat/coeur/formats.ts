@@ -12,6 +12,7 @@ const LIBELLES_ARRET: Readonly<Record<string, string>> = {
   steps: "Budget de tours atteint",
   hard: "Trop d'appels d'outils en échec",
   wallclock: "Budget de temps atteint",
+  wrap_up: "Conclusion demandée par l'agent parent",
   ctx_saturated: "Contexte saturé",
   gen_cap: "Appels d'outils trop longs",
   cycle: "Boucle d'action détectée",
@@ -283,6 +284,8 @@ export function toolIconFor(name: unknown): string {
   const n = String(name || "").toLowerCase();
   const a = (...xs: string[]): boolean => xs.some((x) => n.includes(x));
   if (n === "shell_job") return "ph-timer";
+  if (n === "task_status" || n === "task_wait") return "ph-hourglass-medium";
+  if (n === "task_send") return "ph-chat-circle-text";
   if (a("search", "grep", "find")) return "ph-magnifying-glass";
   if (a("write", "save", "create")) return "ph-pencil-simple-line";
   if (a("edit", "replace", "patch")) return "ph-pencil-simple";

@@ -157,6 +157,9 @@ export function setupChat(
       get rag() {
         return ctx.ragCommande ?? null;
       },
+      get agents() {
+        return ctx.agentsCommande ?? null;
+      },
       get userName() {
         const u = user.value;
         return (u && (u.display_name || u.username)) || "";

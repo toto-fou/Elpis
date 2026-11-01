@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/chat/jobs/format.ts — libellés français des tâches de fond : durée, état et issue (code de sortie), déclencheurs, résumé d'un réveil. */
-import type { EtatJob, ResumeJob } from "@elpis/contracts";
+/** frontend/src/features/chat/jobs/format.ts — libellés français des tâches de fond : durée, état et issue (code de sortie, issue d'un sous-agent en fond), déclencheurs, progression d'un sous-agent, résumé d'un réveil. */
+import type { EtatJob, ResumeJob, StatutTache } from "@elpis/contracts";
+
+import { fmtTokenCount } from "../../../utils/utils-purs.ts";
+import { libelleStatutTache } from "../outils/bilan-tache.ts";
 
 const ETATS: Readonly<Record<EtatJob, string>> = {
   starting: "démarrage",
@@ -18,17 +21,38 @@ export const jobActif = (j: Pick<ResumeJob, "state">): boolean =>
 
 export type IssueJob = "actif" | "reussi" | "echec" | "arrete" | "perdu";
 
-/** Issue d'un job : une sortie en code ≠ 0 ou par signal est un échec, pas une fin normale. */
-export function issueJob(j: Pick<ResumeJob, "state" | "exit_code" | "signal">): IssueJob {
+type IssueLue = Pick<ResumeJob, "state" | "exit_code" | "signal" | "kind" | "agent">;
+
+/** Issue d'un job : une sortie en code ≠ 0 ou par signal est un échec, pas une fin normale ; un sous-agent réussit s'il a fini son travail (`done`). */
+export function issueJob(j: IssueLue): IssueJob {
   if (jobActif(j)) return "actif";
+  if (j.state === "exited" && j.kind === "agent")
+    return j.agent?.state === "completed" && (j.agent.status ?? "done") === "done" ? "reussi" : "echec";
   if (j.state === "exited") return j.exit_code === 0 && !j.signal ? "reussi" : "echec";
   if (j.state === "killed") return "arrete";
   return j.state === "lost" ? "perdu" : "echec";
 }
 
-/** « terminé », « échec, code 1 », « échec (SIGSEGV) », « arrêté »… */
-export function libelleJob(j: Pick<ResumeJob, "state" | "exit_code" | "signal">): string {
+const ISSUES_AGENT: Readonly<Record<string, string>> = {
+  incomplete: "inachevé",
+  timeout: "délai dépassé",
+  failed: "échec",
+  cancelled: "arrêté",
+};
+
+/** « terminé », « échec, code 1 », « échec (SIGSEGV) », « arrêté »… ; un sous-agent : « inachevé », « délai dépassé », « terminé (partiel) »… */
+export function libelleJob(j: IssueLue): string {
+  if (j.state === "lost" && j.kind === "agent") return "interrompu (redémarrage)";
   if (j.state !== "exited" || issueJob(j) === "reussi") return ETATS[j.state];
+  if (j.kind === "agent") {
+    const e = j.agent?.state ?? "";
+    return (
+      ISSUES_AGENT[e] ??
+      (j.agent?.status
+        ? `terminé (${libelleStatutTache(j.agent.status as StatutTache) ?? j.agent.status})`
+        : "terminé")
+    );
+  }
   if (j.signal) return `échec (${j.signal})`;
   return j.exit_code == null ? "échec" : `échec, code ${j.exit_code}`;
 }
@@ -71,4 +95,15 @@ export function libelleArme(entree: string): string {
     default:
       return entree;
   }
+}
+
+/** Progression d'un sous-agent en fond pour la liste des tâches : « étape 4/60 · 12,3 k jetons » (contexte de sa dernière requête, rapporté par le moteur) ; vide pour une commande. */
+export function progressionAgent(j: Pick<ResumeJob, "kind" | "agent">): string {
+  const a = j.agent;
+  if (j.kind !== "agent" || !a) return "";
+  const parts: string[] = [];
+  if (typeof a.step === "number") parts.push(`étape ${a.step}${a.max_steps ? `/${a.max_steps}` : ""}`);
+  const ctx = a.context_tokens ?? 0;
+  if (ctx > 0) parts.push(`${fmtTokenCount(ctx)} jetons`);
+  return parts.join(" · ");
 }

@@ -344,7 +344,7 @@ function appliquer(etat: EtatRendu, ev: EvenementFlux): EtatRendu {
       const statut =
         ev.status === "final"
           ? ev.state
-          : ev.status === "tick" || ev.status === "text"
+          : ev.status === "tick" || ev.status === "text" || ev.status === "parent"
             ? prec.statut
             : ev.status;
       const texte =

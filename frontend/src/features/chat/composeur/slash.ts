@@ -99,6 +99,14 @@ export interface RagSlash {
   lancer(raw: string): Promise<ResultatCommande>;
 }
 
+/** Commande `/agents` : page Agents, sous-agents du compte activés ou non. */
+export interface AgentsSlash {
+  disponible(): boolean;
+  actifs(): boolean;
+  ouvrir(): unknown;
+  basculer(on: boolean): Promise<unknown>;
+}
+
 export interface CtxSlash {
   fetchAuth(url: string, options?: Record<string, unknown>, soft?: boolean): Promise<Response | null>;
   showToast(message: string, type?: string): void;
@@ -112,6 +120,7 @@ export interface CtxSlash {
   ouvrirAssistant?: (id: string, pre?: Record<string, string>) => unknown;
   jobs?: JobsSlash;
   rag?: RagSlash | null;
+  agents?: AgentsSlash | null;
 }
 
 export interface Commande {
@@ -416,6 +425,42 @@ export function creerMenuSlash(vue: VueSlash, refs: RefsSlash, ctx: CtxSlash): M
         ((mots[0] === "use" || mots[0] === "add") && mots.length >= 2),
       hidden: () => !ctx.rag || !ctx.rag.disponible(),
       run: async (_a, raw) => (ctx.rag ? ctx.rag.lancer(raw) : { ok: false, msg: "RAG indisponible." }),
+    },
+    {
+      name: "agents",
+      label: "Agents",
+      icon: "ph-robot",
+      desc: "Sous-agents : /agents on, off, open",
+      args: [
+        {
+          name: "action",
+          label: "action",
+          ordreDonne: true,
+          titre: () => (ctx.agents?.actifs() ? "Sous-agents activés" : "Sous-agents désactivés"),
+          values: [
+            { value: "on", label: "Activer" },
+            { value: "off", label: "Désactiver" },
+            { value: "open", label: "Ouvrir la page" },
+          ],
+        },
+      ],
+      sansArgument: ["open"],
+      complet: (mots) => mots[0] === "on" || mots[0] === "off" || mots[0] === "open",
+      hidden: () => !ctx.agents || !ctx.agents.disponible(),
+      run: async (a) => {
+        const agents = ctx.agents;
+        if (!agents) return { ok: false, msg: "Agents indisponibles." };
+        const [verbe] = a;
+        if (!verbe || verbe === "open") {
+          await agents.ouvrir();
+          return { ok: true, silent: true };
+        }
+        if (verbe === "on" || verbe === "off") {
+          await agents.basculer(verbe === "on");
+          return { ok: true, silent: true };
+        }
+        return { ok: false, msg: "Usage : /agents [on|off|open]" };
+      },
     },
     {
       name: "jobs",

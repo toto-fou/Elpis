@@ -27,6 +27,9 @@ const VERBES: Readonly<Record<string, string>> = {
   ask_user: "Demande",
   routine_save: "Crée la routine",
   generate_image: "Génère",
+  task_status: "Regarde où en est l'agent",
+  task_wait: "Attend l'agent",
+  task_send: "Écrit à l'agent",
 };
 
 export interface LibelleEtape {

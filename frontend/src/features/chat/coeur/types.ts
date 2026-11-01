@@ -4,7 +4,7 @@ import type { BilanTache, MetaOutils, ResumeReveil, SourceCiteeRag } from "@elpi
 import type { Ref } from "vue";
 
 import type { FetchAuth } from "../flux/aides.ts";
-import type { RagSlash } from "../composeur/slash.ts";
+import type { AgentsSlash, RagSlash } from "../composeur/slash.ts";
 
 export type Objet = Record<string, unknown>;
 
@@ -62,6 +62,8 @@ export interface OutilSousAgent {
 /** Entrée du déroulé d'un sous-agent : narration (`text`) ou étape d'outil. */
 export interface EntreeDeroule {
   text?: string;
+  /** Message de l'agent parent remis à l'agent en fond (`task_send`). */
+  parent?: string;
   tool?: string;
   args_preview?: string;
   status?: string;
@@ -82,6 +84,11 @@ export interface ExecutionTache {
   steps_total?: number;
   input_tokens?: number;
   output_tokens?: number;
+  cache_tokens?: number;
+  think_tokens?: number;
+  /** Lancé en fond : son état suit son job après le tour (`chat_job`, liste des tâches de fond). */
+  background?: boolean;
+  job_id?: string | null;
   duration_ms?: number;
   tools?: OutilSousAgent[];
   transcript?: EntreeDeroule[];
@@ -303,5 +310,7 @@ export interface CtxChat {
   editorRefreshViewer?: (chemin: string) => Promise<unknown>;
   /** Commande `/rag` (module RAG de la racine, monté après le chat). */
   readonly ragCommande?: RagSlash | null;
+  /** Commande `/agents` (page Agents et réglage des sous-agents de la racine). */
+  readonly agentsCommande?: AgentsSlash | null;
   [cle: string]: unknown;
 }

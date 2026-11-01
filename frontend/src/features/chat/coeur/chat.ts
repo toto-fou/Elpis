@@ -623,6 +623,7 @@ export function setupChat(
     conversationTooLong: e.conversationTooLong,
     ctxRealPct: e.ctxRealPct,
     ctxUsage: e.ctxUsage,
+    cacheConversation: Vue.computed(() => formats.cacheConversationDe(messages.value, e.selectedModel.value)),
     fmtCtxUsage: formats.fmtCtxUsage,
     applyChatCtxUsage: outils.applyChatCtxUsage,
     toolLimitLabel: formats.toolLimitLabel,

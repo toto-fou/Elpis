@@ -169,8 +169,8 @@ export function creerVueFlux(c: CoeurChat) {
     if (typeof total !== "number" || !(total > 0)) return;
     const utilise = Number(t.data["used"]) || 0;
     const pct = typeof t.data["pct"] === "number" ? t.data["pct"] : Math.round((utilise / total) * 100);
-    // La santé décrit le serveur intégré : un tour sur un connecteur n'y écrit pas.
-    if (!e.selectedConnector.value)
+    // La santé décrit le serveur intégré (un connecteur n'y écrit pas) ; un pool KV partagé n'est pas la fenêtre.
+    if (!e.selectedConnector.value && e.llmHealth.value?.kvEstFenetre !== false)
       e.llmHealth.value = {
         ...(e.llmHealth.value || { props: {} }),
         kv_cache: { used: utilise, total, pct },

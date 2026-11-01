@@ -119,6 +119,11 @@ selon [SemVer](https://semver.org/lang/fr/).
   ramenée à la place libre de la fenêtre à l'envoi, pour tous les moteurs (SGLang et
   vLLM refusaient la requête). Un réglage que le moteur n'applique pas est grisé avec
   sa raison en clair.
+- **Menu des modèles : contexte de la conversation (vLLM, SGLang).** Pour un moteur à
+  pool KV partagé, le pied du menu affiche « Contexte », l'occupation de la
+  conversation ouverte, au lieu du KV global du serveur ; l'infobulle donne la part
+  relue du cache sur la conversation, puis la ligne « Moteur (toutes conversations) ».
+  « cache N % » de la charge devient « cache de préfixe N % ».
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions
   `ask_user` s'affichent dans la carte du composeur : options en lignes avec
   leur touche (1 à 9), rond pour un choix, case pour plusieurs, la zone de

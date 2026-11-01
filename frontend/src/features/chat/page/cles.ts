@@ -271,6 +271,7 @@ const MODELES: Cles<DomaineModeles> = {
   pickReasoningEffort: true,
   liveGen: true,
   ctxUsage: true,
+  cacheConversation: true,
   fmtCtxUsage: true,
 };
 

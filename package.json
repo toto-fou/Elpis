@@ -1,6 +1,6 @@
 {
   "name": "elpis-workspace",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Elpis — espace de travail TypeScript (core, toolhost, paquets partagés)",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@elpis/db",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -10,9 +10,9 @@
     "./test": "./src/test.ts"
   },
   "dependencies": {
-    "@elpis/commun": "0.1.1",
-    "@elpis/config": "0.1.1",
-    "@elpis/verrous": "0.1.1",
+    "@elpis/commun": "0.1.2",
+    "@elpis/config": "0.1.2",
+    "@elpis/verrous": "0.1.2",
     "better-sqlite3": "13.0.3",
     "pg": "8.23.1"
   }

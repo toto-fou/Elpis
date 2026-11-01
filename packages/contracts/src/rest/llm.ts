@@ -221,5 +221,17 @@ export const schemaParametresEffectifs = z.looseObject({
     max_tool_iterations: z.number().optional(),
     thinking_budget_tokens: z.number().optional(),
   }),
+  /** Réglages du panneau que le moteur n'applique pas, et son nom pour le dire. */
+  ignored_keys: z.array(z.string()).optional(),
+  engine_label: z.string().optional(),
+  /** Fenêtre du modèle (0 si inconnue), réserve de sortie, marge et point de compaction du compte (`null` : compaction coupée). */
+  context_window: z
+    .object({
+      ctx_size: entier,
+      buffer_tokens: entier,
+      output_reserve: z.object({ chat: entier, thinking: entier }),
+      compaction_at: z.object({ chat: entier, thinking: entier }).nullable(),
+    })
+    .optional(),
 });
 export type ParametresEffectifs = z.infer<typeof schemaParametresEffectifs>;

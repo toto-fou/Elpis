@@ -17,6 +17,7 @@ import {
 } from "@elpis/commun";
 
 import { stripInternalKeys } from "../contexte/elagage";
+import { measuredRequestTokens } from "../contexte/tokens";
 
 import { currentTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
@@ -36,6 +37,7 @@ import {
 } from "../llm/fournisseurs/llama-flux";
 import { buildLlamaPayload, consumeLlamaSse, SseStreamResult } from "../llm/fournisseurs/llamacpp";
 import * as oai from "../llm/fournisseurs/openai-compat";
+import { bornerLongueurALaFenetre } from "../llm/constantes";
 import { getModelContextSize } from "../llm/modeles";
 import { currentEngine } from "../llm/moteurs";
 import {
@@ -496,6 +498,20 @@ export async function llamaChatWithToolsStream(
   if (o.resumeThink !== null && o.resumeThink !== undefined && llamacppSrv)
     resumeNative = Boolean(resumeNativeOk && continueFinalSupport(targetModel) !== false);
 
+  // Une longueur demandée plus grande que la place libre partirait en refus « contexte dépassé » (SGLang, vLLM) : elle est réduite à l'envoi.
+  const bornerALaFenetre = async (p: Dict): Promise<void> => {
+    let ctx: number;
+    try {
+      ctx = await getModelContextSize(targetModel);
+    } catch {
+      ctx = 0;
+    }
+    const m = Array.isArray(p["messages"]) ? (p["messages"] as unknown[]) : [];
+    const outils = Array.isArray(p["tools"]) ? (p["tools"] as unknown[]) : null;
+    for (const b of bornerLongueurALaFenetre(p, ctx, measuredRequestTokens(m, outils, targetModel)))
+      log.info(`[LLM_REQ ${reqId}] ${b.cle} ramené de ${b.demandee} à ${b.envoyee} (fenêtre ${ctx})`);
+  };
+
   const construire = async (nativeResume: boolean): Promise<Dict> => {
     let m: unknown[] = msgs;
     let tm = thinkingMode;
@@ -528,6 +544,7 @@ export async function llamaChatWithToolsStream(
       p["tools"] = outilsPourEnvoi(toolsPayload);
       p["tool_choice"] = toolChoice === "auto" || toolChoice === "none" ? toolChoice : "auto";
     }
+    await bornerALaFenetre(p);
     oai.sanitizePayload(p, target);
     return p;
   };

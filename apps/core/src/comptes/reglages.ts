@@ -41,6 +41,7 @@ import { cleanPrefs, enabledIn, readyFor } from "../images/acces";
 import { getImageConfig } from "../images/config";
 import type { Journal } from "../journal";
 import type { ModeApp } from "../mode";
+import { sanitizeStoredOverride } from "../llm/parametres";
 import { validateCustomAgents } from "../outils/integres/taches-agents";
 
 export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
@@ -107,6 +108,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "thinking_display",
   "footer_metrics",
   "thread_density",
+  "sampling_override",
 ]);
 
 /** Seules clés que le processus admin accepte en écriture (menu « Compte et apparence » de la console). */
@@ -417,6 +419,8 @@ export async function ecrireReglages(
   }
   if (a("compression_max_rounds"))
     poserCle(data, "compression_max_rounds", clampMaxRounds(data["compression_max_rounds"]));
+  if (a("sampling_override"))
+    poserCle(data, "sampling_override", sanitizeStoredOverride(data["sampling_override"]));
   if (a("skin")) poserCle(data, "skin", resolveSkinCompte(uid, data["skin"]));
   if (a("welcome_mascot")) {
     const [, actives] = reglageMascottes();

@@ -32,7 +32,7 @@ import { tokenHex } from "../boucle/ports";
 import { getChat, getChatPlanMode, setTitleIfDefault, upsertChat } from "../chats/stockage";
 import { applyPersistedState, extractCompressionState } from "../contexte/etat-compression";
 import { mergeUserSuffix } from "../contexte/elagage";
-import { resolveMaxRounds, resolveThreshold } from "../contexte/porte-compaction";
+import { compactionActive, resolveMaxRounds, resolveThreshold } from "../contexte/porte-compaction";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
 import { journal } from "../journal";
 import { readyFor, toolEnabledIn } from "../images/acces";
@@ -362,8 +362,7 @@ export async function prepareTurn(
     agentsOn = hasActiveAgents(Array.isArray(agents) ? agents : []);
   }
   const liveShellOn = veritePy(getOu(settings, "live_shell_enabled", true));
-  const compressionOn =
-    Boolean(config.COMPRESSION_ENABLED) && veritePy(getOu(settings, "compression_enabled", false));
+  const compressionOn = compactionActive(settings);
   const compactionThreshold = resolveThreshold(settings);
   const compactionMaxRounds = resolveMaxRounds(settings);
   const mcpOn = veritePy(getOu(settings, "enable_mcp", true));

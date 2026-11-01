@@ -709,7 +709,7 @@ comme absente.
 | `LLAMA_TOOL_TIMEOUT_S` | `llama.tool_timeout_s` | `300` | Borne dure par appel d'outil |
 | `LLAMA_TOOL_LOOP_MAX_S` | `llama.tool_loop_max_s` | `0` (off) | Budget mur d'horloge d'un tour outillé |
 | `LLAMA_THINKING_BUDGET_TOKENS` | `llama.thinking_budget_tokens` | `8192` | Budget de réflexion (chat simple ; clampé `[512..131072]`, alias llama.cpp `reasoning_budget_tokens`) |
-| `LLAMA_MAX_TOKENS_CHAT` | `llama.max_tokens_chat` | `16384` | Cap théorique de génération (mode chat) |
+| `LLAMA_MAX_TOKENS_CHAT` | `llama.max_tokens_chat` | `16384` | Cap théorique de génération (mode chat) : longueur « Auto » et réserve de sortie. Une longueur choisie dans le panneau Génération n'est bornée que par la place libre de la fenêtre (fenêtre − prompt estimé − marge), pour tous les moteurs |
 | `LLAMA_MAX_TOKENS_THINKING` | `llama.max_tokens_thinking` | `24576` | Cap théorique (mode thinking) — sert surtout la **réserve de prompt** depuis `thinking_output_uncapped` |
 | `LLAMA_THINKING_OUTPUT_UNCAPPED` | `llama.thinking_output_uncapped` | `true` | Mode thinking **local** : aucun `max_tokens` envoyé (raisonnements longs non coupés ; aligné Open WebUI / webui llama.cpp) |
 | `LLAMA_THINK_RESUME_MAX` | `llama.think_resume_max` | `6` | Auto-reprises max d'un raisonnement coupé (`finish=length` en plein `<think>`) par appel LLM ; `0` = off |

@@ -304,6 +304,10 @@ main et traitait tout autre moteur comme un service distant sans capacité.
   quel, en direct comme au rechargement) ; seul le pourcentage l'est. Un avis part une fois par tour si cette fenêtre
   est lue sur le moteur ou déclarée sur le connecteur. La jauge en direct ajoute à part les jetons générés que le
   dernier prompt mesuré ne compte pas, et la capacité du cache KV de vLLM ou SGLang ne sert plus de fenêtre.
+- **Longueur explicite** (`max_tokens`, `max_completion_tokens`, `n_predict` de l'échantillonnage) : elle n'est plus
+  plafonnée par la réserve de sortie sur llama.cpp (le Python la ramenait à ce plafond, jamais à la place libre) ; elle
+  est ramenée à la place libre de la fenêtre (fenêtre − prompt estimé − marge) à l'envoi, pour tous les moteurs, et
+  laissée telle quelle si la fenêtre est inconnue. Seule la longueur par défaut garde le plafond fixe.
 
 ## Console : secrets de config.json masqués
 

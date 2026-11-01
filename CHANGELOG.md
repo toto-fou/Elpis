@@ -111,6 +111,14 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Interface
 
+- **Panneau Génération refondu.** Jauge de contexte (occupation, fenêtre, réserve de
+  sortie et marge hachurées, point de compaction, lien « Régler » vers Paramètres ›
+  Compaction), section Sortie (Température, Longueur « Auto » ou « Limiter »). Les
+  réglages sont rangés sur le compte (`sampling_override` de `/api/settings`) au lieu
+  du navigateur ; l'ancienne valeur est reprise une fois. Une longueur explicite est
+  ramenée à la place libre de la fenêtre à l'envoi, pour tous les moteurs (SGLang et
+  vLLM refusaient la requête). Un réglage que le moteur n'applique pas est grisé avec
+  sa raison en clair.
 - **Questionnaire de l'assistant dans la barre de saisie.** Les questions
   `ask_user` s'affichent dans la carte du composeur : options en lignes avec
   leur touche (1 à 9), rond pour un choix, case pour plusieurs, la zone de

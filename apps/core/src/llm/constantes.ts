@@ -110,7 +110,7 @@ export function effectiveGenerationCap(thinkingMode: boolean, ctxSize: number | 
   return minPy(cap, maxPy(LLAMA_GEN_CAP_FLOOR, entierPy(ctxSize * LLAMA_GEN_CAP_CTX_RATIO)));
 }
 
-/** Borne `max_tokens`/`n_predict` au cap effectif : injecté s'il manque, clampé s'il est explicite, omis en sortie non plafonnée. */
+/** Longueur par défaut (aucune demandée) : le cap effectif injecté, ou omise en sortie non plafonnée ; une longueur explicite reste, `bornerLongueurALaFenetre` la ramène à la place libre. */
 export function clampGenerationBudget(
   payload: Record<string, unknown>,
   samplingParams: Readonly<Record<string, unknown>>,
@@ -139,8 +139,41 @@ export function clampGenerationBudget(
     if (npResiduel) delete payload["n_predict"];
     return;
   }
-  if (positif("max_tokens")) payload["max_tokens"] = minPy(entierPy(valeur("max_tokens")), cap);
-  if (positif("n_predict")) payload["n_predict"] = minPy(entierPy(valeur("n_predict")), cap);
+}
+
+const CLES_LONGUEUR = ["max_tokens", "max_completion_tokens", "n_predict"] as const;
+export const MARGE_LONGUEUR_MIN = 512;
+export const MARGE_LONGUEUR_RATIO = 0.02;
+
+/** Place laissée à la sortie : fenêtre − prompt estimé − marge d'estimation ; 0 si la fenêtre est inconnue. */
+export function placeDeSortie(ctxSize: number, promptTokens: number): number {
+  if (!(ctxSize > 0)) return 0;
+  const marge = maxPy(MARGE_LONGUEUR_MIN, entierPy(ctxSize * MARGE_LONGUEUR_RATIO));
+  return maxPy(0, ctxSize - maxPy(0, promptTokens) - marge);
+}
+
+export interface LongueurBornee {
+  cle: string;
+  demandee: number;
+  envoyee: number;
+}
+
+/** Longueur explicite ramenée à la place libre, pour tous les moteurs ; place nulle ou fenêtre inconnue : laissée au moteur. */
+export function bornerLongueurALaFenetre(
+  payload: Record<string, unknown>,
+  ctxSize: number,
+  promptTokens: number,
+): LongueurBornee[] {
+  const place = placeDeSortie(ctxSize, promptTokens);
+  if (place <= 0) return [];
+  const bornees: LongueurBornee[] = [];
+  for (const cle of CLES_LONGUEUR) {
+    const v = payload[cle];
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= place) continue;
+    payload[cle] = place;
+    bornees.push({ cle, demandee: v, envoyee: place });
+  }
+  return bornees;
 }
 
 export const LLAMA_TOOL_PARALLELISM = nombreEnv("LLAMA_TOOL_PARALLELISM", 8, entierPy);

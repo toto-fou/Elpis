@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/mcp.ts — `/api/mcp` : serveurs déposés en dossier, catégories d'outils, serveurs du manifeste, bibliothèque partagée (écriture admin, stdio refusé), bouton « Tester » (shared_infra/mcp/panel.py). */
-import { lstatSync, mkdirSync, opendirSync, readFileSync, rmSync, statSync } from "node:fs";
+/** apps/core/src/familles/mcp.ts — `/api/mcp` : dossiers déjà déposés (liste, suppression ; plus de dépôt), catégories d'outils, serveurs du manifeste, bibliothèque partagée (écriture admin, stdio refusé), bouton « Tester » (shared_infra/mcp/panel.py). */
+import { lstatSync, opendirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { getUserSettings, ligneUtilisateur } from "@elpis/auth";
@@ -9,7 +9,6 @@ import {
   decoderUtf8IgnorePy,
   decoderUtf8Py,
   ErreurPython,
-  ErreurValidation,
   estDict,
   getPy,
   HttpError,
@@ -22,7 +21,7 @@ import {
   strPy,
   veritePy,
 } from "@elpis/commun";
-import type { Dict, ErreurPydantic } from "@elpis/commun";
+import type { Dict } from "@elpis/commun";
 import { config, parseJsonPy, realpathPy } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
@@ -57,8 +56,7 @@ import { getCategories, toolInfo } from "../outils/categories";
 import { friendlyMcpError, masquerAdresse, resoudreClientMcp } from "../outils/mcp/clients";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
-import { corpsJson, enregistrerBorne, entrees, lireFormulaire, py } from "@elpis/http";
-import type { FichierRecu, Formulaire } from "@elpis/http";
+import { corpsJson, entrees, py } from "@elpis/http";
 
 export interface DependancesMcp {
   readonly base: Base;
@@ -218,18 +216,6 @@ export function detecterCommande(dossier: string): string {
   return "";
 }
 
-/** `PurePosixPath(s).parts` : racine `/` (ou `//` exactement), composants non vides hors `.`. */
-export function partiesChemin(s: string): string[] {
-  const racine = s.startsWith("/") ? (s.startsWith("//") && !s.startsWith("///") ? "//" : "/") : "";
-  const composants = s.split("/").filter((c) => c !== "" && c !== ".");
-  return racine ? [racine, ...composants] : composants;
-}
-
-/** Nom de dossier assaini : `c.isalnum()` (lettres et chiffres Unicode), `-` et `_`. */
-export function nomDeDossier(nom: string): string {
-  return [...nom].filter((c) => /^[\p{L}\p{N}]$/u.test(c) || c === "-" || c === "_").join("");
-}
-
 function listerDossiers(req: FastifyRequest): Dict {
   utilisateur(req);
   const racine = config.MCP_SERVERS_DIR;
@@ -242,89 +228,6 @@ function listerDossiers(req: FastifyRequest): Dict {
     }
   }
   return { servers, root_path: racine };
-}
-
-/** `files: List[UploadFile] = File(...)`, `paths: List[str] = Form(...)` : un 422 groupé comme FastAPI. */
-function listesDuDepot(f: Formulaire): { fichiers: FichierRecu[]; chemins: string[] } {
-  const erreurs: ErreurPydantic[] = [];
-  const fichiers: FichierRecu[] = [];
-  const chemins: string[] = [];
-  const bruts = f.getAll("files");
-  if (bruts.length === 0)
-    erreurs.push({ type: "missing", loc: ["body", "files"], msg: "Field required", input: null });
-  bruts.forEach((v, i) => {
-    if (typeof v !== "string") fichiers.push(v);
-    else
-      erreurs.push({
-        type: "value_error",
-        loc: ["body", "files", i],
-        msg: "Value error, Expected UploadFile, received: <class 'str'>",
-        input: v,
-        ctx: { error: {} },
-      } as ErreurPydantic);
-  });
-  const textes = f.getAll("paths");
-  if (textes.length === 0)
-    erreurs.push({ type: "missing", loc: ["body", "paths"], msg: "Field required", input: null });
-  textes.forEach((v, i) => {
-    if (typeof v === "string") chemins.push(v);
-    else
-      erreurs.push({
-        type: "string_type",
-        loc: ["body", "paths", i],
-        msg: "Input should be a valid string",
-        input: { filename: v.filename, size: v.taille },
-      });
-  });
-  if (erreurs.length > 0) throw new ErreurValidation(erreurs);
-  return { fichiers, chemins };
-}
-
-/** Dépôt d'un dossier (admin, en une requête) : plafond par fichier seulement ; chaque chemin reste sous le dossier créé, sinon tout est retiré ; jamais de dépôt partiel. */
-async function deposer(req: FastifyRequest): Promise<Dict> {
-  const formulaire = await lireFormulaire(req, {
-    limiteFichier: config.MAX_UPLOAD_BYTES + 1,
-    limiteTotale: Number.POSITIVE_INFINITY,
-  });
-  const { fichiers, chemins } = listesDuDepot(formulaire);
-  if (fichiers.length !== chemins.length) throw new HttpError(400, "Données invalides");
-  const premier = partiesChemin(chemins[0] ?? "");
-  let nom = nomDeDossier(premier.length > 1 ? (premier[0] ?? "") : "mcp_server");
-  if (!nom) nom = `mcp_${Math.floor(Date.now() / 1000)}`;
-  let cible = joindre(config.MCP_SERVERS_DIR, nom);
-  if (existe(cible)) {
-    nom = `${nom}_${Math.floor(Date.now() / 1000)}`;
-    cible = joindre(config.MCP_SERVERS_DIR, nom);
-  }
-  const cibleResolue = realpathPy(cible);
-  try {
-    mkdirSync(cible, { recursive: true });
-    for (const [i, fichier] of fichiers.entries()) {
-      const brut = chemins[i] ?? "";
-      if (brut.startsWith("/")) throw new HttpError(403, "Chemin absolu refusé");
-      const parties = partiesChemin(brut);
-      if (parties.length === 0) throw new HttpError(500, "tuple index out of range");
-      const rel = parties.length > 1 ? parties.slice(1) : parties;
-      const relatif = rel.join("/");
-      if (!relatif || relatif === ".") continue;
-      if (rel.includes("..")) throw new HttpError(403, "Composant '..' refusé dans le chemin");
-      const final = realpathPy(joindre(cible, relatif));
-      if (!dedans(final, cibleResolue)) throw new HttpError(403, `Chemin hors du dossier MCP: ${relatif}`);
-      mkdirSync(path.dirname(final), { recursive: true });
-      await enregistrerBorne(fichier, final, config.MAX_UPLOAD_BYTES);
-    }
-    return { ok: true, server_name: nom, path: cible, suggested_cmd: detecterCommande(cible) };
-  } catch (e) {
-    if (existe(cible)) {
-      try {
-        rmSync(cible, { recursive: true, force: true });
-      } catch {
-        // nettoyage au mieux, comme le rmtree du Python
-      }
-    }
-    if (e instanceof HttpError) throw e;
-    throw new HttpError(500, messageDe(e));
-  }
 }
 
 function supprimerDossier(req: FastifyRequest): Dict {
@@ -598,7 +501,6 @@ export function creerFamilleMcp(dep: DependancesMcp): Famille {
     nom: "mcp",
     routes: [
       route("GET", "/api/mcp/custom-servers", "session", (req) => listerDossiers(req)),
-      route("POST", "/api/mcp/upload", "admin", (req) => deposer(req)),
       route("DELETE", "/api/mcp/custom-servers/:name", "admin", (req) => supprimerDossier(req)),
       route("GET", "/api/mcp/categories", "session", (req) => categories(req)),
       route("GET", "/api/mcp/manifest-servers", "session", (req) => serveursDuManifeste(req)),

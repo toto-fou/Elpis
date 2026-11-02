@@ -2096,7 +2096,7 @@ des sessions inactives.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/mcp/custom-servers` · `POST /api/mcp/upload` · `DELETE /{name}` | Serveurs uploadés (détection automatique de la commande : `package.json`, `start.txt`, `main.py`, `server.py`, `index.js`…) |
+| `GET /api/mcp/custom-servers` · `DELETE /{name}` | Dossiers MCP déjà présents sur le serveur (détection de la commande : `package.json`, `start.txt`, `main.py`, `server.py`, `index.js`…) ; plus de dépôt depuis l'interface (`POST /api/mcp/upload` retiré) |
 | `GET /api/mcp/categories` | Catégories + descripteurs d'affichage |
 | `GET /api/mcp/shared-servers` · `POST` · `PUT /{id}` · `DELETE /{id}` | Bibliothèque partagée (admin en écriture) |
 

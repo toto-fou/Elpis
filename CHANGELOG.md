@@ -21,6 +21,14 @@ selon [SemVer](https://semver.org/lang/fr/).
   serveurs déclarés et externes) reprennent la piste commune des réglages : le focus
   clavier y devient visible.
 
+### Retiré
+
+- **Serveurs MCP : dépôt de dossiers.** `POST /api/mcp/upload` et l'import de dossier
+  de l'interface sont retirés : aucun code MCP n'est plus déposé sur le serveur, un
+  serveur se branche par son adresse (HTTP ou SSE). Les dossiers déjà présents
+  restent listés (`GET /api/mcp/custom-servers`), supprimables par l'administrateur
+  et compris dans la sauvegarde.
+
 ## 0.1.2 — 2026-11-01
 
 ### Corrigé

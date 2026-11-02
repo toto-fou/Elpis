@@ -9,12 +9,6 @@ export const schemaReponseDossiersMcp = z.object({
   servers: z.array(schemaDossierMcp),
   root_path: z.string(),
 });
-export const schemaReponseDepotMcp = z.object({
-  ok: z.literal(true),
-  server_name: z.string(),
-  path: z.string(),
-  suggested_cmd: z.string(),
-});
 
 export const schemaOutilCategorie = z.object({
   name: z.string(),

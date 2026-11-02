@@ -234,15 +234,13 @@ const rg = domaineReglages();
               >{{ rg.pinnedServers.length }}</span
             >
             <button
+              type="button"
               class="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-100 text-slate-400 hover:text-blue-600 transition-colors"
               title="Gérer / ajouter un serveur"
-              @click="
-                rg.showMcpManagerModal = true;
-                rg.loadCustomMcpServers();
-                rg.loadSharedMcpServers();
-              "
+              aria-label="Gérer / ajouter un serveur"
+              @click="rg.openMcpManager()"
             >
-              <i class="ph ph-plus text-xs font-bold"></i>
+              <i class="ph ph-plus text-xs font-bold" aria-hidden="true"></i>
             </button>
           </div>
         </div>

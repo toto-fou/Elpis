@@ -316,11 +316,15 @@ n'importe quel service parlant le protocole (Jenkins, une base interne, une API
 maison).
 
 - **Vos serveurs** : ajoutés depuis le panneau MCP, bouton *Gérer / ajouter
-  un serveur* de la section Externes (HTTP, SSE ou local).
-- **La bibliothèque partagée** : l'administrateur publie un serveur une fois,
-  et chacun choisit de l'afficher ou non dans son panneau MCP (icône œil).
-  Les secrets d'authentification restent côté serveur — ils ne transitent
-  jamais par votre navigateur.
+  un serveur* de la section Externes (HTTP, SSE ou local). La fenêtre liste à
+  gauche vos serveurs et les serveurs partagés ; le serveur choisi s'édite à
+  droite (*Tester*, *Enregistrer*), avec l'état de
+  son dernier test dans la liste. Les modèles (Jenkins, Wiki.js) préremplissent
+  un nouveau serveur.
+- **La bibliothèque partagée** : l'administrateur publie un serveur une fois
+  (portée *Tous*, HTTP ou SSE), et chacun choisit de l'afficher ou non dans son
+  panneau MCP (*Afficher dans le panneau*). Les secrets d'authentification
+  restent côté serveur — ils ne transitent jamais par votre navigateur.
 
 Chaque serveur externe se coche indépendamment, comme une catégorie, **pour la
 conversation en cours**.

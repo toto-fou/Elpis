@@ -4,6 +4,20 @@ Les changements notables d'Elpis, du plus récent au plus ancien. Format inspir�
 de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) ; numéros de version
 selon [SemVer](https://semver.org/lang/fr/).
 
+## Non publié
+
+### Modifié
+
+- **Serveurs MCP : gestionnaire à deux volets.** La fenêtre *Serveurs MCP* liste à
+  gauche vos serveurs puis les serveurs partagés, avec l'état du dernier test sur
+  chaque ligne ; le serveur choisi s'édite à droite, *Tester* et *Enregistrer* dans
+  l'en-tête. Un seul formulaire sert pour un serveur perso ou publié (portée *Moi*
+  / *Tous*) ; les modèles (Jenkins, Wiki.js) deviennent des puces ; *Afficher dans
+  le panneau* remplace l'icône œil sans libellé. Une saisie en cours est gardée en
+  changeant de serveur ou en fermant, et la suppression se confirme sur place, sans
+  que le bouton bouge. Chacun modifie et supprime ses propres serveurs ; le type
+  *Local* reste réservé à l'administrateur et n'apparaît plus aux autres comptes.
+
 ## 0.1.2 — 2026-11-01
 
 ### Corrigé

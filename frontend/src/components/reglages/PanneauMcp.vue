@@ -80,10 +80,7 @@ const rg = domaineReglages();
               </button>
               <label class="relative inline-flex items-center cursor-pointer shrink-0">
                 <input v-model="rg.localTools[cat.name]" type="checkbox" class="sr-only peer" />
-                <div
-                  class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
-                  :class="rg.mcpCategoryToggleClass(cat)"
-                ></div>
+                <div class="set-switch-track block" :class="rg.mcpCategoryToggleClass(cat)"></div>
               </label>
             </div>
 
@@ -121,10 +118,7 @@ const rg = domaineReglages();
               </span>
               <span class="relative inline-flex items-center shrink-0">
                 <input v-model="rg.localTools[cat.name]" type="checkbox" class="sr-only peer" />
-                <div
-                  class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
-                  :class="rg.mcpCategoryToggleClass(cat)"
-                ></div>
+                <div class="set-switch-track block" :class="rg.mcpCategoryToggleClass(cat)"></div>
               </span>
             </label>
 
@@ -216,9 +210,7 @@ const rg = domaineReglages();
             </span>
             <div class="relative inline-flex items-center shrink-0">
               <input v-model="rg.manifestTools[srv.name]" type="checkbox" class="sr-only peer" />
-              <div
-                class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
-              ></div>
+              <div class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
             </div>
           </label>
         </div>
@@ -270,9 +262,7 @@ const rg = domaineReglages();
                 class="sr-only peer"
                 @change="rg.activateExternalServer(srv.id)"
               />
-              <div
-                class="w-9 h-5 bg-slate-200 border border-slate-300 rounded-full peer peer-checked:bg-blue-600 peer-checked:border-blue-600 peer-focus:outline-none transition-colors after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-4 after:w-4 after:transition-all after:shadow-sm peer-checked:after:translate-x-full peer-checked:after:border-white"
-              ></div>
+              <div class="set-switch-track block peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
             </div>
           </label>
         </div>

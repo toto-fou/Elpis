@@ -17,6 +17,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   changeant de serveur ou en fermant, et la suppression se confirme sur place, sans
   que le bouton bouge. Chacun modifie et supprime ses propres serveurs ; le type
   *Local* reste réservé à l'administrateur et n'apparaît plus aux autres comptes.
+- **Panneau MCP : interrupteurs communs.** Les interrupteurs du panneau (catégories,
+  serveurs déclarés et externes) reprennent la piste commune des réglages : le focus
+  clavier y devient visible.
 
 ## 0.1.2 — 2026-11-01
 

@@ -13,7 +13,7 @@
     "@elpis/commun": "0.1.2",
     "@elpis/contracts": "0.1.2",
     "@highlightjs/cdn-assets": "11.7.0",
-    "@sgratzl/chartjs-chart-boxplot": "4.4.4",
+    "@sgratzl/chartjs-chart-boxplot": "4.4.5",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "5.4.0",
     "chart.js": "4.5.1",

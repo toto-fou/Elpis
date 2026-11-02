@@ -202,7 +202,7 @@ export function creerClavier(s: EtatClavier) {
       return true;
     }
     if (r?.showMcpManagerModal.value) {
-      void r.closeMcpManager();
+      r.closeMcpManager();
       return true;
     }
     if (r?.isShareModalOpen.value) {

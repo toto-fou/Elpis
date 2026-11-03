@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/rag/qdrant.ts — côté Qdrant de l'indexation : port du client, effacements (collection de toutes générations, document, génération) et marqueurs de reprise quand Qdrant est injoignable. */
-import { closeSync, constants, fstatSync, openSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
+import { closeSync, constants, openSync, readdirSync, unlinkSync } from "node:fs";
 
 import { configRag } from "@elpis/config";
 import { ClientQdrant, ErreurRag } from "@elpis/rag";
@@ -186,68 +186,6 @@ export async function purgerAvantReutilisation(q: PortQdrantRag, nom: string): P
     noterPurgeQdrant(marqueur);
     throw e;
   }
-}
-
-/** Collections de l'ancien RAG notées par la mise à jour quand Qdrant était arrêté (deploy/rag_ancien.py). */
-const MARQUEUR_ANCIEN_RAG = "ancien-rag.json";
-const MARQUEUR_ANCIEN_MAX = 1024 * 1024;
-
-const hoteNormal = (url: string): string => {
-  try {
-    const u = new URL(url);
-    if (["localhost", "[::1]", "::1"].includes(u.hostname)) u.hostname = "127.0.0.1";
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return "";
-  }
-};
-
-/** Supprime les collections de l'ancien RAG notées par la mise à jour, jamais une collection `elpis_*` ; `null` sans marqueur, sinon le nombre supprimé. */
-export async function traiterAncienRag(q: PortQdrantRag): Promise<number | null> {
-  let dfd: number;
-  try {
-    dfd = ouvrirDossierSous(assurerRacineMagasinRag(), DOSSIER_MARQUEURS, { lisible: true });
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw e;
-  }
-  let note: { tout?: unknown; noms?: unknown; url?: unknown };
-  try {
-    let fd: number;
-    try {
-      fd = openSync(viaFd(dfd, MARQUEUR_ANCIEN_RAG), constants.O_RDONLY | O_NOFOLLOW);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw e;
-    }
-    try {
-      if (!fstatSync(fd).isFile() || fstatSync(fd).size > MARQUEUR_ANCIEN_MAX) note = {};
-      else note = JSON.parse(readFileSync(fd, "utf8")) as typeof note;
-    } catch {
-      note = {};
-    } finally {
-      closeSync(fd);
-    }
-  } finally {
-    closeSync(dfd);
-  }
-  const url = typeof note.url === "string" ? note.url : "";
-  const memeQdrant = url === "" || hoteNormal(url) === hoteNormal(configRag().qdrant_url);
-  const noms = Array.isArray(note.noms) ? note.noms.filter((n): n is string => typeof n === "string") : [];
-  let faites = 0;
-  if (memeQdrant) {
-    const cibles = (await q.listerCollections()).filter(
-      (n) => !n.startsWith("elpis_") && (note.tout === true || noms.includes(n)),
-    );
-    for (const nom of cibles) if (await q.supprimerCollection(nom)) faites++;
-    if (faites)
-      log.info(
-        `ancien RAG : ${faites} collection(s) Qdrant supprimée(s) (${cibles.slice(0, 10).join(", ")})`,
-      );
-  } else
-    log.warn("ancien RAG : collections notées pour un autre Qdrant que rag.qdrant_url, laissées en place");
-  retirerMarqueur(MARQUEUR_ANCIEN_RAG);
-  return faites;
 }
 
 /** Rejoue les effacements notés ; un marqueur n'est retiré qu'après succès (rend le nombre fait et restant). */

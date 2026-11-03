@@ -155,8 +155,8 @@ export function stateFileName(owner, stateId) {
 // États enregistrés avant la 0.0.1 : ``state_<id>.json``, sans propriétaire.
 // Le service ne peut pas deviner à quel compte ils appartiennent : il ne les
 // charge jamais (n'importe quel compte qui connaît l'identifiant obtiendrait
-// la session connectée d'un autre) et ne les purge pas, pour qu'un
-// administrateur puisse les rattacher (``./elpis browser migrate-states``).
+// la session connectée d'un autre) et ne les purge pas : un administrateur
+// les supprime à la main.
 const _LEGACY_STATE_RE = /^state_[A-Za-z0-9-]{8,64}\.json$/;
 
 /** Nom ancien (sans propriétaire) de l'état ``stateId``, ou ``null``. */
@@ -175,7 +175,7 @@ export function isLegacyStateName(name) {
  * dit si ``cookies/<nom>`` existe ; ``maxAgeDays`` (0 : pas de purge) est
  * rappelé dans le ``fix`` d'un état introuvable. → ``{ file }``, ou
  * ``{ code, error, fix }`` à rendre en 404 : ``legacy_state`` (l'état existe
- * sous l'ancien nom, à rattacher) ou ``state_not_found``. L'état d'un autre
+ * sous l'ancien nom, jamais rechargé) ou ``state_not_found``. L'état d'un autre
  * compte répond comme un état inconnu.
  */
 export function resolveStateFile(owner, stateId, exists, { maxAgeDays = 0 } = {}) {
@@ -186,12 +186,10 @@ export function resolveStateFile(owner, stateId, exists, { maxAgeDays = 0 } = {}
         return {
             code: 'legacy_state',
             error: "État sauvegardé avant la version 0.0.1 d'Elpis : il n'appartient à aucun "
-                 + "compte et ne se recharge pas tant qu'un administrateur ne l'a pas rattaché.",
-            fix: "S'il a été enregistré pour ce compte, un administrateur le lui rattache "
-               + '(./elpis browser states montre ses sites) : ./elpis browser migrate-states '
-               + `<compte> ${stateId}, qui renomme cookies/${ancien} en ${nom}. Relancez ensuite `
-               + 'start avec le même load_state_id (isolated=true si une session est déjà '
-               + 'ouverte) ; en attendant, démarrez sans load_state_id.',
+                 + 'compte et ne se recharge jamais.',
+            fix: 'Démarrez sans load_state_id (isolated=true si une session est déjà ouverte), '
+               + 'reconnectez-vous au site puis save_state pour un nouvel état. Un administrateur '
+               + `peut supprimer cookies/${ancien}.`,
         };
     }
     const purge = maxAgeDays > 0

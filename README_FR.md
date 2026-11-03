@@ -241,7 +241,6 @@ sudo ./elpis service install   # services systemd
 - [Architecture, API, sous-systèmes](docs/architecture.md)
 - [Passerelle sandbox](docs/sandbox-gateway.md) ·
   [Compteurs de tokens](docs/token-counters.md)
-- [Écarts voulus avec la version Python](docs/ecarts-python.md)
 
 ## Contribuer, sécurité, licence
 

@@ -136,7 +136,7 @@ toutes dans le core TypeScript.
 | Famille | Contenu |
 |---|---|
 | `accounts` | comptes (`users.py`) |
-| `db` | persistance multi-moteurs du Python restant (`_dialect.py`, migrations historiques, `python -m shared_infra.db` pour la configuration) |
+| `db` | persistance multi-moteurs du Python restant (`_dialect.py`, migrations historiques) |
 | `llm` | connecteurs de modèles |
 | `memory` | mise à niveau des anciennes tables de la mémoire AX (`ax/`) |
 | `observability` | `swallow()` |

@@ -38,8 +38,6 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config.json"
-# Configuration de l'ancien RAG : seulement relue par la mise à jour (deploy/rag_ancien.py), puis supprimée.
-RAG_CONFIG = ROOT / "rag_app" / "rag_config.json"
 ENV_FILE = ROOT / ".env"
 USER_DB = ROOT / "user_db"
 
@@ -692,23 +690,6 @@ def step_rag(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
        + (", reranker" if rr["enabled"] else "") + (", OCR" if ocr["url"] else ""))
 
 
-def migrer_rag(silencieux: bool = False) -> bool:
-    """Passage au RAG intégré (une fois) : jamais bloquant, un échec est signalé et retenté au lancement suivant."""
-    try:
-        import rag_ancien
-    except ImportError:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        import rag_ancien
-    try:
-        rapport = rag_ancien.migrer(ROOT, journal=(lambda _m: None) if silencieux else info)
-    except Exception as e:                                      # noqa: BLE001
-        warn(f"Ancien RAG non nettoyé ({e.__class__.__name__} : {str(e)[:200]}) : retenté au prochain ./elpis start.")
-        return False
-    if not rapport.get("deja_fait") and not silencieux and not (rapport.get("supprimes") or rapport.get("reglages")):
-        info("RAG : aucun ancien RAG à supprimer.")
-    return True
-
-
 def step_sandbox(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> None:
     title("5/8  Sandbox (terminal et exécution de code)")
     ex = section(cfg, "executors")
@@ -1267,11 +1248,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--answers", metavar="FICHIER",
                    help="réponses de l'assistant (deploy/wizard.py) : aucune question")
     g.add_argument("--migrer-mcp", action="store_true",
-                   help="migrations sans question : mcp.json (relais, familles manquantes, familles du compte) et passage au RAG "
-                        "intégré (./elpis start et upgrade)")
-    g.add_argument("--migrer-rag", action="store_true",
-                   help="passage au RAG intégré seul, une fois : réglages repris dans config.json, ancien RAG supprimé "
-                        "(./install.sh, ./elpis upgrade)")
+                   help="migrations sans question de mcp.json : relais, familles manquantes, familles du compte "
+                        "(./elpis start et upgrade)")
     g.add_argument("--verifier-mcp", action="store_true",
                    help="code 1 si mcp.json vise encore l'ancien service appmcp (:8766) (./elpis doctor)")
     g.add_argument("--verifier-familles-mcp", action="store_true",
@@ -1419,10 +1397,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         migrate_sandbox_relay(chemin)
         migrate_missing_families(chemin)
         migrate_app_entries(chemin)
-        migrer_rag()
         return 0
-    if a.migrer_rag:
-        return 0 if migrer_rag() else 1
     if a.check_llm:
         return check_llm(a)
     if a.conseils_moteur:
@@ -1443,7 +1418,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     p = Prompter(interactive)
     os.chdir(ROOT)
 
-    migrer_rag()
     if CONFIG.exists() and not a.force:
         cfg = read_json(CONFIG)
         info("config.json existant : les valeurs actuelles sont proposées par défaut.")

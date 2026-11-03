@@ -105,7 +105,7 @@ export interface OptionsFlux {
   surFluxCoupe?: ((f: FluxCoupe) => void) | null;
 }
 
-/** Tâches d'arrêt détachées, gardées jusqu'à leur fin. */
+/** Tâches détachées (arrêt d'un flux, capture du trafic LLM), gardées jusqu'à leur fin. */
 const TACHES_DETACHEES = new Set<Promise<unknown>>();
 
 function detacher(p: Promise<unknown>): void {
@@ -701,20 +701,22 @@ export async function llamaChatWithToolsStream(
           : silentCut
             ? "length"
             : "stop";
-      await captureLlmExchange({
-        reqId,
-        userId,
-        chatId,
-        model: targetModel,
-        path: "tools",
-        requestPayload: payload,
-        content: finalContent,
-        toolCalls: builtTcs,
-        usage,
-        timings,
-        finishReason: strPy(fr),
-        status: "ok",
-      });
+      detacher(
+        captureLlmExchange({
+          reqId,
+          userId,
+          chatId,
+          model: targetModel,
+          path: "tools",
+          requestPayload: payload,
+          content: finalContent,
+          toolCalls: builtTcs,
+          usage,
+          timings,
+          finishReason: strPy(fr),
+          status: "ok",
+        }),
+      );
       if (
         (o.resumeContent !== null && o.resumeContent !== undefined) ||
         (o.resumeThink !== null && o.resumeThink !== undefined && resumeNative)
@@ -753,20 +755,22 @@ export async function llamaChatWithToolsStream(
           `[LLM_REQ ${reqId}] tools_stream interrompu après émission partielle — pas de retry, retour du partiel.`,
         );
         if (!(e instanceof HTTPStatusError)) fireCancelStream(client, target, convId, targetModel);
-        await captureLlmExchange({
-          reqId,
-          userId,
-          chatId,
-          model: targetModel,
-          path: "tools",
-          requestPayload: payload,
-          content: contentParts.join(""),
-          usage,
-          timings,
-          finishReason: "partial",
-          status: "partial",
-          error: prefixePy(String(e instanceof Error ? e.message : e), 500),
-        });
+        detacher(
+          captureLlmExchange({
+            reqId,
+            userId,
+            chatId,
+            model: targetModel,
+            path: "tools",
+            requestPayload: payload,
+            content: contentParts.join(""),
+            usage,
+            timings,
+            finishReason: "partial",
+            status: "partial",
+            error: prefixePy(String(e instanceof Error ? e.message : e), 500),
+          }),
+        );
         return {
           choices: [
             {
@@ -803,17 +807,19 @@ export async function llamaChatWithToolsStream(
         });
     }
   }
-  await captureLlmExchange({
-    reqId,
-    userId,
-    chatId,
-    model: targetModel,
-    path: "tools",
-    requestPayload: payload,
-    content: "",
-    status: "error",
-    error: prefixePy(llmErrorDetail(lastErr), 1000),
-  });
+  detacher(
+    captureLlmExchange({
+      reqId,
+      userId,
+      chatId,
+      model: targetModel,
+      path: "tools",
+      requestPayload: payload,
+      content: "",
+      status: "error",
+      error: prefixePy(llmErrorDetail(lastErr), 1000),
+    }),
+  );
   noterPanneTransport(targetModel, lastErr);
   throw new LLMFailure(lastErr, { attempts: llmErrorIsFatal(lastErr) ? 1 : retries + 1 });
 }

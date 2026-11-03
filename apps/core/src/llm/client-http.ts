@@ -689,11 +689,11 @@ export async function avecFlux<T>(
 // ── Clients LLM partagés (`_client.py`) ─────────────────────────────────────
 
 const LLAMA_TIMEOUT_SEC = config.LLAMA_TIMEOUT_SEC;
-const LLAMA_MAX_CONCURRENCY = config.LLAMA_MAX_CONCURRENCY;
 
+/** Pool vers un moteur sans plafond : la file d'Elpis borne llama.cpp à ses slots, vLLM et SGLang règlent eux-mêmes leur parallélisme. */
 const LIMITES_LLM: Limites = {
-  maxKeepaliveConnections: LLAMA_MAX_CONCURRENCY,
-  maxConnections: LLAMA_MAX_CONCURRENCY + 2,
+  maxKeepaliveConnections: null,
+  maxConnections: null,
   keepaliveExpiry: 300,
 };
 const DELAIS_LLM = delais(LLAMA_TIMEOUT_SEC, { connect: 15.0 });

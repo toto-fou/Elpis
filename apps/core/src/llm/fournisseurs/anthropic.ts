@@ -285,7 +285,23 @@ export function thinkingConfig(model: string, maxTokens: number): Dict | null {
   return { type: "enabled", budget_tokens: budget };
 }
 
-/** Corps `/v1/messages` (pure) : pas de sampling, `thinking` seulement sans outils. */
+/** Points de cache éphémère (5 min) : fin du système (outils et système), puis dernier bloc marquable de la conversation ; mute `corps`. */
+export function poserPointsCache(corps: Dict): void {
+  const systeme = corps["system"];
+  if (typeof systeme === "string" && systeme)
+    corps["system"] = [{ type: "text", text: systeme, cache_control: { type: "ephemeral" } }];
+  const msgs = corps["messages"];
+  const blocs = Array.isArray(msgs) ? getPy(msgs.at(-1), "content") : null;
+  if (!Array.isArray(blocs)) return;
+  for (let i = blocs.length - 1; i >= 0; i--) {
+    const b: unknown = blocs[i];
+    if (!estDict(b) || b["type"] === "thinking" || b["type"] === "redacted_thinking") continue;
+    blocs[i] = { ...b, cache_control: { type: "ephemeral" } };
+    return;
+  }
+}
+
+/** Corps `/v1/messages` (pure) : pas de sampling, `thinking` seulement sans outils ; points de cache sur demande (boucle d'outils). */
 export function buildBody(
   target: CibleAnthropic,
   messages: readonly unknown[],
@@ -295,6 +311,7 @@ export function buildBody(
     thinkingMode?: boolean;
     model?: string | null;
     stream?: boolean;
+    cache?: boolean;
   } = {},
 ): Dict {
   const outils = toAnthropicTools(options.toolsPayload ?? null);
@@ -311,6 +328,7 @@ export function buildBody(
     const cfg = thinkingConfig(corps["model"] as string, corps["max_tokens"] as number);
     if (cfg) corps["thinking"] = cfg;
   }
+  if (options.cache) poserPointsCache(corps);
   return corps;
 }
 
@@ -645,6 +663,7 @@ export async function anthropicChatWithToolsStream(
     thinkingMode: options.thinkingMode ?? false,
     model: options.model ?? null,
     stream: true,
+    cache: true,
   });
   const res = await consumeStream(options.target, body, {
     onContentToken: options.onContentToken,

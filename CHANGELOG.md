@@ -35,6 +35,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   s'affichait selon la liste des skills du formulaire de routine (même nom exporté
   par les deux domaines, le dernier écrasait l'autre), parfois malgré des skills
   personnels. L'onglet Skills compte de nouveau vos propres skills.
+- **Barre latérale : bouton « … » des conversations retiré.** Il ouvrait le menu
+  puis le refermait aussitôt ; les actions (renommer, archiver, supprimer) restent
+  au clic droit ou à la touche Menu, et F2 renomme.
 
 ## 0.1.2 — 2026-11-01
 

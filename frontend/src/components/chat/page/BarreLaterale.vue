@@ -442,11 +442,11 @@ onBeforeUnmount(() => brancherFondu(null));
               "
               @contextmenu.prevent="b.openContextMenu($event, 'chat', chat)"
             >
-              <!-- Titre (ouvre ou coche en mode sélection) et « Actions » : deux boutons frères, jamais imbriqués. -->
+              <!-- Titre : ouvre (ou coche en mode sélection) ; actions au clic droit ou à la touche Menu, F2 renomme. -->
               <button
                 type="button"
                 data-chat-open
-                class="flex-1 min-w-0 h-full pl-3 pr-2 group-hover:pr-9 group-focus-within:pr-9 rounded-lg flex items-center gap-2 text-left cursor-pointer"
+                class="flex-1 min-w-0 h-full pl-3 pr-2 rounded-lg flex items-center gap-2 text-left cursor-pointer"
                 :aria-current="
                   b.currentView === 'chat' && b.currentChatId === chat.id && !b.chatSelectMode
                     ? 'page'
@@ -483,17 +483,6 @@ onBeforeUnmount(() => brancherFondu(null));
                   aria-label="Génération en cours"
                   title="Génération en cours…"
                 ></span>
-              </button>
-              <button
-                v-if="!b.chatSelectMode"
-                type="button"
-                title="Actions"
-                :aria-label="`Actions sur « ${chat.title} »`"
-                aria-haspopup="menu"
-                class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:outline-none w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-opacity"
-                @click="b.openContextMenu($event, 'chat', chat)"
-              >
-                <i class="ph ph-dots-three text-sm" aria-hidden="true"></i>
               </button>
             </div>
           </template>

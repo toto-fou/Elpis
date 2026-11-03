@@ -62,7 +62,7 @@
     "fastify": {"version": "5.12.5", "role": "execution"},
     "@fastify/send": {"version": "4.1.1", "role": "execution"},
     "@fastify/cookie": {"version": "11.1.2", "role": "execution"},
-    "@fastify/multipart": {"version": "10.1.2", "role": "execution"},
+    "@fastify/multipart": {"version": "10.1.6", "role": "execution"},
     "@fastify/websocket": {"version": "11.3.3", "role": "execution"},
     "@fastify/cors": {"version": "11.3.0", "role": "execution"},
     "@fastify/rate-limit": {"version": "11.2.0", "role": "execution", "pour": "limitation de débit écrite à la main côté Python (webhooks publics, serveur MCP local)"},

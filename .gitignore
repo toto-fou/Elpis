@@ -20,7 +20,6 @@ backups/
 config.json
 config.json.bak*
 .env
-rag_app/rag_config.json
 mcp.json
 .claude/settings.local.json
 
@@ -35,14 +34,6 @@ Mo/
 .code/
 .opencode-runtime/
 .load-instance
-# Ancien RAG : supprimé par la mise à jour (deploy/rag_ancien.py), ignoré tant qu'une installation n'est pas montée.
-rag_app/DATA/
-rag_app/logs/
-rag_app/OCR_STORE/
-rag_app/rag_state.json
-rag_app/rag_ocr_state.json
-rag_app/rag_traces.json
-rag_app/app.log
 # Binaire et données de Qdrant (installés par install.sh) — ancré : la règle
 # « qdrant/ » avalait aussi deploy/qdrant/, dont install.sh a besoin.
 /rag_app/qdrant/

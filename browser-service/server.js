@@ -498,8 +498,8 @@ function reapArtifacts() {
 function signalerEtatsSansCompte() {
     const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
     if (n) {
-        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : `
-                   + 'gardés, mais rechargés seulement une fois rattachés (./elpis browser states).');
+        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
+                   + 'à supprimer à la main (browser-service/cookies/state_<id>.json).');
     }
 }
 

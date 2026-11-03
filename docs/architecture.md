@@ -1980,7 +1980,7 @@ main et admin rechargent à la lecture suivante au lieu d'attendre le TTL.
 | `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
 | `GET /api/config` · `PUT /api/config` | Copie personnelle de la config d'application |
 | `POST /api/settings/avatar` · `DELETE` | Avatar utilisateur (max 5 Mo) |
-| `POST /api/settings/assistant-avatar` | Refusée (403) : l'avatar de l'assistant est le logo de l'application ([écart](ecarts-python.md#avatar-de-lassistant-et-logo-de-lapplication)) |
+| `POST /api/settings/assistant-avatar` | Refusée (403) : l'avatar de l'assistant est le logo de l'application |
 | `GET /avatars/{filename}` | Service des avatars (garde cross-site) |
 | `GET /api/users/lite` | Annuaire léger (partages) |
 | `GET /api/skins` | Skins activés par l'administrateur, défaut d'instance, mascottes (voir [Skins](#skins)) |

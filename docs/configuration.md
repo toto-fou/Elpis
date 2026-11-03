@@ -557,10 +557,6 @@ Une valeur illisible ou hors bornes retombe sur son défaut.
   [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` sert aussi
   au délai du core. Il écoute sur `127.0.0.1:8000` (`RAG_HOST` pour un core sur
   une autre machine, qui doit alors voir le même magasin).
-- **Ancien RAG.** Les réglages d'embeddings, de reclassement et d'OCR de
-  `rag_app/rag_config.json` ont été repris une fois dans `rag.*`, sans écraser
-  une valeur déjà posée, à la mise à jour qui a supprimé l'ancien RAG
-  ([exploitation.md](exploitation.md#passage-au-rag-intégré)).
 
 ### Moteur d'inférence déclaré (`llama.engine`)
 

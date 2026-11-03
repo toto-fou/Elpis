@@ -341,39 +341,6 @@ def pool_stats() -> Optional[Dict[str, Any]]:
     return agg
 
 
-def db_info() -> Dict[str, Any]:
-    """État de la base active (page admin, ``python -m shared_infra.db info``) :
-    moteur, version, emplacement, taille, schéma, pool."""
-    from shared_infra.db import transfer as _t
-    from shared_infra.db._dialect import POSTGRES, dialect_of, has_table
-    out: Dict[str, Any] = {"backend": DB_BACKEND, "location": _t.describe(_t.active_target()),
-                           "generation": _db_generation()}
-    with db_conn() as conn:
-        d = dialect_of(conn)
-        out["version"] = _t.server_version(conn)
-        try:
-            if d == POSTGRES:
-                out["size_bytes"] = int(conn.execute(
-                    "SELECT COALESCE(SUM(pg_total_relation_size(c.oid)), 0) FROM pg_class c "
-                    "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                    "WHERE n.nspname = current_schema() AND c.relkind = 'r'").fetchone()[0])
-            else:
-                out["size_bytes"] = sum(os.path.getsize(p) for p in
-                                        (DB_PATH, f"{DB_PATH}-wal") if os.path.exists(p))
-        except Exception:
-            out["size_bytes"] = None
-        if has_table(conn, "schema_migrations"):
-            row = conn.execute("SELECT COUNT(*), MAX(name) FROM schema_migrations").fetchone()
-            out["migrations"], out["last_migration"] = int(row[0]), row[1]
-        else:
-            out["migrations"], out["last_migration"] = 0, None
-        from shared_infra.db import _migrations as _mig
-        done = _mig._applied(conn) if has_table(conn, "schema_migrations") else set()
-        out["pending_migrations"] = [n for n in _mig._discover() if n not in done]
-    out["pool"] = pool_stats()
-    return out
-
-
 @contextmanager
 def db_conn() -> "Iterator[sqlite3.Connection]":
     """Context manager autour de :func:`db` qui garantit la fermeture.

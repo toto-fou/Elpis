@@ -749,9 +749,6 @@ plan_dry_run() {
         etape "Caddy : frontal HTTPS configuré (deploy/caddy/install_caddy.sh, sudo)"
         [ "$AS_ROOT" -eq 1 ] || DRY_SUDO_REQUIS+=("Caddy")
     fi
-    if [ -f "$ROOT/rag_app/rag_config.json" ] || [ -d "$ROOT/rag_app/DATA" ] || [ -d "$ROOT/rag_app/OCR_STORE" ]; then
-        etape "RAG intégré : ancien RAG SUPPRIMÉ (rag_app/DATA, OCR_STORE, états, collections Qdrant hors elpis_*), réglages d'embeddings, de reclassement et d'OCR repris dans config.json ; aucun import (sauvegardez rag_app/DATA avant si vous voulez garder ces fichiers)"
-    fi
     if [ "$DO_CONFIGURE" = 1 ]; then
         etape "configuration : ./elpis configure --yes${CONFIGURE_ARGS[*]:+ $(args_masques "${CONFIGURE_ARGS[@]}")} (config.json, .env, mcp.json)"
     elif [ -f "$ROOT/config.json" ]; then
@@ -1145,12 +1142,6 @@ chmod +x "$ROOT/elpis" 2>/dev/null || true
 # =============================================================================
 #  8. Configuration et démarrage
 # =============================================================================
-# Passage au RAG intégré, une fois : réglages de l'ancien RAG repris, ancien RAG supprimé ; rien à faire sur une installation neuve.
-if [ ! -e "$ROOT/user_db/.rag_ancien_supprime" ] && { [ -f "$ROOT/config.json" ] || [ -f "$ROOT/rag_app/rag_config.json" ]; }; then
-    info "RAG intégré : passage depuis l'ancien RAG (une seule fois, sans import)…"
-    as_app "$VENV/bin/python" "$ROOT/deploy/configure.py" --migrer-rag \
-        || note_warn "Ancien RAG non supprimé : retenté par ./elpis start ; ./elpis doctor le signale."
-fi
 if [ "$DO_CONFIGURE" = 1 ]; then
     echo
     if [ "$TUI" -eq 1 ]; then

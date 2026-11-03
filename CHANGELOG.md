@@ -28,6 +28,15 @@ selon [SemVer](https://semver.org/lang/fr/).
   serveur se branche par son adresse (HTTP ou SSE). Les dossiers déjà présents
   restent listés (`GET /api/mcp/custom-servers`), supprimables par l'administrateur
   et compris dans la sauvegarde.
+- **Mise à jour depuis la 0.1.0 : reprise de l'ancien RAG.** `deploy/rag_ancien.py`,
+  `./elpis configure --migrer-rag` et la purge des anciennes collections Qdrant au
+  démarrage sont retirés. Une installation encore en 0.1.0 passe d'abord par la
+  0.1.2.
+- **`./elpis browser`.** Les états du navigateur enregistrés avant la 0.0.1 ne se
+  rattachent plus à un compte : ils ne sont jamais rechargés, le service les
+  signale à son démarrage et ils se suppriment à la main.
+- **`python -m shared_infra.db`**, remplacé par `./elpis db`, et
+  `docs/ecarts-python.md` (écarts avec la version Python 0.0.1).
 
 ### Corrigé
 

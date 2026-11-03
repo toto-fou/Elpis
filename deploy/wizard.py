@@ -27,7 +27,6 @@ Codes de sortie : 0 validé, 1 abandon, 3 terminal inutilisable.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 import secrets
@@ -43,7 +42,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import configure as C  # noqa: E402  (constantes, sondes, lecture de config)
-import rag_ancien  # noqa: E402  (réglages de l'ancien RAG, repris par la mise à jour)
 import tui as T  # noqa: E402
 
 ROOT = C.ROOT
@@ -130,11 +128,7 @@ def _sqlite_admins(path: Path) -> Optional[List[str]]:
 
 def initial_state(ctx: Ctx) -> State:
     cfg = C.read_json(C.CONFIG) if ctx.reinstall else C.read_json(ROOT / "config.example.json")
-    # Installation pas encore montée : réglages de l'ancien rag_config.json, comme les reprendra la mise à jour.
-    vue_rag = copy.deepcopy(cfg)
-    if C.RAG_CONFIG.exists():
-        rag_ancien.reprendre_reglages(vue_rag, C.read_json(C.RAG_CONFIG))
-    rag = vue_rag.get("rag") if isinstance(vue_rag.get("rag"), dict) else {}
+    rag = cfg.get("rag") if isinstance(cfg.get("rag"), dict) else {}
     env = C.read_env_file()
     llama = cfg.get("llama") or {}
     db = cfg.get("database") or {}

@@ -16,8 +16,7 @@ authors = [{ name = "Elpis contributors" }]
 target-version = "py311"
 line-length = 120
 src = [".", "office"]
-# migration-kit/vecteurs : générateurs de vecteurs écrits pour le core Python retiré, hors du Python restant.
-extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor", "migration-kit/vecteurs"]
+extend-exclude = ["venv", "node_modules", "user_*", "frontend/vendor"]
 
 [tool.ruff.lint]
 # Phase 1 (2026-09-29) : erreurs réelles (syntaxe, noms indéfinis, imports et

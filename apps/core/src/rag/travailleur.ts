@@ -17,7 +17,7 @@ import type { OptionsExtraction, ResultatExtraction } from "./extracteur";
 import { clientEmbeddingsRag, echouerDocument, indexerDocument, libererDocument } from "./indexeur";
 import type { ContexteIndexeur, IssueDocumentRag, ServiceRag } from "./indexeur";
 import { nomQdrantRag } from "./magasin";
-import { clientQdrantRag, effacerNomQdrant, traiterAncienRag, traiterPurgesQdrant } from "./qdrant";
+import { clientQdrantRag, effacerNomQdrant, traiterPurgesQdrant } from "./qdrant";
 import type { PortQdrantRag } from "./qdrant";
 import {
   assurerMigration,
@@ -401,7 +401,6 @@ export class TravailleurRag {
       try {
         const { faites } = await traiterPurgesQdrant(this.qdrant());
         if (faites) log.info(`${faites} effacement(s) Qdrant reporté(s) rejoué(s)`);
-        await traiterAncienRag(this.qdrant());
       } catch (e) {
         log.warn({ err: e }, "effacements Qdrant reportés non rejoués");
       }

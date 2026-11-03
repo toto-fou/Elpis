@@ -25,11 +25,6 @@
 #  ./elpis upgrade [--no-backup] sauvegarde, git pull --ff-only, dépendances,
 #                                core et hôte d'outils Node reconstruits,
 #                                redémarrage (migrations au démarrage), doctor
-#  ./elpis browser states        états du navigateur enregistrés avant la 0.0.1
-#                                (sans compte) : identifiant, date, sites
-#  ./elpis browser migrate-states COMPTE ID…|--all [--dry-run] [--no-check]
-#                                les rattache au compte Elpis COMPTE (même
-#                                load_state_id, 30 jours)
 #  ./elpis db info|check|transfer|use   base de données : état, test d'une
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
@@ -714,10 +709,6 @@ cmd_doctor() {
     check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
     check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
     check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"
-    if [ -f "$ROOT/rag_app/rag_config.json" ] || [ -d "$ROOT/rag_app/DATA" ]; then
-        warn "ancien RAG : NON (rag_app/rag_config.json ou rag_app/DATA encore là ; ./elpis restart ou ./install.sh le suppriment)"
-        bad=$((bad+1))
-    fi
     local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
     check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
@@ -743,13 +734,8 @@ cmd_doctor() {
             "./elpis logs browser" doctor_navigateur
     fi
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
-    local etats_sans_compte distants core_ok=0
+    local distants core_ok=0
     [ -f "$CORE_DIST/exploitation.mjs" ] && core_ok=1
-    if [ "$core_ok" -eq 1 ] && etats_sans_compte="$(core_cmd browser states --count 2>/dev/null)" && [ -n "$etats_sans_compte" ]; then
-        [ "$etats_sans_compte" = 0 ] || info "navigateur : $etats_sans_compte état(s) d'avant la 0.0.1, sans compte : à rattacher ou à supprimer (./elpis browser states)"
-    else
-        info "navigateur : états d'avant la 0.0.1 non vérifiés (./elpis browser states)"
-    fi
     if [ "$core_ok" -eq 0 ]; then
         info "verrous de fichiers : non vérifiés (core non construit)"
     elif distants="$(core_cmd fs-local 2>/dev/null)"; then
@@ -829,15 +815,6 @@ cmd_db() {
     charger_instance
     need_exploitation
     core_cmd db "$@"
-}
-
-# États du navigateur enregistrés avant la 0.0.1 : liste, rattachement à un compte.
-cmd_browser() {
-    charger_env
-    charger_instance
-
-    need_exploitation
-    core_cmd browser "$@"
 }
 
 # Image de la sandbox attendue par le code : présente, sinon chargée depuis
@@ -940,7 +917,6 @@ case "${1:-}" in
     doctor)    cmd_doctor ;;
     backup)    shift; cmd_backup "$@" ;;
     upgrade)   shift; cmd_upgrade "$@" ;;
-    browser)   shift; cmd_browser "$@" ;;
     db)        shift; cmd_db "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;

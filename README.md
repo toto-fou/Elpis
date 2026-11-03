@@ -248,7 +248,6 @@ Most of these documents are still in French.
 - [Architecture, API, subsystems](docs/architecture.md)
 - [Sandbox gateway](docs/sandbox-gateway.md) ·
   [Token counters](docs/token-counters.md)
-- [Intended differences from the Python version](docs/ecarts-python.md)
 
 ## Contributing, security, license
 

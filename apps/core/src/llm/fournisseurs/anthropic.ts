@@ -18,6 +18,7 @@ import {
   llmErrorUserMessage,
   noteLlmSuccess,
   providerHttpError,
+  ProviderError,
   retryPause,
 } from "../reprises";
 import type { CibleTransport } from "./openai-compat";
@@ -651,7 +652,27 @@ export async function anthropicChatStream(
   return [res["thinking"] as string, res["content"] as string, meta];
 }
 
-/** Chemin outils : dict OpenAI non streamé (`choices`, `usage`, `model`), blocs de réflexion signés gardés pour le rejeu. */
+/** Refus 400 qui cite la réflexion (bloc lié à un autre historique, bloc attendu absent), levé avant tout jeton. */
+export function refusReflexion(e: unknown): boolean {
+  return e instanceof ProviderError && e.response.statusCode === 400 && /thinking/iu.test(e.response.text);
+}
+
+/** Copie du corps sans réflexion : paramètre `thinking` et blocs `thinking` / `redacted_thinking` de l'historique retirés. */
+export function sansReflexion(corps: Dict): Dict {
+  const copie: Dict = { ...corps };
+  delete copie["thinking"];
+  const pense = (b: unknown): boolean =>
+    estDict(b) && (b["type"] === "thinking" || b["type"] === "redacted_thinking");
+  if (Array.isArray(corps["messages"]))
+    copie["messages"] = corps["messages"].map((m: unknown) =>
+      estDict(m) && Array.isArray(m["content"])
+        ? { ...m, content: m["content"].filter((b: unknown) => !pense(b)) }
+        : m,
+    );
+  return copie;
+}
+
+/** Chemin outils : dict OpenAI non streamé (`choices`, `usage`, `model`), blocs de réflexion signés gardés pour le rejeu ; un refus lié à la réflexion est rejoué une fois sans elle. */
 export async function anthropicChatWithToolsStream(
   messages: readonly unknown[],
   toolsPayload: readonly unknown[],
@@ -665,13 +686,21 @@ export async function anthropicChatWithToolsStream(
     stream: true,
     cache: true,
   });
-  const res = await consumeStream(options.target, body, {
+  const rappels: Rappels = {
     onContentToken: options.onContentToken,
     onThinkingToken: options.onThinkingToken,
     onToolCallDelta: options.onToolCallDelta,
     isCancelled: options.isCancelled,
     signal: options.signal,
-  });
+  };
+  let res: Dict;
+  try {
+    res = await consumeStream(options.target, body, rappels);
+  } catch (e) {
+    if (!refusReflexion(e)) throw e;
+    log.warn("réflexion refusée par l'API (400) : nouvel essai sans blocs de réflexion");
+    res = await consumeStream(options.target, sansReflexion(body), rappels);
+  }
   const message: Dict = { role: "assistant", content: res["content"] || null };
   if (res["thinking"]) message["reasoning_content"] = res["thinking"];
   const appels = res["tool_calls"] as Dict[];

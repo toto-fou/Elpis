@@ -9,6 +9,7 @@ import {
   getPy,
   intPy,
   lowerPy,
+  lstripPy,
   ouPy as ou,
   poserCle,
   prefixePy,
@@ -52,10 +53,8 @@ const MASQUES: ReadonlySet<string> = new Set([...MODULES_STDLIB.split(" "), ...M
 
 /** `_slug_auto` : même règle que le Studio (accents repliés, minuscules, `[^a-z0-9]+` → `-`, 60 caractères). */
 export function slugAuto(name: unknown): string {
-  const s = lowerPy(texteOu(name, "").normalize("NFD").replace(/[̀-ͯ]/g, ""))
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
+  const tirets = lowerPy(texteOu(name, "").normalize("NFD").replace(/[̀-ͯ]/g, "")).replace(/[^a-z0-9]+/g, "-");
+  const s = lstripPy(rstripPy(tirets, "-"), "-").slice(0, 60);
   return s || "automatisation";
 }
 

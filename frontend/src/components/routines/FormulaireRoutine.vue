@@ -541,7 +541,7 @@ async function versAssistantSkill(): Promise<void> {
                 Cocher un paquet embarque tous ses skills ; cocher un skill dessous ne cible que lui.
               </p>
               <p
-                v-if="rt.routineSkillsLoadedOk && rt.aucunSkillPerso"
+                v-if="rt.routineSkillsLoadedOk && rt.aucunSkillPersoRoutine"
                 class="text-[11px] text-slate-400 italic mb-1.5"
               >
                 Aucun skill personnel. Créez-les depuis la page Skills ou

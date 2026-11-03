@@ -167,7 +167,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | fastify | 5.12.7 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
-| find-my-way | 9.9.0 | MIT |
+| find-my-way | 9.10.0 | MIT |
 | http-errors | 2.0.1 | MIT |
 | inherits | 2.0.4 | ISC |
 | ipaddr.js | 2.5.0 | MIT |
@@ -275,7 +275,7 @@ the core bundle.
 | fastify | 5.12.7 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
-| find-my-way | 9.9.0 | MIT |
+| find-my-way | 9.10.0 | MIT |
 | inherits | 2.0.4 | ISC |
 | ipaddr.js | 2.5.0 | MIT |
 | jpeg-js | 0.4.4 | BSD-3-Clause AND Apache-2.0 |

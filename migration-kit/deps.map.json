@@ -96,7 +96,7 @@
     "tsx": {"version": "4.23.15", "role": "dev"},
     "esbuild": {"version": "0.28.2", "role": "dev", "pour": "bundle de production du core (apps/core/scripts/construire.ts) ; tsup écarté : il exige esbuild ^0.27 en double et rollup natif"},
     "testcontainers": {"version": "12.2.0", "role": "dev"},
-    "find-my-way": {"version": "9.9.0", "role": "dev", "pour": "test d'inventaire des routes (apps/core/test/exploitation/inventaire-routes.test.ts) : le routeur de Fastify, déjà livré comme sa dépendance, retrouve la route qui sert une URL"},
+    "find-my-way": {"version": "9.10.0", "role": "dev", "pour": "test d'inventaire des routes (apps/core/test/exploitation/inventaire-routes.test.ts) : le routeur de Fastify, déjà livré comme sa dépendance, retrouve la route qui sert une URL"},
     "@types/node": {"version": "24.19.1", "role": "types"},
     "@types/better-sqlite3": {"version": "9.6.0", "role": "types"},
     "@types/pg": {"version": "8.23.1", "role": "types"},

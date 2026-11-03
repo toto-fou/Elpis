@@ -58,7 +58,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | ZRender (bundled in `echarts.min.js`) | 6.1.0 | BSD-3-Clause | `dist/echarts.min.js` (`echarts`) | https://github.com/ecomfe/zrender |
 | Chart.js (admin dashboard) | 4.5.1 | MIT | `dist/chart.umd.js` (`chart.js`) | https://github.com/chartjs/Chart.js |
 | chartjs-adapter-date-fns (bundle, includes date-fns) | 3.0.0 | MIT | `dist/chartjs-adapter-date-fns.bundle.min.js` | https://github.com/chartjs/chartjs-adapter-date-fns |
-| chartjs-chart-boxplot (@sgratzl) | 4.4.4 | MIT | `build/index.umd.min.js` (`@sgratzl/chartjs-chart-boxplot`) | https://github.com/sgratzl/chartjs-chart-boxplot |
+| chartjs-chart-boxplot (@sgratzl) | 4.4.5 | MIT | `build/index.umd.min.js` (`@sgratzl/chartjs-chart-boxplot`) | https://github.com/sgratzl/chartjs-chart-boxplot |
 | chartjs-chart-financial | 0.2.1 | MIT | `dist/chartjs-chart-financial.js` | https://github.com/chartjs/chartjs-chart-financial |
 | chartjs-chart-matrix | 3.1.0 | MIT | `dist/chartjs-chart-matrix.min.js` | https://github.com/kurkle/chartjs-chart-matrix |
 | chartjs-chart-sankey | 0.19.1 | MIT | `dist/chartjs-chart-sankey.min.js` | https://github.com/kurkle/chartjs-chart-sankey |

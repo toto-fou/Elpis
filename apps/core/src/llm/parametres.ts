@@ -530,7 +530,7 @@ export function reglagesIgnores(providerType: string | null | undefined): Dict {
   return { ignored_keys: cles, engine_label: p.libelle };
 }
 
-/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur. */
+/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur (réflexion adaptative pour Anthropic). */
 export function describeEffectiveParamsDegraded(
   modelId: string | null = null,
   task = "chat",
@@ -542,7 +542,7 @@ export function describeEffectiveParamsDegraded(
     model_id: modelId,
     task,
     degraded: true,
-    supports_thinking: efforts ? true : null,
+    supports_thinking: efforts || providerType === "anthropic" ? true : null,
     supports_reasoning_effort: efforts ? true : null,
     reasoning_effort_values: efforts ?? [],
     supports_preserve_reasoning: null,

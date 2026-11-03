@@ -301,7 +301,7 @@ export function poserPointsCache(corps: Dict): void {
   }
 }
 
-/** Corps `/v1/messages` (pure) : pas de sampling, `thinking` seulement sans outils ; points de cache sur demande (boucle d'outils). */
+/** Corps `/v1/messages` (pure) : pas de sampling, réflexion adaptative même avec outils (budget fixe : sans outils seulement) ; points de cache sur demande (boucle d'outils). */
 export function buildBody(
   target: CibleAnthropic,
   messages: readonly unknown[],
@@ -324,9 +324,9 @@ export function buildBody(
   };
   if (systeme) corps["system"] = systeme;
   if (outils.length > 0) corps["tools"] = outils;
-  if ((options.thinkingMode ?? false) && outils.length === 0) {
+  if (options.thinkingMode ?? false) {
     const cfg = thinkingConfig(corps["model"] as string, corps["max_tokens"] as number);
-    if (cfg) corps["thinking"] = cfg;
+    if (cfg && (outils.length === 0 || cfg["type"] === "adaptive")) corps["thinking"] = cfg;
   }
   if (options.cache) poserPointsCache(corps);
   return corps;

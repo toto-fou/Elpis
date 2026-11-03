@@ -245,7 +245,13 @@ function _plat(s) {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+// Longueur au-delà de laquelle deux noms ne sont plus comparés lettre à lettre.
+const LONGUEUR_COMPAREE = 80;
+
+/** Distance d'édition de deux chaînes bornées ; hors bornes (jamais depuis `ressemblance`), la plus grande. */
 function _distance(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string' || a.length > LONGUEUR_COMPAREE || b.length > LONGUEUR_COMPAREE)
+        return LONGUEUR_COMPAREE;
     let prec = Array.from({ length: b.length + 1 }, (_, j) => j);
     for (let i = 1; i <= a.length; i++) {
         const cour = [i];
@@ -258,7 +264,7 @@ function _distance(a, b) {
 
 /** Ressemblance de deux noms entre 0 et 1 : accents et casse ignorés ; égalité, inclusion, mots communs, distance d'édition. */
 export function ressemblance(a, b) {
-    const x = _plat(a).slice(0, 80), y = _plat(b).slice(0, 80);
+    const x = _plat(a).slice(0, LONGUEUR_COMPAREE), y = _plat(b).slice(0, LONGUEUR_COMPAREE);
     if (!x || !y) return 0;
     if (x === y) return 1;
     if (x.includes(y) || y.includes(x)) return 0.8;

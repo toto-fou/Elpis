@@ -896,16 +896,32 @@ def step_database(p: Prompter, a: argparse.Namespace, cfg: Dict[str, Any]) -> Op
     return None
 
 
+def node_bin() -> str:
+    """Node du lanceur ``./elpis`` : ``ELPIS_NODE``, puis ``node/`` du dépôt, puis le PATH."""
+    if os.environ.get("ELPIS_NODE"):
+        return os.environ["ELPIS_NODE"]
+    local = ROOT / "node" / "bin" / "node"
+    return str(local) if os.access(local, os.X_OK) else (shutil.which("node") or "node")
+
+
 def apply_db_transfer(plan: Dict[str, Any]) -> bool:
-    """Copie SQLite → serveur par la CLI de l'application (sous-processus,
-    config.json déjà écrit). Rend False si la copie a échoué."""
+    """Copie SQLite → serveur par ``./elpis db transfer`` du core (config.json
+    déjà écrit). Rend False si la copie a échoué."""
     info("Copie des données SQLite vers la nouvelle base…")
-    r = subprocess.run([sys.executable, "-m", "shared_infra.db", "--password-env", "ELPIS_DB_TRANSFER_PW",
-                        "transfer", "--from", plan["source"], "--to", plan["target"],
-                        "--report", str(USER_DB / "db-transfer-report.json")],
-                       cwd=str(ROOT), capture_output=True, text=True,
-                       env=dict(os.environ, PYTHONPATH=str(ROOT), APP_DB_BACKEND="sqlite",
-                                ELPIS_DB_TRANSFER_PW=plan["password"]))
+    exploitation = ROOT / "apps" / "core" / "dist" / "exploitation.mjs"
+    if not exploitation.is_file():
+        warn("Copie impossible : core non construit (apps/core/dist/exploitation.mjs absent).")
+        return False
+    try:
+        r = subprocess.run([node_bin(), str(exploitation), "db", "--password-env", "ELPIS_DB_TRANSFER_PW",
+                            "transfer", "--from", plan["source"], "--to", plan["target"],
+                            "--report", str(USER_DB / "db-transfer-report.json")],
+                           cwd=str(ROOT), capture_output=True, text=True,
+                           env=dict(os.environ, ELPIS_RACINE=str(ROOT), APP_DB_BACKEND="sqlite",
+                                    ELPIS_DB_TRANSFER_PW=plan["password"]))
+    except OSError as e:
+        warn(f"Copie impossible : Node introuvable ({e}).")
+        return False
     if r.returncode == 0:
         ok("Données copiées (rapport : user_db/db-transfer-report.json).")
         return True

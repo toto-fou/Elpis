@@ -29,6 +29,13 @@ selon [SemVer](https://semver.org/lang/fr/).
   restent listés (`GET /api/mcp/custom-servers`), supprimables par l'administrateur
   et compris dans la sauvegarde.
 
+### Corrigé
+
+- **Skills : état vide de l'onglet.** « Aucun skill personnel pour l'instant »
+  s'affichait selon la liste des skills du formulaire de routine (même nom exporté
+  par les deux domaines, le dernier écrasait l'autre), parfois malgré des skills
+  personnels. L'onglet Skills compte de nouveau vos propres skills.
+
 ## 0.1.2 — 2026-11-01
 
 ### Corrigé

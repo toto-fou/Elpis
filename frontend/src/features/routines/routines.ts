@@ -272,7 +272,9 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     routineSkillsLoading.value = false;
   }
 
-  const aucunSkillPerso = computed(() => !routineSkills.value.some((s) => (s.source || "user") === "user"));
+  const aucunSkillPersoRoutine = computed(
+    () => !routineSkills.value.some((s) => (s.source || "user") === "user"),
+  );
   const routineSkillTree = computed(() => arbreSkills(routineSkills.value));
   function isSkillExpanded(id: string): boolean {
     return !collapsedSkillParents.value.includes(id);
@@ -854,7 +856,7 @@ export function creerRoutines(api: ApiRoutines, refs: RefsRoutines, ctx: CtxRout
     isExternalOn,
     toggleRoutineExternal,
     routineSkills,
-    aucunSkillPerso,
+    aucunSkillPersoRoutine,
     confirmerAbandon,
     routineSkillsLoading,
     routineSkillsLoadedOk,

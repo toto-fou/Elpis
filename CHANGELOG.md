@@ -20,6 +20,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Panneau MCP : interrupteurs communs.** Les interrupteurs du panneau (catégories,
   serveurs déclarés et externes) reprennent la piste commune des réglages : le focus
   clavier y devient visible.
+- **Connecteurs Anthropic : cache de prompt.** Dans la boucle d'outils, la fin du
+  message système et le dernier bloc de la conversation portent un point de cache
+  (`cache_control`, 5 min) : chaque itération relit le préfixe déjà payé, facturé
+  0,1 × le prix d'entrée, au lieu de le renvoyer au prix plein. Les appels uniques
+  (titre, compaction) n'en posent pas.
 
 ### Retiré
 
@@ -47,6 +52,12 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Barre latérale : bouton « … » des conversations retiré.** Il ouvrait le menu
   puis le refermait aussitôt ; les actions (renommer, archiver, supprimer) restent
   au clic droit ou à la touche Menu, et F2 renomme.
+- **Connecteurs Anthropic : réflexion visible.** Avec des outils actifs (le cas
+  courant du chat), la réflexion n'était jamais demandée (Opus 4.6 à 4.8, Sonnet 4.6)
+  ou revenait vide (Opus 5, Sonnet 5, Fable : affichage masqué par défaut). Elle est
+  demandée en mode adaptatif résumé dès Claude 4.6, l'interrupteur Réflexion du chat
+  est proposé pour ces connecteurs, et un refus de l'API lié à la réflexion
+  (historique modifié pendant le tour) est rejoué une fois sans elle.
 
 ## 0.1.2 — 2026-11-01
 

@@ -18,6 +18,7 @@ import {
   llmErrorUserMessage,
   noteLlmSuccess,
   providerHttpError,
+  ProviderError,
   retryPause,
 } from "../reprises";
 import type { CibleTransport } from "./openai-compat";
@@ -285,7 +286,23 @@ export function thinkingConfig(model: string, maxTokens: number): Dict | null {
   return { type: "enabled", budget_tokens: budget };
 }
 
-/** Corps `/v1/messages` (pure) : pas de sampling, `thinking` seulement sans outils. */
+/** Points de cache éphémère (5 min) : fin du système (outils et système), puis dernier bloc marquable de la conversation ; mute `corps`. */
+export function poserPointsCache(corps: Dict): void {
+  const systeme = corps["system"];
+  if (typeof systeme === "string" && systeme)
+    corps["system"] = [{ type: "text", text: systeme, cache_control: { type: "ephemeral" } }];
+  const msgs = corps["messages"];
+  const blocs = Array.isArray(msgs) ? getPy(msgs.at(-1), "content") : null;
+  if (!Array.isArray(blocs)) return;
+  for (let i = blocs.length - 1; i >= 0; i--) {
+    const b: unknown = blocs[i];
+    if (!estDict(b) || b["type"] === "thinking" || b["type"] === "redacted_thinking") continue;
+    blocs[i] = { ...b, cache_control: { type: "ephemeral" } };
+    return;
+  }
+}
+
+/** Corps `/v1/messages` (pure) : pas de sampling, réflexion adaptative même avec outils (budget fixe : sans outils seulement) ; points de cache sur demande (boucle d'outils). */
 export function buildBody(
   target: CibleAnthropic,
   messages: readonly unknown[],
@@ -295,6 +312,7 @@ export function buildBody(
     thinkingMode?: boolean;
     model?: string | null;
     stream?: boolean;
+    cache?: boolean;
   } = {},
 ): Dict {
   const outils = toAnthropicTools(options.toolsPayload ?? null);
@@ -307,10 +325,11 @@ export function buildBody(
   };
   if (systeme) corps["system"] = systeme;
   if (outils.length > 0) corps["tools"] = outils;
-  if ((options.thinkingMode ?? false) && outils.length === 0) {
+  if (options.thinkingMode ?? false) {
     const cfg = thinkingConfig(corps["model"] as string, corps["max_tokens"] as number);
-    if (cfg) corps["thinking"] = cfg;
+    if (cfg && (outils.length === 0 || cfg["type"] === "adaptive")) corps["thinking"] = cfg;
   }
+  if (options.cache) poserPointsCache(corps);
   return corps;
 }
 
@@ -633,7 +652,27 @@ export async function anthropicChatStream(
   return [res["thinking"] as string, res["content"] as string, meta];
 }
 
-/** Chemin outils : dict OpenAI non streamé (`choices`, `usage`, `model`), blocs de réflexion signés gardés pour le rejeu. */
+/** Refus 400 qui cite la réflexion (bloc lié à un autre historique, bloc attendu absent), levé avant tout jeton. */
+export function refusReflexion(e: unknown): boolean {
+  return e instanceof ProviderError && e.response.statusCode === 400 && /thinking/iu.test(e.response.text);
+}
+
+/** Copie du corps sans réflexion : paramètre `thinking` et blocs `thinking` / `redacted_thinking` de l'historique retirés. */
+export function sansReflexion(corps: Dict): Dict {
+  const copie: Dict = { ...corps };
+  delete copie["thinking"];
+  const pense = (b: unknown): boolean =>
+    estDict(b) && (b["type"] === "thinking" || b["type"] === "redacted_thinking");
+  if (Array.isArray(corps["messages"]))
+    copie["messages"] = corps["messages"].map((m: unknown) =>
+      estDict(m) && Array.isArray(m["content"])
+        ? { ...m, content: m["content"].filter((b: unknown) => !pense(b)) }
+        : m,
+    );
+  return copie;
+}
+
+/** Chemin outils : dict OpenAI non streamé (`choices`, `usage`, `model`), blocs de réflexion signés gardés pour le rejeu ; un refus lié à la réflexion est rejoué une fois sans elle. */
 export async function anthropicChatWithToolsStream(
   messages: readonly unknown[],
   toolsPayload: readonly unknown[],
@@ -645,14 +684,23 @@ export async function anthropicChatWithToolsStream(
     thinkingMode: options.thinkingMode ?? false,
     model: options.model ?? null,
     stream: true,
+    cache: true,
   });
-  const res = await consumeStream(options.target, body, {
+  const rappels: Rappels = {
     onContentToken: options.onContentToken,
     onThinkingToken: options.onThinkingToken,
     onToolCallDelta: options.onToolCallDelta,
     isCancelled: options.isCancelled,
     signal: options.signal,
-  });
+  };
+  let res: Dict;
+  try {
+    res = await consumeStream(options.target, body, rappels);
+  } catch (e) {
+    if (!refusReflexion(e)) throw e;
+    log.warn("réflexion refusée par l'API (400) : nouvel essai sans blocs de réflexion");
+    res = await consumeStream(options.target, sansReflexion(body), rappels);
+  }
   const message: Dict = { role: "assistant", content: res["content"] || null };
   if (res["thinking"]) message["reasoning_content"] = res["thinking"];
   const appels = res["tool_calls"] as Dict[];

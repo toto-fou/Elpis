@@ -40,6 +40,13 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Moteurs vLLM et SGLang : plus de plafond à 6 requêtes simultanées.** Le pool
+  de connexions vers le moteur était limité à `llama.max_concurrency` + 2 pour tous
+  les moteurs : au-delà, les requêtes attendaient un socket libre et le préflight
+  annonçait « Serveur LLM injoignable » sur un moteur sain. Le pool n'a plus de
+  plafond : vLLM et SGLang règlent eux-mêmes leur parallélisme, llama.cpp reste
+  borné à ses slots par la file d'Elpis. La capture « Trafic LLM » ne retient plus
+  la fin de chaque requête : elle s'écrit en tâche détachée.
 - **Skills : état vide de l'onglet.** « Aucun skill personnel pour l'instant »
   s'affichait selon la liste des skills du formulaire de routine (même nom exporté
   par les deux domaines, le dernier écrasait l'autre), parfois malgré des skills

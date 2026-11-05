@@ -601,10 +601,14 @@ function porteImage(m: unknown): boolean {
   return Array.isArray(c) && c.some((b) => estDict(b) && b["type"] === "image_url");
 }
 
-/** Copie où seules les `keep` dernières images restent ; les plus anciennes deviennent un court texte. */
-export function pruneOldVisionFrames(messages: unknown[], keep = 2): unknown[] {
+/** Images gardées par la boucle : élaguées au-delà de `VISION_SEUIL`, jusqu'à `VISION_KEEP` (le préfixe ne bouge qu'une capture sur quatre). */
+export const VISION_KEEP = 2;
+export const VISION_SEUIL = 5;
+
+/** Copie où, au-delà de `seuil` images, seules les `keep` dernières restent ; les plus anciennes deviennent un court texte. */
+export function pruneOldVisionFrames(messages: unknown[], keep = 2, seuil = keep): unknown[] {
   const imgIdx = messages.flatMap((m, i) => (porteImage(m) ? [i] : []));
-  if (imgIdx.length <= maxPy(0, keep)) return messages;
+  if (imgIdx.length <= maxPy(0, keep, seuil)) return messages;
   const toStrip = new Set(keep <= 0 ? imgIdx : imgIdx.slice(0, -keep));
   return messages.map((m, i) => {
     if (!toStrip.has(i)) return m;
@@ -1106,7 +1110,7 @@ export interface OptionsFit {
 export async function fitContext(workingMessages: unknown[], options: OptionsFit): Promise<unknown[]> {
   const { ctxSize, statsOut } = options;
   let out = applyPruneMarks(workingMessages, options.pruneKeys);
-  out = pruneOldVisionFrames(out, options.visionKeep ?? 2);
+  out = pruneOldVisionFrames(out, options.visionKeep ?? VISION_KEEP, options.visionKeep ?? VISION_SEUIL);
   if (statsOut) {
     statsOut["fastpath"] = false;
     statsOut["dropped"] = 0;

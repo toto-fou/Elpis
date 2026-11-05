@@ -662,6 +662,7 @@ export async function* runTurn(
                   base: db,
                   userId: uid,
                   serveurs: () => agentMcpConfigs(db, plan.userSettings, uid),
+                  reveil: plan.origin === "job_wake",
                 })
               : {};
             const questionBuiltin: Record<string, OutilIntegre> = plan.questionToolOn

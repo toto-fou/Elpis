@@ -235,12 +235,18 @@ export interface OptionsOutilAgent {
   readonly userId: number;
   /** Serveurs MCP du compte ouverts aux agents (ceux de la page Agents). */
   readonly serveurs: () => Promise<readonly Dict[]>;
+  /** Tour de réveil : outil proposé (outils du tour inchangés, préfixe en cache) mais appel refusé (une injection ne réécrit pas un agent). */
+  readonly reveil?: boolean;
 }
+
+const REFUS_REVEIL =
+  "agent_save is not available in an automatic wake-up turn: propose the agent in your reply, the user can ask for it in their next message";
 
 /** `{agent_save}` construit pour un tour, au nom du compte de la session. */
 export function buildAgentBuiltinTool(o: OptionsOutilAgent): Record<string, OutilIntegre> {
   const handler = async (brut: Dict): Promise<string> => {
     const args: Dict = estDict(brut) ? brut : {};
+    if (o.reveil) return pyJsonDumps(err("unavailable", REFUS_REVEIL), { ensureAscii: false });
     return pyJsonDumps(await agentSave(o.base, o.userId, args, o.serveurs), { ensureAscii: false });
   };
   return { [TOOL_NAME]: { definition: definitionOutilAgent(), handler } };

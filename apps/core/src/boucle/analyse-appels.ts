@@ -21,6 +21,10 @@ import { journal } from "../journal";
 
 const log = journal("boucle.analyse-appels");
 
+/** Seuls caractères où `rawDecodePy` peut lire plus qu'un mot : les autres sautent sans exception (même avancée). */
+const DEBUT_VALEUR = /["{[\-0-9]/u;
+const MOTS_JSON = ["null", "true", "false", "NaN", "Infinity"] as const;
+
 /** Diagnostic d'un appel détecté mais illisible, relu par la boucle juste après `extractToolCalls`. */
 export let LAST_PARSE_DIAGNOSTIC = "";
 
@@ -200,6 +204,11 @@ export function extractToolCalls(text: string | null | undefined): AppelTexte[] 
   while (pos < cleaned.length) {
     while (pos < cleaned.length && estBlancPy(cleaned.codePointAt(pos) ?? 0)) pos += pas(pos);
     if (pos >= cleaned.length) break;
+    if (!DEBUT_VALEUR.test(cleaned[pos] ?? "")) {
+      const mot = MOTS_JSON.find((m) => cleaned.startsWith(m, pos));
+      pos += mot ? mot.length : pas(pos);
+      continue;
+    }
     try {
       const [obj, fin] = rawDecodePy(cleaned, pos);
       processObj(obj, trouves);

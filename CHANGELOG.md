@@ -45,6 +45,11 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Corrigé
 
+- **Réponses longues : plus de gel du serveur.** La recherche d'appels d'outils dans le
+  texte du modèle tentait une lecture JSON à chaque caractère de prose : 38 ms à 5 000
+  caractères, 384 ms à 60 000, pendant lesquelles aucun compte n'était servi. Les
+  caractères qui ne peuvent pas ouvrir une valeur JSON sont sautés d'emblée (4 ms et
+  19 ms), pour le même résultat.
 - **Moteurs vLLM et SGLang : plus de plafond à 6 requêtes simultanées.** Le pool
   de connexions vers le moteur était limité à `llama.max_concurrency` + 2 pour tous
   les moteurs : au-delà, les requêtes attendaient un socket libre et le préflight

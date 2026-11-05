@@ -55,7 +55,10 @@ function connu(c: ContenuHistorique): c is Uint8Array {
 
 const DECODEUR = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-/** Lignes ajoutées et retirées (`unified_diff` sans contexte), `null` hors UTF-8 ou au-delà de 4 Mio de texte. */
+/** Au-delà, le diff (quadratique, synchrone) gèlerait l'hôte d'outils de tous les comptes : 74 ms à 7 000 lignes, 300 ms à 29 000. */
+const MAX_LIGNES_DIFF = 4000;
+
+/** Lignes ajoutées et retirées (`unified_diff` sans contexte), `null` hors UTF-8, au-delà de 4 Mio de texte ou de 4 000 lignes d'un côté. */
 export function statsLignes(avant: Uint8Array, apres: Uint8Array): [number, number] | null {
   let a: string;
   let b: string;
@@ -66,7 +69,9 @@ export function statsLignes(avant: Uint8Array, apres: Uint8Array): [number, numb
     return null;
   }
   if (longueurPy(a) + longueurPy(b) > 4 * 1024 * 1024) return null;
-  return compterDiff(splitlinesPy(a), splitlinesPy(b));
+  const la = splitlinesPy(a);
+  const lb = splitlinesPy(b);
+  return la.length > MAX_LIGNES_DIFF || lb.length > MAX_LIGNES_DIFF ? null : compterDiff(la, lb);
 }
 
 /** `+X/-Y` d'un `unified_diff(n=0)` : les en-têtes `+++`/`---` (et les lignes qui leur ressemblent) ne comptent pas. */

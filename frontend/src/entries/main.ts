@@ -7,6 +7,7 @@ import "@highlightjs/cdn-assets/styles/github-dark.min.css";
 import "../styles/racine.css";
 import "../styles/chat.css";
 import "../styles/rag.css";
+import "../styles/reglages.css";
 
 import { createApp } from "vue";
 import carteVendor from "virtual:elpis-vendor";

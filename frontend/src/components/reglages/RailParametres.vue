@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 
 import { domaineReglages } from "../../features/reglages/domaine";
 import { GROUPES_RAIL, filtrerRail } from "../../features/reglages/rail";
+import { sectionTrouvee } from "../../features/reglages/sections";
 
 const rg = domaineReglages();
 const requete = ref("");
@@ -21,6 +22,8 @@ function groupeOuvert(titre: string, replie?: boolean): boolean {
 
 function choisir(id: string): void {
   rg.settingsTab = id;
+  const section = sectionTrouvee(id, requete.value);
+  if (section) rg.settingsSections[id] = section;
   const charger: Record<string, (() => unknown) | undefined> = {
     ai_models: () => rg.loadLlmConnectors(),
     usage: () => rg.loadUsageData(),

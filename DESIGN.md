@@ -87,6 +87,10 @@ tout texte sous 4,5:1 et tout élément d'interface sous 3:1, puis génère la
 feuille sous `body.elpis-skin-perso` (+ `.elpis-app-dark`). Même spécificité
 qu'un thème livré : la feuille se charge après `style.css`.
 
+**Sous-parties des Paramètres.** Un onglet chargé se scinde en un bandeau horizontal
+d'onglets soulignés, au-dessus du contenu (`sections` dans `features/reglages/rail.ts`) ;
+la dernière partie ouverte est mémorisée et la recherche du rail y mène.
+
 Ajouter un thème : un fichier `frontend/css/skins/<id>/skin.css` qui redéfinit les
 jetons sous `body.elpis-skin-<id>` (et `.elpis-app-dark` pour le sombre), une
 entrée dans le registre `frontend/css/skins/skins.json` (servi par `/api/skins`), le `<link>` dans `index.html` et

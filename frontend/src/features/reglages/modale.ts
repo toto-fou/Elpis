@@ -7,6 +7,7 @@ import type { Ref } from "vue";
 import { corpsJson, detailErreur, estObjet, lireSchema, objet } from "../../utils/lecture-json";
 import { normaliserServeursMcp } from "./mcp";
 import type { Persistance } from "./persistance";
+import { entreeRail } from "./rail";
 import type { CtxReglages, ReglagesApp, RefsReglages, VueReglages } from "./types";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
@@ -48,6 +49,8 @@ export function creerModale(
   const { showToast, fetchAuth, openConfirm } = ctx;
   const settingsDialogEl: Ref<HTMLElement | null> = ref(null);
   const settingsTab = ref("profile");
+  // Dernière section ouverte de chaque onglet : la modale y revient (`settings.md`, « Restore the most recently viewed pane »).
+  const settingsSections = ref<Record<string, string>>({});
   const showPasswordChange = ref(false);
   const passwordForm = ref({ ...MOT_DE_PASSE_VIDE });
 
@@ -160,7 +163,7 @@ export function creerModale(
     }
   }
 
-  /** Ouvre sur un onglet précis ; « onglet:vue » cible une sous-vue (« prompts:templates »). */
+  /** Ouvre sur un onglet précis ; « onglet:vue » cible une section (« appearance:mascotte ») ou une sous-vue (« prompts:templates »). */
   async function openSettingsTab(tab?: string): Promise<void> {
     // L'ancien onglet Agents est devenu une page : la modale se referme (ou ne s'ouvre pas) et la page s'ouvre.
     if (tab === "agents") {
@@ -172,6 +175,7 @@ export function creerModale(
     if (!tab) return;
     const [cible = tab, sous = ""] = tab.indexOf(":") > 0 ? tab.split(":") : [tab];
     settingsTab.value = cible;
+    if (sous && entreeRail(cible)?.sections?.some((x) => x.id === sous)) settingsSections.value[cible] = sous;
     const charger = chargeursOnglet()[cible];
     if (charger) {
       try {
@@ -290,6 +294,7 @@ export function creerModale(
   return {
     settingsDialogEl,
     settingsTab,
+    settingsSections,
     showPasswordChange,
     passwordForm,
     loadSettingsData,

@@ -1416,11 +1416,11 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | Onglet | Ce qu'on y règle |
 |---|---|
 | **Profil** | Vos informations, photo (recadrée avant l'envoi : glisser, zoom, Ajuster, Remplir, quart de tour), changement de mot de passe |
-| **Chat** | Prompt système personnel, largeur de la zone de chat, masquer le raisonnement, terminal en direct, dictée et réponse vocale, notifications système, effacer les conversations |
+| **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures web. *Voix* : dictée et réponse vocale |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
-| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile), éditeur (selon le skin ou classique), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) ; voir « Mes habillages » ci-dessous |
-| **Fonctionnalités** | Les modules **MCP** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (éditeur selon le skin ou classique, thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
+| **Apparence** | *Thème* : mode sombre, habillage (ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile). *Éditeur* : selon le skin ou classique. *Mascotte* : logo ou mascotte à l'accueil, nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) ; voir ci-dessous |
+| **Fonctionnalités** | *Modules* : **MCP**, **Sandbox**, images et routines. *Images* : format, taille, bibliothèque. *Éditeur*, quand il est activé : affichage (éditeur selon le skin ou classique, thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et comportement (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |
@@ -1429,6 +1429,9 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Archives** | Vos conversations archivées : restaurer ou supprimer |
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
 | **Connecteurs** | Vos accès aux forges Git |
+
+Les onglets chargés se divisent en parties, dans un bandeau en haut du contenu ; la modale revient à la dernière partie
+ouverte, et la recherche du rail mène à la bonne.
 
 **Mes habillages** (Paramètres › Apparence). Chaque compte peut avoir ses propres habillages, visibles de lui seul
 (10 au plus par défaut). Cliquez sur **Créer avec l'assistant**, décrivez l'ambiance, les couleurs et la base claire

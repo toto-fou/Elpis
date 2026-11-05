@@ -1,23 +1,23 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres. -->
+<!-- frontend/src/components/reglages/onglets/OngletApparence.vue — onglet « appearance » des Paramètres : thème, éditeur, mascotte. -->
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 
 import BoutonAssistant from "../../communs/BoutonAssistant.vue";
-import AideOnglet from "../AideOnglet.vue";
 import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
+import { sectionCourante } from "../../../features/reglages/sections";
 
 const rg = domaineReglages();
+const section = computed(() => sectionCourante(rg, "appearance"));
 onMounted(() => void rg.chargerSkinsPerso());
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
+  <h3 class="sr-only">{{ section?.libelle }}</h3>
   <div class="space-y-5 max-w-xl">
-    <AideOnglet titre="Apparence">Identité visuelle de l'assistant dans le chat.</AideOnglet>
-
-    <div class="bg-slate-50 rounded-xl">
+    <div v-if="section?.id === 'theme'" class="bg-slate-50 rounded-xl">
       <div class="set-row">
         <i class="ph ph-moon text-slate-400 text-lg w-5" aria-hidden="true"></i>
         <div class="flex-1 min-w-0">
@@ -50,7 +50,7 @@ onMounted(() => void rg.chargerSkinsPerso());
       </div>
     </div>
 
-    <div>
+    <div v-if="section?.id === 'theme'">
       <label class="block text-xs font-medium text-slate-600 mb-2" for="set-skin">Habillage</label>
       <select
         id="set-skin"
@@ -77,7 +77,7 @@ onMounted(() => void rg.chargerSkinsPerso());
       <p class="text-xs text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
     </div>
 
-    <div v-if="rg.skinCourant.palettes && rg.skinCourant.palettes.length > 1">
+    <div v-if="section?.id === 'theme' && rg.skinCourant.palettes && rg.skinCourant.palettes.length > 1">
       <label class="block text-xs font-medium text-slate-600 mb-2" for="set-palette">Couleurs</label>
       <select id="set-palette" v-model="rg.settings.skin_palette" class="set-select w-full">
         <option v-for="p in rg.skinCourant.palettes" :key="p.id || 'defaut'" :value="p.id">
@@ -92,11 +92,11 @@ onMounted(() => void rg.chargerSkinsPerso());
       </p>
     </div>
 
-    <div class="bg-slate-50 rounded-xl">
+    <div v-if="section?.id === 'editeur'" class="bg-slate-50 rounded-xl">
       <ChoixEditeur id-champ="set-editeur" />
     </div>
 
-    <div v-if="rg.persoDispo" id="set-mes-habillages">
+    <div v-if="section?.id === 'theme' && rg.persoDispo" id="set-mes-habillages">
       <div class="flex items-center gap-2 mb-2">
         <span class="block text-xs font-medium text-slate-600 flex-1">
           Mes habillages ({{ rg.skinsPerso.length }}/{{ rg.persoMax }})
@@ -132,7 +132,7 @@ onMounted(() => void rg.chargerSkinsPerso());
       </ul>
     </div>
 
-    <div v-if="rg.mascottesOffertes">
+    <div v-if="section?.id === 'mascotte'">
       <label class="block text-xs font-medium text-slate-600 mb-2" for="set-mascotte">Mascotte</label>
       <div class="flex items-start gap-3">
         <div class="flex-1 min-w-0">
@@ -194,7 +194,7 @@ onMounted(() => void rg.chargerSkinsPerso());
       </div>
     </div>
 
-    <div>
+    <div v-if="section?.id === 'mascotte' || !rg.mascottesOffertes">
       <label class="block text-xs font-medium text-slate-600 mb-1.5" for="set-assistant-nom"
         >Nom de l'assistant</label
       >

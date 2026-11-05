@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Paramètres : parties dans un bandeau.** Apparence, Chat et Fonctionnalités se divisent
+  en parties, dans un bandeau horizontal au-dessus du contenu. La modale revient à la
+  dernière partie ouverte, et la recherche du rail mène à la bonne.
 - **Skins : Parchemin fondu dans Elpis.** Les deux ne différaient que par leurs couleurs :
   Elpis propose désormais les palettes *Or* (par défaut) et *Argile*, dans Paramètres ›
   Apparence. Les comptes sur Parchemin passent sur Elpis + Argile, sans migration.

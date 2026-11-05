@@ -12,8 +12,7 @@ const fichier = computed(() => code.value && !!ed.activeTabPath && !ed.activeIsV
 const compare = (base: string): boolean => ed.isDiffView && ed.diffBase === base;
 
 function reglages(): void {
-  ed.openSettings();
-  ed.settingsTab = "features";
+  void ed.openSettingsTab("features:editeur");
 }
 
 /** Ferme le menu avant la bascule : il disparaît avec l'interface et ne se fermerait plus seul. */

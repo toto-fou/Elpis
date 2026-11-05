@@ -29,7 +29,8 @@ export class ReadinessCache {
   private processus: ChildProcess | null = null;
   private attente: NodeJS.Timeout | null = null;
 
-  constructor(ttlS = 15, horloge: Horloge = () => performance.now() / 1000) {
+  /** TTL de 5 min (15 s en Python) : une étape LLM dépasse souvent 15 s, chaque commande refaisait un `inspect`. */
+  constructor(ttlS = 300, horloge: Horloge = () => performance.now() / 1000) {
     this.ttlS = ttlS;
     this.horloge = horloge;
   }
@@ -123,6 +124,7 @@ export class ReadinessCache {
       this.attente.unref();
     };
     p.once("spawn", () => {
+      this.etats.clear();
       this.setEventsHealthy(true);
       suivant = 1;
     });

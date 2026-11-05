@@ -73,6 +73,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "editor_auto_save",
   "editor_persist_tabs",
   "editor_follow_active",
+  "editor_ui",
   "chat_width",
   "sandbox_mode",
   "network_profile_id",
@@ -115,13 +116,14 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
 export const ADMIN_PORT_SETTINGS: ReadonlySet<string> = new Set(["skin", "dark_mode", "dark_mode_auto"]);
 
 const SANDBOX_PROTECTED = ["sandbox_mode", "network_profile_id"] as const;
-/** Préférences d'affichage du chat à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
+/** Préférences d'affichage (chat, éditeur) à valeurs fermées : une valeur inconnue n'est pas enregistrée. */
 export const CHOIX_AFFICHAGE: Readonly<Record<string, readonly string[]>> = {
   chat_workflow: ["classic", "work_block", "timeline", "terminal"],
   context_display: ["tokens", "fill", "percent", "ring"],
   thinking_display: ["collapsed", "expanded", "hidden"],
   footer_metrics: ["full", "essential", "hidden"],
   thread_density: ["comfortable", "compact"],
+  editor_ui: ["skin", "classic"],
 };
 /** Cases coercées en booléen strict au PUT. */
 const BOOLEENS = [

@@ -161,6 +161,7 @@ export interface RefsRacine {
   currentView: Ref<string>;
   showSidebar: Ref<boolean>;
   features: Ref<Record<string, boolean>>;
+  feuilleEditeur: Ref<string>;
 }
 
 /** Ce que reçoit la fabrique d'un module facultatif. */
@@ -729,6 +730,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     currentView,
     showSidebar,
     features,
+    feuilleEditeur: ref(""),
   };
 
   const verrouDefilement = { appliquer: (): void => {} };

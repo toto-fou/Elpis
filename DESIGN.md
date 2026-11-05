@@ -53,7 +53,7 @@ Trois classes sur `<body>`, posées par `frontend/src/features/reglages/apparenc
 
 | Classe | Rôle |
 |---|---|
-| `elpis-skin-<id>` | le thème choisi (`frontend/css/skins/<id>/skin.css`) |
+| `elpis-skin-<id>` | le thème choisi (`frontend/css/skins/<id>/skin.css`, plus `editeur.css` pour l'éditeur) |
 | `elpis-app-dark` | le mode sombre (bloc de jetons neutres + variantes sombres des thèmes) |
 | `elpis-dark-surface` | marqueur « la surface de base est sombre » : mode sombre **ou** thème à base sombre (`darkBase`, ex. Émeraude) ; tous les re-mappages clair-sur-sombre en dépendent |
 
@@ -83,8 +83,34 @@ qu'un thème livré : la feuille se charge après `style.css`.
 Ajouter un thème : un fichier `frontend/css/skins/<id>/skin.css` qui redéfinit les
 jetons sous `body.elpis-skin-<id>` (et `.elpis-app-dark` pour le sombre), une
 entrée dans le registre `frontend/css/skins/skins.json` (servi par `/api/skins`), le `<link>` dans `index.html` et
-`admin.html` après `style.css`. Les polices restent locales (pas de
-téléchargement : l'application doit fonctionner hors ligne).
+`admin.html` après `style.css`. Pour son éditeur, un fichier
+`frontend/css/skins/<id>/editeur.css` : pas de `<link>`, le front le lie à la
+demande. Les polices restent locales (pas de téléchargement : l'application doit
+fonctionner hors ligne).
+
+**Éditeur lié au skin.** Un skin est un dossier : `skin.css` pour l'application, et
+`editeur.css`, facultatif, pour l'éditeur. Sa présence suffit : sans lui, l'éditeur
+reste classique, comme pour un habillage personnel (jetons seuls). Le compte choisit
+*Selon le skin* (défaut) ou *Classique*. Le socle `frontend/css/editeur.css` re-mappe
+les composants du classique sur des jetons `--ed-*` ; `editeur.css` les pose, sous
+`.ed2--encre` et `.ed2--papier` (« Thème sombre » de l'éditeur) :
+
+| Jetons | Rôle |
+|---|---|
+| `--ed-code-bg`, `--ed-code-fg`, `--ed-code-muted`, `--ed-code-accent` | surface du code, lue par le thème de Monaco : couleurs simples |
+| `--ed-plan`, `--ed-bande`, `--ed-releve`, `--ed-champ` | les plans : colonne et code, bandes en retrait, menus, champs |
+| `--ed-ink`, `--ed-ink-2`, `--ed-muted`, `--ed-line`, `--ed-line-soft`, `--ed-hover`, `--ed-press` | encres, filets et états |
+| `--ed-select`, `--ed-select-ink`, `--ed-accent`, `--ed-accent-fg`, `--ed-ring` | sélection et accent |
+| `--ed-ok`, `--ed-warn`, `--ed-danger` | statuts Git, et rouge, vert, jaune du terminal |
+| `--ed-syn-mot`, `-texte`, `-nombre`, `-com`, `-type`, `-var`, `-op` | coloration syntaxique ; `-op` colore aussi les accolades |
+| `--ed-ansi-rouge`, `-vert`, `-jaune`, `-bleu`, `-magenta`, `-cyan` | terminal, facultatifs |
+| `--ed-ic-dossier`, `-fichier`, `-bleu`, `-jaune`, `-orange`, `-vert` | icônes de l'arbre, facultatives (monochromes sinon) |
+| `--ed-police`, `--ed-arbre-police`, `--ed-arbre-taille`, `--ed-arbre-hauteur`, `--ed-r`, `--ed-r-lg` | polices, densité de l'arbre, rayons |
+
+Un `editeur.css` change l'apparence (couleurs, rayons, polices, forme de l'onglet
+actif, marque de la rangée active), jamais la place des éléments ni leur
+comportement. Le contraste des skins intégrés est testé
+(`frontend/test/css/contraste-editeur.test.ts`) : texte 4,5:1, icônes 3:1.
 
 ## Typographie
 

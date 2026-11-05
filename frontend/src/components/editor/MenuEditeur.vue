@@ -1,264 +1,288 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/editor/MenuEditeur.vue — menu « + » de la barre de l'éditeur (diff, vue scindée, aperçus, historique, exécution, snapshots…) et panneau des snapshots. -->
+<!-- frontend/src/components/editor/MenuEditeur.vue — menu de la barre de l'éditeur (diff, vue scindée, aperçus, historique, exécution, snapshots…) : « + » en classique, rangé pour l'éditeur lié au skin ; panneau des snapshots. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import MenuActions from "./MenuActions.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
 </script>
 
 <template>
   <div class="relative h-full flex items-center" @keydown.escape.stop="ed.showEditorMore = false">
-    <button
-      aria-haspopup="menu"
-      :aria-expanded="ed.showEditorMore ? 'true' : 'false'"
-      title="Plus d'actions"
-      class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5"
-      :class="
-        ed.showEditorMore
-          ? 'text-blue-400 bg-blue-500/10'
-          : ed.snapshotBusy !== 'idle'
-            ? ed.snapshotBusy === 'restore'
-              ? 'text-amber-400 bg-amber-500/10'
-              : 'text-blue-400 bg-blue-500/10'
-            : ''
-      "
-      @click.stop="ed.showEditorMore = !ed.showEditorMore"
-    >
-      <i
-        class="ph text-sm"
-        :class="ed.snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-plus'"
-      ></i>
-    </button>
-    <div v-if="ed.showEditorMore" class="fixed inset-0 z-40" @click="ed.showEditorMore = false"></div>
-    <Transition name="popover">
-      <div
-        v-if="ed.showEditorMore"
-        role="menu"
-        aria-label="Actions de l'éditeur"
-        class="absolute right-0 top-full mt-1 w-60 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
-      >
-        <button
-          v-if="ed.editorMode === 'code' && (ed.isCurrentFileMd || ed.isCurrentFileSvg)"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.splitView && ed.splitMode === 'render'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleSplitRender();
-          "
-        >
-          <i class="ph ph-eye text-sm shrink-0"></i>
-          <span class="flex-1">{{ ed.isCurrentFileMd ? "Aperçu Markdown" : "Aperçu SVG" }}</span>
-          <i v-if="ed.splitView && ed.splitMode === 'render'" class="ph ph-check text-[10px]"></i>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && ed.activeTabPath && ed.canRunActive()"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
-          @click="ed.runActiveFile()"
-        >
-          <i class="ph ph-play text-sm shrink-0 text-emerald-400"></i>
-          <span class="flex-1">Exécuter le fichier</span>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code'"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="ed.showTerminal ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'"
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleTerminal();
-          "
-        >
-          <i class="ph ph-terminal-window text-sm shrink-0"></i>
-          <span class="flex-1">Terminal</span>
-          <i v-if="ed.showTerminal" class="ph ph-check text-[10px]"></i>
-          <kbd v-else class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
-            >Ctrl+`</kbd
-          >
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && !ed.activeIsViewer"
-          role="menuitem"
-          :aria-pressed="ed.isDiffView && ed.diffBase === 'saved'"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.isDiffView && ed.diffBase === 'saved'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleDiffMode('saved');
-          "
-        >
-          <i class="ph ph-arrows-left-right text-sm shrink-0"></i>
-          <span class="flex-1">Diff depuis la sauvegarde</span>
-          <i v-if="ed.isDiffView && ed.diffBase === 'saved'" class="ph ph-check text-[10px]"></i>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && !ed.activeIsViewer && ed.activeInRepo"
-          role="menuitem"
-          :aria-pressed="ed.isDiffView && ed.diffBase === 'head'"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.isDiffView && ed.diffBase === 'head'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleDiffMode('head');
-          "
-        >
-          <i class="ph ph-git-diff text-sm shrink-0"></i>
-          <span class="flex-1">Diff depuis le dernier commit</span>
-          <i v-if="ed.isDiffView && ed.diffBase === 'head'" class="ph ph-check text-[10px]"></i>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && !ed.activeIsViewer && ed.activeTabPath"
-          role="menuitem"
-          :aria-pressed="ed.isDiffView && ed.diffBase === 'history'"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.isDiffView && ed.diffBase === 'history'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="ed.toggleOriginalDiff()"
-        >
-          <i class="ph ph-flag text-sm shrink-0"></i>
-          <span class="flex-1">Diff depuis l'original</span>
-          <i v-if="ed.isDiffView && ed.diffBase === 'history'" class="ph ph-check text-[10px]"></i>
-        </button>
-        <button
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
-          @click="ed.openHistoryPanel()"
-        >
-          <i class="ph ph-clock-counter-clockwise text-sm shrink-0"></i>
-          <span class="flex-1">Historique de la session</span>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && !ed.activeIsViewer"
-          role="menuitem"
-          :disabled="ed.isTypingEffect"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40"
-          @click="
-            ed.showEditorMore = false;
-            ed.saveEditorContent();
-          "
-        >
-          <i class="ph ph-floppy-disk text-sm shrink-0"></i>
-          <span class="flex-1">Sauvegarder</span>
-          <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+S</kbd>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code'"
-          role="menuitem"
-          :disabled="!ed.dirtyTabs.size"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40"
-          @click="ed.saveAllTabs()"
-        >
-          <i class="ph ph-floppy-disk-back text-sm shrink-0"></i>
-          <span class="flex-1">Tout enregistrer</span>
-          <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
-            >Ctrl+Alt+S</kbd
-          >
-        </button>
-        <button
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
-          @click="
-            ed.showEditorMore = false;
-            ed.openShortcutsModal();
-          "
-        >
-          <i class="ph ph-keyboard text-sm shrink-0"></i>
-          <span class="flex-1">Raccourcis clavier</span>
-          <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500">Ctrl+/</kbd>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code'"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.snapshotBusy !== 'idle'
+    <MenuActions v-if="duSkin" />
+    <template v-else>
+      <button
+        aria-haspopup="menu"
+        :aria-expanded="ed.showEditorMore ? 'true' : 'false'"
+        title="Plus d'actions"
+        class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5"
+        :class="
+          ed.showEditorMore
+            ? 'text-blue-400 bg-blue-500/10'
+            : ed.snapshotBusy !== 'idle'
               ? ed.snapshotBusy === 'restore'
                 ? 'text-amber-400 bg-amber-500/10'
                 : 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleSnapshotPanel();
-          "
+              : ''
+        "
+        @click.stop="ed.showEditorMore = !ed.showEditorMore"
+      >
+        <i
+          class="ph text-sm"
+          :class="ed.snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-plus'"
+        ></i>
+      </button>
+      <div v-if="ed.showEditorMore" class="fixed inset-0 z-40" @click="ed.showEditorMore = false"></div>
+      <Transition name="popover">
+        <div
+          v-if="ed.showEditorMore"
+          role="menu"
+          aria-label="Actions de l'éditeur"
+          class="absolute right-0 top-full mt-1 w-60 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1"
         >
-          <i
-            class="ph text-sm shrink-0"
-            :class="ed.snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-camera'"
-          ></i>
-          <span class="flex-1">{{
-            ed.snapshotBusy === "create"
-              ? "Snapshot… " + (ed.snapshotProgress.pct || 0) + "%"
-              : ed.snapshotBusy === "restore"
-                ? "Restauration… " + (ed.snapshotProgress.pct || 0) + "%"
-                : "Snapshots de la sandbox"
-          }}</span>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && ed.activeTabPath && !ed.activeIsViewer"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.splitView && ed.splitMode === 'code'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleSplit();
-          "
-        >
-          <i class="ph ph-columns text-sm shrink-0"></i>
-          <span class="flex-1">{{
-            ed.splitView && ed.splitMode === "code" ? "Fermer la vue scindée" : "Vue scindée"
-          }}</span>
-          <i v-if="ed.splitView && ed.splitMode === 'code'" class="ph ph-check text-[10px]"></i>
-        </button>
-        <button
-          v-if="ed.editorMode === 'code' && ed.settings.enable_preview && !ed.activeIsViewer"
-          role="menuitem"
-          class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
-          :class="
-            ed.splitView && ed.splitMode === 'preview'
-              ? 'text-blue-400 bg-blue-500/10'
-              : 'text-slate-300 hover:bg-white/5'
-          "
-          @click="
-            ed.showEditorMore = false;
-            ed.toggleSplitPreview();
-          "
-        >
-          <i class="ph ph-browsers text-sm shrink-0"></i>
-          <span class="flex-1">{{
-            ed.splitView && ed.splitMode === "preview"
-              ? "Fermer l'aperçu côte à côte"
-              : "Aperçu à côté du code"
-          }}</span>
-          <i v-if="ed.splitView && ed.splitMode === 'preview'" class="ph ph-check text-[10px]"></i>
-        </button>
-      </div>
-    </Transition>
+          <button
+            v-if="ed.editorMode === 'code' && (ed.isCurrentFileMd || ed.isCurrentFileSvg)"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.splitView && ed.splitMode === 'render'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleSplitRender();
+            "
+          >
+            <i class="ph ph-eye text-sm shrink-0"></i>
+            <span class="flex-1">{{ ed.isCurrentFileMd ? "Aperçu Markdown" : "Aperçu SVG" }}</span>
+            <i v-if="ed.splitView && ed.splitMode === 'render'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && ed.activeTabPath && ed.canRunActive()"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
+            @click="ed.runActiveFile()"
+          >
+            <i class="ph ph-play text-sm shrink-0 text-emerald-400"></i>
+            <span class="flex-1">Exécuter le fichier</span>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code'"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="ed.showTerminal ? 'text-blue-400 bg-blue-500/10' : 'text-slate-300 hover:bg-white/5'"
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleTerminal();
+            "
+          >
+            <i class="ph ph-terminal-window text-sm shrink-0"></i>
+            <span class="flex-1">Terminal</span>
+            <i v-if="ed.showTerminal" class="ph ph-check text-[10px]"></i>
+            <kbd v-else class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
+              >Ctrl+`</kbd
+            >
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && !ed.activeIsViewer"
+            role="menuitem"
+            :aria-pressed="ed.isDiffView && ed.diffBase === 'saved'"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.isDiffView && ed.diffBase === 'saved'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleDiffMode('saved');
+            "
+          >
+            <i class="ph ph-arrows-left-right text-sm shrink-0"></i>
+            <span class="flex-1">Diff depuis la sauvegarde</span>
+            <i v-if="ed.isDiffView && ed.diffBase === 'saved'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && !ed.activeIsViewer && ed.activeInRepo"
+            role="menuitem"
+            :aria-pressed="ed.isDiffView && ed.diffBase === 'head'"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.isDiffView && ed.diffBase === 'head'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleDiffMode('head');
+            "
+          >
+            <i class="ph ph-git-diff text-sm shrink-0"></i>
+            <span class="flex-1">Diff depuis le dernier commit</span>
+            <i v-if="ed.isDiffView && ed.diffBase === 'head'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && !ed.activeIsViewer && ed.activeTabPath"
+            role="menuitem"
+            :aria-pressed="ed.isDiffView && ed.diffBase === 'history'"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.isDiffView && ed.diffBase === 'history'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="ed.toggleOriginalDiff()"
+          >
+            <i class="ph ph-flag text-sm shrink-0"></i>
+            <span class="flex-1">Diff depuis l'original</span>
+            <i v-if="ed.isDiffView && ed.diffBase === 'history'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
+            @click="ed.openHistoryPanel()"
+          >
+            <i class="ph ph-clock-counter-clockwise text-sm shrink-0"></i>
+            <span class="flex-1">Historique de la session</span>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && !ed.activeIsViewer"
+            role="menuitem"
+            :disabled="ed.isTypingEffect"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40"
+            @click="
+              ed.showEditorMore = false;
+              ed.saveEditorContent();
+            "
+          >
+            <i class="ph ph-floppy-disk text-sm shrink-0"></i>
+            <span class="flex-1">Sauvegarder</span>
+            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
+              >Ctrl+S</kbd
+            >
+          </button>
+          <button
+            v-if="ed.editorMode === 'code'"
+            role="menuitem"
+            :disabled="!ed.dirtyTabs.size"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5 disabled:opacity-40"
+            @click="ed.saveAllTabs()"
+          >
+            <i class="ph ph-floppy-disk-back text-sm shrink-0"></i>
+            <span class="flex-1">Tout enregistrer</span>
+            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
+              >Ctrl+Alt+S</kbd
+            >
+          </button>
+          <button
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
+            @click="
+              ed.showEditorMore = false;
+              ed.openShortcutsModal();
+            "
+          >
+            <i class="ph ph-keyboard text-sm shrink-0"></i>
+            <span class="flex-1">Raccourcis clavier</span>
+            <kbd class="text-[9px] bg-white/[0.07] px-1.5 py-0.5 rounded font-mono text-slate-500"
+              >Ctrl+/</kbd
+            >
+          </button>
+          <button
+            v-if="ed.editorMode === 'code'"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.snapshotBusy !== 'idle'
+                ? ed.snapshotBusy === 'restore'
+                  ? 'text-amber-400 bg-amber-500/10'
+                  : 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleSnapshotPanel();
+            "
+          >
+            <i
+              class="ph text-sm shrink-0"
+              :class="ed.snapshotBusy !== 'idle' ? 'ph-spinner-gap animate-spin' : 'ph-camera'"
+            ></i>
+            <span class="flex-1">{{
+              ed.snapshotBusy === "create"
+                ? "Snapshot… " + (ed.snapshotProgress.pct || 0) + "%"
+                : ed.snapshotBusy === "restore"
+                  ? "Restauration… " + (ed.snapshotProgress.pct || 0) + "%"
+                  : "Snapshots de la sandbox"
+            }}</span>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && ed.activeTabPath && !ed.activeIsViewer"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.splitView && ed.splitMode === 'code'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleSplit();
+            "
+          >
+            <i class="ph ph-columns text-sm shrink-0"></i>
+            <span class="flex-1">{{
+              ed.splitView && ed.splitMode === "code" ? "Fermer la vue scindée" : "Vue scindée"
+            }}</span>
+            <i v-if="ed.splitView && ed.splitMode === 'code'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            v-if="ed.editorMode === 'code' && ed.settings.enable_preview && !ed.activeIsViewer"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2"
+            :class="
+              ed.splitView && ed.splitMode === 'preview'
+                ? 'text-blue-400 bg-blue-500/10'
+                : 'text-slate-300 hover:bg-white/5'
+            "
+            @click="
+              ed.showEditorMore = false;
+              ed.toggleSplitPreview();
+            "
+          >
+            <i class="ph ph-browsers text-sm shrink-0"></i>
+            <span class="flex-1">{{
+              ed.splitView && ed.splitMode === "preview"
+                ? "Fermer l'aperçu côte à côte"
+                : "Aperçu à côté du code"
+            }}</span>
+            <i v-if="ed.splitView && ed.splitMode === 'preview'" class="ph ph-check text-[10px]"></i>
+          </button>
+          <button
+            v-if="ed.feuilleEditeur"
+            role="menuitem"
+            class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 text-slate-300 hover:bg-white/5"
+            title="Le style d'éditeur fourni par le skin"
+            @click="
+              ed.showEditorMore = false;
+              ed.persistEditorUi('skin');
+            "
+          >
+            <i class="ph ph-palette text-sm shrink-0"></i>
+            <span class="flex-1">Éditeur du skin</span>
+          </button>
+        </div>
+      </Transition>
+    </template>
 
     <template v-if="ed.showSnapshotPanel">
       <div class="fixed inset-0 z-30" @click="ed.showSnapshotPanel = false"></div>
       <div
-        class="absolute right-0 top-full mt-1 w-80 bg-[#252526] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden"
+        class="absolute right-0 top-full mt-1 w-80 bg-[#252526] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden elpis-ed-instantanes"
       >
         <div class="px-3 pt-3 pb-2 border-b border-white/5">
           <div class="flex items-center justify-between mb-1">

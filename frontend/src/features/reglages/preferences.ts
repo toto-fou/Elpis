@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/preferences.ts — bascules à effet immédiat des Paramètres : sous-agents, terminal, voix, familles opencode, compaction (activation, seuil, nombre maximal). */
+/** frontend/src/features/reglages/preferences.ts — bascules à effet immédiat des Paramètres : sous-agents, terminal, voix, familles opencode, compaction (activation, seuil, nombre maximal), interface de l'éditeur. */
 import type { Ref } from "vue";
 
+import { CHOIX_INTERFACES_EDITEUR, lireInterfaceEditeur } from "../editor/interface";
+import type { InterfaceEditeur } from "../editor/interface";
 import { voiceCompat } from "../voix/compat";
 import type { Persistance } from "./persistance";
 import type { CtxReglages, ReglagesApp, VueReglages } from "./types";
@@ -74,6 +76,21 @@ export function creerPreferences(
         echec: "Compaction : enregistrement échoué.",
         reseau: "Compaction : erreur réseau.",
         succes: val ? "Compaction automatique activée." : "Compaction automatique désactivée.",
+      },
+    );
+  };
+
+  /** Éditeur choisi depuis son menu : tient dès le clic, comme une bascule. */
+  const persistEditorUi = (valeur: InterfaceEditeur): Promise<void> => {
+    if (lireInterfaceEditeur(settings.value) === valeur) return Promise.resolve();
+    const libelle = CHOIX_INTERFACES_EDITEUR.find((c) => c.valeur === valeur)?.libelle ?? valeur;
+    settings.value.editor_ui = valeur;
+    return persistImmediat(
+      { editor_ui: valeur },
+      {
+        echec: "Éditeur : enregistrement échoué.",
+        reseau: "Éditeur : erreur réseau.",
+        succes: "Éditeur : " + libelle + ".",
       },
     );
   };
@@ -272,6 +289,7 @@ export function creerPreferences(
   }
 
   return {
+    persistEditorUi,
     persistAgentsEnabled,
     persistLiveShell,
     persistJobsWake,

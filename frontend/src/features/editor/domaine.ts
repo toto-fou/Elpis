@@ -5,6 +5,7 @@ import type { InjectionKey, ShallowUnwrapRef } from "vue";
 
 import { journal } from "../../platform/journal";
 import type { SurfaceEditeur } from "./editeur";
+import type { InterfaceEditeur } from "./interface";
 import type { ReglagesEditeur } from "./instances";
 
 export interface ProgressionImport {
@@ -39,6 +40,7 @@ export interface RacineEditeur {
   renderMarkdown(source: string): string;
   gitConnectors: ConnecteurGit[];
   loadGitConnectors(): unknown;
+  persistEditorUi(valeur: InterfaceEditeur): Promise<void>;
 }
 
 /** Surface vue des gabarits : refs déballées, fonctions internes (`_…`) retirées. */
@@ -61,6 +63,7 @@ const CLES: Readonly<Record<keyof RacineEditeur | "showEditor", true>> = {
   renderMarkdown: true,
   gitConnectors: true,
   loadGitConnectors: true,
+  persistEditorUi: true,
   showEditor: true,
 };
 

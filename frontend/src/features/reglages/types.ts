@@ -104,6 +104,7 @@ export interface ReglagesApp {
   editor_auto_save?: string;
   editor_persist_tabs?: boolean;
   editor_follow_active?: boolean;
+  editor_ui?: "skin" | "classic";
   editor_dark_mode?: boolean;
   editor_ratio?: number;
   chat_width?: number;
@@ -132,6 +133,7 @@ export interface RefsReglages {
   config: Ref<ConfigChat>;
   inputMessage: Ref<string>;
   inputRef: Ref<HTMLTextAreaElement | null>;
+  feuilleEditeur?: Ref<string>;
 }
 
 /** Services de l'hôte (racine) que les réglages appellent. */

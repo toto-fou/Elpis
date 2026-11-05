@@ -42,6 +42,8 @@ import {
   defaultSkin,
   detectImage,
   dossierCssIntegres,
+  dossierIntegre,
+  EDITEUR_CSS,
   estDossierPy,
   estFichierPy,
   existePy,
@@ -221,6 +223,7 @@ export async function importZip(octets: Uint8Array, overwrite = false): Promise<
   }
   let manifesteBrut: Buffer | null = null;
   let cssBrut: Buffer | null = null;
+  let editeurBrut: Buffer | null = null;
   const images = new Map<string, Buffer>();
   const annexes = new Map<string, Buffer>();
   for (const [k, info] of membres) {
@@ -229,7 +232,7 @@ export async function importZip(octets: Uint8Array, overwrite = false): Promise<
     const parties = rel.split("/");
     let plafond: number;
     if (rel === "skin.json") plafond = MAX_JSON_BYTES;
-    else if (rel === "skin.css") plafond = MAX_CSS_BYTES;
+    else if (rel === "skin.css" || rel === EDITEUR_CSS) plafond = MAX_CSS_BYTES;
     else if (EXTRA_FILES.includes(rel)) plafond = MAX_EXTRA_BYTES;
     else if (parties.length === 2 && parties[0] === "assets") {
       if (!ASSET_RE.test(parties[1] ?? ""))
@@ -238,7 +241,7 @@ export async function importZip(octets: Uint8Array, overwrite = false): Promise<
     } else {
       throw new SkinError(
         `Fichier non autorisé : ${prefixePy(rel, 80)} (admis : skin.json, ` +
-          "skin.css, assets/*.png|jpg|webp|gif, README, LICENSE).",
+          "skin.css, editeur.css, assets/*.png|jpg|webp|gif, README, LICENSE).",
       );
     }
     const trop = `${rel} : trop volumineux (${Math.floor(plafond / 1024)} Ko au plus).`;
@@ -247,6 +250,7 @@ export async function importZip(octets: Uint8Array, overwrite = false): Promise<
     if (blob.length > plafond) throw new SkinError(trop);
     if (rel === "skin.json") manifesteBrut = blob;
     else if (rel === "skin.css") cssBrut = blob;
+    else if (rel === EDITEUR_CSS) editeurBrut = blob;
     else if (EXTRA_FILES.includes(rel)) annexes.set(rel, blob);
     else images.set(parties[1] ?? "", blob);
   }
@@ -272,6 +276,17 @@ export async function importZip(octets: Uint8Array, overwrite = false): Promise<
     if (estDict(manifeste) && !veritePy(getPy(manifeste, "css"))) poserCle(manifeste, "css", "skin.css");
     validateCss(cssTexte, new Set(images.keys()));
   }
+  if (editeurBrut !== null) {
+    let editeurTexte: string;
+    try {
+      editeurTexte = decoderUtf8(editeurBrut);
+    } catch (e) {
+      if (estErreurValeur(e)) throw new SkinError(`${EDITEUR_CSS} : UTF-8 attendu.`);
+      throw e;
+    }
+    validateCss(editeurTexte, new Set(images.keys()), EDITEUR_CSS);
+    annexes.set(EDITEUR_CSS, editeurBrut);
+  }
   const norm = validateManifest(manifeste, { hasCss: cssTexte !== null });
   const id = norm["id"] as string;
   const existait = await ecrireNouveauDossier(norm, cssTexte, images, annexes, overwrite);
@@ -287,6 +302,11 @@ export async function saveFromEditor(payload: unknown): Promise<Dict> {
   const cssTexte = ouPy(getPy(payload, "css"), "");
   if (typeof cssTexte !== "string") throw new SkinError("CSS avancé : texte attendu.");
   const hasCss = stripPy(cssTexte) !== "";
+  // Absent du corps : la feuille d'éditeur reste telle quelle ; vide : retirée.
+  const editeurTexte: unknown = getPy(payload, "editeur_css") ?? null;
+  if (editeurTexte !== null && typeof editeurTexte !== "string")
+    throw new SkinError("CSS de l'éditeur : texte attendu.");
+  const hasEditeur = typeof editeurTexte === "string" && stripPy(editeurTexte) !== "";
   const manifeste: Dict = {};
   for (const k of [
     "id",
@@ -309,15 +329,29 @@ export async function saveFromEditor(payload: unknown): Promise<Dict> {
   if (!miseAJour) {
     if (existePy(dest)) throw new SkinExistsError(`Un skin « ${id} » existe déjà.`);
     if (hasCss) validateCss(cssTexte, new Set());
-    await ecrireNouveauDossier(norm, hasCss ? cssTexte : null, new Map(), new Map(), false);
+    const annexes = new Map<string, Buffer>();
+    if (hasEditeur) {
+      validateCss(editeurTexte, new Set(), EDITEUR_CSS);
+      annexes.set(EDITEUR_CSS, encoderUtf8Py(editeurTexte));
+    }
+    await ecrireNouveauDossier(norm, hasCss ? cssTexte : null, new Map(), annexes, false);
     await marquerDesactive(id);
   } else {
     if (hasCss) validateCss(cssTexte, new Set(assetNames(dest)));
+    if (hasEditeur) validateCss(editeurTexte, new Set(assetNames(dest)), EDITEUR_CSS);
     writeTextAtomic(pyJoin(dest, "skin.json"), manifesteJson(norm));
     if (hasCss) writeTextAtomic(pyJoin(dest, "skin.css"), cssTexte);
     else {
       try {
         unlinkSync(pyJoin(dest, "skin.css"));
+      } catch (e) {
+        if ((e as { code?: unknown }).code !== "ENOENT") throw e;
+      }
+    }
+    if (hasEditeur) writeTextAtomic(pyJoin(dest, EDITEUR_CSS), editeurTexte);
+    else if (editeurTexte !== null) {
+      try {
+        unlinkSync(pyJoin(dest, EDITEUR_CSS));
       } catch (e) {
         if ((e as { code?: unknown }).code !== "ENOENT") throw e;
       }
@@ -382,6 +416,20 @@ function tranche(v: unknown, n: number): string {
   return prefixePy(v, n);
 }
 
+/** Feuille d'éditeur d'un skin intégré pour son modèle : ses sélecteurs visent le skin lui-même ; vide s'il n'en a pas. */
+function feuilleEditeurModele(skinId: string): string {
+  let css: string;
+  try {
+    css = lireTextePy(pyJoin(dossierIntegre(skinId), EDITEUR_CSS));
+  } catch (x) {
+    if (estErreurOs(x)) return "";
+    throw x;
+  }
+  return skinId
+    ? css.replaceAll(`.elpis-skin-${skinId}`, () => SELF_CLASS)
+    : css.replaceAll('body:not([class*="elpis-skin-"])', () => `body${SELF_CLASS}`);
+}
+
 /** (nom de fichier, octets) du zip d'un skin au format d'import ; un intégré s'exporte comme modèle `<id>-perso`. */
 export function exportZip(skinId: string): [string, Buffer] {
   const e = toutesLesSkins().get(skinId);
@@ -412,11 +460,13 @@ export function exportZip(skinId: string): [string, Buffer] {
     if (veritePy(getOu(e, "brand", null))) man["brand"] = dictPy(e["brand"]);
     const entrees = [entreeEcrite(`${nouveau}/skin.json`, manifesteJson(man))];
     if (css) entrees.push(entreeEcrite(`${nouveau}/skin.css`, css));
+    const editeur = feuilleEditeurModele(skinId);
+    if (editeur) entrees.push(entreeEcrite(`${nouveau}/${EDITEUR_CSS}`, editeur));
     return [`skin-${nouveau}.zip`, ecrireZip(entrees)];
   }
   const d = pyJoin(skinsDir(), skinId);
   const entrees: EntreeZipEcrite[] = [];
-  for (const nom of ["skin.json", "skin.css", ...EXTRA_FILES]) {
+  for (const nom of ["skin.json", "skin.css", EDITEUR_CSS, ...EXTRA_FILES]) {
     const p = pyJoin(d, nom);
     if (estFichierPy(p) && !estLien(p)) entrees.push(entreeFichier(p, `${skinId}/${nom}`));
   }

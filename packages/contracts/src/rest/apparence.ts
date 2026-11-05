@@ -16,6 +16,8 @@ export const schemaSkin = z.object({
   brand: dictionnaire.optional(),
   mascot: z.unknown().optional(),
   css_url: z.string().optional(),
+  /** Feuille d'éditeur, présente seulement si le skin a un editeur.css ; sinon éditeur classique. */
+  editor_css_url: z.string().optional(),
   /** Habillage personnel du compte (id `perso:<id>`). */
   perso: z.boolean().optional(),
 });

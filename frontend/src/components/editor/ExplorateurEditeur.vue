@@ -1,18 +1,48 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/ExplorateurEditeur.vue — explorateur de l'éditeur : en-tête et actions, import (fichiers, dossier, progression), choix de la vue, fichiers (recherche, remplacement, arbre), historique et Git. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import BarreExplorateur from "./BarreExplorateur.vue";
 import ElementArbre from "./ElementArbre.vue";
 import HistoriqueSession from "./HistoriqueSession.vue";
+import MenuFichiers from "./MenuFichiers.vue";
 import PanneauGit from "./PanneauGit.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
+const modifications = computed(() =>
+  ed.gitStatus && ed.gitStatus.is_repo
+    ? ed.gitStatus.modified.length + ed.gitStatus.untracked.length + ed.gitStatus.staged.length
+    : 0,
+);
+
+const VUES = [
+  { id: "files", nom: "Fichiers", icone: "ph-folder" },
+  { id: "git", nom: "Git", icone: "ph-git-branch" },
+  { id: "history", nom: "Historique", icone: "ph-clock-counter-clockwise" },
+] as const;
+
+/** Change de vue avec les chargements de chacune. */
+function allerVue(id: (typeof VUES)[number]["id"]): void {
+  if (id === "git") {
+    void ed.gitOpenTab();
+    void ed.loadGitConnectors();
+  } else if (id === "history") void ed.openHistoryPanel();
+  else ed.explorerTab = "files";
+}
+
+/** Nom d'une vue pour l'infobulle et les lecteurs d'écran, avec le compte de modifications sur Git. */
+function nomVue(v: (typeof VUES)[number]): string {
+  return v.id === "git" && modifications.value ? `Git, ${modifications.value} modification(s)` : v.nom;
+}
 </script>
 
 <template>
   <div
     v-show="ed.showExplorer"
-    class="bg-[#252526] border-r border-black/20 flex flex-col shrink-0"
+    class="bg-[#252526] border-r border-black/20 flex flex-col shrink-0 elpis-ed-explorateur"
     :style="{ width: ed.explorerWidth + 'px' }"
     :class="ed.explorerDragOver ? 'ring-2 ring-inset ring-blue-500/40' : ''"
     @contextmenu.prevent="ed.openContextMenu($event, 'explorer-bg', { path: '' })"
@@ -20,95 +50,7 @@ const ed = domaineEditeur();
     @dragleave="ed.onExplorerDragLeave"
     @drop.prevent="ed.handleExplorerDrop($event)"
   >
-    <div class="relative px-2 py-1.5 flex justify-between items-center shrink-0 border-b border-white/5">
-      <div class="flex gap-0.5 flex-1 justify-end min-w-0 overflow-hidden">
-        <button
-          title="Nouveau fichier"
-          aria-label="Nouveau fichier"
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"
-          @click="ed.createFile()"
-        >
-          <i class="ph ph-file-plus text-sm"></i>
-        </button>
-        <button
-          title="Nouveau dossier"
-          aria-label="Nouveau dossier"
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"
-          @click="ed.createFolder()"
-        >
-          <i class="ph ph-folder-plus text-sm"></i>
-        </button>
-        <button
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"
-          title="Importer"
-          aria-label="Importer"
-          :aria-expanded="ed.showImportMenu ? 'true' : 'false'"
-          @click.stop="ed.showImportMenu = !ed.showImportMenu"
-        >
-          <i class="ph ph-upload-simple text-sm"></i>
-        </button>
-        <button
-          :title="
-            ed.showHiddenFiles
-              ? 'Masquer les fichiers cachés (.dotfiles)'
-              : 'Afficher les fichiers cachés (.dotfiles)'
-          "
-          :aria-pressed="ed.showHiddenFiles ? 'true' : 'false'"
-          class="p-1 rounded hover:bg-white/5"
-          :class="
-            ed.showHiddenFiles ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 hover:text-white'
-          "
-          @click="ed.toggleHiddenFiles()"
-        >
-          <i class="ph text-sm" :class="ed.showHiddenFiles ? 'ph-eye' : 'ph-eye-slash'"></i>
-        </button>
-        <button
-          :disabled="!ed.activeTabPath"
-          title="Localiser le fichier ouvert (Alt+L)"
-          aria-label="Localiser le fichier ouvert"
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500 disabled:opacity-30"
-          @click="ed.revealActiveInTree()"
-        >
-          <i class="ph ph-crosshair text-sm"></i>
-        </button>
-        <button
-          title="Tout replier"
-          aria-label="Tout replier"
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"
-          @click="ed.collapseAllFolders()"
-        >
-          <i class="ph ph-arrows-in-line-vertical text-sm"></i>
-        </button>
-        <button
-          title="Actualiser"
-          aria-label="Actualiser l'arborescence"
-          class="hover:text-white p-1 rounded hover:bg-white/5 text-slate-500"
-          @click="ed.loadSandboxFiles"
-        >
-          <i class="ph ph-arrow-clockwise text-sm" :class="{ 'animate-spin': ed.isLoadingFiles }"></i>
-        </button>
-      </div>
-      <!-- Menu hors de la barre d'outils : son overflow-hidden le rognait, et le clic tombait sur le voile. -->
-      <template v-if="ed.showImportMenu">
-        <div class="fixed inset-0 z-40" @click="ed.showImportMenu = false"></div>
-        <div
-          class="absolute right-2 top-full mt-1 w-36 bg-[#1e1e1e] border border-white/10 rounded-lg shadow-xl z-50 py-1 overflow-hidden"
-        >
-          <button
-            class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 flex items-center gap-2"
-            @click="ed.triggerSandboxImport('file')"
-          >
-            <i class="ph ph-files text-blue-400"></i> Fichiers
-          </button>
-          <button
-            class="w-full text-left px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 flex items-center gap-2"
-            @click="ed.triggerSandboxImport('folder')"
-          >
-            <i class="ph ph-folder-open text-yellow-400"></i> Dossier
-          </button>
-        </div>
-      </template>
-    </div>
+    <BarreExplorateur v-if="!duSkin" />
     <input
       :ref="(el) => (ed.sandboxFileInput = el as HTMLInputElement | null)"
       type="file"
@@ -179,6 +121,7 @@ const ed = domaineEditeur();
     </div>
 
     <div
+      v-if="!duSkin"
       class="relative px-1.5 py-1 border-b border-white/5 shrink-0 flex items-center gap-1"
       @keydown.escape.stop="ed.showExplorerMenu = false"
     >
@@ -295,8 +238,40 @@ const ed = domaineEditeur();
       </template>
     </div>
 
+    <div v-else class="elpis-ed-vues">
+      <div class="elpis-ed-vues__groupe" role="group" aria-label="Vues de l'explorateur">
+        <button
+          v-for="v in VUES"
+          :key="v.id"
+          type="button"
+          class="ed2-vue"
+          :title="nomVue(v)"
+          :aria-label="nomVue(v)"
+          :aria-pressed="ed.explorerTab === v.id ? 'true' : 'false'"
+          @click="allerVue(v.id)"
+        >
+          <i class="ph" :class="v.icone" aria-hidden="true"></i>
+          <span v-if="v.id === 'git' && modifications" class="ed2-compte" aria-hidden="true">{{
+            modifications
+          }}</span>
+        </button>
+      </div>
+      <div v-if="ed.explorerTab === 'files'" class="elpis-ed-vues__actions">
+        <button
+          type="button"
+          class="ed2-vue"
+          title="Nouveau fichier"
+          aria-label="Nouveau fichier"
+          @click="ed.createFile()"
+        >
+          <i class="ph ph-file-plus" aria-hidden="true"></i>
+        </button>
+        <MenuFichiers />
+      </div>
+    </div>
+
     <div v-show="ed.explorerTab === 'files'" class="flex flex-col flex-1 min-h-0">
-      <div class="px-2 pb-2 border-b border-white/5 space-y-1.5 shrink-0">
+      <div class="px-2 pb-2 border-b border-white/5 space-y-1.5 shrink-0 elpis-ed-recherche">
         <div class="relative">
           <i
             class="ph ph-magnifying-glass text-[10px] text-slate-500 absolute left-2 top-1/2 -translate-y-1/2"

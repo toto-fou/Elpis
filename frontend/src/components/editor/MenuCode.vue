@@ -16,7 +16,7 @@ const ed = domaineEditeur();
     ></div>
 
     <div
-      class="fixed z-[500] w-64 bg-[#1e1e1e] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden select-none"
+      class="fixed z-[500] w-64 bg-[#1e1e1e] border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden select-none elpis-ed-menu-code"
       :style="{ top: ed.editorCtxMenu.y + 'px', left: ed.editorCtxMenu.x + 'px' }"
       @mousedown.stop.prevent
       @click.stop

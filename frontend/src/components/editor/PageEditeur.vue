@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/PageEditeur.vue — page de l'éditeur : diviseur avec le chat, colonne de l'éditeur (barre, bandeaux, explorateur, zone d'édition, terminal, barre d'état), ouverture rapide, menu d'onglet et aide des raccourcis. -->
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+
 import AideRaccourcis from "./AideRaccourcis.vue";
 import BandeauxEditeur from "./BandeauxEditeur.vue";
 import BarreEditeur from "./BarreEditeur.vue";
@@ -10,16 +12,35 @@ import MenuOnglet from "./MenuOnglet.vue";
 import OuvertureRapide from "./OuvertureRapide.vue";
 import PanneauTerminal from "./PanneauTerminal.vue";
 import ZoneEdition from "./ZoneEdition.vue";
+import { explorateurSuperpose, suivreLargeur } from "../../features/editor/couches";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
+const racine = ref<HTMLElement | null>(null);
+const etroit = ref(false);
+let arreterSuivi: (() => void) | null = null;
+onMounted(() => {
+  if (racine.value) arreterSuivi = suivreLargeur(racine.value, (l) => (etroit.value = l > 0 && l < 600));
+});
+onBeforeUnmount(() => arreterSuivi?.());
+// Fenêtre étroite : l'explorateur est posé sur le code, il se replie dès qu'un fichier s'ouvre.
+watch(
+  () => ed.activeTabPath,
+  () => {
+    if (duSkin.value && explorateurSuperpose()) ed.showExplorer = false;
+  },
+);
 </script>
 
 <template>
   <div
     v-if="ed.showEditor && ed.settings.enable_editor && !ed.editorFullscreen"
-    class="w-1 hover:w-1.5 bg-slate-700 hover:bg-blue-500 cursor-col-resize flex-shrink-0 z-40 transition-colors group relative"
-    :class="{ 'elpis-splitter-light': ed.settings.editor_dark_mode === false }"
+    class="w-1 hover:w-1.5 cursor-col-resize flex-shrink-0 z-40 transition-colors group relative"
+    :class="[
+      duSkin ? 'elpis-separateur-ed2' : 'bg-slate-700 hover:bg-blue-500',
+      { 'elpis-splitter-light': !duSkin && ed.settings.editor_dark_mode === false },
+    ]"
     title="Redimensionner"
     @mousedown="ed.editorSplitStart"
     @touchstart.prevent="ed.editorSplitStart"
@@ -27,15 +48,23 @@ const ed = domaineEditeur();
     <div class="absolute inset-y-0 -left-1 -right-1"></div>
   </div>
   <div
-    class="flex flex-col h-full bg-[#1e1e1e] relative z-30"
+    ref="racine"
+    class="flex flex-col h-full relative z-30"
     data-editor-root
+    :data-interface="duSkin ? 'skin' : 'classic'"
     :class="[
       ed.showEditor && ed.settings.enable_editor
         ? 'opacity-100'
         : 'w-0 opacity-0 border-none pointer-events-none',
       ed.editorFullscreen ? 'editor-fullscreen' : '',
       ed.editorSplitDragging ? '' : 'elpis-slide-panel',
-      ed.settings.editor_dark_mode === false ? 'elpis-editor-light' : '',
+      duSkin
+        ? [
+            'ed2',
+            ed.settings.editor_dark_mode === false ? 'ed2--papier' : 'ed2--encre',
+            etroit ? 'ed2--etroit' : '',
+          ]
+        : ['bg-[#1e1e1e]', ed.settings.editor_dark_mode === false ? 'elpis-editor-light' : ''],
     ]"
     :style="{
       width: ed.editorFullscreen
@@ -61,12 +90,18 @@ const ed = domaineEditeur();
 
       <BandeauxEditeur />
 
-      <div class="flex-1 flex overflow-hidden">
+      <div class="flex-1 flex overflow-hidden elpis-ed-corps">
         <ExplorateurEditeur />
+        <div
+          v-if="duSkin && ed.showExplorer"
+          class="ed2-voile"
+          aria-hidden="true"
+          @click="ed.showExplorer = false"
+        ></div>
 
         <div
           v-show="ed.showExplorer"
-          class="w-1 hover:w-1.5 bg-transparent hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors relative group"
+          class="w-1 hover:w-1.5 bg-transparent hover:bg-blue-500 cursor-col-resize flex-shrink-0 transition-colors relative group elpis-ed-poignee"
           title="Redimensionner l'explorateur"
           @mousedown="ed.explorerResizeStart"
           @touchstart.prevent="ed.explorerResizeStart"

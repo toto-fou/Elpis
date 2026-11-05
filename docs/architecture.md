@@ -1171,25 +1171,35 @@ les autres couleurs sont sémantiques (statut).
   `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `darkBase`,
   `enabled_by_default`, `brand`, `mascot`) ; leur feuille
   `css/skins/<id>/skin.css` est liée en statique par `index.html` et `admin.html`.
-  Ardoise (`id` vide) est `style.css` sans classe.
+  Ardoise (`id` vide) est `style.css` sans classe. `css/skins/<id>/editeur.css`
+  (`ardoise/` pour Ardoise) porte le style d'éditeur du skin ; sa présence suffit.
 - **Plugins.** Importés (zip) ou créés depuis la console, rangés dans
   `SKINS_DIR` (`APP_SKINS_DIR` ou `skins.dir`, défaut `user_skins/`) :
   `<id>/skin.json` (`id, label, description, version, author, license,
-  darkBase, swatch, tokens: {light, dark}, css?, brand?`), `skin.css`
-  facultatif, `assets/` (png, jpg, webp, gif). Validation stricte
+  darkBase, swatch, tokens: {light, dark}, css?, brand?`), `skin.css` et
+  `editeur.css` facultatifs, `assets/` (png, jpg, webp, gif). Validation stricte
   (`apps/core/src/apparence/skins.ts`) : jetons `--[a-z0-9-]`, valeurs sans
   `; { } < > \`, `url(` ni `@` ; feuille sans `@import`, sans URL externe (seuls
   `url(assets/…)` et `data:image/…`), images vérifiées par leurs octets. Le
   serveur génère la feuille (`body.elpis-skin-<id>{…}`, variante
   `.elpis-app-dark`, échelle `--radius-*`) ; le front ne lie que celle du skin
   actif (`<link id="elpis-plugin-skin">`).
+- **Éditeur lié.** `GET /api/skins` annonce `editor_css_url` si le dossier du
+  skin a un `editeur.css` valide (statique pour un intégré, route pour un
+  importé) ; sinon l'éditeur reste classique, habillages personnels compris. Le
+  réglage `editor_ui` vaut `skin` (absent : défaut) ou `classic`. Le front lie la
+  feuille à la demande (`<link id="elpis-skin-editeur">`, sans remonter Monaco),
+  pose `.ed2` sur la racine de l'éditeur et tire de ses jetons le thème de Monaco
+  et du terminal (`features/editor/theme-editeur.ts`). Une feuille d'importé suit
+  la validation de `skin.css`.
 - **État.** `config.json` › `skins` : `{"enabled": {id: bool}, "default": id}`,
   relu à chaque appel. Un plugin arrive désactivé ; Kiki est désactivé par
   défaut ; Ardoise et le défaut restent actifs. Le réglage utilisateur `skin`
   est ramené au défaut s'il désigne un skin désactivé (GET et PUT).
 - **Routes.** `GET /api/skins` (skins activés, défaut, mascottes),
-  `GET /api/skins/{id}/skin.css`, `GET /api/skins/{id}/assets/{nom}` (skin
-  activé ou administrateur ; aussi montées sur le process admin) ;
+  `GET /api/skins/{id}/skin.css`, `GET /api/skins/{id}/editeur.css`,
+  `GET /api/skins/{id}/assets/{nom}` (skin activé ou administrateur ; aussi
+  montées sur le process admin) ;
   `/api/admin/skins` (`GET`, `PUT` état, `POST` formulaire, `POST /import`,
   `GET /{id}/export`, `DELETE /{id}`), page console *Système › Apparence*.
 - **Habillages personnels.** Chaque compte peut avoir ses propres habillages,

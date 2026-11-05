@@ -5,6 +5,7 @@ import { onMounted } from "vue";
 
 import BoutonAssistant from "../../communs/BoutonAssistant.vue";
 import AideOnglet from "../AideOnglet.vue";
+import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -74,6 +75,10 @@ onMounted(() => void rg.chargerSkinsPerso());
         </template>
       </select>
       <p class="text-xs text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
+    </div>
+
+    <div class="bg-slate-50 rounded-xl">
+      <ChoixEditeur id-champ="set-editeur" />
     </div>
 
     <div v-if="rg.persoDispo" id="set-mes-habillages">

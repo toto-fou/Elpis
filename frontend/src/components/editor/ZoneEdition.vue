@@ -1,11 +1,14 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/ZoneEdition.vue — zone d'édition : éditeur Monaco principal, diff, panneau droit (code, aperçu web, rendu Markdown/SVG), visionneuses (image, hex, Office), aperçu web plein. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import GrilleOffice from "./GrilleOffice.vue";
 import MenuCode from "./MenuCode.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
 </script>
 
 <!-- eslint-disable vue/no-v-html -- rendu Markdown du moteur du chat (purifié) et SVG purifié par DOMPurify (renderSvgSafe). -->
@@ -20,15 +23,20 @@ const ed = domaineEditeur();
       >
         <div
           v-show="!ed.activeTabPath"
-          class="absolute inset-0 flex items-center justify-center text-slate-600 pointer-events-none select-none text-sm font-medium"
+          class="elpis-zone-vide absolute inset-0 flex items-center justify-center text-slate-600 pointer-events-none select-none text-sm font-medium"
         >
-          Sélectionnez un fichier
+          <template v-if="duSkin">
+            <i class="ph ph-file-code" aria-hidden="true"></i>
+            <span class="elpis-zone-vide__titre">Aucun fichier ouvert</span>
+            <span>Choisissez un fichier, ou <kbd>Ctrl P</kbd> pour le retrouver par son nom.</span>
+          </template>
+          <template v-else>Sélectionnez un fichier</template>
         </div>
         <div
           v-if="ed.isTypingEffect && ed.activeTabPath"
-          class="absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse"
+          class="elpis-zone-ecriture absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow animate-pulse"
         >
-          ÉCRITURE...
+          {{ duSkin ? "Elpis écrit" : "ÉCRITURE..." }}
         </div>
         <div
           id="monaco-editor"
@@ -303,7 +311,7 @@ const ed = domaineEditeur();
 
         <div
           v-if="ed.fimLoading"
-          class="absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-lg flex items-center gap-1.5 animate-pulse"
+          class="elpis-zone-completion absolute top-2 right-4 z-20 bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-lg flex items-center gap-1.5 animate-pulse"
         >
           <i class="ph ph-spinner-gap animate-spin text-xs"></i> Complétion...
         </div>

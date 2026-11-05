@@ -68,6 +68,7 @@ export interface EditeurSkin {
   tokens: Record<Modes, Jetons>;
   extra: Record<Modes, Jetons>;
   css: string;
+  editeurCss: string;
   brand: string;
   view: Modes;
   error: string;
@@ -407,6 +408,7 @@ export function setupAdminSkins(ctx: CtxSkinsAdmin | null | undefined, http: Cli
       tokens: { light: {}, dark: {} },
       extra: { light: {}, dark: {} },
       css: "",
+      editeurCss: "",
       brand: "",
       view: "light",
       error: "",
@@ -446,6 +448,7 @@ export function setupAdminSkins(ctx: CtxSkinsAdmin | null | undefined, http: Cli
       tokens: { light: {}, dark: {} },
       extra: { light: {}, dark: {} },
       css: d.css || "",
+      editeurCss: d.editeur_css || "",
       brand: typeof d.brand.name === "string" ? d.brand.name : "",
       version: d.version || "",
       author: d.author || "",
@@ -506,6 +509,7 @@ export function setupAdminSkins(ctx: CtxSkinsAdmin | null | undefined, http: Cli
       swatch: ed.swatch,
       tokens,
       css: ed.css || "",
+      editeur_css: ed.editeurCss || "",
       brand: ed.brand ? { name: ed.brand } : null,
       update: ed.mode === "edit",
     };

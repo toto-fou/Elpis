@@ -21,6 +21,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { PREFIXE_PERSO } from "@elpis/contracts";
 import { config, configView, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
@@ -241,7 +242,7 @@ function selecteurDeModele(): boolean {
 }
 
 /** `GET /api/settings` : réglages enregistrés complétés des défauts et des valeurs calculées côté serveur. */
-export async function lireReglages(base: Base, uid: number, journal: Journal): Promise<Dict> {
+export async function lireReglages(base: Base, uid: number, journal: Journal, mode: ModeApp): Promise<Dict> {
   const saved = await getUserSettings(base, uid, (m) => journal.error(m));
   // Écart voulu au Python : l'avatar de l'assistant est le logo de l'application ; les anciens choix sont ignorés.
   for (const k of AVATAR_ASSISTANT) delete saved[k];
@@ -254,7 +255,7 @@ export async function lireReglages(base: Base, uid: number, journal: Journal): P
     poserCle(saved, "welcome_mascot", defautAdmin);
   poserCle(saved, "mascottes_actives", actives);
   poserCle(saved, "mascottes_catalogue", mascotsCatalogue());
-  poserCle(saved, "skin", resolveSkinCompte(uid, getOu(saved, "skin", null)));
+  poserCle(saved, "skin", resolveSkinCompte(uid, getOu(saved, "skin", null), mode));
   poserCle(saved, "mascottes_on", allumees);
   poserCle(saved, "sandbox_path_display", cheminSandbox((await getUsernameById(base, uid)) || "guest"));
   poserCle(saved, "enable_model_selector", selecteurDeModele());
@@ -388,6 +389,8 @@ export async function ecrireReglages(
       .sort(comparePointsDeCode);
     if (extra.length > 0)
       throw new HttpError(403, "Préférence non modifiable depuis la console : " + extra.join(", "));
+    if (typeof data["skin"] === "string" && data["skin"].startsWith(PREFIXE_PERSO))
+      throw new HttpError(403, "Habillage personnel indisponible dans la console.");
   }
   const current = await getUserSettings(base, uid, (m) => journal.error(m));
   for (const k of SANDBOX_PROTECTED) delete data[k];
@@ -423,7 +426,7 @@ export async function ecrireReglages(
     poserCle(data, "compression_max_rounds", clampMaxRounds(data["compression_max_rounds"]));
   if (a("sampling_override"))
     poserCle(data, "sampling_override", sanitizeStoredOverride(data["sampling_override"]));
-  if (a("skin")) poserCle(data, "skin", resolveSkinCompte(uid, data["skin"]));
+  if (a("skin")) poserCle(data, "skin", resolveSkinCompte(uid, data["skin"], mode));
   if (a("welcome_mascot")) {
     const [, actives] = reglageMascottes();
     const v = strPy(ouPy(data["welcome_mascot"], ""));

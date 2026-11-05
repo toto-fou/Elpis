@@ -494,7 +494,7 @@ export async function composer(
       evenements.famille,
       ...(relais === undefined ? [] : [relais.famille, familleJetonApercu]),
       creerFamilleNotifications({ base }),
-      creerFamilleApparence({ base }),
+      creerFamilleApparence({ base, mode }),
       creerFamilleGraphiques({ base }),
       creerFamilleExecutions({ base }),
       creerFamilleChatControle({ base, auth, arret: cycle.signalArret }),

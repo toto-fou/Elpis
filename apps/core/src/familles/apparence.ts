@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/apparence.ts — skins activés, feuille et images d'un skin importé, servis à main et à l'admin (shared_infra/appearance/routes.py). */
+/** apps/core/src/familles/apparence.ts — skins de l'instance servis à main et à la console, habillages personnels à main seul (shared_infra/appearance/routes.py). */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
@@ -34,6 +34,7 @@ import {
 } from "../apparence/comptes-perso";
 import type { SkinPerso } from "../apparence/comptes-perso";
 import { evaluerSkinPerso } from "../apparence/perso";
+import type { ModeApp } from "../mode";
 import { estErreurOs } from "../skills/chemins";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { utilisateur } from "./comptes";
@@ -41,14 +42,21 @@ import { reponseJsonPy } from "@elpis/http";
 
 export interface DependancesApparence {
   readonly base: Executeur;
+  readonly mode: ModeApp;
 }
 
-function route(
+/** Route commune : la console lit les skins de l'instance pour son propre thème. */
+function route(chemin: string, traiter: Traitement): DefinitionRoute {
+  return { methode: "GET", chemin, processus: ["main", "admin"], acces: "session", traiter };
+}
+
+/** Route du compte : jamais montée dans la console. */
+function routeCompte(
   chemin: string,
   traiter: Traitement,
   methode: DefinitionRoute["methode"] = "GET",
 ): DefinitionRoute {
-  return { methode, chemin, processus: ["main", "admin"], acces: "session", traiter };
+  return { methode, chemin, processus: ["main"], acces: "session", traiter };
 }
 
 const ENTETES_CSS = { "cache-control": "private, max-age=60", "x-content-type-options": "nosniff" };
@@ -102,11 +110,11 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
     const moi = await ligneUtilisateur(dep.base, uid);
     return moi !== undefined && Number(moi.is_admin) === 1;
   };
-  /** `_may_read` : skin activé, ou aperçu réservé à un administrateur. */
+  /** `_may_read` : skin activé, ou aperçu réservé à un administrateur dans la console ; `main` ne sert jamais un skin désactivé. */
   const peutLire = async (req: FastifyRequest, skinId: string): Promise<void> => {
     const uid = utilisateur(req);
     if (isEnabled(skinId)) return;
-    if (!(await estAdmin(uid))) throw new HttpError(404, "Skin inconnu");
+    if (dep.mode !== "admin" || !(await estAdmin(uid))) throw new HttpError(404, "Skin inconnu");
   };
   return {
     nom: "apparence",
@@ -118,7 +126,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
           {
             skins: [
               ...listSkins(),
-              ...(persoActif()
+              ...(dep.mode === "main" && persoActif()
                 ? listerPerso(uid).map((p) => ({ ...entreePerso(p), id: `${PREFIXE_PERSO}${p.id}` }))
                 : []),
             ],
@@ -144,7 +152,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
         if (css === null) throw new HttpError(404, "Skin inconnu");
         return servirCss(req, rep, css);
       }),
-      route("/api/skins/perso", (req, rep) => {
+      routeCompte("/api/skins/perso", (req, rep) => {
         const uid = utilisateur(req);
         exigerPerso();
         return reponseJsonPy(
@@ -153,7 +161,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
           { "cache-control": "no-cache" },
         );
       }),
-      route(
+      routeCompte(
         "/api/skins/perso/verifier",
         (req, rep) => {
           utilisateur(req);
@@ -163,7 +171,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
         },
         "POST",
       ),
-      route(
+      routeCompte(
         "/api/skins/perso",
         async (req, rep) => {
           const uid = utilisateur(req);
@@ -187,7 +195,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
         },
         "POST",
       ),
-      route(
+      routeCompte(
         "/api/skins/perso/:skin_id",
         async (req, rep) => {
           const uid = utilisateur(req);
@@ -198,7 +206,7 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
         },
         "DELETE",
       ),
-      route("/api/skins/perso/:skin_id/skin.css", (req, rep) => {
+      routeCompte("/api/skins/perso/:skin_id/skin.css", (req, rep) => {
         const uid = utilisateur(req);
         exigerPerso();
         const f = feuillePerso(uid, (req.params as { skin_id: string }).skin_id);

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-/* frontend/css/skins/elpis/editeur.css — « Encre et or » : encre neutre et chaude, or réservé à la vue active, trait d'or sur l'onglet et la rangée ouverts. */
+/* frontend/css/skins/elpis/editeur.css — encre neutre et chaude, accent réservé à la vue active, trait d'accent sur l'onglet et la rangée ouverts ; palettes Or (défaut) et Argile. */
 body.elpis-skin-elpis .ed2 {
   --ed-r: 6px;
   --ed-r-lg: 9px;
@@ -71,7 +71,7 @@ body.elpis-skin-elpis .ed2--papier {
   --ed-syn-var: #2a2620;
   --ed-syn-op: #5c564c;
 }
-/* Onglet : un trait d'or en haut. */
+/* Onglet : un trait d'accent en haut. */
 body.elpis-skin-elpis .ed2 .elpis-ed-barre [role="tablist"] {
   padding: 0;
   gap: 0;
@@ -89,7 +89,7 @@ body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true
 body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::after {
   display: none;
 }
-/* Rangée ouverte : un trait d'or à gauche, le titre garde son encre. */
+/* Rangée ouverte : un trait d'accent à gauche, le titre garde son encre. */
 body.elpis-skin-elpis .ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active {
   border-radius: 2px var(--ed-r) var(--ed-r) 2px;
   box-shadow: inset 2px 0 0 var(--ed-accent);
@@ -97,4 +97,75 @@ body.elpis-skin-elpis .ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-ac
 body.elpis-skin-elpis .ed2 .elpis-zone-vide__titre {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
+}
+/* Palette Argile : le code sur la même page crème que le reste, argile sur la seule sélection. */
+body.elpis-skin-elpis.elpis-palette-argile .ed2 {
+  --ed-r: 7px;
+  --ed-r-lg: 11px;
+}
+body.elpis-skin-elpis.elpis-palette-argile .ed2--papier {
+  --ed-code-bg: #faf9f5;
+  --ed-code-fg: #1f1e1d;
+  --ed-code-muted: #64615a;
+  --ed-code-accent: #c2603f;
+  --ed-plan: #faf9f5;
+  --ed-bande: #f0eee6;
+  --ed-releve: #ffffff;
+  --ed-champ: #f3f1e9;
+  --ed-ink: #1f1e1d;
+  --ed-ink-2: #3d3a35;
+  --ed-muted: #64615a;
+  --ed-line: #e3ded2;
+  --ed-line-soft: #ece9df;
+  --ed-hover: rgb(31 30 29 / 0.045);
+  --ed-press: rgb(31 30 29 / 0.08);
+  --ed-select: rgb(194 96 63 / 0.12);
+  --ed-select-ink: #a0462a;
+  --ed-accent: #b4532f;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #c2603f;
+  --ed-ok: #4f7a3a;
+  --ed-warn: #8f6210;
+  --ed-danger: #b0402a;
+  --ed-ic-dossier: #a0462a;
+  --ed-syn-mot: #a0462a;
+  --ed-syn-texte: #4f7a3a;
+  --ed-syn-nombre: #8a5a12;
+  --ed-syn-com: #736f66;
+  --ed-syn-type: #3f5f86;
+  --ed-syn-var: #1f1e1d;
+  --ed-syn-op: #55524b;
+}
+body.elpis-skin-elpis.elpis-palette-argile .ed2--encre {
+  --ed-code-bg: #262624;
+  --ed-code-fg: #eceae3;
+  --ed-code-muted: #a3a095;
+  --ed-code-accent: #e08a66;
+  --ed-plan: #262624;
+  --ed-bande: #1e1e1c;
+  --ed-releve: #31312e;
+  --ed-champ: #2b2b29;
+  --ed-ink: #eceae3;
+  --ed-ink-2: #cdcabf;
+  --ed-muted: #a3a095;
+  --ed-line: rgb(236 234 227 / 0.11);
+  --ed-line-soft: rgb(236 234 227 / 0.06);
+  --ed-hover: rgb(236 234 227 / 0.06);
+  --ed-press: rgb(236 234 227 / 0.11);
+  --ed-select: rgb(224 138 102 / 0.16);
+  --ed-select-ink: #f0a87f;
+  --ed-accent: #e08a66;
+  --ed-accent-fg: #262624;
+  --ed-ring: #e08a66;
+  --ed-ok: #a8bf8a;
+  --ed-warn: #dcb56f;
+  --ed-danger: #ec9a84;
+  --ed-ic-dossier: #e08a66;
+  --ed-syn-mot: #e8956f;
+  --ed-syn-texte: #a8bf8a;
+  --ed-syn-nombre: #dcb56f;
+  --ed-syn-com: #979489;
+  --ed-syn-type: #8fb0d4;
+  --ed-syn-var: #eceae3;
+  --ed-syn-op: #b3b0a6;
 }

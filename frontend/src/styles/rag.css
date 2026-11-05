@@ -51,7 +51,7 @@
 .rag-head { padding: 22px 28px 0; }
 .rag-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .rag-title { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 600; letter-spacing: -0.01em; color: var(--text-900); overflow-wrap: anywhere; }
-body.elpis-skin-elpis .rag-title, body.elpis-skin-parchemin .rag-title { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; font-weight: 500; letter-spacing: 0.003em; }
+body.elpis-skin-elpis .rag-title { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; font-weight: 500; letter-spacing: 0.003em; }
 .rag-desc { margin-top: 4px; font-size: 13px; color: var(--text-600); max-width: 560px; overflow-wrap: anywhere; }
 .rag-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--text-500); font-variant-numeric: tabular-nums; }
 .rag-meta b { color: var(--text-800); font-weight: 600; }
@@ -66,9 +66,9 @@ body.elpis-skin-elpis .rag-title, body.elpis-skin-parchemin .rag-title { font-fa
 .rag-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .rag-btn--primary:hover { background: var(--accent-strong); }
 .rag-btn--icon { width: 32px; padding: 0; justify-content: center; }
-/* Parchemin clair : le blanc sur l'argile donne 3,12:1 (jeton du skin) ; l'encre du skin tient l'AA sur nos boutons pleins. */
-body.elpis-skin-parchemin:not(.elpis-app-dark) .rag-btn--primary, body.elpis-skin-parchemin:not(.elpis-app-dark) .rag-chip.is-on { color: var(--text-900); }
-body.elpis-skin-parchemin:not(.elpis-app-dark) .rag-btn--primary:hover { background: var(--accent-400); }
+/* Palette Argile, clair : le blanc sur l'argile donne 3,12:1 (jeton du skin) ; l'encre du skin tient l'AA sur nos boutons pleins. */
+body.elpis-palette-argile:not(.elpis-app-dark) .rag-btn--primary, body.elpis-palette-argile:not(.elpis-app-dark) .rag-chip.is-on { color: var(--text-900); }
+body.elpis-palette-argile:not(.elpis-app-dark) .rag-btn--primary:hover { background: var(--accent-400); }
 .rag-btn--danger { color: var(--danger-text); border-color: var(--danger-border); }
 .rag-btn--danger:hover { background: var(--danger-surface); }
 .rag-tabs { display: flex; gap: 22px; margin-top: 18px; border-bottom: 1px solid var(--border); }
@@ -247,7 +247,7 @@ body.elpis-skin-parchemin:not(.elpis-app-dark) .rag-btn--primary:hover { backgro
 .rag-empty__zone.is-over { border-color: var(--accent); background: var(--accent-surface); }
 .rag-empty__zone > i { font-size: 34px; color: var(--text-500); }
 .rag-empty h3 { margin: 14px 0 6px; font-size: 17px; font-weight: 600; color: var(--text-900); }
-body.elpis-skin-elpis .rag-empty h3, body.elpis-skin-parchemin .rag-empty h3 { font-family: Georgia, "Iowan Old Style", serif; font-weight: 500; font-size: 19px; }
+body.elpis-skin-elpis .rag-empty h3 { font-family: Georgia, "Iowan Old Style", serif; font-weight: 500; font-size: 19px; }
 .rag-empty p { margin: 0 0 18px; font-size: 13.5px; color: var(--text-500); max-width: 380px; line-height: 1.5; }
 .rag-empty__acts { display: flex; gap: 8px; }
 .rag-empty small { margin-top: 16px; font-size: 12px; color: var(--text-500); }
@@ -296,7 +296,7 @@ body.elpis-skin-elpis .rag-empty h3, body.elpis-skin-parchemin .rag-empty h3 { f
 .rag-cite:hover { background: var(--accent-surface-2); }
 .rag-cite:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .rag-cite.is-on { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-body.elpis-skin-parchemin:not(.elpis-app-dark) .rag-cite.is-on { color: var(--text-900); }
+body.elpis-palette-argile:not(.elpis-app-dark) .rag-cite.is-on { color: var(--text-900); }
 .rag-cite-inconnu { margin: 0 1px; color: var(--text-500); font: 11px/1 ui-monospace, "JetBrains Mono", Menlo, monospace; vertical-align: 1px; cursor: help; }
 .rag-sources { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px 6px; background: var(--surface); color: var(--text-800); }
 .rag-sources__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; font-size: 12.5px; color: var(--text-600); padding-bottom: 8px; }

@@ -1168,11 +1168,17 @@ les autres couleurs sont sémantiques (statut).
 ### Skins
 
 - **Registre.** Les skins intégrés sont décrits par
-  `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `darkBase`,
+  `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `palettes`, `darkBase`,
   `enabled_by_default`, `brand`, `mascot`) ; leur feuille
   `css/skins/<id>/skin.css` est liée en statique par `index.html` et `admin.html`.
   Ardoise (`id` vide) est `style.css` sans classe. `css/skins/<id>/editeur.css`
   (`ardoise/` pour Ardoise) porte le style d'éditeur du skin ; sa présence suffit.
+- **Palettes et alias.** `palettes` : jeux de couleurs d'une même structure, sous
+  la classe `elpis-palette-<id>` (id vide : les jetons de base), choisis par le
+  réglage `skin_palette`, liste fermée lue dans le manifeste. `alias` du registre :
+  ancien skin fondu dans un autre (`parchemin` → `elpis`, palette `argile`), résolu à
+  la lecture et à l'écriture des réglages et pour `skins.default` ; son identifiant
+  reste réservé à l'import.
 - **Plugins.** Importés (zip) ou créés depuis la console, rangés dans
   `SKINS_DIR` (`APP_SKINS_DIR` ou `skins.dir`, défaut `user_skins/`) :
   `<id>/skin.json` (`id, label, description, version, author, license,

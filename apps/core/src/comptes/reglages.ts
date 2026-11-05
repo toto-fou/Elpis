@@ -36,7 +36,14 @@ import {
 import { EncryptionUnavailable } from "@elpis/securite";
 
 import { resolveSkinCompte } from "../apparence/comptes-perso";
-import { defaultSkin, mascotIds, mascotsCatalogue } from "../apparence/skins";
+import {
+  aliasDe,
+  defaultSkin,
+  mascotIds,
+  mascotsCatalogue,
+  paletteAdmise,
+  paletteDuCompte,
+} from "../apparence/skins";
 import { clampMaxRounds, clampThresholdPct, clampThresholdTokens } from "../contexte/porte-compaction";
 import { cleanPrefs, enabledIn, readyFor } from "../images/acces";
 import { getImageConfig } from "../images/config";
@@ -84,6 +91,7 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "ui_lang",
   "ui_theme",
   "skin",
+  "skin_palette",
   "welcome_mascot",
   "welcome_mascot_anime",
   "memory_enabled",
@@ -255,7 +263,10 @@ export async function lireReglages(base: Base, uid: number, journal: Journal, mo
     poserCle(saved, "welcome_mascot", defautAdmin);
   poserCle(saved, "mascottes_actives", actives);
   poserCle(saved, "mascottes_catalogue", mascotsCatalogue());
-  poserCle(saved, "skin", resolveSkinCompte(uid, getOu(saved, "skin", null), mode));
+  const skinStocke = getOu(saved, "skin", null);
+  const skin = resolveSkinCompte(uid, skinStocke, mode);
+  poserCle(saved, "skin", skin);
+  poserCle(saved, "skin_palette", paletteDuCompte(skin, getOu(saved, "skin_palette", null), skinStocke));
   poserCle(saved, "mascottes_on", allumees);
   poserCle(saved, "sandbox_path_display", cheminSandbox((await getUsernameById(base, uid)) || "guest"));
   poserCle(saved, "enable_model_selector", selecteurDeModele());
@@ -426,7 +437,24 @@ export async function ecrireReglages(
     poserCle(data, "compression_max_rounds", clampMaxRounds(data["compression_max_rounds"]));
   if (a("sampling_override"))
     poserCle(data, "sampling_override", sanitizeStoredOverride(data["sampling_override"]));
-  if (a("skin")) poserCle(data, "skin", resolveSkinCompte(uid, data["skin"], mode));
+  const skinStocke = getOu(current, "skin", null);
+  const skinAvant = resolveSkinCompte(uid, skinStocke, mode);
+  if (a("skin")) {
+    const alias = aliasDe(data["skin"]);
+    poserCle(data, "skin", resolveSkinCompte(uid, data["skin"], mode));
+    if (alias !== null) poserCle(data, "skin_palette", alias.palette);
+    else if (!a("skin_palette") && data["skin"] !== skinAvant) poserCle(data, "skin_palette", "");
+  } else if (a("skin_palette") && aliasDe(skinStocke) !== null) {
+    // Sinon l'ancien id stocké, résolu à la lecture, ramènerait sa palette et effacerait ce choix.
+    poserCle(data, "skin", skinAvant);
+  }
+  if (a("skin_palette")) {
+    poserCle(
+      data,
+      "skin_palette",
+      paletteAdmise(strPy(a("skin") ? data["skin"] : skinAvant), data["skin_palette"]),
+    );
+  }
   if (a("welcome_mascot")) {
     const [, actives] = reglageMascottes();
     const v = strPy(ouPy(data["welcome_mascot"], ""));

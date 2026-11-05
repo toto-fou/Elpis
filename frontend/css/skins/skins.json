@@ -1,14 +1,36 @@
 {
-  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>/skin.css + un <link> dans index.html et admin.html. Son éditeur : frontend/css/skins/<id>/editeur.css, facultatif ; sans lui, éditeur classique. Les skins importés vivent dans SKINS_DIR (user_skins/).",
+  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>/skin.css + un <link> dans index.html et admin.html. Son éditeur : frontend/css/skins/<id>/editeur.css, facultatif ; sans lui, éditeur classique. Les skins importés vivent dans SKINS_DIR (user_skins/). `palettes` : jeux de couleurs d'une même structure, sous la classe elpis-palette-<id> (id vide : les jetons de base). `alias` : ancien skin fusionné → skin et palette qui le remplacent.",
   "skins": [
     {
       "id": "elpis",
       "label": "Elpis",
-      "desc": "Ivoire chaud & or, titres serif, ambiance Grèce antique premium. Calme et lumineux.",
+      "desc": "Titres serif, lumière chaude, ambiance éditoriale. Calme et lumineux.",
       "sw": [
         "#f3efe8",
         "#fcfbf9",
         "#b88a3d"
+      ],
+      "palettes": [
+        {
+          "id": "",
+          "label": "Or",
+          "desc": "Ivoire chaud et or.",
+          "sw": [
+            "#f3efe8",
+            "#fcfbf9",
+            "#b88a3d"
+          ]
+        },
+        {
+          "id": "argile",
+          "label": "Argile",
+          "desc": "Papier crème chaud et argile.",
+          "sw": [
+            "#f0eee6",
+            "#faf9f5",
+            "#d97757"
+          ]
+        }
       ],
       "builtin": true,
       "enabled_by_default": true
@@ -51,18 +73,6 @@
       "enabled_by_default": true
     },
     {
-      "id": "parchemin",
-      "label": "Parchemin",
-      "desc": "Papier crème chaud, accent argile, titres serif éditorial. Calme et lisible.",
-      "sw": [
-        "#f0eee6",
-        "#faf9f5",
-        "#d97757"
-      ],
-      "builtin": true,
-      "enabled_by_default": true
-    },
-    {
       "id": "pingouins",
       "label": "Pingouins",
       "desc": "Loufoque : Comic Sans, couleurs criardes, bulles penchées. Chaos assumé mais utilisable.",
@@ -90,5 +100,11 @@
       "builtin": true,
       "enabled_by_default": false
     }
-  ]
+  ],
+  "alias": {
+    "parchemin": {
+      "skin": "elpis",
+      "palette": "argile"
+    }
+  }
 }

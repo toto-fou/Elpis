@@ -56,7 +56,7 @@ onMounted(() => void rg.chargerSkinsPerso());
         id="set-skin"
         class="set-select w-full"
         :value="rg.settings.skin || ''"
-        @change="rg.settings.skin = ($event.target as HTMLInputElement).value"
+        @change="rg.choisirHabillage(($event.target as HTMLSelectElement).value)"
       >
         <template v-if="rg.skinsPerso.length">
           <optgroup label="Habillages de l'instance">
@@ -75,6 +75,21 @@ onMounted(() => void rg.chargerSkinsPerso());
         </template>
       </select>
       <p class="text-xs text-slate-500 mt-1.5 leading-snug">{{ rg.skinCourant.desc }}</p>
+    </div>
+
+    <div v-if="rg.skinCourant.palettes && rg.skinCourant.palettes.length > 1">
+      <label class="block text-xs font-medium text-slate-600 mb-2" for="set-palette">Couleurs</label>
+      <select id="set-palette" v-model="rg.settings.skin_palette" class="set-select w-full">
+        <option v-for="p in rg.skinCourant.palettes" :key="p.id || 'defaut'" :value="p.id">
+          {{ p.label }}
+        </option>
+      </select>
+      <p
+        v-if="rg.paletteCourante && rg.paletteCourante.desc"
+        class="text-xs text-slate-500 mt-1.5 leading-snug"
+      >
+        {{ rg.paletteCourante.desc }}
+      </p>
     </div>
 
     <div class="bg-slate-50 rounded-xl">

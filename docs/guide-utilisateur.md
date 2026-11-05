@@ -1419,7 +1419,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Chat** | Prompt système personnel, largeur de la zone de chat, masquer le raisonnement, terminal en direct, dictée et réponse vocale, notifications système, effacer les conversations |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
-| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés, puis *Mes habillages*), éditeur (selon le skin ou classique), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) ; voir « Mes habillages » ci-dessous |
+| **Apparence** | Mode sombre, habillage (skin : ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile), éditeur (selon le skin ou classique), nom de l'assistant (son avatar est le logo de l'application, choisi par l'administrateur) ; voir « Mes habillages » ci-dessous |
 | **Fonctionnalités** | Les modules **MCP** et **Sandbox**. Quand l'éditeur est activé, ses réglages apparaissent dessous, en deux groupes : *affichage* (éditeur selon le skin ou classique, thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et *comportement* (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |

@@ -83,6 +83,7 @@ export function creerModale(
     if (!Array.isArray(d.custom_agents)) d.custom_agents = [];
     if (!Array.isArray(d.shared_mcp_visible)) d.shared_mcp_visible = [];
     d.skin ??= "";
+    d.skin_palette ??= "";
     d.welcome_mascot ??= "boite_or";
     d.editor_font_size ??= 14;
     d.editor_font_family ??= "JetBrains Mono";

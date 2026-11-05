@@ -54,6 +54,10 @@ export interface RappelsOutil {
 
 export type ExecuteSingle = (toolName: string, finalArgs: Dict, o: RappelsOutil) => Promise<unknown>;
 
+/** Octets de `utf8Remplace(s)` sans copier le texte quand il n'a pas de demi-paire (cas courant). */
+const octetsUtf8 = (s: string): number =>
+  s.isWellFormed() ? Buffer.byteLength(s, "utf8") : utf8Remplace(s).length;
+
 function chargerDict(texte: string): Dict | null {
   try {
     const v = jsonLoads(texte);
@@ -338,8 +342,8 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
           callId: p["call_id"],
           startedAt: debut,
           exitCode: exitCode(r),
-          argsBytes: utf8Remplace(argsTxt).length,
-          resultBytes: utf8Remplace(r).length,
+          argsBytes: octetsUtf8(argsTxt),
+          resultBytes: octetsUtf8(r),
         });
         watchToolCall({
           chatId: o.chatId,

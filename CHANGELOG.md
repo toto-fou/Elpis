@@ -28,6 +28,10 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Panneau MCP : interrupteurs communs.** Les interrupteurs du panneau (catégories,
   serveurs déclarés et externes) reprennent la piste commune des réglages : le focus
   clavier y devient visible.
+- **Bacs à sable : état « en marche » gardé 5 minutes.** Il expirait après 15 s, et après
+  une étape du modèle de cette durée chaque commande refaisait un `docker inspect`. Cet
+  état ne sert que si le flux `docker events` est sain, et il est vidé à la reconnexion
+  du flux.
 - **Connecteurs Anthropic : cache de prompt.** Dans la boucle d'outils, la fin du
   message système et le dernier bloc de la conversation portent un point de cache
   (`cache_control`, 5 min) : chaque itération relit le préfixe déjà payé, facturé

@@ -8,6 +8,7 @@ export {
   encrypt,
   EncryptionUnavailable,
   encryptionKeyPath,
+  estJetonFernet,
   Fernet,
   InvalidToken,
   loadOrCreateKey,

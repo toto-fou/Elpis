@@ -447,7 +447,9 @@ NULL = built-in), `system_prompt`, `task_prompt`, `mcp_snapshot`,
   shares, sandbox, container, connectors, routines, notifications, memory,
   generated images (rows and files).
 - **Secrets encrypted at rest** (Fernet, `@elpis/securite`) for the
-  API keys of LLM connectors and of the image engine, and for shared MCP auth secrets. The functions
+  API keys of LLM connectors and of the image engine, for shared MCP auth secrets and for the site
+  passwords of the AX memory (`ax_credentials`, encrypted and decrypted by the tool host only, when
+  `pw_session` starts). The functions
   exposed to routes never return the secret — only `has_key` /
   `has_auth`. Only the host-side resolvers read the decrypted value.
 
@@ -3371,7 +3373,7 @@ independent of the state of the Routines feature.
 | **Revocation** | `revoked_sessions` + `security.session.global_min_ts` | Logout really revokes server-side |
 | **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session cleared before the account is associated |
 | **Audit** | `packages/securite/src/audit.ts` | Every login attempt (success/failure, real IP behind trusted proxies, reason) |
-| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys and shared MCP secrets (format also read by the remaining Python) |
+| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys, shared MCP secrets and the site passwords of the AX memory (format also read by the remaining Python) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
 | **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
 | **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | Remote Git URLs, AX diagnostics |

@@ -137,6 +137,18 @@ function dechiffrerDonnees(
   return retirerRembourrage(Buffer.concat([aes.update(chiffre), aes.final()]));
 }
 
+/** Forme d'un jeton Fernet, sans clé : base64url stricte, version 0x80, IV, blocs AES entiers, HMAC. */
+export function estJetonFernet(valeur: string): boolean {
+  if (!/^[A-Za-z0-9_-]+={0,2}$/.test(valeur)) return false;
+  try {
+    const [, data] = donneesNonVerifiees(valeur);
+    return data.length >= 73 && (data.length - 57) % 16 === 0;
+  } catch (e) {
+    if (e instanceof InvalidToken) return false;
+    throw e;
+  }
+}
+
 /** Fernet de `cryptography` : AES-128-CBC, PKCS7, HMAC-SHA256 ; base64url(0x80‖heure‖IV‖chiffré‖HMAC). */
 export class Fernet {
   readonly #cles: ClesFernet;

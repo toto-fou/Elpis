@@ -1054,7 +1054,13 @@ With a ``toolhost.json`` (remote host), the host does not open ``app.db``: ident
 tokens, identity, git credentials; for the ``desktop`` family served by the TS host:
 automation-finished notification and anchor memory, account taken from
 the signed identity envelope) with the service token, LOCAL database
-(``toolhost.json › db_path``) for its terminal sessions and the AX memory.
+(``toolhost.json › db_path``) for its terminal sessions and the AX memory. The site
+passwords of that memory are encrypted there with the host's master key, the only reader:
+``APP_ENCRYPTION_KEY``, ``app.encryption_key``, otherwise ``.encryption_key`` created next to
+its database on the first save (back it up with the database). Without a key the password is
+not kept and the session still opens; with a lost or changed key it must be given again.
+Rows saved before this version are not converted: those keyed by a bare site (without a scheme)
+are never read again but keep their password in clear until the site is deleted from the AX memory.
 ACCOUNT-bound families (``memory``, ``todo``, ``chart``, ``skill`` = library)
 = ``role: app`` manifest entries, served by main, never by a remote
 host (they write to its database); ``skill_run``

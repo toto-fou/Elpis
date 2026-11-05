@@ -11,9 +11,13 @@ import {
   saveCredentials,
 } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
+import { EncryptionUnavailable } from "@elpis/securite";
 
 import { headless, minusculesPy, ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
+
+const SANS_CHIFFREMENT =
+  "The session is open, but this login was not saved: the server has no encryption key and refuses to store a password unencrypted. It may have to be given again next time; an administrator can set APP_ENCRYPTION_KEY.";
 
 /** `viewport="LxH"` → `{width, height}`, `null` si illisible. */
 function fenetre(viewport: string): Dict | null {
@@ -27,7 +31,7 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée, identifiants retenus après succès. */
+/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée, identifiants retenus après succès (sans clé de chiffrement : session gardée, refus signalé au modèle). */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
@@ -80,10 +84,19 @@ async function demarrer(
     const sid = veritePy(resultat["session_id"]) ? resultat["session_id"] : resultat["sid"];
     if (veritePy(sid) && username && !veritePy(resultat["error"]))
       await recordPwSessionOwner(strPy(sid), username).catch(() => undefined);
-    if (ax !== null && veritePy(identifiant) && veritePy(motDePasse) && !veritePy(resultat["error"]))
-      await saveCredentials(ax, url, identifiant as string, motDePasse as string, username || "").catch(
+    if (ax !== null && veritePy(identifiant) && veritePy(motDePasse) && !veritePy(resultat["error"])) {
+      const sansCle = await saveCredentials(
+        ax,
+        url,
+        identifiant as string,
+        motDePasse as string,
+        username || "",
+      ).then(
         () => false,
+        (e: unknown) => e instanceof EncryptionUnavailable,
       );
+      if (sansCle) return { ...resultat, credentials_not_saved: SANS_CHIFFREMENT };
+    }
   }
   return resultat;
 }

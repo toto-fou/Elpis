@@ -4,7 +4,7 @@ Les personnages de l'écran d'accueil et des avatars, en pixel art.
 
 | Dossier | Personnage |
 |---|---|
-| `elpis/` | le buste couronné de laurier, mascotte par défaut |
+| `elpis/` | le buste couronné de laurier |
 | `boite_or/` | un coffre |
 | `flamme/`, `flamme_bleue/` | une flamme |
 | `fantome/` | un fantôme |
@@ -32,6 +32,12 @@ Les personnages de l'écran d'accueil et des avatars, en pixel art.
 Le dessin tient dans une fenêtre de 24 ou 48 pixels. Il reste net aux
 **multiples entiers** (48, 96, 144, 192). Entre deux, le navigateur invente des
 pixels et le rendu devient irrégulier.
+
+## Activation
+
+Les mascottes sont coupées par défaut : l'accueil montre le logo tant que le compte n'en a pas
+choisi une (`welcome_mascot_on`, Paramètres › Apparence › Mascotte). Un skin qui apporte la sienne
+(`mascot`) l'affiche tant que le compte ne l'a pas coupée.
 
 ## Registre
 

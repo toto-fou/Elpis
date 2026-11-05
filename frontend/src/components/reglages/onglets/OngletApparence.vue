@@ -133,16 +133,18 @@ onMounted(() => void rg.chargerSkinsPerso());
     </div>
 
     <div v-if="section?.id === 'mascotte'">
-      <label class="block text-xs font-medium text-slate-600 mb-2" for="set-mascotte">Mascotte</label>
+      <label class="block text-xs font-medium text-slate-600 mb-2" for="set-mascotte"
+        >Accueil d'un nouveau chat</label
+      >
       <div class="flex items-start gap-3">
         <div class="flex-1 min-w-0">
           <select
             id="set-mascotte"
             class="set-select w-full"
-            :value="rg.settings.welcome_mascot ?? 'boite_or'"
-            @change="rg.settings.welcome_mascot = ($event.target as HTMLInputElement).value"
+            :value="rg.mascotteId"
+            @change="rg.choisirAccueil(($event.target as HTMLSelectElement).value)"
           >
-            <option v-for="m in rg.MASCOTTES" :key="m.id || 'logo'" :value="m.id">
+            <option v-for="m in rg.choixAccueil" :key="m.id || 'logo'" :value="m.id">
               {{ m.label }}
             </option>
           </select>
@@ -194,7 +196,7 @@ onMounted(() => void rg.chargerSkinsPerso());
       </div>
     </div>
 
-    <div v-if="section?.id === 'mascotte' || !rg.mascottesOffertes">
+    <div v-if="section?.id === (rg.mascottesOffertes ? 'mascotte' : 'theme')">
       <label class="block text-xs font-medium text-slate-600 mb-1.5" for="set-assistant-nom"
         >Nom de l'assistant</label
       >

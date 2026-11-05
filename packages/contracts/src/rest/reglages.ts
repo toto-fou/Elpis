@@ -46,6 +46,8 @@ const reglagesEcrivables = {
   skin: z.string(),
   skin_palette: z.string(),
   welcome_mascot: z.string(),
+  /** Mascotte à l'accueil : absent ou faux = logo ; un skin qui apporte la sienne l'affiche tant que ce n'est pas faux. */
+  welcome_mascot_on: z.boolean(),
   welcome_mascot_anime: z.boolean(),
   memory_enabled: z.boolean(),
   hide_thinking: z.boolean(),

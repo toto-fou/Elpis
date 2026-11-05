@@ -1433,6 +1433,10 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 Les onglets chargés se divisent en parties, dans un bandeau en haut du contenu ; la modale revient à la dernière partie
 ouverte, et la recherche du rail mène à la bonne.
 
+**Mascotte** (Paramètres › Apparence › Mascotte). L'accueil montre le logo par défaut. Choisissez un personnage dans la
+liste pour l'activer, *Logo* pour la couper. Un habillage qui apporte sa mascotte l'affiche tant que vous ne l'avez pas
+coupée. Le menu disparaît si l'administrateur a retiré les mascottes.
+
 **Mes habillages** (Paramètres › Apparence). Chaque compte peut avoir ses propres habillages, visibles de lui seul
 (10 au plus par défaut). Cliquez sur **Créer avec l'assistant**, décrivez l'ambiance, les couleurs et la base claire
 ou sombre : l'assistant pose quelques questions dans le chat, puis répond par un bloc d'habillage. Une **carte** s'affiche

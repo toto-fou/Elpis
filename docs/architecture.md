@@ -1236,7 +1236,9 @@ les autres couleurs sont sémantiques (statut).
   avec le compte (`comptes/suppression.ts`) et suit la sauvegarde de `SKINS_DIR`.
 - **Mascottes.** Registre unique `frontend/assets/mascotte/mascottes.json`,
   lu par le serveur (validation de `welcome_mascot`) et servi à l'interface
-  (`mascottes_catalogue`).
+  (`mascottes_catalogue`). Coupées par défaut : `welcome_mascot_on` absent ou faux
+  donne le logo, sauf skin qui apporte la sienne tant que le compte ne l'a pas coupée.
+  `mascotte_defaut` de la console place une mascotte en tête de la liste du compte.
 
 [↑ Sommaire](#sommaire)
 

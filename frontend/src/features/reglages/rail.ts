@@ -47,8 +47,8 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
             id: "editeur",
             libelle: "Éditeur",
             icone: "ph-code-block",
-            mots: "editeur interface classique selon le skin",
-            aide: "Allure de l'éditeur de code.",
+            mots: "editeur sombre theme clair interface classique selon le skin",
+            aide: "Allure et thème de l'éditeur de code.",
           },
           {
             id: "mascotte",

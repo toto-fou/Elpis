@@ -24,7 +24,7 @@ onMounted(() => void rg.chargerSkinsPerso());
           <div
             id="set-theme-mode-lbl"
             class="text-sm text-slate-800"
-            title="Système suit la préférence du poste. S'applique à tout : chat, barre latérale, fenêtres et éditeur."
+            title="Système suit la préférence du poste. S'applique au chat, à la barre latérale et aux fenêtres ; l'éditeur a son propre thème."
           >
             Mode
           </div>
@@ -92,9 +92,22 @@ onMounted(() => void rg.chargerSkinsPerso());
       </p>
     </div>
 
-    <div v-if="section?.id === 'editeur'" class="bg-slate-50 rounded-xl">
+    <template v-if="section?.id === 'editeur'">
       <ChoixEditeur id-champ="set-editeur" />
-    </div>
+      <div class="bg-slate-50 rounded-xl">
+        <label class="set-row rounded-xl cursor-pointer hover:bg-white/60 transition-colors">
+          <i class="ph ph-paint-roller text-slate-400 text-lg w-5" aria-hidden="true"></i>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-slate-800">Thème sombre</div>
+            <div class="text-xs text-slate-500">Indépendant du mode sombre de la page.</div>
+          </div>
+          <div class="relative inline-flex items-center shrink-0">
+            <input v-model="rg.settings.editor_dark_mode" type="checkbox" class="sr-only peer" />
+            <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
+          </div>
+        </label>
+      </div>
+    </template>
 
     <div v-if="section?.id === 'theme' && rg.persoDispo" id="set-mes-habillages">
       <div class="flex items-center gap-2 mb-2">

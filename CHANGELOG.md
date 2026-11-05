@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Apparence › Éditeur.** Le choix de l'éditeur et son thème sombre se règlent là, et plus
+  dans Fonctionnalités › Éditeur. La liste prend la taille de celle des habillages, et le menu
+  de l'éditeur perd son entrée *Réglages de l'éditeur*.
 - **Nom de l'assistant : réglé par l'administrateur.** L'assistant prend le nom de
   l'application (Console › Instance › Nom), comme son avatar est le logo. Les comptes ne le
   choisissent plus, et un ancien choix est ignoré.

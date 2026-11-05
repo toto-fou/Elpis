@@ -11,10 +11,6 @@ const code = computed(() => ed.editorMode === "code");
 const fichier = computed(() => code.value && !!ed.activeTabPath && !ed.activeIsViewer);
 const compare = (base: string): boolean => ed.isDiffView && ed.diffBase === base;
 
-function reglages(): void {
-  void ed.openSettingsTab("features:editeur");
-}
-
 /** Ferme le menu avant la bascule : il disparaît avec l'interface et ne se fermerait plus seul. */
 function editeurClassique(): void {
   ed.showEditorMore = false;
@@ -167,10 +163,6 @@ function editeurClassique(): void {
     <button role="menuitem" class="ed2-menu__item" @click="ed.openShortcutsModal()">
       <i class="ph ph-keyboard" aria-hidden="true"></i><span class="ed2-menu__libelle">Raccourcis</span
       ><kbd class="ed2-kbd">Ctrl /</kbd>
-    </button>
-    <button role="menuitem" class="ed2-menu__item" @click="reglages">
-      <i class="ph ph-sliders-horizontal" aria-hidden="true"></i
-      ><span class="ed2-menu__libelle">Réglages de l'éditeur</span>
     </button>
     <button role="menuitem" class="ed2-menu__item" @click="editeurClassique">
       <i class="ph ph-squares-four" aria-hidden="true"></i

@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/reglages/ChoixEditeur.vue — rangée « Éditeur » des Paramètres : selon le skin ou classique, avec l'effet sur le skin courant. -->
+<!-- frontend/src/components/reglages/ChoixEditeur.vue — choix de l'éditeur dans Apparence (selon le skin ou classique), libellé au-dessus, explication dessous. -->
 <script setup lang="ts">
 import { computed } from "vue";
 
@@ -20,23 +20,24 @@ const aide = computed(() =>
     ? AIDE_SKIN_SANS_EDITEUR
     : (CHOIX_INTERFACES_EDITEUR.find((c) => c.valeur === choix.value)?.aide ?? ""),
 );
+
+function choisir(e: Event): void {
+  rg.settings.editor_ui = (e.target as HTMLSelectElement).value as InterfaceEditeur;
+}
 </script>
 
 <template>
-  <div class="set-row">
-    <i class="ph ph-layout text-slate-400 text-lg w-5" aria-hidden="true"></i>
-    <div class="flex-1 min-w-0">
-      <label :for="idChamp" class="text-sm text-slate-800">Éditeur</label>
-      <div :id="idChamp + '-aide'" class="text-xs text-slate-500">{{ aide }}</div>
-    </div>
+  <div>
+    <label :for="idChamp" class="block text-xs font-medium text-slate-600 mb-2">Éditeur</label>
     <select
       :id="idChamp"
-      class="set-select set-control--sm shrink-0"
+      class="set-select w-full"
       :value="choix"
       :aria-describedby="idChamp + '-aide'"
-      @change="rg.settings.editor_ui = ($event.target as HTMLSelectElement).value as InterfaceEditeur"
+      @change="choisir"
     >
       <option v-for="c in CHOIX_INTERFACES_EDITEUR" :key="c.valeur" :value="c.valeur">{{ c.libelle }}</option>
     </select>
+    <p :id="idChamp + '-aide'" class="text-xs text-slate-500 mt-1.5 leading-snug">{{ aide }}</p>
   </div>
 </template>

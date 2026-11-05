@@ -1082,7 +1082,7 @@ une pastille signale les modifications non enregistrées.
 
 Options dans Paramètres → Fonctionnalités : taille et police, tabulation, retour à la ligne,
 minimap, numéros de ligne, sauvegarde automatique, mémorisation des onglets
-ouverts, thème sombre.
+ouverts. Le thème sombre se règle dans Paramètres → Apparence → Éditeur.
 
 Un **mode diff** compare votre tampon à la version enregistrée. Une **vue
 scindée** affiche deux fichiers côte à côte. Les fichiers écrits par l'assistant
@@ -1419,8 +1419,8 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Chat** | *Conversation* : prompt système personnel, largeur de la zone de chat, terminal en direct, réveils, notifications système, effacer les conversations. *Affichage* : déroulé, contexte, réflexions, métriques, densité, captures web. *Voix* : dictée et réponse vocale |
 | **Compaction** | Compaction automatique, seuil, nombre maximal de compactions par conversation |
 | **Modèles IA** | Fournisseurs proposés par l'administrateur + vos propres fournisseurs |
-| **Apparence** | *Thème* : mode sombre, habillage (ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile). *Éditeur* : selon le skin ou classique. *Mascotte* : logo ou mascotte à l'accueil ; voir ci-dessous. Le nom et l'avatar de l'assistant sont ceux de l'application, choisis par l'administrateur |
-| **Fonctionnalités** | *Modules* : **MCP**, **Sandbox**, images et routines. *Images* : format, taille, bibliothèque. *Éditeur*, quand il est activé : affichage (éditeur selon le skin ou classique, thème, police, indentation, retour à la ligne, minimap, numéros de ligne) et comportement (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
+| **Apparence** | *Thème* : mode sombre, habillage (ceux que l'administrateur a activés, puis *Mes habillages*), couleurs d'Elpis (Or ou Argile). *Éditeur* : selon le skin ou classique, thème sombre. *Mascotte* : logo ou mascotte à l'accueil ; voir ci-dessous. Le nom et l'avatar de l'assistant sont ceux de l'application, choisis par l'administrateur |
+| **Fonctionnalités** | *Modules* : **MCP**, **Sandbox**, images et routines. *Images* : format, taille, bibliothèque. *Éditeur*, quand il est activé : affichage (police, indentation, retour à la ligne, minimap, numéros de ligne) et comportement (ouverture automatique, aperçu, surbrillance des modifications, sauvegarde auto, mémorisation des onglets) |
 | **Utilisation** | Vos tokens sur 1, 7, 30 ou 90 jours, une barre par type : entrée (dont cache et outils), sortie (dont réflexion), et par origine ; conversations, messages, runs de routines |
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |

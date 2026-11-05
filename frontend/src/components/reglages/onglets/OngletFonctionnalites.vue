@@ -3,7 +3,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 import { sectionCourante } from "../../../features/reglages/sections";
 
@@ -195,19 +194,6 @@ const section = computed(() => sectionCourante(rg, "features"));
       <div data-feat-editor-display>
         <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Affichage</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
-          <ChoixEditeur id-champ="reglage-editor-ui" class="first:rounded-t-xl" data-feat-editor-ui />
-          <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
-            <i class="ph ph-paint-roller text-slate-400 text-lg w-5"></i>
-            <div class="flex-1 min-w-0">
-              <div class="text-sm text-slate-800">Thème sombre</div>
-              <div class="text-xs text-slate-500">Indépendant du mode sombre de la page.</div>
-            </div>
-            <div class="relative inline-flex items-center shrink-0">
-              <input v-model="rg.settings.editor_dark_mode" type="checkbox" class="sr-only peer" />
-              <div class="set-switch-track peer-checked:bg-blue-600 peer-checked:border-blue-600"></div>
-            </div>
-          </label>
-
           <div class="set-row">
             <i class="ph ph-text-aa text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0 text-sm text-slate-800">Taille de police</div>

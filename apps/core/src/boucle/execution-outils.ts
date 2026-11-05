@@ -8,6 +8,7 @@ import {
   longueurPy,
   prefixePy,
   pyJsonDumps,
+  pyJsonLoads,
   strPy,
   utf8Remplace,
 } from "@elpis/commun";
@@ -56,7 +57,7 @@ export type ExecuteSingle = (toolName: string, finalArgs: Dict, o: RappelsOutil)
 
 function chargerDict(texte: string): Dict | null {
   try {
-    const v = jsonLoads(texte);
+    const v = pyJsonLoads(texte);
     return estDict(v) ? v : null;
   } catch {
     return null;
@@ -121,7 +122,7 @@ async function relayerJournal(
   if (typeof data === "string" && data.includes("__shell_output__")) {
     let lu: unknown;
     try {
-      lu = jsonLoads(data);
+      lu = pyJsonLoads(data);
     } catch {
       lu = null;
     }

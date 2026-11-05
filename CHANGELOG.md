@@ -59,6 +59,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 - **Barre latérale : bouton « … » des conversations retiré.** Il ouvrait le menu
   puis le refermait aussitôt ; les actions (renommer, archiver, supprimer) restent
   au clic droit ou à la touche Menu, et F2 renomme.
+- **Boucle d'outils : gros résultats relus plus vite.** Les résultats d'outils passaient
+  par un lecteur JSON caractère par caractère. Ils sont relus par `JSON.parse`, avec les
+  mêmes valeurs : environ 40 fois plus rapide sur un résultat de 66 Ko.
 - **Connecteurs Anthropic : réflexion visible.** Avec des outils actifs (le cas
   courant du chat), la réflexion n'était jamais demandée (Opus 4.6 à 4.8, Sonnet 4.6)
   ou revenait vide (Opus 5, Sonnet 5, Fable : affichage masqué par défaut). Elle est

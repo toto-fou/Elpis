@@ -8,6 +8,8 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Paramètres : *Fonctionnalités* dans Général.** L'onglet quitte le groupe replié
+  *Avancé* : il est en vue dès l'ouverture.
 - **Réveils automatiques : cache du moteur conservé.** `agent_save` disparaissait de la
   liste d'outils d'un tour de réveil, ce qui invalidait le préfixe en cache. L'outil
   reste proposé et son appel est refusé avec un message clair : un réveil ne peut

@@ -32,6 +32,7 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         icone: "ph-chat-circle",
         mots: "envoi entree reflexion saisie captures navigateur affichage deroule classique bloc chronologie journal terminal contexte anneau pourcentage reflexions metriques densite compacte",
       },
+      { id: "features", libelle: "Fonctionnalités", icone: "ph-toggle-right", mots: "modules activer" },
     ],
   },
   {
@@ -78,7 +79,6 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         mots: "contexte compression seuil resume",
       },
       { id: "sandbox", libelle: "Sandbox", icone: "ph-cube", mots: "conteneur image quota bac" },
-      { id: "features", libelle: "Fonctionnalités", icone: "ph-toggle-right", mots: "modules activer" },
       { id: "archives", libelle: "Archives", icone: "ph-archive", mots: "conversations archivees" },
       {
         id: "usage",

@@ -405,8 +405,13 @@ async function repli500(
   }
 }
 
+/** Outils normalisés par liste du run (fixe pendant le run) : 2 ms par requête à 45 outils évités. */
+const OUTILS_ENVOI = new WeakMap<readonly unknown[], Dict[]>();
+
 /** Définitions d'outils normalisées pour la grammaire de llama.cpp, triées par nom (préfixe KV stable). */
 function outilsPourEnvoi(toolsPayload: readonly unknown[]): Dict[] {
+  const memo = OUTILS_ENVOI.get(toolsPayload);
+  if (memo && memo.length === toolsPayload.length) return [...memo];
   const normalises = toolsPayload.map((t) => {
     const fn = estDict(t) ? (estDict(t["function"]) ? t["function"] : t["function"] || {}) : {};
     const params = estDict(fn) ? fn["parameters"] : undefined;
@@ -418,10 +423,12 @@ function outilsPourEnvoi(toolsPayload: readonly unknown[]): Dict[] {
     const fn = estDict(t) ? t["function"] || {} : {};
     return strPy((estDict(fn) ? fn["name"] : null) || "");
   };
-  return normalises
+  const tries = normalises
     .map((t, i) => [t, i] as const)
     .sort(([a, i], [b, j]) => comparePointsDeCode(nom(a), nom(b)) || i - j)
     .map(([t]) => t);
+  OUTILS_ENVOI.set(toolsPayload, tries);
+  return [...tries];
 }
 
 /** Le moteur n'a pas répondu : alimente le disjoncteur du serveur de la cible (transport seulement). */

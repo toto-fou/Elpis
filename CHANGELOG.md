@@ -77,6 +77,9 @@ selon [SemVer](https://semver.org/lang/fr/).
   s'affichait selon la liste des skills du formulaire de routine (même nom exporté
   par les deux domaines, le dernier écrasait l'autre), parfois malgré des skills
   personnels. L'onglet Skills compte de nouveau vos propres skills.
+- **RAG : l'indexation ne gèle plus le chat.** Les points d'un document (BM25 compris)
+  étaient construits d'un seul tenant sur le processus principal, soit environ 1 s pour
+  3 000 passages. Ils le sont par tranches de 64, en rendant la main entre deux.
 - **Barre latérale : bouton « … » des conversations retiré.** Il ouvrait le menu
   puis le refermait aussitôt ; les actions (renommer, archiver, supprimer) restent
   au clic droit ou à la touche Menu, et F2 renomme.

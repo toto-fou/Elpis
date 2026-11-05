@@ -370,6 +370,9 @@ export async function indexerDocument(
   return issue;
 }
 
+/** Points (BM25 compris, 0,3 ms par passage) construits par tranches : la boucle du chat n'est plus gelée ~1 s par gros document. */
+const TRANCHE_POINTS = 64;
+
 async function indexerEtape(
   ctx: ContexteIndexeur,
   travail: LigneTravailRag,
@@ -423,16 +426,23 @@ async function indexerEtape(
   );
   const v = await vecteurs(ctx, modele, dimension, doc, passages, signal);
   if (!Array.isArray(v)) return v;
-  const points = passages.map((passage, i) =>
-    construirePoint({
-      docId: doc.id,
-      relPath: doc.rel_path,
-      ext: doc.ext,
-      passage,
-      dense: v[i] ?? [],
-      creux: vecteurDocument(texteBm25(passage)),
-    }),
-  );
+  const points: ReturnType<typeof construirePoint>[] = [];
+  for (const [i, passage] of passages.entries()) {
+    if (i > 0 && i % TRANCHE_POINTS === 0) {
+      await new Promise<void>((ok) => setImmediate(ok));
+      if (signal.aborted) return { genre: "abandon" };
+    }
+    points.push(
+      construirePoint({
+        docId: doc.id,
+        relPath: doc.rel_path,
+        ext: doc.ext,
+        passage,
+        dense: v[i] ?? [],
+        creux: vecteurDocument(texteBm25(passage)),
+      }),
+    );
+  }
   try {
     if ((await lireCollection(ctx.base, coll.id)) === null) return { genre: "perime" };
     if (migration) await purgerAvantReutilisation(ctx.qdrant, nom);

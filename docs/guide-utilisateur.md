@@ -1425,7 +1425,7 @@ outils fonctionne tel quel (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`
 | **Mémoire** | Activer, consulter, **éditer** (corriger ou retirer une entrée) et tout effacer |
 | **Agents** | Activer les sous-agents, créer et éditer vos agents personnalisés |
 | **Prompts** | Vos prompts sauvegardés (liste datée, dépliage, recherche, tri) et vos templates |
-| **Skills** | Votre bibliothèque de procédures |
+| **Skills** | *Global* : la bibliothèque de l'instance et ses brouillons. *Perso* : vos propres procédures |
 | **Archives** | Vos conversations archivées : restaurer ou supprimer |
 | **Sandbox** | État du conteneur, profil réseau, redémarrage, vidage du dossier de travail |
 | **Connecteurs** | Vos accès aux forges Git |

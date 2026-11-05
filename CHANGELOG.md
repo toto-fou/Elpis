@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Skills : parties Global et Perso.** L'onglet reprend le bandeau des Paramètres : *Global*
+  pour la bibliothèque de l'instance et ses brouillons, *Perso* pour vos skills. Un skill créé
+  ou importé ouvre sa partie, et le filtre signale les résultats de l'autre.
 - **Apparence › Éditeur.** Le choix de l'éditeur et son thème sombre se règlent là, et plus
   dans Fonctionnalités › Éditeur. La liste prend la taille de celle des habillages, et le menu
   de l'éditeur perd son entrée *Réglages de l'éditeur*.

@@ -5,6 +5,18 @@ import type { ResumeSkill } from "@elpis/contracts";
 export type Portee = "global" | "learned" | "user";
 export const PORTEES: readonly Portee[] = ["global", "learned", "user"];
 
+/** Parties de l'onglet : Global (bibliothèque de l'instance et ses brouillons), Perso (le compte). */
+export type PartieSkills = "global" | "perso";
+export const PORTEES_DE_PARTIE: Readonly<Record<PartieSkills, readonly Portee[]>> = {
+  global: ["global", "learned"],
+  perso: ["user"],
+};
+
+/** Partie qui montre une portée. */
+export function partieDePortee(portee: string): PartieSkills {
+  return portee === "global" || portee === "learned" ? "global" : "perso";
+}
+
 export type InventaireSkills = Record<Portee, ResumeSkill[]>;
 
 export interface NoeudSkill {

@@ -12,6 +12,8 @@ const onglet = computed(() => rg.settingsTab);
 const sections = computed(() => sectionsVisibles(rg, onglet.value));
 const courante = computed(() => sectionCourante(rg, onglet.value));
 const titre = computed(() => entreeRail(onglet.value)?.libelle ?? "");
+// Détail et formulaire d'un skill : plein cadre avec leur retour, un onglet cliqué par erreur y perdrait la saisie.
+const masque = computed(() => onglet.value === "skills" && !!rg.skillEditMode);
 const aideOuverte = ref(false);
 const idAide = useId();
 
@@ -25,7 +27,7 @@ function choisir(id: string): void {
 </script>
 
 <template>
-  <div v-if="sections.length" class="elpis-sous-menu" data-sous-menu>
+  <div v-if="sections.length && !masque" class="elpis-sous-menu" data-sous-menu>
     <div class="elpis-sous-menu__ligne">
       <nav class="elpis-sous-menu__liste" :aria-label="'Parties de ' + titre">
         <button

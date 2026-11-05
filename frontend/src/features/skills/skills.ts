@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/skills/skills.ts — onglet Skills des Paramètres : inventaire par portée, arbre, détail, création, modification, suppression, promotion, import (zip, dossier, SKILL.md) et export. */
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import type { Ref } from "vue";
 import type { ResumeSkill } from "@elpis/contracts";
 
@@ -92,6 +92,8 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
   const skillsImporting = ref("");
   const skillBodyView = ref("rendered");
   const skillsDragOver = ref(false);
+  // Objet neuf à chaque demande : l'onglet réagit même si la portée est la même qu'avant.
+  const porteeMontree = shallowRef<{ portee: Portee } | null>(null);
   let profondeurDrag = 0;
   // Jeton de navigation : un fetch de corps qui revient après une navigation est ignoré.
   let navSeq = 0;
@@ -178,6 +180,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
   async function viewSkill(sk: ResumeSkill | undefined): Promise<void> {
     if (!sk) return;
     const seq = ++navSeq;
+    porteeMontree.value = { portee: (sk.source || "user") as Portee };
     skillEditMode.value = "view";
     skillFileView.value = null;
     skillBodyView.value = "rendered";
@@ -254,6 +257,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
       );
       if (res.ok) {
         showToast(edition ? "Skill mis à jour" : "Skill créé");
+        porteeMontree.value = { portee: f.scope };
         resetEditor();
         await loadAllSkills();
         notifierChangement();
@@ -342,6 +346,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
 
   /** Sélection automatique du skill importé : déplie son domaine et ouvre le détail. */
   function selectionnerImporte(name: string | undefined, sc: Portee): void {
+    porteeMontree.value = { portee: sc };
     if (!name) return;
     const sk = (skillsByScope.value[sc] || []).find((s) => (s.id || s.name) === name || s.name === name);
     if (!sk) return;
@@ -749,6 +754,7 @@ export function creerSkills(api: ApiSkills, refs: RefsSkills, ctx: CtxSkills) {
     importMenuBtn,
     closeSkillImportMenu,
     exportSkillZip,
+    porteeMontree,
     skillsDragOver,
     onSkillsDragEnter,
     onSkillsDragOver,

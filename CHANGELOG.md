@@ -8,6 +8,8 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Skins : un dossier par skin intégré.** `frontend/css/skins/<id>.css` devient
+  `frontend/css/skins/<id>/skin.css`, comme pour les skins importés. Aucun changement à l'écran.
 - **Paramètres : *Fonctionnalités* dans Général.** L'onglet quitte le groupe replié
   *Avancé* : il est en vue dès l'ouverture.
 - **Réveils automatiques : cache du moteur conservé.** `agent_save` disparaissait de la

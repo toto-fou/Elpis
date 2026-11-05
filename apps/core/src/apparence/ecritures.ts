@@ -391,7 +391,7 @@ export function exportZip(skinId: string): [string, Buffer] {
     let css = "";
     if (skinId) {
       try {
-        css = lireTextePy(pyJoin(dossierCssIntegres(), `${skinId}.css`));
+        css = lireTextePy(pyJoin(pyJoin(dossierCssIntegres(), skinId), "skin.css"));
       } catch (x) {
         if (!estErreurOs(x)) throw x;
       }

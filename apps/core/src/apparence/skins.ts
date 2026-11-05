@@ -727,7 +727,7 @@ export function renderCss(skinId: string): string | null {
   if (veritePy(getOu(e, "builtin", null))) {
     if (!skinId) return "";
     try {
-      return lireTextePy(pyJoin(dossierCssIntegres(), `${skinId}.css`));
+      return lireTextePy(pyJoin(pyJoin(dossierCssIntegres(), skinId), "skin.css"));
     } catch (x) {
       if (estErreurOs(x)) return "";
       throw x;

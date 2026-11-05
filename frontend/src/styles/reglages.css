@@ -64,3 +64,14 @@
 }
 .elpis-sous-menu__aide:hover { color: var(--text-700); }
 .elpis-sous-menu__ligne-aide { margin: 0 0 0.5rem; font-size: 0.75rem; line-height: 1rem; color: var(--text-500); }
+
+/* Onglet Skills : filtre à gauche, actions à droite, sur une ligne quand la place le permet. */
+.elpis-skills-barre {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 1rem 1.5rem 0.75rem;
+}
+.elpis-skills-filtre { position: relative; flex: 1 1 12rem; max-width: 24rem; }

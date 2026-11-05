@@ -1,11 +1,46 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/skills/OngletSkills.vue — onglet Skills des Paramètres : liste en arbre par portée, détail, formulaire, import (zip, dossier, SKILL.md) et dépôt de fichiers. -->
+<!-- frontend/src/components/skills/OngletSkills.vue — onglet Skills des Paramètres : parties Global et Perso, liste en arbre par portée, détail, formulaire, import (zip, dossier, SKILL.md) et dépôt de fichiers. -->
 <script setup lang="ts">
+import { computed, watch } from "vue";
+
 import BoutonAssistant from "../communs/BoutonAssistant.vue";
+import { domaineReglages } from "../../features/reglages/domaine";
+import { sectionCourante } from "../../features/reglages/sections";
+import { PORTEES_DE_PARTIE, partieDePortee } from "../../features/skills/arbre";
+import type { PartieSkills } from "../../features/skills/arbre";
 import { domaineSkills } from "../../features/skills/domaine";
 import NoeudSkill from "./NoeudSkill.vue";
 
 const ks = domaineSkills();
+const rg = domaineReglages();
+const section = computed(() => sectionCourante(rg, "skills"));
+const partie = computed<PartieSkills>(() => (section.value?.id === "perso" ? "perso" : "global"));
+const autrePartie = computed<PartieSkills>(() => (partie.value === "perso" ? "global" : "perso"));
+const portees = computed(() => PORTEES_DE_PARTIE[partie.value]);
+const nbGroupes = computed(() => portees.value.filter((p) => ks.filteredByScope[p].length > 0).length);
+
+const compter = (p: PartieSkills): number =>
+  PORTEES_DE_PARTIE[p].reduce((n, portee) => n + ks.filteredByScope[portee].length, 0);
+const totalPartie = computed(() => compter(partie.value));
+const totalAutre = computed(() => compter(autrePartie.value));
+
+function montrerPartie(p: PartieSkills): void {
+  rg.settingsSections["skills"] = p;
+}
+
+// Un skill ouvert, créé ou importé fait apparaître la partie où il se trouve.
+watch(
+  () => ks.porteeMontree,
+  (m) => {
+    if (m) montrerPartie(partieDePortee(m.portee));
+  },
+);
+
+/** Nouveau skill : dans Global, un administrateur part sur la portée de l'instance. */
+function nouveau(): void {
+  ks.startCreate();
+  if (partie.value === "global" && ks.editableScopes.includes("global")) ks.skillForm.scope = "global";
+}
 
 function poserDeclencheur(el: unknown): void {
   ks.importMenuBtn = (el as HTMLElement | null) ?? null;
@@ -45,23 +80,39 @@ function poserDeclencheur(el: unknown): void {
 
     <!-- ============ VUE LISTE (drill-down niveau 1) ============ v-show : la liste reste montée pendant le détail → -->
     <div v-show="!ks.skillEditMode" class="flex-1 min-h-0 flex flex-col">
-      <!-- == Header — MÊME idiome que les autres onglets de la modal -->
-      <div class="shrink-0 flex items-start justify-between gap-3 px-6 pt-6 pb-4 border-b border-slate-200">
-        <div class="min-w-0">
-          <h3 class="text-base font-semibold text-slate-800 mb-1">Skills</h3>
-          <p class="text-xs text-slate-500">
-            Mémoire procédurale de l'assistant — injectée automatiquement, ou via
-            <span class="font-mono">/</span> dans le chat.
-          </p>
+      <!-- Barre : filtre et actions ; titre et explication sont dans le bandeau des parties. -->
+      <div class="elpis-skills-barre" data-skills-barre>
+        <h3 class="sr-only">{{ section?.libelle }}</h3>
+        <div class="elpis-skills-filtre">
+          <i
+            class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"
+            aria-hidden="true"
+          ></i>
+          <input
+            v-model="ks.skillsFilter"
+            placeholder="Filtrer les skills…"
+            aria-label="Filtrer les skills"
+            class="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg pl-9 pr-8 py-1.5 outline-none focus:ring-1 focus:ring-blue-500"
+            @keydown.escape="ks.skillsFilter = ''"
+          />
+          <button
+            v-if="ks.skillsFilter"
+            aria-label="Effacer le filtre"
+            title="Effacer le filtre"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-700"
+            @click="ks.skillsFilter = ''"
+          >
+            <i class="ph ph-x text-xs" aria-hidden="true"></i>
+          </button>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
+        <div class="flex items-center gap-1.5 shrink-0 ml-auto">
           <!-- Création guidée : ouvre un chat pré-configuré (skill « creer-un-skill » épinglé + outils skill/fs) où le LLM -->
           <BoutonAssistant
             title="Créer un skill en dialoguant : l'assistant pose les questions, rédige, embarque les scripts et enregistre"
             classe="skl-btn skl-btn--secondary"
             @click="ks.ouvrirAssistant('skill')"
           />
-          <button class="skl-btn bg-blue-600 text-white hover:bg-blue-700" @click="ks.startCreate">
+          <button class="skl-btn bg-blue-600 text-white hover:bg-blue-700" @click="nouveau">
             <i class="ph ph-plus"></i> Nouveau
           </button>
           <!-- Import : menu 3 sources -->
@@ -168,35 +219,23 @@ function poserDeclencheur(el: unknown): void {
         </div>
       </div>
 
-      <!-- Filtre : pleine largeur, input capé (max-w-sm) pour rester calme -->
-      <div class="px-6 py-3 shrink-0">
-        <div class="relative max-w-sm">
-          <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"></i>
-          <input
-            v-model="ks.skillsFilter"
-            placeholder="Filtrer les skills…"
-            class="w-full bg-slate-50 border border-slate-200 text-sm rounded-lg pl-9 pr-8 py-1.5 outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder:text-slate-500 transition-colors"
-            @keydown.escape="ks.skillsFilter = ''"
-          />
-          <button
-            v-if="ks.skillsFilter"
-            aria-label="Effacer le filtre"
-            title="Effacer le filtre"
-            class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-            @click="ks.skillsFilter = ''"
-          >
-            <i class="ph ph-x text-xs"></i>
-          </button>
-        </div>
-        <p v-if="ks.skillsFilter.trim()" aria-live="polite" class="text-[11px] text-slate-500 px-1 mt-1.5">
-          {{ ks.filteredTotalCount }} résultat{{ ks.filteredTotalCount > 1 ? "s" : "" }}
-        </p>
-      </div>
-
       <div class="flex-1 overflow-y-auto px-6 pb-4 custom-scrollbar">
-        <!-- aucun skill PERSONNEL (les globaux livrés existent toujours) : l'état qui ENSEIGNE les 3 portes d'entrée -->
+        <p
+          v-if="ks.skillsFilter.trim() && totalPartie > 0"
+          aria-live="polite"
+          class="text-[11px] text-slate-500 px-1 mb-2"
+        >
+          {{ totalPartie }} résultat{{ totalPartie > 1 ? "s" : "" }}
+        </p>
+        <!-- Partie Perso vide : l'état qui ENSEIGNE les 3 portes d'entrée -->
         <div
-          v-if="ks.aucunSkillPerso && !ks.skillsLoading && !ks.skillsError && !ks.skillsFilter.trim()"
+          v-if="
+            partie === 'perso' &&
+            ks.aucunSkillPerso &&
+            !ks.skillsLoading &&
+            !ks.skillsError &&
+            !ks.skillsFilter.trim()
+          "
           class="text-center py-6 px-2"
         >
           <i class="ph ph-graduation-cap text-slate-300 text-3xl block mb-2"></i>
@@ -231,9 +270,8 @@ function poserDeclencheur(el: unknown): void {
           <p class="text-sm text-slate-500">{{ ks.skillsError }}</p>
           <button class="skl-btn skl-btn--secondary mt-3" @click="ks.loadAllSkills()">Réessayer</button>
         </div>
-        <template v-else-if="ks.totalSkillsCount === 0"></template>
         <!-- filtre sans correspondance (distinct du vide : icône + sortie) -->
-        <div v-else-if="ks.filteredTotalCount === 0" class="text-center py-10 px-2">
+        <div v-else-if="ks.skillsFilter.trim() && totalPartie === 0" class="text-center py-10 px-2">
           <i class="ph ph-magnifying-glass text-slate-300 text-3xl block mb-2"></i>
           <p class="text-sm font-medium text-slate-600 mb-1">
             Aucun résultat pour «&nbsp;{{ ks.skillsFilter.trim() }}&nbsp;»
@@ -241,14 +279,36 @@ function poserDeclencheur(el: unknown): void {
           <p class="text-xs text-slate-500 mb-3">
             La recherche couvre le nom, la description, le domaine et les tags.
           </p>
-          <button class="skl-btn skl-btn--secondary" @click="ks.skillsFilter = ''">Effacer le filtre</button>
+          <div class="flex items-center justify-center gap-2">
+            <button
+              v-if="totalAutre > 0"
+              class="skl-btn skl-btn--secondary"
+              data-skills-autre-partie
+              @click="montrerPartie(autrePartie)"
+            >
+              {{ totalAutre }} résultat{{ totalAutre > 1 ? "s" : "" }} dans
+              {{ autrePartie === "perso" ? "Perso" : "Global" }}
+            </button>
+            <button class="skl-btn skl-btn--secondary" @click="ks.skillsFilter = ''">
+              Effacer le filtre
+            </button>
+          </div>
         </div>
+        <p
+          v-else-if="partie === 'global' && totalPartie === 0"
+          class="text-center text-sm text-slate-500 py-10 px-2"
+        >
+          Aucun skill sur cette instance.
+        </p>
 
         <!-- grouped : arbre réel (recherche active → liste plate des correspondances) -->
         <template v-else>
-          <div v-for="scope in ['global', 'learned', 'user']" :key="scope">
+          <div v-for="scope in portees" :key="scope">
             <div v-if="ks.filteredByScope[scope] && ks.filteredByScope[scope].length" class="mt-3 first:mt-0">
-              <div class="text-[11px] font-semibold text-slate-500 px-1 mb-1.5 flex items-center gap-1.5">
+              <div
+                v-if="nbGroupes > 1"
+                class="text-[11px] font-semibold text-slate-500 px-1 mb-1.5 flex items-center gap-1.5"
+              >
                 {{ scope === "user" ? "Perso" : scope === "learned" ? "Learned" : "Global" }}
                 <span class="text-slate-400 font-normal">({{ ks.filteredByScope[scope].length }})</span>
               </div>

@@ -57,6 +57,7 @@ export interface FonctionsServeur {
 /** Clés de la racine (app.js, chat, images, studio, mascotte) lues par les gabarits des réglages. */
 export interface RacineReglages {
   settings: ReglagesApp;
+  skillEditMode: string;
   config: ConfigChat;
   user: UtilisateurReglages;
   features: FonctionsServeur;
@@ -123,6 +124,7 @@ export const CLE_REGLAGES: InjectionKey<DomaineReglages> = Symbol("elpis:reglage
 /** Clés de la racine, complètes à la compilation ; `showSamplingPanel` témoigne de la surface d'échantillonnage. */
 const CLES: Readonly<Record<keyof RacineReglages | "showSamplingPanel", true>> = {
   settings: true,
+  skillEditMode: true,
   config: true,
   user: true,
   features: true,

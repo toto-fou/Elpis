@@ -57,6 +57,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   plafond : vLLM et SGLang règlent eux-mêmes leur parallélisme, llama.cpp reste
   borné à ses slots par la file d'Elpis. La capture « Trafic LLM » ne retient plus
   la fin de chaque requête : elle s'écrit en tâche détachée.
+- **Hôte d'outils : plus de gel sur les gros fichiers.** Le compte `+X/-Y` d'un fichier
+  modifié repose sur un diff quadratique et synchrone (74 ms à 7 000 lignes, 300 ms à
+  29 000), qui bloquait l'hôte d'outils pour tous les comptes. Au-delà de 4 000 lignes
+  d'un côté, le fichier reste signalé, mais sans ce compte.
 - **Skills : état vide de l'onglet.** « Aucun skill personnel pour l'instant »
   s'affichait selon la liste des skills du formulaire de routine (même nom exporté
   par les deux domaines, le dernier écrasait l'autre), parfois malgré des skills

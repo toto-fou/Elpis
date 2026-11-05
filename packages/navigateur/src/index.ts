@@ -19,6 +19,8 @@ export { browserUrlBlockReason, hostAddresses, refusMessage } from "./url";
 export type { HoteNavigateur, OptionsGardeNavigateur } from "./url";
 export {
   AX_INJECT_MIN_SIGNAL,
+  cheminInerte,
+  cibleInerte,
   deleteCredentials,
   deleteOwnerCredentials,
   deleteSite,
@@ -30,11 +32,14 @@ export {
   listSitesWithStats,
   loadDomTree,
   markSiteStale,
+  nomInerte,
   normalizeUrl,
   renderFocusedDomForPrompt,
   renderFullDomForPrompt,
   renderSelector,
   renderSiteContextual,
+  roleInerte,
+  selecteurInerte,
   siteSignal,
   verrouAx,
   wipeAll,

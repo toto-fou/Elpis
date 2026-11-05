@@ -4,7 +4,19 @@ import { reprPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { messageErreur } from "@elpis/mcp";
-import { errPw, findPath, first, listSitesWithStats, loadDomTree, searchNodes } from "@elpis/navigateur";
+import {
+  cheminInerte,
+  cibleInerte,
+  errPw,
+  findPath,
+  first,
+  listSitesWithStats,
+  loadDomTree,
+  nomInerte,
+  roleInerte,
+  searchNodes,
+  selecteurInerte,
+} from "@elpis/navigateur";
 import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
@@ -18,12 +30,12 @@ async function elementsDePage(ax: Base, site: string, chemin: string, limit: unk
   for (const n of page?.byId.values() ?? [])
     if (n.node_type === "element")
       elements.push({
-        role: n.role,
-        name: n.name,
+        role: roleInerte(n.role),
+        name: nomInerte(n.name),
         region_tag: n.region_tag,
         verified_count: n.verified_count,
         stale: n.stale,
-        selector: n.selectors[0] ?? null,
+        selector: selecteurInerte(n.selectors[0]),
       });
   elements.sort(
     (p, q) =>
@@ -45,7 +57,12 @@ async function elementsDePage(ax: Base, site: string, chemin: string, limit: unk
 async function interroger(ax: Base, op: string, a: Dict, username: string): Promise<unknown> {
   const site = a["site"] as string;
   if (op === "sites") {
-    const sites = await listSitesWithStats(ax, username || "");
+    // Sites et noms de connexion viennent des pages visitées : rendus inertes et bornés.
+    const sites = (await listSitesWithStats(ax, username || "")).map((r) => ({
+      ...r,
+      site: cheminInerte(r["site"]),
+      cred_username: r["cred_username"] === null ? null : nomInerte(r["cred_username"]),
+    }));
     return { op: "sites", count: sites.length, sites };
   }
   if (op === "path") {
@@ -57,11 +74,33 @@ async function interroger(ax: Base, op: string, a: Dict, username: string): Prom
       (a["from_path"] as string) || null,
       borne(a["max_depth"], 1, 12),
     );
-    return { op: "path", ...r };
+    const steps = (r["steps"] as Dict[]).map((e) => ({
+      ...e,
+      from: cheminInerte(e["from"]),
+      to: cheminInerte(e["to"]),
+      action_role: roleInerte(e["action_role"]),
+      action_name: nomInerte(e["action_name"]),
+      action_selector: selecteurInerte(e["action_selector"] as { value?: unknown } | null),
+      action_target: cibleInerte(e["action_target"]),
+    }));
+    return {
+      op: "path",
+      ...r,
+      from_path: r["from_path"] ? cheminInerte(r["from_path"]) : r["from_path"],
+      steps,
+    };
   }
   if (op === "find") {
     if (!site || !a["query"]) return errPw("find requires site= and query=");
-    const matches = await searchNodes(ax, site, a["query"] as string, borne(a["limit"], 1, 100));
+    const matches = (await searchNodes(ax, site, a["query"] as string, borne(a["limit"], 1, 100))).map(
+      (m) => ({
+        ...m,
+        path: cheminInerte(m["path"]),
+        role: roleInerte(m["role"]),
+        name: nomInerte(m["name"]),
+        selector: selecteurInerte(m["selector"] as { value?: unknown } | null),
+      }),
+    );
     return { op: "find", site, query: a["query"], count: matches.length, matches };
   }
   if (op === "page") {

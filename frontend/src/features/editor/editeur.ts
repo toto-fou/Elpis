@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/editor/editeur.ts — composant éditeur (porté d'`app-editor.js`) : crée l'état et les services, relie ses parties, initialise et libère Monaco, et rend la surface lue par la racine historique et les gabarits. */
-import { nextTick, watch } from "vue";
+import { computed, nextTick, onScopeDispose, ref, watch } from "vue";
 
 import { canonPath } from "../../utils/utils-purs";
 import type { GestionnaireSession } from "../auth/session";
@@ -21,6 +21,8 @@ import { setupEditorGit } from "./git";
 import { setupEditorFimAi } from "./ia";
 import { creerEditeurs } from "./instances";
 import type { Editeurs } from "./instances";
+import { chargerFeuilleEditeur } from "./feuille-skin";
+import { interfaceAffichee } from "./interface";
 import { enregistrerRobotFramework, langageDe } from "./langages";
 import { lireTexteOuBinaire } from "./lecture";
 import type { LiensEditeur, ServicesEditeur } from "./liens";
@@ -35,6 +37,7 @@ import { setupEditorResize } from "./redimension";
 import { ServiceSauvegarde } from "./sauvegarde";
 import { setupEditorRescue } from "./secours";
 import { setupEditorViewers } from "./visionneuses";
+import { appliquerThemeElpis, jetonsDe, themeTerminal } from "./theme-editeur";
 import { setupEditorSplit } from "./vue-scindee";
 
 const CLE_DISPOSITION = "elpis.editor.layout.v1";
@@ -528,6 +531,31 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     }, 400);
   });
 
+  const feuilleEditeur = refs.feuilleEditeur ?? ref("");
+  const interfaceEditeur = computed(() => interfaceAffichee(settings.value, feuilleEditeur.value));
+
+  /** Pose le thème de Monaco et des terminaux selon l'interface et « Thème sombre ». */
+  function appliquerTheme(): void {
+    const sombre = settings.value?.editor_dark_mode !== false;
+    const monaco = window.monaco;
+    try {
+      if (interfaceEditeur.value === "classic") {
+        terminal.appliquerThemeTerminaux(null);
+        monaco?.editor.setTheme(sombre ? "vs-dark" : "vs");
+        return;
+      }
+      const racine = document.querySelector("[data-editor-root]");
+      if (!racine) return;
+      if (monaco) terminal.appliquerThemeTerminaux(appliquerThemeElpis(monaco, racine, sombre));
+      else {
+        const { j, sombre: surface } = jetonsDe(racine, sombre);
+        terminal.appliquerThemeTerminaux(themeTerminal(j, surface));
+      }
+    } catch {
+      /* aucun éditeur encore créé */
+    }
+  }
+
   let editeurs: Editeurs<
     NonNullable<typeof monacoRef.instance>,
     NonNullable<typeof monacoRef.diff>,
@@ -632,6 +660,7 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
       monacoRef.instance2 = editeurs.instance2;
       monacoRef.diff = editeurs.diff;
       monacoRef.originalModel = editeurs.originalModel;
+      if (interfaceEditeur.value !== "classic") appliquerTheme();
       page._bindFullscreenEsc();
       setTimeout(() => {
         void _maybeRestoreRescued();
@@ -755,18 +784,30 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
     },
   );
 
-  // Thème de l'éditeur à chaud (global à Monaco, indépendant du mode sombre de la page).
+  // Thème de l'éditeur à chaud (global à Monaco) : vs / vs-dark en classique, jetons du thème de la page ailleurs.
   watch(
-    () => settings.value?.editor_dark_mode,
-    (sombre, avant) => {
-      if (avant === undefined || !window.monaco) return;
-      try {
-        window.monaco.editor.setTheme(sombre === false ? "vs" : "vs-dark");
-      } catch {
-        /* aucun éditeur encore créé */
-      }
+    () => [settings.value?.editor_dark_mode, interfaceEditeur.value] as const,
+    (_v, avant) => {
+      if (avant === undefined) return;
+      void nextTick(appliquerTheme);
     },
   );
+  // Feuille du skin : liée quand l'éditeur suit le skin, puis thème recalculé sur ses jetons.
+  watch(
+    () => (interfaceEditeur.value === "skin" ? feuilleEditeur.value : ""),
+    (url) => {
+      void chargerFeuilleEditeur(url).then(() => nextTick(appliquerTheme));
+    },
+    { immediate: true },
+  );
+  // Thème ou mode sombre de la page changés (classes du body) : l'éditeur lié au skin suit.
+  if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
+    const observateur = new MutationObserver(() => {
+      if (interfaceEditeur.value !== "classic") appliquerTheme();
+    });
+    observateur.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    onScopeDispose(() => observateur.disconnect());
+  }
 
   // Préférences à chaud (police, tabulations, retour à la ligne, minimap, numéros) sans recréer les éditeurs.
   watch(
@@ -797,6 +838,8 @@ export function setupEditor(session: GestionnaireSession, refs: RefsPartagees, c
 
   return {
     showEditor,
+    interfaceEditeur,
+    feuilleEditeur,
     showExplorer: e.showExplorer,
     explorerWidth: e.explorerWidth,
     sandboxFiles: e.sandboxFiles,

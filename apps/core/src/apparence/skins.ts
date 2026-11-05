@@ -70,9 +70,11 @@ export const MAX_JSON_BYTES = 256 * 1024;
 export const MAX_EXTRA_BYTES = 64 * 1024;
 export const MAX_ZIP_BYTES = 50 * 1024 * 1024;
 export const MAX_ZIP_UNCOMPRESSED =
-  MAX_ASSETS * MAX_ASSET_BYTES + MAX_CSS_BYTES + MAX_JSON_BYTES + 4 * MAX_EXTRA_BYTES;
+  MAX_ASSETS * MAX_ASSET_BYTES + 2 * MAX_CSS_BYTES + MAX_JSON_BYTES + 4 * MAX_EXTRA_BYTES;
 export const MAX_ZIP_FILES = MAX_ASSETS + 8;
 export const EXTRA_FILES: readonly string[] = ["README.md", "LICENSE", "LICENSE.txt", "LICENSE.md"];
+/** Feuille de l'éditeur lié au skin : facultative, sa présence suffit ; sans elle, éditeur classique. */
+export const EDITEUR_CSS = "editeur.css";
 
 /** `.elpis-skin-self` désigne le skin lui-même dans sa feuille (réécrit au rendu). */
 export const SELF_ID = "self";
@@ -316,13 +318,17 @@ const INTERDITS_CSS: readonly (readonly [string, string])[] = [
   ["cross-fade(", "cross-fade() interdit"],
 ];
 
-/** Feuille d'un skin validée et rendue telle quelle ; `assetNames` : images disponibles (`null` : non vérifié). */
-export function validateCss(texte: unknown, assetNames: ReadonlySet<string> | null = null): string {
+/** Feuille d'un skin validée et rendue telle quelle ; `assetNames` : images disponibles (`null` : non vérifié) ; `fichier` : nom cité dans les refus. */
+export function validateCss(
+  texte: unknown,
+  assetNames: ReadonlySet<string> | null = null,
+  fichier = "skin.css",
+): string {
   if (texte === null || texte === undefined) return "";
-  if (typeof texte !== "string") throw new SkinError("skin.css : texte attendu.");
+  if (typeof texte !== "string") throw new SkinError(`${fichier} : texte attendu.`);
   if (encoderUtf8Py(texte).length > MAX_CSS_BYTES)
-    throw new SkinError(`skin.css : ${Math.floor(MAX_CSS_BYTES / 1024)} Ko au plus.`);
-  if (texte.includes("\0")) throw new SkinError("skin.css : octet nul interdit.");
+    throw new SkinError(`${fichier} : ${Math.floor(MAX_CSS_BYTES / 1024)} Ko au plus.`);
+  if (texte.includes("\0")) throw new SkinError(`${fichier} : octet nul interdit.`);
   for (const m of texte.matchAll(ECHAPPEMENT)) {
     let c = m[2] ?? "";
     if (m[1]) {
@@ -330,23 +336,23 @@ export function validateCss(texte: unknown, assetNames: ReadonlySet<string> | nu
       c = point <= 0x10ffff ? String.fromCodePoint(point) : "";
     }
     if (!c || estAlnumPy(c) || c === "\r" || c === "\n" || c === "\0")
-      throw new SkinError("skin.css : échappement « \\ » autorisé seulement pour une ponctuation.");
+      throw new SkinError(`${fichier} : échappement « \\ » autorisé seulement pour une ponctuation.`);
   }
   const sansCommentaires = texte.replace(COMMENTAIRE, " ");
-  if (sansCommentaires.includes("/*")) throw new SkinError("skin.css : commentaire non refermé.");
+  if (sansCommentaires.includes("/*")) throw new SkinError(`${fichier} : commentaire non refermé.`);
   for (const source of [lowerPy(texte), lowerPy(sansCommentaires)]) {
     for (const [mot, motif] of INTERDITS_CSS)
-      if (source.includes(mot)) throw new SkinError(`skin.css : ${motif}.`);
-    if (BEHAVIOR.test(source)) throw new SkinError("skin.css : behavior interdit.");
+      if (source.includes(mot)) throw new SkinError(`${fichier} : ${motif}.`);
+    if (BEHAVIOR.test(source)) throw new SkinError(`${fichier} : behavior interdit.`);
   }
   for (const m of sansCommentaires.matchAll(AT_RULE)) {
     const regle = m[1] ?? "";
     if (!AT_RULES_OK.has(regle.toLowerCase()))
-      throw new SkinError(`skin.css : @${regle} interdit (admis : ${AT_RULES_ADMIS}).`);
+      throw new SkinError(`${fichier} : @${regle} interdit (admis : ${AT_RULES_ADMIS}).`);
   }
   const urls = [...texte.matchAll(URL_CSS)];
   if (urls.length !== lowerPy(texte).split("url(").length - 1)
-    throw new SkinError("skin.css : url() mal formée.");
+    throw new SkinError(`${fichier} : url() mal formée.`);
   for (const m of urls) {
     const arg = stripPy(m[2] ?? "");
     if (DATA_IMG.test(arg)) continue;
@@ -354,11 +360,11 @@ export function validateCss(texte: unknown, assetNames: ReadonlySet<string> | nu
     const nom = a?.[1];
     if (nom !== undefined && ASSET_RE.test(nom)) {
       if (assetNames !== null && !assetNames.has(nom))
-        throw new SkinError(`skin.css : image absente du paquet : assets/${nom}.`);
+        throw new SkinError(`${fichier} : image absente du paquet : assets/${nom}.`);
       continue;
     }
     throw new SkinError(
-      `skin.css : url() refusée (${reprPy(prefixePy(arg, 60))}) — seules assets/<image> ` +
+      `${fichier} : url() refusée (${reprPy(prefixePy(arg, 60))}) — seules assets/<image> ` +
         "et data:image/(png|jpeg|webp|gif) sont admises.",
     );
   }
@@ -487,11 +493,32 @@ function clePlugin(d: string): string {
   } catch (e) {
     if (!estErreurOs(e)) throw e;
   }
-  return `(${js.mtimeNs}, ${js.size}, ${css})`;
+  let editeur = "";
+  try {
+    const e = statSync(pyJoin(d, EDITEUR_CSS), { bigint: true });
+    editeur = `, (${e.mtimeNs}, ${e.size})`;
+  } catch (e) {
+    if (!estErreurOs(e)) throw e;
+  }
+  return `(${js.mtimeNs}, ${js.size}, ${css}${editeur})`;
 }
 
 function nomDe(chemin: string): string {
   return chemin.split("/").at(-1) ?? "";
+}
+
+/** Vrai si le dossier a un editeur.css valide ; invalide : journalisé, le skin garde l'éditeur classique. */
+function aFeuilleEditeur(d: string): boolean {
+  const chemin = pyJoin(d, EDITEUR_CSS);
+  if (!estFichierPy(chemin)) return false;
+  try {
+    validateCss(lireTextePy(chemin), new Set(assetNames(d)), EDITEUR_CSS);
+    return true;
+  } catch (x) {
+    if (!(x instanceof SkinError || x instanceof ErreurDecodage || estErreurOs(x))) throw x;
+    log.warn(`[skins] ${EDITEUR_CSS} de ${nomDe(d)} ignorée : ${message(x)}`);
+    return false;
+  }
 }
 
 /** Plugin validé depuis son dossier, ou `null` (journalisé) ; relu seulement si ses fichiers ont changé. */
@@ -530,6 +557,7 @@ function chargerPlugin(d: string): Dict | null {
     license: man["license"],
     tokens: man["tokens"],
     has_css: Object.hasOwn(man, "css"),
+    has_editeur: aFeuilleEditeur(d),
     rev: createHash("sha1").update(cle).digest("hex").slice(0, 10),
   };
   if (Object.hasOwn(man, "brand")) entree["brand"] = man["brand"];
@@ -626,6 +654,23 @@ export function resolveUserSkin(valeur: unknown): string {
   return isEnabled(v) ? v : defaultSkin();
 }
 
+/** Dossier d'un skin intégré : Ardoise (id vide) a le sien, pour sa seule feuille d'éditeur. */
+export function dossierIntegre(id: string): string {
+  return pyJoin(dossierCssIntegres(), id || "ardoise");
+}
+
+/** URL de la feuille d'éditeur d'un skin, si son dossier en a une : sinon l'éditeur reste classique. */
+function urlFeuilleEditeur(e: Dict): string | null {
+  const id = e["id"] as string;
+  if (!veritePy(getOu(e, "builtin", null)))
+    return veritePy(getOu(e, "has_editeur", null))
+      ? `/api/skins/${id}/${EDITEUR_CSS}?v=${strPy(getOu(e, "rev", ""))}`
+      : null;
+  return estFichierPy(pyJoin(dossierIntegre(id), EDITEUR_CSS))
+    ? `/static/css/skins/${id || "ardoise"}/${EDITEUR_CSS}`
+    : null;
+}
+
 function publique(e: Dict): Dict {
   const id = e["id"] as string;
   const out: Dict = {
@@ -640,6 +685,8 @@ function publique(e: Dict): Dict {
   if (veritePy(getOu(e, "mascot", null))) out["mascot"] = e["mascot"];
   if (!veritePy(getOu(e, "builtin", null)))
     out["css_url"] = `/api/skins/${id}/skin.css?v=${strPy(getOu(e, "rev", ""))}`;
+  const feuille = urlFeuilleEditeur(e);
+  if (feuille) out["editor_css_url"] = feuille;
   return out;
 }
 
@@ -696,7 +743,7 @@ export function skinDetail(skinId: string): Dict {
       if (!estErreurOs(x)) throw x;
     }
   }
-  return {
+  const detail: Dict = {
     id: e["id"],
     label: e["label"],
     description: e["desc"],
@@ -710,6 +757,15 @@ export function skinDetail(skinId: string): Dict {
     css,
     assets: assetNames(d),
   };
+  const cheminEditeur = pyJoin(d, EDITEUR_CSS);
+  if (estFichierPy(cheminEditeur)) {
+    try {
+      detail["editeur_css"] = lireTextePy(cheminEditeur);
+    } catch (x) {
+      if (!(x instanceof ErreurDecodage || estErreurOs(x))) throw x;
+    }
+  }
+  return detail;
 }
 
 /** `_token_block` : déclarations d'un mode, échelle des rayons ajoutée si `--radius` est posé seul. */
@@ -752,6 +808,23 @@ export function renderCss(skinId: string): string | null {
     }
   }
   return parties.join("\n");
+}
+
+/** Feuille d'éditeur d'un skin importé, revalidée puis réécrite ; `null` s'il n'en a pas (les intégrés sont servis en statique). */
+export function renderEditeur(skinId: string): string | null {
+  const e = toutesLesSkins().get(skinId);
+  if (e === undefined || veritePy(getOu(e, "builtin", null)) || !veritePy(getOu(e, "has_editeur", null)))
+    return null;
+  const d = pyJoin(skinsDir(), skinId);
+  try {
+    const texte = lireTextePy(pyJoin(d, EDITEUR_CSS));
+    validateCss(texte, new Set(assetNames(d)), EDITEUR_CSS);
+    return reecrireCss(texte, skinId);
+  } catch (x) {
+    if (!(x instanceof SkinError || x instanceof ErreurDecodage || estErreurOs(x))) throw x;
+    log.warn(`[skins] ${EDITEUR_CSS} de ${skinId} ignorée : ${message(x)}`);
+    return null;
+  }
 }
 
 /** Chemin réel d'une image d'un plugin, ou `null` (nom invalide, hors du dossier `assets`, absente). */

@@ -2,6 +2,7 @@
 <!-- frontend/src/components/reglages/onglets/OngletFonctionnalites.vue — onglet « features » des Paramètres. -->
 <script setup lang="ts">
 import AideOnglet from "../AideOnglet.vue";
+import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
 
 const rg = domaineReglages();
@@ -199,7 +200,8 @@ const rg = domaineReglages();
       <div data-feat-editor-display>
         <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
-          <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
+          <ChoixEditeur id-champ="reglage-editor-ui" class="first:rounded-t-xl" data-feat-editor-ui />
+          <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
             <i class="ph ph-paint-roller text-slate-400 text-lg w-5"></i>
             <div class="flex-1 min-w-0">
               <div class="text-sm text-slate-800">Thème sombre</div>

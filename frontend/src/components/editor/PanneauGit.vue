@@ -110,7 +110,7 @@ const ed = domaineEditeur();
       </div>
 
       <template v-if="ed.gitStatus && ed.gitStatus.is_repo">
-        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/5 shrink-0">
+        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-white/5 shrink-0 elpis-ed-branche">
           <div class="relative flex-1 min-w-0">
             <button
               class="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-white/5 transition text-left max-w-full w-full"

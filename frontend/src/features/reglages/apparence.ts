@@ -25,6 +25,8 @@ export interface SkinApp {
   darkBase?: boolean;
   brand?: { name?: string; [cle: string]: unknown };
   css_url?: string;
+  /** Feuille d'éditeur du skin ; absente : éditeur classique. */
+  editor_css_url?: string;
   /** Habillage personnel du compte (id `perso:<id>`). */
   perso?: boolean;
   [cle: string]: unknown;
@@ -47,6 +49,7 @@ export function creerApparence(
   settings: Ref<ReglagesApp>,
   ctx: CtxReglages,
   persistance: Persistance,
+  feuilleEditeur?: Ref<string>,
 ) {
   const { computed, ref, watch } = vue;
   const APP_SKINS: Ref<SkinApp[]> = ref(SKINS_REPLI.map((s) => ({ ...s })));
@@ -181,6 +184,19 @@ export function creerApparence(
     },
     { immediate: true },
   );
+
+  // Feuille d'éditeur du skin actif, connue seulement quand le skin du compte et la liste le sont.
+  if (feuilleEditeur)
+    watch(
+      () => {
+        const id = settings.value.skin;
+        return id === undefined ? "" : texte(APP_SKINS.value.find((k) => k.id === id)?.editor_css_url);
+      },
+      (url) => {
+        feuilleEditeur.value = url;
+      },
+      { immediate: true },
+    );
 
   // ── Habillages personnels : liste du compte, disponibilité (403 = fonction coupée), suppression.
   const persoDispo = ref(false);

@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/kiki/editeur.css — « Costume » : noir de costume, crème pour le texte, orange du nœud sur l'onglet et la rangée ouverts. */
+body.elpis-skin-kiki .ed2 {
+  --ed-r: 6px;
+  --ed-r-lg: 9px;
+  --ed-arbre-hauteur: 27px;
+}
+body.elpis-skin-kiki .ed2--encre {
+  --ed-code-bg: #171311;
+  --ed-code-fg: #f4efe6;
+  --ed-code-muted: #a8998a;
+  --ed-code-accent: #e8711a;
+  --ed-plan: #171311;
+  --ed-bande: #0f0c0b;
+  --ed-releve: #241e1a;
+  --ed-champ: #1f1a17;
+  --ed-ink: #f4efe6;
+  --ed-ink-2: #d4cabb;
+  --ed-muted: #a8998a;
+  --ed-line: rgb(244 239 230 / 0.11);
+  --ed-line-soft: rgb(244 239 230 / 0.06);
+  --ed-hover: rgb(244 239 230 / 0.06);
+  --ed-press: rgb(244 239 230 / 0.11);
+  --ed-select: rgb(232 113 26 / 0.16);
+  --ed-select-ink: #f5a766;
+  --ed-accent: #e8711a;
+  --ed-accent-fg: #171311;
+  --ed-ring: #e8711a;
+  --ed-ok: #b7cf8e;
+  --ed-warn: #f2c14e;
+  --ed-danger: #f0937f;
+  --ed-ic-dossier: #e8711a;
+  --ed-syn-mot: #f0853a;
+  --ed-syn-texte: #d9c7a8;
+  --ed-syn-nombre: #f2c14e;
+  --ed-syn-com: #91847a;
+  --ed-syn-type: #e8b98f;
+  --ed-syn-var: #f4efe6;
+  --ed-syn-op: #b3a596;
+}
+body.elpis-skin-kiki .ed2--papier {
+  --ed-code-bg: #f4efe6;
+  --ed-code-fg: #171311;
+  --ed-code-muted: #6b5f54;
+  --ed-code-accent: #b4540f;
+  --ed-plan: #f4efe6;
+  --ed-bande: #ebe2d3;
+  --ed-releve: #fbf8f2;
+  --ed-champ: #efe8db;
+  --ed-ink: #171311;
+  --ed-ink-2: #3b332b;
+  --ed-muted: #6b5f54;
+  --ed-line: #d9cfbe;
+  --ed-line-soft: #e5dccd;
+  --ed-hover: rgb(23 19 17 / 0.05);
+  --ed-press: rgb(23 19 17 / 0.09);
+  --ed-select: rgb(180 84 15 / 0.12);
+  --ed-select-ink: #8f3f08;
+  --ed-accent: #b4540f;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #b4540f;
+  --ed-ok: #55702a;
+  --ed-warn: #805a10;
+  --ed-danger: #a8391f;
+  --ed-ic-dossier: #8f3f08;
+  --ed-syn-mot: #8f3f08;
+  --ed-syn-texte: #55642a;
+  --ed-syn-nombre: #805a10;
+  --ed-syn-com: #6b5f54;
+  --ed-syn-type: #3f4a5a;
+  --ed-syn-var: #171311;
+  --ed-syn-op: #4d443b;
+}
+body.elpis-skin-kiki .ed2 .elpis-ed-barre [role="tablist"] {
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+}
+body.elpis-skin-kiki .ed2 .elpis-ed-barre .elpis-editor-tab {
+  height: auto;
+  border-radius: 0;
+  box-shadow: inset -1px 0 0 var(--ed-line-soft);
+}
+body.elpis-skin-kiki .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"] {
+  box-shadow: inset 0 2px 0 var(--ed-accent), inset -1px 0 0 var(--ed-line-soft);
+}
+body.elpis-skin-kiki .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::before,
+body.elpis-skin-kiki .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::after {
+  display: none;
+}
+body.elpis-skin-kiki .ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active {
+  border-radius: 2px var(--ed-r) var(--ed-r) 2px;
+  box-shadow: inset 2px 0 0 var(--ed-accent);
+}

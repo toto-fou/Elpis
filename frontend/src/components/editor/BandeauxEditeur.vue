@@ -1,36 +1,46 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/BandeauxEditeur.vue — fil d'Ariane du fichier actif et bandeau de protection (proposition de l'IA, copie de secours, encodage, conflit disque). -->
 <script setup lang="ts">
+import { computed } from "vue";
+
+import MenuVersions from "./MenuVersions.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
 </script>
 
 <template>
-  <nav
+  <div
     v-if="ed.editorMode === 'code' && ed.breadcrumbSegments.length"
-    aria-label="Chemin du fichier"
-    class="h-6 shrink-0 bg-[#1e1e1e] border-b border-black/20 flex items-center px-2 overflow-x-auto no-scrollbar text-[11px] text-slate-500 font-mono"
+    :class="duSkin ? 'elpis-ed-fil' : ''"
+    :style="duSkin ? undefined : 'display: contents'"
   >
-    <template v-for="(seg, i) in ed.breadcrumbSegments" :key="seg.prefix">
-      <i v-if="i > 0" class="ph ph-caret-right text-[8px] text-slate-600 mx-0.5 shrink-0"></i>
-      <button
-        v-if="!seg.isLast"
-        class="shrink-0 hover:text-slate-200 transition-colors px-0.5 rounded"
-        @click="ed.revealFolderInTree(seg.prefix)"
-      >
-        {{ seg.name }}
-      </button>
-      <button
-        v-else
-        title="Localiser dans l'arbre (Alt+L)"
-        class="shrink-0 text-slate-300 hover:text-white transition-colors px-0.5 rounded"
-        @click="ed.revealActiveInTree()"
-      >
-        {{ seg.name }}
-      </button>
-    </template>
-  </nav>
+    <nav
+      aria-label="Chemin du fichier"
+      class="h-6 shrink-0 bg-[#1e1e1e] border-b border-black/20 flex items-center px-2 overflow-x-auto no-scrollbar text-[11px] text-slate-500 font-mono"
+    >
+      <template v-for="(seg, i) in ed.breadcrumbSegments" :key="seg.prefix">
+        <i v-if="i > 0" class="ph ph-caret-right text-[8px] text-slate-600 mx-0.5 shrink-0"></i>
+        <button
+          v-if="!seg.isLast"
+          class="shrink-0 hover:text-slate-200 transition-colors px-0.5 rounded"
+          @click="ed.revealFolderInTree(seg.prefix)"
+        >
+          {{ seg.name }}
+        </button>
+        <button
+          v-else
+          title="Localiser dans l'arbre (Alt+L)"
+          class="shrink-0 text-slate-300 hover:text-white transition-colors px-0.5 rounded"
+          @click="ed.revealActiveInTree()"
+        >
+          {{ seg.name }}
+        </button>
+      </template>
+    </nav>
+    <MenuVersions v-if="duSkin" />
+  </div>
   <div
     v-if="ed.editorMode === 'code' && (ed.aiProposal || ed.activeBanner)"
     role="status"

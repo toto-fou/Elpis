@@ -21,6 +21,7 @@ import {
   listSkins,
   mascotsCatalogue,
   renderCss,
+  renderEditeur,
   SkinExistsError,
 } from "../apparence/skins";
 import {
@@ -132,6 +133,14 @@ export function creerFamilleApparence(dep: DependancesApparence): Famille {
         if (skinId && !ID_RE.test(skinId)) throw new HttpError(404, "Skin inconnu");
         await peutLire(req, skinId);
         const css = renderCss(skinId);
+        if (css === null) throw new HttpError(404, "Skin inconnu");
+        return servirCss(req, rep, css);
+      }),
+      route("/api/skins/:skin_id/editeur.css", async (req, rep) => {
+        const skinId = (req.params as { skin_id: string }).skin_id;
+        if (!ID_RE.test(skinId)) throw new HttpError(404, "Skin inconnu");
+        await peutLire(req, skinId);
+        const css = renderEditeur(skinId);
         if (css === null) throw new HttpError(404, "Skin inconnu");
         return servirCss(req, rep, css);
       }),

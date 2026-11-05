@@ -9,7 +9,7 @@ import {
 import type { SessionTerminal } from "@elpis/contracts";
 import { nextTick, ref } from "vue";
 import type { Ref } from "vue";
-import type { ITerminalOptions } from "@xterm/xterm";
+import type { ITerminalOptions, ITheme } from "@xterm/xterm";
 import type { z } from "zod";
 
 import { journal } from "../../platform/journal";
@@ -163,6 +163,20 @@ export function setupEditorTerminal(
   const termSessionStatus = ref<Record<string, EtatOnglet>>({});
   // État de transport par session : non réactif, muté en place.
   const _termStatesBySid = new Map<string, EtatTerminal>();
+  // Thème de l'éditeur lié au skin ; `null` : celui d'origine.
+  let themeCourant: ITheme | null = null;
+
+  /** Pose le thème sur les terminaux ouverts et sur ceux à venir. */
+  function appliquerThemeTerminaux(theme: ITheme | null): void {
+    themeCourant = theme;
+    for (const st of _termStatesBySid.values()) {
+      try {
+        st.term.options.theme = theme ?? OPTIONS_XTERM.theme ?? {};
+      } catch {
+        /* terminal libéré */
+      }
+    }
+  }
 
   function poserStatut(sid: string, statut: EtatOnglet): void {
     if (!sid || termSessionStatus.value[sid] === statut) return;
@@ -331,7 +345,7 @@ export function setupEditorTerminal(
     await nextTick();
     const conteneur = document.querySelector<HTMLElement>(`[data-term-sid="${echapper(sid)}"]`);
     if (!conteneur) return null;
-    const owned = creerTerminal(OPTIONS_XTERM);
+    const owned = creerTerminal(themeCourant ? { ...OPTIONS_XTERM, theme: themeCourant } : OPTIONS_XTERM);
     const { term, fitAddon } = owned;
     term.open(conteneur);
     const state: EtatTerminal = {
@@ -823,6 +837,7 @@ export function setupEditorTerminal(
   }
 
   return {
+    appliquerThemeTerminaux,
     showTerminal,
     terminalHeight,
     terminalInitOverlay,

@@ -33,6 +33,8 @@ const reglagesEcrivables = {
   editor_auto_save: z.string(),
   editor_persist_tabs: z.boolean(),
   editor_follow_active: z.boolean(),
+  /** Éditeur : selon le skin (défaut, classique si le skin n'a pas de editeur.css) ou classique. */
+  editor_ui: z.enum(["skin", "classic"]),
   chat_width: z.unknown(),
   sandbox_mode: z.unknown(),
   network_profile_id: z.unknown(),

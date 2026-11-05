@@ -36,7 +36,7 @@ export const schemaJetonsSkin = z.object({
   light: z.record(z.string(), z.string()),
   dark: z.record(z.string(), z.string()).optional(),
 });
-/** `update` vrai modifie un skin existant ; `css` vide supprime la feuille de style. */
+/** `update` vrai modifie un skin existant ; `css` vide supprime la feuille de style, `editeur_css` vide celle de l'éditeur (absent : inchangée). */
 export const schemaCorpsSkinEditeur = z.object({
   id: z.string(),
   label: z.string(),
@@ -49,6 +49,7 @@ export const schemaCorpsSkinEditeur = z.object({
   tokens: schemaJetonsSkin,
   brand: dictionnaire.optional(),
   css: z.string().optional(),
+  editeur_css: z.string().optional(),
   update: z.boolean().optional(),
 });
 export const schemaDetailSkin = z.object({
@@ -63,6 +64,8 @@ export const schemaDetailSkin = z.object({
   tokens: schemaJetonsSkin,
   brand: dictionnaire,
   css: z.string(),
+  /** Feuille de l'éditeur lié au skin, si le dossier en a une. */
+  editeur_css: z.string().optional(),
   assets: z.array(z.string()),
 });
 export type DetailSkin = z.infer<typeof schemaDetailSkin>;

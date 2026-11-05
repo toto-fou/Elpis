@@ -62,6 +62,8 @@ export interface CtxEditeur {
 export interface RefsPartagees {
   user: Ref<Utilisateur | null>;
   settings: Ref<ReglagesEditeur>;
+  /** URL de la feuille d'éditeur du skin actif ; vide : le skin n'en a pas. */
+  feuilleEditeur?: Ref<string>;
 }
 
 export interface Quota {

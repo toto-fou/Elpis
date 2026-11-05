@@ -1,16 +1,19 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/editor/BarreEditeur.vue — barre d'en-tête de l'éditeur : explorateur, modes code et web, onglets, cible de l'aperçu, quota, menu « + », plein écran et fermeture. -->
 <script setup lang="ts">
+import { computed } from "vue";
+
 import MenuEditeur from "./MenuEditeur.vue";
 import OngletsEditeur from "./OngletsEditeur.vue";
 import { domaineEditeur } from "../../features/editor/domaine";
 import type { CommandesBarreOnglets } from "../../features/editor/etat";
 
 const ed = domaineEditeur();
+const duSkin = computed(() => ed.interfaceEditeur === "skin");
 </script>
 
 <template>
-  <div class="h-9 bg-[#252526] flex items-center shrink-0 border-b border-black/20">
+  <div class="h-9 bg-[#252526] flex items-center shrink-0 border-b border-black/20 elpis-ed-barre">
     <button
       aria-label="Basculer l'explorateur de fichiers"
       title="Explorateur de fichiers"
@@ -19,7 +22,7 @@ const ed = domaineEditeur();
     >
       <i class="ph ph-sidebar-simple text-sm"></i>
     </button>
-    <div class="flex items-center h-full px-1 border-r border-white/5 gap-0.5">
+    <div class="flex items-center h-full px-1 border-r border-white/5 gap-0.5 elpis-ed-modes">
       <button
         :class="ed.editorMode === 'code' ? 'text-white bg-white/10' : 'text-slate-400 hover:bg-white/5'"
         class="px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition"
@@ -133,7 +136,7 @@ const ed = domaineEditeur();
     <div class="flex items-center px-1 gap-0.5 h-full border-l border-white/5">
       <div
         v-if="ed.sandboxQuota && ed.sandboxQuota.quota_mb > 0"
-        class="flex items-center gap-1.5 px-2 h-full"
+        class="flex items-center gap-1.5 px-2 h-full elpis-ed-quota"
         :title="`Sandbox : ${ed.sandboxQuota.used_mb} Mo / ${ed.sandboxQuota.quota_mb} Mo utilisés`"
       >
         <div class="relative w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
@@ -163,6 +166,16 @@ const ed = domaineEditeur();
         </span>
       </div>
 
+      <button
+        v-if="duSkin"
+        class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5"
+        :aria-pressed="ed.showTerminal ? 'true' : 'false'"
+        title="Terminal (Ctrl `)"
+        aria-label="Terminal"
+        @click="ed.toggleTerminal()"
+      >
+        <i class="ph ph-terminal-window text-sm"></i>
+      </button>
       <MenuEditeur />
       <button
         class="text-slate-400 hover:text-white w-7 h-7 flex items-center justify-center rounded hover:bg-white/5"

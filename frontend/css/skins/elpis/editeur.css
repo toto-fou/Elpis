@@ -1,0 +1,100 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/elpis/editeur.css — « Encre et or » : encre neutre et chaude, or réservé à la vue active, trait d'or sur l'onglet et la rangée ouverts. */
+body.elpis-skin-elpis .ed2 {
+  --ed-r: 6px;
+  --ed-r-lg: 9px;
+  --ed-arbre-hauteur: 27px;
+}
+body.elpis-skin-elpis .ed2--encre {
+  --ed-code-bg: #1b1815;
+  --ed-code-fg: #ece6da;
+  --ed-code-muted: #9d9486;
+  --ed-code-accent: #d4a95c;
+  --ed-plan: #1b1815;
+  --ed-bande: #13110e;
+  --ed-releve: #25211c;
+  --ed-champ: #221e1a;
+  --ed-ink: #ece6da;
+  --ed-ink-2: #c9c1b3;
+  --ed-muted: #9d9486;
+  --ed-line: rgb(236 230 218 / 0.11);
+  --ed-line-soft: rgb(236 230 218 / 0.06);
+  --ed-hover: rgb(236 230 218 / 0.06);
+  --ed-press: rgb(236 230 218 / 0.11);
+  --ed-select: rgb(212 169 92 / 0.13);
+  --ed-select-ink: #e9c98b;
+  --ed-accent: #d4a95c;
+  --ed-accent-fg: #1b1815;
+  --ed-ring: #d4a95c;
+  --ed-ok: #9cc08a;
+  --ed-warn: #dfb768;
+  --ed-danger: #e8917f;
+  --ed-ic-dossier: #b9975a;
+  --ed-syn-mot: #d8ad62;
+  --ed-syn-texte: #a9bd8b;
+  --ed-syn-nombre: #c7a4d6;
+  --ed-syn-com: #8b8275;
+  --ed-syn-type: #d9946f;
+  --ed-syn-var: #ece6da;
+  --ed-syn-op: #b5ad9f;
+}
+body.elpis-skin-elpis .ed2--papier {
+  --ed-code-bg: #fcfbf9;
+  --ed-code-fg: #2a2620;
+  --ed-code-muted: #6f675b;
+  --ed-code-accent: #96702c;
+  --ed-plan: #fcfbf9;
+  --ed-bande: #f3efe8;
+  --ed-releve: #ffffff;
+  --ed-champ: #f7f4ee;
+  --ed-ink: #2a2620;
+  --ed-ink-2: #4c463c;
+  --ed-muted: #6f675b;
+  --ed-line: #e4dfd3;
+  --ed-line-soft: #eee9df;
+  --ed-hover: rgb(42 38 32 / 0.05);
+  --ed-press: rgb(42 38 32 / 0.09);
+  --ed-select: rgb(150 112 44 / 0.12);
+  --ed-select-ink: #7d5c1f;
+  --ed-accent: #96702c;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #96702c;
+  --ed-ok: #4e7440;
+  --ed-warn: #8a5f14;
+  --ed-danger: #a8452f;
+  --ed-ic-dossier: #96702c;
+  --ed-syn-mot: #8a5f14;
+  --ed-syn-texte: #4e7440;
+  --ed-syn-nombre: #6f4a8e;
+  --ed-syn-com: #756d61;
+  --ed-syn-type: #a4552f;
+  --ed-syn-var: #2a2620;
+  --ed-syn-op: #5c564c;
+}
+/* Onglet : un trait d'or en haut. */
+body.elpis-skin-elpis .ed2 .elpis-ed-barre [role="tablist"] {
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+}
+body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab {
+  height: auto;
+  border-radius: 0;
+  box-shadow: inset -1px 0 0 var(--ed-line-soft);
+}
+body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"] {
+  box-shadow: inset 0 2px 0 var(--ed-accent), inset -1px 0 0 var(--ed-line-soft);
+}
+body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::before,
+body.elpis-skin-elpis .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::after {
+  display: none;
+}
+/* Rangée ouverte : un trait d'or à gauche, le titre garde son encre. */
+body.elpis-skin-elpis .ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active {
+  border-radius: 2px var(--ed-r) var(--ed-r) 2px;
+  box-shadow: inset 2px 0 0 var(--ed-accent);
+}
+body.elpis-skin-elpis .ed2 .elpis-zone-vide__titre {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+}

@@ -8,6 +8,10 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Éditeur lié au skin.** Un skin peut apporter son style d'éditeur (`editeur.css`) :
+  couleurs, coloration du code, terminal. Le réglage *Éditeur* propose *Selon le skin* (par
+  défaut) ou *Classique* ; un skin sans style garde l'éditeur classique. Fichiers, Git et
+  Historique passent dans une barre d'icônes, les actions de fichiers dans un menu.
 - **Skins : un dossier par skin intégré.** `frontend/css/skins/<id>.css` devient
   `frontend/css/skins/<id>/skin.css`, comme pour les skins importés. Aucun changement à l'écran.
 - **Paramètres : *Fonctionnalités* dans Général.** L'onglet quitte le groupe replié

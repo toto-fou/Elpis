@@ -31,7 +31,7 @@ const adm = domaineAdmin();
             type="button"
             class="adm-btn adm-tool adm-btn--sm"
             :disabled="adm.skinAdmBusy === '__import'"
-            title="Paquet .zip : skin.json, skin.css, assets/ (png, jpg, webp, gif)"
+            title="Paquet .zip : skin.json, skin.css, editeur.css, assets/ (png, jpg, webp, gif)"
             @click="adm.skinImportPick"
           >
             <i
@@ -411,6 +411,18 @@ const adm = domaineAdmin();
               spellcheck="false"
               placeholder=".elpis-skin-self .elpis-compose-card { box-shadow: none; }"
               title="Sélecteur .elpis-skin-self = ce skin. Images : url(assets/…) d'un paquet importé ou data:image. Pas de @import ni d'URL externe."
+            ></textarea>
+          </details>
+
+          <details class="skn-css">
+            <summary class="text-xs font-medium text-slate-600 cursor-pointer">CSS de l'éditeur</summary>
+            <textarea
+              v-model="adm.skinEd.editeurCss"
+              rows="8"
+              class="set-textarea font-mono text-xs mt-2"
+              spellcheck="false"
+              placeholder=".elpis-skin-self .ed2--encre { --ed-code-bg: #1b1815; --ed-plan: #1b1815; }"
+              title="Fichier editeur.css : jetons --ed-* (interface, syntaxe, terminal) et apparence de l'éditeur. Vide : éditeur classique."
             ></textarea>
           </details>
 

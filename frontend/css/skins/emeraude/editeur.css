@@ -1,0 +1,72 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/emeraude/editeur.css — « Émeraude » : gris froid, onglet découpé dans la bande, vert réservé à la sélection et aux mots-clés. */
+body.elpis-skin-emeraude .ed2 {
+  --ed-r: 7px;
+  --ed-r-lg: 10px;
+}
+body.elpis-skin-emeraude .ed2--encre {
+  --ed-code-bg: #1a1b1e;
+  --ed-code-fg: #ececf1;
+  --ed-code-muted: #9a9ca8;
+  --ed-code-accent: #34d399;
+  --ed-plan: #1a1b1e;
+  --ed-bande: #121316;
+  --ed-releve: #26272b;
+  --ed-champ: #202125;
+  --ed-ink: #ececf1;
+  --ed-ink-2: #c5c6d0;
+  --ed-muted: #9a9ca8;
+  --ed-line: rgb(236 236 241 / 0.11);
+  --ed-line-soft: rgb(236 236 241 / 0.06);
+  --ed-hover: rgb(236 236 241 / 0.06);
+  --ed-press: rgb(236 236 241 / 0.11);
+  --ed-select: rgb(16 163 127 / 0.18);
+  --ed-select-ink: #6ee7b7;
+  --ed-accent: #10a37f;
+  --ed-accent-fg: #06231b;
+  --ed-ring: #34d399;
+  --ed-ok: #6ee7b7;
+  --ed-warn: #fcd29f;
+  --ed-danger: #f9a8a8;
+  --ed-ic-dossier: #6ee7b7;
+  --ed-syn-mot: #34d399;
+  --ed-syn-texte: #fcd29f;
+  --ed-syn-nombre: #f9a8d4;
+  --ed-syn-com: #868995;
+  --ed-syn-type: #7dd3fc;
+  --ed-syn-var: #ececf1;
+  --ed-syn-op: #a1a3ae;
+}
+body.elpis-skin-emeraude .ed2--papier {
+  --ed-code-bg: #ffffff;
+  --ed-code-fg: #202123;
+  --ed-code-muted: #6e6e80;
+  --ed-code-accent: #0b7f63;
+  --ed-plan: #ffffff;
+  --ed-bande: #f0f0f2;
+  --ed-releve: #ffffff;
+  --ed-champ: #f7f7f8;
+  --ed-ink: #202123;
+  --ed-ink-2: #40414f;
+  --ed-muted: #67677a;
+  --ed-line: #e3e3e8;
+  --ed-line-soft: #eeeef1;
+  --ed-hover: rgb(32 33 35 / 0.05);
+  --ed-press: rgb(32 33 35 / 0.09);
+  --ed-select: rgb(13 138 108 / 0.12);
+  --ed-select-ink: #047857;
+  --ed-accent: #0b7f63;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #0b7f63;
+  --ed-ok: #047857;
+  --ed-warn: #a16207;
+  --ed-danger: #b91c1c;
+  --ed-ic-dossier: #047857;
+  --ed-syn-mot: #047857;
+  --ed-syn-texte: #b45309;
+  --ed-syn-nombre: #be185d;
+  --ed-syn-com: #6e6e80;
+  --ed-syn-type: #0369a1;
+  --ed-syn-var: #202123;
+  --ed-syn-op: #565869;
+}

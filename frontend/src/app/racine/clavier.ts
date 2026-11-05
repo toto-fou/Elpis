@@ -3,6 +3,7 @@
 import { computed, nextTick, watch } from "vue";
 import type { Ref } from "vue";
 
+import { fermerCoucheOuverte } from "../../features/editor/couches";
 import { apercuSkin, fermerApercuSkin } from "../../features/reglages/skins-perso";
 import { gardeFocus, piegerTab, SELECTEUR_FOCUSABLES } from "../../utils/focus";
 import type { EtatFenetre, MenuContextuel } from "./chrome";
@@ -263,6 +264,7 @@ export function creerClavier(s: EtatClavier) {
       ed.closeTabCtxMenu();
       return true;
     }
+    if (fermerCoucheOuverte()) return true;
     // Menus du composeur : la saisie les ferme trop tard (écoute en capture ici).
     if (c?.showSlash.value) {
       c.slashDismiss();

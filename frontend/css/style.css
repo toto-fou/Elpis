@@ -120,7 +120,7 @@
        Même doctrine que --danger-* : valeur CLAIRE ici == couleur Tailwind
        native (parité pixel en Ardoise clair), variante claire-sur-sombre
        dans le bloc ``body.elpis-dark-surface`` plus bas, overrides par
-       skin dans frontend/css/skins/*/skin.css. Le bridge (plus bas) re-mappe
+       skin dans frontend/css/skins/<id>/skin.css. Le bridge (plus bas) re-mappe
        les utilitaires Tailwind correspondants sur ces tokens → un skin
        règle ~25 valeurs au lieu d'énumérer 60+ sélecteurs.
        NB : pas de famille --info-* — le bleu EST l'accent (l'« info »

@@ -1,0 +1,107 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/pingouins/editeur.css — « Cirque » : le chaos assumé du skin, onglet actif en pastille penchée, syntaxe néon, mais des contrastes tenus. */
+body.elpis-skin-pingouins .ed2 {
+  --ed-r: 10px;
+  --ed-r-lg: 14px;
+  --ed-police: "Comic Sans MS", "Comic Neue", "Chalkboard SE", "Segoe Print", cursive;
+  --ed-arbre-hauteur: 29px;
+}
+body.elpis-skin-pingouins .ed2--encre {
+  --ed-code-bg: #1f0a2e;
+  --ed-code-fg: #fff7fc;
+  --ed-code-muted: #cfaee0;
+  --ed-code-accent: #ff2d95;
+  --ed-plan: #1f0a2e;
+  --ed-bande: #2b0a3d;
+  --ed-releve: #3a1450;
+  --ed-champ: #2b1040;
+  --ed-ink: #fff7fc;
+  --ed-ink-2: #f0d9f7;
+  --ed-muted: #cfaee0;
+  --ed-line: rgb(255 45 149 / 0.32);
+  --ed-line-soft: rgb(255 45 149 / 0.18);
+  --ed-hover: rgb(255 247 252 / 0.08);
+  --ed-press: rgb(255 247 252 / 0.14);
+  --ed-select: rgb(255 45 149 / 0.24);
+  --ed-select-ink: #ffe14d;
+  --ed-accent: #ff2d95;
+  --ed-accent-fg: #1f0a2e;
+  --ed-ring: #ffe14d;
+  --ed-ok: #7dffb2;
+  --ed-warn: #ffe14d;
+  --ed-danger: #ff8fa3;
+  --ed-ic-dossier: #ffe14d;
+  --ed-ic-bleu: #2de2e6;
+  --ed-ic-jaune: #ffe14d;
+  --ed-ic-orange: #ff9f43;
+  --ed-ic-vert: #7dffb2;
+  --ed-ic-fichier: #e0b3ff;
+  --ed-syn-mot: #ff5cad;
+  --ed-syn-texte: #ffe14d;
+  --ed-syn-nombre: #ff9f43;
+  --ed-syn-com: #b79ac9;
+  --ed-syn-type: #2de2e6;
+  --ed-syn-var: #fff7fc;
+  --ed-syn-op: #e0b3ff;
+}
+body.elpis-skin-pingouins .ed2--papier {
+  --ed-code-bg: #fff7fc;
+  --ed-code-fg: #2b0a3d;
+  --ed-code-muted: #755487;
+  --ed-code-accent: #d6006e;
+  --ed-plan: #fff7fc;
+  --ed-bande: #ffe9f5;
+  --ed-releve: #ffffff;
+  --ed-champ: #fff0f8;
+  --ed-ink: #2b0a3d;
+  --ed-ink-2: #55306b;
+  --ed-muted: #755487;
+  --ed-line: #f7c8e3;
+  --ed-line-soft: #fbdcee;
+  --ed-hover: rgb(214 0 110 / 0.07);
+  --ed-press: rgb(214 0 110 / 0.13);
+  --ed-select: rgb(214 0 110 / 0.12);
+  --ed-select-ink: #b0005a;
+  --ed-accent: #d6006e;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #d6006e;
+  --ed-ok: #0f7a4a;
+  --ed-warn: #8a6d00;
+  --ed-danger: #c01e3c;
+  --ed-ic-dossier: #b0005a;
+  --ed-ic-bleu: #00808a;
+  --ed-ic-jaune: #8a6d00;
+  --ed-ic-orange: #c2410c;
+  --ed-ic-vert: #0f7a4a;
+  --ed-syn-mot: #d6006e;
+  --ed-syn-texte: #806500;
+  --ed-syn-nombre: #c2410c;
+  --ed-syn-com: #755487;
+  --ed-syn-type: #00757e;
+  --ed-syn-var: #2b0a3d;
+  --ed-syn-op: #6a3f80;
+}
+/* Onglet actif : une pastille légèrement penchée. */
+body.elpis-skin-pingouins .ed2 .elpis-ed-barre [role="tablist"] {
+  padding: 0 8px;
+  gap: 4px;
+  align-items: center;
+}
+body.elpis-skin-pingouins .ed2 .elpis-ed-barre .elpis-editor-tab {
+  height: 26px;
+  border-radius: 999px;
+}
+body.elpis-skin-pingouins .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"] {
+  background: var(--ed-accent);
+  color: var(--ed-accent-fg);
+  transform: rotate(-1.4deg);
+}
+body.elpis-skin-pingouins .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::before,
+body.elpis-skin-pingouins .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.elpis-skin-pingouins .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"] {
+    transform: none;
+  }
+}

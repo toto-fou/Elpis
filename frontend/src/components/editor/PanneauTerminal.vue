@@ -9,7 +9,7 @@ const ed = domaineEditeur();
 <template>
   <div
     v-show="ed.showTerminal"
-    class="flex flex-col bg-[#1e1e1e] shrink-0 relative rounded-tr-lg overflow-hidden"
+    class="flex flex-col bg-[#1e1e1e] shrink-0 relative rounded-tr-lg overflow-hidden elpis-ed-terminal"
     :style="{ height: ed.terminalHeight + 'px' }"
   >
     <Transition name="modal">

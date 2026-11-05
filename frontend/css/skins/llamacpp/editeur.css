@@ -1,0 +1,94 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/llamacpp/editeur.css — « Mono » : un seul plan sans bande, filets fins, noir et blanc, arbre en chasse fixe ; seuls les statuts Git gardent une couleur. */
+body.elpis-skin-llamacpp .ed2 {
+  --ed-r: 7px;
+  --ed-r-lg: 10px;
+  --ed-arbre-hauteur: 26px;
+  --ed-arbre-police: var(--ed-mono);
+  --ed-arbre-taille: 12.5px;
+}
+body.elpis-skin-llamacpp .ed2--encre {
+  --ed-code-bg: #0a0a0a;
+  --ed-code-fg: #fafafa;
+  --ed-code-muted: #a3a3a3;
+  --ed-code-accent: #fafafa;
+  --ed-plan: #0a0a0a;
+  --ed-bande: #0a0a0a;
+  --ed-releve: #171717;
+  --ed-champ: #141414;
+  --ed-ink: #fafafa;
+  --ed-ink-2: #d4d4d4;
+  --ed-muted: #a3a3a3;
+  --ed-line: #262626;
+  --ed-line-soft: #1f1f1f;
+  --ed-hover: #171717;
+  --ed-press: #262626;
+  --ed-select: #262626;
+  --ed-select-ink: #fafafa;
+  --ed-accent: #fafafa;
+  --ed-accent-fg: #0a0a0a;
+  --ed-ring: #a3a3a3;
+  --ed-ok: #4ade80;
+  --ed-warn: #fbbf24;
+  --ed-danger: #f87171;
+  --ed-syn-mot: #fafafa;
+  --ed-syn-texte: #a3a3a3;
+  --ed-syn-nombre: #d4d4d4;
+  --ed-syn-com: #7a7a7a;
+  --ed-syn-type: #e5e5e5;
+  --ed-syn-var: #d4d4d4;
+  --ed-syn-op: #8f8f8f;
+}
+body.elpis-skin-llamacpp .ed2--papier {
+  --ed-code-bg: #ffffff;
+  --ed-code-fg: #0a0a0a;
+  --ed-code-muted: #737373;
+  --ed-code-accent: #171717;
+  --ed-plan: #ffffff;
+  --ed-bande: #ffffff;
+  --ed-releve: #ffffff;
+  --ed-champ: #fafafa;
+  --ed-ink: #0a0a0a;
+  --ed-ink-2: #404040;
+  --ed-muted: #737373;
+  --ed-line: #e5e5e5;
+  --ed-line-soft: #f0f0f0;
+  --ed-hover: #f5f5f5;
+  --ed-press: #ebebeb;
+  --ed-select: #f0f0f0;
+  --ed-select-ink: #0a0a0a;
+  --ed-accent: #171717;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #737373;
+  --ed-ok: #15803d;
+  --ed-warn: #a16207;
+  --ed-danger: #b91c1c;
+  --ed-syn-mot: #0a0a0a;
+  --ed-syn-texte: #525252;
+  --ed-syn-nombre: #404040;
+  --ed-syn-com: #737373;
+  --ed-syn-type: #262626;
+  --ed-syn-var: #262626;
+  --ed-syn-op: #737373;
+}
+/* Un seul plan : la barre et l'état se séparent par un filet. */
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre {
+  box-shadow: inset 0 -1px 0 var(--ed-line);
+}
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre [role="tablist"] {
+  padding: 0 6px;
+  gap: 2px;
+  align-items: stretch;
+}
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre .elpis-editor-tab {
+  height: auto;
+  border-radius: 0;
+}
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"] {
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--ed-ink);
+}
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::before,
+body.elpis-skin-llamacpp .ed2 .elpis-ed-barre .elpis-editor-tab[aria-selected="true"]::after {
+  display: none;
+}

@@ -96,7 +96,8 @@ export interface RacineReglages {
   logoApp: string;
   mascotteId: string;
   mascottesOffertes: boolean;
-  MASCOTTES: { id: string; label: string }[];
+  choixAccueil: { id: string; label: string }[];
+  choisirAccueil(id: string): void;
   mouvementReduit: boolean;
   imageStatus: EtatImage | null;
   imageMaxN: number;
@@ -160,7 +161,8 @@ const CLES: Readonly<Record<keyof RacineReglages | "showSamplingPanel", true>> =
   logoApp: true,
   mascotteId: true,
   mascottesOffertes: true,
-  MASCOTTES: true,
+  choixAccueil: true,
+  choisirAccueil: true,
   mouvementReduit: true,
   imageStatus: true,
   imageMaxN: true,

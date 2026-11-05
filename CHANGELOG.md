@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Mascottes : coupées par défaut.** L'accueil montre le logo tant que le compte n'a pas
+  choisi de mascotte (Paramètres › Apparence › Mascotte) ; un compte qui en avait choisi une
+  la rechoisit. Un skin qui apporte la sienne (Kiki) l'affiche tant que le compte ne l'a pas coupée.
 - **Paramètres : parties dans un bandeau.** Apparence, Chat et Fonctionnalités se divisent
   en parties, dans un bandeau horizontal au-dessus du contenu. La modale revient à la
   dernière partie ouverte, et la recherche du rail mène à la bonne.

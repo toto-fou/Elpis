@@ -94,6 +94,7 @@ export interface ReglagesApp {
   skin?: string;
   skin_palette?: string;
   welcome_mascot?: string;
+  welcome_mascot_on?: boolean;
   editor_font_size?: number;
   editor_font_family?: string;
   editor_tab_size?: number;

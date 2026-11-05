@@ -488,7 +488,7 @@ const adm = domaineAdmin();
                   <div class="flex items-baseline justify-between mb-1.5">
                     <span class="text-xs font-medium text-slate-600">Mascottes proposées</span>
                     <span class="text-[11px] text-slate-400"
-                      >cocher = disponible · cliquer le nom = par défaut</span
+                      >cocher = disponible · cliquer le nom = proposée en tête</span
                     >
                   </div>
                   <div class="grid grid-cols-2 gap-1">
@@ -534,8 +534,8 @@ const adm = domaineAdmin();
                     </div>
                   </div>
                   <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
-                    Le défaut s'applique aux comptes qui n'ont rien choisi. Chacun reste libre de prendre une
-                    autre mascotte, ou le logo.
+                    L'accueil reste sur le logo tant qu'un compte n'a pas choisi de mascotte dans Apparence ;
+                    celle mise en avant arrive en tête de sa liste.
                   </p>
                 </div>
 

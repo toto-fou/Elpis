@@ -16,6 +16,7 @@ export interface ReglagesMascotte {
   mascottes_actives?: string[];
   mascottes_on?: boolean;
   welcome_mascot?: string | null;
+  welcome_mascot_on?: boolean;
   welcome_mascot_anime?: boolean;
   [cle: string]: unknown;
 }
@@ -29,7 +30,7 @@ export interface RefsMascotte {
 
 export interface CtxMascotte {
   welcomeConfig?: Ref<{ scene?: StyleScene } | null> | null;
-  skinCourant?: Ref<{ mascot?: string } | null> | null;
+  skinCourant?: Ref<{ mascot?: string; label?: string } | null> | null;
 }
 
 interface StyleScene {
@@ -102,7 +103,7 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
   const TOUTES_C = computed<EntreeCatalogue[]>(() => {
     const c = (settings.value || {}).mascottes_catalogue;
     const base = Array.isArray(c) && c.length ? c : CATALOGUE_REPLI;
-    return base.map((m) => ({ id: m.id, label: m.label })).concat([{ id: "", label: "Logo" }]);
+    return base.map((m) => ({ id: m.id, label: m.label }));
   });
 
   const IDS = computed<string[]>(() => {
@@ -111,7 +112,6 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
     const a = s.mascottes_actives;
     return Array.isArray(a) && a.length ? a : TOUTES_C.value.map((m) => m.id).filter(Boolean);
   });
-  const MASCOTTES = computed(() => TOUTES_C.value.filter((m) => !m.id || IDS.value.includes(m.id)));
   const mascottesOffertes = computed(() => (settings.value || {}).mascottes_on !== false);
 
   const mascottePhase = ref<"" | "salut" | "reveil">("");
@@ -121,19 +121,42 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
   let tFlanerie: Minuterie | undefined;
   let nFlanerie = 0;
 
-  const skinMascotte = computed(() => {
+  /** Mascotte voulue par le compte : coupée par défaut, sauf skin qui apporte la sienne tant que le compte ne l'a pas coupée. */
+  const mascotteActive = computed(() => {
     const s = settings.value || {};
+    if (s.mascottes_on === false) return false;
+    return s.welcome_mascot_on ?? !!ctx.skinCourant?.value?.mascot;
+  });
+
+  const skinMascotte = computed(() => {
     const sk = ctx.skinCourant?.value ?? null;
-    return sk && sk.mascot && s.mascottes_on !== false ? String(sk.mascot) : "";
+    return sk && sk.mascot && mascotteActive.value ? String(sk.mascot) : "";
   });
   const skinKiki = computed(() => skinMascotte.value === "kiki");
 
   const mascotteId = computed(() => {
-    const s = settings.value || {};
+    if (!mascotteActive.value) return "";
     if (skinMascotte.value) return skinMascotte.value;
-    const v = String(s.welcome_mascot ?? "");
+    const v = String((settings.value || {}).welcome_mascot ?? "");
     return IDS.value.includes(v) ? v : "";
   });
+
+  /** Liste du menu Mascotte : le logo d'abord, puis la mascotte du skin, sinon le catalogue avec la dernière ou celle mise en avant par l'administrateur en tête. */
+  const choixAccueil = computed<EntreeCatalogue[]>(() => {
+    const logo = { id: "", label: "Logo" };
+    const sk = ctx.skinCourant?.value ?? null;
+    if (sk?.mascot) return [logo, { id: String(sk.mascot), label: String(sk.label ?? sk.mascot) }];
+    const proposee = (settings.value || {}).welcome_mascot;
+    const offertes = TOUTES_C.value.filter((m) => IDS.value.includes(m.id));
+    return [logo, ...offertes.filter((m) => m.id === proposee), ...offertes.filter((m) => m.id !== proposee)];
+  });
+
+  /** Choix dans le menu Mascotte : le logo coupe la mascotte, un personnage l'active. */
+  function choisirAccueil(id: string): void {
+    const s = settings.value;
+    s.welcome_mascot_on = !!id;
+    if (id && !ctx.skinCourant?.value?.mascot) s.welcome_mascot = id;
+  }
 
   const mascotteVisible = computed(
     () => !!mascotteId.value && currentView.value === "chat" && (messages.value || []).length === 0,
@@ -376,7 +399,8 @@ export function creerMascotte(refs: RefsMascotte, ctx: CtxMascotte) {
   });
 
   return {
-    MASCOTTES,
+    choixAccueil,
+    choisirAccueil,
     mascottesOffertes,
     mascotteId,
     perchee,

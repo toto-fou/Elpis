@@ -5,6 +5,15 @@ import { z } from "zod";
 import { dictionnaire } from "./commun";
 import { schemaMascotteCatalogue } from "./reglages";
 
+/** Jeu de couleurs d'une même structure ; id vide : les jetons de base du skin. */
+export const schemaPaletteSkin = z.object({
+  id: z.string(),
+  label: z.string(),
+  desc: z.string().optional(),
+  sw: z.array(z.string()),
+});
+export type PaletteSkin = z.infer<typeof schemaPaletteSkin>;
+
 /** `css_url` n'existe que pour un skin de plugin ; `brand` et `mascot` seulement s'ils sont définis. */
 export const schemaSkin = z.object({
   id: z.string(),
@@ -15,6 +24,7 @@ export const schemaSkin = z.object({
   builtin: z.boolean(),
   brand: dictionnaire.optional(),
   mascot: z.unknown().optional(),
+  palettes: z.array(schemaPaletteSkin).optional(),
   css_url: z.string().optional(),
   /** Feuille d'éditeur, présente seulement si le skin a un editeur.css ; sinon éditeur classique. */
   editor_css_url: z.string().optional(),

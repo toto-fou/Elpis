@@ -380,8 +380,9 @@ export function reecrireCss(texte: string, skinId: string): string {
   return sortie.replaceAll(SELF_CLASS, () => `.elpis-skin-${skinId}`);
 }
 
+/** Ids réservés : skins intégrés et anciens skins fusionnés. */
 function idsIntegres(): Set<string> {
-  return new Set(builtinSkins().map((s) => s["id"] as string));
+  return new Set([...builtinSkins().map((s) => s["id"] as string), ...aliasIntegres().keys()]);
 }
 
 export const MAX_LABEL_SKIN = 40;
@@ -458,6 +459,49 @@ export function builtinSkins(): Dict[] {
     log.warn({ err: e }, `[skins] ${manifesteIntegres()} illisible : repli Elpis + Ardoise`);
   }
   return BUILTIN_REPLI.map((e) => copieProfondePy(e));
+}
+
+export interface AliasSkin {
+  readonly skin: string;
+  readonly palette: string;
+}
+
+/** Anciens skins intégrés fusionnés (`alias` du manifeste) : id → skin et palette qui le remplacent. */
+function aliasIntegres(): ReadonlyMap<string, AliasSkin> {
+  const out = new Map<string, AliasSkin>();
+  try {
+    const brut = getPy(lireJsonEnCache(manifesteIntegres()), "alias");
+    if (estDict(brut))
+      for (const k of clesOrdonnees(brut)) {
+        const skin = getOu(brut[k], "skin", null);
+        const palette = getOu(brut[k], "palette", "");
+        if (typeof skin === "string" && typeof palette === "string") out.set(k, { skin, palette });
+      }
+  } catch {
+    /* registre illisible : déjà journalisé par `builtinSkins` */
+  }
+  return out;
+}
+
+/** Alias visé par une valeur de réglage, s'il y en a un. */
+export function aliasDe(valeur: unknown): AliasSkin | null {
+  return typeof valeur === "string" ? (aliasIntegres().get(valeur) ?? null) : null;
+}
+
+/** Palette retenue si le skin (intégré) la propose, sinon celle par défaut (id vide) : la classe du body ne vient que du manifeste. */
+export function paletteAdmise(skinId: string, palette: unknown): string {
+  const e = builtinSkins().find((s) => s["id"] === skinId);
+  const liste = e === undefined ? [] : iterExige(ouPy(getOu(e, "palettes", null), []));
+  return liste.some((p) => getOu(p, "id", null) === palette && palette !== "") ? (palette as string) : "";
+}
+
+/** Palette d'un compte : celle de son ancien skin fusionné, sinon la sienne ; sans skin choisi, celle du défaut d'instance. */
+export function paletteDuCompte(skinId: string, palette: unknown, skinStocke: unknown): string {
+  const alias = aliasDe(skinStocke);
+  if (alias !== null) return paletteAdmise(skinId, alias.palette);
+  const sansChoix = skinStocke === null || skinStocke === undefined;
+  const parDefaut = sansChoix && (palette === null || palette === undefined);
+  return paletteAdmise(skinId, parDefaut ? aliasDe(defautBrut())?.palette : palette);
 }
 
 /** Registre des mascottes, repli sur les cinq d'origine. */
@@ -607,14 +651,22 @@ export function toutesLesSkins(): Map<string, Dict> {
   return out;
 }
 
-/** `config.json` › `skins`, relu à chaque appel : activations et défaut demandé. */
+/** `skins.default` tel qu'écrit dans `config.json`. */
+function defautBrut(): unknown {
+  const brut = ouPy(liveConfigValue("skins", {}), {});
+  return estDict(brut) ? getOu(brut, "default", null) : null;
+}
+
+/** `config.json` › `skins`, relu à chaque appel : activations et défaut demandé, anciens skins fusionnés ramenés à leur cible. */
 function etat(): [Map<string, boolean>, string | null] {
   let brut = ouPy(liveConfigValue("skins", {}), {});
   if (!estDict(brut)) brut = {};
   const actives = getOu(brut, "enabled", null);
   const en = estDict(actives) ? actives : {};
-  const d = getOu(brut, "default", null);
-  return [new Map(clesOrdonnees(en).map((k) => [k, veritePy(en[k])])), typeof d === "string" ? d : null];
+  const activations = new Map(clesOrdonnees(en).map((k) => [k, veritePy(en[k])]));
+  for (const [ancien, { skin }] of aliasIntegres()) if (activations.get(ancien)) activations.set(skin, true);
+  const d = defautBrut();
+  return [activations, typeof d === "string" ? (aliasDe(d)?.skin ?? d) : null];
 }
 
 export function defautDe(connus: ReadonlyMap<string, Dict>, d: string | null): string {
@@ -650,7 +702,7 @@ export function isEnabled(skinId: unknown): boolean {
 /** Skin effectif d'un compte : sa valeur si elle est activée, sinon le défaut. */
 export function resolveUserSkin(valeur: unknown): string {
   if (valeur === null || valeur === undefined) return defaultSkin();
-  const v = strPy(valeur);
+  const v = aliasDe(valeur)?.skin ?? strPy(valeur);
   return isEnabled(v) ? v : defaultSkin();
 }
 
@@ -683,6 +735,7 @@ function publique(e: Dict): Dict {
   };
   if (veritePy(getOu(e, "brand", null))) out["brand"] = dictPy(e["brand"]);
   if (veritePy(getOu(e, "mascot", null))) out["mascot"] = e["mascot"];
+  if (veritePy(getOu(e, "palettes", null))) out["palettes"] = e["palettes"];
   if (!veritePy(getOu(e, "builtin", null)))
     out["css_url"] = `/api/skins/${id}/skin.css?v=${strPy(getOu(e, "rev", ""))}`;
   const feuille = urlFeuilleEditeur(e);

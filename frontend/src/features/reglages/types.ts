@@ -92,6 +92,7 @@ export interface ReglagesApp {
   shared_mcp_visible?: string[];
   mcp_servers?: ServeurMcp[];
   skin?: string;
+  skin_palette?: string;
   welcome_mascot?: string;
   editor_font_size?: number;
   editor_font_family?: string;

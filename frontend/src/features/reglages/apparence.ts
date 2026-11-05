@@ -16,12 +16,21 @@ import {
 } from "./skins-perso";
 import type { CtxReglages, ReglagesApp, VueReglages } from "./types";
 
+export interface PaletteApp {
+  id: string;
+  label: string;
+  desc?: string;
+  sw: string[];
+}
+
 export interface SkinApp {
   id: string;
   label: string;
   desc: string;
   builtin: boolean;
   sw: string[];
+  /** Jeux de couleurs d'une même structure ; le premier est celui par défaut. */
+  palettes?: PaletteApp[];
   darkBase?: boolean;
   brand?: { name?: string; [cle: string]: unknown };
   css_url?: string;
@@ -38,6 +47,9 @@ export function classeSkin(id: string): string {
 }
 
 export type ModeTheme = "system" | "light" | "dark";
+
+const CLASSE_PALETTE = "elpis-palette-";
+const MOTIF_PALETTE = /^[a-z][a-z0-9_-]{1,31}$/;
 
 const SKINS_REPLI: readonly SkinApp[] = [
   { id: "elpis", label: "Elpis", desc: "", builtin: true, sw: ["#f3efe8", "#fcfbf9", "#b88a3d"] },
@@ -102,6 +114,18 @@ export function creerApparence(
       /* DOM indisponible */
     }
   }
+  /** Classe de palette : la valeur est déjà validée par le serveur contre le manifeste, le motif garde le DOM. */
+  function appliquerPalette(id: string): void {
+    try {
+      const cls = document.body.classList;
+      Array.from(cls).forEach((c) => {
+        if (c.indexOf(CLASSE_PALETTE) === 0) cls.remove(c);
+      });
+      if (MOTIF_PALETTE.test(id)) cls.add(CLASSE_PALETTE + id);
+    } catch {
+      /* DOM indisponible */
+    }
+  }
 
   const prefereSombre = ref(false);
   try {
@@ -155,6 +179,24 @@ export function creerApparence(
     },
     { immediate: true },
   );
+
+  watch(
+    () => settings.value.skin_palette,
+    (id) => appliquerPalette(id || ""),
+    { immediate: true },
+  );
+
+  /** Palette affichée : celle du compte si le skin courant la propose, sinon la première. */
+  const paletteCourante = computed<PaletteApp | null>(() => {
+    const liste = skinCourant.value.palettes ?? [];
+    return liste.find((p) => p.id === (settings.value.skin_palette || "")) ?? liste[0] ?? null;
+  });
+
+  /** Change d'habillage : la palette de l'ancien ne le suit pas. */
+  function choisirHabillage(id: string): void {
+    settings.value.skin = id;
+    settings.value.skin_palette = "";
+  }
 
   /** Feuille d'un skin importé, liée à la demande et seulement pour le skin actif. */
   function appliquerCssSkinPlugin(sk: SkinApp): void {
@@ -272,10 +314,13 @@ export function creerApparence(
   async function setAppSkin(id: string): Promise<boolean> {
     if (!APP_SKINS.value.some((k) => k.id === id)) return false;
     const prev = settings.value.skin;
+    const prevPalette = settings.value.skin_palette;
     settings.value.skin = id;
+    if (id !== prev) settings.value.skin_palette = "";
     return persistance.persistKeys(["skin"], {
       rollback: () => {
         settings.value.skin = prev;
+        settings.value.skin_palette = prevPalette;
       },
     });
   }
@@ -285,6 +330,8 @@ export function creerApparence(
     skinsDefaut,
     loadAppSkins,
     skinCourant,
+    paletteCourante,
+    choisirHabillage,
     nomMarque,
     appDark,
     themeMode,

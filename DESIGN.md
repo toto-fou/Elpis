@@ -39,7 +39,7 @@ puis par chaque thème.
 | Code | `--code-bg`, `--code-fg`, `--code-border`, `--code-header-bg/fg`, `--code-inline-*` | blocs de code (sombres dans les deux modes) et code en ligne |
 | Prose | `--prose-body`, `--prose-heading`, `--prose-strong`, `--prose-link(-hover)` | rendu Markdown des messages |
 | Divers | `--toast-*`, `--hl-bg/fg`, `--scrollbar-*` | toasts (surface inversée stable), surlignage de recherche, barres de défilement |
-| Titres | `--font-titre` (aucune valeur sur `:root`) | police serif des titres, posée par les thèmes Elpis et Parchemin ; à lire avec `var(--font-titre, inherit)` |
+| Titres | `--font-titre` (aucune valeur sur `:root`) | police serif des titres, posée par le thème Elpis ; à lire avec `var(--font-titre, inherit)` |
 | Rayons | `--radius` et `--radius-sm/md/lg/xl` (dérivés) | un thème change `--radius`, l'échelle suit |
 
 **Contraste.** La rampe de texte est recalibrée pour l'AA : `--text-400`
@@ -61,14 +61,21 @@ Thème et mode se composent : `body.elpis-app-dark` (0,2,0) bat `:root` ; un
 thème (0,2,0, chargé après) bat `:root` ; sa variante sombre (0,3,0) bat le
 sombre par défaut.
 
-Un thème peut poser `--font-titre` (Elpis et Parchemin : Georgia) ; sans lui, les
+Un thème peut poser `--font-titre` (Elpis : Georgia) ; sans lui, les
 titres du questionnaire héritent de la police du thème (Pingouins garde la sienne).
 
-Thèmes livrés : **Ardoise** (défaut, sans classe de thème), **Elpis**,
-**llama.cpp**, **Émeraude** (base sombre), **Parchemin**, **Pingouins**, **Kiki**.
-Le réglage est par utilisateur : `skin`, et le mode Système / Clair / Sombre
-(`dark_mode`, `dark_mode_auto`), dans les Paramètres comme dans le menu du
-compte de la console.
+Thèmes livrés : **Ardoise** (sans classe de thème), **Elpis** (défaut, palettes
+**Or** et **Argile**), **llama.cpp**, **Émeraude** (base sombre), **Pingouins**,
+**Kiki**. Le réglage est par utilisateur : `skin`, `skin_palette`, et le mode
+Système / Clair / Sombre (`dark_mode`, `dark_mode_auto`), dans les Paramètres ;
+le menu du compte de la console propose les skins et le mode.
+
+**Palettes.** Des thèmes qui ne diffèrent que par leurs couleurs partagent une
+structure : une palette n'est qu'un bloc de jetons sous
+`body.elpis-skin-<id>.elpis-palette-<palette>`, annoncé par le champ `palettes`
+du registre (id vide : les jetons de base). L'ancien skin Parchemin est devenu la
+palette Argile d'Elpis ; le champ `alias` du registre y ramène les comptes restés
+sur l'ancien identifiant. Un thème qui a sa propre mise en page reste un thème.
 
 **Habillages personnels.** Un compte peut définir ses propres habillages
 (`/api/skins/perso`), faits de jetons seuls : aucun CSS libre, aucune image.

@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Skins : Parchemin fondu dans Elpis.** Les deux ne différaient que par leurs couleurs :
+  Elpis propose désormais les palettes *Or* (par défaut) et *Argile*, dans Paramètres ›
+  Apparence. Les comptes sur Parchemin passent sur Elpis + Argile, sans migration.
 - **Habillages personnels : réservés à l'application.** Leurs routes ne sont plus montées
   dans la console, qui ne liste que les skins de l'instance. L'application ne sert plus un
   skin désactivé, même à un administrateur.

@@ -2,9 +2,12 @@
 /* ============================================================================
  *  Skin « Elpis »  —  habillage par défaut
  * ----------------------------------------------------------------------------
- *  Identité visuelle « musée / premium » : ivoire chaud + or, titres serif
- *  éditoriaux, ambiance Grèce antique, lumière chaude, ombres presque
- *  invisibles. Réf. : elpis_design.md.  Espoir · Sagesse · Calme · Luxe.
+ *  Identité « musée / premium » : titres serif éditoriaux, lumière chaude,
+ *  ombres presque invisibles. Réf. : elpis_design.md.  Espoir · Sagesse · Calme.
+ *
+ *  Une seule structure, plusieurs palettes : « Or » (ivoire et or, par défaut,
+ *  jetons de base) et « Argile » (papier crème et argile, ex-skin Parchemin,
+ *  classe ``elpis-palette-argile``). Une palette ne pose que des jetons.
  *
  *  Contrainte forte du design : SKIN UNIQUEMENT. On ne touche qu'aux couleurs,
  *  à la typo, aux bordures, aux ombres et aux rayons. Aucun changement de DOM,
@@ -39,6 +42,9 @@ body.elpis-skin-elpis {
     --cl-action:       var(--cl-clay-deep);
     --cl-action-hover: #74542a;
     --cl-user-bubble: #f1eadd;        /* beige doux (carte message user) */
+    --cl-selection: rgba(184,138,61,0.22);
+    /* Lumière chaude diffuse (« golden hour ») : radial très subtil depuis le haut. */
+    --cl-lumiere: radial-gradient(115% 80% at 50% -12%, rgba(184,138,61,0.06), transparent 62%);
 
     /* Danger — harmonisé à la palette chaude (brique plutôt que rouge cru). */
     --danger-surface:     rgba(176, 60, 42, 0.07);
@@ -127,9 +133,7 @@ body.elpis-skin-elpis {
 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", sans-serif;
 
-    /* Lumière chaude diffuse (« golden hour ») — radial très subtil depuis le
-       haut, jamais une texture qui distrait. */
-    background-image: radial-gradient(115% 80% at 50% -12%, rgba(184,138,61,0.06), transparent 62%);
+    background-image: var(--cl-lumiere);
     background-attachment: fixed;
 }
 
@@ -155,6 +159,7 @@ body.elpis-skin-elpis.elpis-app-dark {
     --cl-action:       var(--cl-clay);
     --cl-action-hover: var(--cl-clay-deep);
     --cl-user-bubble: #322e29;
+    --cl-lumiere: radial-gradient(115% 80% at 50% -12%, rgba(216,178,122,0.05), transparent 62%);
 
     /* Danger — mode sombre chaud : rouge clair sur fond sépia sombre. */
     --danger-surface:     rgba(224, 138, 106, 0.14);
@@ -214,8 +219,196 @@ body.elpis-skin-elpis.elpis-app-dark {
     --ok-fg:          #211e1a;
     --rail-ok:        #b9b878;
     --rail-ok-strong: #cfcf94;
+}
 
-    background-image: radial-gradient(115% 80% at 50% -12%, rgba(216,178,122,0.05), transparent 62%);
+/* ───────────────────────────── PALETTE ARGILE ──────────────────────────── */
+/*  Papier crème et argile. Le bloc clair vaut aussi en sombre pour ce que le bloc
+ *  sombre ne redéfinit pas : même spécificité que le sombre d'Elpis, placé après. */
+body.elpis-skin-elpis.elpis-palette-argile {
+    --cl-bg:        #faf9f5;          /* papier crème principal */
+    --cl-sidebar:   #f0eee6;          /* crème un cran plus dense */
+    --cl-surface-2: #f3f1e9;
+    --cl-surface-3: #ece9df;
+    --cl-surface-4: #e3dfd2;
+    --cl-ink:       #1f1e1d;          /* brun-noir chaud */
+    --cl-ink-2:     #3d3a35;
+    --cl-muted:     #64615a;          /* assombri (AA : ex-#73706a promu en --text-400) */
+    --cl-border:    #e3ded2;
+    --cl-border-2:  #d9d3c4;
+    --cl-clay:      #d97757;          /* accent argile/corail signature */
+    --cl-clay-deep: #c2603f;
+    --cl-clay-fg:   #ffffff;
+    --cl-user-bubble: #efece2;
+
+    /* Danger — harmonisé à la palette chaude (rouge brique plutôt que rouge cru). */
+    --danger-surface:     rgba(176, 60, 42, 0.07);
+    --danger-border:      #e3b7ab;
+    --danger-border-soft: #eecfc6;
+    --danger-text:        #b0402a;
+    --danger-strong:      #8f3320;
+    --danger-icon-bg:     #f0d8ce;
+    --danger-icon-fg:     #c2603f;
+
+    --radius:    0.7rem;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #fffdf8;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #d6d0c0;
+    --border:            var(--cl-border);
+    --border-soft:       #efece2;
+    --table-cell-border: var(--cl-border);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #57534d;
+    --text-500: var(--cl-muted);
+    --text-400: #73706a;              /* AA 4.9:1 sur --surface (ex-#9a958c, 2.9:1) */
+    --text-max: #000000;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     var(--cl-ink);
+    --prose-link:       var(--cl-clay-deep);
+    --prose-link-hover: var(--cl-clay);
+    --code-inline-bg:     #efece2;
+    --code-inline-fg:     #ad5034;
+    --code-inline-border: var(--cl-border);
+    --scrollbar-thumb:        #cfc9ba;
+    --scrollbar-thumb-hover:  #b9b2a0;
+    --scrollbar-thumb-custom: #cfc9ba;
+
+    /* ── Famille ACCENT (correctif skins) : bridge → argile sur TOUTES les
+       nuances bleues (rings, chips, bordures, focus…). --ok/--warn gardent
+       les défauts (emerald/amber conviennent au papier crème). */
+    --accent:             var(--cl-clay);
+    --accent-strong:      var(--cl-clay-deep);
+    --accent-500:         var(--cl-clay);
+    --accent-400:         #e08a6a;
+    --accent-300:         #efa588;
+    --accent-fg:          #1f1e1d;
+    --accent-text:        #ad5034;
+    --accent-text-strong: #8f3f26;
+    --accent-surface:     rgba(217, 119, 87, 0.10);
+    --accent-surface-2:   rgba(217, 119, 87, 0.16);
+    --accent-border:      rgba(217, 119, 87, 0.35);
+    --accent-ring:        var(--cl-clay);
+
+    /* ── Rail (sidebar crème) — tokens, remplace la pile de sélecteurs. */
+    --rail-bg:           var(--cl-sidebar);
+    --rail-bg-2:         var(--cl-surface-3);
+    --rail-border:       var(--cl-border-2);
+    --rail-text:         var(--cl-ink);
+    --rail-text-strong:  var(--cl-ink);
+    --rail-muted:        var(--cl-muted);
+    --rail-hover:        var(--cl-surface-3);
+    --rail-chip:         var(--cl-surface-3);
+    --rail-active-bg:    color-mix(in srgb, var(--cl-clay) 18%, transparent);
+    --rail-input-bg:     var(--surface);
+    --rail-input-border: var(--cl-border-2);
+    --rail-ok:           #059669;            /* vert lisible sur crème */
+    --rail-ok-strong:    #047857;
+
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", sans-serif;
+    --cl-action:       var(--cl-clay);
+    --cl-action-hover: var(--cl-clay-deep);
+    --cl-selection: rgba(217,119,87,0.22);
+    --cl-lumiere: none;
+
+    /* Succès : valeurs de base, l'olive reste propre à l'or. */
+    --ok: #047857;
+    --ok-400: #34d399;
+    --ok-border: #a7f3d0;
+    --ok-fg: #ffffff;
+    --ok-soft: #10b981;
+    --ok-strong: #065f46;
+    --ok-surface: #ecfdf5;
+    --ok-surface-2: #d1fae5;
+    --ok-text: #047857;
+    --ok-text-strong: #065f46;
+}
+
+body.elpis-skin-elpis.elpis-palette-argile.elpis-app-dark {
+    --cl-bg:        #262624;          /* brun chaud foncé */
+    --cl-sidebar:   #1f1e1d;
+    --cl-surface-2: #2f2e2b;
+    --cl-surface-3: #35332f;
+    --cl-surface-4: #403d38;
+    --cl-ink:       #f5f3ec;          /* crème clair */
+    --cl-ink-2:     #ddd9cf;
+    --cl-muted:     #a39e92;
+    --cl-border:    rgba(255,250,235,0.12);
+    --cl-border-2:  rgba(255,250,235,0.18);
+    --cl-clay:      #e08a6a;
+    --cl-clay-deep: #d97757;
+    --cl-clay-fg:   #1f1e1d;
+    --cl-user-bubble: #34322e;
+
+    /* Danger — mode sombre du skin : rouge clair chaud sur fond sépia sombre. */
+    --danger-surface:     rgba(224, 138, 106, 0.14);
+    --danger-border:      rgba(224, 138, 106, 0.36);
+    --danger-border-soft: rgba(224, 138, 106, 0.20);
+    --danger-text:        #eab3a1;
+    --danger-strong:      #f2ccbe;
+    --danger-icon-bg:     rgba(224, 138, 106, 0.18);
+    --danger-icon-fg:     #e08a6a;
+
+    --app-bg:    var(--cl-bg);
+    --surface:   #2b2a27;
+    --surface-2: var(--cl-surface-2);
+    --surface-3: var(--cl-surface-3);
+    --surface-4: var(--cl-surface-4);
+    --surface-5: #4a473f;
+    --border:            var(--cl-border);
+    --border-soft:       rgba(255,250,235,0.06);
+    --table-cell-border: rgba(255,250,235,0.08);
+    --text-900: var(--cl-ink);
+    --text-800: var(--cl-ink);
+    --text-700: var(--cl-ink-2);
+    --text-600: #c2bcae;
+    --text-500: var(--cl-muted);
+    --text-400: #9b9585;              /* AA 4.8:1 sur --surface (ex-#837e72, 3.6:1) */
+    --text-max: #ffffff;
+    --prose-body:       var(--cl-ink-2);
+    --prose-heading:    var(--cl-ink);
+    --prose-strong:     #ffffff;
+    --prose-link:       var(--cl-clay);
+    --prose-link-hover: #efa588;
+    --code-inline-bg:     #35332f;
+    --code-inline-fg:     #f0a87f;
+    --code-inline-border: rgba(255,250,235,0.10);
+    --scrollbar-thumb:        rgba(255,250,235,0.15);
+    --scrollbar-thumb-hover:  rgba(255,250,235,0.25);
+    --scrollbar-thumb-custom: rgba(255,250,235,0.12);
+
+    /* Accent argile — variante claire-sur-sombre (les tokens en var(--cl-*)
+       basculent déjà tout seuls ; on ajuste texte + teintes translucides). */
+    --accent-text:        var(--cl-clay);
+    --accent-text-strong: #efa588;
+    --accent-surface:     rgba(224, 138, 106, 0.14);
+    --accent-surface-2:   rgba(224, 138, 106, 0.20);
+    --accent-border:      rgba(224, 138, 106, 0.38);
+    /* Rail sombre : vert admin éclairci. */
+    --rail-ok:        #34d399;
+    --rail-ok-strong: #6ee7b7;
+    --cl-selection: rgba(224,138,106,0.22);
+
+    /* Succès : valeurs de base en sombre. */
+    --ok: #047857;
+    --ok-400: #34d399;
+    --ok-border: rgba(16, 185, 129, 0.40);
+    --ok-fg: #ffffff;
+    --ok-soft: #10b981;
+    --ok-strong: #065f46;
+    --ok-surface: rgba(16, 185, 129, 0.15);
+    --ok-surface-2: rgba(16, 185, 129, 0.18);
+    --ok-text: #34d399;
+    --ok-text-strong: #6ee7b7;
 }
 
 /* ───────────────────────────── OMBRES DOUCES ────────────────────────────── */
@@ -269,7 +462,7 @@ body.elpis-skin-elpis .focus\:border-indigo-400:focus {
     --tw-ring-color: var(--cl-clay);
     border-color: var(--cl-clay) !important;
 }
-body.elpis-skin-elpis .bg-indigo-50 { background-color: rgba(184,138,61,0.08) !important; }
+body.elpis-skin-elpis .bg-indigo-50 { background-color: var(--accent-surface) !important; }
 
 /* Dégradés accent → or (« No gradients / avoid blue » : avatars, badges,
    pastilles d'initiales). On reteinte les variables de dégradé Tailwind. */
@@ -277,7 +470,7 @@ body.elpis-skin-elpis .from-blue-500,
 body.elpis-skin-elpis .from-blue-600,
 body.elpis-skin-elpis .from-indigo-500 {
     --tw-gradient-from: var(--cl-clay) var(--tw-gradient-from-position, 0%) !important;
-    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(184,138,61,0)) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent) !important;
 }
 body.elpis-skin-elpis .to-indigo-500,
 body.elpis-skin-elpis .to-indigo-600,
@@ -288,7 +481,7 @@ body.elpis-skin-elpis .to-blue-600 {
 
 /* Contrôles natifs : suivent ``body { accent-color: var(--accent) }`` (or
    d'action, AA) — règles dédiées retirées. Sélection de texte conservée. */
-body.elpis-skin-elpis ::selection { background: rgba(184,138,61,0.22); color: var(--cl-ink); }
+body.elpis-skin-elpis ::selection { background: var(--cl-selection); color: var(--cl-ink); }
 
 /* Toggles « peer » : gérés par le bridge (peer-checked:bg-blue-600 → --accent
    = or d'action, AA). Énumération historique retirée. */

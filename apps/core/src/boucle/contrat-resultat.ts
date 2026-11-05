@@ -44,15 +44,20 @@ function chargerJsonPy(texte: string): unknown {
   return JSON.parse(sortie + texte.slice(debut));
 }
 
+let dernier: { texte: string; d: Dict | null } | null = null;
+
+/** Dict d'un résultat, lu en lecture seule ; le dernier est gardé (un résultat est contrôlé 2 à 4 fois de suite). */
 function analyser(contenu: unknown): Dict | null {
   if (typeof contenu !== "string") return null;
+  if (dernier?.texte === contenu) return dernier.d;
   let valeur: unknown;
   try {
     valeur = chargerJsonPy(contenu);
   } catch {
-    return null;
+    valeur = null;
   }
-  return estDict(valeur) ? valeur : null;
+  dernier = { texte: contenu, d: estDict(valeur) ? valeur : null };
+  return dernier.d;
 }
 
 /** Échec si `{"ok": false, …}` ou `{"error": …}` seul ; tout autre contenu (texte libre, liste, données) est un succès. */

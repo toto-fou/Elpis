@@ -195,29 +195,5 @@ onMounted(() => void rg.chargerSkinsPerso());
         </div>
       </div>
     </div>
-
-    <div v-if="section?.id === (rg.mascottesOffertes ? 'mascotte' : 'theme')">
-      <label class="block text-xs font-medium text-slate-600 mb-1.5" for="set-assistant-nom"
-        >Nom de l'assistant</label
-      >
-      <div class="flex items-center gap-3">
-        <img
-          :src="rg.logoApp"
-          alt=""
-          data-avatar-assistant
-          class="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200"
-        />
-        <input
-          id="set-assistant-nom"
-          v-model="rg.settings.assistant_name"
-          type="text"
-          placeholder="Assistant"
-          class="set-input font-medium text-slate-800"
-        />
-      </div>
-      <p class="text-xs text-slate-500 mt-1.5 leading-snug">
-        L'avatar de l'assistant est le logo de l'application, choisi par l'administrateur.
-      </p>
-    </div>
   </div>
 </template>

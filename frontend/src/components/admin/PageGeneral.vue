@@ -33,10 +33,16 @@ const adm = domaineAdmin();
         <div v-if="adm.configForm.app_info" class="adm-rows">
           <div class="adm-row">
             <div>
-              <label class="adm-row__label" title="Panneau latéral, onglet du navigateur." for="cfg-app-name"
+              <label
+                class="adm-row__label"
+                title="Nom de l'application et de l'assistant pour tous les comptes : panneau latéral, onglet du navigateur, chat."
+                for="cfg-app-name"
                 >Nom</label
               >
-              <span class="sr-only">Panneau latéral, onglet du navigateur.</span>
+              <span class="sr-only"
+                >Nom de l'application et de l'assistant pour tous les comptes : panneau latéral, onglet du
+                navigateur, chat.</span
+              >
             </div>
             <input
               id="cfg-app-name"

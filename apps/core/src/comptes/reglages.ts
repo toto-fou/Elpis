@@ -57,7 +57,6 @@ export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "shared_mcp_visible",
   "active_mcp_url",
   "system_prompt",
-  "assistant_name",
   "enable_editor",
   "enable_preview",
   "enable_mcp",
@@ -234,6 +233,17 @@ export function reglageMascottes(): [boolean, string[], string] {
   return [true, actives, defaut];
 }
 
+/** Nom de l'assistant : celui de l'application, réglé dans la console (`app_info.name`) ; vide ou absent : Elpis. */
+function nomAssistant(): string {
+  let nom: unknown;
+  try {
+    nom = getPy(ouPy(getPy(ouPy(configView(), {}), "app_info"), {}), "name");
+  } catch {
+    return "Elpis";
+  }
+  return typeof nom === "string" && nom.trim() !== "" ? nom.trim() : "Elpis";
+}
+
 /** `str(SANDBOX_DIR / nom).resolve()` du dossier réel du compte (`safe_sandbox_name`) ; « Error path » si la résolution échoue. */
 function cheminSandbox(username: string): string {
   try {
@@ -260,6 +270,8 @@ export async function lireReglages(base: Base, uid: number, journal: Journal, mo
   const [allumees, actives, defautAdmin] = reglageMascottes();
   for (const [k, v] of liste)
     if (!Object.hasOwn(saved, k)) poserCle(saved, k, k === "welcome_mascot" ? defautAdmin : v);
+  // Écart voulu au Python : le nom de l'assistant se règle dans la console ; un ancien choix du compte est ignoré.
+  poserCle(saved, "assistant_name", nomAssistant());
   const mascotte = saved["welcome_mascot"];
   if (veritePy(mascotte) && !(typeof mascotte === "string" && actives.includes(mascotte)))
     poserCle(saved, "welcome_mascot", defautAdmin);

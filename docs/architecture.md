@@ -2000,7 +2000,7 @@ main et admin rechargent à la lecture suivante au lieu d'attendre le TTL.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) |
+| `GET /api/settings` · `PUT /api/settings` | Réglages per-user (clés permises : `apps/core/src/comptes/reglages.ts`) ; `assistant_name` en lecture seule : le nom de l'application, `app_info.name` |
 | `GET /api/config` · `PUT /api/config` | Copie personnelle de la config d'application |
 | `POST /api/settings/avatar` · `DELETE` | Avatar utilisateur (max 5 Mo) |
 | `POST /api/settings/assistant-avatar` | Refusée (403) : l'avatar de l'assistant est le logo de l'application |

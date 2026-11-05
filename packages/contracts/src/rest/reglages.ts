@@ -10,7 +10,6 @@ const reglagesEcrivables = {
   shared_mcp_visible: z.array(z.unknown()),
   active_mcp_url: z.string(),
   system_prompt: z.string(),
-  assistant_name: z.string(),
   enable_editor: z.boolean(),
   enable_preview: z.boolean(),
   enable_mcp: z.boolean(),
@@ -104,7 +103,6 @@ export const schemaReglages = reglagesFacultatifs
     shared_mcp_visible: true,
     active_mcp_url: true,
     system_prompt: true,
-    assistant_name: true,
     editor_dark_mode: true,
     dark_mode: true,
     dark_mode_auto: true,
@@ -143,6 +141,7 @@ export const schemaReglages = reglagesFacultatifs
     image_prefs: true,
   })
   .extend({
+    assistant_name: z.string(),
     mascottes_actives: z.array(z.string()),
     mascottes_catalogue: z.array(schemaMascotteCatalogue),
     mascottes_on: z.boolean(),

@@ -8,6 +8,10 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Réveils automatiques : cache du moteur conservé.** `agent_save` disparaissait de la
+  liste d'outils d'un tour de réveil, ce qui invalidait le préfixe en cache. L'outil
+  reste proposé et son appel est refusé avec un message clair : un réveil ne peut
+  toujours ni créer ni modifier un agent.
 - **Serveurs MCP : gestionnaire à deux volets.** La fenêtre *Serveurs MCP* liste à
   gauche vos serveurs puis les serveurs partagés, avec l'état du dernier test sur
   chaque ligne ; le serveur choisi s'édite à droite, *Tester* et *Enregistrer* dans

@@ -1,22 +1,21 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/reglages/onglets/OngletFonctionnalites.vue — onglet « features » des Paramètres. -->
 <script setup lang="ts">
-import AideOnglet from "../AideOnglet.vue";
+import { computed } from "vue";
+
 import ChoixEditeur from "../ChoixEditeur.vue";
 import { domaineReglages } from "../../../features/reglages/domaine";
+import { sectionCourante } from "../../../features/reglages/sections";
 
 const rg = domaineReglages();
+const section = computed(() => sectionCourante(rg, "features"));
 </script>
 
 <template>
   <!-- eslint-disable vue/multiline-html-element-content-newline -->
+  <h3 class="sr-only">{{ section?.libelle }}</h3>
   <div class="space-y-5 max-w-xl">
-    <AideOnglet titre="Fonctionnalités"
-      >Ce que l'assistant peut faire. Chaque module s'active séparément.</AideOnglet
-    >
-
-    <div>
-      <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Modules</div>
+    <div v-if="section?.id === 'modules'">
       <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
         <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
           <i class="ph ph-plug text-slate-400 text-lg w-5"></i>
@@ -65,11 +64,7 @@ const rg = domaineReglages();
       </div>
     </div>
 
-    <div
-      v-if="rg.settings.image_ready && rg.settings.image_enabled !== false && rg.settings.image_prefs"
-      data-feat-images
-    >
-      <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Images</div>
+    <div v-if="section?.id === 'images' && rg.settings.image_prefs" data-feat-images>
       <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
         <label
           v-if="!rg.imageStatus || rg.imageStatus.tool_enabled !== false"
@@ -179,7 +174,7 @@ const rg = domaineReglages();
       </div>
     </div>
 
-    <div data-feat-routines>
+    <div v-if="section?.id === 'modules'" data-feat-routines>
       <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Routines</div>
       <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
         <label
@@ -196,9 +191,9 @@ const rg = domaineReglages();
       </div>
     </div>
 
-    <template v-if="rg.settings.enable_editor">
+    <template v-if="section?.id === 'editeur'">
       <div data-feat-editor-display>
-        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · affichage</div>
+        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Affichage</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
           <ChoixEditeur id-champ="reglage-editor-ui" class="first:rounded-t-xl" data-feat-editor-ui />
           <label class="set-row cursor-pointer hover:bg-white/60 transition-colors">
@@ -313,7 +308,7 @@ const rg = domaineReglages();
       </div>
 
       <div data-feat-editor-behavior>
-        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Éditeur · comportement</div>
+        <div class="text-xs font-semibold text-slate-500 px-0.5 mb-1.5">Comportement</div>
         <div class="bg-slate-50 rounded-xl divide-y divide-slate-200/70">
           <label class="set-row cursor-pointer hover:bg-white/60 transition-colors first:rounded-t-xl">
             <i class="ph ph-magic-wand text-slate-400 text-lg w-5"></i>
@@ -394,7 +389,7 @@ const rg = domaineReglages();
       </div>
     </template>
 
-    <p class="text-xs text-slate-500">
+    <p v-if="section?.id === 'modules'" class="text-xs text-slate-500">
       <i class="ph ph-info text-slate-400 align-middle mr-1" aria-hidden="true"></i>Mémoire et sous-agents
       s'activent depuis
       <button

@@ -18,6 +18,7 @@ import OngletPrompts from "./onglets/OngletPrompts.vue";
 import OngletSandbox from "./onglets/OngletSandbox.vue";
 import OngletUtilisation from "./onglets/OngletUtilisation.vue";
 import RailParametres from "./RailParametres.vue";
+import SousMenuReglages from "./SousMenuReglages.vue";
 
 const rg = domaineReglages();
 </script>
@@ -75,41 +76,45 @@ const rg = domaineReglages();
         <div class="flex flex-1 min-h-0 overflow-hidden flex-col md:flex-row">
           <RailParametres />
 
-          <div
-            class="flex-1 min-h-0 bg-white"
-            :class="
-              rg.settingsTab === 'skills'
-                ? 'overflow-hidden flex flex-col'
-                : 'overflow-y-auto custom-scrollbar p-6'
-            "
-          >
-            <OngletSkills />
+          <div class="elpis-reglages-corps">
+            <SousMenuReglages />
 
-            <OngletMemoire v-if="rg.settingsTab === 'memory'" />
+            <div
+              class="flex-1 min-h-0 min-w-0 bg-white"
+              :class="
+                rg.settingsTab === 'skills'
+                  ? 'overflow-hidden flex flex-col'
+                  : 'overflow-y-auto custom-scrollbar p-6'
+              "
+            >
+              <OngletSkills />
 
-            <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
+              <OngletMemoire v-if="rg.settingsTab === 'memory'" />
 
-            <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
+              <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
 
-            <OngletModelesIA v-if="rg.settingsTab === 'ai_models'" />
+              <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
 
-            <OngletProfil v-if="rg.settingsTab === 'profile'" />
+              <OngletModelesIA v-if="rg.settingsTab === 'ai_models'" />
 
-            <OngletUtilisation v-if="rg.settingsTab === 'usage'" />
+              <OngletProfil v-if="rg.settingsTab === 'profile'" />
 
-            <OngletChat v-if="rg.settingsTab === 'chat'" />
+              <OngletUtilisation v-if="rg.settingsTab === 'usage'" />
 
-            <OngletCompaction v-if="rg.settingsTab === 'compaction'" />
+              <OngletChat v-if="rg.settingsTab === 'chat'" />
 
-            <OngletApparence v-if="rg.settingsTab === 'appearance'" />
+              <OngletCompaction v-if="rg.settingsTab === 'compaction'" />
 
-            <OngletFonctionnalites v-if="rg.settingsTab === 'features'" />
+              <OngletApparence v-if="rg.settingsTab === 'appearance'" />
 
-            <OngletPrompts v-if="rg.settingsTab === 'prompts'" />
+              <OngletFonctionnalites v-if="rg.settingsTab === 'features'" />
 
-            <OngletArchives v-if="rg.settingsTab === 'archives'" />
+              <OngletPrompts v-if="rg.settingsTab === 'prompts'" />
 
-            <OngletSandbox v-if="rg.settingsTab === 'sandbox'" />
+              <OngletArchives v-if="rg.settingsTab === 'archives'" />
+
+              <OngletSandbox v-if="rg.settingsTab === 'sandbox'" />
+            </div>
           </div>
         </div>
       </div>

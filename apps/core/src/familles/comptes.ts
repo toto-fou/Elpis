@@ -471,7 +471,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         processus: ["main", "admin"],
         acces: "session",
         traiter: async (req, rep) =>
-          reponseJsonPy(rep, await lireReglages(base, utilisateur(req), dep.journal), SANS_CACHE),
+          reponseJsonPy(rep, await lireReglages(base, utilisateur(req), dep.journal, dep.mode), SANS_CACHE),
       },
       {
         methode: "PUT",

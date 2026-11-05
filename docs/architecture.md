@@ -1198,10 +1198,15 @@ les autres couleurs sont sémantiques (statut).
   est ramené au défaut s'il désigne un skin désactivé (GET et PUT).
 - **Routes.** `GET /api/skins` (skins activés, défaut, mascottes),
   `GET /api/skins/{id}/skin.css`, `GET /api/skins/{id}/editeur.css`,
-  `GET /api/skins/{id}/assets/{nom}` (skin activé ou administrateur ; aussi
-  montées sur le process admin) ;
+  `GET /api/skins/{id}/assets/{nom}`, sur `main` et la console ; un skin désactivé
+  n'est lu que dans la console, par un administrateur ;
   `/api/admin/skins` (`GET`, `PUT` état, `POST` formulaire, `POST /import`,
-  `GET /{id}/export`, `DELETE /{id}`), page console *Système › Apparence*.
+  `GET /{id}/export`, `DELETE /{id}`), console seule, page *Système › Apparence*.
+- **Deux mondes.** Le compte n'a son habillage que dans `main` : `/api/skins/perso*`
+  n'y est monté que là, la console ne liste que les skins d'instance et ramène un
+  `perso:<id>` au défaut en lecture, sans toucher la valeur stockée, et le refuse en
+  écriture (403). `/api/admin/*` n'est jamais monté dans `main`
+  (`estRouteAdministration`). `apparence-deux-mondes.test.ts` le vérifie dans les deux sens.
 - **Habillages personnels.** Chaque compte peut avoir ses propres habillages,
   visibles par lui seul : un `skin.json` de **jetons seuls** (ni `skin.css`, ni
   image, ni `brand`, ni `mascot`), rangé dans
@@ -1214,7 +1219,7 @@ les autres couleurs sont sémantiques (statut).
   bloquant (4,5:1 texte, 3:1 éléments d'interface, maths dans
   `@elpis/commun/couleurs`) et feuille générée côté serveur sous
   `body.elpis-skin-perso` et `body.elpis-skin-perso.elpis-app-dark`. Routes
-  (session) : `GET /api/skins/perso`, `POST /api/skins/perso/verifier`,
+  (session, `main` seul) : `GET /api/skins/perso`, `POST /api/skins/perso/verifier`,
   `POST /api/skins/perso` (400 avec le rapport s'il reste une erreur, 409 si
   l'id existe sans `overwrite` ou si le plafond est atteint),
   `DELETE /api/skins/perso/{id}`, `GET /api/skins/perso/{id}/skin.css`

@@ -8,6 +8,7 @@ import { PREFIXE_PERSO } from "@elpis/contracts";
 import type { Dict } from "@elpis/commun";
 import { liveConfigValue, pyJoin } from "@elpis/config";
 
+import type { ModeApp } from "../mode";
 import { estErreurOs, rmtree } from "../skills/chemins";
 import { ecrireNouveauDossier } from "./ecritures";
 import { evaluerSkinPerso } from "./perso";
@@ -133,11 +134,11 @@ export async function purgerPersoCompte(uid: number): Promise<void> {
   await rmtree(dossierCompte(uid), true);
 }
 
-/** Skin effectif d'un compte : `perso:<id>` si l'habillage est à lui et la fonction active, sinon la résolution commune. */
-export function resolveSkinCompte(uid: number, valeur: unknown): string {
+/** Skin effectif d'un compte : `perso:<id>` dans `main` si l'habillage est à lui et la fonction active, sinon la résolution commune ; la console ne voit que les skins de l'instance. */
+export function resolveSkinCompte(uid: number, valeur: unknown, mode: ModeApp): string {
   if (typeof valeur === "string" && valeur.startsWith(PREFIXE_PERSO)) {
     const id = valeur.slice(PREFIXE_PERSO.length);
-    return persoActif() && lire(uid, id) !== null ? valeur : defaultSkin();
+    return mode === "main" && persoActif() && lire(uid, id) !== null ? valeur : defaultSkin();
   }
   return resolveUserSkin(valeur);
 }

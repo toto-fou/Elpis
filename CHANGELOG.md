@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Habillages personnels : réservés à l'application.** Leurs routes ne sont plus montées
+  dans la console, qui ne liste que les skins de l'instance. L'application ne sert plus un
+  skin désactivé, même à un administrateur.
 - **Éditeur lié au skin.** Un skin peut apporter son style d'éditeur (`editeur.css`) :
   couleurs, coloration du code, terminal. Le réglage *Éditeur* propose *Selon le skin* (par
   défaut) ou *Classique* ; un skin sans style garde l'éditeur classique. Fichiers, Git et

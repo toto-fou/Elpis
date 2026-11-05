@@ -21,6 +21,10 @@ selon [SemVer](https://semver.org/lang/fr/).
   changeant de serveur ou en fermant, et la suppression se confirme sur place, sans
   que le bouton bouge. Chacun modifie et supprime ses propres serveurs ; le type
   *Local* reste réservé à l'administrateur et n'apparaît plus aux autres comptes.
+- **Captures d'écran : élagage par paliers.** Au-delà de 2 images, chaque nouvelle
+  capture déplaçait le point d'élagage et invalidait le préfixe en cache. L'élagage ne
+  se déclenche plus qu'au-delà de 5 images et revient alors à 2 : le préfixe ne bouge
+  qu'une capture sur quatre, et le modèle peut voir jusqu'à 5 images à la fois.
 - **Panneau MCP : interrupteurs communs.** Les interrupteurs du panneau (catégories,
   serveurs déclarés et externes) reprennent la piste commune des réglages : le focus
   clavier y devient visible.

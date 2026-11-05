@@ -30,7 +30,13 @@ import { REFUS_TACHE_SOUS_AGENT, restaurerArgsOutil, sousAgentEnDict } from "@el
 import type { SousAgent } from "@elpis/securite";
 
 import { CTX } from "../contexte/config-contexte";
-import { ephemeral, prepareToolResultForModel, pruneOldVisionFrames } from "../contexte/elagage";
+import {
+  ephemeral,
+  prepareToolResultForModel,
+  pruneOldVisionFrames,
+  VISION_KEEP,
+  VISION_SEUIL,
+} from "../contexte/elagage";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
 import { noterObservation } from "../llm/sonde-moteur";
@@ -1219,7 +1225,7 @@ export async function runToolBatch(
   }
   if (visionsDifferees.length) {
     workingMessages.push(...visionsDifferees);
-    const elague = pruneOldVisionFrames(workingMessages, 2) as Dict[];
+    const elague = pruneOldVisionFrames(workingMessages, VISION_KEEP, VISION_SEUIL) as Dict[];
     workingMessages.splice(0, workingMessages.length, ...elague);
   }
   let cycleHardStopped = false;

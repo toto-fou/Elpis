@@ -8,6 +8,9 @@ selon [SemVer](https://semver.org/lang/fr/).
 
 ### Modifié
 
+- **Nom de l'assistant : réglé par l'administrateur.** L'assistant prend le nom de
+  l'application (Console › Instance › Nom), comme son avatar est le logo. Les comptes ne le
+  choisissent plus, et un ancien choix est ignoré.
 - **Mascottes : coupées par défaut.** L'accueil montre le logo tant que le compte n'a pas
   choisi de mascotte (Paramètres › Apparence › Mascotte) ; un compte qui en avait choisi une
   la rechoisit. Un skin qui apporte la sienne (Kiki) l'affiche tant que le compte ne l'a pas coupée.

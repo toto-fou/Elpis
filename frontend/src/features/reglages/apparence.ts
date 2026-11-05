@@ -88,7 +88,7 @@ export function creerApparence(
     return liste.find((k) => k.id === id) || liste[0] || (SKINS_REPLI[0] as SkinApp);
   });
 
-  /** Un nom d'assistant choisi par le compte l'emporte sur la marque du skin ; « Elpis » et « Assistant » sont les défauts. */
+  /** Le nom donné à l'application par l'administrateur l'emporte sur la marque du skin ; « Elpis » et « Assistant » sont les défauts. */
   const nomMarque = computed(() => {
     const nom = settings.value.assistant_name || "Elpis";
     const parDefaut = nom === "Elpis" || nom === "Assistant";

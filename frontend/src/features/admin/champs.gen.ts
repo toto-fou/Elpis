@@ -68,7 +68,7 @@ export const CHAMPS_ADMIN: readonly ChampAdmin[] = Object.freeze([
     {"control": "", "hint": "S'affiche à la place du visuel ci-dessus pour qui a choisi une mascotte dans ses paramètres. Aperçu à la taille réelle du bloc d'accueil.", "label": "Mot animé", "page": "instance", "path": "welcome.scene.motif", "store": "config"},
     {"control": "", "hint": "S'affiche à la place du visuel ci-dessus pour qui a choisi une mascotte dans ses paramètres. Aperçu à la taille réelle du bloc d'accueil.", "label": "Mot animé", "page": "instance", "path": "welcome.scene.word_scale", "store": "config"},
     {"control": "", "hint": "Libellé informatif d'« À propos ». Ne change aucun branchement.", "label": "Moteur affiché", "page": "instance", "path": "app_info.engine", "store": "config"},
-    {"control": "", "hint": "Panneau latéral, onglet du navigateur.", "label": "Nom", "page": "instance", "path": "app_info.name", "store": "config"},
+    {"control": "", "hint": "Nom de l'application et de l'assistant pour tous les comptes : panneau latéral, onglet du navigateur, chat.", "label": "Nom", "page": "instance", "path": "app_info.name", "store": "config"},
     {"control": "", "hint": "Taille en pixels du visuel affiché.", "label": "Pictogramme", "page": "instance", "path": "welcome.width", "store": "config"},
     {"control": "", "hint": "Équipe, environnement… Facultatif.", "label": "Sous-titre", "page": "instance", "path": "login_page.subtitle", "store": "config"},
     {"control": "", "hint": "En-tête de la carte de connexion.", "label": "Titre", "page": "instance", "path": "login_page.title", "store": "config"},

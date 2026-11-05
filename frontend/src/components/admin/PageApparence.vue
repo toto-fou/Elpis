@@ -317,7 +317,7 @@ const adm = domaineAdmin();
             <label
               class="skn-form__lbl"
               for="skn-brand"
-              title="Renomme l'assistant quand ce skin est actif (sauf nom personnalisé)."
+              title="Renomme l'assistant quand ce skin est actif, sauf si l'instance a changé son nom."
               >Marque</label
             >
             <input

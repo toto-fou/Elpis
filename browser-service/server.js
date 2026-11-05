@@ -12,7 +12,7 @@ import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
          stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
          planArtifactPurge, planSessionSlot, occupationGroupe, placesEnfants, quotasSessions, sessionsANettoyer,
-         sessionsEnfantsAnciennes } from './session_util.js';
+         sessionsEnfantsAnciennes, identifiantsPourOrigine, avisIdentifiants } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
 import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
          interfacesDepuisProc, fusionnerInterfaces,
@@ -2301,6 +2301,8 @@ app.post('/start', async (req, res) => {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
         }
+        const identifiantsFournis = Boolean(username && password);
+        const identifiants = identifiantsPourOrigine(url, username, password);
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
         // resolveStateFile). Résolu avant la réutilisation d'une session : un
@@ -2375,6 +2377,7 @@ app.post('/start', async (req, res) => {
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
                         ...nav,
+                        ...avisIdentifiants(identifiantsFournis, identifiants, s.identifiantsLies, nav.http_status, s.page.url()),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
                         // Un état ne se pose qu'à la création du contexte : le
@@ -2410,7 +2413,7 @@ app.post('/start', async (req, res) => {
             ignoreHTTPSErrors: true,
             acceptDownloads: true,
             storageState,
-            httpCredentials: (username && password) ? { username, password } : undefined,
+            httpCredentials: identifiants,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
@@ -2479,7 +2482,8 @@ app.post('/start', async (req, res) => {
         }
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState });
+        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
+                                identifiantsLies: identifiants ? { origin: identifiants.origin, username: identifiants.username } : null });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -2493,7 +2497,8 @@ app.post('/start', async (req, res) => {
         await page.waitForTimeout(800);
         await safeRemoveOverlays(page, false);
 
-        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav });
+        res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+                   ...avisIdentifiants(identifiantsFournis, identifiants, identifiants, nav.http_status, page.url()) });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
 });

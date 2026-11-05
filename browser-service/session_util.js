@@ -112,6 +112,35 @@ export function ownerFromRequest(req) {
     return safeOwner(b ?? q ?? '');
 }
 
+/** Identifiants HTTP d'un contexte, liés à l'origine exacte de l'adresse de départ ; sans origine http(s), aucun : jamais d'identifiants sans origine. */
+export function identifiantsPourOrigine(url, username, password) {
+    if (!username || !password) return undefined;
+    let u;
+    try { u = new URL(url); } catch (_) { return undefined; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
+    return { username, password, origin: u.origin, send: 'unauthorized' };
+}
+
+/** Avis au modèle d'un démarrage avec identifiants : non posés sur ce contexte, ou 401 d'une autre origine que la leur (redirection). */
+export function avisIdentifiants(fournis, demandes, lies, statut, arrivee) {
+    if (!fournis) return {};
+    if (!demandes) return {
+        credentials_applied: false,
+        credentials_warning: 'Credentials were NOT applied: they need an http(s) start URL, whose exact origin is the only one that receives them.',
+    };
+    if (!lies || lies.origin !== demandes.origin || lies.username !== demandes.username) return {
+        credentials_applied: false,
+        credentials_warning: `Credentials were NOT applied: this reused session's browser context does not carry them for ${demandes.origin}, and credentials can only be set when a context is created. To use them, call pw_session(action='start') with the url and credentials and isolated=true for a fresh context, or close this session with action='stop' and start again.`,
+    };
+    if (statut !== 401) return {};
+    let ailleurs;
+    try { ailleurs = new URL(arrivee).origin; } catch (_) { return {}; }
+    if (ailleurs === demandes.origin) return {};
+    return {
+        credentials_warning: `The start URL led to ${ailleurs}, which answered 401. Credentials are bound to ${demandes.origin} and are never sent to another origin. If they belong to ${ailleurs}, start on a URL of ${ailleurs} directly.`,
+    };
+}
+
 /** Sessions que ferme le nettoyage de ``owner`` : les siennes et celles des sous-agents de son groupe. */
 export function sessionsANettoyer(sessions, owner) {
     const o = safeOwner(owner);

@@ -1170,7 +1170,7 @@ les autres couleurs sont sémantiques (statut).
 - **Registre.** Les skins intégrés sont décrits par
   `frontend/css/skins/skins.json` (`id`, `label`, `desc`, `sw`, `darkBase`,
   `enabled_by_default`, `brand`, `mascot`) ; leur feuille
-  `css/skins/<id>.css` est liée en statique par `index.html` et `admin.html`.
+  `css/skins/<id>/skin.css` est liée en statique par `index.html` et `admin.html`.
   Ardoise (`id` vide) est `style.css` sans classe.
 - **Plugins.** Importés (zip) ou créés depuis la console, rangés dans
   `SKINS_DIR` (`APP_SKINS_DIR` ou `skins.dir`, défaut `user_skins/`) :

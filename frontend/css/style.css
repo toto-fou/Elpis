@@ -13,7 +13,7 @@
  *                                surcharges hardcodées, déplacées ici).
  *
  *  TROIS classes body pilotent le rendu (posées par features/reglages/apparence.ts) :
- *    - ``elpis-skin-<id>``     → le skin choisi (fichier css/skins/<id>.css) ;
+ *    - ``elpis-skin-<id>``     → le skin choisi (fichier css/skins/<id>/skin.css) ;
  *    - ``elpis-app-dark``      → le TOGGLE mode sombre (bloc de tokens
  *                                neutres ci-dessous + blocs sombres des skins) ;
  *    - ``elpis-dark-surface``  → MARQUEUR « la surface de base est sombre » :
@@ -23,7 +23,7 @@
  *                                fichier sont gated dessus (et non plus sur le
  *                                toggle) → Émeraude-clair les reçoit aussi.
  *
- *  Un SKIN = un fichier ``css/skins/<id>.css`` qui REDÉFINIT ces
+ *  Un SKIN = un fichier ``css/skins/<id>/skin.css`` qui REDÉFINIT ces
  *  variables sous ``body.elpis-skin-<id>`` (+ ``.elpis-app-dark`` pour
  *  sa variante sombre). Spécificités : ``body.elpis-app-dark`` (0,2,0)
  *  bat ``:root`` ; le skin (0,2,0, chargé après) bat ``:root`` ; le skin
@@ -120,7 +120,7 @@
        Même doctrine que --danger-* : valeur CLAIRE ici == couleur Tailwind
        native (parité pixel en Ardoise clair), variante claire-sur-sombre
        dans le bloc ``body.elpis-dark-surface`` plus bas, overrides par
-       skin dans frontend/css/skins/*.css. Le bridge (plus bas) re-mappe
+       skin dans frontend/css/skins/*/skin.css. Le bridge (plus bas) re-mappe
        les utilitaires Tailwind correspondants sur ces tokens → un skin
        règle ~25 valeurs au lieu d'énumérer 60+ sélecteurs.
        NB : pas de famille --info-* — le bleu EST l'accent (l'« info »

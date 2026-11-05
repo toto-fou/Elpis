@@ -1,5 +1,5 @@
 {
-  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>.css + un <link> dans index.html et admin.html. Les skins importés vivent dans SKINS_DIR (user_skins/).",
+  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>/skin.css + un <link> dans index.html et admin.html. Les skins importés vivent dans SKINS_DIR (user_skins/).",
   "skins": [
     {
       "id": "elpis",

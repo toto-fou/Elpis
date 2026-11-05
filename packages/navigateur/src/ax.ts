@@ -127,6 +127,61 @@ export function normalizeUrl(url: string): [string, string] {
   }
 }
 
+/** Origine exacte (schéma, hôte, port) d'une URL http(s), vide sinon : clé des identifiants de sites, sans alias ni réduction d'IP. */
+export function origineExacte(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Une clé d'`ax_credentials` sans schéma est une ancienne clé de site : son origine est inconnue, elle n'est jamais remplie. */
+const cleAvecOrigine = (cle: unknown): boolean => String(cle).includes("://");
+
+/** Site AX d'une clé d'`ax_credentials`, pour l'affichage et les purges seulement. */
+const siteDeCle = (cle: unknown): string =>
+  cleAvecOrigine(cle) ? normalizeUrl(String(cle))[0] : String(cle);
+
+/** Lignes d'un compte rattachées à un site AX : origines exactes d'abord, puis les plus récentes. */
+async function identifiantsDuSite(
+  x: Executeur,
+  site: string,
+  proprietaire: string,
+): Promise<Record<string, unknown>[]> {
+  const lignes = await x.all(
+    "SELECT site, username, use_count, last_ok FROM ax_credentials WHERE owner = ?",
+    [proprietaire],
+  );
+  return lignes
+    .filter((r) => siteDeCle(r["site"]) === site)
+    .sort(
+      (a, b) =>
+        Number(cleAvecOrigine(b["site"])) - Number(cleAvecOrigine(a["site"])) ||
+        Number(b["last_ok"] ?? 0) - Number(a["last_ok"] ?? 0),
+    );
+}
+
+/** Identifiants rattachés à un site AX retirés (d'un compte, ou de tous) ; nombre de lignes retirées. */
+async function retirerIdentifiantsDuSite(
+  x: Executeur,
+  site: string,
+  proprietaire: string | null,
+): Promise<number> {
+  const lignes = await (proprietaire === null
+    ? x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials")
+    : x.all<{ owner: string; site: string }>("SELECT owner, site FROM ax_credentials WHERE owner = ?", [
+        proprietaire,
+      ]));
+  let retirees = 0;
+  for (const r of lignes)
+    if (siteDeCle(r.site) === site)
+      retirees += (await x.run("DELETE FROM ax_credentials WHERE owner = ? AND site = ?", [r.owner, r.site]))
+        .changes;
+  return retirees;
+}
+
 // ── Lecture ──────────────────────────────────────────────────────────────
 
 export interface Selecteur {
@@ -296,16 +351,19 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   });
 }
 
-/** `_render_credentials_hint` : nom de connexion du propriétaire sur ce site, jamais le mot de passe ; rien sans propriétaire. */
+/** `_render_credentials_hint` : nom de connexion du propriétaire et origine où il sera rempli, jamais le mot de passe ; rien sans propriétaire ni pour une ancienne clé. */
 async function indiceIdentifiants(x: Executeur, site: string, proprietaire: string): Promise<string | null> {
   if (!site || !proprietaire) return null;
   try {
-    const r = await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-      site,
-      proprietaire,
-    ]);
-    if (r === undefined) return null;
-    return `CREDENTIALS KNOWN: user=${String(r["username"])} (used ${String(r["use_count"])}x, auto-injected by pw_session)`;
+    const lignes = (await identifiantsDuSite(x, site, proprietaire)).filter((r) => cleAvecOrigine(r["site"]));
+    if (lignes.length === 0) return null;
+    return lignes
+      .slice(0, 3)
+      .map(
+        (r) =>
+          `CREDENTIALS KNOWN: user=${String(r["username"])} on ${String(r["site"])} (used ${String(r["use_count"])}x, auto-injected by pw_session on that exact origin only)`,
+      )
+      .join("\n");
   } catch {
     return null;
   }
@@ -540,12 +598,7 @@ export async function listSitesWithStats(
     for (const r of lignes) {
       const site = r["site"] as string;
       const trans = await x.get("SELECT COUNT(*) AS n FROM ax_transitions WHERE site = ?", [site]);
-      const cred = proprietaire
-        ? await x.get("SELECT username, use_count FROM ax_credentials WHERE site = ? AND owner = ?", [
-            site,
-            proprietaire,
-          ])
-        : undefined;
+      const cred = proprietaire ? (await identifiantsDuSite(x, site, proprietaire))[0] : undefined;
       out.push({
         site,
         elements: r["elements"] || 0,
@@ -554,6 +607,7 @@ export async function listSitesWithStats(
         transitions: trans ? trans["n"] : 0,
         has_credentials: cred !== undefined,
         cred_username: cred ? cred["username"] : null,
+        cred_origin: cred && cleAvecOrigine(cred["site"]) ? cred["site"] : null,
         cred_use_count: cred ? cred["use_count"] : 0,
         last_activity: reel(r["last_activity"]),
       });
@@ -593,12 +647,7 @@ export async function getSiteStats(
       "SELECT COUNT(*) AS n FROM ax_selectors s JOIN ax_nodes n ON s.node_id = n.id WHERE n.site = ?",
       [site],
     );
-    const cred = proprietaire
-      ? await x.get("SELECT username, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?", [
-          site,
-          proprietaire,
-        ])
-      : undefined;
+    const cred = proprietaire ? (await identifiantsDuSite(x, site, proprietaire))[0] : undefined;
     return {
       site,
       elements_ok: agg["elements_ok"] || 0,
@@ -611,6 +660,7 @@ export async function getSiteStats(
       last_activity: reel(agg["last_activity"]),
       has_credentials: cred !== undefined,
       cred_username: cred ? cred["username"] : null,
+      cred_origin: cred && cleAvecOrigine(cred["site"]) ? cred["site"] : null,
       cred_use_count: cred ? cred["use_count"] : 0,
       cred_last_ok: cred ? reel(cred["last_ok"]) : null,
     };
@@ -647,9 +697,7 @@ export async function deleteSite(
       ]);
       const tr = (await x.run("DELETE FROM ax_transitions WHERE site = ?", [site])).changes;
       const nd = (await x.run("DELETE FROM ax_nodes WHERE site = ?", [site])).changes;
-      const cr = includeCredentials
-        ? (await x.run("DELETE FROM ax_credentials WHERE site = ?", [site])).changes
-        : 0;
+      const cr = includeCredentials ? await retirerIdentifiantsDuSite(x, site, null) : 0;
       return { nodes: nd, selectors: Number(sel?.["n"] ?? 0), transitions: tr, credentials: cr };
     });
     log().info(
@@ -706,7 +754,7 @@ export async function markSiteStale(
   }
 }
 
-/** `delete_credentials` : URL normalisée ou site tel quel ; `proprietaire` absent = tous les comptes (administration). */
+/** `delete_credentials` : URL normalisée ou site tel quel, avec toutes les origines de ce site ; `proprietaire` absent = tous les comptes (administration). */
 export async function deleteCredentials(
   x: Executeur,
   urlOuSite: string,
@@ -716,12 +764,7 @@ export async function deleteCredentials(
   const site = urlOuSite.startsWith("http") ? normalizeUrl(urlOuSite)[0] : urlOuSite;
   if (!site) return false;
   try {
-    const r = await verrouAx.avec(() =>
-      proprietaire === null
-        ? x.run("DELETE FROM ax_credentials WHERE site = ?", [site])
-        : x.run("DELETE FROM ax_credentials WHERE site = ? AND owner = ?", [site, proprietaire]),
-    );
-    return r.changes > 0;
+    return (await verrouAx.avec(() => retirerIdentifiantsDuSite(x, site, proprietaire))) > 0;
   } catch {
     return false;
   }

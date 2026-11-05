@@ -5,7 +5,7 @@ import type { Dict } from "@elpis/commun";
 import { ciLike } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
 
-import { log, normalizeUrl, texte, topSelecteurs, verrouAx } from "./ax";
+import { log, normalizeUrl, origineExacte, texte, topSelecteurs, verrouAx } from "./ax";
 import type { Selecteur } from "./ax";
 import { echapperDsl } from "./client";
 
@@ -276,7 +276,7 @@ export async function recordInspection(
   }
 }
 
-/** `save_credentials` : couple du compte pour le site normalisé (un seul, remplacé) ; propriétaire vide : refus. */
+/** `save_credentials` : couple du compte pour l'origine exacte de l'URL (un seul, remplacé) ; propriétaire vide ou adresse sans origine http(s) : refus. */
 export async function saveCredentials(
   b: Base,
   url: string,
@@ -285,7 +285,7 @@ export async function saveCredentials(
   owner: string,
 ): Promise<boolean> {
   if (!url || !username || !password || !owner) return false;
-  const [site] = normalizeUrl(url);
+  const site = origineExacte(url);
   if (!site) return false;
   try {
     await verrouAx.avec(() =>
@@ -302,10 +302,10 @@ export async function saveCredentials(
   }
 }
 
-/** `get_credentials` : couple de CE compte pour le site, `null` sinon (jamais celui d'un autre). */
+/** `get_credentials` : couple de CE compte pour l'origine exacte de l'URL, `null` sinon (jamais celui d'un autre, ni une ancienne clé sans origine). */
 export async function getCredentials(x: Executeur, url: string, owner: string): Promise<Dict | null> {
   if (!url || !owner) return null;
-  const [site] = normalizeUrl(url);
+  const site = origineExacte(url);
   if (!site) return null;
   try {
     const r = await x.get(

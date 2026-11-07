@@ -92,6 +92,8 @@ export interface OptionsPayload {
   chatId: string | null;
   reasoningEffort?: string | null;
   preserveReasoning?: boolean | null;
+  /** Budget de réflexion de la requête (`thinking_budget_tokens`, llama.cpp) : coupe un modèle qui réfléchit malgré `enable_thinking: false`. */
+  reasoningBudget?: number | null;
   slotAvoidOwn?: boolean;
   /** Clé hachée pour choisir le slot (llama.cpp) ; absente, le chatId. */
   slotKey?: string | null;
@@ -122,6 +124,8 @@ export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload
     if (ping && ping > 0 && caps.payloadSsePing) payload["sse_ping_interval"] = intPy(ping);
     if (o.thinkingMode && config.LLAMA_REASONING_CONTROL && caps.payloadReasoningControl)
       payload["reasoning_control"] = true;
+    if (typeof o.reasoningBudget === "number" && o.reasoningBudget >= 0)
+      payload["thinking_budget_tokens"] = Math.trunc(o.reasoningBudget);
   }
   if (o.localLlamacpp) {
     let ctx: number;

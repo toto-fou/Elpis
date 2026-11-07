@@ -38,6 +38,7 @@ export interface OptionsAppelUnique extends AffiniteSlot {
   modelOverride?: string | null;
   samplingOverride?: Dict | null;
   thinkingMode?: boolean;
+  reasoningBudget?: number | null;
   chatId?: string | null;
   slotAvoidOwn?: boolean;
   isCancelled?: (() => boolean) | null;
@@ -61,6 +62,7 @@ export async function llamaChatStreamTokens(
       modelOverride: o.modelOverride ?? null,
       userId: o.userId ?? "guest",
       thinkingMode: o.thinkingMode ?? false,
+      reasoningBudget: o.reasoningBudget ?? null,
       samplingOverride: o.samplingOverride ?? null,
       chatId: o.chatId ?? null,
       slotAvoidOwn: o.slotAvoidOwn ?? false,
@@ -185,6 +187,9 @@ export function horsTour<T>(
 
 /** Délai de la génération du titre (`asyncio.wait_for(…, timeout=45.0)`). */
 export const TITLE_TIMEOUT_S = 45.0;
+/** Titre d'un modèle qui réfléchit malgré `enable_thinking: false` (gabarit sans interrupteur) : réflexion coupée à 64 jetons, place gardée pour la réponse. */
+export const TITLE_REASONING_BUDGET = 64;
+export const TITLE_MAX_TOKENS = 128;
 
 export const TITLE_PROMPT =
   "You are a title generator. Output ONLY a chat title for the conversation below. A single line, maximum 50 " +
@@ -239,7 +244,8 @@ export async function generateChatTitle(
           userId: "title",
           modelOverride: selectedModel,
           thinkingMode: false,
-          samplingOverride: { temperature: 0.2, max_tokens: 24 },
+          reasoningBudget: TITLE_REASONING_BUDGET,
+          samplingOverride: { temperature: 0.2, max_tokens: TITLE_MAX_TOKENS },
           chatId: o.chatId ?? null,
           slotAvoidOwn: true,
           signal: arret.signal,
@@ -255,7 +261,12 @@ export async function generateChatTitle(
       o.signal?.removeEventListener("abort", relais);
     }
     const lignes = splitlinesPy(stripPy(r[1] || ""));
-    if (!lignes.length) return null;
+    if (!lignes.length) {
+      log.info(
+        `[chat_title] sortie vide (finish=${strPy(r[2]["finish_reason"] ?? "")}${r[0] ? ", raisonnement seul" : ""}) — fallback tronqué`,
+      );
+      return null;
+    }
     let t = stripPy(lignes[0]!);
     t = stripPy(nettoyerBords(nettoyerBords(t, "\"'`«»", true), ".…:;,", false));
     if (!t || longueurPy(t) < 3 || t.includes("<think") || longueurPy(t) > 80) {

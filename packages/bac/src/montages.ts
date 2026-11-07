@@ -17,9 +17,9 @@ export const RELAY_MOUNT = "/run/elpis-relay";
 /** Surcharge de test du dossier de l'agent (`null` : celui du dépôt). */
 export const reglagesMontages: { agentDir: string | null } = { agentDir: null };
 
-/** `AGENT_DIR` : dossier résolu de `shared_infra/sandbox/agent`, même chaîne que le Python (étiquette `elpis.agent`). */
+/** `AGENT_DIR` : dossier résolu de `sandbox-agent/` (étiquette `elpis.agent`). */
 export function agentDir(): string {
-  return reglagesMontages.agentDir ?? realpathPy(pyJoin(racineDepot(), "shared_infra/sandbox/agent"));
+  return reglagesMontages.agentDir ?? realpathPy(pyJoin(racineDepot(), "sandbox-agent"));
 }
 
 /** `_AGENT_EMPREINTE` : 12 hex du SHA-256 du chemin de l'agent ; le changer fait recréer les conteneurs. */

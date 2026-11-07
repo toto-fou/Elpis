@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""shared_infra/sandbox/agent/server.py — agent de la sandbox (L4, 2026-09-29).
+"""sandbox-agent/server.py — agent de la sandbox (L4, 2026-09-29).
 
 Exécute DANS le conteneur de l'utilisateur les opérations sur ``/work`` que
 l'hôte lui demande, pour que l'hôte ne touche plus lui-même au contenu de la

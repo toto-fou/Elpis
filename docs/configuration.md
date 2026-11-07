@@ -415,12 +415,10 @@ ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 `APP_CONFIG_PATH`), is the instance configuration. It is **not versioned**:
 the repository contains only an example.
 
-> It used to live in `shared_infra/`. An installation that has not
-> moved it yet keeps working — `shared_infra/config.py` falls
-> back to the old location and prints a notice at startup. This fallback is
-> temporary: without it, a file that cannot be found would be read as `{}` **without
-> an error**, and the instance would restart with a new session secret (sessions
-> invalidated), no TLS and no Qdrant key.
+> Elpis reads no other location. A `config.json` left in `shared_infra/` by a
+> development version from before 0.0.1 must be moved to the root: a file that cannot
+> be found is read as `{}` **without an error**, and the instance would restart with a
+> new session secret (sessions invalidated), no TLS and no Qdrant key.
 
 Sections:
 
@@ -818,7 +816,7 @@ as missing.
 | Variable | JSON key | Default | Description |
 |---|---|---|---|
 | `APP_CONFIG_PATH` | — | `config.json` (root) | Config path |
-| `APP_CONTEXT_CONFIG` | — | `shared_infra/context_config.json` | LLM texts |
+| `APP_CONTEXT_CONFIG` | `app.context_config_path` | `packages/config/context_config.json` | LLM texts |
 | `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | SQLite file (default engine) |
 | `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Session signing |
 | `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Max active conversations — **destructive** beyond it (see below); re-read live |
@@ -1247,7 +1245,7 @@ A single engine, set in Admin console › Models & services › Images
 ### `context_config.json` — text injected into the LLM
 
 Goal: **no text meant for the model should be a frozen Python
-literal**. `shared_infra/context_config.json` centralizes prefixes, headers,
+literal**. `packages/config/context_config.json` centralizes prefixes, headers,
 separators, error catalog and budgets. Loaded once at boot.
 
 Conventions:

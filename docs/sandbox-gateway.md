@@ -43,7 +43,7 @@ links (`packages/securite/src/confinement.ts`).
 
 ## The agent
 
-- `shared_infra/sandbox/agent/server.py`: Python (standard library,
+- `sandbox-agent/server.py`: Python (standard library,
   Python ≥ 3.9), the only gateway code that runs in the container. The code
   is mounted read-only (`/opt/elpis/agent`), started on demand by
   `docker exec -d` under the container UID, with no capabilities, and

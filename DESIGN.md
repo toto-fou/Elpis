@@ -155,6 +155,8 @@ De facto scale, to follow so a new layer finds its place:
 - `prefers-reduced-motion: reduce` turns off non-essential animations
   (dedicated block in `style.css`); every new animation provides its
   alternative (fade or instant change).
+- Drags (editor splitters): one position per frame (`parImage`); the layout
+  follows through size observers, and the shell only receives the final size.
 
 ## Iconography
 

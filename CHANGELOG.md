@@ -155,6 +155,10 @@ follow [SemVer](https://semver.org/).
   requested in adaptive summarized mode from Claude 4.6, the chat's Thinking switch
   is offered for these connectors, and an API refusal related to thinking
   (history modified during the turn) is replayed once without it.
+- **Editor splitters: smooth drags.** Dragging the terminal or the file explorer splitter
+  relaid out the editor on every mouse move, which stuttered. One position is applied per
+  frame and the size observers do the layout; the shell receives the terminal size once
+  the drag settles.
 
 ## 0.1.2 — 2026-11-01
 

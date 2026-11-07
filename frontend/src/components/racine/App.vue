@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/racine/App.vue — racine de la page de chat (index.html) : monte tous les modules, fournit les domaines injectés, dispose la console intégrée, la barre latérale, les pages et les fenêtres. -->
 <script setup lang="ts">
+import { onMounted, watch } from "vue";
 import { creerApiRoutines } from "../../features/routines/api";
 import { creerRoutines } from "../../features/routines/routines";
 import { fournirDomaineRoutines } from "../../features/routines/domaine";
@@ -20,6 +21,10 @@ import { creerDialogueStudio } from "../../features/studio/dialogue";
 import { fournirDomaineStudio } from "../../features/studio/domaine";
 import { creerMenuStudio } from "../../features/studio/menu";
 import { chargerMonaco } from "../../features/editor/chargeur";
+import { prechaufferEditeurs } from "../../features/editor/instances";
+import type { MonacoEditeurs } from "../../features/editor/instances";
+import { ensureVendor } from "../../platform/vendor";
+import { auRepos } from "../../platform/repos";
 import { fournirDomaineEditeur } from "../../features/editor/domaine";
 import { setupEditor } from "../../features/editor/editeur";
 import { fournirDomaineAdmin } from "../../features/admin/domaine";
@@ -122,6 +127,23 @@ fournirDomaineReglages(r);
 fournirDomaineAdmin(r);
 fournirDomaineStudio(r);
 fournirDomaineModales(r, false);
+
+// Coloration du code, puis Monaco si l'éditeur est actif : chargés au premier repos, pas au premier clic qui les demande.
+onMounted(() => auRepos(() => void ensureVendor("highlight").catch(() => undefined)));
+watch(
+  () => !!r.settings?.enable_editor,
+  (actif) => {
+    if (actif)
+      auRepos(
+        () =>
+          void chargerMonaco()
+            .then((m) => auRepos(() => prechaufferEditeurs(m as unknown as MonacoEditeurs, r.settings)))
+            .catch(() => undefined),
+        6000,
+      );
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

@@ -46,6 +46,10 @@ follow [SemVer](https://semver.org/).
   code. A new database now gets the core's schema right away. The configuration needs
   the core bundle (`./install.sh` builds it first); without it, `./elpis configure` stops
   at the administrator account with a clear message.
+- **Editor ready before its first opening.** Code highlighting, and Monaco when the editor is
+  enabled, load at the first idle moment; an editor is then created and discarded off screen,
+  so the first Sandbox opening no longer freezes. The editor theme is redefined only when the
+  skin's colours change, not on every dialog or menu.
 - **Sandbox agent in `sandbox-agent/`.** The agent that runs inside each sandbox
   container leaves `shared_infra/`. Because its mount path changes, each sandbox
   container is recreated once on first use after the update, as after an image update;

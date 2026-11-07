@@ -158,6 +158,9 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Chat: no more jump just after opening a conversation.** The code block headers, added
+  once the page is idle, pushed the end of the conversation down by 33 px for a few frames;
+  the conversation now stays at the bottom when its content grows.
 - **`npm run verifier` on the public tree.** It stopped on the missing test kit (goldens
   replay) and on the absence of tests; both steps now pass when there is nothing to run.
   One file that failed `format:check` is formatted.

@@ -57,6 +57,8 @@ follow [SemVer](https://semver.org/).
   `app.context_config_path` setting is now read from `config.json` (it was read from the
   old `shared_infra/config.json` only). Elpis no longer looks for a `config.json` under
   `shared_infra/`: every release writes it at the root.
+- **Admin console: metrics charts drawn one per frame.** The Metrics pages created all their
+  charts in one go (over 130 ms without a frame); each chart now gets its own frame.
 - **Tool validation errors in English.** `routine_save` and `agent_save` return their
   validation errors (cron, skills, names, limits) in English to the model, while the
   Routines and Agents pages keep the same French messages. The Gitea "pull requests

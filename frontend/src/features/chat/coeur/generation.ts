@@ -16,6 +16,7 @@ import { PRE_RENDER_CLEAR, STREAM_RENDER_CLEAR } from "./rendu-flux.ts";
 import type { DonneesFlux, MessageChat, Objet } from "./types.ts";
 
 const RETENTATIVES_MAX = 2;
+const RELECTURE_TITRE_MS = 5000;
 const REPRISE_CLEAR: Readonly<Objet> = Object.freeze({
   isTruncated: false,
   toolLoopTruncated: false,
@@ -440,6 +441,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       const ev = res.ev;
       if (!res.appliquer || !ev) continue;
       if (ev.type === "final" || ev.type === "error") conclu = true;
+      else if (ev.type === "title") run.titreAttendu = false;
       try {
         await l.handleStreamEvent(ev as unknown as DonneesFlux);
       } catch (err) {
@@ -615,8 +617,10 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
           premier ? premier.displayContent || premier.content || "" : "",
           run,
         );
-        if (cree) run.chatId = String(cree);
-        else
+        if (cree) {
+          run.chatId = String(cree);
+          run.titreAttendu = true;
+        } else
           ctx.showToast(
             "Conversation non enregistrée côté serveur : cette réponse sera perdue si vous rechargez la page. Copiez ce qui vous importe.",
             "warning",
@@ -654,6 +658,11 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       void nextTick(() => {
         if (r.user.value) void l.loadChatsList();
       });
+      // Titre du modèle arrivé après le flux (arrêt, moteur lent) : la liste est relue une fois de plus.
+      if (run.titreAttendu)
+        setTimeout(() => {
+          if (r.user.value) void l.loadChatsList();
+        }, RELECTURE_TITRE_MS);
     } catch (err) {
       // Erreur précoce : le garde anti double envoi est relâché (sauf génération supplantée).
       if (mien === f.activeGen) {

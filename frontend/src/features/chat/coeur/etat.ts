@@ -209,6 +209,8 @@ export interface RunLu {
   detached: boolean;
   attached?: boolean;
   stopped?: boolean;
+  /** Chat créé par ce tour, titre du modèle pas encore reçu par le flux. */
+  titreAttendu?: boolean;
 }
 
 export type Minuterie = ReturnType<typeof setTimeout>;

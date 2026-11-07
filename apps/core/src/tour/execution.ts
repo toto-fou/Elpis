@@ -27,7 +27,13 @@ import { runChatMultiMcp } from "../boucle/orchestrateur";
 import type { OptionsRun } from "../boucle/orchestrateur";
 import { logMetric, tokenHex } from "../boucle/ports";
 import type { SortieRun } from "../boucle/sortie";
-import { enforceRecentChatsCap, finalizeTurnMeta, getChat, SUFFIXE_LLM_MAX } from "../chats/stockage";
+import {
+  enforceRecentChatsCap,
+  finalizeTurnMeta,
+  getChat,
+  setTitleIfDefault,
+  SUFFIXE_LLM_MAX,
+} from "../chats/stockage";
 import {
   buildStateSystemMessage,
   extractCompressionState,
@@ -86,7 +92,6 @@ const log = journal("uvicorn.error");
 
 const WAIT_REPORT_FIRST_S = 3.0;
 const WAIT_REPORT_PERIOD_S = 10.0;
-const TITRE_ATTENTE_S = 3.0;
 const CLOTURE_S = 10.0;
 
 const monotone = (): number => performance.now() / 1000;
@@ -521,8 +526,31 @@ export async function* runTurn(
     const taskUsage: Dict = {};
     const imageSink: Dict = {};
     const rag: { outils: OutilsChatRag | null } = { outils: null };
-    let titre: { promesse: Promise<string | null>; fini: boolean; valeur: string | null } | null = null;
-    const titreArret = new AbortController();
+    let titre: { fini: boolean; valeur: string | null } | null = null;
+    let fluxOuvert = true;
+    /** Titre du modèle demandé dès le début du tour, posé et diffusé à son arrivée, même après un arrêt. */
+    const lancerTitre = (): { fini: boolean; valeur: string | null } => {
+      const t = { fini: false, valeur: null as string | null };
+      void reglages
+        .titre(selectedModel, plan.titleContent, "", { chatId })
+        .catch(() => null)
+        .then(async (v) => {
+          t.fini = true;
+          t.valeur = v;
+          if (!v || !(await setTitleIfDefault(db, uid, chatId, v, plan.title).catch(() => false))) return;
+          if (fluxOuvert && !drapeaux.finalEnvoye)
+            await onEvent({ type: "title", chat_id: chatId, title: v }).catch(() => undefined);
+        });
+      return t;
+    };
+    /** Titre arrivé pendant l'écriture du tour, qui a pu garder le provisoire : reposé, sauf renommage entre-temps. */
+    const rattraperTitre = async (ecrit: string, id: string): Promise<string> => {
+      const t = titre as { fini: boolean; valeur: string | null } | null;
+      if (!t?.fini || !t.valeur || ecrit !== plan.title) return ecrit;
+      return (await setTitleIfDefault(db, uid, id, t.valeur, plan.title).catch(() => false))
+        ? t.valeur
+        : ecrit;
+    };
     try {
       await persisterQuestion();
       const parts: string[] = [];
@@ -537,6 +565,8 @@ export async function* runTurn(
       let thinkingText = "";
       const engine = engineForTarget(target);
       const qstatus = await reglages.etatFile(selectedModel, target);
+      // Titre lancé après la lecture de la file : sa propre requête n'y apparaît pas comme une attente du tour.
+      if (plan.titleWasGenerated && !plan.ephemeral && !plan.chatReadFailed) titre = lancerTitre();
       if (qstatus["kind"] !== "ready") {
         await onEvent({ type: "queue_status", ...qstatus });
         fileAnnoncee.v = true;
@@ -592,22 +622,6 @@ export async function* runTurn(
                 })
                 .catch(() => undefined);
             debutLlm = Date.now();
-            if (plan.titleWasGenerated && !plan.ephemeral && !plan.chatReadFailed) {
-              const t = {
-                promesse: Promise.resolve<string | null>(null),
-                fini: false,
-                valeur: null as string | null,
-              };
-              t.promesse = reglages
-                .titre(selectedModel, plan.titleContent, "", { chatId, signal: titreArret.signal })
-                .catch(() => null)
-                .then((v) => {
-                  t.fini = true;
-                  t.valeur = v;
-                  return v;
-                });
-              titre = t;
-            }
             await onEvent({ type: "mode", text: "Outils prêts…" });
             rag.outils = plan.rag
               ? creerOutilsChatRag({
@@ -745,12 +759,8 @@ export async function* runTurn(
       let persisted = false;
       let persistError: string | null = null;
       let finalTitle = plan.title;
-      const t = titre as { promesse: Promise<string | null>; fini: boolean; valeur: string | null } | null;
-      if (t !== null) {
-        const attente = await auPlus(t.promesse, TITRE_ATTENTE_S);
-        if (attente === undefined && !t.fini) titreArret.abort(new CancelledError("chat_title wait"));
-        else if (attente) finalTitle = attente;
-      }
+      const t = titre as { fini: boolean; valeur: string | null } | null;
+      if (t?.fini && t.valeur) finalTitle = t.valeur;
       let chatEffectif = chatId;
       try {
         tourPersiste = true;
@@ -795,6 +805,7 @@ export async function* runTurn(
           );
         }
       }
+      if (persisted) finalTitle = await rattraperTitre(finalTitle, chatEffectif);
       const doPrune = persisted && nouvellesClesElaguees.length > 0;
       const doTools = persisted && !plan.ephemeral && plan.mcpOn && plan.origin !== "job_wake";
       const planOff = planModeShouldEnd(plan.planMode, persisted, plan.ephemeral, metrics);
@@ -910,12 +921,10 @@ export async function* runTurn(
           log.debug(`[chat.worker.7] ${String(e)}`);
         }
       }
+      fluxOuvert = false;
       let titrePartiel = plan.title || "Nouveau chat";
       const t = titre as { fini: boolean; valeur: string | null } | null;
-      if (t !== null) {
-        if (t.fini) titrePartiel = t.valeur || titrePartiel;
-        else titreArret.abort(new CancelledError("chat_title abandoned"));
-      }
+      if (t?.fini && t.valeur) titrePartiel = t.valeur;
       if ((annule || plante) && !finalAssistant && !tourPersiste) {
         try {
           etapes.arreter();
@@ -945,6 +954,7 @@ export async function* runTurn(
             );
             if (r === false) erreur = "conflict";
             else persiste = issueJobs.message = issueJobs.reponse = true;
+            if (persiste) titrePartiel = await rattraperTitre(titrePartiel, chatId);
             if (persiste && !plan.ephemeral && nouvellesClesElaguees.length)
               await finalizeTurnMeta(db, uid, chatId, { prunedKeys: [...nouvellesClesElaguees] }).catch((e) =>
                 log.debug(`[chat.partiel.prune] ${String(e)}`),

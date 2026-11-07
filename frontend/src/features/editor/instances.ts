@@ -171,6 +171,31 @@ function options(p: PreferencesEditeur, theme: string): Record<string, unknown> 
   };
 }
 
+// Monaco a déjà servi (préchauffé ou éditeurs créés) : plus rien à préchauffer.
+let monacoServi = false;
+
+/** Crée puis libère, hors écran et sans toucher au thème global, un éditeur et un éditeur de différences aux réglages du compte : polices mesurées et services de Monaco prêts avant la première ouverture. */
+export function prechaufferEditeurs(
+  monaco: MonacoEditeurs,
+  reglages: ReglagesEditeur | null | undefined,
+): void {
+  if (monacoServi) return;
+  monacoServi = true;
+  const o = options(preferencesEditeur(reglages), "");
+  delete o.theme;
+  const hote = document.createElement("div");
+  hote.style.cssText = "position:fixed;left:-10000px;top:0;width:640px;height:420px;visibility:hidden";
+  document.body.appendChild(hote);
+  try {
+    monaco.editor.create(hote, o).dispose();
+    monaco.editor.createDiffEditor(hote, { automaticLayout: false }).dispose();
+  } catch {
+    /* préchauffage facultatif */
+  } finally {
+    hote.remove();
+  }
+}
+
 /** Crée les trois éditeurs ; tout ce qu'ils posent (abonnements, observateur) est libéré par `liberer`. */
 export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMonaco, Mo extends ModeleJetable>(
   monaco: MonacoEditeurs<E, D, Mo>,
@@ -178,6 +203,7 @@ export function creerEditeurs<E extends EditeurMonaco, D extends EditeurDiffMona
   reglages: ReglagesEditeur | null | undefined,
   r: RappelsEditeurs<Mo>,
 ): Editeurs<E, D, Mo> {
+  monacoServi = true;
   const prefs = preferencesEditeur(reglages);
   const theme = themeEditeur(reglages);
   const jetables: Jetable[] = [];

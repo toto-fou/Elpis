@@ -281,16 +281,26 @@ export function jetonsDe(racine: Element, sombreDemande: boolean): { j: JetonsCo
   return { j, sombre: luminance(j.fond) < 0.18 };
 }
 
-/** Définit et pose le thème de l'éditeur lié au skin depuis les jetons de `racine` ; renvoie le thème du terminal. */
+// Dernière définition passée à chaque Monaco, par nom : redéfinir un thème identique régénère sa feuille de couleurs et fait recalculer les styles de toute la page.
+const definis = new WeakMap<object, Map<string, string>>();
+
+/** Définit (si ses jetons ont changé) et pose le thème de l'éditeur lié au skin depuis les jetons de `racine` ; renvoie le thème du terminal. */
 export function appliquerThemeElpis(monaco: MonacoThemes, racine: Element, sombreDemande: boolean): ITheme {
   const { j, sombre } = jetonsDe(racine, sombreDemande);
   const nom = sombre ? THEME_ENCRE : THEME_PAPIER;
-  monaco.editor.defineTheme(nom, {
-    base: sombre ? "vs-dark" : "vs",
+  const theme = {
+    base: sombre ? ("vs-dark" as const) : ("vs" as const),
     inherit: true,
     rules: j.syntaxe,
     colors: couleursMonaco(j, sombre),
-  });
+  };
+  const cle = JSON.stringify(theme);
+  let noms = definis.get(monaco.editor);
+  if (!noms) definis.set(monaco.editor, (noms = new Map()));
+  if (noms.get(nom) !== cle) {
+    monaco.editor.defineTheme(nom, theme);
+    noms.set(nom, cle);
+  }
   monaco.editor.setTheme(nom);
   return themeTerminal(j, sombre);
 }

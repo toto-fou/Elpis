@@ -173,6 +173,10 @@ follow [SemVer](https://semver.org/).
 - **`npm run verifier` on the public tree.** It stopped on the missing test kit (goldens
   replay) and on the absence of tests; both steps now pass when there is nothing to run.
   One file that failed `format:check` is formatted.
+- **Claude connectors: reasoning effort.** The Generation panel offered no effort for Claude
+  models and requests never sent one. The levels now follow the model (`low` to `max` from
+  4.7 and on Fable and Mythos, no `xhigh` on 4.6, `low` to `high` on Opus 4.5, none before)
+  and go out as `output_config.effort`; `max` is never sent to vLLM or SGLang.
 - **Chat title with models that think anyway.** A model whose chat template has no thinking
   switch ignores `enable_thinking: false`: it spent the 24 tokens of the title request
   reasoning and the chat kept its truncated title. The title request now caps reasoning at

@@ -7,7 +7,7 @@ import type { Ref } from "vue";
 import { journal } from "../../platform/journal.ts";
 
 const BUDGET_REFLEXION_DEFAUT = 8192;
-const EFFORTS_CONNUS: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh"];
+const EFFORTS_CONNUS: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 /** Ancienne place des réglages (navigateur) : relue une fois pour les porter sur le compte. */
 const CLE_STOCKAGE = "sampling_override";
 const LONGUEUR_LIMITE_DEFAUT = 8192;
@@ -491,7 +491,7 @@ export function setupEchantillonnage(
     },
   });
 
-  // Le serveur ne déclare l'effort que là où il est connu : props de llama.cpp, ou dialecte de vLLM et SGLang.
+  // Le serveur ne déclare l'effort que là où il est connu : props de llama.cpp, dialecte de vLLM et SGLang, ou modèle Claude.
   const reasoningEffortValues = computed<string[]>(() => {
     const d = effectiveParamsData.value;
     if (!d || !d.supports_reasoning_effort) return [];

@@ -276,6 +276,20 @@ export function claudeVersion(model: string | null | undefined): [number, number
   return [intPy(m[1]), intPy(m[2] || 0)];
 }
 
+/** Niveaux d'`output_config.effort` de Claude, du plus bas au plus haut. */
+export const EFFORTS_CLAUDE: readonly string[] = ["low", "medium", "high", "xhigh", "max"];
+
+/** Niveaux d'effort acceptés par le modèle (pure) : tous dès 4.7 et sur Fable/Mythos, sans `xhigh` en 4.6, trois sur Opus 4.5, aucun sinon (refus 400). */
+export function effortsClaude(model: string | null | undefined): string[] {
+  const id = model || "";
+  if (/claude-(?:fable|mythos)-/u.test(id)) return [...EFFORTS_CLAUDE];
+  const v = claudeVersion(id);
+  if (v === null || v[0] < 4) return [];
+  if (v[0] > 4 || v[1] >= 7) return [...EFFORTS_CLAUDE];
+  if (v[1] === 6) return ["low", "medium", "high", "max"];
+  return v[1] === 5 && id.includes("opus") ? ["low", "medium", "high"] : [];
+}
+
 /** Paramètre `thinking` adapté au modèle (pure) : `adaptive` dès 4.6 ou inconnu, budget avant, rien avant 3.7. */
 export function thinkingConfig(model: string, maxTokens: number): Dict | null {
   const v = claudeVersion(model);
@@ -302,7 +316,7 @@ export function poserPointsCache(corps: Dict): void {
   }
 }
 
-/** Corps `/v1/messages` (pure) : pas de sampling, réflexion adaptative même avec outils (budget fixe : sans outils seulement) ; points de cache sur demande (boucle d'outils). */
+/** Corps `/v1/messages` (pure) : pas de sampling, réflexion adaptative même avec outils (budget fixe : sans outils seulement), effort si le modèle l'accepte ; points de cache sur demande (boucle d'outils). */
 export function buildBody(
   target: CibleAnthropic,
   messages: readonly unknown[],
@@ -329,6 +343,11 @@ export function buildBody(
     const cfg = thinkingConfig(corps["model"] as string, corps["max_tokens"] as number);
     if (cfg && (outils.length === 0 || cfg["type"] === "adaptive")) corps["thinking"] = cfg;
   }
+  const effort = estDict(options.samplingOverride)
+    ? getPy(options.samplingOverride, "reasoning_effort")
+    : null;
+  if (typeof effort === "string" && effortsClaude(corps["model"] as string).includes(effort))
+    corps["output_config"] = { effort };
   if (options.cache) poserPointsCache(corps);
   return corps;
 }

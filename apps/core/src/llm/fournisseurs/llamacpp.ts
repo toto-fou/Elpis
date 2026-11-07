@@ -19,7 +19,7 @@ import { getModelContextSize } from "../modeles";
 import { currentEngine } from "../moteurs";
 import { getPreserveReasoningSupport, getReasoningEffortValues } from "../parametres";
 import { executions } from "../ports";
-import { texteReflexion } from "../profils";
+import { EFFORTS_DIALECTE_ETENDU, texteReflexion } from "../profils";
 import { providerHttpError } from "../reprises";
 import type { ProviderError } from "../reprises";
 import { observerUsage } from "../sonde-moteur";
@@ -138,7 +138,8 @@ export async function buildLlamaPayload(msgsEntree: unknown[], o: OptionsPayload
       uncapOutput: Boolean(o.thinkingMode && LLAMA_THINKING_OUTPUT_UNCAPPED),
     });
   }
-  if (o.dialecteEtendu && o.reasoningEffort) payload["reasoning_effort"] = o.reasoningEffort;
+  if (o.dialecteEtendu && o.reasoningEffort && EFFORTS_DIALECTE_ETENDU.includes(o.reasoningEffort))
+    payload["reasoning_effort"] = o.reasoningEffort;
   if (o.llamaNative || o.dialecteEtendu) {
     const kwargs: Dict = { enable_thinking: Boolean(o.thinkingMode) };
     payload["chat_template_kwargs"] = kwargs;

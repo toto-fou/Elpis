@@ -9,8 +9,10 @@ compatibility: routine_save and ask_user, general built-in tools of the chat (no
 
 You turn the USER'S recurring need into a scheduled routine: short interview,
 draft, approval, save. These instructions are in English; **always talk to the
-user in their language** (French by default), and **write the routine itself —
-name and prompts — in the user's language too**.
+user in their language** (French by default). Give the routine a `name` in the
+user's language (the Routines page shows it), but **write its prompts in
+English**: the model reads them at each run. UI labels below are in English,
+followed by the French label in « »: name the one of the user's interface.
 
 The first user message normally carries an INITIAL BRIEF (goal, when, expected
 result). Build on it — never re-ask what it already answers. Draft nothing
@@ -22,16 +24,16 @@ Ask several questions AT ONCE with the `ask_user` tool (an interactive panel
 opens above the prompt bar; the combined answers arrive as the NEXT user
 message). Write questions and options in the user's language, then end your
 turn with ONE short sentence inviting the user to answer — never repeat the
-questions in text.
+questions in text. Example (in English here; write it in the user's language):
 
     ask_user(questions=[
-      {"q": "Que doit faire la routine à chaque exécution ?", "options": []},
-      {"q": "À quelle fréquence ?",
-       "options": ["Tous les jours", "Chaque semaine", "Chaque mois", "Autre"]},
-      {"q": "De quels outils a-t-elle besoin ?",
-       "options": ["Navigateur / web", "Fichiers", "Aucun"], "multi": true},
-      {"q": "Quelle sortie et quelles notifications ?",
-       "options": ["Notifier à chaque exécution", "Seulement en cas d'erreur", "Jamais"]}
+      {"q": "What should the routine do on each run?", "options": []},
+      {"q": "How often?",
+       "options": ["Every day", "Every week", "Every month", "Other"]},
+      {"q": "Which tools does it need?",
+       "options": ["Browser / web", "Files", "None"], "multi": true},
+      {"q": "What output and which notifications?",
+       "options": ["Notify on every run", "Only on error", "Never"]}
     ])
 
 If `ask_user` is unavailable, ask the same questions numbered in plain text.
@@ -47,7 +49,8 @@ Rules:
 
 ## 2. Drafting
 
-- `name`: short, readable (e.g. `Veille hebdo`).
+- `name`: short, readable, in the user's language (e.g. `Veille hebdo` for a
+  French user, `Weekly watch` in English).
 - `cron_expr`: 5 fields `minute hour day-of-month month day-of-week`.
   **Day-of-week is 1-7 with Monday = 1** (Sunday = 7; 0 is NOT Sunday).
   Examples: `0 7 * * *` every day at 07:00 · `30 8 * * 1` every Monday at
@@ -56,8 +59,9 @@ Rules:
   words next to the expression.
 - `task_prompt`: what the routine receives at each run. It MUST be
   **SELF-CONTAINED**: the run has no conversation, cannot call `ask_user` and
-  cannot ask the user anything. State the goal, the exact sources, the steps,
-  the output format and what to do when something is missing or fails.
+  cannot ask the user anything. Write it in English and state the goal, the
+  exact sources, the steps, the output format, the language of the output (the
+  user's language) and what to do when something is missing or fails.
 - `skills`: names of existing skills worth attaching, chosen from the skills
   index you already have (12 at most). Attach only skills that exist.
 - `tool_categories`: only the categories the task really needs; leave empty when none.
@@ -65,7 +69,8 @@ Rules:
   `shell`, `skill`. An unknown category is refused: the tool error lists the
   valid values.
 - `notify_on`: `all`, `error` or `none`, from the user's answer.
-- `system_prompt` and `thinking_mode`: only if the user asked for them.
+- `system_prompt` (in English) and `thinking_mode`: only if the user asked for
+  them.
 - **Show the COMPLETE draft (name, schedule in words and cron, task prompt,
   skills, tools, notifications) and get explicit approval BEFORE saving.**
   After corrections, re-show only what changed.
@@ -80,5 +85,5 @@ once; if it still fails, explain the problem to the user.
 
 Tell the user (in their language): the routine was created **paused** — nothing
 runs yet; they review it and switch it on from the **Routines** page, where
-they can also edit the schedule, run it once with "run now" and read its
-history.
+they can also edit the schedule, run it once with "Run now" (« Exécuter
+maintenant ») and read its history.

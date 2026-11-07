@@ -8,6 +8,10 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Shipped skills: English for the model.** The skill, routine, agent and skin
+  assistants no longer carry French examples. The skills and routine prompts they write
+  are in English, like agent personas; questions, routine names and skin labels stay in
+  the user's language.
 - **Documentation in English.** The docs, READMEs, contributor files and this changelog
   are in English. The user guide also exists in French (`docs/fr/user-guide.md`); the Help
   window shows it while the interface is French-only. `docs/guide-utilisateur.md` becomes

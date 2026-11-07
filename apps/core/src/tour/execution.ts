@@ -528,11 +528,10 @@ export async function* runTurn(
     const rag: { outils: OutilsChatRag | null } = { outils: null };
     let titre: { fini: boolean; valeur: string | null } | null = null;
     let fluxOuvert = true;
-    /** Titre du modèle demandé dès le début du tour, posé et diffusé à son arrivée, même après un arrêt. */
+    /** Titre du modèle demandé dès le début du tour au moteur du tour, posé et diffusé à son arrivée, même après un arrêt. */
     const lancerTitre = (): { fini: boolean; valeur: string | null } => {
       const t = { fini: false, valeur: null as string | null };
-      void reglages
-        .titre(selectedModel, plan.titleContent, "", { chatId })
+      void useLlmTarget(target, () => reglages.titre(selectedModel, plan.titleContent, "", { chatId }))
         .catch(() => null)
         .then(async (v) => {
           t.fini = true;

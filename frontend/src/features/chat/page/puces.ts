@@ -63,6 +63,7 @@ const EFFORTS: Readonly<Record<string, string>> = {
   medium: "Moyenne",
   high: "Élevée",
   xhigh: "Très élevée",
+  max: "Maximale",
 };
 
 export const libelleEffort = (v: string): string => EFFORTS[v] ?? v;

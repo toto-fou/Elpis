@@ -7,6 +7,7 @@ import { estDict } from "../python";
 import type { Dict } from "../python";
 import { LLAMA_MAX_TOOL_ITERATIONS, LLAMA_THINKING_BUDGET_TOKENS } from "./constantes";
 import { getPy } from "./dict-py";
+import { effortsClaude } from "./fournisseurs/anthropic";
 import { llamaGet, monotonic } from "./llama-http";
 import { autoloadSuffix } from "./modeles";
 import { currentEngine } from "./moteurs";
@@ -423,13 +424,16 @@ export async function getReasoningEffortValues(
   return resultat;
 }
 
+/** Valeurs d'effort reçues de l'interface : celles des gabarits et des moteurs locaux, plus `max` (Claude). */
+const EFFORTS_SURCHARGE: readonly string[] = [...REASONING_EFFORT_KNOWN_VALUES, "max"];
+
 /** `reasoning_effort` d'une surcharge brute, s'il fait partie des valeurs connues. */
 export function sanitizeReasoningEffort(samplingOverride: unknown): string | null {
   if (!estDict(samplingOverride)) return null;
   const v = getPy(samplingOverride, "reasoning_effort");
   if (typeof v === "string") {
     const n = stripPy(v).toLowerCase();
-    if (REASONING_EFFORT_KNOWN_VALUES.includes(n)) return n;
+    if (EFFORTS_SURCHARGE.includes(n)) return n;
   }
   return null;
 }
@@ -530,20 +534,21 @@ export function reglagesIgnores(providerType: string | null | undefined): Dict {
   return { ignored_keys: cles, engine_label: p.libelle };
 }
 
-/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur (réflexion adaptative pour Anthropic). */
+/** Vue SANS réseau du panneau Sampling (modèle non chargé ou connecteur) : profil de tâche seul, capacités inconnues sauf celles du dialecte du moteur (réflexion adaptative et effort du modèle pour Anthropic). */
 export function describeEffectiveParamsDegraded(
   modelId: string | null = null,
   task = "chat",
   providerType: string | null = null,
 ): Dict {
   const tache = profil(task);
-  const efforts = effortsDuDialecte(providerType);
+  const efforts =
+    effortsDuDialecte(providerType) ?? (providerType === "anthropic" ? effortsClaude(modelId) : null);
   return {
     model_id: modelId,
     task,
     degraded: true,
     supports_thinking: efforts || providerType === "anthropic" ? true : null,
-    supports_reasoning_effort: efforts ? true : null,
+    supports_reasoning_effort: efforts ? efforts.length > 0 : null,
     reasoning_effort_values: efforts ?? [],
     supports_preserve_reasoning: null,
     supports_continue_final_message: null,

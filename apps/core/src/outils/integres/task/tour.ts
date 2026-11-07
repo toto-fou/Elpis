@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/outils/integres/task/tour.ts — état de `task` pour un tour : options, compteurs et plafonds du tour, slots des enfants, légende du bloc déjà donnée. */
-import { estErreurAnnulation, intPy, strPy } from "@elpis/commun";
+import { estDict, estErreurAnnulation, intPy, strPy } from "@elpis/commun";
 
 import type { SurEvenement } from "../../../boucle/evenements";
 import { runChatMultiMcp } from "../../../boucle/orchestrateur";
@@ -151,19 +151,20 @@ export function legendeSousLesYeux(appel: AppelIntegre | undefined): boolean {
   });
 }
 
-/** Sous-agents lancés ensemble par le lot : `agents.max_parallel`, plafonné par les slots du moteur (`total_slots − 1` pour tout le compte : les enfants en fond y comptent, un au moins) quand le lot en lance plusieurs. */
+/** Lot contenant un agent `web` : le quota de sessions navigateur (4 par défaut, une reste au chat) en laisse partir trois ; les suivants attendent au lieu d'échouer au démarrage. */
+const LOT_WEB_MAX = 3;
+
+/** Sous-agents lancés ensemble par le lot : tous, sauf un lot contenant un agent `web` et sur llama.cpp où les slots du moteur les bornent (`total_slots − 1` pour tout le compte : les enfants en fond y comptent). */
 export async function tachesSimultanees(prepared: readonly Dict[], username: string): Promise<number> {
-  const voulu = reglagesAgents().max_parallel;
-  if (voulu <= 1 || prepared.filter((p) => strPy(p["tool_name"]) === "task").length < 2) return voulu;
+  const taches = prepared.filter((p) => strPy(p["tool_name"]) === "task");
+  if (taches.length < 2) return 1;
+  const web = taches.some((p) => estDict(p["final_args"]) && p["final_args"]["subagent_type"] === "web");
+  const voulu = web ? Math.min(taches.length, LOT_WEB_MAX) : taches.length;
   const parSlots = await plafondParSlots(Number.MAX_SAFE_INTEGER);
-  const effectif =
-    parSlots === Number.MAX_SAFE_INTEGER
-      ? voulu
-      : Math.min(voulu, Math.max(1, parSlots - enfantsEnFondActifs(username)));
+  if (parSlots === Number.MAX_SAFE_INTEGER) return voulu;
+  const effectif = Math.min(voulu, Math.max(1, parSlots - enfantsEnFondActifs(username)));
   if (effectif < voulu)
-    log.info(
-      `[execute_tool_batch] sous-agents simultanés plafonnés à ${effectif} par les slots du moteur (max_parallel=${voulu})`,
-    );
+    log.info(`[execute_tool_batch] sous-agents simultanés plafonnés à ${effectif} par les slots du moteur`);
   return effectif;
 }
 

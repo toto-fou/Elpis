@@ -41,13 +41,7 @@ import { canUseEngine } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget, useLlmTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
 import { BUILTIN_KEY, connectorKey } from "../llm/moteurs";
-import {
-  acquireGenPresence,
-  handoverRebaselineOk,
-  reclamerVerrou,
-  reserverVerrou,
-  verifierPlafondRuns,
-} from "./admission";
+import { acquireGenPresence, handoverRebaselineOk, reclamerVerrou, reserverVerrou } from "./admission";
 import {
   clearChatCancellation,
   isChatCancelled,
@@ -297,7 +291,6 @@ export async function imageTurn(
   const runId = randomBytes(8).toString("hex");
 
   const passation: boolean[] = [];
-  verifierPlafondRuns(uid, chatId);
   const jeton = await acquireGenPresence(uid, chatId, passation);
   if (passation.length && !ephemeral)
     try {

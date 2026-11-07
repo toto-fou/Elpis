@@ -23,7 +23,7 @@ const CAUSES: Readonly<Record<string, readonly [string, ActionInterruption]>> = 
   loading: ["modèle en chargement", "reprendre"],
   rate_limited: ["moteur occupé", "reprendre"],
   busy: ["moteur occupé", "reprendre"],
-  account_busy: ["trop de générations en cours", "reprendre"],
+  account_busy: ["trop de requêtes", "reprendre"],
   context_overflow: ["contexte saturé", "nouveau"],
   forbidden: ["accès refusé", null],
   invalid_request: ["requête refusée", null],

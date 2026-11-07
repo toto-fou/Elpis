@@ -8,6 +8,12 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **One cap per account on engine requests.** `llm.max_requests_per_user` (Admin console ›
+  Connections, engine card) caps the engine requests an account runs at the same time:
+  conversations, subagents, routines and `/compact` together. The surplus waits instead of
+  failing, interactive calls first. `0`, the default, means no cap; the value is re-read live.
+  Subagents of a turn start together as the engine allows (llama.cpp still keeps one slot for
+  the parent, and a batch with a `web` agent runs three at a time).
 - **`./elpis configure` goes through the core.** The database test, the creation of the
   database and administrator account, and the cloud connector are done by the core
   (`exploitation.mjs db check`, `admin`, `connecteur`) instead of the remaining Python
@@ -98,6 +104,10 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **Old concurrency limits.** `llm.max_runs_per_user` (a fourth conversation of an account got
+  `429 too_many_runs`), `agents.max_parallel` and `agents.background_max` are gone, as is the
+  Parallelism section of the subagents page. Values left in `config.json` are ignored; nothing to
+  migrate.
 - **`shared_infra/`.** The last piece of the old Python core (accounts, database access
   and its migrations 0001 to 0026, LLM connectors, encryption, file lock), kept only for
   `./elpis configure`, is removed now that the configuration goes through the core.

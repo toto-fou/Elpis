@@ -202,8 +202,7 @@ function reveillant(e: EvenementEnAttente): boolean {
 function erreurAdmission(e: unknown): boolean {
   return (
     e instanceof HttpError &&
-    (e.statusCode === 429 ||
-      (e.statusCode === 503 && estDict(e.detail) && e.detail["reason"] === "access_check_failed") ||
+    ((e.statusCode === 503 && estDict(e.detail) && e.detail["reason"] === "access_check_failed") ||
       (e.statusCode === 409 && (e.detail === "generation_running" || e.detail === "compression_running")))
   );
 }
@@ -675,7 +674,7 @@ export class ServiceJobs {
     this.lots.set(k, lot);
   }
 
-  /** Nouvelle vérification de la conversation dans `s` secondes (saisie, 409/429, fin de tour). */
+  /** Nouvelle vérification de la conversation dans `s` secondes (saisie, 409, fin de tour). */
   private relancer(uid: number, chatId: string, s: number): void {
     const k = cle(uid, chatId);
     this.relances.get(k)?.();
@@ -688,7 +687,7 @@ export class ServiceJobs {
     );
   }
 
-  /** Fin d'un tour : ses événements restés en attente peuvent réveiller ; un réveil refusé (409/429) du compte est retenté. */
+  /** Fin d'un tour : ses événements restés en attente peuvent réveiller ; un réveil refusé (409) du compte est retenté. */
   private surFinDeTour(uid: number, chatId: string): void {
     if (this.marques.has(cle(uid, chatId))) this.relancer(uid, chatId, 0);
     for (const [k, a] of this.admissions)

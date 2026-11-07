@@ -14,7 +14,6 @@ import type { RunEnfant } from "./enfant";
 import { traceEnFond } from "./concurrence";
 import { champsConso, consoFinale } from "./evenements";
 import { ACTIFS, applyChildCancel, cle } from "./registre";
-import { reglagesAgents } from "./reglages";
 
 const log = journal("outils.taches-agents");
 
@@ -153,7 +152,7 @@ function entreeUsage(r: RunEnfant, jobId: string): Dict {
   };
 }
 
-/** Inscription d'un enfant en fond parmi les jobs (place du compte : réglage et slots de llama.cpp ; conversation enregistrée et tour exigés) : un refus, ou `null` une fois inscrit. */
+/** Inscription d'un enfant en fond parmi les jobs (place du compte : slots de llama.cpp ; conversation enregistrée et tour exigés) : un refus, ou `null` une fois inscrit. */
 export async function inscrireFond(r: RunEnfant): Promise<RefusFond | null> {
   const o = r.t.o;
   const port = tachesFond();
@@ -164,7 +163,7 @@ export async function inscrireFond(r: RunEnfant): Promise<RefusFond | null> {
         "background sub-agents need a saved conversation with an active top-level turn (not a routine or webhook)",
       fix: "run the agent without background=true",
     };
-  const max = await plafondParSlots(reglagesAgents().background_max);
+  const max = await plafondParSlots(Number.MAX_SAFE_INTEGER);
   const actifs = enfantsEnFondActifs(o.username);
   if (actifs >= max)
     return {

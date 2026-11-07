@@ -172,6 +172,7 @@ export interface ConfigAdmin {
     api_key?: string;
     [cle: string]: unknown;
   };
+  llm: { max_requests_per_user: number; [cle: string]: unknown };
   mcp: {
     servers_dir: string;
     tools_cache_ttl_sec: number;

@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/agents.ts — console › Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, sous-agents simultanés, plafonds par tour et sous-agents en fond, section `agents` de config.json (`/api/admin/agents`). */
+/** frontend/src/features/admin/agents.ts — console › Sandbox › Sous-agents : lecture seule et réflexion par type, budget de réflexion, plafonds par tour et sous-agents en fond, section `agents` de config.json (`/api/admin/agents`). */
 import {
   BORNES_BUDGET_REFLEXION_AGENTS,
   BORNES_DELAI_FOND_AGENTS,
-  BORNES_FOND_AGENTS,
   BORNES_JETONS_ENFANTS_AGENTS,
-  BORNES_PARALLELE_AGENTS,
   BORNES_TACHES_PAR_TOUR_AGENTS,
   schemaReponseReglagesAgents,
   schemaReponseReglagesAgentsEcrits,
@@ -22,11 +20,9 @@ const ENTETES_JSON = { "Content-Type": "application/json" };
 export function creerAgentsAdmin(b: BaseAdmin) {
   const { vue, ctx, e, lien } = b;
   const { ref } = vue;
-  const agentsBounds: Ref<readonly [number, number]> = ref([...BORNES_PARALLELE_AGENTS]);
   const agentsBoundsReflexion: Ref<readonly [number, number]> = ref([...BORNES_BUDGET_REFLEXION_AGENTS]);
   const agentsBoundsTaches: Ref<readonly [number, number]> = ref([...BORNES_TACHES_PAR_TOUR_AGENTS]);
   const agentsBoundsJetons: Ref<readonly [number, number]> = ref([...BORNES_JETONS_ENFANTS_AGENTS]);
-  const agentsBoundsFond: Ref<readonly [number, number]> = ref([...BORNES_FOND_AGENTS]);
   const agentsBoundsDelaiFond: Ref<readonly [number, number]> = ref([...BORNES_DELAI_FOND_AGENTS]);
   const agentsSaving = ref(false);
 
@@ -35,11 +31,9 @@ export function creerAgentsAdmin(b: BaseAdmin) {
       const d = await lireSchema(await ctx.fetchAuth("/api/admin/agents"), schemaReponseReglagesAgents);
       if (!d) return;
       e.agentsConfig.value = d.config;
-      agentsBounds.value = d.bounds.max_parallel;
       agentsBoundsReflexion.value = d.bounds.thinking_budget_tokens;
       agentsBoundsTaches.value = d.bounds.max_tasks_per_turn;
       agentsBoundsJetons.value = d.bounds.max_child_tokens_per_turn;
-      agentsBoundsFond.value = d.bounds.background_max;
       agentsBoundsDelaiFond.value = d.bounds.background_timeout_s;
       lien.markAdminStoreClean("agents");
     } catch (err) {
@@ -76,11 +70,9 @@ export function creerAgentsAdmin(b: BaseAdmin) {
 
   return {
     agentsConfig: e.agentsConfig,
-    agentsBounds,
     agentsBoundsReflexion,
     agentsBoundsTaches,
     agentsBoundsJetons,
-    agentsBoundsFond,
     agentsBoundsDelaiFond,
     agentsSaving,
     loadAgentsConfig,

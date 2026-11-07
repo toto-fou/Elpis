@@ -47,6 +47,8 @@ export interface Slot {
   readonly model: string;
   readonly priority: Priorite;
   readonly mode: ModeOrdonnancement;
+  /** Vrai si le slot garde son créneau entre deux appels (classic) : il ne doit attendre aucune autre ressource en le tenant. */
+  readonly creneauTenu?: boolean;
   release(): void;
   yieldForTools(): void;
   reacquire(): Promise<void>;
@@ -351,6 +353,10 @@ class SlotFile implements Slot {
       this.premierCreneau = { promesse, resoudre };
     }
     return this.premierCreneau.promesse;
+  }
+
+  get creneauTenu(): boolean {
+    return !this.parAppel;
   }
 
   private noterCreneau(): void {

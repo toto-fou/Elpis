@@ -5,6 +5,7 @@ import { estDict, estErreurAnnulation, intPy, longueurPy, pyJsonDumps, strPy, st
 
 import { estTokensText, toolPromptTokens } from "../contexte/tokens";
 import type { Slot } from "../llm/ordonnanceur";
+import { avecPartDuCompte } from "../llm/part-compte";
 import { journal } from "../journal";
 import type { Dict } from "../python";
 import { resultIsToolFailure } from "./contrat-resultat";
@@ -228,9 +229,13 @@ export class RunContext {
     };
   }
 
-  /** Un appel au moteur dans le slot du tour (créneau repris puis rendu en optimized). */
-  appelLLM<T>(fn: () => Promise<T>): Promise<T> {
-    return this.c.slot ? this.c.slot.appelLLM(fn) : fn();
+  /** Un appel au moteur dans la part du compte, puis dans le slot du tour (créneau repris puis rendu en optimized) ; `signal` interrompt aussi l'attente de la part. */
+  appelLLM<T>(fn: () => Promise<T>, signal: AbortSignal | undefined = this.c.signal): Promise<T> {
+    const slot = this.c.slot;
+    return avecPartDuCompte(this.c.username, signal, () => (slot ? slot.appelLLM(fn) : fn()), {
+      basse: slot?.priority === "low",
+      sansAttente: slot?.creneauTenu === true,
+    });
   }
 }
 

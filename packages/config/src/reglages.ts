@@ -501,8 +501,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
   const DETACH_RUN_ON_DISCONNECT =
     veritePy(lire("llm.detach_run_on_disconnect", false)) ||
     ["1", "true", "yes"].includes(stripPy(env["APP_DETACH_RUN_ON_DISCONNECT"] ?? "").toLowerCase());
-  const runsParCompte = lire("llm.max_runs_per_user", 3);
-  const MAX_RUNS_PER_USER = maxPy(0, intPy(ouPy(runsParCompte, 0)));
   const LLAMA_CONTENT_RESUME_MAX = maxPy(
     0,
     envInt("LLAMA_CONTENT_RESUME_MAX", "llama.content_resume_max", 4),
@@ -903,7 +901,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     LLAMA_MAX_TOKENS_THINKING,
     LLAMA_THINKING_OUTPUT_UNCAPPED,
     DETACH_RUN_ON_DISCONNECT,
-    MAX_RUNS_PER_USER,
     LLAMA_CONTENT_RESUME_MAX,
     LLAMA_THINK_RESUME_MAX,
     LLAMA_THINK_RESUME_TOTAL_TOKENS,

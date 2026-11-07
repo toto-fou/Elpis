@@ -211,7 +211,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
   /** Réponse refusée avant le flux (états métier, sans nouvelle tentative) ; vrai si le tour est clos. */
   async function refusMetier(rep: Response, imageGen: Objet | null): Promise<boolean> {
     if (rep.status === 429) {
-      const msg = "Trop de générations en cours sur votre compte — attendez qu'une d'elles se termine.";
+      const msg = "Trop de requêtes pour le moment : réessayez dans un instant.";
       const msgs = l.getStreamMsgs();
       const li = msgs.length - 1;
       if (li >= 0 && msgs[li]?.role === "assistant")

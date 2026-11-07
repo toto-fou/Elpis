@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/tour/ouverture.ts — ouverture d'un tour, par la route de chat ou par le réveilleur des jobs : admission (409 compression ou génération en cours, 429 plafond du compte), préparation, verrou de présence et passation (chatbot_app/routes/chats.py). */
+/** apps/core/src/tour/ouverture.ts — ouverture d'un tour, par la route de chat ou par le réveilleur des jobs : admission (409 compression ou génération en cours), préparation, verrou de présence et passation (chatbot_app/routes/chats.py). */
 import { HttpError, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -12,7 +12,6 @@ import {
   manualCompressionActive,
   reserverVerrou,
   sweepPendingGenLocks,
-  verifierPlafondRuns,
 } from "./admission";
 import { isChatCancelled, isGenerationActive } from "./etat";
 import { jobsTour } from "./ports-jobs";
@@ -35,7 +34,7 @@ export interface TourOuvert {
   readonly base: PersistBaseline;
 }
 
-/** Gardes communes aux tours (texte et « Images ») : compression ou génération en cours (409), plafond du compte (429) ; rend le chat demandé. */
+/** Gardes communes aux tours (texte et « Images ») : compression ou génération en cours (409) ; rend le chat demandé. */
 export async function admettreTour(dep: DependancesOuverture, uid: number, data: Dict): Promise<string> {
   const dormir = dep.dormir ?? ((s: number) => new Promise<void>((ok) => setTimeout(ok, s * 1000)));
   const chatId = stripPy(strPy(veritePy(data["chat_id"]) ? data["chat_id"] : ""));
@@ -49,7 +48,6 @@ export async function admettreTour(dep: DependancesOuverture, uid: number, data:
     }
     if (!libre) throw new HttpError(409, "generation_running");
   }
-  verifierPlafondRuns(uid, chatId || null);
   return chatId;
 }
 
@@ -64,7 +62,6 @@ export async function ouvrirTour(
   const [plan, res, base] = await prepareTurn({ base: dep.base }, data, uid, chatId, reveil);
   try {
     const passation: boolean[] = [];
-    verifierPlafondRuns(uid, plan.chatId);
     const jeton = await acquireGenPresence(uid, plan.chatId, passation);
     if (passation.length && !plan.ephemeral && !plan.chatReadFailed) {
       try {

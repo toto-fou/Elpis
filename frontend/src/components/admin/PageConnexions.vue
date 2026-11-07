@@ -425,6 +425,44 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
                 </div>
               </div>
 
+              <div class="adm-row">
+                <div>
+                  <span
+                    class="adm-row__label"
+                    title="Requêtes envoyées en même temps au moteur par un même compte : conversations, sous-agents et routines réunis. Au-delà, elles attendent leur tour. 0 : sans plafond, le moteur décide."
+                    >Requêtes par compte</span
+                  >
+                  <span class="sr-only"
+                    >Requêtes envoyées en même temps au moteur par un même compte : conversations, sous-agents
+                    et routines réunis. Au-delà, elles attendent leur tour. 0 : sans plafond, le moteur
+                    décide.</span
+                  >
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <input
+                    v-model.number="adm.configForm.llm.max_requests_per_user"
+                    data-field="config:llm.max_requests_per_user"
+                    type="number"
+                    min="0"
+                    step="1"
+                    aria-label="Requêtes simultanées par compte"
+                    class="set-input adm-num--sm"
+                  />
+                  <span class="adm-unit">simultanées, 0 : sans plafond</span>
+                </div>
+              </div>
+              <p
+                v-if="
+                  !Number.isInteger(adm.configForm.llm.max_requests_per_user) ||
+                  adm.configForm.llm.max_requests_per_user < 0
+                "
+                role="alert"
+                class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
+              >
+                <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+                Un nombre entier, 0 ou plus : sinon, aucun plafond ne s'applique.
+              </p>
+
               <div v-if="!profil.file" class="adm-row" data-concurrence-moteur>
                 <div>
                   <span

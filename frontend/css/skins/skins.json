@@ -99,6 +99,18 @@
       "mascot": "kiki",
       "builtin": true,
       "enabled_by_default": false
+    },
+    {
+      "id": "veilleuse",
+      "label": "Veilleuse",
+      "desc": "Le travail du soir : nuit prune, texte ivoire, une seule lumière ambre qui part du composeur.",
+      "sw": [
+        "#1a1420",
+        "#221b29",
+        "#f0a640"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
     }
   ],
   "alias": {

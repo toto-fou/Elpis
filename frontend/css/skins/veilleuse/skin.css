@@ -1,0 +1,812 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/veilleuse/skin.css — le travail du soir ; un seul champ de nuit d'un bord à l'autre, des entrées pâles, et une flaque de lumière ambre où repose le composeur. */
+
+/* ── Jetons : clair, l'aube ─────────────────────────────────────────────── */
+body.elpis-skin-veilleuse {
+    --vl-champ:   #efeaf1;
+    --vl-releve:  #fdfbfd;
+    --vl-creux:   #e7e1ea;
+    --vl-encre:   #271e2e;
+    --vl-ambre:   #9a5800;
+    --vl-pilule:  #fdfbfd;
+    --vl-lisere:  rgb(154 88 0 / 0.42);
+    --vl-lisere-vif: rgb(154 88 0 / 0.8);
+    --vl-lampe-rgb: 255 164 112;
+    --vl-lampe-a:   0.62;
+    --vl-mono:    "Red Hat Mono", ui-monospace, Consolas, monospace;
+    --vl-ombre-releve:  0 1px 2px rgb(39 30 46 / 0.06), 0 16px 40px -20px rgb(39 30 46 / 0.3);
+    --vl-ombre-modale:  0 28px 64px -26px rgb(39 30 46 / 0.36), 0 2px 8px rgb(39 30 46 / 0.06);
+    --vl-voile-modale:  rgb(39 30 46 / 0.3);
+    --vl-selection:     rgb(154 88 0 / 0.18);
+    --vl-syn-mot:      #7a3a8f;
+    --vl-syn-texte:    #2f6b2a;
+    --vl-syn-nombre:   #8a4b00;
+    --vl-syn-type:     #1d5f8a;
+    --vl-syn-fonction: #a3324f;
+    --vl-syn-com:      #6c6273;
+    --vl-syn-ajout:    #e2f1df;
+    --vl-syn-retrait:  #f8e3e6;
+
+    --radius:    0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    --app-bg:    var(--vl-champ);
+    --surface:   var(--vl-champ);
+    --surface-2: #f5f1f6;
+    --surface-3: #faf8fb;
+    --surface-4: #e2dbe6;
+    --surface-5: #d2c8d8;
+    --border:            #dcd4e1;
+    --border-soft:       #e6dfea;
+    --table-cell-border: #e6dfea;
+
+    --text-900: var(--vl-encre);
+    --text-800: #33293a;
+    --text-700: #463b4d;
+    --text-600: #574c5e;
+    --text-500: #625769;
+    --text-400: #6c6273;
+    --text-300: #8c8295;
+    --text-max: #150f1a;
+
+    --prose-body:       #33293a;
+    --prose-heading:    var(--vl-encre);
+    --prose-strong:     var(--vl-encre);
+    --prose-link:       var(--vl-ambre);
+    --prose-link-hover: #7a4500;
+
+    --code-inline-bg:     var(--vl-creux);
+    --code-inline-fg:     #3d3244;
+    --code-inline-border: transparent;
+    --code-bg:        var(--vl-creux);
+    --code-fg:        #33293a;
+    --code-border:    transparent;
+    --code-header-bg: var(--vl-creux);
+    --code-header-fg: #574c5e;
+
+    --danger-surface:     rgb(179 38 30 / 0.06);
+    --danger-border:      #e8bcbc;
+    --danger-border-soft: #f1d6d6;
+    --danger-text:        #b3261e;
+    --danger-strong:      #8f1d17;
+    --danger-icon-bg:     #f6dddc;
+    --danger-icon-fg:     #b3261e;
+
+    --scrollbar-thumb:        #d2c8d8;
+    --scrollbar-thumb-hover:  #b8acc0;
+    --scrollbar-thumb-custom: #d2c8d8;
+
+    --accent:             var(--vl-ambre);
+    --accent-strong:      #7a4500;
+    --accent-500:         #9a5800;
+    --accent-400:         #b06a0c;
+    --accent-300:         #e0b06c;
+    --accent-fg:          #ffffff;
+    --accent-text:        var(--vl-ambre);
+    --accent-text-strong: #7a4500;
+    --accent-surface:     #f9ecdc;
+    --accent-surface-2:   #f3dfc4;
+    --accent-border:      #e3c495;
+    --accent-ring:        #9a5800;
+
+    --ok:             #1f6b45;
+    --ok-strong:      #165234;
+    --ok-soft:        #2e8a5c;
+    --ok-400:         #4fae80;
+    --ok-text:        #1f6b45;
+    --ok-text-strong: #165234;
+    --ok-surface:     #e5f1e8;
+    --ok-surface-2:   #d1e7d8;
+    --ok-border:      #aad3b7;
+    --ok-fg:          #ffffff;
+
+    --warn:             #7a5600;
+    --warn-soft:        #b08a1c;
+    --warn-text:        #7a5600;
+    --warn-text-strong: #5e4200;
+    --warn-surface:     #f8f1d8;
+    --warn-surface-2:   #f1e5b8;
+    --warn-border:      #dfcb88;
+
+    --role-admin-text:    #6a3d8a;
+    --role-admin-surface: #f2eaf6;
+    --role-admin-border:  #dccbe7;
+
+    --rail-bg:           var(--vl-champ);
+    --rail-bg-2:         var(--vl-champ);
+    --rail-border:       transparent;
+    --rail-text:         #6c6273;
+    --rail-text-strong:  var(--vl-encre);
+    --rail-muted:        #6c6273;
+    --rail-hover:        rgb(39 30 46 / 0.045);
+    --rail-chip:         rgb(39 30 46 / 0.06);
+    --rail-active-bg:    transparent;
+    --rail-input-bg:     var(--vl-releve);
+    --rail-input-border: transparent;
+    --rail-ok:           #1f6b45;
+    --rail-ok-strong:    #165234;
+
+    --toast-bg:       var(--vl-encre);
+    --toast-fg:       #fbf9fb;
+    --toast-error-bg: #b3261e;
+    --toast-error-fg: #ffffff;
+
+    --hl-bg: #fde0b8;
+    --hl-fg: #4a2a00;
+
+    font-family: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    caret-color: var(--accent);
+    accent-color: var(--accent);
+}
+
+/* ── Jetons : sombre, la nuit prune où l'on travaille ───────────────────── */
+body.elpis-skin-veilleuse.elpis-app-dark {
+    --vl-champ:   #1a1420;
+    --vl-releve:  #2a2232;
+    --vl-creux:   #140f19;
+    --vl-encre:   #efe6da;
+    --vl-ambre:   #f0a640;
+    --vl-pilule:  #1f1825;
+    --vl-lisere:  rgb(240 166 64 / 0.5);
+    --vl-lisere-vif: rgb(240 166 64 / 0.92);
+    --vl-lampe-rgb: 240 166 64;
+    --vl-lampe-a:   0.46;
+    --vl-ombre-releve:  0 1px 2px rgb(0 0 0 / 0.35), 0 20px 44px -20px rgb(0 0 0 / 0.75);
+    --vl-ombre-modale:  0 30px 70px -26px rgb(0 0 0 / 0.8), 0 2px 8px rgb(0 0 0 / 0.4);
+    --vl-voile-modale:  rgb(8 5 11 / 0.6);
+    --vl-selection:     rgb(240 166 64 / 0.3);
+    --vl-syn-mot:      #d4a5e6;
+    --vl-syn-texte:    #a9d5a2;
+    --vl-syn-nombre:   #f2c27b;
+    --vl-syn-type:     #8fc4e8;
+    --vl-syn-fonction: #f0a9b8;
+    --vl-syn-com:      #948a9c;
+    --vl-syn-ajout:    rgb(169 213 162 / 0.16);
+    --vl-syn-retrait:  rgb(240 169 184 / 0.16);
+
+    --app-bg:    var(--vl-champ);
+    --surface:   var(--vl-champ);
+    --surface-2: #211a28;
+    --surface-3: #2a2232;
+    --surface-4: #342b3d;
+    --surface-5: #41374c;
+    --border:            rgb(239 230 218 / 0.1);
+    --border-soft:       rgb(239 230 218 / 0.06);
+    --table-cell-border: rgb(239 230 218 / 0.06);
+
+    --text-900: var(--vl-encre);
+    --text-800: #e4dace;
+    --text-700: #d2c7c6;
+    --text-600: #c0b5bb;
+    --text-500: #b0a5b4;
+    --text-400: #a99fae;
+    --text-300: #7d7383;
+    --text-max: #fff8ee;
+
+    --prose-body:       #e4dace;
+    --prose-heading:    #f6eee3;
+    --prose-strong:     #fbf4ea;
+    --prose-link:       var(--vl-ambre);
+    --prose-link-hover: #f6c27a;
+
+    --code-inline-bg:     #2a2232;
+    --code-inline-fg:     #ecdfcf;
+    --code-inline-border: transparent;
+    --code-bg:        var(--vl-creux);
+    --code-fg:        #e4dace;
+    --code-border:    transparent;
+    --code-header-bg: var(--vl-creux);
+    --code-header-fg: #a99fae;
+
+    --danger-surface:     rgb(242 160 168 / 0.1);
+    --danger-border:      rgb(242 160 168 / 0.34);
+    --danger-border-soft: rgb(242 160 168 / 0.18);
+    --danger-text:        #f2a0a8;
+    --danger-strong:      #f8c4c9;
+    --danger-icon-bg:     rgb(242 160 168 / 0.14);
+    --danger-icon-fg:     #f2a0a8;
+
+    --scrollbar-thumb:        rgb(239 230 218 / 0.14);
+    --scrollbar-thumb-hover:  rgb(239 230 218 / 0.26);
+    --scrollbar-thumb-custom: rgb(239 230 218 / 0.12);
+
+    --accent:             var(--vl-ambre);
+    --accent-strong:      #f6bd6a;
+    --accent-500:         #f0a640;
+    --accent-400:         #f4b45c;
+    --accent-300:         #f8cf94;
+    --accent-fg:          #1a1420;
+    --accent-text:        var(--vl-ambre);
+    --accent-text-strong: #f8cf94;
+    --accent-surface:     rgb(240 166 64 / 0.1);
+    --accent-surface-2:   rgb(240 166 64 / 0.17);
+    --accent-border:      rgb(240 166 64 / 0.36);
+    --accent-ring:        #f0a640;
+
+    --ok:             #8fd3a8;
+    --ok-strong:      #b0e2c2;
+    --ok-soft:        #8fd3a8;
+    --ok-400:         #8fd3a8;
+    --ok-text:        #8fd3a8;
+    --ok-text-strong: #b0e2c2;
+    --ok-surface:     rgb(143 211 168 / 0.11);
+    --ok-surface-2:   rgb(143 211 168 / 0.17);
+    --ok-border:      rgb(143 211 168 / 0.34);
+    --ok-fg:          #1a1420;
+
+    --warn:             #ecd27e;
+    --warn-soft:        #ecd27e;
+    --warn-text:        #ecd27e;
+    --warn-text-strong: #f5e3a8;
+    --warn-surface:     rgb(236 210 126 / 0.1);
+    --warn-surface-2:   rgb(236 210 126 / 0.17);
+    --warn-border:      rgb(236 210 126 / 0.34);
+
+    --role-admin-text:    #d4a5e6;
+    --role-admin-surface: rgb(212 165 230 / 0.12);
+    --role-admin-border:  rgb(212 165 230 / 0.34);
+
+    --rail-bg:           var(--vl-champ);
+    --rail-bg-2:         var(--vl-champ);
+    --rail-border:       transparent;
+    --rail-text:         #a99fae;
+    --rail-text-strong:  var(--vl-encre);
+    --rail-muted:        #8f8596;
+    --rail-hover:        rgb(239 230 218 / 0.04);
+    --rail-chip:         rgb(239 230 218 / 0.07);
+    --rail-active-bg:    transparent;
+    --rail-input-bg:     #211a28;
+    --rail-input-border: transparent;
+    --rail-ok:           #8fd3a8;
+    --rail-ok-strong:    #b0e2c2;
+
+    --toast-bg:       #efe6da;
+    --toast-fg:       #1a1420;
+    --toast-error-bg: #f2a0a8;
+    --toast-error-fg: #3a0d14;
+
+    --hl-bg: rgb(240 166 64 / 0.3);
+    --hl-fg: #ffe2b8;
+
+    --term-surface:   #17121c;
+    --term-strip-bg:  #120e16;
+}
+
+body.elpis-skin-veilleuse ::selection { background: var(--vl-selection); }
+
+/* ── Un seul champ de nuit : ni feuille, ni panneau, ni séparation ──────── */
+body.elpis-skin-veilleuse aside.elpis-slide-panel { border-right-width: 0; }
+/* Le rail posé ne porte aucune ombre ; sous 1024 px il glisse par-dessus le chat et garde la sienne. */
+@media (min-width: 1024px) {
+    body.elpis-skin-veilleuse aside.elpis-slide-panel {
+        box-shadow: none;
+        --tw-shadow: 0 0 #0000;
+        --tw-shadow-colored: 0 0 #0000;
+    }
+}
+/* Panneaux MCP et Génération : sur le même champ, seul leur contenu flotte. */
+body.elpis-skin-veilleuse aside.elpis-slide-panel + .flex-1 > .elpis-slide-panel {
+    border-left-width: 0;
+    border-radius: 0;
+    background: transparent;
+}
+body.elpis-skin-veilleuse .elpis-slide-panel > .h-16 { border-bottom-color: transparent; background: transparent; }
+body.elpis-skin-veilleuse .elpis-slide-panel .bg-white.rounded-xl.border {
+    border-width: 0;
+    background: var(--surface-2);
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-veilleuse [data-panneau-generation] .border-t { border-top-color: transparent; }
+
+/* ── Le rail : sans fond ni filet, des entrées petites et pâles ─────────── */
+body.elpis-skin-veilleuse aside.elpis-slide-panel .border-t { border-top-color: transparent; }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .elpis-rail-foot {
+    background: transparent;
+    padding-block: 0.625rem;
+    --sb-ring-offset: var(--rail-bg);
+}
+/* « Nouveau chat » : une entrée comme les autres, pas une carte. */
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] button.bg-blue-700 {
+    justify-content: flex-start;
+    gap: 0.625rem;
+    height: 2rem;
+    margin-bottom: 0.375rem;
+    padding: 0 0.75rem;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--rail-text-strong);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    --tw-ring-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] button.bg-blue-700:hover { background: var(--rail-hover); }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-12 button.bg-blue-700 {
+    background: transparent;
+    color: var(--rail-text-strong);
+    --tw-ring-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-12 button.bg-blue-700:hover { background: var(--rail-hover); }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button.h-8 {
+    height: 1.875rem;
+    border-radius: 0.5rem;
+    color: var(--rail-text);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button.h-8 > i { color: inherit; }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button.h-8:hover { color: var(--rail-text-strong); }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .mx-2.mt-3\.5 > span { font-size: 0.75rem; color: var(--rail-muted); }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .chat-history-scroll .text-\[11px\] {
+    padding-top: 1.125rem;
+    color: var(--rail-muted);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .chat-history-scroll .text-\[11px\]:first-child { padding-top: 0.375rem; }
+body.elpis-skin-veilleuse .chat-history-scroll [data-chat-row] {
+    height: 1.875rem;
+    border-radius: 0.5rem;
+    color: var(--rail-text);
+    font-weight: 400;
+}
+body.elpis-skin-veilleuse .chat-history-scroll [data-chat-row] .text-\[13\.5px\] { font-size: 0.8125rem; }
+body.elpis-skin-veilleuse .chat-history-scroll [data-chat-row]:hover { color: var(--rail-text-strong); }
+/* Seule la conversation ouverte s'allume : texte ambre et un petit point, sans fond. */
+body.elpis-skin-veilleuse .chat-history-scroll [data-chat-row]:is(.bg-blue-600\/20, :has(> [aria-current="page"])),
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button:is(.bg-blue-600\/20, [aria-pressed="true"]) {
+    background: transparent;
+    color: var(--accent-text);
+    font-weight: 500;
+}
+body.elpis-skin-veilleuse .chat-history-scroll [data-chat-row]:is(.bg-blue-600\/20, :has(> [aria-current="page"]))::before,
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button:is(.bg-blue-600\/20, [aria-pressed="true"])::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.125rem;
+    width: 0.3125rem;
+    height: 0.3125rem;
+    margin-top: -0.15625rem;
+    border-radius: 999px;
+    background: var(--accent);
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .w-\[260px\] > .px-2 button:is(.bg-blue-600\/20, [aria-pressed="true"]) { position: relative; }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .rounded-full.bg-blue-600.w-8 {
+    background: var(--surface-3);
+    color: var(--text-700);
+    --tw-ring-color: transparent;
+}
+body.elpis-skin-veilleuse aside.elpis-slide-panel .elpis-rail-flyout {
+    --sb-ring-offset: var(--vl-releve);
+    border-color: transparent;
+    background: var(--vl-releve);
+    box-shadow: var(--vl-ombre-releve);
+}
+
+/* ── En-tête : discret, centré ──────────────────────────────────────────── */
+body.elpis-skin-veilleuse main > header .text-sm.font-medium.truncate {
+    color: var(--text-400);
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+@media (min-width: 1024px) {
+    body.elpis-skin-veilleuse main > header > .relative > :first-child {
+        position: absolute;
+        top: 0.75rem;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    body.elpis-skin-veilleuse main > header > .relative > :last-child { margin-left: auto; }
+}
+
+/* ── Le fil : la largeur réglée par le compte, la question grande et légère, sans bulle ── */
+body.elpis-skin-veilleuse main > .overflow-y-auto.scroll-smooth { scrollbar-gutter: stable both-edges; }
+body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 3.5rem; }
+body.elpis-skin-veilleuse .elpis-chat-col.space-y-8 > .elpis-msg-user + .elpis-msg-assistant { margin-top: 1.75rem; }
+body.elpis-skin-veilleuse .elpis-msg-user > .shrink-0 { display: none; }
+body.elpis-skin-veilleuse .elpis-msg-user > .flex-1 > .flex.items-baseline { margin-bottom: 0.375rem; }
+body.elpis-skin-veilleuse :is(.elpis-msg-user, .elpis-msg-assistant) > .flex-1 > .flex.items-baseline > span {
+    color: var(--text-400);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+body.elpis-skin-veilleuse .elpis-msg-user .markdown-body {
+    color: var(--text-900);
+    font-size: 1.3125rem;
+    font-weight: 400;
+    line-height: 1.42;
+    letter-spacing: -0.012em;
+}
+body.elpis-skin-veilleuse .elpis-msg-user .markdown-body > :last-child,
+body.elpis-skin-veilleuse .elpis-msg-user .markdown-body > div:last-child > :last-child { margin-bottom: 0; }
+body.elpis-skin-veilleuse .elpis-msg-assistant { position: relative; }
+body.elpis-skin-veilleuse .elpis-msg-assistant > .shrink-0 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0;
+}
+body.elpis-skin-veilleuse .elpis-msg-assistant > .shrink-0 img {
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 0;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-veilleuse .elpis-msg-assistant > .flex-1 > .flex.items-baseline {
+    align-items: center;
+    min-height: 1.125rem;
+    margin-bottom: 0.75rem;
+    padding-left: 1.625rem;
+}
+
+/* ── Prose ──────────────────────────────────────────────────────────────── */
+body.elpis-skin-veilleuse .elpis-msg-assistant .markdown-body { font-size: 1.0625rem; line-height: 1.7; }
+body.elpis-skin-veilleuse .markdown-body p { margin-bottom: 1em; }
+body.elpis-skin-veilleuse .markdown-body :is(h1, h2, h3) { text-wrap: pretty; }
+/* La question, texte court : pas de « ? » seul en début de ligne. */
+body.elpis-skin-veilleuse .elpis-msg-user .markdown-body p { text-wrap: pretty; }
+body.elpis-skin-veilleuse .markdown-body h1,
+body.elpis-skin-veilleuse .markdown-body h2,
+body.elpis-skin-veilleuse .markdown-body h3 {
+    margin-top: 1.9em;
+    margin-bottom: 0.6em;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+body.elpis-skin-veilleuse .markdown-body h1 { font-size: 1.3125rem; }
+body.elpis-skin-veilleuse .markdown-body h2 { font-size: 1.1875rem; }
+body.elpis-skin-veilleuse .markdown-body h3 { font-size: 1.0625rem; }
+body.elpis-skin-veilleuse .markdown-body > :first-child,
+body.elpis-skin-veilleuse .markdown-body > div > :first-child { margin-top: 0; }
+body.elpis-skin-veilleuse .markdown-body li + li { margin-top: 0.3em; }
+body.elpis-skin-veilleuse .markdown-body li:has(> input[type="checkbox"]),
+body.elpis-skin-veilleuse .markdown-body li:has(> p > input[type="checkbox"]) { margin-left: -1.25rem; list-style: none; }
+body.elpis-skin-veilleuse .markdown-body a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+body.elpis-skin-veilleuse .markdown-body blockquote {
+    margin: 1.4em 0;
+    padding: 0 0 0 1.25rem;
+    border-left: 0;
+    background: transparent;
+    color: var(--text-600);
+    font-style: italic;
+}
+body.elpis-skin-veilleuse .markdown-body blockquote > :last-child { margin-bottom: 0; }
+body.elpis-skin-veilleuse .markdown-body hr {
+    width: 3.75rem;
+    height: 0.3125rem;
+    margin: 2.25em auto;
+    border: 0;
+    background: radial-gradient(circle, var(--text-300) 1.5px, transparent 2px) center / 1.25rem 100% repeat-x;
+}
+
+/* Tableaux : pas de traits ; une ligne d'en-tête en relief et des rangées alternées. */
+body.elpis-skin-veilleuse .markdown-body table {
+    margin: 1.6em 0;
+    border: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 0;
+}
+body.elpis-skin-veilleuse .markdown-body th {
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: var(--surface-3);
+    color: var(--text-600);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+body.elpis-skin-veilleuse .markdown-body th:first-child { border-radius: 0.625rem 0 0 0.625rem; }
+body.elpis-skin-veilleuse .markdown-body th:last-child { border-radius: 0 0.625rem 0.625rem 0; }
+body.elpis-skin-veilleuse .markdown-body td { padding: 0.5625rem 0.75rem; border: 0; font-size: 0.9375rem; }
+body.elpis-skin-veilleuse .markdown-body tbody tr:nth-child(even) td { background: var(--surface-2); }
+body.elpis-skin-veilleuse .markdown-body tbody tr:nth-child(even) td:first-child { border-radius: 0.625rem 0 0 0.625rem; }
+body.elpis-skin-veilleuse .markdown-body tbody tr:nth-child(even) td:last-child { border-radius: 0 0.625rem 0.625rem 0; }
+
+/* Code : en creux dans la nuit, plus sombre qu'elle. */
+body.elpis-skin-veilleuse .markdown-body code:not(pre code) {
+    padding: 0.14em 0.42em;
+    border-width: 0;
+    border-radius: 0.375em;
+    font-family: var(--vl-mono);
+    font-size: 0.85em;
+}
+body.elpis-skin-veilleuse .code-wrapper {
+    margin: 1.5rem 0;
+    border: 0;
+    border-radius: 0.875rem;
+    box-shadow: none;
+}
+body.elpis-skin-veilleuse .code-header {
+    padding: 0.625rem 1.125rem 0;
+    border-bottom: 0;
+    border-radius: 0.875rem 0.875rem 0 0;
+    font-family: inherit;
+    font-size: 0.75rem;
+}
+body.elpis-skin-veilleuse .code-header > :first-child { text-transform: lowercase; }
+body.elpis-skin-veilleuse .code-wrapper pre {
+    padding: 0.5rem 1.125rem 1.125rem !important;
+    border-radius: 0 0 0.875rem 0.875rem !important;
+}
+body.elpis-skin-veilleuse .markdown-body pre code { font-family: var(--vl-mono); font-size: 0.84rem; line-height: 1.65; }
+body.elpis-skin-veilleuse .code-header button:hover,
+body.elpis-skin-veilleuse .copy-sticky .code-actions button:hover {
+    color: var(--text-900);
+    background: var(--surface-4);
+    border-color: transparent;
+    box-shadow: none;
+}
+body.elpis-skin-veilleuse .copy-sticky .code-actions button { border-color: transparent; }
+body.elpis-skin-veilleuse :is(.hljs-keyword, .hljs-doctag, .hljs-template-tag, .hljs-template-variable, .hljs-meta .hljs-keyword, .hljs-type, .hljs-variable.language_) { color: var(--vl-syn-mot); }
+body.elpis-skin-veilleuse :is(.hljs-title, .hljs-title.class_, .hljs-title.function_, .hljs-title.class_.inherited__) { color: var(--vl-syn-fonction); }
+body.elpis-skin-veilleuse :is(.hljs-string, .hljs-regexp, .hljs-meta .hljs-string, .hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo) { color: var(--vl-syn-texte); }
+body.elpis-skin-veilleuse :is(.hljs-number, .hljs-literal, .hljs-attr, .hljs-attribute, .hljs-operator, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-variable, .hljs-meta, .hljs-bullet) { color: var(--vl-syn-nombre); }
+body.elpis-skin-veilleuse :is(.hljs-built_in, .hljs-symbol) { color: var(--vl-syn-type); }
+body.elpis-skin-veilleuse :is(.hljs-comment, .hljs-code, .hljs-formula) { color: var(--vl-syn-com); }
+body.elpis-skin-veilleuse :is(.hljs-subst, .hljs-emphasis, .hljs-strong) { color: var(--code-fg); }
+body.elpis-skin-veilleuse .hljs-section { color: var(--vl-syn-mot); }
+body.elpis-skin-veilleuse .hljs-addition { color: var(--code-fg); background-color: var(--vl-syn-ajout); }
+body.elpis-skin-veilleuse .hljs-deletion { color: var(--code-fg); background-color: var(--vl-syn-retrait); }
+
+/* Terminal en direct : toujours de nuit. */
+body.elpis-skin-veilleuse .shell-live {
+    border: 0;
+    border-radius: 0.875rem;
+    background: #17121c;
+    box-shadow: none;
+}
+body.elpis-skin-veilleuse .shell-live-header { border-bottom: 0; background: #120e16; font-family: var(--vl-mono); }
+
+/* Réflexion : discrète, jamais une couleur de plus. */
+body.elpis-skin-veilleuse [data-think] [class*="text-violet"] { color: var(--text-500); }
+body.elpis-skin-veilleuse [data-think] [class*="border-violet"] { border-color: var(--border); }
+
+/* ── La lampe : une flaque de lumière de taille fixe au bas du fil ; le compositeur la déplace sans la repeindre ── */
+body.elpis-skin-veilleuse {
+    --vl-lampe-rx: 44rem;
+    --vl-lampe-ry: 26rem;
+    --vl-lampe: radial-gradient(
+        var(--vl-lampe-rx) var(--vl-lampe-ry) at 50% 100%,
+        rgb(var(--vl-lampe-rgb) / var(--vl-lampe-a)) 0%,
+        rgb(var(--vl-lampe-rgb) / calc(var(--vl-lampe-a) * 0.62)) 26%,
+        rgb(var(--vl-lampe-rgb) / calc(var(--vl-lampe-a) * 0.24)) 60%,
+        transparent 100%
+    );
+}
+body.elpis-skin-veilleuse main::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    z-index: -1;
+    width: calc(var(--vl-lampe-rx) * 2);
+    height: var(--vl-lampe-ry);
+    background: var(--vl-lampe);
+    opacity: 0.74;
+    pointer-events: none;
+    transform: translateX(-50%);
+    will-change: opacity;
+    transition: opacity 700ms ease-out;
+}
+/* Accueil : le composeur est au milieu ; la lumière l'entoure. */
+body.elpis-skin-veilleuse main:has(> div.z-30.top-\[44dvh\])::before {
+    top: calc(44dvh + 3.5rem);
+    bottom: auto;
+    width: 58rem;
+    height: 30rem;
+    background: radial-gradient(
+        29rem 15rem at 50% 50%,
+        rgb(var(--vl-lampe-rgb) / calc(var(--vl-lampe-a) * 0.8)) 0%,
+        rgb(var(--vl-lampe-rgb) / calc(var(--vl-lampe-a) * 0.42)) 34%,
+        rgb(var(--vl-lampe-rgb) / calc(var(--vl-lampe-a) * 0.12)) 70%,
+        transparent 100%
+    );
+    transform: translate(-50%, -50%);
+}
+/* Chat : sous le composeur, la nuit est opaque et la même lumière y est repeinte ; largeur fixe, rognée par la zone, pour ne pas repeindre au redimensionnement. */
+body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(> .elpis-compose-col)::before,
+body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(> .elpis-compose-col)::after {
+    content: "";
+    position: absolute;
+    bottom: -1.5rem;
+    left: 50%;
+    z-index: -1;
+    width: 160rem;
+    height: calc(100% + 4rem);
+    -webkit-mask-image: linear-gradient(to top, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to top, #000 calc(100% - 2.5rem), transparent);
+    pointer-events: none;
+    transform: translateX(-50%);
+    will-change: transform;
+}
+body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(> .elpis-compose-col)::before { background: var(--app-bg); }
+body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(> .elpis-compose-col)::after {
+    background: var(--vl-lampe);
+    opacity: 0.74;
+    transition: opacity 700ms ease-out;
+}
+/* Petit écran : une lampe plus petite, pour garder la flaque visible et non un voile uniforme. */
+@media (max-width: 767px) {
+    body.elpis-skin-veilleuse { --vl-lampe-rx: 24rem; --vl-lampe-ry: 20rem; }
+}
+body.elpis-skin-veilleuse main:has(.elpis-compose-card:focus-within)::before,
+body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(.elpis-compose-card:focus-within)::after { opacity: 1; }
+/* Le bouton « descendre » reste au-dessus de la nuit opaque. */
+body.elpis-skin-veilleuse main > button[title="Aller en bas"] {
+    z-index: 31;
+    border-color: transparent;
+    background: var(--vl-releve);
+    color: var(--text-700);
+}
+
+/* ── Le composeur : arrondi au liseré ambre, posé dans la lumière ; marges intérieures pour que les boutons restent dans la courbe ── */
+body.elpis-skin-veilleuse main .elpis-compose-card.bg-white\/90 {
+    border: 1px solid var(--vl-lisere);
+    border-radius: 1.75rem;
+    background: var(--vl-pilule);
+    box-shadow: none;
+    transition: border-color 300ms ease-out;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+body.elpis-skin-veilleuse main .elpis-compose-card.bg-white\/90:focus-within { border-color: var(--vl-lisere-vif); }
+body.elpis-skin-veilleuse .elpis-compose-card > .flex.flex-col.w-full { padding: 0.5rem 0.875rem 0.625rem 0.875rem; }
+body.elpis-skin-veilleuse .elpis-compose-card textarea { caret-color: var(--accent); }
+body.elpis-skin-veilleuse .elpis-compose-card textarea::placeholder { color: var(--text-400); }
+body.elpis-skin-veilleuse .elpis-compose-card .bg-blue-600.h-8.w-8 { border-radius: 999px; background: var(--accent); color: var(--accent-fg); }
+body.elpis-skin-veilleuse .elpis-compose-card .bg-blue-600.h-8.w-8:disabled { background: var(--surface-4); color: var(--text-400); }
+/* Focus clavier du fil et du composeur : l'anneau ambre du skin plutôt que celui du navigateur. */
+body.elpis-skin-veilleuse main :is(button, a, [role="button"], summary):focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    body.elpis-skin-veilleuse main::before,
+    body.elpis-skin-veilleuse main > div.z-30.bottom-6:has(> .elpis-compose-col)::after,
+    body.elpis-skin-veilleuse main .elpis-compose-card.bg-white\/90 { transition: none; }
+}
+
+/* ── Accueil ────────────────────────────────────────────────────────────── */
+body.elpis-skin-veilleuse .elpis-welcome h2 {
+    color: var(--text-900);
+    font-size: 2rem;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+body.elpis-skin-veilleuse .elpis-welcome p { color: var(--text-400); font-size: 1rem; font-weight: 400; }
+
+/* ── Fonds translucides en sombre : la teinte du champ, pas le gris du socle ── */
+body.elpis-skin-veilleuse.elpis-app-dark .bg-white\/60 { background-color: color-mix(in srgb, var(--surface) 60%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-white\/70 { background-color: color-mix(in srgb, var(--surface) 70%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-white\/80 { background-color: color-mix(in srgb, var(--surface) 80%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-white\/90 { background-color: color-mix(in srgb, var(--surface) 90%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-white\/95 { background-color: color-mix(in srgb, var(--surface) 95%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-slate-50\/50 { background-color: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-slate-50\/60 { background-color: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+body.elpis-skin-veilleuse.elpis-app-dark .bg-slate-50\/80 { background-color: color-mix(in srgb, var(--surface-2) 80%, transparent); }
+/* Ce qui flotte (menus, fenêtres) se rapproche, donc s'éclaire d'un cran. */
+body.elpis-skin-veilleuse :is(.shadow-lg, .shadow-xl, .shadow-2xl):is(.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/80) { background-color: var(--vl-releve); }
+
+/* ── Formes et reliefs : la profondeur vient de la lumière ──────────────── */
+body.elpis-skin-veilleuse .rounded-lg { border-radius: 0.625rem; }
+body.elpis-skin-veilleuse .rounded-xl { border-radius: 0.875rem; }
+body.elpis-skin-veilleuse .rounded-2xl { border-radius: 1.25rem; }
+body.elpis-skin-veilleuse :is(.shadow, .shadow-sm, .shadow-md) {
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-veilleuse :is(.shadow-lg, .shadow-xl) {
+    --tw-shadow: var(--vl-ombre-releve);
+    --tw-shadow-colored: var(--vl-ombre-releve);
+}
+body.elpis-skin-veilleuse .shadow-2xl {
+    --tw-shadow: var(--vl-ombre-modale);
+    --tw-shadow-colored: var(--vl-ombre-modale);
+}
+body.elpis-skin-veilleuse .shadow-2xl.ring-1 { --tw-ring-color: transparent; }
+body.elpis-skin-veilleuse .font-mono { font-family: var(--vl-mono); }
+body.elpis-skin-veilleuse :is(.text-violet-600, .text-violet-700, .text-purple-700) { color: var(--accent-text); }
+body.elpis-skin-veilleuse :is(.bg-violet-50, .bg-violet-100, .bg-violet-500\/15) { background-color: var(--accent-surface); }
+body.elpis-skin-veilleuse .hover\:bg-violet-100:hover { background-color: var(--accent-surface-2); }
+body.elpis-skin-veilleuse .bg-violet-600 { background-color: var(--accent); color: var(--accent-fg); }
+body.elpis-skin-veilleuse .hover\:bg-violet-700:hover { background-color: var(--accent-strong); }
+body.elpis-skin-veilleuse .adm-seg {
+    gap: 0.125rem;
+    padding: 0.125rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface-2);
+}
+body.elpis-skin-veilleuse .adm-seg__btn { border: 0; border-radius: 999px; }
+body.elpis-skin-veilleuse .adm-seg__btn + .adm-seg__btn { border-left: 0; }
+body.elpis-skin-veilleuse .adm-seg__btn:hover:not(.is-active) { color: var(--text-900); }
+body.elpis-skin-veilleuse .adm-seg__btn.is-active {
+    background: var(--vl-releve);
+    color: var(--text-900);
+    box-shadow: 0 1px 2px rgb(39 30 46 / 0.12);
+}
+body.elpis-skin-veilleuse.elpis-app-dark .adm-seg__btn.is-active { background: var(--surface-4); box-shadow: none; }
+body.elpis-skin-veilleuse .set-seg { border-radius: 999px; }
+body.elpis-skin-veilleuse .set-seg__btn { border-radius: 999px; }
+body.elpis-skin-veilleuse .uppercase { letter-spacing: 0; text-transform: none; }
+body.elpis-skin-veilleuse :is(.bg-slate-900\/80, .bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-900\/40) { background-color: var(--vl-voile-modale); }
+body.elpis-skin-veilleuse .bg-gradient-to-tr.from-blue-500 { background-image: none; background-color: var(--surface-4); color: var(--text-800); }
+body.elpis-skin-veilleuse input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body.elpis-skin-veilleuse textarea,
+body.elpis-skin-veilleuse select { border-radius: var(--radius-md); }
+
+/* ── Paramètres : une fenêtre qui s'éclaire, son rail sans fond ─────────── */
+body.elpis-skin-veilleuse [data-rail-parametres] {
+    border-right-width: 0;
+    background: transparent;
+    scrollbar-width: none;
+}
+body.elpis-skin-veilleuse [data-rail-parametres] nav button { position: relative; color: var(--text-500); }
+body.elpis-skin-veilleuse [data-rail-parametres] nav button:hover { background: transparent; color: var(--text-900); }
+body.elpis-skin-veilleuse [data-rail-parametres] nav button[aria-current="page"] {
+    background: transparent;
+    color: var(--accent-text);
+}
+body.elpis-skin-veilleuse [data-rail-parametres] nav button[aria-current="page"] > i { color: inherit; }
+body.elpis-skin-veilleuse [data-rail-parametres] nav button[aria-current="page"]::before,
+body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.125rem;
+    width: 0.3125rem;
+    height: 0.3125rem;
+    margin-top: -0.15625rem;
+    border-radius: 999px;
+    background: var(--accent);
+}
+body.elpis-skin-veilleuse .elpis-reglages-corps > .bg-white { background: transparent; }
+body.elpis-skin-veilleuse .max-w-4xl:has([data-rail-parametres]) > .border-b { border-bottom-color: transparent; }
+body.elpis-skin-veilleuse .elpis-sous-menu { border-bottom-color: var(--border-soft); }
+body.elpis-skin-veilleuse .elpis-reglages-corps .elpis-sous-menu { background-color: var(--vl-releve); }
+
+/* ── Console : le même champ ; les cartes s'éclairent, sans cadre ───────── */
+body.elpis-skin-veilleuse .adm-main { background: var(--surface); }
+body.elpis-skin-veilleuse .adm-page-head { background: var(--surface); border-bottom: 0; }
+body.elpis-skin-veilleuse .adm-card { border: 0; border-radius: 1rem; background: var(--surface-2); }
+body.elpis-skin-veilleuse .adm-card__head { border-bottom-color: var(--border-soft); }
+body.elpis-skin-veilleuse .adm-rail { border-right-width: 0; }
+body.elpis-skin-veilleuse .adm-rail__foot { border-top-color: transparent; }
+body.elpis-skin-veilleuse .adm-me__avatar { background: var(--surface-3); color: var(--text-800); }
+body.elpis-skin-veilleuse .adm-nav-arbre__recherche { border-color: transparent; background: var(--surface-2); }
+body.elpis-skin-veilleuse aside.elpis-slide-panel .adm-nav-arbre__recherche input { background: transparent; }
+body.elpis-skin-veilleuse .adm-nav { scrollbar-width: none; }
+body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub) { position: relative; color: var(--rail-text); }
+body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub):hover { background: transparent; color: var(--rail-text-strong); }
+body.elpis-skin-veilleuse .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-current="page"] {
+    background: transparent;
+    color: var(--accent-text);
+}
+
+/* Étiquettes de la console (« Défaut »…) : l'accent prévu pour le texte, lisible en petite taille. */
+body.elpis-skin-veilleuse .adm-tag:not(.adm-tag--soft) { color: var(--accent-text); }
+
+/* ── Mouvement : les menus s'allument doucement, comme sous la lampe ; opacité et position seulement ── */
+body.elpis-skin-veilleuse :is(.popover-enter-active, .popover-up-enter-active) {
+    transition: opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+body.elpis-skin-veilleuse :is(.popover-leave-active, .popover-up-leave-active) { transition: opacity 140ms ease-in, transform 140ms ease-in; }
+body.elpis-skin-veilleuse .popover-enter-from { transform: translateY(-6px) scale(0.98); }
+body.elpis-skin-veilleuse .popover-up-enter-from { transform: translateY(6px) scale(0.98); }
+body.elpis-skin-veilleuse :is(.modal-enter-active, .modal-leave-active) > * {
+    transition: opacity 220ms ease-out, transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}

@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/veilleuse/editeur.css — éditeur de Veilleuse, nuit prune ou lever du jour, sans filets marqués, l'ambre pour ce qui est ouvert. */
+body.elpis-skin-veilleuse .ed2 {
+  --ed-r: 8px;
+  --ed-r-lg: 12px;
+  --ed-arbre-taille: 13.5px;
+  --ed-arbre-hauteur: 30px;
+}
+body.elpis-skin-veilleuse .ed2--encre {
+  --ed-code-bg: #1d1723;
+  --ed-code-fg: #e9dfd2;
+  --ed-code-muted: #a99fae;
+  --ed-code-accent: #f0a640;
+  --ed-plan: #1d1723;
+  --ed-bande: #17121c;
+  --ed-releve: #29222f;
+  --ed-champ: #29222f;
+  --ed-ink: #e9dfd2;
+  --ed-ink-2: #cfc4c3;
+  --ed-muted: #a99fae;
+  --ed-line: rgb(239 230 218 / 0.09);
+  --ed-line-soft: rgb(239 230 218 / 0.05);
+  --ed-hover: rgb(239 230 218 / 0.05);
+  --ed-press: rgb(239 230 218 / 0.1);
+  --ed-select: rgb(240 166 64 / 0.13);
+  --ed-select-ink: #f8cf94;
+  --ed-accent: #f0a640;
+  --ed-accent-fg: #1a1420;
+  --ed-ring: #f0a640;
+  --ed-ok: #8fd3a8;
+  --ed-warn: #ecd27e;
+  --ed-danger: #f2a0a8;
+  --ed-ic-dossier: #f0a640;
+  --ed-syn-mot: #d4a5e6;
+  --ed-syn-texte: #a9d5a2;
+  --ed-syn-nombre: #f2c27b;
+  --ed-syn-com: #948a9c;
+  --ed-syn-type: #8fc4e8;
+  --ed-syn-var: #e9dfd2;
+  --ed-syn-op: #bdb2b9;
+}
+body.elpis-skin-veilleuse .ed2--papier {
+  --ed-code-bg: #fbf9fb;
+  --ed-code-fg: #271e2e;
+  --ed-code-muted: #625769;
+  --ed-code-accent: #9a5800;
+  --ed-plan: #fbf9fb;
+  --ed-bande: #f2eef4;
+  --ed-releve: #ffffff;
+  --ed-champ: #f2eef4;
+  --ed-ink: #271e2e;
+  --ed-ink-2: #463b4d;
+  --ed-muted: #625769;
+  --ed-line: #e2dbe6;
+  --ed-line-soft: #eee9f0;
+  --ed-hover: rgb(39 30 46 / 0.045);
+  --ed-press: rgb(39 30 46 / 0.09);
+  --ed-select: rgb(154 88 0 / 0.1);
+  --ed-select-ink: #7a4500;
+  --ed-accent: #9a5800;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #9a5800;
+  --ed-ok: #1f6b45;
+  --ed-warn: #7a5600;
+  --ed-danger: #b3261e;
+  --ed-ic-dossier: #9a5800;
+  --ed-syn-mot: #7a3a8f;
+  --ed-syn-texte: #2f6b2a;
+  --ed-syn-nombre: #8a4b00;
+  --ed-syn-com: #6c6273;
+  --ed-syn-type: #1d5f8a;
+  --ed-syn-var: #271e2e;
+  --ed-syn-op: #574c5e;
+}

@@ -90,7 +90,7 @@ main and admin; `apps/toolhost`: tool host), shared packages in
 - **Dependencies**: exact versions (`.npmrc`); permissive licenses (MIT,
   Apache-2.0, ISC, BSD) for everything shipped, MPL-2.0 or BlueOak allowed
   for non-distributed development tools only; the build rejects a
-  shipped package outside the policy of `migration-kit/deps.map.json`. npm 11
+  shipped package outside the policy of `THIRD_PARTY_LICENSES/policy.json`. npm 11
   blocks unapproved install scripts: `npm install-scripts approve
   <package>` after review (`allowScripts` field). A runtime dependency
   is listed in `THIRD_PARTY_NOTICES.md` (`npm run licences` rewrites

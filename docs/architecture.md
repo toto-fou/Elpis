@@ -3496,7 +3496,7 @@ and of installed dependencies is in
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), the texts in
 [`THIRD_PARTY_LICENSES/`](../THIRD_PARTY_LICENSES/) (the project's SPDX licenses in [`LICENSES/`](../LICENSES/)). Policy: MIT, ISC, Apache-2.0, BSD (and 0BSD,
 Unlicense) for what ships, MPL-2.0 or BlueOak for development tools
-only (`migration-kit/deps.map.json`). `npm run licences` rewrites the
+only (`THIRD_PARTY_LICENSES/policy.json`). `npm run licences` rewrites the
 core and tool host tables and rejects a package outside the policy
 (the build checks they are up to date); the web
 bundle table is maintained by hand for each dependency added to `frontend/package.json`.
@@ -3507,7 +3507,7 @@ The offline package (`make_release.sh`) carries `LICENSE`, `NOTICE`,
 image (hadolint, upx, radare2: GPL or LGPL) and the voice bundle (piper-tts:
 GPL), the list of sources and a written offer (`docs/operations.md`). The
 license of `khroma` (no `license` field in its `package.json`) is declared
-in `migration-kit/deps.map.json` (`politique.surcharges`). Elpis was under
+in `THIRD_PARTY_LICENSES/policy.json` (`surcharges`). Elpis was under
 Apache-2.0 before 0.0.1 (see `NOTICE`).
 
 Dependencies under the AGPL license (PyMuPDF, pdf2docx) are **not

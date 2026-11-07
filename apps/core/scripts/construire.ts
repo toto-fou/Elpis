@@ -142,12 +142,14 @@ export function licenceConforme(expression: string, autorisees: readonly string[
   }
 }
 
-/** Licences admises pour un paquet livré (`politique.licences.livrees` de migration-kit/deps.map.json). */
+/** Licences admises pour un paquet livré (`licences.livrees` de THIRD_PARTY_LICENSES/policy.json). */
 export function licencesLivrees(): string[] {
-  const carte = JSON.parse(readFileSync(path.join(RACINE, "migration-kit", "deps.map.json"), "utf-8")) as {
-    politique: { licences: { livrees: string[] } };
+  const politique = JSON.parse(
+    readFileSync(path.join(RACINE, "THIRD_PARTY_LICENSES", "policy.json"), "utf-8"),
+  ) as {
+    licences: { livrees: string[] };
   };
-  return carte.politique.licences.livrees;
+  return politique.licences.livrees;
 }
 
 /** Dossier du paquet npm d'un fichier d'entrée (`node_modules/a/…`, `node_modules/@p/a/…`, imbrications comprises). */

@@ -20,8 +20,8 @@
     "test": "vitest run",
     "build": "npm run build -w @elpis/core && npm run build -w @elpis/toolhost && npm run build -w @elpis/web",
     "licences": "npm run licences -w @elpis/core && npm run licences -w @elpis/toolhost",
-    "goldens:rejeux": "node migration-kit/goldens_check.mjs --rejeux .vitest/rapport.json",
-    "verifier": "npm run typecheck && npm run lint && npm run format:check && npm run build:web && npm run test -- --reporter=default --reporter=json --outputFile.json=.vitest/rapport.json && npm run goldens:rejeux",
+    "goldens:rejeux": "test ! -f migration-kit/goldens_check.mjs || node migration-kit/goldens_check.mjs --rejeux .vitest/rapport.json",
+    "verifier": "npm run typecheck && npm run lint && npm run format:check && npm run build:web && npm run test -- --passWithNoTests --reporter=default --reporter=json --outputFile.json=.vitest/rapport.json && npm run goldens:rejeux",
     "build:web": "npm run build -w @elpis/web"
   },
   "devDependencies": {

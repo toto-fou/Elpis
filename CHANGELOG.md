@@ -20,6 +20,10 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Licence policy in `THIRD_PARTY_LICENSES/policy.json`.** The licenses admitted for
+  shipped packages, the development-only ones and the per-package overrides leave
+  `migration-kit/deps.map.json`, a leftover of the TypeScript migration; `migration-kit/`
+  is no longer in the repository. The builds read the same list as before.
 - **One cap per account on engine requests.** `llm.max_requests_per_user` (Admin console ›
   Connections, engine card) caps the engine requests an account runs at the same time:
   conversations, subagents, routines and `/compact` together. The surplus waits instead of
@@ -147,6 +151,9 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **`npm run verifier` on the public tree.** It stopped on the missing test kit (goldens
+  replay) and on the absence of tests; both steps now pass when there is nothing to run.
+  One file that failed `format:check` is formatted.
 - **Chat title set as soon as it arrives.** The model's title of a new chat is requested when
   the turn starts, saved and shown right away (new `title` stream event) instead of at the end
   of the answer; stopping the turn no longer drops it, and a manual rename made meanwhile

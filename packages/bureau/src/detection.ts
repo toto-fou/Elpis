@@ -343,7 +343,7 @@ export function chatCompletionsUrl(endpoint: string | null | undefined): string 
 /** Retire les blocs `<think>…</think>` (comme /<think>[\s\S]*?<\/think>/g) en temps linéaire. */
 function sansThink(texte: string): string {
   let sortie = "";
-  for (let i = 0; ; ) {
+  for (let i = 0; ;) {
     const debut = texte.indexOf("<think>", i);
     const fin = debut === -1 ? -1 : texte.indexOf("</think>", debut + 7);
     if (fin === -1) return sortie + texte.slice(i);

@@ -97,7 +97,7 @@ installed by the lock file; same licenses and copyright holders).
 
 | Embedded in | Component | Version | License |
 |---|---|---|---|
-| `echarts.min.js` | tslib (TypeScript helpers) | 2.3.0 | **0BSD** (BSD family, public-domain equivalent; admitted by `migration-kit/deps.map.json`) |
+| `echarts.min.js` | tslib (TypeScript helpers) | 2.3.0 | **0BSD** (BSD family, public-domain equivalent; admitted by `THIRD_PARTY_LICENSES/policy.json`) |
 | `echarts-ssr.cjs` (server-side chart rendering of the docx/pptx tools, built by `frontend/build-ssr.mjs` from the npm packages) | Apache ECharts, ZRender, tslib | 6.1.0, 6.1.0, 2.3.0 | Apache-2.0, BSD-3-Clause, **0BSD** — texts in `THIRD_PARTY_LICENSES/echarts.txt`, `THIRD_PARTY_LICENSES/zrender.txt`, `THIRD_PARTY_LICENSES/npm-web.txt` |
 | `chart.umd.js` | @kurkle/color | ^0.3.0 | MIT |
 | `index.umd.min.js` (boxplot) | @sgratzl/boxplots | ^2.0.0 | MIT |
@@ -111,7 +111,7 @@ installed by the lock file; same licenses and copyright holders).
 | `mermaid.min.js` | dagre-d3-es | 7.0.14 | MIT |
 | `mermaid.min.js` | cytoscape, cytoscape-cose-bilkent, cytoscape-fcose, cose-base, layout-base | ^3.34.0, ^4.1.0, ^2.2.0 | MIT |
 | `mermaid.min.js` | KaTeX | ^0.16.47 | MIT |
-| `mermaid.min.js` | khroma | 2.1.0 | MIT (license file of the package, text in `THIRD_PARTY_LICENSES/npm-web.txt`; its `package.json` has no `license` field, so the license is declared in `migration-kit/deps.map.json`, `politique.surcharges`) |
+| `mermaid.min.js` | khroma | 2.1.0 | MIT (license file of the package, text in `THIRD_PARTY_LICENSES/npm-web.txt`; its `package.json` has no `license` field, so the license is declared in `THIRD_PARTY_LICENSES/policy.json`, `surcharges`) |
 | `mermaid.min.js` | lodash-es (through dagre-d3-es) | 4.18.1 (banner) | MIT |
 | `mermaid.min.js` | es-toolkit, fastdom | ^1.45.1, 1.0.12 | MIT — texts in `THIRD_PARTY_LICENSES/npm-web.txt` |
 | `mermaid.min.js` | roughjs, with hachure-fill, path-data-parser, points-on-curve, points-on-path | ^4.6.6 | MIT |
@@ -139,7 +139,7 @@ libraries, MIT; musl, MIT; compiler-rt, Apache-2.0 WITH LLVM-exception;
 dlmalloc, public domain), all cited under `libwebp`. The license texts are
 in [`THIRD_PARTY_LICENSES/npm-core.txt`](THIRD_PARTY_LICENSES/npm-core.txt), also shipped as
 `dist/LICENCES-TIERS.txt`. Only the licenses of
-`migration-kit/deps.map.json` (MIT, Apache-2.0, ISC, BSD-2-Clause,
+[`THIRD_PARTY_LICENSES/policy.json`](THIRD_PARTY_LICENSES/policy.json) (MIT, Apache-2.0, ISC, BSD-2-Clause,
 BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 
 <!-- npm-core : table écrite par `npm run licences`, ne pas modifier à la main -->

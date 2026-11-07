@@ -1,4 +1,4 @@
-# Vecteurs de parité : écrits par Python (migration-kit/vecteurs), comparés à l'octet.
+# Vecteurs de parité avec l'ancien cœur Python, comparés à l'octet.
 **/test/vecteurs/
 # Fichiers générés.
 **/*.gen.ts

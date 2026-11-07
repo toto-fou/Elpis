@@ -49,6 +49,32 @@ function curseurPage(curseur: string): void {
   document.body.style.userSelect = curseur ? "none" : "";
 }
 
+/** Une position par image : la souris envoie plus de mouvements que l'écran n'affiche d'images ; `vider` applique la dernière tout de suite. */
+export function parImage(appliquer: (position: number) => void): {
+  pousser(position: number): void;
+  vider(): void;
+} {
+  let attente: number | null = null;
+  let image = 0;
+  const jouer = (): void => {
+    image = 0;
+    if (attente === null) return;
+    const p = attente;
+    attente = null;
+    appliquer(p);
+  };
+  return {
+    pousser(position) {
+      attente = position;
+      if (!image) image = requestAnimationFrame(jouer);
+    },
+    vider() {
+      if (image) cancelAnimationFrame(image);
+      jouer();
+    },
+  };
+}
+
 export function setupEditorResize(refs: RefsRedimension, r: RappelsRedimension) {
   const { terminalHeight, explorerWidth, settings, monacoRef } = refs;
   const mettreEnPage = (): void => {
@@ -66,6 +92,7 @@ export function setupEditorResize(refs: RefsRedimension, r: RappelsRedimension) 
     }
   };
 
+  // Pendant le glissement, les observateurs de taille de Monaco et du terminal suivent à chaque image ; mise en page complète au relâchement.
   let terminalY = 0;
   let terminalH = 0;
   let finTerminal: (() => void) | null = null;
@@ -73,15 +100,15 @@ export function setupEditorResize(refs: RefsRedimension, r: RappelsRedimension) 
     e.preventDefault();
     terminalY = coord(e, "clientY");
     terminalH = terminalHeight.value;
-    const deplacer = (ev: Event): void => {
-      terminalHeight.value = Math.max(120, Math.min(600, terminalH + (terminalY - coord(ev, "clientY"))));
-      mettreEnPage();
-      ajuster();
-    };
+    const hauteur = parImage((y) => {
+      terminalHeight.value = Math.max(120, Math.min(600, terminalH + (terminalY - y)));
+    });
+    const deplacer = (ev: Event): void => hauteur.pousser(coord(ev, "clientY"));
     const finir = (): void => {
       if (!finTerminal) return;
       finTerminal();
       finTerminal = null;
+      hauteur.vider();
       curseurPage("");
       mettreEnPage();
       ajuster();
@@ -98,17 +125,15 @@ export function setupEditorResize(refs: RefsRedimension, r: RappelsRedimension) 
     e.preventDefault();
     explorateurX = coord(e, "clientX");
     explorateurW = explorerWidth.value;
-    const deplacer = (ev: Event): void => {
-      explorerWidth.value = Math.max(
-        160,
-        Math.min(500, explorateurW + (coord(ev, "clientX") - explorateurX)),
-      );
-      mettreEnPage();
-    };
+    const largeur = parImage((x) => {
+      explorerWidth.value = Math.max(160, Math.min(500, explorateurW + (x - explorateurX)));
+    });
+    const deplacer = (ev: Event): void => largeur.pousser(coord(ev, "clientX"));
     const finir = (): void => {
       if (!finExplorateur) return;
       finExplorateur();
       finExplorateur = null;
+      largeur.vider();
       curseurPage("");
       mettreEnPage();
     };

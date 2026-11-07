@@ -41,6 +41,7 @@ export interface EtatTerminal {
   inputTimer: ReturnType<typeof setTimeout> | null;
   sseWatchdog: ReturnType<typeof setTimeout> | null;
   resizeObserver: ResizeObserver | null;
+  resizeTimer?: ReturnType<typeof setTimeout> | null;
   lastInputSentAt?: number;
   inputDropWarned?: boolean;
 }
@@ -75,6 +76,8 @@ const RECONNEXION_MS = 1200;
 const BATTEMENT_MS = 25000;
 /** Fenêtre de coalescence des frappes : après un premier envoi immédiat en WS, debounce classique en POST. */
 const _TERM_INPUT_COALESCE_MS = 30;
+/** Taille transmise au shell une fois le redimensionnement posé : un seul redessin au lieu d'un par taille intermédiaire. */
+const _TERM_RESIZE_DEBOUNCE_MS = 120;
 
 const LIBELLES: Readonly<Record<EtatOnglet, string>> = {
   idle: "Pas encore ouvert — cliquez pour démarrer le shell",
@@ -389,8 +392,12 @@ export function setupEditorTerminal(
       }
     });
     term.onResize(({ rows, cols }) => {
-      if (state.transport === "ws" && state.conn && state.conn.redimensionner(rows, cols)) return;
-      if (state.transport === "sse" || sid === SID_HISTORIQUE) redimensionnerHistorique(rows, cols);
+      if (state.resizeTimer) clearTimeout(state.resizeTimer);
+      state.resizeTimer = setTimeout(() => {
+        state.resizeTimer = null;
+        if (state.transport === "ws" && state.conn && state.conn.redimensionner(rows, cols)) return;
+        if (state.transport === "sse" || sid === SID_HISTORIQUE) redimensionnerHistorique(rows, cols);
+      }, _TERM_RESIZE_DEBOUNCE_MS);
     });
     // Panneau encore caché : grille 0 × 0, réajustée au changement d'onglet.
     setTimeout(() => {
@@ -424,6 +431,8 @@ export function setupEditorTerminal(
     st.sseWatchdog = null;
     if (st.inputTimer) clearTimeout(st.inputTimer);
     st.inputTimer = null;
+    if (st.resizeTimer) clearTimeout(st.resizeTimer);
+    st.resizeTimer = null;
     st.resizeObserver?.disconnect();
     st.resizeObserver = null;
     try {

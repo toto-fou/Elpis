@@ -100,8 +100,8 @@ function treeFromRows(spec: Spec): [Noeud[], number] {
     const nameCol = spec.x !== null && spec.x !== parent ? spec.x : (d[0] ?? null);
     if (nameCol === null)
       throw new SpecError("tree: needs a name column and a parent column", "", [
-        { nom: "Direction", parent: "" },
-        { nom: "Ventes", parent: "Direction" },
+        { name: "Management", parent: "" },
+        { name: "Sales", parent: "Management" },
       ]);
     const vcol = (spec.ys.length > 0 ? spec.ys : measures(spec.cols))[0] ?? null;
     interface Brut {
@@ -161,7 +161,7 @@ function treeFromRows(spec: Spec): [Noeud[], number] {
   const vcol = (spec.ys.length > 0 ? spec.ys : measures(spec.cols))[0] ?? null;
   if (levels.length === 0)
     throw new SpecError("hierarchy: needs at least one text column (one level)", "", [
-      { région: "Nord", ville: "Lille", ventes: 120 },
+      { region: "North", city: "Lille", sales: 120 },
     ]);
   if (levels.length > 1 && spec.levels.length === 0)
     spec.notes.fix("levels: " + levels.map((c) => c.name).join(" > "));

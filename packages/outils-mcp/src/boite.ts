@@ -92,8 +92,8 @@ export function clipText(
   const omis = points.length - limite;
   return (
     points.slice(0, limite).join("") +
-    `\n…[${options.label ?? "contenu"} tronqué : ${omis} caractères omis sur ` +
-    `${points.length} — affine la requête (plage, filtre) pour voir le reste]`
+    `\n…[${options.label ?? "content"} truncated: ${omis} characters omitted out of ` +
+    `${points.length} — narrow the query (range, filter) to see the rest]`
   );
 }
 
@@ -110,7 +110,7 @@ export function headTail(
   const omises = lignes.length - tete - queue;
   return [
     ...lignes.slice(0, tete),
-    `…[${options.label ?? "sortie"} : ${omises} lignes du milieu omises sur ${lignes.length}]`,
+    `…[${options.label ?? "output"}: ${omises} middle lines omitted out of ${lignes.length}]`,
     ...lignes.slice(-queue),
   ].join("\n");
 }

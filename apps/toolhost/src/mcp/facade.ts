@@ -10,7 +10,7 @@ import { decrire } from "../decrire";
 import type { Journal } from "../journal";
 import { HTTP_MOUNT_PATH, introuvable, SSE_MOUNT_PATH } from "../porte";
 
-export const MESSAGE_NON_SERVIE = "service MCP indisponible : famille non servie par l'hôte d'outils";
+export const MESSAGE_NON_SERVIE = "MCP service unavailable: family not served by the tool host";
 export const METHODES: HTTPMethods[] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 export const CHEMINS_FACADE: readonly string[] = [
   HTTP_MOUNT_PATH,

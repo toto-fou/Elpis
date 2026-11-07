@@ -36,19 +36,19 @@ except ImportError:  # hors Windows : jamais levée
 # Codes d'erreur ShellExecute (valeur de retour ≤ 32). Pur (sans ctypes) → testable
 # sous Linux. Sert à transformer un échec numérique opaque en message actionnable.
 _SHELLEXEC_ERRORS = {
-    0:  "système à court de mémoire/ressources",
-    2:  "fichier introuvable (SE_ERR_FNF) — vérifier le nom/chemin de l'application",
-    3:  "chemin introuvable (SE_ERR_PNF)",
-    5:  "accès refusé / non spécifié (SE_ERR_ACCESSDENIED)",
-    8:  "mémoire insuffisante (SE_ERR_OOM)",
-    11: "format de fichier exécutable invalide (ERROR_BAD_FORMAT)",
-    26: "violation de partage (SE_ERR_SHARE)",
-    27: "association de fichier incomplète (SE_ERR_ASSOCINCOMPLETE)",
-    28: "délai DDE dépassé (SE_ERR_DDETIMEOUT)",
-    29: "échec de la transaction DDE (SE_ERR_DDEFAIL)",
-    30: "DDE occupé (SE_ERR_DDEBUSY)",
-    31: "aucune application associée à ce type de fichier (SE_ERR_NOASSOC)",
-    32: "DLL introuvable pour cette application (SE_ERR_DLLNOTFOUND)",
+    0:  "system out of memory/resources",
+    2:  "file not found (SE_ERR_FNF) — check the application name/path",
+    3:  "path not found (SE_ERR_PNF)",
+    5:  "access denied / unspecified (SE_ERR_ACCESSDENIED)",
+    8:  "insufficient memory (SE_ERR_OOM)",
+    11: "invalid executable file format (ERROR_BAD_FORMAT)",
+    26: "sharing violation (SE_ERR_SHARE)",
+    27: "incomplete file association (SE_ERR_ASSOCINCOMPLETE)",
+    28: "DDE timeout (SE_ERR_DDETIMEOUT)",
+    29: "DDE transaction failed (SE_ERR_DDEFAIL)",
+    30: "DDE busy (SE_ERR_DDEBUSY)",
+    31: "no application associated with this file type (SE_ERR_NOASSOC)",
+    32: "DLL not found for this application (SE_ERR_DLLNOTFOUND)",
 }
 
 
@@ -57,8 +57,8 @@ def _shellexecute_error(rc: int) -> str:
     try:
         rc = int(rc)
     except (TypeError, ValueError):
-        return "code ShellExecute invalide"
-    return _SHELLEXEC_ERRORS.get(rc, "erreur ShellExecute %d" % rc)
+        return "invalid ShellExecute code"
+    return _SHELLEXEC_ERRORS.get(rc, "ShellExecute error %d" % rc)
 
 try:
     from normalize import keep_node, make_node
@@ -81,7 +81,7 @@ def _ensure_dpi_aware() -> None:
             u.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
             u.SetProcessDpiAwarenessContext.restype = ctypes.c_bool
             if not u.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
-                raise OSError("dpi awareness v2 refusé")
+                raise OSError("dpi awareness v2 refused")
         except Exception:
             try:
                 ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_AWARE
@@ -1852,7 +1852,7 @@ class WindowsBackend(DesktopBackend):
                         return
                     if pairs_sent:
                         # Clic partiel : rejouer par pyautogui ajouterait des clics.
-                        raise PartialInput("clic partiel (%d/%d) : SendInput refusé en cours de geste"
+                        raise PartialInput("partial click (%d/%d): SendInput refused mid-gesture"
                                            % (pairs_sent, max(1, int(clicks or 1))))
         pg = self._need()
         mods = self._mods(modifiers)
@@ -2103,7 +2103,7 @@ class WindowsBackend(DesktopBackend):
                     r.setdefault("name", name)
                     return r
                 if time.monotonic() - t_act >= _SLOW_PATTERN_S:     # échec LENT avalé par _pattern_action
-                    return _uncertain(action, "pattern a expiré", auto_id=auto_id, name=name)
+                    return _uncertain(action, "pattern timed out", auto_id=auto_id, name=name)
                 t_act = None
                 if clicklike:
                     # InvokePattern (fiable, hors écran) puis clic UIA. _try_pattern_call
@@ -2115,7 +2115,7 @@ class WindowsBackend(DesktopBackend):
                     if not menu and _try_pattern_call(lambda: ctrl.invoke()):  # noqa: B023 (même itération)
                         return {"method": "invoke", "auto_id": auto_id, "name": name}
                     if time.monotonic() - t_act >= _SLOW_PATTERN_S:
-                        return _uncertain("invoke", "Invoke a expiré", auto_id=auto_id, name=name)
+                        return _uncertain("invoke", "Invoke timed out", auto_id=auto_id, name=name)
                     t_act = None
                     p = self._ctrl_center(ctrl)
                     if p is None:
@@ -2144,11 +2144,11 @@ class WindowsBackend(DesktopBackend):
         # seulement pour ce qu'un clic accomplit : un ``collapse`` sans pattern devenait un
         # clic au centre, rapporté réussi (le garde-fou du runtime n'était jamais atteint).
         if action not in _COORD_FALLBACK_ACTIONS:
-            raise NotSupported("element_action(%s): pattern indisponible sur ce contrôle (pas de repli clic)" % action)
+            raise NotSupported("element_action(%s): pattern unavailable on this control (no click fallback)" % action)
         if x is not None and y is not None:
             self.click(int(x), int(y), button=button, clicks=clicks)
             return {"method": "coords", "x": int(x), "y": int(y)}
-        raise NotSupported("element_action(%s): contrôle introuvable et aucune coordonnée de repli" % action)
+        raise NotSupported("element_action(%s): control not found and no fallback coordinates" % action)
 
     def _abs_point(self, x, y):
         """Point de l'écran CAPTURÉ (repère de l'arbre et des clics) → écran ABSOLU
@@ -2188,11 +2188,11 @@ class WindowsBackend(DesktopBackend):
                 # pywinauto avale l'échec de SetFocus (simple avertissement) : on VÉRIFIE.
                 has = getattr(ctrl, "has_keyboard_focus", None)
                 if callable(has) and not has():
-                    raise RuntimeError("focus non posé")
+                    raise RuntimeError("focus not set")
             except Exception:
                 # Focus non posé : Ctrl+A puis frappe partiraient dans le contrôle qui a
                 # le focus (un document ailleurs, remplacé en entier). L'appelant clique.
-                raise NotSupported("set_value : focus impossible sur le contrôle (%s)" % (auto_id or name or control_type))
+                raise NotSupported("set_value: cannot focus the control (%s)" % (auto_id or name or control_type))
         else:
             ax, ay = self._abs_point(x, y)
             r = _uia_element_action(action="set_value", auto_id=auto_id, name=name, control_type=control_type,
@@ -2201,7 +2201,7 @@ class WindowsBackend(DesktopBackend):
                 return r
             # Ni pywinauto ni UIA ne l'ont trouvé : taper « quelque part » serait
             # pire que d'échouer — l'appelant (runtime) clique le champ puis tape.
-            raise NotSupported("set_value : contrôle introuvable (%s)" % (auto_id or name or control_type))
+            raise NotSupported("set_value: control not found (%s)" % (auto_id or name or control_type))
         # Repli : focus + TOUT sélectionner + frappe. Sans Ctrl+A, la frappe s'ajoutait
         # à l'ancien contenu (« 12 » dans un champ qui valait « 7 » donnait « 712 »).
         self.key("ctrl+a")
@@ -2214,11 +2214,11 @@ class WindowsBackend(DesktopBackend):
         valeur de l'arbre est vide alors que le texte est là)."""
         auto = _automation()
         if auto is None or _UIA_MOD is None:
-            raise NotSupported("element_text : UIA indisponible")
+            raise NotSupported("element_text: UIA unavailable")
         ax, ay = self._abs_point(x, y)
         el = _uia_find(auto, _UIA_MOD, auto_id=auto_id, name=name, control_type=control_type, x=ax, y=ay)
         if el is None:
-            raise NotSupported("element_text : contrôle introuvable")
+            raise NotSupported("element_text: control not found")
         vp = _uia_pattern(_UIA_MOD, el, "value")
         if vp is not None:
             try:
@@ -2233,11 +2233,11 @@ class WindowsBackend(DesktopBackend):
         except Exception:
             tp = None
         if tp is None:
-            raise NotSupported("element_text : ni ValuePattern ni TextPattern")
+            raise NotSupported("element_text: neither ValuePattern nor TextPattern")
         try:
             return {"text": str(tp.DocumentRange.GetText(-1) or ""), "method": "text"}
         except Exception as e:
-            raise NotSupported("element_text : TextPattern KO (%s)" % e)
+            raise NotSupported("element_text: TextPattern failed (%s)" % e)
 
     def launch(self, target, *, args="", timeout_ms=15000) -> Dict[str, Any]:
         """Lance ``target`` (exe/lnk/URI/protocole) via ShellExecuteW et attend
@@ -2293,7 +2293,7 @@ class WindowsBackend(DesktopBackend):
             rc = ctypes.cast(r, ctypes.c_void_p).value or 0   # INT_PTR sûr (pas de troncature)
             if int(rc) <= 32:                    # > 32 = succès ; ≤ 32 = code d'erreur
                 raise NotSupported(
-                    "ShellExecute a échoué pour %r : %s" % (target, _shellexecute_error(rc)))
+                    "ShellExecute failed for %r: %s" % (target, _shellexecute_error(rc)))
 
             if desk is None:
                 # pywinauto muet (MFC absent sur la VM) : on n'abandonne pas l'attente —
@@ -2337,7 +2337,7 @@ class WindowsBackend(DesktopBackend):
                 # attente expirée (splash, fenêtre fermée aussitôt) n'est pas un succès.
                 info["found"] = bool(ready_ok)
                 if not ready_ok:
-                    info["hint"] = "nouvelle fenêtre vue mais pas prête dans le délai (splash ?) : attendre la fenêtre principale par son titre"
+                    info["hint"] = "new window seen but not ready within the timeout (splash screen?): wait for the main window by its title"
             return info
         except NotSupported:
             raise                                 # échec ShellExecute explicite → 501 décodé
@@ -2444,7 +2444,7 @@ class WindowsBackend(DesktopBackend):
         action = (action or "activate").strip().lower()
         hwnd = int(hwnd or 0)
         if not hwnd:
-            raise NotSupported("window_action: hwnd requis")
+            raise NotSupported("window_action: hwnd required")
         try:
             win = _pywinauto_desktop()(backend="uia").window(handle=hwnd)
             if action in ("activate", "focus"):
@@ -2464,7 +2464,7 @@ class WindowsBackend(DesktopBackend):
             elif action == "close":
                 win.close()
             else:
-                raise NotSupported("window_action: action inconnue %r" % action)
+                raise NotSupported("window_action: unknown action %r" % action)
             return {"action": action, "hwnd": hwnd, "method": "pywinauto"}
         except NotSupported:
             raise
@@ -2485,13 +2485,13 @@ class WindowsBackend(DesktopBackend):
                     u2.PostMessageW.argtypes = [wintypes.HWND, ctypes.c_uint, wintypes.WPARAM, wintypes.LPARAM]
                     u2.PostMessageW.restype = wintypes.BOOL
                     if not u2.PostMessageW(hwnd, 0x0010, 0, 0):
-                        raise NotSupported("window_action: close refusé (WM_CLOSE)")
+                        raise NotSupported("window_action: close refused (WM_CLOSE)")
                 else:
                     import ctypes
                     from ctypes import wintypes
                     sw = {"minimize": 6, "maximize": 3, "restore": 9}.get(action)
                     if sw is None:
-                        raise NotSupported("window_action: %r sans repli Win32" % action)
+                        raise NotSupported("window_action: %r has no Win32 fallback" % action)
                     u2 = ctypes.WinDLL("user32")
                     u2.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]; u2.ShowWindow.restype = wintypes.BOOL
                     u2.ShowWindow(hwnd, sw)
@@ -2500,14 +2500,14 @@ class WindowsBackend(DesktopBackend):
                     # Honnêteté : ne PAS prétendre au succès si le verrou de focus a gagné.
                     out["foregrounded"] = bool(forced)
                     if not forced:
-                        out["note"] = ("activation best-effort NON confirmée (verrou de focus "
-                                       "Windows depuis un service en arrière-plan) — installer "
-                                       "pywinauto sur le VM pour une activation fiable")
+                        out["note"] = ("best-effort activation NOT confirmed (Windows focus lock "
+                                       "from a background service) — install "
+                                       "pywinauto on the VM for reliable activation")
                 return out
             except NotSupported:
                 raise
             except Exception as e2:
-                raise NotSupported("window_action(%s) a échoué: %s / %s" % (action, e, e2))
+                raise NotSupported("window_action(%s) failed: %s / %s" % (action, e, e2))
 
     def wait_window(self, *, title_re="", auto_id="", class_name="", ready=True,
                     timeout_ms=15000) -> Dict[str, Any]:
@@ -2515,7 +2515,7 @@ class WindowsBackend(DesktopBackend):
             Desktop = _pywinauto_desktop()
         except Exception:                      # pywinauto muet (win32ui/MFC) : titre par Win32
             if not title_re:
-                raise NotSupported("wait_window sans pywinauto : préciser title_re")
+                raise NotSupported("wait_window without pywinauto: specify title_re")
             return self._wait_window_win32(title_re, timeout_ms)
         kw = {}
         if title_re:
@@ -2525,7 +2525,7 @@ class WindowsBackend(DesktopBackend):
         if class_name:
             kw["class_name"] = class_name
         if not kw:
-            raise NotSupported("wait_window : préciser title_re/auto_id/class_name")
+            raise NotSupported("wait_window: specify title_re/auto_id/class_name")
         # found_index=0 : deux fenêtres qui correspondent (deux Bloc-notes) levaient
         # ElementAmbiguousError → « absente » immédiat, pendant toute l'attente.
         win = Desktop(backend="uia").window(found_index=0, **kw)
@@ -2584,7 +2584,7 @@ class WindowsBackend(DesktopBackend):
         if control_type:
             kw["control_type"] = control_type
         if not kw:
-            raise NotSupported("wait_element : préciser auto_id/name/control_type")
+            raise NotSupported("wait_element: specify auto_id/name/control_type")
         crit = {"exists": "exists", "visible": "exists visible",
                 "enabled": "exists visible enabled",
                 "ready": "exists visible enabled ready"}.get(state, "exists")
@@ -2616,7 +2616,7 @@ class WindowsBackend(DesktopBackend):
                 info.update({"found": True, "degraded": True, "hwnd": w.get("hwnd"), "title": w.get("title")})
                 return info
             time.sleep(0.25)
-        info["hint"] = "lancé, aucune nouvelle fenêtre visible dans le délai (pywinauto indisponible)"
+        info["hint"] = "launched, no new window visible within the timeout (pywinauto unavailable)"
         return info
 
     def _wait_input_idle(self, hwnd, timeout_ms) -> None:

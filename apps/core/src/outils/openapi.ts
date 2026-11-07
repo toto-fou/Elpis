@@ -197,8 +197,8 @@ function deballerSortie(schema: unknown): [Dict | null, boolean] {
 const SCHEMA_ERREUR_OUTIL = {
   type: "object",
   description:
-    "Échec de l'outil (argument refusé, fichier absent, délai dépassé…) : l'appel HTTP réussit, l'outil non. " +
-    "Le modèle appelant doit lire ``error``/``message`` et ``fix``.",
+    "Tool failure (argument rejected, file missing, timeout…): the HTTP call succeeds, the tool does not. " +
+    "The calling model must read ``error``/``message`` and ``fix``.",
   properties: {
     ok: { const: false },
     error: { type: "string" },
@@ -211,11 +211,11 @@ const SCHEMA_ERREUR_OUTIL = {
 const SCHEMA_ERREUR_HTTP = { type: "object", properties: { detail: {} }, required: ["detail"] };
 
 const REPONSES_ERREUR: readonly (readonly [string, string])[] = [
-  ["401", "Jeton d'outils absent, invalide, expiré ou révoqué."],
-  ["404", "Famille ou outil hors de la portée du jeton, ou inconnu."],
-  ["422", "Arguments non conformes au schéma de l'outil."],
-  ["429", "Trop d'appels simultanés pour ce compte (ou service saturé) : réessayer."],
-  ["502", "Le service d'outils ne répond pas."],
+  ["401", "Tool token missing, invalid, expired or revoked."],
+  ["404", "Family or tool outside the token's scope, or unknown."],
+  ["422", "Arguments do not match the tool's schema."],
+  ["429", "Too many simultaneous calls for this account (or service saturated): retry."],
+  ["502", "The tool service is not responding."],
 ];
 
 /** Document OpenAPI 3.1 de la famille (pur : aucune E/S). */
@@ -251,7 +251,7 @@ export function buildSpec(
       schemaOk = {
         anyOf: [{ $ref: `#/components/schemas/${compSortie}` }, { $ref: "#/components/schemas/ToolError" }],
       };
-    } else schemaOk = { description: "Résultat de l'outil (JSON ; texte brut sous « text »)." };
+    } else schemaOk = { description: 'Tool result (JSON; plain text under "text").' };
 
     const annBrute = veritePy(t["annotations"]) ? t["annotations"] : {};
     if (!estDict(annBrute)) throw new TypeError(`'${typeof annBrute}' object has no attribute 'get'`);
@@ -268,8 +268,7 @@ export function buildSpec(
       },
       responses: {
         "200": {
-          description:
-            "Résultat de l'outil. Un échec de l'OUTIL répond aussi 200, avec « ok: false » (voir ToolError).",
+          description: 'Tool result. A TOOL failure also returns 200, with "ok: false" (see ToolError).',
           content: { "application/json": { schema: schemaOk } },
         },
         ...Object.fromEntries(REPONSES_ERREUR.map(([c]) => [c, { $ref: `#/components/responses/E${c}` }])),
@@ -287,12 +286,12 @@ export function buildSpec(
     openapi: "3.1.0",
     jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
     info: {
-      title: `Elpis — outils « ${family} »`,
+      title: `Elpis — "${family}" tools`,
       version,
       description:
-        `Outils de la famille « ${family} » d'Elpis, exécutés dans la sandbox du ` +
-        "compte propriétaire du jeton. Authentification : « Authorization: Bearer ept_… » " +
-        "(jeton d'outils créé dans Paramètres › Connexions).",
+        `Elpis tools of the "${family}" family, run in the sandbox of the ` +
+        'account that owns the token. Authentication: "Authorization: Bearer ept_…" ' +
+        "(tool token created in Settings › Connections).",
     },
     servers: [{ url: serverUrl }],
     security: [{ bearer: [] }],
@@ -309,7 +308,7 @@ export function buildSpec(
         ]),
       ),
       securitySchemes: {
-        bearer: { type: "http", scheme: "bearer", description: "Jeton d'outils Elpis (ept_…)." },
+        bearer: { type: "http", scheme: "bearer", description: "Elpis tool token (ept_…)." },
       },
     },
   };

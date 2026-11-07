@@ -577,7 +577,7 @@ export class ServeurOutils {
         try {
           if (this.cachees(requete).has(outil.famille))
             throw new ErreurOutil(
-              `outil ${reprPy(nom)} non exposé à ce client (famille ${reprPy(outil.famille)})`,
+              `tool ${reprPy(nom)} not exposed to this client (family ${reprPy(outil.famille)})`,
             );
           const aExecuter = restaurerArgsOutil(nom, args);
           const compte = compteAppel(ctx.meta);

@@ -139,7 +139,7 @@ export function renderArtifactLedger(lines: readonly string[], cap = LEDGER_MAX_
   const kept = cap === 0 ? pleines : pleines.slice(-cap);
   const dropped = pleines.length - kept.length;
   let head = LEDGER_START;
-  if (dropped > 0) head += `\n(… ${dropped} entrée(s) plus ancienne(s) omise(s))`;
+  if (dropped > 0) head += `\n(… ${dropped} older entries omitted)`;
   return `${head}\n${kept.join("\n")}\n${LEDGER_END}`;
 }
 
@@ -213,7 +213,7 @@ export function contentText(m: Dict): string {
     const nImg = content.filter(
       (p) => estDict(p) && (p["type"] === "image_url" || p["type"] === "image"),
     ).length;
-    content = stripPy(txt + (nImg ? ` [${nImg} image(s) omise(s)]` : ""));
+    content = stripPy(txt + (nImg ? ` [${nImg} image(s) omitted]` : ""));
   }
   return typeof content === "string" ? content : strPy(content);
 }
@@ -238,7 +238,7 @@ function serializeCapped(messages: readonly Dict[], maxCharsPerMsg: number, args
     const toolCalls = veritePy(tcsBrut) && Array.isArray(tcsBrut) ? tcsBrut : [];
     const c = Array.from(content);
     if (c.length > maxCharsPerMsg) {
-      content = c.slice(0, maxCharsPerMsg).join("") + ` …[tronqué ${c.length - maxCharsPerMsg} chars]`;
+      content = c.slice(0, maxCharsPerMsg).join("") + ` …[truncated ${c.length - maxCharsPerMsg} chars]`;
     }
     if (role === "user") lines.push(`[USER] ${content}`);
     else if (role === "assistant") {

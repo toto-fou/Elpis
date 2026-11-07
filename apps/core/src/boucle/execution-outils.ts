@@ -309,7 +309,7 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
           idx,
           estErreurAnnulation(e)
             ? pyJsonDumps({
-                error: `outil '${nom}' : transport MCP interrompu (cancel-scope) — réessayez l'appel`,
+                error: `tool '${nom}': MCP transport interrupted (cancel-scope) — retry the call`,
               })
             : pyJsonDumps({ error: flattenExceptionMessage(e) }),
         );

@@ -255,3 +255,38 @@ export function refusMessage(url: string | null | undefined, motif: string): str
     `http/https hors de la machine qui héberge Elpis.`
   );
 }
+
+/** Motif de refus en anglais pour le modèle (connus, sinon inchangé). */
+export function motifEnAnglais(motif: string): string {
+  return motif
+    .replace(
+      /^adresse réservée à l'hôte ou au réseau local de la machine/u,
+      "address reserved to the host or its local network",
+    )
+    .replace(/^adresse de la machine qui héberge Elpis/u, "address of the machine hosting Elpis")
+    .replace(
+      /^réseau interne de la machine qui héberge Elpis/u,
+      "internal network of the machine hosting Elpis",
+    )
+    .replace(/^hôte du réseau local absent de la liste autorisée/u, "local network host not in the allowlist")
+    .replace(
+      /^adresse ambiguë : le navigateur n'y lirait pas le même hôte ou le même port$/u,
+      "ambiguous address: the browser would not read the same host or port",
+    )
+    .replace(/^adresse mal formée$/u, "malformed address")
+    .replace(/^adresse sans hôte$/u, "address without a host")
+    .replace(/^adresse vide$/u, "empty address")
+    .replace(
+      /^schéma non autorisé \((.*)\) — seuls http et https le sont$/u,
+      "scheme not allowed ($1) - only http and https are",
+    );
+}
+
+/** `refus_message` en anglais pour le modèle. */
+export function refusMessageAnglais(url: string | null | undefined, motif: string): string {
+  return (
+    `Address refused by the browser policy: ${motifEnAnglais(motif)}. ` +
+    `URL: ${prefixePy(url || "", 200)}. The browser can only reach http/https sites ` +
+    `outside the machine hosting Elpis.`
+  );
+}

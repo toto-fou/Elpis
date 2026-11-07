@@ -291,8 +291,8 @@ export function cGantt(spec: Spec, maintenant: Date): [Opt, string] {
     spec.x !== null && spec.x.kind === "text" ? spec.x : (dims(cols).find((c) => c.kind === "text") ?? null);
   if (st === null || task === null || (en === null && dur === null))
     throw new SpecError("gantt: needs a task, a start date and an end date (or a duration in days)", "", [
-      { tâche: "Cadrage", début: "2026-01-05", fin: "2026-01-16" },
-      { tâche: "Développement", début: "2026-01-19", fin: "2026-03-13" },
+      { task: "Scoping", start: "2026-01-05", end: "2026-01-16" },
+      { task: "Development", start: "2026-01-19", end: "2026-03-13" },
     ]);
   const group = spec.group ?? dims(cols).find((c) => c.kind === "text" && c !== task) ?? null;
   const items: Tache[] = [];

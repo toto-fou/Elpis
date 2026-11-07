@@ -63,8 +63,8 @@ export function cScatter(spec: Spec): [Opt, string] {
       `${spec.kind}: needs two numeric columns (x and y); columns: ${cols.map((c) => c.repr()).join(", ")}`,
       "",
       [
-        { surface: 45, prix: 210000 },
-        { surface: 70, prix: 305000 },
+        { area: 45, price: 210000 },
+        { area: 70, price: 305000 },
       ],
     );
   let size = spec.size;
@@ -272,8 +272,8 @@ export function cHeatmap(spec: Spec): [Opt, string] {
         cols.map((c) => c.repr()).join(", "),
       "one row per cell: row name, column name and value (NAMES, not indexes)",
       [
-        { jour: "lun.", heure: "9 h", appels: 12 },
-        { jour: "lun.", heure: "10 h", appels: 18 },
+        { day: "Mon", hour: "9am", calls: 12 },
+        { day: "Mon", hour: "10am", calls: 18 },
       ],
     );
   } else {
@@ -369,7 +369,7 @@ export function cCalendar(spec: Spec): [Opt, string] {
   const vcol = (spec.ys.length > 0 ? spec.ys : measures(spec.cols))[0] ?? null;
   if (dcol === null || vcol === null)
     throw new SpecError("calendar: needs a date column (YYYY-MM-DD) and a value", "", [
-      { date: "2026-01-05", visites: 34 },
+      { date: "2026-01-05", visits: 34 },
     ]);
   const pts = new Map<string, number>();
   const illisibles: string[] = [];
@@ -515,9 +515,9 @@ export function cBoxplot(spec: Spec): [Opt, string] {
     }
     if (groups.size === 0)
       throw new SpecError("boxplot: needs raw values (one row per measurement)", "", [
-        { équipe: "A", délai: 3.2 },
-        { équipe: "A", délai: 4.1 },
-        { équipe: "B", délai: 2.7 },
+        { team: "A", delay: 3.2 },
+        { team: "A", delay: 4.1 },
+        { team: "B", delay: 2.7 },
       ]);
     names = [...groups.keys()];
     [...groups.values()].forEach((xs, gi) => {
@@ -617,9 +617,9 @@ export function cHistogram(spec: Spec): [Opt, string] {
   const vcol = (spec.ys.length > 0 ? spec.ys : m)[0] ?? null;
   if (vcol === null)
     throw new SpecError("histogram: needs a column of raw values", "", [
-      { âge: 34 },
-      { âge: 41 },
-      { âge: 29 },
+      { age: 34 },
+      { age: 41 },
+      { age: 29 },
     ]);
   const group = spec.group;
   const groups = new Map<string, number[]>();

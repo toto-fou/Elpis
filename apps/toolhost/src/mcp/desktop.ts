@@ -11,6 +11,7 @@ import {
   outilDesktopExpose,
   outilsDesktopExposes,
   PRIMITIVES_AGENT,
+  resultatBureauEnAnglais,
 } from "@elpis/bureau";
 import type { AncreEpinglee, PortAncres, ServicesOutilsBureau } from "@elpis/bureau";
 import type { AgentClient } from "@elpis/fichiers";
@@ -128,10 +129,12 @@ export function brancherBureau(rappel: ClientRappel, journal: Journal): void {
 function traiterDesktop(nom: string) {
   return async (args: Dict, ctx: ContexteAppel): Promise<Dict> => {
     const outil = outilDesktopExpose(nom);
-    if (outil === null) throw new Error(`outil desktop non exposé : ${nom}`);
+    if (outil === null) throw new Error(`desktop tool not exposed: ${nom}`);
     const username = getUsername(ctx);
-    if (!outil.battement) return outil.gerer(username, args);
-    return new Heartbeat(ctx).avec(() => outil.gerer(username, args));
+    const res = outil.battement
+      ? await new Heartbeat(ctx).avec(() => outil.gerer(username, args))
+      : await outil.gerer(username, args);
+    return resultatBureauEnAnglais(res);
   };
 }
 

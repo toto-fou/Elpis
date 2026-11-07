@@ -21,8 +21,7 @@ import type { UsageRequete, UsageRun } from "./usage-requete";
 
 const log = journal("boucle.run");
 
-export const THINKING_HISTORY_TRUNC_MARKER =
-  "[…raisonnement des itérations antérieures omis (trop volumineux)…]";
+export const THINKING_HISTORY_TRUNC_MARKER = "[…reasoning from earlier iterations omitted (too large)…]";
 
 /** Borne EN PLACE le raisonnement cumulé (suffixe gardé, dernier bloc toujours entier). */
 export function clipThinkingHistory(parts: string[]): void {
@@ -102,7 +101,7 @@ export function capRunToolHistory(hist: Dict[], maxBytes = RUN_TOOL_HISTORY_MAX_
     const w = toolMsgWeight(m);
     if (w < 2048) continue;
     m["content"] =
-      `[résultat élagué — ${w} caractères ; l'historique d'outils de ce run a dépassé son budget de ${Math.floor(maxBytes / (1024 * 1024))} Mo]`;
+      `[result pruned — ${w} characters; this run's tool history exceeded its budget of ${Math.floor(maxBytes / (1024 * 1024))} MB]`;
     m["content_elided"] = true;
     total -= w - toolMsgWeight(m);
   }
@@ -121,7 +120,7 @@ export function capRunToolHistory(hist: Dict[], maxBytes = RUN_TOOL_HISTORY_MAX_
         const n = typeof args === "string" ? longueurPy(args) : 0;
         if (n >= 512)
           fn["arguments"] = pyJsonDumps(
-            { _elided: `arguments élagués — ${n} caractères (budget de tool_history atteint)` },
+            { _elided: `arguments pruned — ${n} characters (tool_history budget reached)` },
             { ensureAscii: false },
           );
         return { ...tc, function: fn };

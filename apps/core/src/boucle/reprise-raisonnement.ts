@@ -20,7 +20,7 @@ export const RESUME_AFTER_THINK_INSTRUCTION =
   "and without <think> tags.";
 
 export const MAX_RESUME_THINKING_CHARS = 150_000;
-export const RESUME_TRUNC_MARKER = "[…raisonnement antérieur tronqué…]\n";
+export const RESUME_TRUNC_MARKER = "[…earlier reasoning truncated…]\n";
 /** Marge de fenêtre d'inférence exigée pour tenter une reprise (le raisonnement ne pèse pas sur le contexte de travail). */
 export const RESUME_HEADROOM_TOKENS = 2048;
 export const MAX_RESUME_CONTENT_CHARS = 200_000;

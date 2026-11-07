@@ -78,17 +78,17 @@ export function creerFamilleOpenapi(dep: DependancesOpenapi): Famille {
     }
     if (!pol?.tools_enabled) throw new HttpError(404, "Not Found");
     const jeton = bearer(requete);
-    if (!jeton) throw new HttpError(401, "Jeton d'outils requis (Authorization: Bearer ept_…).", DEFI);
+    if (!jeton) throw new HttpError(401, "Tool token required (Authorization: Bearer ept_…).", DEFI);
     let info: JetonResolu | null = null;
     if (jeton.startsWith("ept_")) {
       try {
         info = await resoudreJeton(dep.jetons, jeton, ["tools"]);
       } catch (e) {
         dep.journal.warn({ err: e }, "résolution du jeton en échec");
-        throw new HttpError(503, "Vérification du jeton indisponible.");
+        throw new HttpError(503, "Token verification unavailable.");
       }
     }
-    if (!info) throw new HttpError(401, "Jeton d'outils invalide, expiré ou révoqué.", DEFI);
+    if (!info) throw new HttpError(401, "Tool token invalid, expired or revoked.", DEFI);
     const fams = info.families;
     const permises = EXPOSABLE_FAMILIES.filter((f) => pol.tools_families.includes(f) && fams.includes(f));
     if (!permises.includes(family)) throw new HttpError(404, "Famille d'outils inconnue.");
@@ -102,7 +102,7 @@ export function creerFamilleOpenapi(dep: DependancesOpenapi): Famille {
     try {
       return await familyTools(family, dep.pool);
     } catch (e) {
-      if (e instanceof FamilyUnavailable) throw new HttpError(502, "Le service d'outils ne répond pas.");
+      if (e instanceof FamilyUnavailable) throw new HttpError(502, "The tool service is not responding.");
       throw e;
     }
   }
@@ -130,8 +130,7 @@ export function creerFamilleOpenapi(dep: DependancesOpenapi): Famille {
         throw e;
       }
     }
-    if (!estDict(args))
-      throw new HttpError(422, "Le corps doit être un objet JSON (les arguments de l'outil).");
+    if (!estDict(args)) throw new HttpError(422, "The body must be a JSON object (the tool's arguments).");
     return args;
   }
 
@@ -172,12 +171,12 @@ export function creerFamilleOpenapi(dep: DependancesOpenapi): Famille {
           const erreurs = validationErrors(outil, args);
           if (erreurs.length > 0)
             return reponseJsonPy(rep.code(422), {
-              detail: "Arguments non conformes au schéma de l'outil.",
+              detail: "Arguments do not match the tool's schema.",
               errors: erreurs,
             });
           const uid = info.user_id;
           if ((enVol.get(uid) ?? 0) >= MAX_CONCURRENT_PER_USER)
-            throw new HttpError(429, `Trop d'appels simultanés (max ${MAX_CONCURRENT_PER_USER}).`, {
+            throw new HttpError(429, `Too many simultaneous calls (max ${MAX_CONCURRENT_PER_USER}).`, {
               "Retry-After": "5",
             });
           enVol.set(uid, (enVol.get(uid) ?? 0) + 1);
@@ -186,11 +185,11 @@ export function creerFamilleOpenapi(dep: DependancesOpenapi): Famille {
             corps = await callTool(family, outil, args, { username: info.username, userId: uid }, dep.pool);
           } catch (e) {
             if (e instanceof ServiceSaturated)
-              throw new HttpError(429, "Service d'outils saturé : l'outil n'a pas été exécuté.", {
+              throw new HttpError(429, "Tool service saturated: the tool was not executed.", {
                 "Retry-After": "10",
               });
             if (e instanceof FamilyUnavailable)
-              throw new HttpError(502, "Le service d'outils ne répond pas.");
+              throw new HttpError(502, "The tool service is not responding.");
             throw e;
           } finally {
             const n = (enVol.get(uid) ?? 1) - 1;

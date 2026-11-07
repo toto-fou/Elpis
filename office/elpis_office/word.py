@@ -137,12 +137,12 @@ CHAMPS_OPS = {
              "keywords": ["mots_cles", "tags"]},
 }
 EXEMPLE_OPS = [
-    {"op": "replace", "find": "T3 2026", "replace": "T4 2026"},
-    {"op": "fill", "values": {"client": "ACME", "date": "4 octobre 2026"}},
-    {"op": "set", "p": 12, "text": "Nouveau texte du paragraphe."},
-    {"op": "insert", "after": "Résultats", "content": "Paragraphe ajouté.\n\n!a1b2c3d4e5f6"},
-    {"op": "append", "content": "## Conclusion\n\nTexte de conclusion."},
-    {"op": "set_cell", "table": 0, "row": 2, "col": 1, "text": "18,4 M€"},
+    {"op": "replace", "find": "Q3 2026", "replace": "Q4 2026"},
+    {"op": "fill", "values": {"client": "ACME", "date": "October 4, 2026"}},
+    {"op": "set", "p": 12, "text": "New paragraph text."},
+    {"op": "insert", "after": "Results", "content": "Added paragraph.\n\n!a1b2c3d4e5f6"},
+    {"op": "append", "content": "## Conclusion\n\nConclusion text."},
+    {"op": "set_cell", "table": 0, "row": 2, "col": 1, "text": "$18.4M"},
 ]
 
 
@@ -364,9 +364,9 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         raise OfficeError("content is empty", code="empty_content",
                           fix="content = the document text in Markdown (# headings, lists, "
                               "tables, **bold**…)",
-                          example={"path": "rapports/bilan.docx", "title": "Bilan 2026",
-                                   "content": "# Synthèse\n\nLe chiffre d'affaires progresse de "
-                                              "**12 %**.\n\n## Détail\n\n- Point 1\n- Point 2"})
+                          example={"path": "reports/summary.docx", "title": "2026 Summary",
+                                   "content": "# Summary\n\nRevenue grows by "
+                                              "**12%**.\n\n## Details\n\n- Point 1\n- Point 2"})
     titre = str(a.get("title") or "").strip()
     jeton = _avec_lecteur(env)
     try:
@@ -920,7 +920,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         valeurs = {k: c[k] for k in ("title", "author", "subject", "keywords") if c.get(k)}
         if not valeurs:
             raise OfficeError(f"ops[{i}] (meta): give title, author, subject or keywords",
-                              code="invalid_op", example=[{"op": "meta", "title": "Bilan 2026"}])
+                              code="invalid_op", example=[{"op": "meta", "title": "2026 Summary"}])
         docio.set_metadata(document, **valeurs)
         return {"set": sorted(valeurs)}
     raise OfficeError(f"ops[{i}]: operation '{nom}' not supported", code="unknown_op")

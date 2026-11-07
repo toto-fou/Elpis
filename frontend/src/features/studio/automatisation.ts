@@ -169,10 +169,10 @@ const ATTENTE_MAX_S = 3600;
 const DOSSIER = "automations";
 
 const PREFIXE_COMPOSITION = [
-  "[Mode composition d'un script : tes actions sont ENREGISTRÉES comme lignes Python.]",
-  "Agis PAS À PAS : une action à la fois, puis observe (desktop_observe) pour vérifier son effet avant la suivante.",
-  "Vise les éléments exposés (auto_id, sinon nom + rôle) ; n'invente aucun élément ; si une étape échoue, dis-le et propose une autre voie.",
-  "À la fin, résume les étapes accomplies.",
+  "[Script composition mode: your actions are RECORDED as Python lines.]",
+  "Work STEP BY STEP: one action at a time, then observe (desktop_observe) to check its effect before the next one.",
+  "Target the exposed elements (auto_id, otherwise name + role); do not invent any element; if a step fails, say so and propose another way.",
+  "At the end, summarize the steps completed.",
 ].join("\n");
 
 function lireNombre(cle: string, defaut: number): number {
@@ -1098,20 +1098,20 @@ export function creerAutomatisationStudio(
     const ac = new AbortController();
     abandonIa = ac;
     const prompt = [
-      "Tu écris des lignes Python pour un script d'automatisation de bureau. Réponds UNIQUEMENT par un bloc ```python contenant les lignes à insérer (pas d'en-tête, pas de Session, pas de finish).",
-      "Vise les éléments exposés (auto_id, sinon name + role) ; jamais de coordonnées sauf impossibilité.",
+      "You write Python lines for a desktop automation script. Reply ONLY with a ```python block containing the lines to insert (no header, no Session, no finish). Write any comments and string labels in French.",
+      "Target the exposed elements (auto_id, otherwise name + role); never use coordinates unless there is no other way.",
       "",
       API_CHEATSHEET,
       "",
-      "Éléments visibles sur la capture (rôle · libellé · auto_id) :",
+      "Visible elements in the screenshot (role · label · auto_id):",
       libelleElements(elements()),
       "",
-      "Script actuel :",
+      "Current script:",
       "```python",
       autoCode.value,
       "```",
       "",
-      `Demande : ${demande}`,
+      `Request: ${demande}`,
     ].join("\n");
     try {
       const text = await demanderAuModele(prompt, ac.signal);
@@ -1433,17 +1433,17 @@ export function creerAutomatisationStudio(
         }
       }
       const prompt = [
-        "Une étape d'un script d'automatisation de bureau (API elpis_auto) a ÉCHOUÉ sur la machine. Corrige la ligne.",
-        "Réponds UNIQUEMENT par un bloc ```python contenant la ou les lignes de remplacement (pas d'en-tête, pas de Session, pas de finish).",
-        "Règle : viser auto_id, sinon name + role, sinon path=, sinon near= ; jamais de coordonnées sauf impossibilité.",
+        "A step of a desktop automation script (elpis_auto API) FAILED on the machine. Fix the line.",
+        "Reply ONLY with a ```python block containing the replacement line(s) (no header, no Session, no finish). Write any comments and string labels in French.",
+        "Rule: target auto_id, otherwise name + role, otherwise path=, otherwise near=; never use coordinates unless there is no other way.",
         "",
         API_CHEATSHEET,
         "",
-        `Étape ${step.index || "?"} : ${step.label || ""}`,
-        `Erreur : ${step.error || "inconnue"}`,
-        texteLigne ? `Ligne actuelle (${idx + 1}) :\n\`\`\`python\n${texteLigne}\n\`\`\`` : "",
-        arbre ? `Arbre d'accessibilité au moment de l'échec (▶ = cible visée) :\n${arbre}` : "",
-        "Éléments visibles sur la dernière capture (rôle · libellé · auto_id) :",
+        `Step ${step.index || "?"}: ${step.label || ""}`,
+        `Error: ${step.error || "unknown"}`,
+        texteLigne ? `Current line (${idx + 1}):\n\`\`\`python\n${texteLigne}\n\`\`\`` : "",
+        arbre ? `Accessibility tree at the time of failure (▶ = targeted element):\n${arbre}` : "",
+        "Visible elements in the last screenshot (role · label · auto_id):",
         libelleElements(elements()),
       ]
         .filter(Boolean)

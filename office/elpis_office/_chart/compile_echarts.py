@@ -80,7 +80,7 @@ def cartesian(spec: Spec, multi: bool = True) -> tuple[list[str], list[dict], st
         raise SpecError(
             f"no numeric column to plot (columns: {', '.join(c.name for c in cols)})",
             fix="add a column of numbers, or name it with y=[\"column\"]",
-            example=[{"catégorie": "A", "valeur": 12}, {"catégorie": "B", "valeur": 7}])
+            example=[{"category": "A", "value": 12}, {"category": "B", "value": 7}])
     group = spec.group
     if group is not None and (group is x or len(ys) > 1):
         # Données « larges » (une colonne par série) : group ferait perdre des séries
@@ -450,7 +450,7 @@ def c_gauge(spec: Spec) -> tuple[dict, str]:
     vals = [c for c in m if c is not mx_col]
     if not vals:
         raise SpecError("gauge: no numeric value",
-                        example=[{"indicateur": "Taux de service", "valeur": 72, "max": 100}])
+                        example=[{"metric": "Service rate", "value": 72, "max": 100}])
     if len(spec.rows) > 1:
         spec.notes.fix("several rows: progress bars instead of a gauge")
         spec.kind = "progress"
@@ -530,8 +530,8 @@ def c_kpi(spec: Spec) -> tuple[dict, str]:
     vcols = spec.ys or [c for c in m if c not in (prev, mx)]
     if not vcols:
         raise SpecError("kpi: no numeric value",
-                        example=[{"indicateur": "Chiffre d'affaires", "valeur": 1250000,
-                                  "précédent": 1100000}])
+                        example=[{"metric": "Revenue", "value": 1250000,
+                                  "previous": 1100000}])
     unit = spec.opts["unit"]
     tiles = []
     if len(spec.rows) == 1 and len(vcols) > 1 and not d:
@@ -605,8 +605,8 @@ def _tree_from_rows(spec: Spec) -> tuple[list[dict], int]:
         name_col = spec.x if spec.x and spec.x is not parent else (d[0] if d else None)
         if name_col is None:
             raise SpecError("tree: needs a name column and a parent column",
-                            example=[{"nom": "Direction", "parent": ""},
-                                     {"nom": "Ventes", "parent": "Direction"}])
+                            example=[{"name": "Management", "parent": ""},
+                                     {"name": "Sales", "parent": "Management"}])
         vcol = (spec.ys or [c for c in measures(spec.cols)] or [None])[0]
         nodes: dict[str, dict] = OrderedDict()
         for r in spec.rows:
@@ -633,7 +633,7 @@ def _tree_from_rows(spec: Spec) -> tuple[list[dict], int]:
     vcol = (spec.ys or [c for c in measures(spec.cols)] or [None])[0]
     if not levels:
         raise SpecError("hierarchy: needs at least one text column (one level)",
-                        example=[{"région": "Nord", "ville": "Lille", "ventes": 120}])
+                        example=[{"region": "North", "city": "Lille", "sales": 120}])
     if len(levels) > 1 and not spec.levels:
         spec.notes.fix("levels: " + " > ".join(c.name for c in levels))
     nodes = _nest(spec, levels, vcol)
@@ -717,8 +717,8 @@ def _edges(spec: Spec) -> tuple[list[tuple[str, str, float]], str, str]:
             f"{spec.kind}: needs two name columns (source, target); columns received: "
             f"{', '.join(c.name for c in cols)}",
             fix="one row per link: source, target, value",
-            example=[{"source": "Budget", "target": "Salaires", "value": 60},
-                     {"source": "Budget", "target": "Locaux", "value": 25}])
+            example=[{"source": "Budget", "target": "Salaries", "value": 60},
+                     {"source": "Budget", "target": "Premises", "value": 25}])
     vcol = (spec.ys or measures(cols) or [None])[0]
     agg: "OrderedDict[tuple[str, str], float]" = OrderedDict()
     self_loops = 0
@@ -865,9 +865,9 @@ def c_scatter(spec: Spec) -> tuple[dict, str]:
         ys = pool.pop(0) if pool else None
     if xs is None or ys is None:
         raise SpecError(
-            f"{spec.kind} : il faut deux colonnes numériques (x et y) — colonnes : "
+            f"{spec.kind}: needs two numeric columns (x and y); columns: "
             f"{', '.join(repr(c) for c in cols)}",
-            example=[{"surface": 45, "prix": 210000}, {"surface": 70, "prix": 305000}])
+            example=[{"area": 45, "price": 210000}, {"area": 70, "price": 305000}])
     size = spec.size
     if spec.kind == "bubble" and size is None:
         size = pool.pop(0) if pool else None
@@ -998,8 +998,8 @@ def c_heatmap(spec: Spec) -> tuple[dict, str]:
             "heatmap: needs two category columns (x, y) and a value; received: "
             + ", ".join(repr(c) for c in cols),
             fix="one row per cell: row name, column name and value (NAMES, not indexes)",
-            example=[{"jour": "lun.", "heure": "9 h", "appels": 12},
-                     {"jour": "lun.", "heure": "10 h", "appels": 18}])
+            example=[{"day": "Mon", "hour": "9am", "calls": 12},
+                     {"day": "Mon", "hour": "10am", "calls": 18}])
     else:
         for r in rows:
             cells.append((_label(r.get(xcol.name)), _label(r.get(ycol.name)), num(r.get(vcol.name))))
@@ -1050,7 +1050,7 @@ def c_calendar(spec: Spec) -> tuple[dict, str]:
     vcol = (spec.ys or measures(spec.cols) or [None])[0]
     if dcol is None or vcol is None:
         raise SpecError("calendar: needs a date column (YYYY-MM-DD) and a value",
-                        example=[{"date": "2026-01-05", "visites": 34}])
+                        example=[{"date": "2026-01-05", "visits": 34}])
     pts = {}
     for r in spec.rows:
         d = to_date(r.get(dcol.name))
@@ -1132,8 +1132,8 @@ def c_boxplot(spec: Spec) -> tuple[dict, str]:
                 spec.notes.fix("one box per numeric column")
         if not groups:
             raise SpecError("boxplot: needs raw values (one row per measurement)",
-                            example=[{"équipe": "A", "délai": 3.2}, {"équipe": "A", "délai": 4.1},
-                                     {"équipe": "B", "délai": 2.7}])
+                            example=[{"team": "A", "delay": 3.2}, {"team": "A", "delay": 4.1},
+                                     {"team": "B", "delay": 2.7}])
         names = list(groups)
         for gi, xs in enumerate(groups.values()):
             lo, q1, med, q3, hi, out = _quartiles(xs)
@@ -1171,7 +1171,7 @@ def c_histogram(spec: Spec) -> tuple[dict, str]:
     vcol = (spec.ys or m or [None])[0]
     if vcol is None:
         raise SpecError("histogram: needs a column of raw values",
-                        example=[{"âge": 34}, {"âge": 41}, {"âge": 29}])
+                        example=[{"age": 34}, {"age": 41}, {"age": 29}])
     group = spec.group
     groups: "OrderedDict[str, list[float]]" = OrderedDict()
     for r in spec.rows:
@@ -1412,8 +1412,8 @@ def c_gantt(spec: Spec) -> tuple[dict, str]:
     if st is None or task is None or (en is None and dur is None):
         raise SpecError(
             "gantt: needs a task, a start date and an end date (or a duration in days)",
-            example=[{"tâche": "Cadrage", "début": "2026-01-05", "fin": "2026-01-16"},
-                     {"tâche": "Développement", "début": "2026-01-19", "fin": "2026-03-13"}])
+            example=[{"task": "Scoping", "start": "2026-01-05", "end": "2026-01-16"},
+                     {"task": "Development", "start": "2026-01-19", "end": "2026-03-13"}])
     group = spec.group or next((c for c in dims(cols) if c.kind == "text" and c is not task), None)
     items = []
     for r in spec.rows:
@@ -1491,7 +1491,7 @@ def c_parallel(spec: Spec) -> tuple[dict, str]:
     m = spec.ys or measures(spec.cols)
     if len(m) < 2:
         raise SpecError("parallel: needs at least two numeric columns",
-                        example=[{"modèle": "A", "prix": 21000, "conso": 5.2, "puissance": 110}])
+                        example=[{"model": "A", "price": 21000, "consumption": 5.2, "power": 110}])
     d = dims(spec.cols)
     group = spec.group or (d[0] if d and len({r.get(d[0].name) for r in spec.rows}) <= MAX_SERIES
                            else None)

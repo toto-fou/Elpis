@@ -412,8 +412,8 @@ async function transcribeLlama(
   const url = urlMoteur(cfg.endpoint_url, "/v1/chat/completions");
   const consigne = veritePy(cfg["prompt"])
     ? cfg["prompt"]
-    : "Transcris exactement ce qui est dit dans cet audio. " +
-      "Ne réponds rien d'autre que la transcription, sans commentaire ni ponctuation ajoutée.";
+    : "Transcribe exactly what is said in this audio, in the language spoken. " +
+      "Reply with nothing but the transcription, without commentary or added punctuation.";
   const corps: Dict = {
     messages: [
       {

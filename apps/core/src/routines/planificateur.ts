@@ -974,8 +974,8 @@ export class Planificateur {
         }
         continue;
       }
-      let contexte = `- routine amont : ${strPy(ouPy(routine["name"], ""))} (run #${runId})\n- statut : ${statut}`;
-      if (summary) contexte += `\n- résumé :\n${prefixePy(summary, 1000)}`;
+      let contexte = `- upstream routine: ${strPy(ouPy(routine["name"], ""))} (run #${runId})\n- status: ${statut}`;
+      if (summary) contexte += `\n- summary:\n${prefixePy(summary, 1000)}`;
       try {
         await this.lancerRun(d, { trigger: "chain", context: contexte, chainDepth: chainDepth + 1 });
       } catch (e) {

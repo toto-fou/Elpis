@@ -429,7 +429,7 @@ class LinuxBackend(DesktopBackend):
         if x is not None and y is not None:
             self.click(int(x), int(y), button=button, clicks=int(clicks or 1))
             return {"method": "coords", "x": int(x), "y": int(y)}
-        raise NotSupported("invoke: coords requises sur ce backend (AT-SPI sans ciblage pattern)")
+        raise NotSupported("invoke: coords required on this backend (AT-SPI without pattern targeting)")
 
     def set_value(self, *, auto_id="", name="", control_type="", text="") -> Dict[str, Any]:
         self.type_text(text)   # repli : frappe dans le focus courant
@@ -447,7 +447,7 @@ class LinuxBackend(DesktopBackend):
         if x is not None and y is not None:
             self.click(int(x), int(y), button=button, clicks=int(clicks or 1))
             return {"method": "coords", "x": int(x), "y": int(y)}
-        raise NotSupported("element_action(%s): coords requises (AT-SPI sans pattern)" % action)
+        raise NotSupported("element_action(%s): coords required (AT-SPI without pattern)" % action)
 
     def launch(self, target, *, args="", timeout_ms=15000) -> Dict[str, Any]:
         import shlex
@@ -457,7 +457,7 @@ class LinuxBackend(DesktopBackend):
             cmd = [str(target)] + (shlex.split(args) if args else [])
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
-            raise NotSupported("launch a échoué : %s" % e)
+            raise NotSupported("launch failed: %s" % e)
         deadline = time.time() + max(0.0, timeout_ms / 1000.0)
         while time.time() < deadline:
             new = self._window_names() - before

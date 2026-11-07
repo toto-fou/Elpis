@@ -177,6 +177,9 @@ follow [SemVer](https://semver.org/).
   the turn starts, saved and shown right away (new `title` stream event) instead of at the end
   of the answer; stopping the turn no longer drops it, and a manual rename made meanwhile
   wins. The end of a turn no longer waits up to 3 s for the title.
+- **Chat title: connector models get their title again.** Since the title is requested at the
+  start of the turn, the request went to the built-in engine instead of the turn's one: a
+  Claude or other connector model got a 400 and the chat kept its truncated title.
 - **Sandbox agent: a slow regex no longer freezes it.** A `grep` with `regex` now
   compiles and runs the pattern in a separate process, as job triggers already did,
   killed at the deadline. A catastrophic pattern such as `(a+)+$` used to block every

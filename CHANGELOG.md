@@ -6,6 +6,14 @@ follow [SemVer](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
+  the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
+  (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and
+  the lamp is a fixed-size layer moved by `transform`, so resizing the window does not
+  repaint it.
+
 ### Changed
 
 - **`./elpis configure` goes through the core.** The database test, the creation of the

@@ -24,6 +24,15 @@ holds the SPDX texts of the licenses used by the project itself (REUSE).
 | Phosphor Icons (web font, Regular) | 2.x (≈1 530 icons; version not stated in the files) | MIT | `src/regular/` | https://github.com/phosphor-icons/web |
 | Tailwind CSS (standalone browser build, used by `tools/generate_tailwind_css.mjs` to precompile `frontend/css/style.tailwind.css`) | 3.4.17 | MIT | `tailwind.js` | https://github.com/tailwindlabs/tailwindcss |
 
+### `frontend/css/skins/veilleuse/polices/` (fonts of the Veilleuse skin)
+
+Latin subsets in WOFF2, unmodified, from the Fontsource packages. Downloaded by the browser only when the skin uses them.
+
+| Component | Version | License | Files | Upstream |
+|---|---|---|---|---|
+| Instrument Sans (variable, roman and italic) | `@fontsource-variable/instrument-sans` 5.3.0 | OFL-1.1 | `instrument-sans-latin-wght-*.woff2` | https://github.com/Instrument/instrument-sans |
+| Red Hat Mono (variable, roman) | `@fontsource-variable/red-hat-mono` 5.3.0 | OFL-1.1 | `red-hat-mono-latin-wght-normal.woff2` | https://github.com/RedHatOfficial/RedHatFont |
+
 ### `frontend/assets/mascotte/` and `frontend/*.png` (project artwork)
 
 Not third-party code. The pixel-art mascots are drawn by script from the grids

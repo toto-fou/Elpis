@@ -65,7 +65,8 @@ questionnaire headings inherit the theme's font (Penguins keeps its own).
 
 Bundled themes: **Slate** (no theme class), **Elpis** (default, palettes
 **Gold** and **Clay**), **llama.cpp**, **Emerald** (dark base), **Penguins**,
-**Kiki**. The setting is per user: `skin`, `skin_palette`, and the
+**Kiki**, **Veilleuse** (dark first: a plum night, an amber lamp under the prompt
+bar). The setting is per user: `skin`, `skin_palette`, and the
 System / Light / Dark mode (`dark_mode`, `dark_mode_auto`), in Settings;
 the console's account menu offers the skins and the mode.
 
@@ -152,6 +153,10 @@ De facto scale, to follow so a new layer finds its place:
   `cubic-bezier(0.4, 0, 0.2, 1)` (`.elpis-slide-panel`, 260 ms).
 - Animate `opacity` and `transform`; avoid layout properties
   (accepted exception: the width of sliding panels).
+- A skin sets the duration and curve of menus and dialogs (`popover`, `modal`),
+  never properties other than `opacity` and `transform`; a large decoration
+  (light, gradient) has a fixed size and is placed with `transform`, so a resize
+  does not repaint it.
 - `prefers-reduced-motion: reduce` turns off non-essential animations
   (dedicated block in `style.css`); every new animation provides its
   alternative (fade or instant change).

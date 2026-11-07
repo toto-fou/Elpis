@@ -11,6 +11,8 @@ function arreterEtape(s: EtapeChat, maintenant: number): EtapeChat {
   return { ...reste, status: ETAPE_ARRETEE, ...(typeof ms === "number" ? { durationMs: ms } : {}) };
 }
 
+const enAttenteOuCours = (s: EtapeChat): boolean => s.status === "running" || s.status === "waiting";
+
 function annulerEntrees<T extends OutilSousAgent | EntreeDeroule>(liste: T[] | undefined): T[] | undefined {
   return liste?.some((x) => x.status === "running")
     ? liste.map((x) => (x.status === "running" ? { ...x, status: "cancelled" } : x))
@@ -31,8 +33,8 @@ function annulerSousAgent(x: ExecutionTache): ExecutionTache {
 export function cloreTour(m: MessageChat, maintenant = Date.now()): Partial<MessageChat> | null {
   const p: Partial<MessageChat> = {};
   const steps = m.toolSteps;
-  if (steps?.some((s) => s.status === "running"))
-    p.toolSteps = steps.map((s) => (s.status === "running" ? arreterEtape(s, maintenant) : s));
+  if (steps?.some(enAttenteOuCours))
+    p.toolSteps = steps.map((s) => (enAttenteOuCours(s) ? arreterEtape(s, maintenant) : s));
   // Un sous-agent en fond survit au tour : seul son ✕ l'arrête.
   const runs = m.taskRuns;
   const coupe = (x: ExecutionTache): boolean => x.state === "running" && !x.background;

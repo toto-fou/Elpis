@@ -91,6 +91,7 @@ function classePastille(s: EtapeOutil): string {
 }
 function iconePastille(s: EtapeOutil): string {
   if (s.status === "running") return "ph-spinner-gap animate-spin";
+  if (s.status === "waiting") return "ph-hourglass text-slate-400";
   if (s._is_error) return "ph-x";
   if (s.status === "stopped") return "ph-stop-circle text-slate-400";
   return "ph-check text-emerald-600";

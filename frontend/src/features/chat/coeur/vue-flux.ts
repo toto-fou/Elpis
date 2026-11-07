@@ -749,6 +749,7 @@ export function creerVueFlux(c: CoeurChat) {
   }
 
   function terminerEtape(st: EtapeChat, d: DonneesFlux, erreur: boolean, libelleRag: string): EtapeChat {
+    const dejaFait = st.status === "done";
     const maj: EtapeChat = {
       ...st,
       result: d.result,
@@ -756,7 +757,8 @@ export function creerVueFlux(c: CoeurChat) {
       ragResultLabel: libelleRag,
       _is_error: erreur,
     };
-    if (typeof d["duration_ms"] === "number") maj.durationMs = d["duration_ms"];
+    if (typeof d["duration_ms"] === "number" && !(dejaFait && typeof st.durationMs === "number"))
+      maj.durationMs = d["duration_ms"];
     // Console du terminal remplie depuis le résultat quand rien n'a été streamé.
     if (maj.name === "execute_shell" && !maj.shellDone) {
       const shf = shellFieldsFromResult(d.result);
@@ -770,11 +772,37 @@ export function creerVueFlux(c: CoeurChat) {
     return maj;
   }
 
+  // État d'un appel du lot (par call_id seul) : en attente sans horloge, en cours (horloge repartie), fini avec sa durée.
+  function surEtatOutil(t: Tour): void {
+    const d = t.data;
+    const cur = t.msgs[t.idx];
+    const etat = chaine(d["state"]);
+    if (!cur || !d.call_id) return;
+    const steps = etapes(cur);
+    const i = steps.findLastIndex((s) => s.callId === d.call_id);
+    const s = steps[i];
+    if (!s || s.status === "stopped" || (s.status === "done" && etat !== "done")) return;
+    if (etat === "waiting") {
+      const { startedAt: _d, ...reste } = s;
+      steps[i] = { ...reste, status: "waiting" };
+    } else if (etat === "running") steps[i] = { ...s, status: "running", startedAt: Date.now() };
+    else if (etat === "done") {
+      const ms = typeof d["duration_ms"] === "number" ? d["duration_ms"] : undefined;
+      steps[i] = { ...s, status: "done", ...(ms === undefined ? {} : { durationMs: ms }) };
+    } else return;
+    l.patch(t.idx, { toolSteps: steps });
+  }
+
   // Appariement : par call_id (appels parallèles), puis nom en cours, puis dernier en cours.
   function apparier(steps: EtapeChat[], d: DonneesFlux, maj: (s: EtapeChat) => EtapeChat): void {
     const nom = d.name || "";
     const essais: ((s: EtapeChat) => boolean)[] = [];
-    if (d.call_id) essais.push((s) => s.callId === d.call_id && s.status === "running");
+    if (d.call_id)
+      essais.push(
+        (s) =>
+          s.callId === d.call_id &&
+          (s.status === "running" || (s.status === "done" && (s.result === null || s.result === undefined))),
+      );
     essais.push(
       (s) => s.name === nom && s.status === "running",
       (s) => s.status === "running",
@@ -1307,6 +1335,8 @@ export function creerVueFlux(c: CoeurChat) {
         return surAppelOutil(t);
       case "tool_result":
         return surResultatOutil(t);
+      case "tool_state":
+        return surEtatOutil(t);
       case "tool_progress":
         return surProgressionOutil(t);
       case "tool_log":

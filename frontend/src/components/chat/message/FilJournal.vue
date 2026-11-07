@@ -46,6 +46,7 @@ function duree(s: EtapeOutil): string {
 }
 function puce(s: EtapeOutil): string {
   if (s.status === "running") return "text-blue-500 animate-pulse";
+  if (s.status === "waiting") return "text-slate-400";
   if (s._is_error) return "text-red-500";
   if (s.status === "stopped") return "text-slate-400";
   return "text-emerald-600";

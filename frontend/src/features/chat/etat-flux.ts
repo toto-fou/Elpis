@@ -30,7 +30,7 @@ export interface Outil {
   readonly nom: string;
   readonly args: Readonly<Record<string, unknown>>;
   readonly interne: boolean;
-  readonly statut: "en_cours" | "fait";
+  readonly statut: "en_attente" | "en_cours" | "fait";
   readonly resultat: string | null;
   readonly dureeMs: number | null;
   readonly progression: number | null;
@@ -306,6 +306,14 @@ function appliquer(etat: EtatRendu, ev: EvenementFlux): EtatRendu {
         ? majOutil(etat.outils, ev.call_id, ev.name, fini)
         : [...etat.outils, fini(nouvelOutil(ev.call_id, ev.name, {}, ev.internal === true))];
       return { ...etat, outils, outilsExecutes: true };
+    }
+    case "tool_state": {
+      const statut = ev.state === "waiting" ? "en_attente" : ev.state === "running" ? "en_cours" : "fait";
+      const maj = (o: Outil): Outil =>
+        o.statut === "fait" && statut !== "fait"
+          ? o
+          : { ...o, statut, ...(ev.duration_ms === undefined ? {} : { dureeMs: ev.duration_ms }) };
+      return { ...etat, outils: majOutil(etat.outils, ev.call_id, ev.name, maj) };
     }
     case "tool_progress": {
       const pct =

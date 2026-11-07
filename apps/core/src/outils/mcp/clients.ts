@@ -59,7 +59,7 @@ import * as z from "zod/v4";
 
 import { CTX } from "../../contexte/config-contexte";
 import { journal } from "../../journal";
-import { LLAMA_TOOL_PARALLELISM } from "../../llm/constantes";
+import { plafondConfig } from "../../llm/part-compte";
 import { estDict, lire, poser, prefixePy, splitlinesPy } from "../../python";
 import type { Dict } from "../../python";
 import { ingestTools } from "../categories";
@@ -1148,7 +1148,7 @@ export const poolMcp = new PoolMcp({
   surConnexionIntegree: (outils, cle) => {
     ingestTools(outils, cle);
   },
-  parallelisme: () => LLAMA_TOOL_PARALLELISM,
+  outilsParCompte: () => plafondConfig("mcp.max_tool_calls_per_user"),
   ttlOutilsS: () => config.TOOLS_CACHE_TTL_SEC,
 });
 
@@ -1335,6 +1335,8 @@ export interface OptionsExecution {
   meta?: Dict | null;
   onProgress?: OptionsAppelClient["onProgress"];
   onLog?: SurJournal | null;
+  /** L'appel attend une place du quota d'outils de son compte (`true`), puis l'obtient. */
+  onAttente?: ((attend: boolean) => void) | null;
   timeoutS: number;
   queueTimeoutS?: number;
   signal?: AbortSignal | undefined;
@@ -1384,6 +1386,7 @@ export async function executerOutilMcp(
       execTimeoutS: options.timeoutS,
       queueTimeoutS: options.queueTimeoutS ?? TOOL_QUEUE_WAIT_S,
       signal: options.signal,
+      surAttente: options.onAttente ?? null,
     });
     return pyJsonDumps(pickToolPayload(res), { ensureAscii: false });
   } catch (e) {
@@ -1395,9 +1398,8 @@ export async function executerOutilMcp(
           ok: false,
           error: e.message,
           fix:
-            "Le serveur d'outils est saturé par d'autres appels — " +
-            "l'outil n'a PAS été exécuté. Réduis le parallélisme ou " +
-            "réessaie dans un instant.",
+            "The tool server is saturated by other calls: the tool was NOT executed. " +
+            "Reduce parallelism or retry in a moment.",
         },
         { ensureAscii: false },
       );

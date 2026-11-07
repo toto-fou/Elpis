@@ -242,6 +242,12 @@ export const SCHEMAS_EVENEMENTS = {
     logger: z.string(),
     message: z.string(),
   }),
+  tool_state: ev("tool_state", {
+    name: z.string(),
+    call_id: z.string(),
+    state: z.enum(["waiting", "running", "done"]),
+    duration_ms: entier.optional(),
+  }),
   tool_limit: ev("tool_limit", {
     iterations: entier,
     effective_iterations: entier,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/mcp/src/pool.ts — pool unique du process : connexions MCP persistantes, cache des outils, concurrence par entrée et par compte, reconnexion sans rejeu d'un outil qui a peut-être agi. */
+/** packages/mcp/src/pool.ts — pool unique du process : connexions MCP persistantes, cache des outils, quota d'appels par compte, reconnexion sans rejeu d'un outil qui a peut-être agi. */
 import { createHash } from "node:crypto";
 
 import {
@@ -176,7 +176,6 @@ interface Entree {
   lock: VerrouAsyncio;
   maxConcurrency: number;
   callSem: Semaphore | null;
-  userSems: Map<string, Semaphore>;
   inflight: number;
   healthy: boolean;
   persistent: boolean;
@@ -188,6 +187,15 @@ function occupee(e: Entree): boolean {
 
 function maintenant(): number {
   return performance.now() / 1000;
+}
+
+/** Places d'une entrée sur transport corrélé : aucun plafond utile, assez pour que la fermeture attende les appels en vol. */
+const PLACES_CORRELEES = 1024;
+
+/** Appels d'outils d'un compte en cours, et ceux qui attendent une place dans l'ordre d'arrivée. */
+interface PartCompte {
+  actifs: number;
+  file: (() => void)[];
 }
 
 /** Entrée de service intégré : sentinelle `DEFAULT_LOCAL_PYTHON` ou MCP interne de l'app (`inprocess`). */
@@ -293,8 +301,8 @@ export interface OptionsPool {
   rejouable: (nom: string) => boolean;
   /** Ingestion du registre de catégories : (re)connexion d'un service intégré, relistage d'une liste partielle. */
   surConnexionIntegree?: (outils: OutilMcp[], cle: string) => void;
-  /** `LLAMA_TOOL_PARALLELISM` : appels simultanés sur un transport corrélé. */
-  parallelisme: () => number;
+  /** Appels d'outils simultanés par compte, relu à chaque appel ; 0 ou absent : sans plafond. */
+  outilsParCompte?: () => number;
   /** `TOOLS_CACHE_TTL_SEC`. */
   ttlOutilsS: () => number;
   /** Délai avant de relister une liste partielle (15 s par défaut). */
@@ -313,6 +321,8 @@ export interface OptionsAppel {
   execTimeoutS?: number | null;
   queueTimeoutS?: number | null;
   signal?: AbortSignal | undefined;
+  /** L'appel attend une place du quota de son compte (`true`), puis l'obtient (`false`). */
+  surAttente?: ((attend: boolean) => void) | null;
 }
 
 /** Garde de concurrence prise autour d'un appel ; `liberer` la rend. */
@@ -329,6 +339,7 @@ export class PoolMcp {
   private readonly pool = new Map<string, Entree>();
   private readonly verrousCles = new Map<string, VerrouAsyncio>();
   private readonly fermetures = new Set<Promise<void>>();
+  private readonly partsComptes = new Map<string, PartCompte>();
   private arretNettoyage: AbortController | null = null;
   private ferme = false;
   private readonly delaiPoigneeS: number;
@@ -429,26 +440,101 @@ export class PoolMcp {
     );
   }
 
-  /** Appel d'outil : garde bornée (file), exécution bornée, reconnexion sur rupture de tuyau seulement, rejeu si sûr. */
+  /** Appel d'outil dans le quota de son compte : l'attente d'une place n'a pas de borne, l'abandon la quitte. */
   async callTool(cfg: ConfigMcp, toolName: string, args: Dict, options: OptionsAppel = {}): Promise<unknown> {
+    const rendre = await this.placeDuCompte(
+      utilisateurDuMeta(options.meta),
+      options.signal,
+      options.surAttente,
+    );
+    try {
+      return await this.appeler(cfg, toolName, args, options);
+    } finally {
+      rendre();
+    }
+  }
+
+  /** Quota du compte (`outilsParCompte`, 0 : sans plafond), servi dans l'ordre d'arrivée ; rend la libération de la place. */
+  private async placeDuCompte(
+    utilisateur: string | null,
+    signal: AbortSignal | undefined,
+    surAttente: ((attend: boolean) => void) | null | undefined,
+  ): Promise<() => void> {
+    if (!utilisateur) return () => undefined;
+    let part = this.partsComptes.get(utilisateur);
+    if (part === undefined) {
+      part = { actifs: 0, file: [] };
+      this.partsComptes.set(utilisateur, part);
+    }
+    const p = part;
+    if (!p.file.length && this.placeLibre(p)) p.actifs++;
+    else {
+      if (signal?.aborted) throw raisonAnnulation(signal);
+      surAttente?.(true);
+      await new Promise<void>((ok, ko) => {
+        const servi = (): void => {
+          signal?.removeEventListener("abort", abandon);
+          ok();
+        };
+        const abandon = (): void => {
+          const i = p.file.indexOf(servi);
+          if (i >= 0) p.file.splice(i, 1);
+          this.servirComptes(utilisateur, p);
+          ko(raisonAnnulation(signal as AbortSignal));
+        };
+        p.file.push(servi);
+        signal?.addEventListener("abort", abandon, { once: true });
+      });
+      surAttente?.(false);
+    }
+    let rendue = false;
+    return () => {
+      if (rendue) return;
+      rendue = true;
+      p.actifs--;
+      this.servirComptes(utilisateur, p);
+    };
+  }
+
+  private placeLibre(p: PartCompte): boolean {
+    const max = Math.trunc(this.options.outilsParCompte?.() ?? 0);
+    return !(max > 0) || p.actifs < max;
+  }
+
+  /** Sert les appels en attente du compte tant que le quota le permet ; une part vide est oubliée. */
+  private servirComptes(utilisateur: string, p: PartCompte): void {
+    while (p.file.length && this.placeLibre(p)) {
+      p.actifs++;
+      p.file.shift()!();
+    }
+    if (!p.actifs && !p.file.length && this.partsComptes.get(utilisateur) === p)
+      this.partsComptes.delete(utilisateur);
+  }
+
+  /** Appel d'outil : garde bornée (file), exécution bornée, reconnexion sur rupture de tuyau seulement, rejeu si sûr. */
+  private async appeler(
+    cfg: ConfigMcp,
+    toolName: string,
+    args: Dict,
+    options: OptionsAppel,
+  ): Promise<unknown> {
     const key = makeKey(cfg);
     const { signal, queueTimeoutS } = options;
     const nom = nomCfg(cfg, key);
-    const utilisateur = utilisateurDuMeta(options.meta);
     let entree = this.pool.get(key);
     if (entree === undefined || !entree.healthy) {
       await this.borneFile(
         (s) => this.getOrConnect(cfg, options.resolveClient, { signal: s }),
         signal,
         queueTimeoutS,
-        `(re)connexion à '${nom}' trop longue (> ${fixePy(queueTimeoutS ?? 0, 0)}s) — l'appel n'a pas été exécuté`,
+        `(re)connection to '${nom}' too slow (> ${fixePy(queueTimeoutS ?? 0, 0)}s): the call was not executed`,
       );
       entree = this.pool.get(key);
       if (entree === undefined) throw new Error(`MCP '${nom}' unavailable after reconnection.`);
     }
 
     let erreurAppel: unknown;
-    const garde = await this.prendreGarde(entree, utilisateur, queueTimeoutS, signal);
+    const garde = await this.prendreGarde(entree, queueTimeoutS, signal);
     try {
       if (this.pool.get(key) !== entree || !entree.healthy) {
         erreurAppel = new EntreeEvincee("entry evicted before the call");
@@ -495,7 +581,7 @@ export class PoolMcp {
         (s) => this.reconnecter(key, cfg, options.resolveClient, s, entree),
         signal,
         queueTimeoutS,
-        `(re)connexion à '${nom}' trop longue (> ${fixePy(queueTimeoutS ?? 0, 0)}s) — l'outil n'a pas été rejoué`,
+        `(re)connection to '${nom}' too slow (> ${fixePy(queueTimeoutS ?? 0, 0)}s): the tool was not replayed`,
         erreurAppel,
       );
     }
@@ -507,7 +593,7 @@ export class PoolMcp {
     }
     const nouvelle = this.pool.get(key);
     if (nouvelle === undefined) throw new Error(`MCP '${nom}' unavailable after reconnection.`);
-    const garde2 = await this.prendreGarde(nouvelle, utilisateur, queueTimeoutS, signal);
+    const garde2 = await this.prendreGarde(nouvelle, queueTimeoutS, signal);
     try {
       const resultat = await this.executer(nouvelle.client, toolName, args, options);
       nouvelle.lastUsedAt = maintenant();
@@ -566,26 +652,9 @@ export class PoolMcp {
     }
   }
 
-  /** Part de concurrence d'un compte sur une entrée partagée : la moitié des places, registre borné à 256 comptes. */
-  private partUtilisateur(entree: Entree, utilisateur: string | null): Semaphore | null {
-    if (!utilisateur || entree.maxConcurrency <= 1) return null;
-    const parCompte = Math.max(1, Math.floor(entree.maxConcurrency / 2));
-    let sem = entree.userSems.get(utilisateur);
-    if (sem === undefined) {
-      sem = new Semaphore(parCompte);
-      if (entree.userSems.size >= 256) {
-        const libres = [...entree.userSems].filter(([, s]) => s.value >= parCompte).slice(0, 128);
-        for (const [k] of libres) entree.userSems.delete(k);
-      }
-      entree.userSems.set(utilisateur, sem);
-    }
-    return sem;
-  }
-
-  /** Garde d'appel : verrou exclusif (transport sériel) ou part du compte puis sémaphore global ; attente bornée. */
+  /** Garde d'appel : verrou exclusif (transport sériel) ou place du sémaphore de l'entrée ; attente bornée. */
   private async prendreGarde(
     entree: Entree,
-    utilisateur: string | null,
     queueTimeoutS: number | null | undefined,
     signal: AbortSignal | undefined,
   ): Promise<Garde> {
@@ -598,27 +667,19 @@ export class PoolMcp {
         await entree.lock.acquerir({ signal: borne.signal });
         return { liberer: () => entree.lock.liberer() };
       }
-      const part = this.partUtilisateur(entree, utilisateur);
       const sem = entree.callSem;
-      if (part !== null) await part.acquerir({ signal: borne.signal });
-      try {
-        await sem.acquerir({ signal: borne.signal });
-      } catch (e) {
-        part?.liberer();
-        throw e;
-      }
+      await sem.acquerir({ signal: borne.signal });
       entree.inflight++;
       return {
         liberer: () => {
           entree.inflight--;
           sem.liberer();
-          part?.liberer();
         },
       };
     } catch (e) {
       if (borne.signal.aborted && borne.signal.reason === borne.delai && !signal?.aborted)
         throw new McpFileSaturee(
-          `file d'attente d'outils saturée (> ${fixePy(queueTimeoutS ?? 0, 0)}s) — l'appel n'a pas été exécuté`,
+          `tool queue saturated (> ${fixePy(queueTimeoutS ?? 0, 0)}s): the call was not executed`,
         );
       throw e;
     } finally {
@@ -696,7 +757,7 @@ export class PoolMcp {
     }
     const t = maintenant();
     const integree = estConfigIntegree(cfg);
-    const conc = client.correle ? Math.max(1, Math.trunc(this.options.parallelisme())) : 1;
+    const conc = client.correle ? PLACES_CORRELEES : 1;
     this.pool.set(key, {
       key,
       client,
@@ -706,7 +767,6 @@ export class PoolMcp {
       lock: new VerrouAsyncio(),
       maxConcurrency: conc,
       callSem: conc > 1 ? new Semaphore(conc) : null,
-      userSems: new Map(),
       inflight: 0,
       healthy: true,
       persistent: integree,

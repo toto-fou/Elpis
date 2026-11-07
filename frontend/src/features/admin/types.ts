@@ -176,6 +176,7 @@ export interface ConfigAdmin {
   mcp: {
     servers_dir: string;
     tools_cache_ttl_sec: number;
+    max_tool_calls_per_user: number;
     tokens: { tools_enabled: boolean; tools_families: string; max_days: number; max_per_user: number };
     oauth: { enabled: boolean; dcr_enabled: boolean; access_ttl_s: number; refresh_days: number };
     [cle: string]: unknown;

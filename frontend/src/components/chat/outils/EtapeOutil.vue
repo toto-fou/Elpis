@@ -101,6 +101,12 @@ function bloquerReflexion(ev: MouseEvent): void {
         aria-label="Erreur"
       ></i>
       <i
+        v-else-if="step.status === 'waiting'"
+        class="ph ph-hourglass text-slate-400"
+        style="font-size: 11px"
+        aria-label="En attente"
+      ></i>
+      <i
         v-else-if="step.status === 'running' && step.name.startsWith('rag_')"
         class="ph ph-database text-blue-500 animate-pulse"
         style="font-size: 11px"
@@ -172,6 +178,12 @@ function bloquerReflexion(ev: MouseEvent): void {
           v-if="step.status === 'done' && step.durationMs != null && !step.shellMs"
           class="text-slate-400 text-[11px] font-mono tabular-nums"
           >· {{ fmtDuree(step.durationMs) }}</span
+        >
+        <span
+          v-else-if="step.status === 'waiting'"
+          class="text-slate-400 text-[11px] font-normal"
+          data-attente
+          >· en attente</span
         >
         <span
           v-else-if="step.status === 'stopped'"

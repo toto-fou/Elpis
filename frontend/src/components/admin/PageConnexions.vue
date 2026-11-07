@@ -2046,6 +2046,42 @@ const typeEnAttente = computed(() => !!adm.rapportMoteur && adm.rapportMoteur.ty
               <span class="adm-unit">s</span>
             </div>
           </div>
+          <div class="adm-row">
+            <div>
+              <span
+                class="adm-row__label"
+                title="Appels d'outils exécutés en même temps par un même compte : outils intégrés, serveurs MCP et OpenAPI, sous-agents compris. Au-delà, ils attendent leur tour. 0 : sans plafond."
+                >Outils simultanés par compte</span
+              >
+              <span class="sr-only"
+                >Appels d'outils exécutés en même temps par un même compte : outils intégrés, serveurs MCP et
+                OpenAPI, sous-agents compris. Au-delà, ils attendent leur tour. 0 : sans plafond.</span
+              >
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <input
+                v-model.number="adm.configForm.mcp.max_tool_calls_per_user"
+                data-field="config:mcp.max_tool_calls_per_user"
+                type="number"
+                min="0"
+                step="1"
+                aria-label="Outils simultanés par compte"
+                class="set-input adm-num--sm"
+              />
+              <span class="adm-unit">simultanés, 0 : sans plafond</span>
+            </div>
+          </div>
+          <p
+            v-if="
+              !Number.isInteger(adm.configForm.mcp.max_tool_calls_per_user) ||
+              adm.configForm.mcp.max_tool_calls_per_user < 0
+            "
+            role="alert"
+            class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
+          >
+            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
+            Un nombre entier, 0 ou plus : sinon, aucun plafond ne s'applique.
+          </p>
         </div>
       </section>
 

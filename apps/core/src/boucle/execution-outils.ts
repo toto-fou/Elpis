@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/boucle/execution-outils.ts — exécution d'un lot d'appels d'outils : série pour les mutants, parallèle borné sinon (appels consécutifs d'un outil à borne propre ensemble, à cette seule borne, hors LLAMA_TOOL_PARALLELISM), progression et journaux, télémétrie, aucun frère orphelin. */
+/** apps/core/src/boucle/execution-outils.ts — exécution d'un lot d'appels d'outils : série pour les mutants, parallèle sans plafond sinon (appels consécutifs d'un outil à borne propre ensemble, à cette seule borne), état de chaque appel, progression et journaux, télémétrie, aucun frère orphelin. */
 import {
   CancelledError,
   estDict,
@@ -14,7 +14,6 @@ import {
 } from "@elpis/commun";
 import type { SousAgent } from "@elpis/securite";
 
-import { LLAMA_TOOL_PARALLELISM } from "../llm/constantes";
 import { journal } from "../journal";
 import type { ContexteParent } from "../outils/catalogue";
 import { categorize } from "../outils/categories";
@@ -48,6 +47,8 @@ export interface RappelsOutil {
   parent?: (() => ContexteParent) | null;
   onProgress?: ((p: Progression) => void | Promise<void>) | null;
   onLog?: ((params: Dict) => void | Promise<void>) | null;
+  /** L'appel attend une place du quota d'outils de son compte (`true`), puis l'obtient (`false`). */
+  onAttente?: ((attend: boolean) => void) | null;
   /** Un outil intégré y enregistre le résultat à rendre si le tour est annulé pendant l'appel (cf. `AppelIntegre`). */
   rendreSiAnnule?: ((fournir: () => string | null) => void) | null;
   signal?: AbortSignal | undefined;
@@ -163,6 +164,10 @@ class Semaphore {
     this.libres = n;
   }
 
+  get libre(): boolean {
+    return this.libres > 0;
+  }
+
   async prendre(): Promise<void> {
     if (this.libres > 0) {
       this.libres--;
@@ -207,15 +212,14 @@ export interface OptionsLot {
   isCancelled?: (() => boolean) | null;
   signal?: AbortSignal | undefined;
   resultsOut?: Map<number, string>;
-  /** Bornes propres par outil : ses appels consécutifs partent ensemble, au plus `n` à la fois (1 : l'un après l'autre), hors LLAMA_TOOL_PARALLELISM. */
+  /** Bornes propres par outil : ses appels consécutifs partent ensemble, au plus `n` à la fois (1 : l'un après l'autre). */
   bornes?: ReadonlyMap<string, number>;
 }
 
 /** Exécute `prepared` (`{call_id, tool_name, final_args, meta, args_error}`) dans l'ordre du modèle ; rend `index → résultat JSON`. */
 export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise<Map<number, string>> {
   const resultats = o.resultsOut ?? new Map<number, string>();
-  const parallelisme = Math.max(1, LLAMA_TOOL_PARALLELISM);
-  const sem = new Semaphore(parallelisme);
+  const n = prepared.length;
   const limite = (nom: string): number => Math.max(1, Math.trunc(o.bornes?.get(nom) ?? 1));
   const semPropres = new Map([...(o.bornes?.keys() ?? [])].map((nom) => [nom, new Semaphore(limite(nom))]));
   const emitProgressLog = o.emitProgressLog ?? true;
@@ -228,6 +232,26 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     for (let k = 0; k < prepared.length; k++)
       if (!demarres.has(k) && !resultats.has(k)) resultats.set(k, NON_DEMARRE);
     await o.onCancelSnapshot();
+  };
+  const enAttente = new Set<number>();
+  /** État d'un appel identifié pour l'interface (`tool_state`) : en attente de son tour ou d'une place, en cours, fini. */
+  const signalerEtat = async (
+    idx: number,
+    state: "waiting" | "running" | "done",
+    dureeMs?: number,
+  ): Promise<void> => {
+    const p = prepared[idx]!;
+    const id = p["call_id"];
+    if (id === null || id === undefined || id === "") return;
+    if (state === "waiting") enAttente.add(idx);
+    else enAttente.delete(idx);
+    await emit(o.onEvent, {
+      type: "tool_state",
+      name: strPy(p["tool_name"]),
+      call_id: strPy(id),
+      state,
+      ...(dureeMs !== undefined ? { duration_ms: dureeMs } : {}),
+    });
   };
 
   const execOne = async (idx: number, p: Dict, signalLot?: AbortSignal): Promise<void> => {
@@ -263,6 +287,10 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     let rendu: (() => string | null) | null = null;
     const rappelsOutil: RappelsOutil = {
       ...rappels,
+      onAttente: (attend) => {
+        if (attend || enAttente.has(idx))
+          void signalerEtat(idx, attend ? "waiting" : "running").catch(() => undefined);
+      },
       rendreSiAnnule: (fournir) => {
         rendu = fournir;
       },
@@ -277,13 +305,15 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
         // la sentinelle reste le repli
       }
     };
-    const borne = semPropres.get(nom) ?? sem;
-    await borne.prendre();
+    const borne = semPropres.get(nom) ?? null;
+    if (borne !== null && !borne.libre) await signalerEtat(idx, "waiting");
+    await borne?.prendre();
     if (annulationReelle(signalLot)) {
-      borne.rendre();
+      borne?.rendre();
       if (!instantaneDuLot) await instantane();
       throw new CancelledError("User cancelled");
     }
+    if (enAttente.has(idx)) await signalerEtat(idx, "running");
     let duree: number;
     const debut = Date.now() / 1000;
     try {
@@ -317,10 +347,11 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
       duree = Math.trunc(performance.now() - t0);
       p["duration_ms"] = duree;
     } finally {
-      borne.rendre();
+      borne?.rendre();
     }
 
     try {
+      if (n > 1) await signalerEtat(idx, "done", duree);
       const r = resultats.get(idx) ?? "";
       const statut = o.isToolFailure(r) ? "error" : "ok";
       const etat = callStatus(p, r, statut);
@@ -412,35 +443,24 @@ export async function executeToolBatch(prepared: Dict[], o: OptionsLot): Promise
     }
   };
 
-  let i = 0;
-  const n = prepared.length;
-  while (i < n) {
+  /** Fin du groupe qui commence en `i` : appels consécutifs d'un outil à borne propre, appel en série seul, ou suite d'appels parallèles. */
+  const finGroupe = (i: number): number => {
     const nomI = strPy(prepared[i]!["tool_name"]);
     const meme = (k: number): boolean => strPy(prepared[k]!["tool_name"]) === nomI;
-    if (semPropres.has(nomI) && limite(nomI) > 1 && i + 1 < n && meme(i + 1)) {
-      let j = i;
-      while (j < n && meme(j)) j++;
-      log.info(
-        `[execute_tool_batch] Iter ${o.iteration} : ${j - i} appels ${nomI} en parallèle (au plus ${limite(nomI)} à la fois)`,
-      );
-      const items: [number, Dict][] = [];
-      for (let k = i; k < j; k++) items.push([k, prepared[k]!]);
-      await executerEnParallele(items);
-      i = j;
-      continue;
-    }
-    if (toolTraits(strPy(prepared[i]!["tool_name"])).serial) {
-      await execOne(i, prepared[i]!);
-      i++;
-      continue;
-    }
-    let j = i;
-    while (j < n && !toolTraits(strPy(prepared[j]!["tool_name"])).serial) j++;
+    let j = i + 1;
+    if (semPropres.has(nomI) && limite(nomI) > 1 && j < n && meme(j)) while (j < n && meme(j)) j++;
+    else if (!toolTraits(nomI).serial)
+      while (j < n && !toolTraits(strPy(prepared[j]!["tool_name"])).serial) j++;
+    return j;
+  };
+
+  for (let k = n ? finGroupe(0) : 0; k < n; k++) await signalerEtat(k, "waiting");
+  let i = 0;
+  while (i < n) {
+    const j = finGroupe(i);
     if (j - i === 1) await execOne(i, prepared[i]!);
     else {
-      log.info(
-        `[execute_tool_batch] Iter ${o.iteration} : batch parallèle de ${j - i} tools (parallelism=${parallelisme})`,
-      );
+      log.info(`[execute_tool_batch] Iter ${o.iteration} : ${j - i} appels en parallèle`);
       const items: [number, Dict][] = [];
       for (let k = i; k < j; k++) items.push([k, prepared[k]!]);
       await executerEnParallele(items);

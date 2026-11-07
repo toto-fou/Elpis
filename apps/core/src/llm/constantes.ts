@@ -220,8 +220,6 @@ export function bornerLongueurALaFenetre(
   return bornees;
 }
 
-export const LLAMA_TOOL_PARALLELISM = nombreEnv("LLAMA_TOOL_PARALLELISM", 8, entierPy);
-
 /** Préfixes d'outils exécutés en série (état partagé : sandbox, dépôt, mémoire, écran, onglet, sous-agent). */
 export const LLAMA_TOOL_SERIAL_PREFIXES: readonly string[] = (
   process.env["LLAMA_TOOL_SERIAL_PREFIXES"] ??

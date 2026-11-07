@@ -14,6 +14,15 @@ follow [SemVer](https://semver.org/).
   failing, interactive calls first. `0`, the default, means no cap; the value is re-read live.
   Subagents of a turn start together as the engine allows (llama.cpp still keeps one slot for
   the parent, and a batch with a `web` agent runs three at a time).
+- **Tool calls run without execution caps.** A batch no longer runs 8 calls at a time
+  (`LLAMA_TOOL_PARALLELISM` is gone), external MCP servers have no shared cap, and the tool
+  host has no concurrency or rate limit by default (`MCP_TOOL_MAX_CONCURRENT`,
+  `MCP_TOOL_MAX_CONCURRENT_PER_USER` and `MCP_TOOL_RATE_LIMIT_RPS` default to `0`). Writes
+  still run one after the other, and a stdio server one call at a time. The only cap left is
+  `mcp.max_tool_calls_per_user` (Admin console › MCP server; `0`, the default, means none,
+  re-read live): beyond it a call waits for its turn instead of failing. In the chat, each call
+  of a batch shows its own state (an hourglass while it waits, done as soon as it ends), and the
+  group header says how many tools run in parallel.
 - **`./elpis configure` goes through the core.** The database test, the creation of the
   database and administrator account, and the cloud connector are done by the core
   (`exploitation.mjs db check`, `admin`, `connecteur`) instead of the remaining Python

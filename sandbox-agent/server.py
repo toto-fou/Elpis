@@ -104,6 +104,7 @@ import fnmatch
 import gzip
 import hashlib
 import io
+import itertools
 import json
 import os
 import re
@@ -142,6 +143,8 @@ _RELEVE_DUREE_S = 3600               # un relevé jamais clos est oublié
 _CIBLE_RELEVEE = 256                 # relevé : texte d'un lien gardé (au-delà : début + empreinte)
 _PROFONDEUR_MAX = 4096               # list : profondeur (au-delà, PATH_MAX)
 _SIGNE_S = 2.0                       # flux NDJSON : signe de vie au moins toutes les 2 s
+_GREP_LOT = 256 << 10                # grep en regex : lignes envoyées au chercheur par requête
+_GREP_COMPILE_S = 10.0               # grep en regex : compilation dans le chercheur
 _PROGRES_S = 0.5                     # archive : progression au moins toutes les 0,5 s
 _OMIS_DETAILLES = 100                # archive : entrées omises détaillées dans le bilan
 _OMIS_OCTETS = 64 << 10              # archive : leur poids en JSON (trame de fin bornée)
@@ -918,10 +921,10 @@ class Agent:
 
     def grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
              max_trouves: int, largeur: int = 260, fichiers_seuls: bool = False,
-             delai_s: float = 600.0, motif: Optional["re.Pattern[str]"] = None,
+             delai_s: float = 600.0, chercheur: Optional["_Chercheur"] = None,
              contexte: int = 0, max_ligne: int = 20000) -> Iterator[Dict[str, Any]]:
         """Lignes de ``chemins`` (fichiers ordinaires) qui contiennent
-        ``aiguille`` — ou où ``motif`` (expression régulière) trouve — ;
+        ``aiguille`` — ou où la regex de ``chercheur`` trouve, hors de ce processus — ;
         découpe au seul ``\\n`` (comme ``grep -n``), ``col`` = début de la
         première correspondance. ``contexte`` : ``text`` réduit à ``contexte``
         caractères autour d'elle, positions ``match_start``/``match_end`` dans
@@ -929,10 +932,52 @@ class Agent:
         caractères est sautée. Fichiers trop gros ou binaires sautés et
         comptés. ``fichiers_seuls`` : un ``{"file"}`` par fichier trouvé
         (comme ``grep -l``). Au-delà de ``delai_s`` : arrêt, ``timed_out``."""
+        try:
+            yield from self._grep(chemins, aiguille, casse, max_octets, max_trouves, largeur,
+                                  fichiers_seuls, delai_s, chercheur, contexte, max_ligne)
+        finally:
+            if chercheur is not None:
+                chercheur.fermer()
+
+    def _grep(self, chemins: Iterable[Any], aiguille: str, casse: bool, max_octets: int,
+              max_trouves: int, largeur: int, fichiers_seuls: bool, delai_s: float,
+              chercheur: Optional["_Chercheur"], contexte: int,
+              max_ligne: int) -> Iterator[Dict[str, Any]]:
         cherche = aiguille if casse else aiguille.lower()
         trouves = gros = binaires = 0
         signe = time.monotonic()
         echeance = signe + delai_s
+
+        def en_texte(f: Any) -> Iterator[Optional[Tuple[int, str, int, int]]]:
+            for i, brut in enumerate(f, 1):
+                if (i & 255) == 0 and time.monotonic() > echeance:
+                    yield None
+                    return
+                ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
+                debut = (ligne if casse else ligne.lower()).find(cherche)
+                if debut >= 0:
+                    yield i, ligne, debut, debut + len(cherche)
+
+        def en_regex(f: Any, c: "_Chercheur") -> Iterator[Optional[Tuple[int, str, int, int]]]:
+            lot: Dict[int, str] = {}
+            taille = 0
+            for i, brut in enumerate(itertools.chain(f, [None]), 1):
+                if brut is not None:
+                    ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
+                    if len(ligne) <= max_ligne:
+                        lot[i] = ligne
+                        taille += len(ligne) + 16
+                    if taille < _GREP_LOT:
+                        continue
+                if not lot:
+                    continue
+                trouvees = c.trouver(lot, echeance)
+                if trouvees is None:
+                    yield None
+                    return
+                for j, debut, fin in trouvees:
+                    yield j, lot[j], debut, fin
+                lot, taille = {}, 0
 
         def bilan(**en_plus: Any) -> Dict[str, Any]:
             return {"done": True, "hits_truncated": False, "skipped_large": gros,
@@ -958,21 +1003,11 @@ class Agent:
                         binaires += 1
                         continue
                     f.seek(0)
-                    for i, brut in enumerate(f, 1):
-                        if (i & 255) == 0 and time.monotonic() > echeance:
+                    for trouvee in (en_texte(f) if chercheur is None else en_regex(f, chercheur)):
+                        if trouvee is None:
                             yield bilan(timed_out=True)
                             return
-                        ligne = brut.rstrip(b"\n").rstrip(b"\r").decode("utf-8", "replace")
-                        if motif is not None:
-                            m = motif.search(ligne) if len(ligne) <= max_ligne else None
-                            if m is None:
-                                continue
-                            debut, fin = m.start(), m.end()
-                        else:
-                            debut = (ligne if casse else ligne.lower()).find(cherche)
-                            if debut < 0:
-                                continue
-                            fin = debut + len(cherche)
+                        i, ligne, debut, fin = trouvee
                         trouves += 1
                         if fichiers_seuls:
                             yield {"file": rel}
@@ -2323,6 +2358,107 @@ class _Trieur:
                     f.close()
 
 
+
+# Chercheur : la regex d'un grep compilée ici, puis [indice, début, fin] des lignes trouvées de chaque lot [[indice, texte]…].
+_CHERCHEUR = """
+import json, re, sys
+d = json.loads(sys.stdin.buffer.readline())
+try:
+    r, rendu = re.compile(d["p"], re.IGNORECASE if d["i"] else 0), {"ok": True}
+except (re.error, RecursionError, OverflowError) as e:
+    r, rendu = None, {"error": str(e)[:200]}
+sys.stdout.buffer.write(json.dumps(rendu).encode() + b"\\n")
+sys.stdout.buffer.flush()
+for requete in iter(sys.stdin.buffer.readline, b"") if r is not None else ():
+    trouvees = []
+    for i, texte in json.loads(requete):
+        m = r.search(texte)
+        if m:
+            trouvees.append([i, m.start(), m.end()])
+    sys.stdout.buffer.write(json.dumps(trouvees).encode() + b"\\n")
+    sys.stdout.buffer.flush()
+"""
+
+
+class _Chercheur:
+    """Processus à part (``python3 -I -S``) où la regex d'un grep est compilée et appliquée : une regex lente n'y fige que lui."""
+
+    def __init__(self, motif: str, sans_casse: bool) -> None:
+        self.proc = subprocess.Popen([sys.executable or "python3", "-I", "-S", "-c", _CHERCHEUR],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")})
+        self._tampon = b""
+        for f in (self.proc.stdin, self.proc.stdout):
+            if f is not None:
+                os.set_blocking(f.fileno(), False)
+        echeance = time.monotonic() + _GREP_COMPILE_S
+        try:
+            rendu = self._recevoir(echeance) if self._envoyer({"p": motif, "i": sans_casse}, echeance) else None
+        except (OSError, ValueError):
+            rendu = None
+        if not isinstance(rendu, dict) or rendu.get("ok") is not True:
+            self.fermer()
+            erreur = rendu.get("error") if isinstance(rendu, dict) else None
+            raise Refus(400, "bad_regex", str(erreur or "regex not compiled in time")[:200])
+
+    def trouver(self, lot: Dict[int, str], echeance: float) -> Optional[list]:
+        """[indice, début, fin] des lignes de ``lot`` où la regex trouve ; ``None`` à l'échéance ou en panne (chercheur tué)."""
+        try:
+            if self._envoyer(list(lot.items()), echeance):
+                rendu = self._recevoir(echeance)
+                if isinstance(rendu, list) and all(
+                        isinstance(x, list) and len(x) == 3 and x[0] in lot
+                        and all(_entier_sur(v) is not None for v in x) for x in rendu):
+                    return rendu
+        except (OSError, ValueError):
+            pass
+        self.fermer()
+        return None
+
+    def _envoyer(self, objet: Any, echeance: float) -> bool:
+        """``objet`` en une ligne JSON sur l'entrée du chercheur ; faux si le tube reste plein jusqu'à l'échéance."""
+        if self.proc.stdin is None:
+            raise OSError(errno.EPIPE, "chercheur sans entrée")
+        fd = self.proc.stdin.fileno()
+        donnees = json.dumps(objet).encode() + b"\n"
+        veille = select.poll()
+        veille.register(fd, select.POLLOUT)
+        while donnees:
+            if not veille.poll(max(0, int((echeance - time.monotonic()) * 1000))):
+                return False
+            with contextlib.suppress(BlockingIOError):
+                donnees = donnees[os.write(fd, donnees):]
+        return True
+
+    def _recevoir(self, echeance: float) -> Any:
+        """Ligne JSON suivante du chercheur, ou ``None`` si elle n'est pas là à l'échéance."""
+        if self.proc.stdout is None:
+            raise OSError(errno.EPIPE, "chercheur sans sortie")
+        fd = self.proc.stdout.fileno()
+        veille = select.poll()
+        veille.register(fd, select.POLLIN)
+        while b"\n" not in self._tampon:
+            if not veille.poll(max(0, int((echeance - time.monotonic()) * 1000))):
+                return None
+            with contextlib.suppress(BlockingIOError):
+                b = os.read(fd, 1 << 16)
+                if not b:
+                    raise OSError(errno.EPIPE, "chercheur arrêté")
+                self._tampon += b
+        ligne, _, self._tampon = self._tampon.partition(b"\n")
+        return json.loads(ligne)
+
+    def fermer(self) -> None:
+        with contextlib.suppress(OSError):
+            self.proc.kill()
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            self.proc.wait(2)
+        for f in (self.proc.stdin, self.proc.stdout):
+            if f is not None:
+                with contextlib.suppress(OSError):
+                    f.close()
+
+
 class _Job:
     """Un job de fond : sa fiche (``job-<id>.json``) et l'état de sa surveillance."""
 
@@ -3283,19 +3419,14 @@ class _Gestionnaire(BaseHTTPRequestHandler):
             if not aiguille:
                 raise Refus(400, "bad_request", "needle requis")
             casse = not _vrai(d.get("ignore_case", True))
-            motif = None
-            if _vrai(d.get("regex")):
-                try:
-                    motif = re.compile(aiguille, 0 if casse else re.IGNORECASE)
-                except (re.error, RecursionError) as e:
-                    raise Refus(400, "bad_regex", str(e)[:200]) from None
+            chercheur = _Chercheur(aiguille, not casse) if _vrai(d.get("regex")) else None
             self._ndjson({"started": True}, agent.grep(
                 chemins, aiguille, casse,
                 int(d.get("max_file_bytes") or 20 << 20), max(1, int(d.get("max_hits") or 2000)),
                 largeur=max(40, min(int(d.get("width") or 260), 4096)),
                 fichiers_seuls=_vrai(d.get("files_only")),
                 delai_s=max(0.1, min(float(d.get("deadline_s") or 600), 600.0)),
-                motif=motif, contexte=max(0, min(int(d.get("context") or 0), 1000)),
+                chercheur=chercheur, contexte=max(0, min(int(d.get("context") or 0), 1000)),
                 max_ligne=max(1, int(d.get("max_line") or 20000))))
         elif cle == ("POST", "/v1/readmany"):
             d = self._corps_json()

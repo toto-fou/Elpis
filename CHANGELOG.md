@@ -134,6 +134,11 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Sandbox agent: a slow regex no longer freezes it.** A `grep` with `regex` now
+  compiles and runs the pattern in a separate process, as job triggers already did,
+  killed at the deadline. A catastrophic pattern such as `(a+)+$` used to block every
+  file operation of the account until the agent was restarted, past the deadline. A
+  syntax error still returns `bad_regex`.
 - **Long answers: no more server freeze.** The search for tool calls in the
   model's text attempted a JSON read at every prose character: 38 ms at 5,000
   characters, 384 ms at 60,000, during which no account was served. Characters

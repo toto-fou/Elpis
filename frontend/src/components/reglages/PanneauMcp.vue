@@ -9,8 +9,8 @@ const rg = domaineReglages();
 <template>
   <div
     v-if="rg.settings.enable_mcp"
-    class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200"
-    :class="rg.showMcpPanel ? 'w-[280px] opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none'"
+    class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200 rounded-l-[10px] overflow-hidden"
+    :class="rg.showMcpPanel ? 'w-[280px] opacity-100' : 'w-0 opacity-0 pointer-events-none'"
   >
     <div class="h-16 flex items-center justify-between px-4 border-b border-slate-200 shrink-0 bg-white">
       <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">

@@ -164,9 +164,7 @@ export function cGauge(spec: Spec): [Opt, string] {
   const mxCol = byName(spec.cols, "max", ["number"]);
   const vals = m.filter((c) => c !== mxCol);
   if (vals.length === 0)
-    throw new SpecError("gauge: no numeric value", "", [
-      { indicateur: "Taux de service", valeur: 72, max: 100 },
-    ]);
+    throw new SpecError("gauge: no numeric value", "", [{ metric: "Service rate", value: 72, max: 100 }]);
   if (spec.rows.length > 1) {
     spec.notes.fix("several rows: progress bars instead of a gauge");
     spec.kind = "progress";
@@ -310,7 +308,7 @@ export function cKpi(spec: Spec): [Opt, string] {
   const vcols = spec.ys.length > 0 ? spec.ys : m.filter((c) => c !== prev && c !== mx);
   if (vcols.length === 0)
     throw new SpecError("kpi: no numeric value", "", [
-      { indicateur: "Chiffre d'affaires", valeur: 1250000, précédent: 1100000 },
+      { metric: "Revenue", value: 1250000, previous: 1100000 },
     ]);
   const unit = spec.opts.unit;
   const tiles: Opt[] = [];

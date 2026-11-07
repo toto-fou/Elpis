@@ -22,7 +22,7 @@ import type { Dict } from "@elpis/commun";
 import { clipText, err } from "@elpis/outils-mcp";
 
 import { getPwSessionOwner, pwVerbOf } from "./session";
-import { browserUrlBlockReason, refusMessage } from "./url";
+import { browserUrlBlockReason, refusMessageAnglais } from "./url";
 import type { OptionsGardeNavigateur } from "./url";
 
 /** Couples méthode/chemin appelés par les outils `pw_*` (extraits du source Python par le générateur de vecteurs). */
@@ -159,7 +159,7 @@ export function clipResult(obj: unknown, strCap = 2000): unknown {
   const parcourir = (o: unknown, profondeur: number): unknown => {
     if (profondeur > 12) return o;
     if (typeof o === "string")
-      return Array.from(o).length > strCap ? clipText(o, strCap, { label: "champ" }) : o;
+      return Array.from(o).length > strCap ? clipText(o, strCap, { label: "field" }) : o;
     if (estDict(o)) {
       const d: Dict = {};
       for (const k of clesOrdonnees(o)) poserCle(d, k, parcourir(o[k], profondeur + 1));
@@ -214,8 +214,8 @@ export async function refusUrl(url: unknown, options: OptionsGardeNavigateur = {
   }
   if (!motif) return null;
   return errPw("url_blocked", "", {
-    message: refusMessage(texte, motif),
-    fix: "choisissez une adresse http(s) d'un site hors de la machine qui héberge Elpis",
+    message: refusMessageAnglais(texte, motif),
+    fix: "pick an http(s) address of a site outside the machine hosting Elpis",
   });
 }
 
@@ -232,9 +232,9 @@ export async function refusSessionDAutrui(sessionId: unknown, username: string):
   return errPw("not_your_session", "", {
     message:
       proprio === null
-        ? "session de navigateur inconnue pour ce compte"
-        : "cette session de navigateur appartient à un autre utilisateur",
-    fix: "pw_session(action='start', url=…) ouvre (ou retrouve) la vôtre",
+        ? "unknown browser session for this account"
+        : "this browser session belongs to another user",
+    fix: "pw_session(action='start', url=…) opens (or finds) your own",
   });
 }
 

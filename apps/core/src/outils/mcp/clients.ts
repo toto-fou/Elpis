@@ -804,7 +804,7 @@ export class ClientMcpParFamille implements ClientMcp {
     await c.connecter(signal);
     if (this.ferme) {
       await c.fermer();
-      throw new ErreurFamille(`entrée '${this.nom}' fermée`);
+      throw new ErreurFamille(`entry '${this.nom}' closed`);
     }
     this.ouvertes.add(f);
   }
@@ -845,7 +845,7 @@ export class ClientMcpParFamille implements ClientMcp {
       );
     }
     const indisponible = (): ErreurFamille =>
-      new ErreurFamille(`Outil '${nom}' indisponible : famille '${f}' de '${this.nom}' injoignable.`);
+      new ErreurFamille(`Tool '${nom}' unavailable: family '${f}' of '${this.nom}' unreachable.`);
     if (!this.ouvertes.has(f) && !(await this.reouvrir(f))) throw indisponible();
     try {
       return await c.appelerOutil(nom, args, options);
@@ -858,8 +858,8 @@ export class ClientMcpParFamille implements ClientMcp {
       if (!(await this.reouvrir(f))) throw indisponible();
       if (!nonPartie && !this.rejouable(nom))
         throw new ErreurFamille(
-          `Outil '${nom}' : connexion à la famille '${f}' coupée pendant l'appel (${friendlyMcpError(e)}) — ` +
-            "non rejoué, l'effet a peut-être déjà été appliqué.",
+          `Tool '${nom}': connection to family '${f}' cut during the call (${friendlyMcpError(e)}) — ` +
+            "not replayed, the effect may already have been applied.",
         );
       try {
         return await c.appelerOutil(nom, args, options);

@@ -25,8 +25,8 @@ function edges(spec: Spec): [Lien[], string, string] {
       `${spec.kind}: needs two name columns (source, target); columns received: ${cols.map((c) => c.name).join(", ")}`,
       "one row per link: source, target, value",
       [
-        { source: "Budget", target: "Salaires", value: 60 },
-        { source: "Budget", target: "Locaux", value: 25 },
+        { source: "Budget", target: "Salaries", value: 60 },
+        { source: "Budget", target: "Premises", value: 25 },
       ],
     );
   const vcol = (spec.ys.length > 0 ? spec.ys : measures(cols))[0] ?? null;

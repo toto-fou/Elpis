@@ -13,7 +13,7 @@ export function cParallel(spec: Spec): [Opt, string] {
   const m = spec.ys.length > 0 ? spec.ys : measures(spec.cols);
   if (m.length < 2)
     throw new SpecError("parallel: needs at least two numeric columns", "", [
-      { modèle: "A", prix: 21000, conso: 5.2, puissance: 110 },
+      { model: "A", price: 21000, consumption: 5.2, power: 110 },
     ]);
   const d = dims(spec.cols);
   const d0 = d[0];

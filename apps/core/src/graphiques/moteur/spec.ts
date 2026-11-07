@@ -312,8 +312,8 @@ export function buildSpec(rawArgs: unknown): Spec {
   const rows = toRecords(arg(args, "data"), notes, arg(args, "_labels"));
   if (rows.length === 0)
     throw new SpecError("data is empty or unreadable", "data = a list of rows, one per category or point.", [
-      { mois: "janv.", ventes: 120 },
-      { mois: "févr.", ventes: 135 },
+      { month: "Jan", sales: 120 },
+      { month: "Feb", sales: 135 },
     ]);
   let lignes = rows;
   if (lignes.length > MAX_ROWS) {
@@ -326,8 +326,8 @@ export function buildSpec(rawArgs: unknown): Spec {
       "data has no values (empty rows)",
       "each row is an object with the SAME keys, all filled",
       [
-        { nom: "Débit", valeur: 120, unité: "Mo/s" },
-        { nom: "Latence", valeur: 8, unité: "ms" },
+        { name: "Throughput", value: 120, unit: "MB/s" },
+        { name: "Latency", value: 8, unit: "ms" },
       ],
     );
 

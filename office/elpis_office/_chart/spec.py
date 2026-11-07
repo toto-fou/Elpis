@@ -172,7 +172,7 @@ def build_spec(raw_args: dict) -> Spec:
         raise SpecError(
             "data is empty or unreadable",
             fix="data = a list of rows, one per category or point.",
-            example=[{"mois": "janv.", "ventes": 120}, {"mois": "févr.", "ventes": 135}])
+            example=[{"month": "Jan", "sales": 120}, {"month": "Feb", "sales": 135}])
     if len(rows) > MAX_ROWS:
         notes.warn(f"{len(rows)} rows: only the first {MAX_ROWS} are kept")
         rows = rows[:MAX_ROWS]
@@ -181,8 +181,8 @@ def build_spec(raw_args: dict) -> Spec:
         raise SpecError(
             "data has no values (empty rows)",
             fix="each row is an object with the SAME keys, all filled",
-            example=[{"nom": "Débit", "valeur": 120, "unité": "Mo/s"},
-                     {"nom": "Latence", "valeur": 8, "unité": "ms"}])
+            example=[{"name": "Throughput", "value": 120, "unit": "MB/s"},
+                     {"name": "Latency", "value": 8, "unit": "ms"}])
 
     tree = None
     if any(isinstance(r, dict) and any(fold(k) == "children" for k in r) for r in rows):

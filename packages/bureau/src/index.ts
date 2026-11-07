@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/bureau/src/index.ts — bibliothèque du bureau (computer-use) partagée par le core et le toolhost. */
 export * from "./agent";
+export * from "./anglais";
 export * from "./ancres";
 export * from "./automatisation";
 export * from "./detection";

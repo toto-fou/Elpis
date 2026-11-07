@@ -149,17 +149,17 @@ class _Garde:
         h = {k: v for k, v in (scope.get("headers") or [])}
         code, detail = 0, ""
         if b"origin" in h:
-            code, detail = 403, "requête de navigateur refusée (en-tête Origin)"
+            code, detail = 403, "browser request refused (Origin header)"
         elif _TOKEN:
             auth = h.get(b"authorization", b"").decode("latin-1")
             ok = auth[:7].lower() == "bearer " and hmac.compare_digest(
                 auth[7:].strip().encode("utf-8"), _TOKEN.encode("utf-8"))
             if not ok:
-                code, detail = 401, "jeton absent ou invalide"
+                code, detail = 401, "missing or invalid token"
         if not code and scope.get("method") in ("POST", "PUT", "PATCH"):
             ctype = h.get(b"content-type", b"").decode("latin-1").split(";", 1)[0].strip().lower()
             if ctype != "application/json":
-                code, detail = 415, "Content-Type application/json requis"
+                code, detail = 415, "Content-Type application/json required"
         if code:
             body = json.dumps({"detail": detail}).encode("utf-8")
             hdrs = [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]
@@ -202,9 +202,9 @@ async def _body(request: Request) -> dict:
     try:
         data = await request.json()
     except ValueError:
-        raise HTTPException(400, "corps JSON invalide")
+        raise HTTPException(400, "invalid JSON body")
     if not isinstance(data, dict):
-        raise HTTPException(400, "corps JSON : objet attendu")
+        raise HTTPException(400, "JSON body: object expected")
     return data
 
 
@@ -358,10 +358,10 @@ async def _run_uia(op_name: str, thunk, *, timeout_s: float | None = None):
             logger.error("uia-worker figé sur '%s' depuis %.0fs → sortie (EXIT_ON_HANG)",
                          stuck, busy_for)
             os._exit(1)
-        raise HTTPException(503, f"agent occupé : op '{stuck}' bloquée depuis "
-                                 f"{busy_for:.0f}s — relancer l'agent (run.bat) si nécessaire")
+        raise HTTPException(503, f"agent busy: op '{stuck}' stuck for "
+                                 f"{busy_for:.0f}s — restart the agent (run.bat) if needed")
     if _UIA_QUEUE.full():
-        raise HTTPException(503, "agent occupé : file d'opérations saturée — réessayer")
+        raise HTTPException(503, "agent busy: operation queue full — retry")
 
     fut: "_Future" = _Future()
     # Budget propre = seulement pour les ops qui DÉCLARENT une attente (/wait_*, /launch) ;
@@ -378,7 +378,7 @@ async def _run_uia(op_name: str, thunk, *, timeout_s: float | None = None):
     except asyncio.TimeoutError:
         # L'op continue dans le worker (un thread figé ne se tue pas) ; le marqueur
         # busy prendra le relais pour les appels suivants → 503 net.
-        raise HTTPException(503, f"agent occupé : op '{op_name}' n'a pas répondu à temps")
+        raise HTTPException(503, f"agent busy: op '{op_name}' did not respond in time")
 
 
 @app.get("/health")
@@ -712,12 +712,12 @@ def _auto_path(rel: str) -> Path:
     """Chemin sous automations/ ; refuse ``..``, les chemins absolus et les lecteurs."""
     rel = str(rel or "").replace("\\", "/").strip().lstrip("/")
     if not rel or ".." in rel.split("/") or ":" in rel:
-        raise HTTPException(400, "chemin invalide")
+        raise HTTPException(400, "invalid path")
     p = (_AUTOMATIONS / rel).resolve()
     try:
         p.relative_to(_AUTOMATIONS.resolve())
     except ValueError:
-        raise HTTPException(400, "chemin hors du dossier automations")
+        raise HTTPException(400, "path outside the automations folder")
     return p
 
 
@@ -728,18 +728,18 @@ async def put_file(request: Request):
     b = await _body(request)
     p = _auto_path(b.get("path"))
     if _shadows_import(b.get("path")):
-        raise HTTPException(400, "nom de script réservé (masquerait le module Python du même nom) : renommer le script")
+        raise HTTPException(400, "reserved script name (would shadow the Python module of the same name): rename the script")
     if isinstance(b.get("content_b64"), str):
         try:
             data = base64.b64decode(b["content_b64"], validate=True)
         except Exception:
-            raise HTTPException(400, "content_b64 invalide")
+            raise HTTPException(400, "invalid content_b64")
     elif isinstance(b.get("content"), str):
         data = b["content"].encode("utf-8")
     else:
-        raise HTTPException(400, "content ou content_b64 requis")
+        raise HTTPException(400, "content or content_b64 required")
     if len(data) > 16 * 1024 * 1024:
-        raise HTTPException(413, "fichier trop volumineux")
+        raise HTTPException(413, "file too large")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(data)
     return {"ok": True, "path": str(p.relative_to(_AUTOMATIONS.resolve())).replace("\\", "/"), "size": len(data)}
@@ -750,10 +750,10 @@ async def get_file(path: str = ""):
     """Lit un fichier sous automations/ (rapport JSON, capture PNG) en base64."""
     p = _auto_path(path)
     if not p.is_file():
-        raise HTTPException(404, "fichier introuvable")
+        raise HTTPException(404, "file not found")
     data = p.read_bytes()
     if len(data) > 32 * 1024 * 1024:
-        raise HTTPException(413, "fichier trop volumineux")
+        raise HTTPException(413, "file too large")
     return {"ok": True, "path": path, "size": len(data), "content_b64": base64.b64encode(data).decode("ascii")}
 
 
@@ -761,7 +761,7 @@ async def get_file(path: str = ""):
 async def list_files(path: str = ""):
     p = _auto_path(path or ".")
     if not p.is_dir():
-        raise HTTPException(404, "dossier introuvable")
+        raise HTTPException(404, "folder not found")
     items = []
     for child in sorted(p.iterdir(), key=lambda c: c.name):
         try:
@@ -828,9 +828,9 @@ async def run_script(request: Request):
     rel = name if name.endswith(".py") else name + ".py"
     script = _auto_path(rel)
     if _shadows_import(rel):
-        raise HTTPException(400, "nom de script réservé (masquerait le module Python du même nom) : renommer le script")
+        raise HTTPException(400, "reserved script name (would shadow the Python module of the same name): rename the script")
     if not script.is_file():
-        raise HTTPException(404, f"script introuvable : {name}")
+        raise HTTPException(404, f"script not found: {name}")
     # Une exécution à la fois : deux scripts pilotaient sinon le MÊME bureau (souris,
     # clavier, premier plan) et se sabotaient mutuellement.
     for other in list(_RUNS.values()):
@@ -839,7 +839,7 @@ async def run_script(request: Request):
         except Exception:
             alive = False
         if alive:
-            raise HTTPException(409, f"une exécution est déjà en cours sur cette machine ({other.get('name')}, {other.get('id')})")
+            raise HTTPException(409, f"a run is already in progress on this machine ({other.get('name')}, {other.get('id')})")
     cmd = [sys.executable, "-m", "elpis_auto"]
     if b.get("dry_run"):
         cmd.append("--dry-run")
@@ -871,7 +871,7 @@ async def run_script(request: Request):
         proc = _subprocess.Popen(cmd, executable=sys.executable, cwd=str(_AUTOMATIONS), env=env,  # noqa: ASYNC220
                                  stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT)
     except Exception as e:          # noqa: BLE001
-        raise HTTPException(500, f"lancement impossible : {e}")
+        raise HTTPException(500, f"launch failed: {e}")
     run_id = _uuid.uuid4().hex[:12]
     run = {"id": run_id, "name": name, "proc": proc, "started": _time.time(), "log": [],
            "code": None, "report_dir": "", "summary": "", "cmd": cmd[1:]}
@@ -893,7 +893,7 @@ def _run_view(run: dict, log_tail: int = 60) -> dict:
 async def run_status(run_id: str = "", log_tail: int = 60):
     run = _RUNS.get(run_id)
     if run is None:
-        raise HTTPException(404, "exécution inconnue")
+        raise HTTPException(404, "unknown run")
     return _run_view(run, log_tail)
 
 
@@ -902,11 +902,11 @@ async def run_stop(request: Request):
     b = await _body(request)
     run = _RUNS.get(str(b.get("run_id") or ""))
     if run is None:
-        raise HTTPException(404, "exécution inconnue")
+        raise HTTPException(404, "unknown run")
     if run.get("code") is None:
         released = await asyncio.to_thread(_stop_run_process, run["proc"])
         if released:
-            run["log"].append("[arrêt : relâché " + ", ".join(released) + "]")
+            run["log"].append("[stopped: released " + ", ".join(released) + "]")
     return _run_view(run, 20)
 
 

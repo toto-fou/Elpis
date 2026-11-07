@@ -800,8 +800,8 @@ export async function openNativeRound(
       if (!(e instanceof ErreurJsonPy || e instanceof TypeError)) throw e;
       args = {};
       argsError =
-        `arguments JSON invalides pour '${toolName}' (${e.message}) — outil NON exécuté ; renvoyer un objet JSON ` +
-        "valide (guillemets doubles, pas de virgule finale)";
+        `invalid JSON arguments for '${toolName}' (${e.message}) — tool NOT executed; resend a valid JSON object ` +
+        "(double quotes, no trailing comma)";
     }
     if (!estDict(args)) args = {};
     prepared.push({

@@ -444,14 +444,14 @@ export class PoolMcp {
         `(re)connexion à '${nom}' trop longue (> ${fixePy(queueTimeoutS ?? 0, 0)}s) — l'appel n'a pas été exécuté`,
       );
       entree = this.pool.get(key);
-      if (entree === undefined) throw new Error(`MCP '${nom}' indisponible après reconnexion.`);
+      if (entree === undefined) throw new Error(`MCP '${nom}' unavailable after reconnection.`);
     }
 
     let erreurAppel: unknown;
     const garde = await this.prendreGarde(entree, utilisateur, queueTimeoutS, signal);
     try {
       if (this.pool.get(key) !== entree || !entree.healthy) {
-        erreurAppel = new EntreeEvincee("entry évincée avant l'appel");
+        erreurAppel = new EntreeEvincee("entry evicted before the call");
       } else {
         const client = entree.client;
         try {
@@ -506,7 +506,7 @@ export class PoolMcp {
       throw erreurAppel;
     }
     const nouvelle = this.pool.get(key);
-    if (nouvelle === undefined) throw new Error(`MCP '${nom}' indisponible après reconnexion.`);
+    if (nouvelle === undefined) throw new Error(`MCP '${nom}' unavailable after reconnection.`);
     const garde2 = await this.prendreGarde(nouvelle, utilisateur, queueTimeoutS, signal);
     try {
       const resultat = await this.executer(nouvelle.client, toolName, args, options);

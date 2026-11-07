@@ -24,6 +24,7 @@ import { horsBornes } from "@elpis/http";
 import { exigerMoteurOuvert } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget } from "../llm/cible";
 import { connectorKey } from "../llm/moteurs";
+import { HttpErrorEn } from "../erreur-bilingue";
 import { journal } from "../journal";
 import { discoverSkills, userSkillsDir } from "../skills/bibliotheque";
 import { validateCron } from "./cron";
@@ -39,8 +40,14 @@ export const PROMPT_MAX = 200_000;
 export function reqStr(data: Dict, cle: string, max = 0): string {
   const v = lire(data, cle);
   if (v === undefined || v === null) return "";
-  if (typeof v !== "string") throw new HttpError(400, `${cle} doit être une chaîne`);
-  if (max && longueurPy(v) > max) throw new HttpError(400, `${cle} trop long (max ${max} caractères)`);
+  if (typeof v !== "string")
+    throw new HttpErrorEn(400, `${cle} doit être une chaîne`, `${cle} must be a string`);
+  if (max && longueurPy(v) > max)
+    throw new HttpErrorEn(
+      400,
+      `${cle} trop long (max ${max} caractères)`,
+      `${cle} too long (max ${max} characters)`,
+    );
   return v;
 }
 
@@ -84,27 +91,48 @@ export async function skillsConnus(uid: number): Promise<Set<string> | null> {
 export async function validerSkills(data: Dict, uid: number): Promise<string[]> {
   const brut = lire(data, "skills");
   if (brut === undefined || brut === null) return [];
-  if (!Array.isArray(brut)) throw new HttpError(400, "skills doit être une liste d'identifiants");
+  if (!Array.isArray(brut))
+    throw new HttpErrorEn(
+      400,
+      "skills doit être une liste d'identifiants",
+      "skills must be a list of identifiers",
+    );
   const out: string[] = [];
   for (const s0 of brut) {
     if (typeof s0 !== "string" || !stripPy(s0))
-      throw new HttpError(400, "skills : identifiants (strings) non vides attendus");
+      throw new HttpErrorEn(
+        400,
+        "skills : identifiants (strings) non vides attendus",
+        "skills: non-empty string identifiers expected",
+      );
     const s = stripPy(s0);
-    if (longueurPy(s) > 200) throw new HttpError(400, "skills : identifiant trop long");
+    if (longueurPy(s) > 200)
+      throw new HttpErrorEn(400, "skills : identifiant trop long", "skills: identifier too long");
     if (!out.includes(s)) out.push(s);
   }
-  if (out.length > SKILLS_MAX) throw new HttpError(400, `skills : maximum ${SKILLS_MAX} skills par routine`);
+  if (out.length > SKILLS_MAX)
+    throw new HttpErrorEn(
+      400,
+      `skills : maximum ${SKILLS_MAX} skills par routine`,
+      `skills: at most ${SKILLS_MAX} skills per routine`,
+    );
   const connus = await skillsConnus(uid);
   if (connus !== null) {
     const inconnus = out.filter((s) => !connus.has(s));
-    if (inconnus.length) throw new HttpError(400, "Skill introuvable : " + inconnus.join(", "));
+    if (inconnus.length)
+      throw new HttpErrorEn(
+        400,
+        "Skill introuvable : " + inconnus.join(", "),
+        "Skill not found: " + inconnus.join(", "),
+      );
   }
   return out;
 }
 
 /** `_mcp_refs` : instantané MCP réduit à des références (sentinelle reconstruite, id, manifeste, nom). */
 export function referencesMcp(mcp: unknown): Dict[] {
-  if (!Array.isArray(mcp)) throw new HttpError(400, "mcp_servers doit être une liste");
+  if (!Array.isArray(mcp))
+    throw new HttpErrorEn(400, "mcp_servers doit être une liste", "mcp_servers must be a list");
   const out: Dict[] = [];
   for (const raw of mcp.slice(0, 64)) {
     if (!estDict(raw)) continue;
@@ -141,24 +169,39 @@ export function validerHistorique(data: Dict): Record<string, number | string> {
     let v = data[k];
     if (v === null || v === "") v = 0;
     if (typeof v === "boolean" || !(estEntierPy(v) || typeof v === "string"))
-      throw new HttpError(400, `${k} : entier attendu`);
+      throw new HttpErrorEn(400, `${k} : entier attendu`, `${k}: integer expected`);
     let n: number | bigint;
     if (typeof v === "string") {
       try {
         n = intPy(stripPy(v));
       } catch {
-        throw new HttpError(400, `${k} : entier attendu`);
+        throw new HttpErrorEn(400, `${k} : entier attendu`, `${k}: integer expected`);
       }
     } else n = v as number | bigint;
-    if (n < 0 || n > KEEP_MAX) throw new HttpError(400, `${k} : entre 0 (tous) et ${KEEP_MAX}`);
+    if (n < 0 || n > KEEP_MAX)
+      throw new HttpErrorEn(
+        400,
+        `${k} : entre 0 (tous) et ${KEEP_MAX}`,
+        `${k}: between 0 (all) and ${KEEP_MAX}`,
+      );
     out[k] = Number(n);
   }
   if (Object.hasOwn(data, "notify_on")) {
     let v = data["notify_on"];
     v = v === null ? "all" : v;
-    if (typeof v !== "string") throw new HttpError(400, "notify_on invalide (all | error | none)");
+    if (typeof v !== "string")
+      throw new HttpErrorEn(
+        400,
+        "notify_on invalide (all | error | none)",
+        "notify_on invalid (all | error | none)",
+      );
     const on = lowerPy(stripPy(v));
-    if (!NOTIFY_ON_VALUES.includes(on)) throw new HttpError(400, "notify_on invalide (all | error | none)");
+    if (!NOTIFY_ON_VALUES.includes(on))
+      throw new HttpErrorEn(
+        400,
+        "notify_on invalide (all | error | none)",
+        "notify_on invalid (all | error | none)",
+      );
     out["notify_on"] = on;
   }
   return out;
@@ -176,13 +219,22 @@ export async function validerAval(
   if (!idVide(brut)) {
     afterId = entierCorps(brut, "trigger_after_id invalide");
     if (routineId !== null && routineId === afterId)
-      throw new HttpError(400, "Une routine ne peut pas s'enchaîner après elle-même");
-    if (!(await getRoutine(base, afterId, uid))) throw new HttpError(404, "Routine amont introuvable");
+      throw new HttpErrorEn(
+        400,
+        "Une routine ne peut pas s'enchaîner après elle-même",
+        "A routine cannot be chained after itself",
+      );
+    if (!(await getRoutine(base, afterId, uid)))
+      throw new HttpErrorEn(404, "Routine amont introuvable", "Upstream routine not found");
   }
   const onBrut = lire(data, "trigger_after_on");
   const on = veritePy(onBrut) ? lowerPy(stripPy(strPy(onBrut))) : "ok";
   if (!["ok", "error", "always"].includes(on))
-    throw new HttpError(400, "trigger_after_on invalide (ok | error | always)");
+    throw new HttpErrorEn(
+      400,
+      "trigger_after_on invalide (ok | error | always)",
+      "trigger_after_on invalid (ok | error | always)",
+    );
   return [afterId, on];
 }
 
@@ -198,7 +250,7 @@ export async function validerConnecteur(base: Base, data: Dict, uid: number): Pr
     throw e;
   }
   if (!(await exigerMoteurOuvert(base, uid, connectorKey(cid))))
-    throw new HttpError(403, "Ce serveur ne vous est pas ouvert.");
+    throw new HttpErrorEn(403, "Ce serveur ne vous est pas ouvert.", "This server is not open to you.");
   return cid;
 }
 
@@ -211,7 +263,7 @@ export function mcpDuCorps(data: Dict): unknown {
 /** `_routine_payload` : champs d'une création, validés dans l'ordre de Python. */
 export async function chargeRoutine(base: Base, data: Dict, uid: number): Promise<ChampsRoutine> {
   const name = stripPy(reqStr(data, "name"));
-  if (!name) throw new HttpError(400, "Nom requis");
+  if (!name) throw new HttpErrorEn(400, "Nom requis", "Name required");
   const brutCron = stripPy(reqStr(data, "cron_expr") || reqStr(data, "cron"));
   const cronExpr = brutCron ? validateCron(brutCron) : "";
   const mcp = referencesMcp(mcpDuCorps(data));

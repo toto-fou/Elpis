@@ -163,8 +163,8 @@ export function cartesian(spec: Spec, multi = true): [string[], Serie[], string,
       `no numeric column to plot (columns: ${cols.map((c) => c.name).join(", ")})`,
       'add a column of numbers, or name it with y=["column"]',
       [
-        { catégorie: "A", valeur: 12 },
-        { catégorie: "B", valeur: 7 },
+        { category: "A", value: 12 },
+        { category: "B", value: 7 },
       ],
     );
   let group = spec.group;

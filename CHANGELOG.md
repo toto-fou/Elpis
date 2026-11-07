@@ -8,6 +8,15 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Tool validation errors in English.** `routine_save` and `agent_save` return their
+  validation errors (cron, skills, names, limits) in English to the model, while the
+  Routines and Agents pages keep the same French messages. The Gitea "pull requests
+  disabled" error, which only the model sees, is English too.
+- **Model-facing texts in English.** Harness markers (pruned history, truncated reasoning,
+  compressor input), MCP and tool errors, desktop and browser tool results, routine and
+  webhook context, the transcription prompt, the editor AI and Studio prompts, desktop-agent
+  hints and Office examples now reach the model in English. What the user sees stays French:
+  desktop and browser results are translated at the tool boundary only.
 - **Shipped skills: English for the model.** The skill, routine, agent and skin
   assistants no longer carry French examples. The skills and routine prompts they write
   are in English, like agent personas; questions, routine names and skin labels stay in

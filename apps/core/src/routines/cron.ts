@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/routines/cron.ts — `validate_cron` (scheduling/routes_cron.py) : expression à 5 champs validée en miroir exact de `cronMatches`, 400 sinon. */
-import { HttpError, splitPy, stripPy } from "@elpis/commun";
+import { splitPy, stripPy } from "@elpis/commun";
+
+import { HttpErrorEn } from "../erreur-bilingue";
 
 /** Bornes par champ, dans l'ordre de `cronMatches` (jour de semaine : lundi = 1 … dimanche = 7). */
 const BORNES: readonly (readonly [string, number, number])[] = [
@@ -10,6 +12,15 @@ const BORNES: readonly (readonly [string, number, number])[] = [
   ["mois", 1, 12],
   ["jour de semaine", 1, 7],
 ];
+
+/** Noms anglais des champs, pour le texte rendu au modèle. */
+const EN: Readonly<Record<string, string>> = {
+  minute: "minute",
+  heure: "hour",
+  "jour du mois": "day-of-month",
+  mois: "month",
+  "jour de semaine": "day-of-week",
+};
 
 /** `str.partition(sep)` : avant et après la PREMIÈRE occurrence. */
 function partition(s: string, sep: string): [string, string] {
@@ -22,16 +33,30 @@ function validerChamp(jeton: string, bas: number, haut: number, champ: string): 
   if (jeton === "*") return;
   const entier = (brut: string): bigint => {
     const s = stripPy(brut);
-    if (!/^-?[0-9]+$/u.test(s)) throw new HttpError(400, `Champ cron « ${champ} » invalide : « ${jeton} »`);
+    if (!/^-?[0-9]+$/u.test(s))
+      throw new HttpErrorEn(
+        400,
+        `Champ cron « ${champ} » invalide : « ${jeton} »`,
+        `Invalid cron field "${EN[champ]}": "${jeton}"`,
+      );
     return BigInt(s);
   };
   const dansPlage = (v: bigint): void => {
     if (v < BigInt(bas) || v > BigInt(haut))
-      throw new HttpError(400, `Champ cron « ${champ} » hors plage [${bas}-${haut}] : ${v}`);
+      throw new HttpErrorEn(
+        400,
+        `Champ cron « ${champ} » hors plage [${bas}-${haut}] : ${v}`,
+        `Cron field "${EN[champ]}" out of range [${bas}-${haut}]: ${v}`,
+      );
   };
   if (jeton.includes("/")) {
     const [base, pas] = partition(jeton, "/");
-    if (entier(pas) < 1n) throw new HttpError(400, `Champ cron « ${champ} » : pas (step) doit être ≥ 1`);
+    if (entier(pas) < 1n)
+      throw new HttpErrorEn(
+        400,
+        `Champ cron « ${champ} » : pas (step) doit être ≥ 1`,
+        `Cron field "${EN[champ]}": step must be >= 1`,
+      );
     if (base !== "*") dansPlage(entier(base));
   } else if (jeton.includes("-")) {
     const [aS, bS] = partition(jeton, "-");
@@ -39,10 +64,20 @@ function validerChamp(jeton: string, bas: number, haut: number, champ: string): 
     const b = entier(bS);
     dansPlage(a);
     dansPlage(b);
-    if (a > b) throw new HttpError(400, `Champ cron « ${champ} » : plage inversée ${a}-${b}`);
+    if (a > b)
+      throw new HttpErrorEn(
+        400,
+        `Champ cron « ${champ} » : plage inversée ${a}-${b}`,
+        `Cron field "${EN[champ]}": reversed range ${a}-${b}`,
+      );
   } else if (jeton.includes(",")) {
     const elements = jeton.split(",");
-    if (elements.some((p) => p === "")) throw new HttpError(400, `Champ cron « ${champ} » : liste malformée`);
+    if (elements.some((p) => p === ""))
+      throw new HttpErrorEn(
+        400,
+        `Champ cron « ${champ} » : liste malformée`,
+        `Cron field "${EN[champ]}": malformed list`,
+      );
     for (const p of elements) dansPlage(entier(p));
   } else dansPlage(entier(jeton));
 }
@@ -52,7 +87,11 @@ export function validateCron(expr: string | null | undefined): string {
   const e = stripPy(expr || "");
   const parties = splitPy(e);
   if (parties.length !== 5)
-    throw new HttpError(400, "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)");
+    throw new HttpErrorEn(
+      400,
+      "Expression cron invalide (5 champs requis : min heure jour mois jour-semaine)",
+      "Invalid cron expression (5 fields required: minute hour day-of-month month day-of-week)",
+    );
   parties.forEach((jeton, i) => {
     const [champ, bas, haut] = BORNES[i] as readonly [string, number, number];
     validerChamp(jeton, bas, haut, champ);

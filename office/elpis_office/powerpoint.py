@@ -159,19 +159,19 @@ CHAMPS_OPS = {
              "keywords": ["mots_cles", "tags"]},
 }
 EXEMPLE_SLIDES = [
-    {"layout": "title", "title": "Comité stratégique", "subtitle": "Revue du T4 2026"},
-    {"layout": "bullets", "title": "Points clés", "bullets": ["Croissance de 12 %", "Marge stable"]},
-    {"layout": "chart", "title": "Ventes par trimestre", "chart": "!a1b2c3d4e5f6",
-     "takeaway": "Le T4 tire l'année."},
-    {"layout": "kpi", "title": "Chiffres clés",
-     "items": [{"value": "18,4 M€", "label": "Chiffre d'affaires", "delta": "+12 %"}]},
+    {"layout": "title", "title": "Strategy Committee", "subtitle": "Q4 2026 Review"},
+    {"layout": "bullets", "title": "Key points", "bullets": ["12% growth", "Stable margin"]},
+    {"layout": "chart", "title": "Sales by quarter", "chart": "!a1b2c3d4e5f6",
+     "takeaway": "Q4 drives the year."},
+    {"layout": "kpi", "title": "Key figures",
+     "items": [{"value": "$18.4M", "label": "Revenue", "delta": "+12%"}]},
 ]
 EXEMPLE_OPS = [
-    {"op": "replace", "find": "T3", "replace": "T4"},
-    {"op": "set_text", "slide": 2, "shape": 1, "text": "Nouveau texte"},
+    {"op": "replace", "find": "Q3", "replace": "Q4"},
+    {"op": "set_text", "slide": 2, "shape": 1, "text": "New text"},
     {"op": "add_slides", "after": 3, "slides": [EXEMPLE_SLIDES[1]]},
     {"op": "delete_slide", "slide": 5},
-    {"op": "notes", "slide": 1, "text": "Insister sur la régularité."},
+    {"op": "notes", "slide": 1, "text": "Stress the consistency."},
 ]
 
 

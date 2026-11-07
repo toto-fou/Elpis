@@ -390,15 +390,18 @@ export function setupEditorFimAi(refs: RefsIa, ctx: CtxIa, r: RappelsIa) {
       case "optimize": {
         const quoi: readonly [string, string] = (
           {
-            comment: ["à commenter", "Version commentée (commentaires explicatifs ajoutés) :"],
-            refactor: ["à refactoriser", "Version refactorisée (plus propre, lisible, maintenable) :"],
-            optimize: ["à optimiser", "Version optimisée (meilleures performances) :"],
+            comment: ["to comment", "Commented version (explanatory comments added, written in French):"],
+            refactor: [
+              "to refactor",
+              "Refactored version (cleaner, readable, maintainable; comments in French):",
+            ],
+            optimize: ["to optimize", "Optimized version (better performance; comments in French):"],
           } as const
         )[action];
         prefixe =
           avant +
           "\n" +
-          C("Code original " + quoi[0] + " :") +
+          C("Original code " + quoi[0] + ":") +
           "\n" +
           enCommentaire(code) +
           "\n" +
@@ -409,12 +412,19 @@ export function setupEditorFimAi(refs: RefsIa, ctx: CtxIa, r: RappelsIa) {
         break;
       }
       case "explain":
-        prefixe = avant + "\n" + C("EXPLICATION du code ci-dessous :") + "\n" + prefixeLigne;
+        prefixe =
+          avant + "\n" + C("EXPLANATION of the code below (written in French):") + "\n" + prefixeLigne;
         suffixe = "\n" + code + apres;
         appliquer = (x) => ({ range: a(debutLigne), text: blocCommentaire("EXPLICATION :", x) });
         break;
       case "bugs":
-        prefixe = avant + code + "\n" + C("ANALYSE DE BUGS du code ci-dessus :") + "\n" + prefixeLigne;
+        prefixe =
+          avant +
+          code +
+          "\n" +
+          C("BUG ANALYSIS of the code above (written in French):") +
+          "\n" +
+          prefixeLigne;
         suffixe = "\n" + apres;
         appliquer = (x) => ({
           range: a(finSel),
@@ -461,13 +471,14 @@ export function setupEditorFimAi(refs: RefsIa, ctx: CtxIa, r: RappelsIa) {
               " */\n",
           });
         } else {
-          prefixe = avant + "\n" + C("Documentation du code ci-dessous :") + "\n" + prefixeLigne;
+          prefixe =
+            avant + "\n" + C("Documentation of the code below (written in French):") + "\n" + prefixeLigne;
           suffixe = "\n" + code + apres;
           appliquer = (x) => ({ range: a(debutLigne), text: blocCommentaire("Documentation :", x) });
         }
         break;
       case "tests":
-        prefixe = avant + code + "\n\n\n" + C("Tests unitaires du code ci-dessus :") + "\n";
+        prefixe = avant + code + "\n\n\n" + C("Unit tests for the code above (comments in French):") + "\n";
         suffixe = apres;
         appliquer = (x) => ({
           range: a(finSel),

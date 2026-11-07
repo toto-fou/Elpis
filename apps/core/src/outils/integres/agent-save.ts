@@ -5,6 +5,7 @@ import { estDict, estErreurPython, pyJsonDumps, stripPy } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { err, ok } from "@elpis/outils-mcp";
 
+import { texteModele } from "../../erreur-bilingue";
 import { longueurPy } from "../../python";
 import type { Dict } from "../../python";
 import type { OutilIntegre } from "../catalogue";
@@ -225,7 +226,7 @@ export async function agentSave(
     });
   } catch (e) {
     if (e instanceof Refus) return err(e.code, e.message, { retryable: e.code === "invalid_argument" });
-    if (estErreurPython(e, "ValueError")) return err("invalid_argument", e.message, { retryable: true });
+    if (estErreurPython(e, "ValueError")) return err("invalid_argument", texteModele(e), { retryable: true });
     throw e;
   }
 }

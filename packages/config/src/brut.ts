@@ -144,22 +144,10 @@ export function readJsonFile(chemin: string): Dict {
   }
 }
 
-/** `APP_CONFIG_PATH` > `<racine>/config.json` > ancien `<racine>/shared_infra/config.json` (signalé sur stdout). */
-export function resolveConfigJsonPath(env: Env, racine: string, avertir = true): string {
+/** `APP_CONFIG_PATH` > `<racine>/config.json`. */
+export function resolveConfigJsonPath(env: Env, racine: string): string {
   const explicite = env["APP_CONFIG_PATH"];
-  if (explicite) return realpathPy(explicite);
-  const aLaRacine = pyJoin(racine, "config.json");
-  if (existePy(aLaRacine)) return realpathPy(aLaRacine);
-  const ancien = pyJoin(pyJoin(racine, "shared_infra"), "config.json");
-  if (!existePy(ancien)) return realpathPy(aLaRacine);
-  if (avertir) {
-    process.stdout.write(
-      `[config] ATTENTION : config.json lu depuis son ANCIEN emplacement (${ancien}). ` +
-        `Déplacez-le à la racine du dépôt (${aLaRacine}) — le repli disparaîtra. Sans lui, l'instance ` +
-        "repartirait avec un secret de session neuf, sans TLS et sans clé Qdrant, en silence.\n",
-    );
-  }
-  return realpathPy(ancien);
+  return realpathPy(explicite || pyJoin(racine, "config.json"));
 }
 
 /** Gèle un objet et tout ce qu'il contient (une vue partagée ne doit pas pouvoir être modifiée). */

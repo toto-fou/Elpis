@@ -454,8 +454,7 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
     asBool(env[nom], veritePy(lire(chemin, defaut)));
 
   const PROJECT_ROOT = racine;
-  const BACKEND_DIR = pyJoin(racine, "shared_infra");
-  const CONFIG_JSON_PATH = cheminConfig ?? resolveConfigJsonPath(env, racine, false);
+  const CONFIG_JSON_PATH = cheminConfig ?? resolveConfigJsonPath(env, racine);
   const BUILD_ID = buildIdDepuis(env["APP_BUILD_ID"]);
 
   const LLAMA_IP = envStr("LLAMA_IP", "llama.ip", "127.0.0.1");
@@ -875,7 +874,6 @@ export function calculerReglages(env: Env, brut: Dict, racine: string, cheminCon
 
   const reglages = {
     PROJECT_ROOT,
-    BACKEND_DIR,
     CONFIG_JSON_PATH,
     BUILD_ID,
     LLAMA_IP,

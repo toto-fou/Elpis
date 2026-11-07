@@ -6,3 +6,5 @@
 **/goldens/
 # Greffon opencode : servi tel quel aux postes (GET /api/code/plugin.ts), version et octets suivis par ses tests.
 apps/core/greffon-opencode/
+# Textes envoyés au modèle : octets gardés tels quels.
+packages/config/context_config.json

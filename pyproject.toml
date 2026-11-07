@@ -41,6 +41,7 @@ combine-as-imports = true
 "**/__init__.py" = ["F401"]
 # BLE001 : appliquée à office/ et rag_app/ seulement (un except large voulu y porte « # noqa: BLE001 »).
 "shared_infra/**" = ["BLE"]
+"sandbox-agent/**" = ["BLE"]
 "deploy/**" = ["BLE"]
 "desktop-agent/**" = ["BLE"]
 "skills/**" = ["BLE"]
@@ -52,7 +53,7 @@ combine-as-imports = true
 # Typage (2026-09-29) : un premier périmètre, élargi au fil des lots.
 python_version = "3.11"
 files = [
-    "shared_infra/sandbox/agent",
+    "sandbox-agent/server.py",
     "shared_infra/runtime",
 ]
 explicit_package_bases = true

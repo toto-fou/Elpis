@@ -2056,7 +2056,7 @@ there is no read-modify-write race. `sandbox_mode` and
 
 > **All operations on `/work` go through the container.** Files,
 > editor, archives and Git are run by the sandbox agent
-> (`shared_infra/sandbox/agent/`, reached through `@elpis/fichiers`), the terminal and
+> (`sandbox-agent/`, reached through `@elpis/fichiers`), the terminal and
 > the shell by `docker exec --user 10001:10001`: **every** file belongs to the
 > same UID, whether it is created by the terminal, the editor or the agent. Git
 > network traffic goes through the host relay (`packages/fichiers/src/relais-git.ts`).

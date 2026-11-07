@@ -25,7 +25,7 @@ npm ci          # Node ≥ 24 (.nvmrc): TypeScript development tools
 | the flow of a chat turn | `apps/core/src/familles/chat.ts`, `chat-controle.ts` and `apps/core/src/tour/` (admission, execution, recording, NDJSON) |
 | the context, the scheduling | `apps/core/src/contexte/`, `apps/core/src/llm/ordonnanceur/` |
 | an agent tool | native family: `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`); Office family: `apps/toolhost/src/mcp/office/` (host, files and conversions) and the Python engine `office/elpis_office/` |
-| an operation on a sandbox's files | host side: `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/`; inside the container: the agent `shared_infra/sandbox/agent/server.py` (`/v1` API); never direct host access |
+| an operation on a sandbox's files | host side: `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/`; inside the container: the agent `sandbox-agent/server.py` (`/v1` API); never direct host access |
 | a sandbox's Git | `packages/fichiers/src/git.ts` (through the agent), `relais-git.ts` (network), routes `apps/toolhost/src/git/` |
 | the database | `packages/db/` (schema, migrations, dialects); `shared_infra/db/` for the remaining Python |
 | the interface | `frontend/src/`: `features/<domain>/` (TS logic), `components/<domain>/` (Vue SFCs), `entries/` (entry points), `app/racine/`; styles `frontend/css/`, images `frontend/assets/` |

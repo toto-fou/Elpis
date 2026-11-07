@@ -20,7 +20,7 @@ import { entierPy, estDict, exigerDict, flottantPy, iterPy, lire, longueurPy, lo
 import type { Dict } from "../python";
 
 const log = journal("context_config");
-/** env `APP_CONTEXT_CONFIG` > `app.context_config_path` de `shared_infra/config.json` > défaut ; lu au chargement. */
+/** env `APP_CONTEXT_CONFIG` > `app.context_config_path` de config.json > défaut ; lu au chargement. */
 export const CONTEXT_CONFIG_PATH = cheminContextConfig();
 
 const DECODEUR = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });

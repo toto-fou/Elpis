@@ -8,6 +8,13 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Sandbox agent in `sandbox-agent/`.** The agent that runs inside each sandbox
+  container leaves `shared_infra/`. Because its mount path changes, each sandbox
+  container is recreated once on first use after the update, as after an image update;
+  `/work` is kept. `context_config.json` moves to `packages/config/`, and its
+  `app.context_config_path` setting is now read from `config.json` (it was read from the
+  old `shared_infra/config.json` only). Elpis no longer looks for a `config.json` under
+  `shared_infra/`: every release writes it at the root.
 - **Tool validation errors in English.** `routine_save` and `agent_save` return their
   validation errors (cron, skills, names, limits) in English to the model, while the
   Routines and Agents pages keep the same French messages. The Gitea "pull requests

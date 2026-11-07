@@ -12,7 +12,7 @@ memory, skills), code editor on a per-user Docker sandbox,
 routines, built-in RAG (document collections), admin console. Core (main, admin) and tool
 host in TypeScript (Node 24, Fastify); interface in TypeScript and Vue 3
 (SFCs compiled by Vite). Still in Python: the RAG extractor (`rag_app/`),
-the Office engine (`office/`, a tool host worker), `desktop-agent/`, the sandbox agent (`shared_infra/sandbox/agent/`) and
+the Office engine (`office/`, a tool host worker), `desktop-agent/`, the sandbox agent (`sandbox-agent/`) and
 the installation (`deploy/configure.py`, `deploy/wizard.py`). Inference
 `llama-server` (llama.cpp) or any OpenAI-compatible engine. Interface in
 French, documentation in English. MIT license.

@@ -71,7 +71,7 @@ A chat turn, from the request to the last event:
 7. **Execution.** Shell commands run in the user's container
    (`docker exec`, privileges lowered to UID 10001). File tools, the editor and Git
    go through that container's agent
-   (`shared_infra/sandbox/agent/`, client `@elpis/fichiers`), under the same
+   (`sandbox-agent/`, client `@elpis/fichiers`), under the same
    UID; network Git operations launched by Elpis go through the host's
    authenticating relay (`packages/fichiers/src/relais-git.ts`).
 8. **End of turn.** The turn is recorded (`tour/persistance.ts` then
@@ -127,10 +127,15 @@ A chat turn, from the request to the last event:
   several calls in parallel, callbacks to the host.
 - `requirements.txt`: its dependencies, included by `requirements.txt`.
 
+### `sandbox-agent/` — the container agent
+
+`server.py`, Python standard library only: mounted read-only in each sandbox
+container (`/opt/elpis/agent`) and started on demand by the host
+(`@elpis/fichiers`).
+
 ### `shared_infra/` — the remaining Python, organized by family
 
-What the configuration wizard (`deploy/`) imports, plus the sandbox agent
-(`sandbox/agent/`, standard library only). The HTTP routes are
+What the configuration wizard (`deploy/`) imports. The HTTP routes are
 all in the TypeScript core.
 
 | Family | Content |
@@ -141,7 +146,6 @@ all in the TypeScript core.
 | `memory` | upgrade of the old AX memory tables (`ax/`) |
 | `observability` | `swallow()` |
 | `runtime` | file locks between processes (`elpis.verrou.v1.1`) |
-| `sandbox` | container agent (`agent/`) |
 | `security` | Fernet encryption |
 | `ops` | database generation published by the switchover |
 
@@ -229,7 +233,7 @@ authenticating relay (`packages/fichiers/src/relais-git.ts`): one ticket per ope
 only the operation's repository reachable, the connector's credential added
 by the host, never in the sandbox.
 
-In each container, an **agent** (`shared_infra/sandbox/agent/server.py`,
+In each container, an **agent** (`sandbox-agent/server.py`,
 Python, standard library) executes the operations on `/work` that the host asks of it: HTTP on
 `/run/elpis/agent.sock` (mounted folder `<user>/.elpis-agent`), code mounted
 read-only from the application, started on demand under the container's

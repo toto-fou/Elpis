@@ -10,8 +10,8 @@ binary) — the `.ts` is served and installed as is.
 | `elpis-remote.ts` | Canonical plugin (v9+), served by `GET /api/code/plugin.ts`, installed at `~/.config/opencode/plugin/elpis-remote.ts` |
 | `elpis-remote-bootstrap.js` | Migration shim served by `GET /api/code/plugin.js`: old `.js` plugins (≤ v8) that run `/remote update` write it in place of their `elpis-remote.js`; at the next startup it installs the `.ts`, delegates the hooks, then **deletes itself** |
 
-`shared_infra/opencode/routes_code.py` reads these files at import, PARSES the version
-(`const PLUGIN_VERSION = N` — single source of `_PLUGIN_CURRENT`) and refuses to
+`apps/core/src/code/greffon.ts` reads these files at startup, PARSES the version
+(`const PLUGIN_VERSION = N`, its single source) and refuses to
 start if the shim is out of sync with the `.ts`.
 
 ## Rules to follow when changing `elpis-remote.ts`
@@ -26,7 +26,7 @@ start if the shim is out of sync with the `.ts`.
 3. **"Erasable" TypeScript only** (no enum/namespace/decorators) and
    **no imports** outside `node:*` — the file is self-contained, with no node_modules.
 4. **Performance budget** (the reason v9 exists — tested by
-   `tests/shared_infra/test_opencode_plugin_files.py` and the smoke test):
+   `tests/deploy/test_opencode_plugin_files.py` and the smoke test):
    - never a permanent patch of `process.stdout/stderr` or `console.*` — the
      `/remote` anti-dump filter is armed for ~4 s then **restored**;
    - the `event` hook **never** does a network `await` (opencode's event
@@ -43,7 +43,7 @@ start if the shim is out of sync with the `.ts`.
 npx -y -p typescript tsc --noEmit --strict --target es2022 --module esnext \
     --moduleResolution bundler --skipLibCheck apps/core/greffon-opencode/elpis-remote.ts
 # structure + installer (offline, in the suite):
-pytest tests/shared_infra/test_opencode_plugin_files.py
+pytest tests/deploy/test_opencode_plugin_files.py
 # behavior under Bun (opencode's real runtime):
 HOME=$(mktemp -d) bun tests/opencode_plugin/smoke.ts
 ```

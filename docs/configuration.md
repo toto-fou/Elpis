@@ -246,8 +246,8 @@ new address is written to the server's base (`url`).
 SQLite (file `user_db/app.db`) remains the default and is enough for up to a few
 dozen users. PostgreSQL is justified for an existing managed database,
 point-in-time backups, replication, or BI on
-the telemetry tables. Pure-Python driver under a permissive license:
-pg8000 (BSD-3); the server comes from the OS repositories and is never shipped
+the telemetry tables. Driver under a permissive license: `pg`
+(node-postgres, MIT); the server comes from the OS repositories and is never shipped
 with Elpis. MariaDB/MySQL is no longer supported (see
 [operations](operations.md#upgrading) for moving off it).
 

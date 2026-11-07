@@ -99,7 +99,7 @@ authenticates the server), for a command without pitfalls.
 
 > Never add anything to `@bootstrap` that requires a session or exposes a
 > secret: it is the only unencrypted door of the front end. The contract is
-> locked by `tests/shared_infra/test_install_bootstrap_contract.py`.
+> locked by `tests/deploy/test_install_bootstrap_contract.py`.
 
 ## The `caddy` package: an apt prerequisite
 

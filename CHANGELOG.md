@@ -98,6 +98,11 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **`shared_infra/`.** The last piece of the old Python core (accounts, database access
+  and its migrations 0001 to 0026, LLM connectors, encryption, file lock), kept only for
+  `./elpis configure`, is removed now that the configuration goes through the core.
+  `pg8000` leaves `requirements.txt`; `cryptography` stays installed for the RAG
+  extractor (a `pdfminer.six` dependency), now pinned in `requirements-rag.txt`.
 - **MCP servers: folder upload.** `POST /api/mcp/upload` and the interface's folder
   import are removed: no MCP code is uploaded to the server anymore, and a
   server is connected by its address (HTTP or SSE). Folders already present

@@ -14,11 +14,5 @@ httpx==0.28.1
 # ---- Documents Office (famille office) ----
 -r office/requirements.txt
 
-# ---- Données et sécurité ----
-cryptography==50.0.2          # Fernet : clés API des connecteurs LLM
-
-# ---- Base de données : moteurs serveur (facultatifs, SQLite par défaut) ----
-pg8000==1.31.5                # PostgreSQL, pur Python (+ scramp, asn1crypto, python-dateutil, six)
-
 # ---- Outils appelés en sous-processus ----
 ruff==0.17.3                 # lint de l'éditeur (/api/sandbox/lint)

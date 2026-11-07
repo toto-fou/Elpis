@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** packages/verrous/src/test.ts — aide des tests croisés : un processus Python (tests/verrou_croise.py) qui tient un verrou elpis.verrou.v1.1. */
+/** packages/verrous/src/test.ts — aides des tests : un autre processus Node (scripts/verrou-croise.ts) qui tient un verrou elpis.verrou.v1.1, et le Python du système. */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as dormir } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-export const SCRIPT_PYTHON = path.join(
-  fileURLToPath(new URL("../../../", import.meta.url)),
-  "tests",
-  "verrou_croise.py",
-);
+const RACINE = fileURLToPath(new URL("../../../", import.meta.url));
+export const SCRIPT_DETENTEUR = path.join(RACINE, "packages", "verrous", "scripts", "verrou-croise.ts");
 
-/** `ELPIS_PYTHON`, sinon `python3` ; `null` sans Python 3.9+ ou sans le client du dépôt. */
+/** `ELPIS_PYTHON`, sinon `python3` ; `null` sans Python 3.9+ (l'agent du bac en a besoin). */
 export function pythonDisponible(): string | null {
-  if (!existsSync(SCRIPT_PYTHON)) return null;
   for (const candidat of [process.env["ELPIS_PYTHON"], "python3"]) {
     if (!candidat) continue;
     const r = spawnSync(candidat, ["-c", "import sys; assert sys.version_info >= (3, 9)"], {
@@ -25,29 +21,26 @@ export function pythonDisponible(): string | null {
   return null;
 }
 
-export interface DetenteurPython {
+export interface DetenteurExterne {
   pid: number;
   fin: Promise<number | null>;
   tuer(): void;
 }
 
-/** Processus Python qui prend `verrou` (un incrément de `compteur` sous lui, `pauseS` secondes), rendu une fois qu'il le tient. */
-export async function tenirParPython(
-  python: string,
+/** Autre processus qui prend `verrou` (un incrément de `compteur` sous lui, `pauseS` secondes), rendu une fois qu'il le tient. */
+export async function tenirParAutreProcessus(
   verrou: string,
   compteur: string,
   pauseS: number,
   delaiMs = 60_000,
-): Promise<DetenteurPython> {
-  const proc = `detenteur-python-${process.pid}`;
+): Promise<DetenteurExterne> {
+  const proc = `detenteur-externe-${process.pid}`;
   const enfant = spawn(
-    python,
-    [SCRIPT_PYTHON, verrou, compteur, "1", "--pause", String(pauseS), "--proc", proc],
-    {
-      stdio: "ignore",
-    },
+    process.execPath,
+    ["--import", "tsx", SCRIPT_DETENTEUR, verrou, compteur, "1", "--pause", String(pauseS), "--proc", proc],
+    { cwd: RACINE, stdio: "ignore" },
   );
-  const detenteur: DetenteurPython = {
+  const detenteur: DetenteurExterne = {
     pid: enfant.pid ?? -1,
     fin: new Promise((resolve) => enfant.on("exit", (code) => resolve(code))),
     tuer: () => enfant.kill("SIGKILL"),
@@ -63,5 +56,5 @@ export async function tenirParPython(
     await dormir(20);
   }
   detenteur.tuer();
-  throw new Error(`le processus Python n'a pas pris ${verrou}`);
+  throw new Error(`l'autre processus n'a pas pris ${verrou}`);
 }

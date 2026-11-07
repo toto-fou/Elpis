@@ -60,8 +60,8 @@ if the server is unreachable (embedded openai-compatible provider,
   both: with `context` alone, opencode REJECTS the whole file
   ("Missing key provider.elpis.models.\<id\>.limit.output") and the `elpis`
   provider disappears. And `output` must stay SMALL compared to `context`: opencode
-  compacts as soon as `context − output` is reached (`_output_limit()` in
-  `shared_infra/opencode/routes_cli.py`: one eighth, bounded to [2048, 16384]).
+  compacts as soon as `context − output` is reached (`_output_limit` in
+  `apps/core/src/familles/cli.ts`: one eighth, bounded to [2048, 16384]).
 - **Downloaded manually**: run opencode from the extracted folder (it reads the
   neighboring `opencode.json` = fallback version), or copy the file generated above.
 - **Change the default model**: `config.json › opencode.default_model` (validated

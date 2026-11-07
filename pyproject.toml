@@ -40,7 +40,6 @@ combine-as-imports = true
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 # BLE001 : appliquée à office/ et rag_app/ seulement (un except large voulu y porte « # noqa: BLE001 »).
-"shared_infra/**" = ["BLE"]
 "sandbox-agent/**" = ["BLE"]
 "deploy/**" = ["BLE"]
 "desktop-agent/**" = ["BLE"]
@@ -54,7 +53,6 @@ combine-as-imports = true
 python_version = "3.11"
 files = [
     "sandbox-agent/server.py",
-    "shared_infra/runtime",
 ]
 explicit_package_bases = true
 follow_imports = "silent"

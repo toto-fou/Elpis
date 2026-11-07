@@ -12,7 +12,8 @@ export type TypeIgnore =
   | "compression_state"
   | "tool_limit"
   | "log"
-  | "ping";
+  | "ping"
+  | "title";
 
 /** Événements reçus sans effet sur l'état de rendu, avec leur raison. */
 export const IGNORES: Readonly<Record<TypeIgnore, string>> = {
@@ -23,6 +24,7 @@ export const IGNORES: Readonly<Record<TypeIgnore, string>> = {
   tool_limit: "la limite d'outils arrive aussi dans `final.tool_limit_reached`, seul affiché",
   log: "journal du serveur, destiné aux journaux et non à la conversation",
   ping: "maintien de la connexion pendant un rattachement",
+  title: "titre de la conversation, appliqué à la liste des chats et non au message",
 };
 
 export interface Outil {
@@ -445,6 +447,7 @@ function appliquer(etat: EtatRendu, ev: EvenementFlux): EtatRendu {
     case "tool_limit":
     case "log":
     case "ping":
+    case "title":
       return ignorer(etat, ev.type);
     default:
       return inattendu(ev);

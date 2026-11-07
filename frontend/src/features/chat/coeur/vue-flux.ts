@@ -1338,6 +1338,18 @@ export function creerVueFlux(c: CoeurChat) {
       case "journal_truncated":
         l.patch(idx, { _journalTruncated: true });
         return;
+      case "title": {
+        const id = String(data.chat_id || "");
+        const titre = data["title"];
+        if (!id || typeof titre !== "string" || !titre) return;
+        const entree = e.chats.value.find((x) => String(x.id) === id);
+        if (entree && entree.title !== titre) {
+          entree.title = titre;
+          l.flashRenamedTitle(entree);
+        }
+        if (String(r.currentChatId.value || "") === id) e.currentChatTitle.value = titre;
+        return;
+      }
       case "notice":
         return surNotice(t);
       default:

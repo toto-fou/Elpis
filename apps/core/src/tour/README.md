@@ -78,6 +78,8 @@ types; `<boucle>` stands for the other loop events
 What can be interleaved, and the variants:
 
 - **`ping`**: at any time, when the stream is idle.
+- **`title`**: once, after `mode` and before `final`, as soon as the model's title of a new chat arrives and
+  is saved (not sent if the chat was renamed meanwhile or the stream already ended).
 - **Model loading**: the tracking (`evenements.ts`) republishes `queue_status` at each step, then emits its own
   `queue_cleared`, anywhere as long as loading lasts.
 - **Failure**: `error`, then a partial `final`.

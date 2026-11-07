@@ -529,18 +529,19 @@ export async function renameChat(
   return r.changes > 0;
 }
 
-/** `set_title_if_default` : titre posé dès le début d'un tour, seulement sur « Nouveau chat » ou vide, sans toucher à `updated_at`. */
+/** `set_title_if_default` : titre posé seulement sur « Nouveau chat », vide ou le titre `provisoire` du tour (un renommage l'emporte), sans toucher à `updated_at`. */
 export async function setTitleIfDefault(
   x: Executeur,
   uid: number,
   chatId: string,
   title: unknown,
+  provisoire = "",
 ): Promise<boolean> {
   const titre = titrePropre(title);
   if (!titre || titre === TITRE_PAR_DEFAUT) return false;
   const r = await x.run(
-    "UPDATE chats SET title=? WHERE id=? AND user_id=? AND (title='' OR title='Nouveau chat')",
-    [titre, chatId, uid],
+    "UPDATE chats SET title=? WHERE id=? AND user_id=? AND (title='' OR title='Nouveau chat' OR title=?)",
+    [titre, chatId, uid, titrePropre(provisoire) || TITRE_PAR_DEFAUT],
   );
   return r.changes > 0;
 }

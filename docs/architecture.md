@@ -1860,6 +1860,7 @@ the registry).
 | `llm_user_suffix` | Suffix added to the user's message |
 | `queue_status` / `queue_cleared` | Waiting for an engine slot; slot obtained |
 | `rag_sources` | Passages numbered by a `rag_*` tool (sources of the turn) |
+| `title` | Title of a new chat, sent as soon as the model's title arrives (once, before `final`; a manual rename wins) |
 | `notice` / `info` / `warning` / `log` | Status messages |
 | `final` | Final response `{assistant, chat_id, metrics}` |
 | `error` | Error (with the kind from the taxonomy) |

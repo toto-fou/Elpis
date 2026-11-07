@@ -332,6 +332,7 @@ export const SCHEMAS_EVENEMENTS = {
     progress_pct: z.number().optional(),
   }),
   queue_cleared: ev("queue_cleared", {}),
+  title: ev("title", { chat_id: z.string(), title: z.string() }),
   rag_sources: ev("rag_sources", { sources: z.array(schemaSourceCiteeRag) }),
   image_progress: ev("image_progress", {
     state: z.string(),

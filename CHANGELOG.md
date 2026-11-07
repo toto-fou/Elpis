@@ -144,6 +144,10 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Chat title set as soon as it arrives.** The model's title of a new chat is requested when
+  the turn starts, saved and shown right away (new `title` stream event) instead of at the end
+  of the answer; stopping the turn no longer drops it, and a manual rename made meanwhile
+  wins. The end of a turn no longer waits up to 3 s for the title.
 - **Sandbox agent: a slow regex no longer freezes it.** A `grep` with `regex` now
   compiles and runs the pattern in a separate process, as job triggers already did,
   killed at the deadline. A catastrophic pattern such as `(a+)+$` used to block every

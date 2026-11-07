@@ -1,75 +1,75 @@
-# _TEMPLATE — comment écrire les prompts système d'Elpis
+# _TEMPLATE — how to write Elpis's system prompts
 
-> Fichier de référence (lecture seule via l'API admin). Jamais injecté dans un chat : il documente
-> l'architecture et la méthode. L'assemblage est en deux couches.
+> Reference file (read-only through the admin API). Never injected into a chat: it documents
+> the architecture and the method. Assembly happens in two layers.
 
 ---
 
-## Architecture en deux couches
+## Two-layer architecture
 
-**1. Socle — `CHATBOT_SYSTEM.md` (TOUJOURS présent).**
-Identité, méthode, principes, style. Il doit être vrai que des outils soient actifs OU NON.
-**Règle d'or : le socle ne suppose JAMAIS de sandbox, d'outils « dont tu disposes », ni d'action.**
-Une session peut être purement conversationnelle (chat-only) : dans ce cas le socle est le seul
-prompt. Toute affirmation « tu travailles dans un sandbox / tu édites des fichiers » y serait fausse
-et trompeuse.
+**1. Base — `CHATBOT_SYSTEM.md` (ALWAYS present).**
+Identity, method, principles, style. It must be true whether tools are active OR NOT.
+**Golden rule: the base NEVER assumes a sandbox, tools "you have", or action.**
+A session can be purely conversational (chat-only): in that case the base is the only
+prompt. Any statement "you work in a sandbox / you edit files" would be false and
+misleading there.
 
-**2. Fragments de capacité — `FRAGMENT_*.md` (CONDITIONNELS).**
-Injectés automatiquement, et seulement quand la capacité correspondante est active, par
-`buildCapabilityBlock()` (`apps/core/src/prompts/systeme.ts`), à partir des catégories d'outils du tour. Deux étages :
+**2. Capability fragments — `FRAGMENT_*.md` (CONDITIONAL).**
+Injected automatically, and only when the matching capability is active, by
+`buildCapabilityBlock()` (`apps/core/src/prompts/systeme.ts`), from the turn's tool categories. Two tiers:
 
-- **Action** — cadrage sandbox / agentique. `FRAGMENT_TOOLS` dès qu'une catégorie d'action est présente,
-  + un fragment spécialisé selon la catégorie. Pilote aussi `<runtime_context>` (fs/shell/git).
-- **Contenu** — capacités « douces » (graphiques, mémoire, RAG). Injectées INDÉPENDAMMENT (même sans
-  catégorie d'action) → elles NE tirent NI `FRAGMENT_TOOLS` NI `<runtime_context>`, seulement leur guide.
+- **Action** — sandbox / agentic framing. `FRAGMENT_TOOLS` as soon as an action category is present,
+  + a specialized fragment depending on the category. Also drives `<runtime_context>` (fs/shell/git).
+- **Content** — "soft" capabilities (charts, memory, RAG). Injected INDEPENDENTLY (even without an
+  action category) → they pull in NEITHER `FRAGMENT_TOOLS` NOR `<runtime_context>`, only their own guide.
 
-| Fichier | Étage | Injecté quand | Rôle |
+| File | Tier | Injected when | Role |
 |---|---|---|---|
-| `FRAGMENT_TOOLS.md` | action | ≥1 catégorie d'**action** (`fs/shell/git/desktop/browser`) | « tu peux agir », sandbox, posture réversible/destructeur |
-| `FRAGMENT_CODE.md` | action | `fs` / `shell` / `git` | discipline d'ingénierie logicielle |
-| `FRAGMENT_AUTOMATION.md` | action | `desktop` | automatisation du bureau |
-| `FRAGMENT_WEB.md` | action | `browser` | navigation web |
-| `FRAGMENT_CHART.md` | contenu | `chart` (un outil par type : `chart_bar`, `chart_heatmap`, `chart_gantt`… `chart_table`) | graphiques & tableaux rendus par l'UI (ECharts) |
-| `FRAGMENT_OFFICE.md` | contenu | `office` (`docx_create/read/edit`, `pptx_create/read/edit`, `office_export`) | fichiers Word / PowerPoint de la sandbox, graphiques par `!id` |
-| `FRAGMENT_MEMORY.md` | contenu | `memory` (`memory`/`session_search`) | mémoire long-terme : quoi / où sauvegarder |
-| `FRAGMENT_RAG.md` | contenu | outils `rag_*` (builtins → catégorie `rag` synthétisée) | base de connaissances documentaire |
+| `FRAGMENT_TOOLS.md` | action | ≥1 **action** category (`fs/shell/git/desktop/browser`) | "you can act", sandbox, reversible/destructive stance |
+| `FRAGMENT_CODE.md` | action | `fs` / `shell` / `git` | software engineering discipline |
+| `FRAGMENT_AUTOMATION.md` | action | `desktop` | desktop automation |
+| `FRAGMENT_WEB.md` | action | `browser` | web browsing |
+| `FRAGMENT_CHART.md` | content | `chart` (one tool per type: `chart_bar`, `chart_heatmap`, `chart_gantt`… `chart_table`) | charts & tables rendered by the UI (ECharts) |
+| `FRAGMENT_OFFICE.md` | content | `office` (`docx_create/read/edit`, `pptx_create/read/edit`, `office_export`) | sandbox Word / PowerPoint files, charts through `!id` |
+| `FRAGMENT_MEMORY.md` | content | `memory` (`memory`/`session_search`) | long-term memory: what / where to save |
+| `FRAGMENT_RAG.md` | content | `rag_*` tools (builtins → synthesized `rag` category) | document knowledge base |
 
-Les blocs `<runtime_context>` (sandbox), `# Mémoire (instantané)`, l'index de skills et `AX memory`
-sont eux aussi conditionnels et injectés par le backend — ne les recopie pas dans un prompt.
+The `<runtime_context>` (sandbox) blocks, `# Mémoire (instantané)`, the skills index and `AX memory`
+are also conditional and injected by the backend — do not copy them into a prompt.
 
 ---
 
-## Squelette d'un prompt (socle ou fragment)
+## Prompt skeleton (base or fragment)
 ```
-# Identité / Titre
-{Qui / quoi, concret. Pour le socle : agnostique aux outils.}
+# Identity / Title
+{Who / what, concrete. For the base: tool-agnostic.}
 
-# Méthode / Principes
-{3–5 règles POSITIVES (« fais X »), chacune avec son pourquoi implicite.}
+# Method / Principles
+{3–5 POSITIVE rules ("do X"), each with its implicit why.}
 
 # Style
-{Langue, ton, structure, longueur selon la complexité.}
+{Language, tone, structure, length depending on complexity.}
 
-# Exemples
-{1–3 mini-exemples <example>…</example>, variés et courts.}
+# Examples
+{1–3 mini-examples <example>…</example>, varied and short.}
 ```
 
-## Rappels de méthode (guides Anthropic & OpenAI, adaptés à un petit modèle local)
-- **Socle agnostique** : aucune hypothèse de capacité dans le toujours-présent (cf. règle d'or).
-- **Ancrer dans le réel** : décris le produit et les vraies capacités, pas des généralités.
-- **Cadrage positif** : dis quoi FAIRE ; si une interdiction est nécessaire, explique le pourquoi.
-- **Ne pas dupliquer** : les paramètres/capacités des outils sont dans leurs descriptions et dans
-  `<runtime_context>` — n'y reviens pas.
-- **Pas de sur-spécification ni de contradiction** : plus court = mieux suivi, surtout sur petit modèle.
-- **Pas de chain-of-thought imposé** : donne l'objectif et le critère de réussite, pas un
-  « réfléchis étape par étape » verbeux.
+## Method reminders (Anthropic & OpenAI guides, adapted to a small local model)
+- **Agnostic base**: no capability assumption in the always-present part (see golden rule).
+- **Anchor in reality**: describe the product and the real capabilities, not generalities.
+- **Positive framing**: say what to DO; if a prohibition is needed, explain why.
+- **Do not duplicate**: tool parameters/capabilities are in their descriptions and in
+  `<runtime_context>` — do not repeat them.
+- **No over-specification or contradiction**: shorter = better followed, especially on a small model.
+- **No imposed chain-of-thought**: give the goal and the success criterion, not a
+  verbose "think step by step".
 
-## Conventions de la passe « riche » (2026-07)
-- **Exemples travaillés** : chaque fragment porte 1–3 blocs `<example>` COMPORTEMENTAUX — scénario
-  en prose, paramètres cités inline (`action="replace"`, `target="[a1f4]"`) — JAMAIS le markup
-  wire d'un appel (`<tool_call>`, JSON d'appel) : il fuiterait dans les bulles.
-- **Protocole d'erreur unifié** : les outils échouent avec `error` (code stable) + `message` (FR)
-  + `fix` (geste correctif) ; les fragments enseignent « applique le fix, jamais de relance
-  identique, 2 échecs même cible → changer de stratégie » et une condition d'arrêt explicite.
-- **Budgets bornés par test** : `tests/llm_core/test_capability_fragments.py` verrouille un plafond
-  de caractères par fichier (dérive interdite), l'absence de markup wire et l'absence d'émoji.
+## Conventions of the "rich" pass (2026-07)
+- **Worked examples**: each fragment carries 1–3 BEHAVIORAL `<example>` blocks — scenario
+  in prose, parameters quoted inline (`action="replace"`, `target="[a1f4]"`) — NEVER the wire
+  markup of a call (`<tool_call>`, call JSON): it would leak into the bubbles.
+- **Unified error protocol**: tools fail with `error` (stable code) + `message` (FR)
+  + `fix` (corrective action); fragments teach "apply the fix, never an identical
+  retry, 2 failures on the same target → change strategy" and an explicit stop condition.
+- **Test-bounded budgets**: `tests/llm_core/test_capability_fragments.py` locks a character
+  ceiling per file (no drift allowed), the absence of wire markup and the absence of emoji.

@@ -140,7 +140,7 @@ export function retiredBackendMessage(backend: string): string {
     "MariaDB/MySQL n'est plus pris en charge. Revenir à la version précédente " +
     "d'Elpis, y quitter ce moteur (console › Base de données › « Revenir à SQLite », " +
     "ou « ./elpis db transfer » puis « ./elpis db use » vers PostgreSQL), puis " +
-    "refaire la mise à jour (docs/exploitation.md, « Mettre à jour »)."
+    "refaire la mise à jour (docs/operations.md, « Upgrading »)."
   );
 }
 

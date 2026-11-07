@@ -1,15 +1,15 @@
-## Quoi et pourquoi
+## What and why
 
-<!-- Le comportement avant, le comportement après. Une pull request = un sujet. -->
+<!-- The behavior before, the behavior after. One pull request = one topic. -->
 
-## Vérifié
+## Verified
 
-<!-- Les tests vivent dans le dépôt de développement : les mainteneurs passent la suite complète avant de fusionner. -->
+<!-- The tests live in the development repository: maintainers run the full suite before merging. -->
 
-- [ ] `npm ci`, `npm run typecheck`, `npm run lint` et `npm run build`
-- [ ] Python restant touché : `venv/bin/ruff check .`
-- [ ] Essayé à la main (écran, commande ou cas limite décrit ci-dessus)
-- [ ] Documentation et CHANGELOG à jour si le comportement change
-- [ ] Nouvelle dépendance : licence vérifiée, THIRD_PARTY_NOTICES.md à jour
+- [ ] `npm ci`, `npm run typecheck`, `npm run lint` and `npm run build`
+- [ ] Remaining Python touched: `venv/bin/ruff check .`
+- [ ] Tried by hand (screen, command or edge case described above)
+- [ ] Documentation and CHANGELOG updated if behavior changes
+- [ ] New dependency: license checked, THIRD_PARTY_NOTICES.md updated
 
-<!-- Une faille de sécurité ne se décrit pas ici : voir SECURITY.md. -->
+<!-- Do not describe a security vulnerability here: see SECURITY.md. -->

@@ -2,7 +2,7 @@
 
 A tiny cross-platform **control-agent** the chatbot drives over HTTP to *see* and
 *act* on a desktop or VM. Pair it with a detection endpoint (the "annotation
-model") and the chatbot's **Bureau** (`desktop_*`) tools + **Annotation Studio**.
+model") and the chatbot's **Desktop** (`desktop_*`) tools + **Annotation Studio**.
 
 - **Windows** — element tree via `pywinauto` (UI Automation), input via `pyautogui`.
 - **Linux** — element tree via **AT-SPI** (`pyatspi`/PyGObject), input via `pyautogui`
@@ -39,7 +39,7 @@ whose `Content-Type` is not `application/json` (`415`).
 ### Linux
 ```bash
 cd desktop-agent
-bash install_agent.sh        # venv + deps (HORS-LIGNE si wheels embarquées) + choix auto-démarrage
+bash install_agent.sh        # venv + deps (OFFLINE if wheels are bundled) + auto-start choice
 # accessibility tree (recommended): system packages
 sudo apt install -y python3-gi gir1.2-atspi-2.0 at-spi2-core   # Debian/Ubuntu
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
@@ -73,7 +73,7 @@ scheduled task → `run.ps1 -Background`).
 worker thread (serialized, MTA-safe). This keeps `/health`, `/screenshot`,
 `/monitors`, `/windows` responsive **even if a UIA op hangs** (an unresponsive
 target app can block a UIA call for a long time). While an op is stuck, further
-UIA calls return `503 agent occupé`; `GET /health` reports
+UIA calls return `503 agent occupé` ("agent busy", the message as the agent prints it); `GET /health` reports
 `worker: {busy, op, busy_for_s, queue}` so you can see what's wedged.
 A Python thread stuck inside a COM call **cannot be killed** — the fix is to
 **restart the agent** (`run.bat` on Windows). The auto-start task only launches
@@ -81,7 +81,7 @@ the agent *at log on*, so it will **not** revive a process that died mid-session
 that is why `DESKTOP_AGENT_EXIT_ON_HANG_SEC` is **off by default** (enabling it
 without a supervisor that relaunches would leave the VM with no agent).
 
-Then in the chatbot: **Admin → Vision & Desktop → Agents de contrôle (VM)** add a
+Then in the chatbot: **Admin → Models & services → Vision & machines** (control agents, VM) add a
 target `{ name, os, agent_url: http://<vm-ip>:8765 }`. Verify with
 `desktop_session(action="ping", target="<name>")` and watch the **Studio**.
 
@@ -125,7 +125,7 @@ instant. Overrides: `DESKTOP_PYVER`, `DESKTOP_PBS_TAG`, `DESKTOP_PBS_PYFULL`, `D
 
 ## Auto-start (proposed by `install_agent.*`)
 Runs in the **graphical session** (the only place GUI control works):
-- **Windows** = scheduled task « at log on » (`schtasks /SC ONLOGON`).
+- **Windows** = scheduled task "at log on" (`schtasks /SC ONLOGON`).
 - **Linux** = systemd **user** service (`~/.config/systemd/user/`, + lingering).
 Non-interactive (piped) install: pass `DESKTOP_SERVICE=1` to enable it.
 A *Windows service* / *systemd system service* can't drive the GUI (session-0 / no display).
@@ -134,127 +134,126 @@ A *Windows service* / *systemd system service* can't drive the GUI (session-0 / 
 - Windows: must run in the **interactive** session — a Session-0 service sees a black screen.
 - Wayland: synthetic input is often restricted; `/health` reports the live input impl. If it's `none`, the chatbot can still *observe* (screenshot + detection) but not *act*.
 
-## Scripts d'automatisation (`elpis_auto`)
+## Automation scripts (`elpis_auto`)
 
-Le **Studio** d'Elpis produit des scripts Python qui s'exécutent **ici, sur la
-machine cible**, sans serveur ni réseau : ils importent `elpis_auto` (ce dossier)
-et parlent aux backends UIA/AT-SPI en process.
+Elpis's **Studio** produces Python scripts that run **here, on the target
+machine**, with no server and no network: they import `elpis_auto` (this folder)
+and talk to the UIA/AT-SPI backends in process.
 
 ```
-run-script.bat  mon_script.py --numero=42        # Windows (venv de run.bat)
+run-script.bat  mon_script.py --numero=42        # Windows (run.bat's venv)
 ./run-script.sh mon_script.py --numero=42        # Linux
 ```
 
-* code de sortie : `0` ok, `1` une vérification a échoué, `2` erreur d'exécution ;
-* rapport : `rapports/<script>-<horodatage>/rapport.json` + `rapport.html`,
-  avec la **méthode d'ancrage** employée à chaque étape et une capture PNG
-  par échec ;
-* paramètres : `--cle=valeur`, ou `ELPIS_PARAM_CLE` en environnement ;
-* un script qui lit du texte à l'écran (vision/OCR) déclare
-  `Session(needs=["vision"])` et **refuse de démarrer** sans `ELPIS_URL` —
-  ces étapes exigent le modèle d'Elpis.
+* exit code: `0` ok, `1` a check failed, `2` execution error;
+* report: `rapports/<script>-<timestamp>/rapport.json` + `rapport.html`,
+  with the **anchoring method** used at each step and one PNG screenshot
+  per failure;
+* parameters: `--key=value`, or `ELPIS_PARAM_KEY` in the environment;
+* a script that reads text on screen (vision/OCR) declares
+  `Session(needs=["vision"])` and **refuses to start** without `ELPIS_URL` —
+  these steps require Elpis's model.
 
 ```python
 from elpis_auto import Session
 s = Session(monitor=0)
 s.launch("calc.exe", wait_window="Calculatrice")
 s.click(auto_id="num7Button", name="Sept", role="button", at=(812, 640))
-s.click(path="window:Calculatrice/group[2]/button[1]")   # contrôle SANS nom : chemin depuis un ancêtre nommé
+s.click(path="window:Calculatrice/group[2]/button[1]")   # control WITHOUT a name: path from a named ancestor
 s.expect.value(auto_id="CalculatorResults", contains="7")
 raise SystemExit(s.finish())
 ```
 
-Depuis le Studio, **Télécharger** propose trois formes : le **script seul**
-(`.py`, quand l'agent — donc le runtime — est déjà sur la machine), le
-**script + runtime** (`.zip` : le `.py`, `elpis_auto/`, `backends/`,
-`normalize.py`, `requirements.txt` sans les paquets du serveur HTTP, `run.bat`
-/ `run.sh` qui créent un venv local et installent les dépendances au premier
-lancement, `README.txt`) — pour un projet à part ou une machine sans l'agent —
-et le **script + runtime + wheels hors ligne** (`wheels/<os>`, cp311 : Python
-3.11 ou `python-win\` de l'agent) pour une machine sans internet. Le script
-se lance **depuis le bureau** de la machine (une session SSH n'a pas d'arbre
-d'accessibilité) ; sous Windows, pywinauto complet demande le Visual C++
-Redistributable (`mfc140u.dll`), sinon le runtime clique aux coordonnées lues
-dans l'arbre UIA.
+From the Studio, **Download** offers three forms: the **script alone**
+(`.py`, when the agent — and so the runtime — is already on the machine), the
+**script + runtime** (`.zip`: the `.py`, `elpis_auto/`, `backends/`,
+`normalize.py`, `requirements.txt` without the HTTP server packages, `run.bat`
+/ `run.sh` which create a local venv and install the dependencies on first
+launch, `README.txt`) — for a standalone project or a machine without the agent —
+and the **script + runtime + offline wheels** (`wheels/<os>`, cp311: Python
+3.11 or the agent's `python-win\`) for a machine without internet. The script
+runs **from the desktop** of the machine (an SSH session has no accessibility
+tree); on Windows, full pywinauto requires the Visual C++
+Redistributable (`mfc140u.dll`), otherwise the runtime clicks at the coordinates read
+from the UIA tree.
 
-Ciblage, du plus robuste au moins : `auto_id` → `path` (chemin structurel
-`#ancre` ou `role:Nom`, puis `rôle[rang]`, strict puis relâché) → `name`
-(+ `role`) → `near="Libellé"` (+ `side=`) → `image="assets/x.png"`
-(corrélation de vignette, numpy) → `describe="…"` (vision d'Elpis, `ELPIS_URL`)
-→ `window="#Win"` + `rel=(fx, fy)` → `at=(x, y)`. Une cible porte toutes ses
-identités à la fois ; le rapport note laquelle a servi et, si ce n'est pas la
-première, la ligne à corriger (« réparations »).
+Targeting, from most to least robust: `auto_id` → `path` (structural path
+`#anchor` or `role:Name`, then `role[rank]`, strict then relaxed) → `name`
+(+ `role`) → `near="Label"` (+ `side=`) → `image="assets/x.png"`
+(thumbnail correlation, numpy) → `describe="…"` (Elpis vision, `ELPIS_URL`)
+→ `window="#Win"` + `rel=(fx, fy)` → `at=(x, y)`. A target carries all its
+identities at once; the report notes which one was used and, if it is not the
+first, the line to fix ("repairs").
 
-Délai par défaut : le Studio écrit une variable en tête du script, reprise par
-tout ce qui attend (`s.wait.*`, `s.expect.*`, `s.launch`) — et par la séance, donc
-par un clic qui attend sa cible :
+Default timeout: the Studio writes a variable at the top of the script, picked up by
+everything that waits (`s.wait.*`, `s.expect.*`, `s.launch`) — and by the session, so
+by a click that waits for its target:
 
 ```python
-TIMEOUT = 30   # délai par défaut (s) de tout ce qui attend ; timeout=… sur une ligne pour la changer
+TIMEOUT = 30   # default timeout (s) for everything that waits; timeout=… on a line to change it
 s = Session(monitor=1, timeout=TIMEOUT)
 s.wait.window("project_test", timeout=TIMEOUT)
-s.wait.window("QGIS", timeout=180)          # cette étape seulement : un délai propre
+s.wait.window("QGIS", timeout=180)          # this step only: its own timeout
 ```
 
-Le champ « Délai » du Studio lit et réécrit `TIMEOUT`. Un script d'avant la variable
-la reçoit dès qu'une ligne insérée l'utilise (pas de `NameError`).
+The Studio's "Timeout" field reads and rewrites `TIMEOUT`. A script that predates the variable
+gets it as soon as an inserted line uses it (no `NameError`).
 
-Attentes : `Session(timeout=30, patience=120)` — `timeout` est un délai **sans
-activité à l'écran** : tant que quelque chose bouge (application qui se lance,
-projet qui se charge), l'échéance recule, jusqu'à `patience` s (`ELPIS_PATIENCE`).
-Un écran immobile pendant `timeout` s est un vrai échec. Chaque attente,
-vérification ou action accepte son propre `timeout=` (secondes) — le Studio
-l'écrit sur chaque ligne insérée (champ « Délai » de la palette) ; une appli
-lourde se règle ainsi : `s.wait.window("QGIS", timeout=120)` ou, pour tout le
-script, `Session(timeout=90, patience=300)`. `s.wait.seconds(20)` est une pause
-fixe (à réserver aux cas où rien d'observable ne signale la fin). Une cible
-introuvable après l'attente complète lève `TargetNotFound` (sous-classe de
-`StepError`) sans réessai implicite : le délai n'est plus doublé ; `retry=N` écrit
-sur la ligne reste honoré, `retry=0` désactive le réessai de la séance. Un geste
-envoyé en partie (`PartialInput`) n'est jamais rejoué. `s.launch(app,
-wait_window="Titre", timeout=T)` ne laisse au lancement que 5 s pour voir une
-nouvelle fenêtre : c'est l'attente nommée qui patiente `T` (une appli à instance
-unique ne coûte plus `T` de plus). Dans `with s.step(on_error="continue")`, seuls
-les échecs d'étape sont avalés ; une faute du script (`nam=`, regex invalide) est levée.
+Waits: `Session(timeout=30, patience=120)` — `timeout` is a delay **with no
+activity on screen**: as long as something moves (an application launching,
+a project loading), the deadline moves back, up to `patience` s (`ELPIS_PATIENCE`).
+A screen that stays still for `timeout` s is a real failure. Each wait,
+check or action accepts its own `timeout=` (seconds) — the Studio
+writes it on each inserted line (the palette's "Timeout" field); a
+heavy application is tuned like this: `s.wait.window("QGIS", timeout=120)` or, for the whole
+script, `Session(timeout=90, patience=300)`. `s.wait.seconds(20)` is a fixed
+pause (reserve it for cases where nothing observable signals the end). A target
+not found after the full wait raises `TargetNotFound` (a subclass of
+`StepError`) with no implicit retry: the delay is no longer doubled; `retry=N` written
+on the line is still honored, `retry=0` disables the session's retry. A gesture
+partly sent (`PartialInput`) is never replayed. `s.launch(app,
+wait_window="Title", timeout=T)` gives the launch only 5 s to see a
+new window: it is the named wait that waits `T` (a single-instance app no longer costs
+an extra `T`). Inside `with s.step(on_error="continue")`, only step
+failures are swallowed; a script fault (`nam=`, invalid regex) is raised.
 
-Titres de fenêtre (`window=`, `wait.window`, `focus`, `close`, `require`) : texte
-contenu dans le titre, casse ignorée — les parenthèses et les points d'un titre
-(« Document (1).txt - Bloc-notes ») sont du texte ; une vraie regex (« Calc.* »)
-reste acceptée, drapeaux en ligne compris (`(?i)calc`). Un titre vide est refusé
-(`StepError`). `close` et `require(gone=…)` ne lisent le titre comme regex que s'il
-en contient une (`* + ? ^ $ | \ [ ] { }`) : « Document (1).txt » absent ne ferme
-pas « Document 1.txt ». Toute espace du titre écrit reconnaît n'importe quel blanc (le
-Bloc-notes titre « a\u00a0- Bloc-notes » avec une espace insécable). Tant que la fenêtre visée n'est pas ouverte, une cible nommée
-n'est cherchée ailleurs que par son nom EXACT (l'attente continue au lieu de
-cliquer un homonyme partiel). Un `auto_id` partagé par plusieurs éléments est
-départagé par le nom et le rôle enregistrés. `window="Titre"` sur
-une action met la fenêtre au premier plan **si possible** (le bureau « Program
-Manager » compris) et n'est jamais une panne : la cible est cherchée sur tout
-l'écran. Sans pywinauto complet (`mfc140u.dll` absent), l'agent joue quand même
-Toggle / Select / Invoke par comtypes. Les éléments de menu passent par un vrai
-clic (sous Qt, Invoke n'ouvre pas un menu) ; un double / triple clic, un clic
-droit ou milieu sont toujours de vrais gestes (jamais un Select ou un Invoke à
-leur place), envoyés par SendInput au centre COURANT du contrôle re-résolu — pas
-par `click_input` de pywinauto, qui normalise sur l'écran principal. Chaque clic :
-déplacement, 30 ms de survol, puis appui/relâche (40 ms entre deux clics d'un
-double). Un clic simple sur un élément qui expose à la fois une bascule et une
-sélection (item cochable) le SÉLECTIONNE ; seule une case à cocher ou un bouton
-bascule est basculé. Un élément d'arbre / de liste qui n'expose PAS la sélection
-(couche du panneau Couches de QGIS : Toggle seul, et sans effet) reçoit un vrai
-clic à son centre. `check`/`uncheck` relisent l'état : si la bascule n'a rien
-changé, vrai clic sur la case (bord gauche de la ligne), puis échec explicite
-« sans effet » plutôt qu'un faux succès. Sous Qt, un menu contextuel est une
-fenêtre de `menuitem` (aucun élément `menu`) : attendre une entrée par son nom.
+Window titles (`window=`, `wait.window`, `focus`, `close`, `require`): text
+contained in the title, case ignored — parentheses and dots in a title
+("Document (1).txt - Bloc-notes") are plain text; a real regex ("Calc.*")
+is still accepted, inline flags included (`(?i)calc`). An empty title is refused
+(`StepError`). `close` and `require(gone=…)` read the title as a regex only if it
+contains one (`* + ? ^ $ | \ [ ] { }`): an absent "Document (1).txt" does not close
+"Document 1.txt". Any space in the written title matches any whitespace (Notepad
+titles "a - Bloc-notes" with a non-breaking space). As long as the target window is not open, a named
+target is searched elsewhere only by its EXACT name (the wait continues instead of
+clicking a partial namesake). An `auto_id` shared by several elements is
+disambiguated by the recorded name and role. `window="Title"` on
+an action brings the window to the foreground **if possible** (the "Program
+Manager" desktop included) and is never a failure: the target is searched across the whole
+screen. Without full pywinauto (`mfc140u.dll` missing), the agent still plays
+Toggle / Select / Invoke through comtypes. Menu items go through a real
+click (under Qt, Invoke does not open a menu); a double / triple click, a
+right or middle click are always real gestures (never a Select or an Invoke in
+their place), sent by SendInput to the CURRENT center of the re-resolved control — not
+by pywinauto's `click_input`, which normalizes on the primary screen. Each click:
+move, 30 ms hover, then press/release (40 ms between the two clicks of a
+double). A single click on an element that exposes both a toggle and a
+selection (checkable item) SELECTS it; only a checkbox or a toggle button is
+toggled. A tree / list element that does NOT expose selection (a layer in
+QGIS's Layers panel: Toggle only, and with no effect) gets a real
+click at its center. `check`/`uncheck` re-read the state: if the toggle changed
+nothing, a real click on the box (left edge of the row), then an explicit
+"no effect" failure rather than a false success. Under Qt, a context menu is a
+window of `menuitem` (no `menu` element): wait for an entry by its name.
 
-Options : `python -m elpis_auto --dry-run | --trace | --repeat N | --data jeu.csv script.py`
-(vol à blanc, trace pas à pas dans `rapport.html`, stabilité `stabilite.html`,
-une exécution par ligne de CSV). `run.bat` lancé par double-clic garde sa
-console ouverte le temps de lire le résultat. `s.require(window=…, launch=…)`,
-`require(gone=…)`, `require(checked=…, …)` = préconditions. `lib/` à côté du
-script est importable (`from lib.x import …`).
+Options: `python -m elpis_auto --dry-run | --trace | --repeat N | --data jeu.csv script.py`
+(dry run, step-by-step trace in `rapport.html`, stability report `stabilite.html`,
+one run per CSV row). `run.bat` launched by double-click keeps its
+console open long enough to read the result. `s.require(window=…, launch=…)`,
+`require(gone=…)`, `require(checked=…, …)` = preconditions. `lib/` next to the
+script is importable (`from lib.x import …`).
 
-Depuis Elpis (agent lancé par `run.bat`, donc dans la session interactive) :
+From Elpis (agent launched by `run.bat`, hence in the interactive session):
 `POST /put_file`, `GET /get_file`, `GET /list_files`, `POST /run_script`,
-`GET /run_status`, `POST /run_stop` — bornés à `automations/`. C'est ce que le
-bouton **Exécuter** du Studio et l'outil `desktop_run_automation` utilisent.
-
+`GET /run_status`, `POST /run_stop` — bounded to `automations/`. This is what the
+Studio's **Run** button and the `desktop_run_automation` tool use.

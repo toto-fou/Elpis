@@ -1,174 +1,174 @@
-# HTTPS via Caddy (LAN, sans domaine, « actionless » côté client)
+# HTTPS via Caddy (LAN, no domain, "actionless" on the client side)
 
-Elpis est servi en HTTP direct par le core (`:8001` main, `:8002` admin ;
-l'extracteur du RAG, `:8000`, n'écoute qu'en local). Ce dossier fournit le frontal TLS : un Caddy local en
-systemd + une PKI locale **stable** générée côté serveur. Aucun domaine,
-aucun Let's Encrypt, et **rien à installer sur les postes clients**.
+Elpis is served over plain HTTP directly by the core (`:8001` main, `:8002` admin;
+the RAG extractor, `:8000`, listens on localhost only). This folder provides the TLS front end: a local Caddy under
+systemd plus a **stable** local PKI generated on the server. No domain,
+no Let's Encrypt, and **nothing to install on client machines**.
 
-## Côté client : juste se connecter
+## Client side: just connect
 
-L'utilisateur tape `https://<ip>` — ou même juste `<ip>` (le port 80
-redirige). À la **première** connexion, le navigateur affiche
-l'avertissement « connexion non sécurisée » (certificat local inconnu) :
-**« Avancé » → « Accepter le risque et continuer »**. Un clic, une fois
-par poste et par port (443, 8443 pour l'admin) — le certificat étant
-stable 10 ans, l'avertissement ne revient jamais.
+Users type `https://<ip>` — or even just `<ip>` (port 80
+redirects). On the **first** connection, the browser shows the
+"connection not secure" warning (unknown local certificate):
+**"Advanced" → "Accept the Risk and Continue"**. One click, once
+per machine and per port (443, and 8443 for admin) — the certificate is
+stable for 10 years, so the warning never comes back.
 
-> Pourquoi cet unique avertissement est inévitable : sans domaine public,
-> aucun navigateur ne peut faire confiance d'office à un certificat —
-> c'est le modèle PKI lui-même, rien côté serveur ne peut le contourner.
-> Le trafic est chiffré dans tous les cas.
+> Why this single warning is unavoidable: without a public domain,
+> no browser can trust a certificate by default —
+> that is the PKI model itself, and nothing on the server can work around it.
+> Traffic is encrypted in all cases.
 >
-> D'où le choix de certs openssl stables plutôt que `tls internal` de
-> Caddy : ce dernier fait tourner ses certificats toutes les 12 h, ce qui
-> ferait revenir l'avertissement à chaque rotation.
+> This is why we use stable openssl certificates instead of Caddy's `tls internal`:
+> the latter rotates its certificates every 12 hours, which
+> would bring the warning back at every rotation.
 
-**Optionnel** — pour supprimer même ce premier avertissement (cadenas
-propre) : importer `http://<ip>/ca.crt`. Firefox : Paramètres → Vie
-privée et sécurité → Certificats → Afficher les certificats → Autorités →
-Importer → cocher « Confirmer cette AC pour identifier des sites web ».
+**Optional** — to remove even this first warning (clean padlock):
+import `http://<ip>/ca.crt`. Firefox: Settings → Privacy &
+Security → Certificates → View Certificates → Authorities →
+Import → check "Trust this CA to identify websites".
 
 ## Architecture
 
 ```
-navigateur ──https──▶ Caddy (même hôte, catch-all) ──http 127.0.0.1──▶ services
+browser ──https──▶ Caddy (same host, catch-all) ──http 127.0.0.1──▶ services
    :443  ─────────────────────────────────────────▶ 127.0.0.1:8001  (main)
    :8443 ─────────────────────────────────────────▶ 127.0.0.1:8002  (admin)
-   :80   ─ redirige 302 vers https + sert /ca.crt (import optionnel)
-         └ EXCEPTION @bootstrap : installeurs servis EN CLAIR ─▶ :8001
+   :80   ─ redirects 302 to https + serves /ca.crt (optional import)
+         └ EXCEPTION @bootstrap: installers served IN CLEAR ─▶ :8001
 ```
 
-Sites Caddy en **catch-all** : n'importe quelle IP/nom joignant la
-machine fonctionne, sans reconfiguration. Main et admin partagent le même
-hostname (ports différents) → le cookie de session host-scopé reste
-partagé (un login sur l'app vaut pour la console admin).
+Caddy sites are **catch-all**: any IP/name that reaches the
+machine works, with no reconfiguration. Main and admin share the same
+hostname (different ports), so the host-scoped session cookie stays
+shared (a login on the app also works for the admin console).
 
-Caddy tourne **en permanence** ; le passage HTTPS ↔ HTTP direct se pilote
-depuis la console admin (Configuration → Accès HTTPS) qui bascule les
-binds du core `0.0.0.0` ↔ `127.0.0.1` puis redémarre l'app. Mode HTTPS
-coupé : Caddy continue de marcher en parallèle, inoffensif.
+Caddy runs **permanently**; switching between HTTPS and direct HTTP is driven
+from the admin console (System › HTTPS access), which toggles the
+core binds `0.0.0.0` ↔ `127.0.0.1` and then restarts the app. With HTTPS mode
+off, Caddy keeps running alongside, harmlessly.
 
-## Installation (tout côté serveur)
+## Installation (all on the server)
 
 ```bash
-sudo ./install_caddy.sh                       # détection auto des IP
-sudo ./install_caddy.sh 10.0.0.7 elpis.lan    # SANs supplémentaires si besoin
+sudo ./install_caddy.sh                       # auto-detects IPs
+sudo ./install_caddy.sh 10.0.0.7 elpis.lan    # extra SANs if needed
 ```
 
-Le script : installe caddy (voir « Bundle offline » ci-dessous), détecte
-les IPv4 (`hostname -I`) + le hostname, génère la PKI dans
-`/etc/caddy/elpis-pki/` (CA 10 ans jamais régénérée ; cert serveur 10 ans
-ré-émis **uniquement** si la liste de SANs change), pose le Caddyfile,
-valide, démarre. Idempotent : re-lancer ne casse jamais les exceptions
-déjà acceptées par les navigateurs.
+The script: installs caddy (see "Offline bundle" below), detects
+the IPv4 addresses (`hostname -I`) and the hostname, generates the PKI in
+`/etc/caddy/elpis-pki/` (10-year CA, never regenerated; 10-year server cert,
+re-issued **only** if the SAN list changes), writes the Caddyfile,
+validates it, and starts Caddy. It is idempotent: re-running it never breaks the exceptions
+browsers have already accepted.
 
-Nouvelle IP LAN : re-lancer simplement le script (la CA ne bouge pas ;
-seuls les postes en mode « exception » reverront un avertissement, une
-fois).
+New LAN IP: re-run the script (the CA does not change;
+only machines in "exception" mode will see a warning again,
+once).
 
-## Amorçage des installeurs (en clair, volontairement)
+## Bootstrapping the installers (in clear, on purpose)
 
-Les one-liners d'installation (OpenCode, agent desktop) tournent sur une
-machine qui **ne connaît pas encore** la CA locale. Tant qu'ils partaient
-en https, la commande devait neutraliser elle-même la vérification du
-certificat : côté Windows, un préambule d'environ 400 caractères (TLS 1.2
-forcé + callback C# compilé) dont l'échec — toujours le même message,
-« The underlying connection was closed » — dépendait de la version de
-.NET installée. Commandes illisibles, et instables.
+The install one-liners (OpenCode, desktop agent) run on a
+machine that **does not yet know** the local CA. While they used
+https, the command had to disable certificate verification itself:
+on Windows, a preamble of about 400 characters (forced TLS 1.2
+plus a compiled C# callback) whose failure — always the same message,
+"The underlying connection was closed" — depended on the installed
+.NET version. Unreadable and unstable commands.
 
-Le site `:80` fait donc une **exception** (matcher `@bootstrap`) : les
-routes d'installation, publiques et sans secret, sont relayées en clair
-vers `:8001` au lieu d'être redirigées. Tout le reste redirige comme
-avant. Les commandes redeviennent :
+The `:80` site therefore makes an **exception** (the `@bootstrap` matcher): the install
+routes, which are public and carry no secret, are proxied in clear
+to `:8001` instead of being redirected. Everything else redirects
+as before. The commands become simple again:
 
 ```bash
 curl -fsSL http://<ip>/opencode | bash     # OpenCode (Linux/macOS)
-curl -fsSL http://<ip>/agent    | bash     # agent desktop (Linux)
+curl -fsSL http://<ip>/agent    | bash     # desktop agent (Linux)
 ```
 ```powershell
 iex(irm http://<ip>/opencode.ps1)          # OpenCode (Windows)
-iex(irm http://<ip>/agent.ps1)             # agent desktop (Windows)
+iex(irm http://<ip>/agent.ps1)             # desktop agent (Windows)
 ```
 
-Le script téléchargé, lui, récupère la CA (`http://<ip>/ca.crt`) et
-l'**épingle** dans la config du plugin `elpis-remote` : ce qui parlera
-ensuite à l'app le fait en https **vérifié** — meilleur que l'ancien
-repli `-k`. Le compromis se limite donc à l'amorçage : sur un LAN de
-confiance, un binaire téléchargé en clair équivaut au `-k` d'avant (ni
-l'un ni l'autre n'authentifie le serveur), pour une commande sans piège.
+The downloaded script then fetches the CA (`http://<ip>/ca.crt`) and
+**pins** it in the `elpis-remote` plugin config: whatever talks to the app
+afterwards does so over **verified** https — better than the old
+`-k` fallback. The trade-off is limited to bootstrapping: on a trusted LAN, a binary
+downloaded in clear is equivalent to the old `-k` (neither
+authenticates the server), for a command without pitfalls.
 
-> Ne rien ajouter à `@bootstrap` qui exige une session ou expose un
-> secret : c'est la seule porte non chiffrée du frontal. Le contrat est
-> verrouillé par `tests/shared_infra/test_install_bootstrap_contract.py`.
+> Never add anything to `@bootstrap` that requires a session or exposes a
+> secret: it is the only unencrypted door of the front end. The contract is
+> locked by `tests/shared_infra/test_install_bootstrap_contract.py`.
 
-## Paquet `caddy` : un prérequis apt
+## The `caddy` package: an apt prerequisite
 
-Le paquet `caddy` est un prérequis apt (groupe `https` de
-[`deploy/prerequis-apt.txt`](../prerequis-apt.txt)) : `install.sh --with-caddy`
-l'installe par apt (dépôts de Debian 12 et 13, universe sur Ubuntu 24.04 ;
-hors ligne, miroir du LAN ou support de l'OS), puis le configure ;
-`./elpis configure` le configure seulement. Le paquet hors ligne de
-`make_release.sh` n'en contient pas.
+The `caddy` package is an apt prerequisite (`https` group of
+[`deploy/prerequis-apt.txt`](../prerequis-apt.txt)): `install.sh --with-caddy`
+installs it through apt (Debian 12 and 13 repositories, universe on Ubuntu 24.04;
+offline, the LAN mirror or the OS media), then configures it;
+`./elpis configure` only configures it. The offline package from
+`make_release.sh` does not contain it.
 
-### Bundle de .deb (outil manuel, hors d'install.sh)
+### .deb bundle (manual tool, outside install.sh)
 
-Pour une machine sans miroir, un administrateur peut encore vendoriser les
-`.deb` sur une machine connectée (la VM de dev convient), **une fois** :
+For a machine without a mirror, an administrator can still vendor the
+`.deb` files on a connected machine (the dev VM works), **once**:
 
 ```bash
-deploy/caddy/fetch_caddy_debs.sh    # vendorise caddy + deps dans deploy/caddy/debs/
+deploy/caddy/fetch_caddy_debs.sh    # vendors caddy + deps into deploy/caddy/debs/
 ```
 
-Les `.deb` voyagent ensuite avec le dossier de l'app (gitignorés, comme
-les wheels Python — transférez par copie de dossier, pas par git clone).
-`sudo deploy/caddy/install_caddy.sh`, lancé **à la main**, les détecte et
-les installe **sans réseau**, en ne posant que ce qui manque sur la cible
-(jamais de downgrade d'une lib de base déjà présente) ; sans bundle, il
-retombe sur apt en ligne. openssl est présent de base sur Debian — rien
-d'autre à prévoir.
+The `.deb` files then travel with the app folder (gitignored, like
+the Python wheels — transfer by copying the folder, not by git clone).
+`sudo deploy/caddy/install_caddy.sh`, run **by hand**, detects and
+installs them **without network**, installing only what is missing on the target
+(never downgrading a base lib that is already present); without a bundle, it
+falls back to online apt. openssl is present by default on Debian — nothing
+else to plan for.
 
-Si le fetch affiche « dépendance non vendorisée » (index apt périmé →
-404) : ces libs de base (libc6…) sont de toute façon présentes sur toute
-Debian ; pour un bundle complet, `sudo apt-get update` puis relancez.
+If the fetch prints "dependency not vendored" (stale apt index →
+404): these base libs (libc6…) are present on any
+Debian anyway; for a complete bundle, run `sudo apt-get update` and try again.
 
-## Points de vigilance
+## Points to watch
 
-- **Le core relit le bind à son redémarrage** : le toggle lui envoie un
-  `SIGHUP`, il sort en 75 et `./elpis` ou systemd le relance. Un core lancé
-  avec `BIND` en env garde ce bind quel que soit le toggle.
-- **Pas de HSTS, redirect :80 en 302** : voulu — le retour en HTTP direct
-  via le toggle admin doit rester possible. Ne pas « durcir ».
-- **Le bloc `@bootstrap` doit rester AVANT le `handle {}` catch-all** du
-  site `:80` : les `handle` sont mutuellement exclusifs et évalués dans
-  l'ordre d'écriture — placé après, le catch-all avalerait les
-  installeurs et les commandes repartiraient en https (donc longues).
-  Après mise à jour du Caddyfile : `sudo deploy/caddy/install_caddy.sh`.
-- **Ne jamais régénérer la CA** (`/etc/caddy/elpis-pki/ca.*`) : les
-  postes qui l'ont importée perdraient la confiance. Le script la
-  préserve ; ne pas supprimer le dossier à la main.
-- **Ports en double** : `443/8443` existent dans le Caddyfile ET
-  dans `config.json › security.https.{main_port,admin_port}`
-  (garde anti-lockout du toggle + synthèse d'URLs). Les garder alignés.
-- **`security.https` appartient au toggle, à personne d'autre.** L'éditeur
-  « Config principale » de la console renvoie config.json ENTIER : sans
-  précaution, une sauvegarde faite depuis un formulaire chargé *avant* la
-  bascule remettait `enabled: false`. Rien ne se voyait tant que l'app
-  tournait (le bind vit en mémoire) ; au redémarrage suivant le core
-  rebindait `0.0.0.0` et l'app répondait en clair sur `:8001`/`:8002`
-  pendant que Caddy servait toujours du https. `apps/core/src/admin/config.ts ›
-  OWNED_PATHS` restaure désormais ces chemins depuis le disque, dans les
-  deux sens : **activer le HTTPS par l'éditeur brut ne marche pas non plus**
-  — il faut le toggle, qui sonde Caddy avant d'écrire.
-- **Break-glass** (app injoignable, ex. Caddy mort alors que le mode
-  HTTPS est actif → binds en loopback) :
-  - soit relancer temporairement en bind ouvert :
+- **The core re-reads the bind on restart**: the toggle sends it a
+  `SIGHUP`, it exits with code 75, and `./elpis` or systemd restarts it. A core started
+  with `BIND` in the env keeps that bind whatever the toggle says.
+- **No HSTS, :80 redirect is a 302**: intentional — going back to direct HTTP
+  through the admin toggle must stay possible. Do not "harden" it.
+- **The `@bootstrap` block must stay BEFORE the catch-all `handle {}`** of the
+  `:80` site: `handle` blocks are mutually exclusive and evaluated in
+  written order — placed after it, the catch-all would swallow the
+  installers and the commands would go back to https (and so be long).
+  After updating the Caddyfile: `sudo deploy/caddy/install_caddy.sh`.
+- **Never regenerate the CA** (`/etc/caddy/elpis-pki/ca.*`): machines that
+  imported it would lose trust. The script preserves it;
+  do not delete the folder by hand.
+- **Duplicated ports**: `443/8443` exist in the Caddyfile AND
+  in `config.json › security.https.{main_port,admin_port}`
+  (the toggle's anti-lockout guard + URL synthesis). Keep them aligned.
+- **`security.https` belongs to the toggle, and nobody else.** The console's
+  "Main config" editor sends back the ENTIRE config.json: without
+  safeguards, a save made from a form loaded *before* the
+  switch put `enabled: false` back. Nothing showed while the app
+  was running (the bind lives in memory); at the next restart the core
+  rebound `0.0.0.0` and the app answered in clear on `:8001`/`:8002`
+  while Caddy still served https. `apps/core/src/admin/config.ts ›
+  OWNED_PATHS` now restores these paths from disk, in both
+  directions: **enabling HTTPS through the raw editor does not work either**
+  — you need the toggle, which probes Caddy before writing.
+- **Break-glass** (app unreachable, e.g. Caddy is dead while HTTPS
+  mode is active → loopback binds):
+  - either temporarily restart with an open bind:
     `BIND=0.0.0.0:8001 ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs`
-    (l'env `BIND` est prioritaire sur le toggle) ;
-  - soit éditer `config.json` (racine du dépôt) → `security.https.enabled: false`
-    (+ `security.session.https_only: false`) et relancer l'app.
-- **L'extracteur du RAG (`:8000`) n'a pas de site Caddy** : seul le core
-  l'appelle, sur `127.0.0.1` quel que soit le toggle (`RAG_HOST` pour un
-  core sur une autre machine). Une installation mise à jour garde l'ancien
-  site `:8444` jusqu'à `sudo deploy/caddy/install_caddy.sh`.
-- **Cookies** : HTTP→HTTPS conserve la session ; HTTPS→HTTP force une
-  reconnexion (le cookie `Secure` n'est plus envoyé en clair). Normal.
+    (the `BIND` env takes priority over the toggle);
+  - or edit `config.json` (repository root) → `security.https.enabled: false`
+    (+ `security.session.https_only: false`) and restart the app.
+- **The RAG extractor (`:8000`) has no Caddy site**: only the core
+  calls it, on `127.0.0.1` whatever the toggle says (`RAG_HOST` for a
+  core on another machine). An upgraded installation keeps the old
+  `:8444` site until `sudo deploy/caddy/install_caddy.sh`.
+- **Cookies**: HTTP→HTTPS keeps the session; HTTPS→HTTP forces a
+  new login (the `Secure` cookie is no longer sent in clear). Expected.

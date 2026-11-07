@@ -1,11 +1,11 @@
 ---
-name: Proposition
-about: Une fonctionnalité ou une amélioration
+name: Proposal
+about: A feature or an improvement
 labels: enhancement
 ---
 
-**Le besoin** : ce qui manque, pour qui.
+**The need**: what is missing, and for whom.
 
-**Ce qui est proposé**
+**What is proposed**
 
-**Alternatives envisagées**
+**Alternatives considered**

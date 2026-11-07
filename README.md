@@ -92,9 +92,9 @@ machine or VM. Threat model and reporting: [SECURITY.md](SECURITY.md).
 By default, a non-admin account cannot connect any cloud provider
 (Anthropic, OpenAI, Mistral…) with its own key: it uses the instance's
 engine and the connectors shared by the administrator. The administrator
-opens the chosen providers in the console, under Modèles › Accès
-utilisateurs (`llm.allowed_provider_types`,
-[docs/configuration.md](docs/configuration.md)).
+opens the chosen providers in Admin console › Users & access › Default
+permissions › Allowed providers (`llm.allowed_provider_types`,
+[docs/configuration.md](docs/configuration.md#cloud-providers-for-accounts-llmallowed_provider_types)).
 
 ## Requirements
 
@@ -164,8 +164,8 @@ sandbox image also pulls the `debian:bookworm-slim` image from Docker Hub,
 packages from the Debian mirrors and PyPI, and tools published on GitHub and
 download.mozilla.org (Firefox ESR). A server **without internet access** is
 installed from a package prepared on a connected machine:
-[docs/exploitation.md](docs/exploitation.md), « Installer un serveur hors
-ligne ».
+[docs/operations.md](docs/operations.md#installing-an-offline-server),
+"Installing an offline server".
 
 | Page | Content |
 |---|---|
@@ -199,7 +199,7 @@ Each step is also available on its own:
 ./elpis configure              # review the configuration (current values offered)
 sudo ./elpis service install   # systemd services
 ./elpis start | stop | status | logs [service] | doctor
-./elpis backup | upgrade       # backup, upgrade (docs/exploitation.md)
+./elpis backup | upgrade       # backup, upgrade (docs/operations.md)
 ./elpis db info | check | transfer | use       # database
 ```
 
@@ -239,9 +239,9 @@ Most of these documents are still in French.
 - [AGENTS.md](AGENTS.md): instructions for coding agents (commands,
   conventions, pitfalls).
 - [CHANGELOG.md](CHANGELOG.md): change log.
-- [User guide](docs/guide-utilisateur.md)
+- [User guide](docs/user-guide.md) ([French](docs/fr/user-guide.md))
 - [Installation and configuration](docs/configuration.md)
-- [Operations](docs/exploitation.md): offline installation, upgrades,
+- [Operations](docs/operations.md): offline installation, upgrades,
   rolling back to the Python version (tag `python-final`), backups,
   monitoring.
 - [Roadmap](ROADMAP.md)

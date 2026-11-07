@@ -1,35 +1,35 @@
 ---
-name: nom-du-skill
-description: Une phrase décrivant l'action — soigne les mots-clés (sert au matching)
-tags: [logiciel, domaine, mot-clé]
+name: skill-name
+description: One sentence describing the action — take care with the keywords (used for matching)
+tags: [software, domain, keyword]
 ---
 
-# Titre de la procédure
+# Procedure title
 
 <!--
-Un skill = une procédure actionnable. Conventions :
-  - FORMAT DE RÉFÉRENCE : un DOSSIER `[<domaine>/]<name>/SKILL.md` (name == dossier),
-    avec ses ressources bundlées (`scripts/`, `references/`, `assets/`) — voir
-    skills/README.md. Ce gabarit mono-fichier reste accepté (legacy).
-  - description : dense en mots-clés (c'est ce qui déclenche l'injection).
-  - corps : étapes concrètes, commandes exactes, chemins réels. Les scripts
-    bundlés se référencent via l'outil d'exécution
+A skill = one actionable procedure. Conventions:
+  - REFERENCE FORMAT: a FOLDER `[<domain>/]<name>/SKILL.md` (name == folder),
+    with its bundled resources (`scripts/`, `references/`, `assets/`) — see
+    skills/README.md. This single-file template is still accepted (legacy).
+  - description: dense in keywords (this is what triggers injection).
+  - body: concrete steps, exact commands, real paths. Bundled scripts
+    are referenced through the execution tool
     (`skill_run_script(name="<pkg>/<name>", script="scripts/x.sh", args=[…])`).
-  - reste autonome : ne suppose pas que le lecteur connaît déjà le contexte.
-  - cible une SEULE action ; si la procédure se ramifie, fais un PACKAGE
-    (SKILL.md d'aperçu + sous-skills imbriqués, chargés via skill_get("pkg/enfant")).
-Ce fichier (_TEMPLATE.md) est ignoré par le loader.
+  - stay self-contained: do not assume the reader already knows the context.
+  - target a SINGLE action; if the procedure branches, make a PACKAGE
+    (overview SKILL.md + nested sub-skills, loaded via skill_get("pkg/child")).
+This file (_TEMPLATE.md) is ignored by the loader.
 -->
 
-## Pré-requis
+## Prerequisites
 - …
 
-## Étapes
+## Steps
 1. …
 2. …
 
-## Vérification
-- Comment savoir que c'est réussi.
+## Verification
+- How to tell it succeeded.
 
-## Pièges
-- Erreurs fréquentes et comment les éviter.
+## Pitfalls
+- Frequent mistakes and how to avoid them.

@@ -1,300 +1,293 @@
-# Compteurs de tokens — sémantique et sources de vérité
+# Token counters — semantics and sources of truth
 
-Chaque compteur de l'app répond à une question DIFFÉRENTE. Les confondre
-donne des « incohérences » qui n'en sont pas (ex : l'onglet Utilisation
-affiche plus de tokens d'entrée qu'un chat n'en contient — normal, voir
-« tokens soumis »). Ce document est la référence ; les tooltips UI en
-reprennent les libellés.
+Each counter in the app answers a DIFFERENT question. Mixing them up produces
+"inconsistencies" that are not (e.g. the Usage tab shows more input tokens
+than a chat contains — this is normal, see "submitted tokens"). This document
+is the reference; the UI tooltips reuse its labels.
 
-## Table de vérité
+## Truth table
 
-| Compteur | Question | Source | Estimation ? |
+| Counter | Question | Source | Estimated? |
 |---|---|---|---|
-| **Jauge ctx** (`liveGen`, event `kv_cache` unique par requête LLM) | « Combien de tokens le serveur a-t-il réellement traités à la dernière requête ? » | `usage.prompt_tokens` RÉEL du serveur, lu dans la réponse reçue en fin de requête (chaque itération de la boucle outils en pousse un) — **rien n'est estimé, rien n'est émis en pré-vol** ; jauge masquée tant qu'aucune requête n'a abouti | **jamais** |
-| **Pill contexte figée par message** (`metrics.kv_cache`) | « Quelle était l'occupation à la fin de ce tour ? » | dernier réel serveur du tour figé au `final` ; fallback `last_prompt_tokens` — aussi POSÉE PAR LE SERVEUR dans les métriques persistées (`_ctx_usage_snapshot`), donc visible après rechargement | non |
-| **Puce « ctx » au repos + re-seed de la jauge** (`meta_json["ctx_usage"]`) | « Où en est le contexte de ce chat avant de reprendre ? » (après F5 / redémarrage) | snapshot `{used,total,pct,model,ts}` écrit en fin de tour par `finalize_turn_meta`, relu par `GET /api/saved/chats/{id}` → `applyChatCtxUsage` ; effacé par une compaction manuelle | non |
-| **`metrics.last_prompt_tokens`** | « Quelle taille faisait le DERNIER prompt envoyé ? » (= contexte fin de tour) | `usage.prompt_tokens` de la dernière itération llama.cpp — exposé aussi sur le chemin « limite d'outils » (synthèse comprise) ; la route ne retombe JAMAIS sur `input_tokens` pour le chemin outils (cumul ≠ occupation, cf. `_kv_gauge_used_tokens`) | non |
-| **`metrics.input_tokens` / `submitted_input_tokens`** | « Combien de tokens ont été SOUMIS au modèle pour produire cette réponse ? » | somme des `usage.prompt_tokens` de TOUTES les itérations du tool loop | non (usage réel backend) |
-| **`metrics.thinking_tokens` / `response_tokens`** | « Sur ce que le modèle a GÉNÉRÉ, quelle part est du raisonnement ? » | mesure de fin de tour : `reasoning_tokens` déclaré par le backend → `/tokenize` exact (llama.cpp local) → ratio mesuré (cf. `apps/core/src/llm/jetons-raisonnement.ts`) | `thinking_tokens_estimated:true` sur le 3ᵉ cas (UI : « ≈ ») |
-| **Onglet Utilisation** (`/api/usage/me`) et **zone Métriques admin** | « Combien de tokens ai-je / avons-nous soumis et reçus sur la période, et pour quoi ? » | agrégat `usage_events` : **une ligne par tour**, usage réel, `user_id` + `source` | non — et le split est TOUJOURS disponible (cf. ci-dessous) |
-| **Compresseur** (`tokens_before/after`, `compression_start.tokens`) | « La conversation vaut-elle la peine d'être compressée, et qu'a-t-on gagné ? » | prompt RENDU (texte des messages) + forfait image + surcoût fixe tools (`extra_fixed_tokens`, passé par la boucle outils ; classic/route manuelle = 0) ; fallback heuristique unifiée | `tokens_estimated:true` dans les stats |
-| **Budget de contexte** (`context.pruning.enforce_context_budget`) | « Le prompt tient-il dans n_ctx ? » | `/tokenize` exact PAR message (granularité pour choisir quoi retirer ; forfait image + marge/msg inclus), budget réduit du surcoût fixe tools (`fixed_overhead_tokens`) | interne (marge conservatrice) |
+| **Context gauge** (`liveGen`, a single `kv_cache` event per LLM request) | "How many tokens did the server actually process on the last request?" | ACTUAL `usage.prompt_tokens` from the server, read in the response received at the end of the request (each iteration of the tool loop pushes one) — **nothing is estimated, nothing is emitted pre-flight**; the gauge stays hidden until a request has completed | **never** |
+| **Context chip frozen per message** (`metrics.kv_cache`) | "What was the occupancy at the end of this turn?" | last actual server value of the turn, frozen at `final`; fallback `last_prompt_tokens` — also SET BY THE SERVER in the persisted metrics (`_ctx_usage_snapshot`), so it is visible after a reload | no |
+| **Idle "ctx" chip + gauge re-seed** (`meta_json["ctx_usage"]`) | "Where does this chat's context stand before I resume?" (after F5 / restart) | snapshot `{used,total,pct,model,ts}` written at the end of the turn by `finalize_turn_meta`, read back by `GET /api/saved/chats/{id}` → `applyChatCtxUsage`; cleared by a manual compaction | no |
+| **`metrics.last_prompt_tokens`** | "How large was the LAST prompt sent?" (= end-of-turn context) | `usage.prompt_tokens` of the last llama.cpp iteration — also exposed on the "tool limit" path (summary included); the route NEVER falls back to `input_tokens` for the tool path (cumulative ≠ occupancy, see `_kv_gauge_used_tokens`) | no |
+| **`metrics.input_tokens` / `submitted_input_tokens`** | "How many tokens were SUBMITTED to the model to produce this response?" | sum of the `usage.prompt_tokens` of ALL tool loop iterations | no (actual backend usage) |
+| **`metrics.thinking_tokens` / `response_tokens`** | "Of what the model GENERATED, how much is reasoning?" | end-of-turn measurement: `reasoning_tokens` declared by the backend → exact `/tokenize` (local llama.cpp) → measured ratio (see `apps/core/src/llm/jetons-raisonnement.ts`) | `thinking_tokens_estimated:true` in the 3rd case (UI: "≈") |
+| **Usage tab** (`/api/usage/me`) and **admin Metrics area** | "How many tokens did I / did we submit and receive over the period, and for what?" | aggregate of `usage_events`: **one row per turn**, actual usage, `user_id` + `source` | no — and the split is ALWAYS available (see below) |
+| **Compressor** (`tokens_before/after`, `compression_start.tokens`) | "Is the conversation worth compressing, and what did we gain?" | RENDERED prompt (message text) + image flat rate + fixed tools overhead (`extra_fixed_tokens`, passed by the tool loop; classic/manual route = 0); unified heuristic fallback | `tokens_estimated:true` in the stats |
+| **Context budget** (`context.pruning.enforce_context_budget`) | "Does the prompt fit in n_ctx?" | exact `/tokenize` PER message (granularity to choose what to remove; image flat rate + per-message margin included), budget reduced by the fixed tools overhead (`fixed_overhead_tokens`) | internal (conservative margin) |
 
-## Convention de comptage et postes affichés (2026-10-03)
+## Counting convention and displayed items (2026-10-03)
 
-Elpis compte comme les fournisseurs (OpenAI, Anthropic), entrée normalisée au
-sens d'OpenAI :
+Elpis counts like the providers (OpenAI, Anthropic), with input normalized to
+OpenAI's meaning:
 
-- **Entrée** (`prompt_tokens`) : tout ce qui est envoyé au modèle — système,
-  historique, **définitions d'outils**, **appels d'outils et leurs résultats**
-  re-soumis à chaque appel. Le **cache** relu y est COMPRIS (OpenAI :
-  `prompt_tokens_details.cached_tokens` ; llama.cpp : `timings.cache_n`).
-  Anthropic l'exclut de son `input_tokens` (entrée totale = `input_tokens +
-  cache_read_input_tokens + cache_creation_input_tokens`) : il est ramené à ce
-  sens par `providers/anthropic._normalize_usage` (historique : migration 0025).
-- **Sortie** (`completion_tokens`) : réflexion + texte visible + appels
-  d'outils émis par le modèle. La **réflexion** y est COMPRISE et facturée
-  comme sortie chez les deux fournisseurs (OpenAI :
-  `completion_tokens_details.reasoning_tokens` ; Anthropic : même si elle est
-  résumée ou masquée). Elpis ne re-soumet pas la réflexion des tours
-  précédents : elle ne pèse qu'une fois, en sortie.
+- **Input** (`prompt_tokens`): everything sent to the model — system,
+  history, **tool definitions**, **tool calls and their results**
+  re-submitted on every call. The cache read is INCLUDED (OpenAI:
+  `prompt_tokens_details.cached_tokens`; llama.cpp: `timings.cache_n`).
+  Anthropic excludes it from its `input_tokens` (total input = `input_tokens +
+  cache_read_input_tokens + cache_creation_input_tokens`): it is brought back
+  to this meaning by `providers/anthropic._normalize_usage` (history:
+  migration 0025).
+- **Output** (`completion_tokens`): thinking + visible text + tool calls
+  emitted by the model. **Thinking** is INCLUDED and billed as output by both
+  providers (OpenAI: `completion_tokens_details.reasoning_tokens`; Anthropic:
+  even when it is summarized or hidden). Elpis does not re-submit the thinking
+  of previous turns: it weighs only once, in output.
 
-Postes affichés — `tokenBreakdown` côté serveur
-(`apps/core/src/observabilite/usage-registre.ts`), `tokenBreakdown` côté front
-(`frontend/src/utils/utils-purs.ts`) :
+Displayed items — `tokenBreakdown` on the server side
+(`apps/core/src/observabilite/usage-registre.ts`), `tokenBreakdown` on the
+front side (`frontend/src/utils/utils-purs.ts`):
 
-| Poste | Sens | Calcul |
+| Item | Meaning | Computation |
 |---|---|---|
-| **Entrée** | total envoyé au modèle | `input_tokens` |
-| ↳ **Cache** | relu du cache de prompt (presque gratuit) | `cache_read_tokens` |
-| ↳ **Utile** | réellement calculé (prefill) | `input_tokens − cache_read_tokens` |
-| ↳ **Outils** | définitions, appels et résultats re-soumis — **estimé** au ratio mesuré | `tool_tokens` (0026) |
-| **Sortie** | total généré | `output_tokens` |
-| ↳ **Réflexion** | raisonnement | `thinking_tokens` |
-| ↳ **Réponse** | texte visible + appels d'outils | `output_tokens − thinking_tokens` |
+| **Input** | total sent to the model | `input_tokens` |
+| ↳ **Cache** | read from the prompt cache (almost free) | `cache_read_tokens` |
+| ↳ **Useful** | actually computed (prefill) | `input_tokens − cache_read_tokens` |
+| ↳ **Tools** | definitions, calls and results re-submitted — **estimated** at the measured ratio | `tool_tokens` (0026) |
+| **Output** | total generated | `output_tokens` |
+| ↳ **Thinking** | reasoning | `thinking_tokens` |
+| ↳ **Response** | visible text + tool calls | `output_tokens − thinking_tokens` |
 
-Bornes : cache et outils ≤ entrée, réflexion ≤ sortie (cache et outils se
-recouvrent : un résultat d'outil relu du cache compte dans les deux). Le cache
-**créé** (Anthropic) fait partie de l'entrée utile et n'est montré qu'en détail.
-Les outils ne sont déclarés par aucun fournisseur : `toolPromptTokens`
-(`apps/core/src/contexte/tokens.ts`) les estime à chaque appel, sans I/O, et
-`RunRecord.noteToolInput` les cumule sur le tour comme l'entrée, bornés par
-l'entrée réelle de l'appel. Pendant le prefill (lecture du prompt), la pastille
-du message affiche « Prefill… N % · cache M % » : N porte sur l'entrée
-UTILE (`processed` de llama.cpp part de la part relue du cache). Format
-compact unique : « 845 », « 12,3 k », « 1,2 M ».
+Bounds: cache and tools ≤ input, thinking ≤ output (cache and tools overlap: a
+tool result read from the cache counts in both). The **created** cache
+(Anthropic) is part of the useful input and is shown only in the detail.
+No provider declares tools: `toolPromptTokens`
+(`apps/core/src/contexte/tokens.ts`) estimates them on each call, with no I/O,
+and `RunRecord.noteToolInput` accumulates them over the turn like the input,
+bounded by the call's actual input. During prefill (reading the prompt), the
+message chip shows "Prefill… N % · cache M %": N applies to the USEFUL input
+(llama.cpp's `processed` starts from the share read from the cache). Single
+compact format: "845", "12.3 k", "1.2 M".
 
-## Le registre `usage_events` : un tour, une ligne, un propriétaire
+## The `usage_events` registry: one turn, one row, one owner
 
-Jusqu'à la refonte de la zone Métriques, la consommation était journalisée
-**par l'appelant** dans `metric_events`. Trois défauts en découlaient, tous
-constatés dans le code :
+Until the Metrics area was reworked, consumption was logged **by the caller**
+in `metric_events`. Three defects followed, all observed in the code:
 
-- **Double comptage.** Un tour outillé était journalisé par la boucle
-  (`total_tokens`, `mode=mcp_native`) *et* par la route de chat (`mode=mcp`).
-  L'onglet Utilisation s'en protégeait (il n'additionnait jamais total et
-  input+output) ; le tableau de bord admin, lui, sommait naïvement.
-- **Angle mort.** Routines, webhooks et sous-agents ne passent pas par la
-  route : leur consommation n'atteignait aucun agrégat (`task_child_tokens`
-  n'était lu par aucun widget). La génération de titre et l'appel du
-  compresseur n'étaient mesurés nulle part non plus.
-- **Modèle faux.** La boucle taguait `LLAMA_MODEL` — une constante de
-  configuration — au lieu du modèle réellement ciblé : toute répartition par
-  modèle mentait dès qu'un connecteur externe servait le tour.
+- **Double counting.** A tool turn was logged by the loop
+  (`total_tokens`, `mode=mcp_native`) *and* by the chat route (`mode=mcp`).
+  The Usage tab guarded against it (it never added total and
+  input+output); the admin dashboard summed naively.
+- **Blind spot.** Routines, webhooks and subagents do not go through the
+  route: their consumption reached no aggregate (`task_child_tokens` was read
+  by no widget). Title generation and the compressor call were not measured
+  anywhere either.
+- **Wrong model.** The loop tagged `LLAMA_MODEL` — a configuration constant —
+  instead of the model actually targeted: every per-model breakdown was wrong
+  as soon as an external connector served the turn.
 
-La mesure est donc faite **dans la boucle**, une seule fois, avec le contexte
-(`source`, `user_id`, `origin_id`) posé par l'appelant via `usageScope(...)`.
-Le split entrée/sortie est toujours connu (la boucle a `cumul_in`/`cumul_out`),
-donc le flag `estimated` de l'onglet Utilisation a disparu. Les tokens de cache
-sont cumulés sur le tour et stockés à part (`cache_read_tokens`), et COMPRIS
-dans `input_tokens` pour tous les moteurs : llama.cpp et les moteurs
-compatibles OpenAI (`prompt_tokens_details.cached_tokens`, sinon
-`timings.cache_n`) les y comptent d'eux-mêmes ; Anthropic, qui les y ajoute,
-est normalisé à la source (`providers/anthropic._normalize_usage`) et son
-historique par la migration 0025.
+The measurement is therefore done **in the loop**, once, with the context
+(`source`, `user_id`, `origin_id`) set by the caller via `usageScope(...)`.
+The input/output split is always known (the loop has `cumul_in`/`cumul_out`),
+so the Usage tab's `estimated` flag is gone. Cache tokens are accumulated over
+the turn and stored separately (`cache_read_tokens`), and INCLUDED in
+`input_tokens` for all engines: llama.cpp and OpenAI-compatible engines
+(`prompt_tokens_details.cached_tokens`, otherwise `timings.cache_n`) count
+them there themselves; Anthropic, which adds them there, is normalized at the
+source (`providers/anthropic._normalize_usage`) and its history by migration
+0025.
 
-Chaque ligne porte aussi le moteur (`connector` : `builtin`, `conn:<id>`,
-`url:<racine>`) et l'exécution (`run_id`, table `runs`) : une exécution —
-tour de chat, run de routine, sous-agent, compaction manuelle — regroupe ce
-qu'elle a consommé (tokens, temps LLM, outils, fichiers, pics de la
-sandbox), cf. `apps/core/src/executions/registre.ts`.
+Each row also carries the engine (`connector`: `builtin`, `conn:<id>`,
+`url:<root>`) and the run (`run_id`, table `runs`): a run — chat turn,
+routine run, subagent, manual compaction — groups what it consumed (tokens,
+LLM time, tools, files, sandbox peaks), see
+`apps/core/src/executions/registre.ts`.
 
-## La sortie se lit en deux : réflexion et réponse
+## Output reads in two parts: thinking and response
 
-`completion_tokens` est un total qui **additionne trois choses** : le
-raisonnement, les appels d'outils et le texte visible. Aucun backend local ne
-les sépare — llama.cpp ne connaît que le total. Sur un modèle « thinking », la
-réflexion peut donc représenter l'essentiel du coût de sortie d'un tour sans
-qu'aucune vue ne puisse le nommer : « pourquoi ce tour a-t-il coûté 8 000
-tokens de sortie ? » n'avait pas de réponse.
+`completion_tokens` is a total that **adds up three things**: reasoning, tool
+calls and visible text. No local backend separates them — llama.cpp only knows
+the total. On a "thinking" model, thinking can therefore account for most of a
+turn's output cost without any view being able to name it: "why did this turn
+cost 8,000 output tokens?" had no answer.
 
-`apps/core/src/llm/jetons-raisonnement.ts` produit ce chiffre manquant, **une fois par tour**,
-avec un ordre de vérité explicite (même idiome que le reste des comptages :
-exact d'abord, repli portable) :
+`apps/core/src/llm/jetons-raisonnement.ts` produces this missing figure,
+**once per turn**, with an explicit order of truth (same idiom as the rest of
+the counting: exact first, portable fallback):
 
-1. **Déclaré** — `usage.completion_tokens_details.reasoning_tokens` (o-series,
-   vLLM récents). Exact, gratuit. En mode outils, cumulé sur les itérations :
-   ne lire que la dernière sous-compterait tout ce qui a été pensé avant les
-   appels d'outils.
-2. **Tokenisé** — `POST /tokenize` sur le texte du raisonnement, gaté sur
-   `is_local_llamacpp` comme tous les endpoints du moteur intégré (le tokenizer
-   local ne dirait rien de juste du texte produit par un AUTRE modèle).
-3. **Estimé** — ratio chars/token mesuré pour ce modèle. Signalé
-   (`thinking_tokens_estimated`), affiché « ≈ » dans l'UI.
+1. **Declared** — `usage.completion_tokens_details.reasoning_tokens` (o-series,
+   recent vLLM). Exact, free. In tool mode, accumulated over the iterations:
+   reading only the last one would undercount everything thought before the
+   tool calls.
+2. **Tokenized** — `POST /tokenize` on the reasoning text, gated on
+   `is_local_llamacpp` like all endpoints of the built-in engine (the local
+   tokenizer would say nothing right about text produced by ANOTHER model).
+3. **Estimated** — chars/token ratio measured for this model. Flagged
+   (`thinking_tokens_estimated`), shown as "≈" in the UI.
 
-**Invariant : réflexion ⊆ sortie.** Ce n'est jamais un troisième poste à
-additionner — c'est une découpe. « Réponse » (texte visible + appels d'outils)
-se dérive par `output_tokens − thinking_tokens`, et la borne est posée à
-l'écriture (`record_usage`) pour qu'elle soit vraie EN BASE et pas seulement
-dans la vue qui l'a calculée : une estimation trop généreuse rendrait sinon la
-réponse négative. Les totaux `input + output` des vues existantes restent donc
-justes sans modification.
+**Invariant: thinking ⊆ output.** It is never a third item to add up — it is
+a split. "Response" (visible text + tool calls) is derived as
+`output_tokens − thinking_tokens`, and the bound is enforced at write time
+(`record_usage`) so that it holds IN THE DATABASE and not only in the view that
+computed it: an over-generous estimate would otherwise make the response
+negative. The `input + output` totals of existing views therefore stay correct
+without changes.
 
-Ce qui rend la décomposition légitime : le raisonnement **n'est pas
-re-soumis**. La boucle outils ne garde pas `reasoning_content` dans
-`working_messages`, et `save_chat` strippe `thinking`. Ces tokens ne pèsent
-donc QUE sur la sortie du tour où ils ont été produits — jamais sur l'entrée du
-tour suivant.
+What makes the decomposition legitimate: reasoning **is not re-submitted**.
+The tool loop does not keep `reasoning_content` in `working_messages`, and
+`save_chat` strips `thinking`. These tokens therefore weigh ONLY on the output
+of the turn that produced them — never on the next turn's input.
 
-**Corollaire : le raisonnement ne se compte JAMAIS dans un budget de contexte.**
-Un raisonnement long ne prive la conversation d'aucune place. Deux endroits le
-faisaient pourtant, et tous deux le sanctionnaient :
+**Corollary: reasoning is NEVER counted in a context budget.** Long reasoning
+takes no room from the conversation. Two places did it anyway, and both
+penalized it:
 
-- la **règle d'overflow** prenait `prompt_tokens + completion_tokens` comme
-  occupation → 20 k de réflexion déclenchaient une compaction pour une
-  occupation qui n'existerait pas au tour suivant (cf. plus bas) ;
-- l'**auto-reprise** (`_think_resume.should_auto_resume`) refusait quand
-  `last_prompt_tokens + thinking cumulé + marge ≥ n_ctx`. Or le prompt d'un
-  segment de reprise CONTIENT déjà ce raisonnement : l'addition le comptait
-  deux fois et posait le mur vers la MOITIÉ de la fenêtre réelle. La garde
-  porte désormais sur `window_tokens` — l'occupation mesurée en fin de segment
-  (`prompt + completion`), c'est-à-dire ce que le serveur a réellement en KV.
+- the **overflow rule** took `prompt_tokens + completion_tokens` as occupancy
+  → 20 k of thinking triggered a compaction for an occupancy that would not
+  exist on the next turn (see below);
+- the **auto-resume** (`_think_resume.should_auto_resume`) refused when
+  `last_prompt_tokens + cumulative thinking + margin ≥ n_ctx`. But the prompt
+  of a resume segment ALREADY CONTAINS this reasoning: the addition counted it
+  twice and put the wall at about HALF of the real window. The guard now
+  applies to `window_tokens` — the occupancy measured at the end of the
+  segment (`prompt + completion`), that is, what the server actually has in KV.
 
-Cette dernière garde reste, mais elle ne parle plus de « contexte saturé » :
-c'est la **fenêtre d'inférence** du moteur, une limite physique (llama.cpp ne
-génère pas au-delà de son n_ctx). Quand elle est atteinte, reprendre coûterait
-un prefill complet pour quelques tokens — on rend la main à la bannière
-« Continuer ». Le seul autre plafond est un garde-fou anti-emballement
-(`LLAMA_THINK_RESUME_MAX` reprises, `LLAMA_THINK_RESUME_TOTAL_TOKENS` = 131 072
-de raisonnement cumulé), pas une contrainte de contexte.
+This last guard remains, but it no longer speaks of a "saturated context": it
+is the engine's **inference window**, a physical limit (llama.cpp does not
+generate beyond its n_ctx). When it is reached, resuming would cost a full
+prefill for a few tokens — control goes back to the "Continue" banner. The
+only other cap is a runaway guard (`LLAMA_THINK_RESUME_MAX` resumes,
+`LLAMA_THINK_RESUME_TOTAL_TOKENS` = 131,072 of cumulative reasoning), not a
+context constraint.
 
-Surfaces : puce « réflexion » (icône cerveau) de la ligne métriques d'un message (+ infobulle détaillée),
-Réglages → Utilisation (découpe sous « Sortie »), Administration → Métriques
-(KPI « Réflexion » + frise « Sortie — réflexion vs réponse »). Colonne
-`usage_events.thinking_tokens` (migration 0014) — **pas de backfill** :
-l'historique n'a jamais porté l'information et le texte du raisonnement n'est
-pas persisté. Les tours antérieurs comptent 0, et les vues disent « — » plutôt
-que « 0 % » pour ne pas affirmer une absence de raisonnement qu'elles ne
-peuvent pas constater.
+Surfaces: the "thinking" chip (brain icon) in a message's metrics line (+
+detailed tooltip), Settings › Usage (split under "Output"), Admin console › Metrics
+("Thinking" KPI + "Output — thinking vs response" strip). Column
+`usage_events.thinking_tokens` (migration 0014) — **no backfill**: history
+never carried the information and the reasoning text is not persisted. Earlier
+turns count 0, and the views show "—" rather than "0 %" so as not to claim an
+absence of reasoning that they cannot verify.
 
-## Pourquoi « tokens soumis » ≠ « occupation du contexte »
+## Why "submitted tokens" ≠ "context occupancy"
 
-En mode outils, chaque itération de la boucle re-soumet l'historique complet
-(system + tours + tool_results) : 3 itérations sur un prompt de ~2 000 tokens
-= ~6 000 tokens **soumis** (c'est ce que facture une API, avec ou sans remise
-cache) pour une **occupation** finale de ~2 500. Les deux nombres sont vrais.
-L'UI les étiquette « Tokens soumis (cumul outils) » et « Contexte fin de
-tour » (tooltip de la ligne métriques du message).
+In tool mode, each loop iteration re-submits the full history
+(system + turns + tool_results): 3 iterations on a ~2,000-token prompt
+= ~6,000 tokens **submitted** (what an API bills, with or without cache
+discount) for a final **occupancy** of ~2,500. Both numbers are true.
+The UI labels them "Submitted tokens (tool total)" and "End-of-turn context"
+(tooltip of the message's metrics line).
 
-## Comptage exact : prompt RENDU par le template
+## Exact counting: prompt RENDERED by the template
 
-Base commune des comptages exacts :
-`countRenderedPromptTokensExact` (`apps/core/src/contexte/tokens.ts`) demande à
-llama-server de RENDRE le prompt exactement comme pour `/v1/chat/completions`
-(`POST /apply-template` : tokens spéciaux `<|im_start|>`/`<|im_end|>`, prompt
-de génération, embedding des tools) puis le tokenise avec `add_special` (BOS).
+Common basis of exact counts:
+`countRenderedPromptTokensExact` (`apps/core/src/contexte/tokens.ts`) asks
+llama-server to RENDER the prompt exactly as for `/v1/chat/completions`
+(`POST /apply-template`: special tokens `<|im_start|>`/`<|im_end|>`,
+generation prompt, tool embedding) then tokenizes it with `add_special` (BOS).
 
-**Pourquoi** : l'ancien comptage sommait le `/tokenize` de chaque message
-sérialisé en texte brut + un forfait fixe/message. Il RATAIT la structure du
-chat template → sous-comptait system + tools de façon systématique (biais
-« les compteurs ne comptent que l'output »). Le comptage par message ne sert
-plus que de **fallback portable** si `/apply-template` est absent (vieux build
-llama.cpp) ; les blocs image (non tokenisables) ajoutent leur forfait par-dessus
-(`image_forfait_tokens`, helper partagé `_token_estimate`).
+**Why**: the old count summed the `/tokenize` of each message serialized as
+plain text + a fixed flat rate per message. It MISSED the structure of the chat
+template → it systematically undercounted system + tools (the "counters only
+count the output" bias). The per-message count is now only a **portable
+fallback** if `/apply-template` is absent (old llama.cpp build); image blocks
+(not tokenizable) add their flat rate on top (`image_forfait_tokens`, shared
+helper `_token_estimate`).
 
-**Composition par consommateur** (mêmes briques, assemblées pareil) :
+**Composition per consumer** (same bricks, assembled the same way):
 
-- **Jauge** : AUCUN comptage — elle lit `usage.prompt_tokens` réel dans la
-  réponse du serveur (fin de requête). Le rendu exact ne sert plus à
-  l'affichage.
-- **Porte de compression** : rendu exact des messages (sans tools embarqués)
-  + forfait image + surcoût fixe tools compté séparément une fois par run et
-  passé par la boucle outils (`extra_fixed_tokens`). La route manuelle passe
-  0 (pas de `tools_payload` dans son contexte).
-- **Fit budget** (`context.pruning.enforce_context_budget`) : comptage PAR message — il lui
-  faut la granularité message-par-message pour choisir QUELS anciens tours
-  retirer (+ réserve de sortie = cap de génération effectif) ; le surcoût
-  fixe tools est soustrait du budget (`fixed_overhead_tokens`). Marge de
-  quelques tokens/message vs le rendu (conservatrice, voulue).
-- **Règle unique d'overflow** (harnais v4, M3 — remplace la pré-porte) :
-  la compaction part quand `occupation ≥ usable = n_ctx − cap de génération
-  − buffer`. Occupation par ordre de vérité : mesure RÉELLE du dernier appel
-  (`usage.prompt_tokens` **seul**) + delta des messages apparus depuis
-  (ratio mesuré) ; sans mesure, estimation au ratio mesuré CONFIRMÉE par un
-  comptage exact avant d'agir (l'occupation exacte est ancrée — jamais un
-  comptage par itération). Ni pourcentage, ni marge, ni cooldown.
-  **`completion_tokens` n'entre pas dans l'occupation**. Deux raisons : le raisonnement qu'il contient
-  est éphémère — jamais re-soumis, donc il ne pèse RIEN sur le contexte de
-  travail — et sa part visible est déjà recomptée par le delta, le message
-  assistant étant ajouté à `working_messages` APRÈS la mesure.
-- **Élagage des sorties d'outils** (`select_prune_keys` + `apply_prune_marks`) :
-  sélection en tokens EXACTS (fenêtre protégée 20 % du n_ctx + 2 derniers
-  tours), marques persistées dans `meta_json["ctx_pruned_keys"]`, rendu par
-  marqueur plein.
-  La sélection tourne AUSSI **pendant** le run (cadence
-  `run_profile.prune_every_iters`) et les marques sont appliquées par
-  `fit_context` à chaque itération. Avant, elle n'avait lieu qu'en fin de tour
-  et n'était rendue qu'au tour SUIVANT : un run de plusieurs centaines
-  d'itérations n'élaguait donc jamais rien et n'avait plus que le budget dur —
-  qui JETTE des messages entiers au lieu d'effacer des sorties récupérables.
-  Intra-run, la monotonie s'appuie sur `already_marked` (le contenu de
-  `working_messages` est encore plein : on ne le mute jamais).
-- **Ancre de tâche** (`task_anchor_index`) : le budget dur ne retire JAMAIS le
-  dernier `user` non éphémère — la demande qui a déclenché le run. Elle reculait
-  dans la liste au fil des cycles d'outils et finissait droppable : l'agent
-  gardait son dernier `grep` et avait oublié ce qu'on lui demandait. Relâchée
-  si elle pèse > 15 % du budget (pièce jointe géante).
-- **Fenêtre de contexte par CIBLE** (`apps/core/src/llm/fenetre-contexte.ts`) : sur connecteur
-  distant, le `/props` local décrivait un autre modèle — ou rien, et `ctx=0`
-  mettait tout le pipeline en veille. Résolution : connecteur > famille connue >
-  `LLM_REMOTE_N_CTX` > 0 (tracé). La fenêtre d'un moteur qui l'annonce
-  (llama.cpp, vLLM, SGLang) n'est jamais devinée au nom du modèle : connecteur >
-  moteur > `LLM_REMOTE_N_CTX` > 0 (`qwen3*` valait 131 072 même pour un modèle
-  à 262 144).
+- **Gauge**: NO counting — it reads the actual `usage.prompt_tokens` in the
+  server response (end of request). The exact rendering is no longer used for
+  display.
+- **Compression gate**: exact rendering of the messages (without embedded
+  tools) + image flat rate + fixed tools overhead counted separately once per
+  run and passed by the tool loop (`extra_fixed_tokens`). The manual route
+  passes 0 (no `tools_payload` in its context).
+- **Budget fit** (`context.pruning.enforce_context_budget`): PER-message
+  count — it needs message-by-message granularity to choose WHICH old turns to
+  remove (+ output reserve = effective generation cap); the fixed tools
+  overhead is subtracted from the budget (`fixed_overhead_tokens`). A margin of
+  a few tokens per message vs the rendering (conservative, intended).
+- **Single overflow rule** (harness v4, M3 — replaces the pre-gate):
+  compaction starts when `occupancy ≥ usable = n_ctx − generation cap −
+  buffer`. Occupancy by order of truth: ACTUAL measurement of the last call
+  (`usage.prompt_tokens` **alone**) + delta of the messages that appeared since
+  (measured ratio); without a measurement, an estimate at the measured ratio
+  CONFIRMED by an exact count before acting (the exact occupancy is anchored —
+  never a count per iteration). No percentage, no margin, no cooldown.
+  **`completion_tokens` does not enter the occupancy**. Two reasons: the
+  reasoning it contains is ephemeral — never re-submitted, so it weighs
+  NOTHING on the working context — and its visible part is already recounted by
+  the delta, the assistant message being added to `working_messages` AFTER the
+  measurement.
+- **Tool output pruning** (`select_prune_keys` + `apply_prune_marks`):
+  selection in EXACT tokens (protected window 20 % of n_ctx + last 2 turns),
+  marks persisted in `meta_json["ctx_pruned_keys"]`, rendered with a full
+  marker.
+  The selection ALSO runs **during** the run (cadence
+  `run_profile.prune_every_iters`) and the marks are applied by `fit_context`
+  on each iteration. Before, it happened only at the end of the turn and was
+  rendered only on the NEXT turn: a run of several hundred iterations therefore
+  never pruned anything and had only the hard budget — which DROPS whole
+  messages instead of erasing recoverable outputs. Within a run, monotonicity
+  relies on `already_marked` (the content of `working_messages` is still full:
+  it is never mutated).
+- **Task anchor** (`task_anchor_index`): the hard budget NEVER removes the last
+  non-ephemeral `user` message — the request that triggered the run. It used to
+  move back in the list over the tool cycles and ended up droppable: the agent
+  kept its last `grep` and forgot what it had been asked. Released if it weighs
+  more than 15 % of the budget (giant attachment).
+- **Context window per TARGET** (`apps/core/src/llm/fenetre-contexte.ts`): on a
+  remote connector, the local `/props` described another model — or nothing,
+  and `ctx=0` put the whole pipeline to sleep. Resolution: connector > known
+  family > `LLM_REMOTE_N_CTX` > 0 (logged). The window of an engine that
+  announces it (llama.cpp, vLLM, SGLang) is never guessed from the model name:
+  connector > engine > `LLM_REMOTE_N_CTX` > 0 (`qwen3*` was 131,072 even for a
+  262,144 model).
 
-## Ratio MESURÉ (harnais v4 — plus d'heuristique statique dans les décisions)
+## MEASURED ratio (harness v4 — no more static heuristic in decisions)
 
-`apps/core/src/contexte/tokens.ts` : ratio **chars/token MESURÉ par modèle** (EWMA
-alimentée par chaque réponse réelle : chars du prompt envoyé ÷
-`prompt_tokens` facturés ; amorce froide 3,3, bornes [1.5, 8]). Tous les
-seuils de l'app sont en TOKENS ; les longueurs de chaîne ne sont plus que
-des MATÉRIALISATIONS (`tokens_to_chars`, coupes d'émission, budgets du
-sérialiseur) — la variante `tokens_to_chars_stable` (amorce figée) sert aux
-caps ré-évalués sur du contenu stocké (filet sanitize, plancher desktop),
-pour que le rendu reste byte-stable. Dès que `/tokenize` répond, le compte
-est exact ; un compte partiellement estimé reste flaggé `tokens_estimated`.
-(La jauge, elle, n'a plus de mode estimé du tout.)
+`apps/core/src/contexte/tokens.ts`: **chars/token ratio MEASURED per model**
+(EWMA fed by each actual response: chars of the prompt sent ÷ billed
+`prompt_tokens`; cold start 3.3, bounds [1.5, 8]). All thresholds in the app
+are in TOKENS; string lengths are only MATERIALIZATIONS (`tokens_to_chars`,
+emission cuts, serializer budgets) — the `tokens_to_chars_stable` variant
+(frozen start value) is used for caps re-evaluated on stored content (sanitize
+net, desktop floor), so that the rendering stays byte-stable. As soon as
+`/tokenize` answers, the count is exact; a partially estimated count stays
+flagged `tokens_estimated`. (The gauge no longer has an estimated mode at all.)
 
-## Cas particuliers connus (assumés)
+## Known special cases (accepted)
 
-- **Thinking** : compté dans `output_tokens` du tour qui le génère, mais
-  strippé de l'historique persisté → il n'apparaît PAS dans le prompt du
-  tour suivant. La valeur de la jauge l'exclut volontairement (sinon « 4,7k
-  en fin de tour » vs ~800 au prompt suivant) ; pendant la génération, la
-  jauge en direct affiche à part les jetons générés que le dernier prompt
-  mesuré ne compte pas (ceux de l'appel qu'il mesure, puis ceux reçus
-  depuis : « 131k + 49k / 262k ») : ils occupent le cache du moteur, qui
-  peut atteindre la fenêtre avant la mesure suivante.
-- **Anthropic** : son `input_tokens` ne compte que les tokens neufs ; il est
-  ramené au sens commun (cache compris) par `_normalize_usage`, et
-  `cache_read/creation_input_tokens` restent exposés à part dans les
-  metrics. La jauge de contexte reste masquée pour les cibles distantes (pas
-  de `/tokenize` fiable, tokenizer local ≠ tokenizer distant).
-- **Raisonnement conservé (SGLang)** : désactivé par défaut. Activé, la
-  réflexion de chaque appel d'outil du tour repart au moteur
-  (`reasoning_content`) : elle occupe alors la fenêtre du moteur et compte
-  dans `payloadChars` et l'estimation par message pendant ce tour. Elle reste
-  absente de l'historique persisté, donc du prompt du tour suivant.
-- **`prompt_n` (timings llama.cpp)** : n'alimente PLUS rien côté contexte —
-  avec le prefix-cache il ne compte que les tokens réévalués (excluait
-  system + tools + tours cachés). Les timings ne servent qu'aux métriques
-  de débit.
-- **Jauge = réel seul, en fin de requête** (décision de conception) : plus
-  aucune émission pré-vol (ni `/apply-template` ni heuristique, l'ancien
-  flag `est`/« ≈ » a disparu) — un event `kv_cache` unique par requête LLM,
-  construit depuis l'usage réel de la réponse. Pendant la toute première
-  requête d'un chat (ou après une compression manuelle), la jauge est
-  masquée : afficher rien plutôt qu'imaginer. Le contenu généré au tour N
-  apparaît dans le `prompt_tokens` réel du tour N+1. L'occupation n'est
-  jamais bornée à la fenêtre connue : un prompt réel plus long que la
-  fenêtre (déclarée trop petite ou devinée) s'affiche tel quel, en direct
-  comme au rechargement (`ctx_usage`) ; seul le pourcentage est borné. Un
-  avis `notice` part une fois par tour si cette fenêtre est lue sur le
-  moteur ou déclarée sur le connecteur ; devinée, le journal seul le signale.
-  La capacité du cache KV ne remplace la fenêtre que pour llama.cpp (pool
-  partagé entre requêtes chez vLLM et SGLang).
-- **Continue** : la reprise re-soumet le tronc du tour précédent → les
-  tokens soumis du tour de reprise incluent ce re-prefill (fidèle à la
-  réalité API). Les métriques du message ADDITIONNENT ses segments
-  (`merge_continue_metrics`, `segments` dans l'infobulle) : avant, la reprise
-  remplaçait celles du segment tronqué.
+- **Thinking**: counted in the `output_tokens` of the turn that generates it,
+  but stripped from the persisted history → it does NOT appear in the next
+  turn's prompt. The gauge value deliberately excludes it (otherwise "4.7k at
+  end of turn" vs ~800 in the next prompt); during generation, the live gauge
+  shows separately the tokens generated that the last measured prompt does not
+  count (those of the call it measures, then those received since:
+  "131k + 49k / 262k"): they occupy the engine's cache, which can reach the
+  window before the next measurement.
+- **Anthropic**: its `input_tokens` counts only new tokens; it is brought back
+  to the common meaning (cache included) by `_normalize_usage`, and
+  `cache_read/creation_input_tokens` stay exposed separately in the metrics.
+  The context gauge stays hidden for remote targets (no reliable `/tokenize`,
+  local tokenizer ≠ remote tokenizer).
+- **Reasoning kept (SGLang)**: disabled by default. When enabled, the thinking
+  of each tool call of the turn goes back to the engine (`reasoning_content`):
+  it then occupies the engine's window and counts in `payloadChars` and in the
+  per-message estimate during that turn. It stays absent from the persisted
+  history, hence from the next turn's prompt.
+- **`prompt_n` (llama.cpp timings)**: feeds NOTHING on the context side anymore
+  — with the prefix cache it counts only re-evaluated tokens (it excluded
+  system + tools + cached turns). Timings are used only for throughput
+  metrics.
+- **Gauge = actual only, at the end of the request** (design decision): no
+  more pre-flight emission (neither `/apply-template` nor heuristic; the old
+  `est` flag/"≈" is gone) — a single `kv_cache` event per LLM request, built
+  from the actual usage of the response. During the very first request of a
+  chat (or after a manual compression), the gauge is hidden: show nothing
+  rather than imagine. Content generated on turn N appears in the actual
+  `prompt_tokens` of turn N+1. The occupancy is never capped to the known
+  window: an actual prompt longer than the window (declared too small or
+  guessed) is shown as is, live as on reload (`ctx_usage`); only the percentage
+  is capped. A `notice` is sent once per turn if this window is read from the
+  engine or declared on the connector; when guessed, only the log reports it.
+  The KV cache capacity replaces the window only for llama.cpp (pool shared
+  between requests on vLLM and SGLang).
+- **Continue**: the resume re-submits the previous turn's trunk → the submitted
+  tokens of the resume turn include this re-prefill (faithful to API reality).
+  The message's metrics ADD its segments (`merge_continue_metrics`, `segments`
+  in the tooltip): before, the resume replaced those of the truncated segment.

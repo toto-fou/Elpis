@@ -1,153 +1,153 @@
-# cli_dist — artefacts OpenCode servis sur le réseau local
+# cli_dist — OpenCode artifacts served on the local network
 
-Ce dossier est servi par l'app via `/api/cli/bundle/{os}` pour permettre aux
-machines du **réseau local** d'installer/télécharger **OpenCode** *sans Internet*
-(menu chat → « OpenCode »).
+This folder is served by the app through `/api/cli/bundle/{os}` so that machines on the
+**local network** can install/download **OpenCode** *without Internet*
+(chat menu → "OpenCode").
 
-## Comment alimenter ce dossier
+## How to populate this folder
 
-Dépose **un artefact par OS** ici, nommé `opencode-<os>.<ext>` :
+Drop **one artifact per OS** here, named `opencode-<os>.<ext>`:
 
-| OS | Nom de fichier (exemples) |
+| OS | File name (examples) |
 |----|---------------------------|
 | Linux   | `opencode-linux.tar.gz` |
 | macOS   | `opencode-macos.tar.gz` |
 | Windows | `opencode-windows.zip`  |
 
 - `<os>` ∈ `linux` \| `macos` \| `windows`.
-- L'extension est libre (`tar.gz`, `zip`, ou même un binaire brut) : l'installeur
-  détecte le format à l'exécution. Un seul fichier `opencode-<os>.*` par OS.
-- Le binaire à l'intérieur doit s'appeler `opencode` (ou `opencode*.exe` sous Windows).
+- The extension is free (`tar.gz`, `zip`, or even a raw binary): the installer
+  detects the format at run time. Only one `opencode-<os>.*` file per OS.
+- The binary inside must be named `opencode` (or `opencode*.exe` on Windows).
 
-Récupère les binaires depuis https://opencode.ai (releases) sur une machine
-connectée, puis copie-les ici sur le serveur.
+Fetch the binaries from https://opencode.ai (releases) on a connected
+machine, then copy them here on the server.
 
-## Config llama.cpp — générée à chaud (plus de fichier statique périmé)
+## llama.cpp config — generated on the fly (no more stale static file)
 
-Les artefacts livrés (`opencode-linux.tar.gz`, `opencode-windows.zip`, **opencode
-v1.18.16**) contiennent **le binaire + un `opencode.json` de secours** + un
-`README-Elpis.txt`. Mais à l'installation la config est désormais **générée
-dynamiquement par le serveur** (`GET /api/cli/opencode.json`) depuis l'état LIVE de
-l'app : `baseURL` du llama.cpp courant (`config.json › llama`) + **liste des modèles
-réelle** (cache `/v1/models`). opencode n'auto-découvrant PAS les modèles, c'est ce
-qui évite une carte de modèles obsolète. Repli 100 % hors-ligne sur le `opencode.json`
-embarqué si le serveur est injoignable (provider openai-compatible embarqué,
-`autoupdate`/`share` off, aucune clé).
+The shipped artifacts (`opencode-linux.tar.gz`, `opencode-windows.zip`, **opencode
+v1.18.16**) contain **the binary + a fallback `opencode.json`** + a
+`README-Elpis.txt`. But at installation the config is now **generated
+dynamically by the server** (`GET /api/cli/opencode.json`) from the app's LIVE state:
+`baseURL` of the current llama.cpp (`config.json › llama`) + the **real model
+list** (`/v1/models` cache). Since opencode does NOT auto-discover models, this is what
+avoids an obsolete model map. Fully offline fallback to the embedded `opencode.json`
+if the server is unreachable (embedded openai-compatible provider,
+`autoupdate`/`share` off, no key).
 
-- **Installé via `install.sh` / `install.ps1`** : la config fraîche est écrite dans
-  `~/.config/opencode/opencode.json` (**écrasement + sauvegarde `.bak`** de l'ancienne),
-  et le binaire (`~/.local/bin` / `%LOCALAPPDATA%\opencode`) est **ajouté
-  automatiquement au PATH** (rc du shell / PATH utilisateur Windows, idempotent).
-- **Re-synchroniser la config seule** (après un changement de modèles côté serveur) :
+- **Installed via `install.sh` / `install.ps1`**: the fresh config is written to
+  `~/.config/opencode/opencode.json` (**overwrite + `.bak` backup** of the old one),
+  and the binary (`~/.local/bin` / `%LOCALAPPDATA%\opencode`) is **added to PATH
+  automatically** (shell rc / Windows user PATH, idempotent).
+- **Re-sync the config only** (after a model change on the server side):
   `curl -fsSL http://<LAN>/api/cli/opencode.json -o ~/.config/opencode/opencode.json`
-  (chemin d'amorçage en clair — cf. « Certificat » plus bas ; plus de `-k`).
-- **Outils Elpis dans opencode (bloc `mcp`, 2026-09-03)** : l'installeur, une fois
-  le compte connecté, re-récupère la config AVEC le jeton elpis-remote
-  (`x-elpis-token`) — le serveur y ajoute **une entrée MCP par famille d'outils**
-  (`elpis-git`, `elpis-browser`, `elpis-desktop` → `…:8765/mcp/<famille>`, Bearer =
-  le même jeton que le plugin `/remote`) si son service d'outils est partagé et
-  authentifié (`LOCAL_MCP_URL` + `LOCAL_MCP_TOKEN`, cf. `./elpis start`).
-  Une entrée = **une bascule** dans opencode (sa boîte « MCPs » n'a pas de
-  granularité plus fine). Familles publiées : `LOCAL_MCP_OPENCODE_FAMILIES`
-  (défaut `git,browser,desktop` — le reste, opencode le fait déjà) ; **fs/shell**
-  restent refusées côté serveur (`LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES`).
-  L'utilisateur choisit ses familles dans la modale OpenCode de l'app : ce choix
-  est rendu en `"enabled": true|false` et **survit au re-sync**, contrairement à
-  la bascule du TUI d'opencode (connect/disconnect, jamais écrite dans le fichier).
-  Re-sync avec jeton :
+  (clear-text bootstrap path — see "Certificate" below; no more `-k`).
+- **Elpis tools in opencode (`mcp` block, 2026-09-03)**: once the account is connected, the installer
+  fetches the config again WITH the elpis-remote token
+  (`x-elpis-token`) — the server adds **one MCP entry per tool family**
+  (`elpis-git`, `elpis-browser`, `elpis-desktop` → `…:8765/mcp/<family>`, Bearer =
+  the same token as the `/remote` plugin) if its tools service is shared and
+  authenticated (`LOCAL_MCP_URL` + `LOCAL_MCP_TOKEN`, see `./elpis start`).
+  One entry = **one toggle** in opencode (its "MCPs" box has no
+  finer granularity). Published families: `LOCAL_MCP_OPENCODE_FAMILIES`
+  (default `git,browser,desktop` — opencode already handles the rest); **fs/shell**
+  stay refused on the server side (`LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES`).
+  The user picks their families in the app's OpenCode modal: that choice
+  is rendered as `"enabled": true|false` and **survives the re-sync**, unlike
+  the toggle in opencode's TUI (connect/disconnect, never written to the file).
+  Re-sync with a token:
   `curl -H "x-elpis-token: $TOKEN" https://<app>/api/cli/opencode.json -o ~/.config/opencode/opencode.json`.
-- ⚠️ **`limit` doit porter `context` ET `output`.** Le schéma opencode les exige
-  tous les deux : avec `context` seul, opencode REFUSE tout le fichier
-  (« Missing key provider.elpis.models.\<id\>.limit.output ») et le provider
-  `elpis` disparaît. Et `output` doit rester PETIT devant `context` : opencode
-  compacte dès que `context − output` est atteint (`_output_limit()` dans
-  `shared_infra/opencode/routes_cli.py` : un huitième, borné [2048, 16384]).
-- **Téléchargé manuellement** : lancer opencode depuis le dossier extrait (il lit le
-  `opencode.json` voisin = version de secours), ou copier le fichier généré ci-dessus.
-- **Changer le modèle par défaut** : `config.json › opencode.default_model` (validé
-  contre le roster live ; ou éditer `model` dans `opencode.json`).
-- **Régénérer un paquet** : reprendre l'asset brut `opencode-<os>-x64.(tar.gz|zip)`
-  d'opencode.ai puis y ajouter `opencode.json` (secours) + `README-Elpis.txt`.
+- ⚠️ **`limit` must carry `context` AND `output`.** The opencode schema requires
+  both: with `context` alone, opencode REJECTS the whole file
+  ("Missing key provider.elpis.models.\<id\>.limit.output") and the `elpis`
+  provider disappears. And `output` must stay SMALL compared to `context`: opencode
+  compacts as soon as `context − output` is reached (`_output_limit()` in
+  `shared_infra/opencode/routes_cli.py`: one eighth, bounded to [2048, 16384]).
+- **Downloaded manually**: run opencode from the extracted folder (it reads the
+  neighboring `opencode.json` = fallback version), or copy the file generated above.
+- **Change the default model**: `config.json › opencode.default_model` (validated
+  against the live roster; or edit `model` in `opencode.json`).
+- **Regenerate a package**: take opencode.ai's raw asset
+  `opencode-<os>-x64.(tar.gz|zip)` and add `opencode.json` (fallback) + `README-Elpis.txt` to it.
 
-## Plugin `elpis-remote` — sessions dans la page « Code »
+## `elpis-remote` plugin — sessions in the "Code" page
 
-L'installeur **propose** (choix `y/N`, surchargeable par
-`ELPIS_INSTALL_PLUGIN=y|n` ; défaut `y` si un jeton est fourni) le plugin
-**elpis-remote** — du **TypeScript natif** (opencode/Bun charge `*.{ts,js}`
-sans build) : `~/.config/opencode/plugin/elpis-remote.ts`, servi par
-`GET /api/code/plugin.ts` avec l'URL de l'app bakée (source :
-`apps/core/greffon-opencode/`). Refuser le plugin **retire** un éventuel
-plugin déjà installé. `GET /api/code/plugin.js` ne sert plus qu'un shim de
-migration pour les anciens `.js` (≤ v8) qui font `/remote update`.
+The installer **offers** (`y/N` choice, overridable with
+`ELPIS_INSTALL_PLUGIN=y|n`; default `y` if a token is provided) the
+**elpis-remote** plugin — **native TypeScript** (opencode/Bun loads `*.{ts,js}`
+without a build): `~/.config/opencode/plugin/elpis-remote.ts`, served by
+`GET /api/code/plugin.ts` with the app URL baked in (source:
+`apps/core/greffon-opencode/`). Declining the plugin **removes** any plugin
+already installed. `GET /api/code/plugin.js` now only serves a migration shim
+for old `.js` files (≤ v8) that run `/remote update`.
 
-La commande d'install copiée depuis le modal (session connectée) embarque
-`ELPIS_REMOTE_TOKEN=<jeton du user>` en variable d'env dans le pipe (jamais dans
-l'URL ni les access logs) ; le script écrit `~/.config/opencode/elpis-remote.json`
-(`enabled` préservé au ré-install, CA locale épinglée ou repli `insecure` si
-l'app est en https Caddy). Ensuite, dans opencode : **`/remote`** tout court
-active la remontée — la session apparaît dans la page « Code », historique
-compris, associée au bon utilisateur, et peut être **pilotée** depuis l'app
-(prompts, interruption). `/remote` bascule on/off, `/remote status` affiche
-l'état ; `/remote <jeton>` reste dispo (install manuelle / jeton régénéré).
+The install command copied from the modal (connected session) embeds
+`ELPIS_REMOTE_TOKEN=<user's token>` as an env variable in the pipe (never in
+the URL or the access logs); the script writes `~/.config/opencode/elpis-remote.json`
+(`enabled` preserved on reinstall, local CA pinned or `insecure` fallback if
+the app is behind Caddy https). Then, in opencode: a plain **`/remote`**
+turns reporting on — the session appears in the "Code" page, history
+included, tied to the right user, and can be **driven** from the app
+(prompts, interrupt). `/remote` toggles on/off, `/remote status` shows
+the state; `/remote <token>` is still available (manual install / regenerated token).
 
-## Endpoints (publics, gated par le flag admin `features.opencode`)
+## Endpoints (public, gated by the admin flag `features.opencode`)
 
-- `GET /api/cli/install.sh`  — script d'install bash (rendu avec l'URL LAN courante)
-- `GET /api/cli/install.ps1` — script d'install PowerShell
-- `GET /api/cli/bundle/{os}` — télécharge l'artefact de l'OS
-- `GET /api/cli/opencode.json` — config générée à chaud (modèles + endpoint courants)
+- `GET /api/cli/install.sh`  — bash install script (rendered with the current LAN URL)
+- `GET /api/cli/install.ps1` — PowerShell install script
+- `GET /api/cli/bundle/{os}` — downloads the OS artifact
+- `GET /api/cli/opencode.json` — config generated on the fly (current models + endpoint)
 
 ## Config
 
-- Dossier configurable via env `OPENCODE_DIST_DIR` ou `config.json › opencode.dist_dir`
-  (défaut : ce dossier `<repo>/cli_dist`).
-- Activable/désactivable dans **Admin › Configuration › Système › Fonctionnalités › OpenCode**.
+- Folder configurable through env `OPENCODE_DIST_DIR` or `config.json › opencode.dist_dir`
+  (default: this folder `<repo>/cli_dist`).
+- Enable/disable in **Admin console › Configuration › System › Features › OpenCode**.
 
-## Démarrage : pourquoi opencode mettait 30 s à 1 min 30
+## Startup: why opencode took 30 s to 1 min 30
 
-Dès qu'**un plugin** est présent, opencode lance un `npm install
-@opencode-ai/plugin` dans **chaque dossier de config** et **bloque le chargement
-des plugins** dessus (`config.ts › waitForDependencies`) — donc l'affichage. Mesuré
-ici : **30 s** (1.17.7) et **71 s** (1.18.16) au premier lancement *avec* Internet ;
-**jamais terminé** quand le réseau ne répond pas (pare-feu qui drop) — c'est-à-dire
-le cas normal d'un déploiement LAN sans Internet.
+As soon as **a plugin** is present, opencode runs `npm install
+@opencode-ai/plugin` in **each config folder** and **blocks plugin
+loading** on it (`config.ts › waitForDependencies`) — and so the display. Measured
+here: **30 s** (1.17.7) and **71 s** (1.18.16) on first launch *with* Internet;
+**never finished** when the network does not answer (firewall that drops) — which is
+the normal case of a LAN deployment without Internet.
 
-opencode saute entièrement l'install si `node_modules` existe **et** que le lock
-déclare la dépendance (`packages/core/src/npm.ts › install`). Les installeurs
-posent donc trois artefacts, **sans rien télécharger** :
+opencode skips the install entirely if `node_modules` exists **and** the lock
+declares the dependency (`packages/core/src/npm.ts › install`). The installers
+therefore create three artifacts, **without downloading anything**:
 
 ```
-~/.config/opencode/node_modules/        (dossier vide)
+~/.config/opencode/node_modules/        (empty folder)
 ~/.config/opencode/package.json         { "dependencies": { "@opencode-ai/plugin": "<version>" } }
-~/.config/opencode/package-lock.json    packages[""].dependencies : la même
+~/.config/opencode/package-lock.json    packages[""].dependencies: the same
 ```
 
-Démarrage mesuré réseau coupé : **8,6 s** au lieu de « jamais ». Un
-`node_modules` déjà peuplé n'est **jamais** touché.
+Startup measured with the network cut: **8.6 s** instead of "never". An already
+populated `node_modules` is **never** touched.
 
-⚠️ Un projet qui possède son propre dossier `.opencode/` paie le même coût la
-première fois (opencode installe aussi dedans) : y créer les mêmes trois
-artefacts, ou lancer opencode une fois avec Internet.
+⚠️ A project that has its own `.opencode/` folder pays the same cost the
+first time (opencode also installs inside it): create the same three
+artifacts there, or run opencode once with Internet.
 
-## Certificat auto-signé (frontal HTTPS)
+## Self-signed certificate (HTTPS front end)
 
-Modèle assumé sur un LAN sans Internet : **l'amorçage se fait en clair, puis la
-CA de l'app est installée sur le poste**. Le certificat garde son rôle et il n'y
-a de `-k` nulle part.
+Assumed model on a LAN without Internet: **bootstrap happens in clear, then the
+app's CA is installed on the machine**. The certificate keeps its role and there is
+no `-k` anywhere.
 
-- **Deux sources** : `http://<hôte>/ca.crt` (Caddy `:80`) et
-  `GET /api/cli/ca.crt` (servi par l'app — couvre les déploiements sans frontal
-  `:80`, seul cas où l'installeur restait en `-k`). Le contenu est vérifié (vrai
-  PEM) avant tout usage, et déposé dans `~/.config/opencode/elpis-ca.crt`.
-- **Installation sur le poste par défaut** (`update-ca-certificates` /
-  `update-ca-trust` / `Cert:\CurrentUser\Root`) → `curl`, `git` et le navigateur
-  parlent à l'app en https vérifié. Opt-out : `ELPIS_TRUST_CA=n`. Sans droits
-  administrateur, le script affiche la commande exacte à rejouer.
-- **Épinglage conservé** (`elpis-remote.json › ca_file`, `--cacert`) : ⚠ Bun
-  n'utilise **pas** le magasin de l'OS, le greffon a besoin du chemin explicite.
+- **Two sources**: `http://<host>/ca.crt` (Caddy `:80`) and
+  `GET /api/cli/ca.crt` (served by the app — covers deployments without a `:80`
+  front end, the only case where the installer stayed on `-k`). The content is verified (real
+  PEM) before any use, and stored in `~/.config/opencode/elpis-ca.crt`.
+- **Installation on the machine by default** (`update-ca-certificates` /
+  `update-ca-trust` / `Cert:\CurrentUser\Root`) → `curl`, `git` and the browser
+  talk to the app over verified https. Opt-out: `ELPIS_TRUST_CA=n`. Without
+  administrator rights, the script prints the exact command to replay.
+- **Pinning kept** (`elpis-remote.json › ca_file`, `--cacert`): ⚠ Bun
+  does **not** use the OS store, so the plugin needs the explicit path.
 
-Le repli non vérifié ne subsiste que si aucune CA n'est joignable, et il est
-annoncé explicitement.
+The unverified fallback remains only if no CA is reachable, and it is
+announced explicitly.
 
-> Les binaires ne sont **pas** versionnés (cf. `.gitignore`) : l'administrateur
-> les dépose dans ce dossier avant d'activer la fonctionnalité.
+> The binaries are **not** versioned (see `.gitignore`): the administrator
+> drops them in this folder before enabling the feature.

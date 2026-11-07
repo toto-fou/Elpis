@@ -1,65 +1,62 @@
-# Exploitation
+# Operations
 
-Mettre à jour, revenir en arrière, sauvegarder, superviser, reprendre après
-un incident. L'installation et les réglages sont dans
-[configuration.md](configuration.md).
+Upgrade, roll back, back up, monitor, and recover after an incident.
+Installation and settings are in [configuration.md](configuration.md).
 
-Les commandes ci-dessous supposent des services systemd
-(`sudo ./elpis service install`) ; sans eux, `./elpis start`, `./elpis stop`
-et `./elpis restart` jouent le même rôle. `start` et `restart` attendent que
-main et admin répondent sur `/api/health` (120 s au plus,
-`ELPIS_ATTENTE_SANTE` dans `.env`) ; sinon ils rendent un code non nul et
-affichent la fin du journal du service en cause.
+The commands below assume systemd services
+(`sudo ./elpis service install`); without them, `./elpis start`, `./elpis stop`
+and `./elpis restart` do the same job. `start` and `restart` wait until
+main and admin answer on `/api/health` (120 s at most,
+`ELPIS_ATTENTE_SANTE` in `.env`); otherwise they return a non-zero code and
+print the end of the log of the failing service.
 
-L'application (`main`, port 8001) et la console (`admin`, port 8002) sont le
-core TypeScript : un bundle Node.js, `apps/core/dist/main.mjs`, lancé deux
-fois par `./elpis` avec `APP_MODE=main` ou `APP_MODE=admin`. L'hôte d'outils
-est un second bundle Node.js (`apps/toolhost/dist/main.mjs`, service
-`toolhost`) ; il lance lui-même le worker Python du moteur Office. Les outils du compte (mémoire,
-tâches, skills, graphiques) sont servis par main lui-même ; le RAG et le navigateur
-restent des services à part ; le navigateur tourne sur le Node.js du core (`node/`).
+The application (`main`, port 8001) and the console (`admin`, port 8002) are
+the TypeScript core: a Node.js bundle, `apps/core/dist/main.mjs`, launched
+twice by `./elpis` with `APP_MODE=main` or `APP_MODE=admin`. The tool host is
+a second Node.js bundle (`apps/toolhost/dist/main.mjs`, service `toolhost`);
+it starts the Office engine's Python worker itself. Account tools (memory,
+tasks, skills, charts) are served by main itself; RAG and the browser remain
+separate services; the browser runs on the core's Node.js (`node/`).
 
-## Prérequis système (paquets apt)
+## System prerequisites (apt packages)
 
-`install.sh` installe lui-même, par `apt-get`, les paquets de l'OS listés
-dans [`deploy/prerequis-apt.txt`](../deploy/prerequis-apt.txt) qui manquent
-(`dpkg-query`) : le socle juste après sudo, avant l'assistant (qui tourne en
-Python), puis, après le résumé qui les liste, le groupe de chaque composant
-choisi. `apt-get update` passe une fois avant la première installation, et
-attend jusqu'à 5 min que les listes ne soient plus verrouillées ;
-`apt-get install -y --no-install-recommends` tourne sans question
-(`DEBIAN_FRONTEND=noninteractive`) et attend jusqu'à 5 min le verrou de dpkg
-(mises à jour automatiques d'un premier démarrage). Une ligne `a | b` du
-fichier accepte l'un ou l'autre et installe le premier que proposent les
-dépôts : Docker CE à la place de `docker.io`, client Docker dans `docker.io`
-sur Debian 12 et Ubuntu 24.04, bibliothèques sans le suffixe `t64` sur
-Debian 12. Avec une sandbox (pas avec `--sandbox none`), le service `docker`
-est activé et le compte de l'application entre dans le groupe `docker` :
-l'installation construit l'image sous sudo, `--start` passe par `sg docker`,
-les services systemd ont le groupe d'office ; pour vos propres commandes
-`docker`, reconnectez-vous.
+`install.sh` installs by itself, with `apt-get`, the OS packages listed in
+[`deploy/prerequis-apt.txt`](../deploy/prerequis-apt.txt) that are missing
+(`dpkg-query`): the base right after sudo, before the wizard (which runs in
+Python), then, after the summary that lists them, the group for each chosen
+component. `apt-get update` runs once before the first installation, and
+waits up to 5 min for the package lists to be unlocked;
+`apt-get install -y --no-install-recommends` runs without prompts
+(`DEBIAN_FRONTEND=noninteractive`) and waits up to 5 min for the dpkg lock
+(automatic updates on a first boot). A line `a | b` in the file accepts either
+and installs the first one the repositories offer: Docker CE instead of
+`docker.io`, Docker client in `docker.io` on Debian 12 and Ubuntu 24.04,
+libraries without the `t64` suffix on Debian 12. With a sandbox (not with
+`--sandbox none`), the `docker` service is enabled and the application account
+joins the `docker` group: the installation builds the image under sudo,
+`--start` goes through `sg docker`, and the systemd services get the group
+automatically; for your own `docker` commands, sign in again.
 
-Sans droits administrateur, avec `--no-apt` (vérification seule), ou si apt
-échoue, `install.sh` s'arrête : il liste les paquets manquants, affiche la
-commande apt à lancer et l'option qui retire le composant concerné.
-`--skip-system` ne vérifie ni n'installe rien. `./elpis doctor` refait la
-vérification. Hors ligne, apt passe par le miroir du LAN ou par le support
-d'installation de l'OS (DVD, image ISO montée). Node.js n'y figure pas : il
-est livré avec Elpis. Les commandes, pour une installation à la main
-(`--no-apt`), avec les noms de Debian 13 :
+Without administrator rights, with `--no-apt` (check only), or if apt fails,
+`install.sh` stops: it lists the missing packages, prints the apt command to
+run and the option that removes the component concerned. `--skip-system`
+neither checks nor installs anything. `./elpis doctor` repeats the check.
+Offline, apt goes through the LAN mirror or the OS installation media (DVD,
+mounted ISO image). Node.js is not listed: it ships with Elpis. The commands,
+for a manual installation (`--no-apt`), with Debian 13 names:
 
 ```bash
-# socle : Python et son venv, téléchargements, certificats, mises à jour par git, prison bubblewrap
+# base: Python and its venv, downloads, certificates, git updates, bubblewrap jail
 sudo apt install --no-install-recommends python3 python3-venv git curl \
     ca-certificates openssl bubblewrap
-# sandbox : Docker pour la sandbox des utilisateurs (terminal, exécution de code)
+# sandbox: Docker for the users' sandbox (terminal, code execution)
 sudo apt install --no-install-recommends docker.io docker-cli xz-utils
-# apercus-office : LibreOffice dans une prison bubblewrap (aperçus Word, Excel, PowerPoint)
+# apercus-office: LibreOffice in a bubblewrap jail (Word, Excel, PowerPoint previews)
 sudo apt install --no-install-recommends \
     libreoffice-writer-nogui libreoffice-calc-nogui libreoffice-impress-nogui \
     fonts-dejavu fonts-liberation fonts-crosextra-carlito \
     fonts-crosextra-caladea
-# navigateur : bibliothèques de Chromium pour le service navigateur (liste de Playwright 1.64)
+# navigateur: Chromium libraries for the browser service (Playwright 1.64 list)
 sudo apt install --no-install-recommends xvfb fonts-noto-color-emoji \
     fonts-unifont libfontconfig1 libfreetype6 xfonts-scalable fonts-liberation \
     fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
@@ -67,112 +64,111 @@ sudo apt install --no-install-recommends xvfb fonts-noto-color-emoji \
     libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 libdrm2 libgbm1 \
     libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libx11-6 libxcb1 \
     libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2
-# https : frontal Caddy (certificat local ou Let's Encrypt)
+# https: Caddy front end (local certificate or Let's Encrypt)
 sudo apt install --no-install-recommends caddy
-# postgresql-local : serveur PostgreSQL sur cette machine (--db postgres-local)
+# postgresql-local: PostgreSQL server on this machine (--db postgres-local)
 sudo apt install --no-install-recommends postgresql
-# sauvegarde-distante : envoi des sauvegardes par scp ou rsync au-dessus de SSH
+# sauvegarde-distante: send backups with scp or rsync over SSH
 sudo apt install --no-install-recommends openssh-client rsync
-# construction-hote : compilation de node-pty quand l'hôte d'outils est construit depuis les sources (sans paquet hors ligne)
+# construction-hote: compile node-pty when the tool host is built from source (no offline package)
 sudo apt install --no-install-recommends build-essential python3
 ```
 
-Sur Debian 12 et Ubuntu 24.04, `install.sh` choisit lui-même la forme que
-proposent les dépôts (sans `docker-cli`, qu'apporte `docker.io` ; sur
-Debian 12, sans le suffixe `t64`) ; Caddy vient de main sur Debian 12 et 13,
-d'universe sur Ubuntu 24.04. Ailleurs, `install.sh` et `./elpis doctor` ne
-traitent que le socle : installez l'équivalent du fichier, puis lancez
+On Debian 12 and Ubuntu 24.04, `install.sh` picks the form the repositories
+offer by itself (without `docker-cli`, which `docker.io` provides; on
+Debian 12, without the `t64` suffix); Caddy comes from main on Debian 12 and
+13, from universe on Ubuntu 24.04. Elsewhere, `install.sh` and `./elpis doctor`
+handle only the base: install the equivalent of the file, then run
 `./install.sh --skip-system`.
 
-`./install.sh --dry-run` affiche ce que ferait l'installation sur cette
-machine, sans question (réponses par défaut et options de la ligne de
-commande), sans appeler ni demander sudo et sans rien écrire (ni apt, ni
-`node/`, `venv/`, configuration, base ou fichier temporaire). Dans l'ordre :
-paquets apt manquants et commande `apt-get` (noms lus par `apt-cache`),
-service et groupe `docker`, venv, Node.js, bundles, bubblewrap, base,
-navigateur, Qdrant, image sandbox, configuration, démarrage ; sur une
-installation existante, ce qui est gardé tel quel (`config.json`, `.env`,
-`user_db/`, `user_sandboxes/`) ; avec `--offline`, les pièces du paquet. Il
-dit aussi pourquoi sudo serait demandé : indispensable (paquets apt, Caddy,
-PostgreSQL local, services systemd) ou non (service et groupe `docker`). Il
-sort en 0 si l'installation pourrait aller au bout, sinon en 1 avec la
-raison : paquets manquants avec `--no-apt` ou sans droits, sudo
-indispensable pour un compte hors des groupes `sudo`, `admin` et `wheel`
-(sudoers non lu : c'est une estimation), paquet hors ligne incomplet, système
-non pris en charge.
+`./install.sh --dry-run` prints what the installation would do on this
+machine, without prompts (default answers and command-line options), without
+calling or asking for sudo and without writing anything (no apt, `node/`,
+`venv/`, configuration, database or temporary file). In order: missing apt
+packages and the `apt-get` command (names read by `apt-cache`), `docker`
+service and group, venv, Node.js, bundles, bubblewrap, database, browser,
+Qdrant, sandbox image, configuration, startup; on an existing installation,
+what is kept as is (`config.json`, `.env`, `user_db/`, `user_sandboxes/`);
+with `--offline`, the package's parts. It also says why sudo would be
+requested: indispensable (apt packages, Caddy, local PostgreSQL, systemd
+services) or not (`docker` service and group). It exits 0 if the installation
+could run to the end, otherwise 1 with the reason: missing packages with
+`--no-apt` or without rights, sudo indispensable for an account outside the
+`sudo`, `admin` and `wheel` groups (sudoers not read: this is an estimate),
+incomplete offline package, unsupported system.
 
-## Installer un serveur hors ligne
+## Installing an offline server
 
-Le serveur n'a besoin d'aucun accès à internet : tout vient d'un paquet
-préparé sur une machine connectée de **même architecture** et de **même
-version de Python** que lui.
+The server needs no internet access: everything comes from a package prepared
+on a connected machine with the **same architecture** and the **same Python
+version** as the server.
 
-Sur la machine connectée, à la version voulue :
+On the connected machine, at the wanted version:
 
 ```bash
 git archive --format=tar.gz -o elpis-<version>.tar.gz <tag>
 ./make_release.sh <version> [--no-sandbox] [--no-browser] [--with-sources] [--sign]
 ```
 
-`make_release.sh` écrit `dist/elpis-offline-<version>-<arch>.tar` : roues
-Python, Qdrant, image de sandbox, navigateur (sans les paquets de l'OS, que
-`install.sh` prend par apt au miroir du LAN, Caddy compris), et pour le core :
+`make_release.sh` writes `dist/elpis-offline-<version>-<arch>.tar`: Python
+wheels, Qdrant, sandbox image, browser (without the OS packages, which
+`install.sh` takes through apt from the LAN mirror, Caddy included), and for
+the core:
 
-- `node/` : le runtime Node.js, soit l'archive officielle de nodejs.org
-  (somme SHA-256 du `SHASUMS256.txt` signé, figée dans `deploy/node/node.env`)
-  **sans npm, npx ni corepack**. Son empreinte (`NODE_RUNTIME_SHA256_<arch>`,
-  calculée par `deploy/node/runtime.sh` sur ses fichiers) est figée elle
-  aussi : un autre runtime est refusé à l'installation et signalé par
-  `./elpis doctor` ;
-- `core/` : le bundle construit avec ce même Node pour cette architecture
-  (`main.mjs`, `exploitation.mjs`, le thread des images `pixels.mjs` et ses
-  codecs WebAssembly de libwebp dans `webp/`), puis démarré une fois sur une
-  base temporaire (module natif chargé, `/api/health`, arrêt propre) avant
-  d'entrer dans le paquet.
+- `node/`: the Node.js runtime, namely the official archive from nodejs.org
+  (SHA-256 sum from the signed `SHASUMS256.txt`, pinned in
+  `deploy/node/node.env`) **without npm, npx or corepack**. Its fingerprint
+  (`NODE_RUNTIME_SHA256_<arch>`, computed by `deploy/node/runtime.sh` over its
+  files) is pinned too: another runtime is refused at installation and
+  reported by `./elpis doctor`;
+- `core/`: the bundle built with this same Node for this architecture
+  (`main.mjs`, `exploitation.mjs`, the image thread `pixels.mjs` and its
+  libwebp WebAssembly codecs in `webp/`), then started once on a temporary
+  database (native module loaded, `/api/health`, clean shutdown) before
+  entering the package.
 
-`MANIFEST.txt` donne la somme de chaque fichier. Le paquet contient aussi,
-pour une redistribution :
+`MANIFEST.txt` gives the sum of each file. The package also contains, for
+redistribution:
 
-- à sa racine, `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `LICENSES/` et `THIRD_PARTY_LICENSES/` :
-  le `.tar` qui circule sans l'archive des sources garde ses notices ;
-- `wheels/LICENCES-PYTHON.txt` : nom, version, licence et textes de licence de
-  chaque roue, lus dans ses `*.dist-info` ;
-- `sbom/` : SBOM CycloneDX JSON, `npm.cdx.json` (`npm sbom`, hors
-  développement), `python.cdx.json` (roues, avec leur SHA-256 ;
-  `python-requirements.cdx.json` en plus si `cyclonedx-py` est installé) et
-  `sandbox.cdx.json` (image sandbox, par `syft` s'il est installé, sinon
-  l'étape est sautée avec un message). Ces fichiers figurent dans
-  `MANIFEST.txt` ;
-- `sandbox/SOURCES.txt` (paquets Debian de l'image par `dpkg-query -W`,
-  version et archive source exacte de hadolint, upx et radare2) et
-  `sandbox/OFFRE-SOURCES.txt` (offre écrite de fournir la source
-  correspondante pendant trois ans). Ces composants sont sous GPL ou LGPL : ils
-  obligent seulement celui qui **redistribue** le paquet à un tiers.
+- at its root, `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `LICENSES/` and `THIRD_PARTY_LICENSES/`:
+  the `.tar` that circulates without the sources archive keeps its notices;
+- `wheels/LICENCES-PYTHON.txt`: name, version, license and license texts of
+  each wheel, read from its `*.dist-info`;
+- `sbom/`: CycloneDX JSON SBOMs, `npm.cdx.json` (`npm sbom`, without
+  development dependencies), `python.cdx.json` (wheels, with their SHA-256;
+  plus `python-requirements.cdx.json` if `cyclonedx-py` is installed) and
+  `sandbox.cdx.json` (sandbox image, by `syft` if installed, otherwise the
+  step is skipped with a message). These files appear in `MANIFEST.txt`;
+- `sandbox/SOURCES.txt` (the image's Debian packages by `dpkg-query -W`,
+  exact version and source archive of hadolint, upx and radare2) and
+  `sandbox/OFFRE-SOURCES.txt` (written offer to provide the corresponding
+  source for three years). These components are under GPL or LGPL: they bind
+  only whoever **redistributes** the package to a third party.
 
-`--with-sources` télécharge en plus les archives sources de hadolint, upx et
-radare2 dans `sandbox/sources/`. Les sources des paquets Debian de l'image ne
-se téléchargent pas ainsi (`apt-get source` demande un système Debian et ses
-dépôts de sources) : prenez-les sur https://snapshot.debian.org, à la version
-de `sandbox/SOURCES.txt`, ou tenez l'offre écrite. Le lot vocal
-(`deploy/voice/fetch_offline.sh --with-sources`) fait de même pour piper-tts
-(GPL) : `SOURCES-GPL.txt`, `OFFRE-SOURCES.txt` et `sources/`.
+`--with-sources` also downloads the source archives of hadolint, upx and
+radare2 into `sandbox/sources/`. The sources of the image's Debian packages
+cannot be downloaded this way (`apt-get source` needs a Debian system and its
+source repositories): get them from https://snapshot.debian.org, at the
+version in `sandbox/SOURCES.txt`, or keep the written offer. The voice bundle
+(`deploy/voice/fetch_offline.sh --with-sources`) does the same for piper-tts
+(GPL): `SOURCES-GPL.txt`, `OFFRE-SOURCES.txt` and `sources/`.
 
-`--sign` écrit une signature GPG détachée (`gpg --detach-sign --armor`) de
-`MANIFEST.txt` (rangée dans le paquet) et du `.tar` : `MANIFEST.txt.asc` et
-`elpis-offline-<version>-<arch>.tar.asc`. La clé est celle de la variable
-`ELPIS_SIGN_KEY` (empreinte ou identifiant) ; sans `gpg`, sans variable ou
-sans cette clé secrète, le script s'arrête avant de construire. Pour vérifier,
-après avoir importé la clé publique du mainteneur :
+`--sign` writes a detached GPG signature (`gpg --detach-sign --armor`) of
+`MANIFEST.txt` (stored in the package) and of the `.tar`: `MANIFEST.txt.asc`
+and `elpis-offline-<version>-<arch>.tar.asc`. The key is the one in the
+`ELPIS_SIGN_KEY` variable (fingerprint or ID); without `gpg`, without the
+variable or without this secret key, the script stops before building. To
+verify, after importing the maintainer's public key:
 
 ```bash
 gpg --verify elpis-offline-<version>-<arch>.tar.asc elpis-offline-<version>-<arch>.tar
-# paquet extrait : signature du manifeste, puis somme de chaque fichier
+# extracted package: manifest signature, then the sum of each file
 (cd elpis-offline-<version>-<arch> && gpg --verify MANIFEST.txt.asc MANIFEST.txt \
   && sed -n '/^[0-9a-f]\{64\}  /p' MANIFEST.txt | sha256sum -c --quiet -)
 ```
 
-Sur le serveur, depuis le
-compte qui fera tourner Elpis (`sudo` est demandé pour les services) :
+On the server, from the account that will run Elpis (`sudo` is requested for
+the services):
 
 ```bash
 mkdir elpis && tar -xzf elpis-<version>.tar.gz -C elpis && cd elpis
@@ -181,407 +177,393 @@ tar -xf ../elpis-offline-<version>-<arch>.tar -C ..
 ./elpis doctor
 ```
 
-Les paquets apt (ci-dessus) viennent du miroir du LAN ou du support de
-l'OS, par `install.sh` lui-même. Il installe ensuite Node.js dans `node/`,
-puis le bundle dans `apps/core/dist`. Ce bundle est
-refusé s'il a été construit pour d'autres sources que ce dépôt (empreinte des
-sources listées dans `construction.json`) ou si son module natif
-(better-sqlite3) ne se charge pas ici. Le compte de l'application doit pouvoir lire le dossier du paquet.
-Relancé, `install.sh` ne refait que ce qui manque.
+The apt packages (above) come from the LAN mirror or the OS media, through
+`install.sh` itself. It then installs Node.js in `node/`, then the bundle in
+`apps/core/dist`. This bundle is refused if it was built for other sources than
+this repository (fingerprint of the sources listed in `construction.json`) or
+if its native module (better-sqlite3) does not load here. The application
+account must be able to read the package folder. When run again, `install.sh`
+redoes only what is missing.
 
-Sans `--offline`, l'archive officielle est téléchargée (même somme) puis
-épurée de la même façon (même empreinte), et le core construit sur place
-(`npm ci`, `npm run build`) avec le réseau, par le npm de cette archive, gardé
-le temps de la construction seulement. Le core demande
-Node.js 24.x, 24.9 au moins ; `ELPIS_NODE=<chemin>` (dans `.env`) en désigne
-un autre que `node/`.
+Without `--offline`, the official archive is downloaded (same sum) then
+stripped the same way (same fingerprint), and the core is built in place
+(`npm ci`, `npm run build`) with the network, using the npm from this archive,
+kept only for the duration of the build. The core requires Node.js 24.x, 24.9
+at least; `ELPIS_NODE=<path>` (in `.env`) points to another one than `node/`.
 
-Le cache des graphiques (`CHART_CACHE_DIR`, par défaut `user_db/run/charts`)
-est écrit par le core et relu par l'hôte
-d'outils : `./elpis` pose la même valeur à ces services. Leurs unités ne doivent pas isoler `/tmp`
-(`PrivateTmp`), et une valeur posée dans `.env` vaut pour tous.
+The charts cache (`CHART_CACHE_DIR`, `user_db/run/charts` by default) is
+written by the core and read back by the tool host: `./elpis` sets the same
+value for these services. Their units must not isolate `/tmp` (`PrivateTmp`),
+and a value set in `.env` applies to all.
 
-### Autorités de certification (PKI interne)
+### Certificate authorities (internal PKI)
 
-`./elpis` lance le core avec `--use-system-ca` : ses appels HTTPS sortants
-(client MCP, RAG, relais) reconnaissent le magasin embarqué de Node.js et
-celui du système, lu comme par OpenSSL : le fichier `SSL_CERT_FILE` (à
-défaut `/etc/ssl/cert.pem`) et le dossier `SSL_CERT_DIR` (un seul ; à défaut
-`/etc/ssl/certs`). Le client du moteur d'inférence prend `SSL_CERT_FILE`
-seul, sinon `SSL_CERT_DIR` (noms hachés ; une liste `a:b` est encore lue,
-mais signalée au journal), sinon ce même magasin par défaut. Côté Python, le
-client `httpx` par défaut (inférence, RAG) prend `SSL_CERT_FILE`, sinon
-`SSL_CERT_DIR`, sinon certifi ; les clients qui construisent leur propre
-contexte TLS (images, relais Git) partent du magasin du système, que
-`SSL_CERT_FILE` remplace aussi. Les deux variables viennent de `.env`, lu
-par `./elpis` et par les unités systemd. Pour que tous ces clients voient les
-mêmes autorités, réglez `SSL_CERT_FILE`, ou un seul dossier `SSL_CERT_DIR`
-aux noms hachés (`openssl rehash <dossier>`).
+`./elpis` starts the core with `--use-system-ca`: its outgoing HTTPS calls
+(MCP client, RAG, relays) recognize Node.js's embedded store and the system's,
+read the way OpenSSL does: the `SSL_CERT_FILE` file (by default
+`/etc/ssl/cert.pem`) and the `SSL_CERT_DIR` folder (just one; by default
+`/etc/ssl/certs`). The inference engine client takes `SSL_CERT_FILE` alone,
+otherwise `SSL_CERT_DIR` (hashed names; an `a:b` list is still read, but
+reported in the log), otherwise this same default store. On the Python side,
+the default `httpx` client (inference, RAG) takes `SSL_CERT_FILE`, otherwise
+`SSL_CERT_DIR`, otherwise certifi; clients that build their own TLS context
+(images, Git relays) start from the system store, which `SSL_CERT_FILE` also
+replaces. Both variables come from `.env`, read by `./elpis` and by the
+systemd units. For all these clients to see the same authorities, set
+`SSL_CERT_FILE`, or a single `SSL_CERT_DIR` folder with hashed names
+(`openssl rehash <folder>`).
 
-`./elpis configure` y pose `SSL_CERT_FILE` sur le magasin du système
-(`/etc/ssl/certs/ca-certificates.crt`, qui contient la CA interne une fois
-ajoutée par `update-ca-certificates`), sauf si `.env` règle déjà l'une des
-deux variables. `--ca-file <fichier PEM>` désigne une autre autorité ;
-`--ca-file aucun` revient aux magasins par défaut. `./elpis doctor` vérifie
-le fichier ou le dossier désigné, et signale une liste de dossiers.
+`./elpis configure` sets `SSL_CERT_FILE` there to the system store
+(`/etc/ssl/certs/ca-certificates.crt`, which contains the internal CA once
+added by `update-ca-certificates`), unless `.env` already sets one of the two
+variables. `--ca-file <PEM file>` points to another authority; `--ca-file
+aucun` goes back to the default stores. `./elpis doctor` checks the file or
+folder it points to, and reports a list of folders.
 
-## Mettre à jour
+## Upgrading
 
 ```bash
-./elpis upgrade               # sauvegarde complète, puis mise à jour
-./elpis upgrade --no-backup   # sans sauvegarde préalable
+./elpis upgrade               # full backup, then upgrade
+./elpis upgrade --no-backup   # without a prior backup
 ```
 
-Dans l'ordre : refus si le dépôt porte des modifications locales, sauvegarde
-complète dans `backups/` (échec si la base n'a pas pu y entrer),
-`git pull --ff-only`, dépendances Python (les extras AGPL restent à jour
-s'ils sont installés), runtime Node.js de `deploy/node/node.env` dans `node/`,
-core reconstruit (`npm ci`, `npm run build`, avec le npm de l'archive
-officielle le temps de la construction ; l'ancien bundle reste en place si la
-construction échoue), image de la sandbox attendue par le code (chargée
-depuis `deploy/docker/sandbox/elpis-sandbox-<version>.tar.gz` si l'archive
-est là, sinon construite — réseau requis ; en échec, la mise à jour s'arrête
-avec la marche à suivre), redémarrage, puis vérifications : l'application et la
-console répondent, aucune migration de la base n'est en attente — elles
-s'appliquent au démarrage, **vers l'avant seulement**. La commande s'arrête à
-la première étape en échec, affiche les commits de départ et d'arrivée
-(`Code : a1b2c3d → e4f5a6b`, notez le premier pour un retour arrière) et
-termine par `./elpis doctor`.
+In order: refusal if the repository has local modifications, full backup in
+`backups/` (fails if the database could not enter it), `git pull --ff-only`,
+Python dependencies (the AGPL extras stay up to date if installed), Node.js
+runtime from `deploy/node/node.env` into `node/`, core rebuilt (`npm ci`,
+`npm run build`, with the official archive's npm for the duration of the build;
+the old bundle stays in place if the build fails), sandbox image expected by
+the code (loaded from `deploy/docker/sandbox/elpis-sandbox-<version>.tar.gz`
+if the archive is there, otherwise built — network required; on failure, the
+upgrade stops with the steps to follow), restart, then checks: the application
+and the console answer, and no database migration is pending — they are
+applied at startup, **forward only**. The command stops at the first failing
+step, prints the start and end commits (`Code : a1b2c3d → e4f5a6b`, note the
+first for a rollback) and ends with `./elpis doctor`.
 
-`upgrade` passe par les registres de paquets (pip, npm) et par nodejs.org
-(l'archive officielle de Node.js, pour le runtime et le npm de la
-construction) : il demande le réseau. Un serveur hors ligne se met à jour avec le code et le paquet hors
-ligne de la nouvelle version : sauvegarde (`./elpis backup full`), services
-arrêtés, fichiers du code remplacés par ceux de la nouvelle version (ce que
-git ignore reste en place : configuration, `.env`, données, `venv/`,
-`node/`), puis `./install.sh --offline <paquet>` et `sudo systemctl start
-elpis.target`. Les fichiers que la nouvelle version a supprimés restent sur
-place sans gêner le core : son contrôle ne porte que sur les sources du
-bundle, listées dans `apps/core/dist/construction.json`. Avant un
-redémarrage, `./elpis restart` et `./elpis doctor` affichent les migrations
-que le démarrage appliquera.
+`upgrade` goes through the package registries (pip, npm) and nodejs.org (the
+official Node.js archive, for the runtime and the build's npm): it needs the
+network. An offline server is upgraded with the code and the offline package of
+the new version: backup (`./elpis backup full`), services stopped, code files
+replaced by those of the new version (what git ignores stays in place:
+configuration, `.env`, data, `venv/`, `node/`), then `./install.sh --offline
+<package>` and `sudo systemctl start elpis.target`. Files that the new version
+deleted stay in place without bothering the core: its check covers only the
+bundle's sources, listed in `apps/core/dist/construction.json`. Before a
+restart, `./elpis restart` and `./elpis doctor` show the migrations that
+startup will apply.
 
-`upgrade` ne refait ni les paquets apt, ni les dépendances du service
-navigateur, ni les unités systemd : quand les notes de version
-([CHANGELOG.md](../CHANGELOG.md)) le demandent, relancez
-`./install.sh --yes --service` (ci-dessous).
+`upgrade` redoes neither the apt packages, nor the browser service's
+dependencies, nor the systemd units: when the release notes
+([CHANGELOG.md](../CHANGELOG.md)) ask for it, run
+`./install.sh --yes --service` again (below).
 
-**Relancer `install.sh` sur une installation existante** est la mise à jour la
-plus complète, et la seule pour le passage du core Python au core TypeScript.
-Avec `--yes`, rien n'est demandé (hormis sudo, au départ) et la configuration
-n'est pas refaite : `config.json`, `.env` et la base (`user_db/`) restent tels
-quels, la base reçoit ses migrations au démarrage. Le script installe les
-paquets apt qui manquent, met à jour le venv, pose Node.js dans `node/`,
-construit le core, l'hôte d'outils et l'interface (`deploy/node/installer.sh
-node`, `bundles` puis `web`), charge ou construit l'image sandbox attendue,
-met `mcp.json` à jour (relais, familles d'outils) et, avec `--service`,
-réécrit les unités systemd puis démarre (`--start` sans systemd). Les
-composants restent ceux de l'installation : le navigateur reste installé ou
-non, la sandbox aussi (gardée s'il y a une image `elpis/sandbox` ou un
-conteneur `elpis-sb-*`, ou si Docker ne répond pas ; `--sandbox build` ou
-`--sandbox none` pour trancher), Caddy garde sa configuration (`--with-caddy`
-la refait), LibreOffice est vérifié s'il est là. Sans
-`--yes`, `./install.sh` rouvre l'assistant, pré-rempli avec la configuration
-en place, et la réapplique (`./elpis configure`). `./install.sh --dry-run`
-montre avant tout cela ce qui serait fait et ce qui serait gardé, sans rien
-écrire.
+**Re-running `install.sh` on an existing installation** is the most complete
+upgrade, and the only one for the move from the Python core to the TypeScript
+core. With `--yes`, nothing is asked (except sudo, at the start) and the
+configuration is not redone: `config.json`, `.env` and the database
+(`user_db/`) stay as they are, and the database receives its migrations at
+startup. The script installs the missing apt packages, updates the venv, puts
+Node.js in `node/`, builds the core, the tool host and the interface
+(`deploy/node/installer.sh node`, `bundles` then `web`), loads or builds the
+expected sandbox image, updates `mcp.json` (relays, tool families) and, with
+`--service`, rewrites the systemd units then starts (`--start` without
+systemd). Components stay as in the installation: the browser stays installed
+or not, the sandbox too (kept if there is an `elpis/sandbox` image or an
+`elpis-sb-*` container, or if Docker does not answer; `--sandbox build` or
+`--sandbox none` to decide), Caddy keeps its configuration (`--with-caddy`
+redoes it), LibreOffice is checked if present. Without `--yes`, `./install.sh`
+reopens the wizard, pre-filled with the current configuration, and reapplies it
+(`./elpis configure`). `./install.sh --dry-run` shows beforehand what would be
+done and what would be kept, without writing anything.
 
-**Passage du core Python (0.0.1, tag `python-final`) au core TypeScript
-(0.1.0).** N'utilisez pas `./elpis upgrade` : c'est encore le script de la
-0.0.1 qui tourne, et il redémarre le core Python que la 0.1.0 a retiré
-(`server/gunicorn_conf.py`, `toolhost/`). Il sort alors en erreur après
-environ 90 s (« L'application ne répond pas après la mise à jour »), sans
-contrôle des migrations ni `doctor`, service arrêté ; sous systemd, les
-anciennes unités échouent et redémarrent en boucle (toutes les 3 s). Sous le
-compte de l'application, à la racine du dépôt :
+**Moving from the Python core (0.0.1, tag `python-final`) to the TypeScript
+core (0.1.0).** Do not use `./elpis upgrade`: it is still the 0.0.1 script that
+runs, and it restarts the Python core that 0.1.0 removed
+(`server/gunicorn_conf.py`, `toolhost/`). It then exits with an error after
+about 90 s ("L'application ne répond pas après la mise à jour", the message
+the script prints), without a migration check or `doctor`, service stopped;
+under systemd, the old units fail and restart in a loop (every 3 s). Under the
+application account, at the repository root:
 
 ```bash
-git rev-parse --short HEAD           # commit de départ, à noter pour un retour arrière
-./elpis backup full                  # sauvegarde complète, par le script de la 0.0.1
-sudo systemctl stop elpis.target     # sans systemd : ./elpis stop
+git rev-parse --short HEAD           # start commit, to note for a rollback
+./elpis backup full                  # full backup, using the 0.0.1 script
+sudo systemctl stop elpis.target     # without systemd: ./elpis stop
 git pull --ff-only
-./install.sh --yes --service         # sans systemd : --start au lieu de --service
+./install.sh --yes --service         # without systemd: --start instead of --service
 ./elpis doctor
 ```
 
-`sudo` est demandé au début de `install.sh` (paquets apt, groupe `docker`,
-unités systemd). Sans droits sudo, remplacez `--service` par `--start` :
-sudo refusé, `install.sh` continue sans les étapes système si les paquets
-apt sont déjà là (`./install.sh --dry-run --start` le dit avant). Avec une
-sandbox, l'image `elpis/sandbox:1.7.0` est déjà là si la 0.0.1 l'avait
-construite, sinon `install.sh` la construit (10 à 20 min) ; sans sandbox, il
-n'installe ni Docker ni image. Déjà lancé `./elpis upgrade` ?
-Son erreur est attendue et le code est déjà tiré : arrêtez les services
-(`sudo systemctl stop elpis.target` ; sans systemd, `./elpis stop`, qui
-arrête aussi le RAG et Qdrant que l'ancien script a relancés), puis
-`./install.sh --yes --service`. Hors ligne : services
-arrêtés, code remplacé (ci-dessus), puis
-`./install.sh --yes --offline <paquet> --service`. Les utilisateurs se
-reconnectent : le format des sessions change.
+`sudo` is requested at the start of `install.sh` (apt packages, `docker`
+group, systemd units). Without sudo rights, replace `--service` with `--start`:
+if sudo is refused, `install.sh` continues without the system steps provided
+the apt packages are already there (`./install.sh --dry-run --start` tells you
+beforehand). With a sandbox, the `elpis/sandbox:1.7.0` image is already there
+if 0.0.1 built it, otherwise `install.sh` builds it (10 to 20 min); without a
+sandbox, it installs neither Docker nor an image. Already ran
+`./elpis upgrade`? Its error is expected and the code is already pulled: stop
+the services (`sudo systemctl stop elpis.target`; without systemd,
+`./elpis stop`, which also stops the RAG and Qdrant that the old script
+restarted), then `./install.sh --yes --service`. Offline: services stopped,
+code replaced (above), then `./install.sh --yes --offline <package> --service`.
+Users sign in again: the session format changes.
 
-Deux réglages changent de sens au passage à la 0.1.0 :
+Two settings change meaning when moving to 0.1.0:
 
-- **Fournisseurs cloud des comptes** : sans `llm.allowed_provider_types`, les
-  comptes non administrateurs ne peuvent plus brancher de fournisseur cloud,
-  et leurs connecteurs cloud personnels cessent de servir. Pour les garder,
-  cochez les types voulus dans Console › Modèles › Accès utilisateurs ›
-  Fournisseurs autorisés (détail : docs/configuration.md, « Fournisseurs cloud
-  des comptes »). Les connecteurs partagés et ceux des administrateurs ne
-  changent pas.
-- **Retours arrière vers le Python** : `ELPIS_TOOLHOST=python`,
-  `ELPIS_APPMCP=python` et `ELPIS_CLI=python` n'ont plus d'effet ;
-  `./elpis doctor` signale ceux qui restent dans `.env`, à retirer. Le retour
-  complet à la version Python passe par le tag `python-final` (ci-dessous).
+- **Cloud providers for accounts**: without `llm.allowed_provider_types`,
+  non-administrator accounts can no longer connect a cloud provider, and their
+  personal cloud connectors stop serving. To keep them, check the wanted types
+  in Admin console › Users & access › Default permissions › Allowed providers (details:
+  docs/configuration.md, "Cloud providers for accounts"). Shared connectors and
+  administrators' connectors do not change.
+- **Rollbacks to Python**: `ELPIS_TOOLHOST=python`, `ELPIS_APPMCP=python` and
+  `ELPIS_CLI=python` no longer have any effect; `./elpis doctor` reports those
+  that remain in `.env`, to be removed. The complete return to the Python
+  version goes through the `python-final` tag (below).
 
-**MariaDB/MySQL n'est plus pris en charge** (SQLite et PostgreSQL restent).
-Une instance encore sur ce moteur en sort **avant** la mise à jour, avec la
-version en place : Console › Base de données › « Revenir à SQLite » (copie
-complète et vérifiée ; l'ancien fichier SQLite est gardé en
-`app.db.bak-<date>`), ou « Migrer et basculer » vers un PostgreSQL vide ; en
-ligne de commande, `./elpis db transfer --to postgres://…` puis
-`./elpis db use postgres://…`. `install.sh` et `./elpis configure` refusent
-de continuer tant que la base est réglée sur MariaDB/MySQL. Mise à jour déjà
-faite : l'application refuse de démarrer, message à l'appui dans le journal,
-sans écrire dans aucune base ; revenez au code précédent
-(`git update-index -q --refresh`, `git reset --keep <commit de départ>` puis
-`venv/bin/pip install -r requirements-rag.txt`, sans restaurer la base),
-sortez de MariaDB comme ci-dessus, puis remettez à jour. Le serveur MariaDB,
-installé depuis les paquets de l'OS, se désinstalle à la main s'il ne sert
-plus.
+**MariaDB/MySQL is no longer supported** (SQLite and PostgreSQL remain). An
+instance still on this engine moves off it **before** the upgrade, with the
+version in place: Admin console › System › Data › "Back to SQLite" (full, verified
+copy; the old SQLite file is kept as `app.db.bak-<date>`), or "Migrate and
+switch" to an empty PostgreSQL; on the command line, `./elpis db transfer --to
+postgres://…` then `./elpis db use postgres://…`. `install.sh` and
+`./elpis configure` refuse to continue as long as the database is set to
+MariaDB/MySQL. If the upgrade is already done: the application refuses to
+start, with a message in the log, without writing to any database; go back to
+the previous code (`git update-index -q --refresh`, `git reset --keep <start
+commit>` then `venv/bin/pip install -r requirements-rag.txt`, without
+restoring the database), move off MariaDB as above, then upgrade again. The
+MariaDB server, installed from the OS packages, is uninstalled by hand if it
+is no longer used.
 
-L'hôte d'outils (`toolhost`) est requis : l'application
-ne lance plus de sous-process d'outils à sa place. Les outils liés au compte sont
-servis par main : `./elpis configure`, `./elpis start` et `./elpis upgrade`
-retirent de `mcp.json` les URL `http://127.0.0.1:8766/...` des entrées `role: app`
-(une URL distante posée à la main est gardée ; `./elpis doctor` signale celles qui
-restent), et `sudo ./elpis service install` retire une unité `elpis-appmcp`
-restée en place. `./elpis configure` pose aussi `relay: true` dans un
-`mcp.json` existant ; tant qu'il manque, main continue de servir lui-même la
-sandbox et le terminal.
+The tool host (`toolhost`) is required: the application no longer starts a
+tools subprocess in its place. Account-bound tools are served by main:
+`./elpis configure`, `./elpis start` and `./elpis upgrade` remove from
+`mcp.json` the `http://127.0.0.1:8766/...` URLs of `role: app` entries (a
+remote URL set by hand is kept; `./elpis doctor` reports those that remain),
+and `sudo ./elpis service install` removes an `elpis-appmcp` unit left in
+place. `./elpis configure` also sets `relay: true` in an existing `mcp.json`;
+as long as it is missing, main keeps serving the sandbox and the terminal
+itself.
 
-Pour une installation antérieure aux changements de sécurité de la version
-en cours :
+For an installation that predates the security changes of the current
+version:
 
-- bubblewrap (`./install.sh` l'installe avec le socle) : les aperçus Office
-  et les analyses de l'extracteur du RAG tournent dans une prison `bwrap`. Sur
-  Ubuntu, `sudo ./install.sh` pose le profil AppArmor si `bwrap` est bloqué.
-- Git des outils et de l'éditeur tourne dans la sandbox ; ses opérations
-  réseau passent par le relais de l'hôte, en `https` ou `http` seulement
-  (plus `ssh` ni `git://`).
-- L'image de sandbox passe en `elpis/sandbox:1.7.0`, **obligatoire** :
-  `./elpis upgrade` la charge ou la construit ; sinon `./install.sh --sandbox
-  build`, ou `deploy/docker/sandbox/load_image.sh <archive>` hors ligne. Tant
-  qu'elle manque, les conteneurs existants ne sont pas recréés et, sans
-  l'agent de la nouvelle image, les fichiers, l'éditeur et Git des sandboxes
-  sont indisponibles (message explicite) ; seuls le terminal et l'exécution
-  de commandes marchent encore. Ils sont recréés à leur premier usage une
-  fois l'image présente.
-- Les conteneurs de sandbox sont recréés à leur premier usage : ce qui y
-  avait été installé hors de `/work` est perdu.
-- Ils n'ont plus que les capacités nécessaires : sans `NET_RAW`, `ping`
-  fonctionne, `tcpdump` et `mtr` non. Un besoin précis se rétablit dans
-  Console › Sandbox › Avancé (« Flags `docker run` », un argument par ligne,
-  par exemple `--cap-add=NET_RAW`) ; il vaut pour les conteneurs créés
-  ensuite (supprimez-les dans « Containers actifs », ils sont recréés au
-  prochain usage). Une image tierce dérivée d'une `elpis/sandbox` antérieure
-  à 1.7.0 doit retirer la capacité fichier de `ping`
-  (`setcap -r /usr/bin/ping`) ou repartir de 1.7.0.
-- Sans réglage `security.listen` (configuration d'avant ce réglage),
-  l'application reste ouverte au réseau, comme avant ;
-  `./elpis configure --listen local` la restreint à cette machine.
-- Les états du navigateur enregistrés avant la 0.0.1
-  (`browser-service/cookies/state_<id>.json`) n'appartiennent à aucun compte :
-  ils ne se rechargent jamais et ne sont pas purgés (ils gardent des cookies de
-  session). Le service navigateur les signale à son démarrage ; supprimez-les
-  à la main (`rm browser-service/cookies/state_<id>.json`).
+- bubblewrap (`./install.sh` installs it with the base): Office previews and
+  the RAG extractor's analyses run in a `bwrap` jail. On Ubuntu, `sudo
+  ./install.sh` sets the AppArmor profile if `bwrap` is blocked.
+- The tools' and editor's Git runs in the sandbox; its network operations go
+  through the host relay, over `https` or `http` only (no more `ssh` or
+  `git://`).
+- The sandbox image becomes `elpis/sandbox:1.7.0`, **mandatory**:
+  `./elpis upgrade` loads or builds it; otherwise `./install.sh --sandbox
+  build`, or `deploy/docker/sandbox/load_image.sh <archive>` offline. As long
+  as it is missing, existing containers are not recreated and, without the new
+  image's agent, the sandboxes' files, editor and Git are unavailable (explicit
+  message); only the terminal and command execution still work. They are
+  recreated on first use once the image is present.
+- Sandbox containers are recreated on first use: whatever had been installed
+  outside `/work` is lost.
+- They keep only the capabilities they need: without `NET_RAW`, `ping` works,
+  `tcpdump` and `mtr` do not. A specific need is restored in Admin console › Sandbox ›
+  Limits & policy › Advanced ("`docker run` flags", one argument per line, for
+  example `--cap-add=NET_RAW`); it applies to containers created afterwards
+  (delete them in "Active containers", they are recreated on next use). A
+  third-party image derived from an `elpis/sandbox` older than 1.7.0 must
+  remove the file capability from `ping` (`setcap -r /usr/bin/ping`) or start
+  again from 1.7.0.
+- Without a `security.listen` setting (configuration from before this
+  setting), the application stays open to the network, as before;
+  `./elpis configure --listen local` restricts it to this machine.
+- Browser states saved before 0.0.1 (`browser-service/cookies/state_<id>.json`)
+  belong to no account: they are never reloaded and never purged (they keep
+  session cookies). The browser service reports them at startup; delete them by
+  hand (`rm browser-service/cookies/state_<id>.json`).
 
-## Revenir en arrière
+## Rolling back
 
-Les migrations n'allant que vers l'avant, un retour arrière = l'ancienne
-version du code **et** la base d'avant la mise à jour.
+Migrations go forward only, so a rollback = the old version of the code **and**
+the database from before the upgrade.
 
 ```bash
 sudo systemctl stop elpis.target
-git update-index -q --refresh      # install.sh a touché des fichiers suivis
-git reset --keep a1b2c3d           # commit de départ affiché par upgrade
+git update-index -q --refresh      # install.sh touched tracked files
+git reset --keep a1b2c3d           # start commit printed by upgrade
 venv/bin/pip install -r requirements-rag.txt
-# Base SQLite : l'instantané de la sauvegarde est un fichier autonome.
+# SQLite database: the backup snapshot is a standalone file.
 unzip -p backups/backup_complet_<horodatage>.zip db/app.db > user_db/app.db
 sudo systemctl start elpis.target
 ```
 
-Depuis la version où l'agent de la sandbox écrit seul dans `/work`, les
-fichiers de `/work` appartiennent à l'utilisateur du conteneur, sans écriture
-pour les autres : l'ancienne version, qui écrivait depuis l'hôte, refait sa
-propre réparation des droits au premier démarrage (les marqueurs de la
-nouvelle version sont retirés pour cela). Redémarrez les conteneurs de
-sandbox après le retour (Console › Sandbox › Containers actifs).
+Since the version where the sandbox agent alone writes to `/work`, the files
+in `/work` belong to the container user, with no write access for others: the
+old version, which wrote from the host, redoes its own permission repair at
+first startup (the new version's markers are removed for this). Restart the
+sandbox containers after the rollback (Admin console › Sandbox › Containers › Active
+containers).
 
-Depuis la version où les jetons personnels sont gardés en empreinte, une
-base remise d'AVANT la mise à jour retrouve ses anciens jetons opencode ;
-une base mise à jour puis gardée avec l'ancien code ne les retrouve pas
-(ré-appairer opencode depuis la page Remote code).
+Since the version where personal tokens are stored as fingerprints, a database
+restored from BEFORE the upgrade gets its old opencode tokens back; a database
+upgraded and then kept with the old code does not (pair opencode again from the
+Remote code page).
 
-Le reste de l'archive (sandboxes, `user_db/`, skills…) se restaure depuis
-Console › Système › Données › Restaurer, dans la limite de 500 Mo par envoi
-(`APP_MAX_RESTORE_MB`), ou se décompresse à la main, services arrêtés. Base
-sur un serveur PostgreSQL : restaurez-la avec les outils du
-serveur, ou repartez de l'instantané SQLite de la sauvegarde (voir
-[Reprendre après un incident](#reprendre-après-un-incident)).
+The rest of the archive (sandboxes, `user_db/`, skills…) is restored from
+Admin console › System › Data › Restore, within the limit of 500 MB per upload
+(`APP_MAX_RESTORE_MB`), or unpacked by hand with services stopped. Database on
+a PostgreSQL server: restore it with the server's tools, or start again from
+the backup's SQLite snapshot (see [Recovering from an
+incident](#recovering-from-an-incident)).
 
-### Revenir à la version Python (tag `python-final`)
+### Returning to the Python version (tag `python-final`)
 
-Le tag `python-final` désigne la dernière version d'Elpis à core Python. La
-0.1.0 laisse la base lisible par elle : le core TypeScript n'y fait aucune
-migration destructrice. Le retour se fait donc par le code, sans restaurer la
-base. Les unités sont d'abord retirées par le `./elpis` actuel : celle
-d'elpis-tools, posée par les premières 0.1.0, n'existe pas dans la version Python et
-redémarrerait sans fin.
+The `python-final` tag designates the last Elpis version with a Python core.
+0.1.0 leaves the database readable by it: the TypeScript core runs no
+destructive migration on it. The return is therefore done through the code,
+without restoring the database. The units are first removed by the current
+`./elpis`: the elpis-tools one, set by the first 0.1.0 releases, does not exist
+in the Python version and would restart endlessly.
 
-Sous le compte de l'application, à la racine du dépôt :
+Under the application account, at the repository root:
 
 ```bash
-sudo ./elpis service remove          # unités du core et de l'hôte d'outils (et celle, retirée, d'elpis-tools)
-git fetch origin tag python-final    # le tag, s'il n'est pas déjà là (réseau)
-git update-index -q --refresh        # install.sh a touché des fichiers suivis
+sudo ./elpis service remove          # core and tool host units (and the removed elpis-tools one)
+git fetch origin tag python-final    # the tag, if not already there (network)
+git update-index -q --refresh        # install.sh touched tracked files
 git reset --keep python-final
 venv/bin/pip install -r requirements-rag.txt
-sudo ./elpis service install         # unités de la version Python, démarrées
+sudo ./elpis service install         # Python version units, started
 ./elpis doctor
 ```
 
-Sans systemd : `./elpis stop` au lieu de `service remove`, les commandes `git`
-et `pip`, puis `./elpis start`.
+Without systemd: `./elpis stop` instead of `service remove`, the `git` and
+`pip` commands, then `./elpis start`.
 
-Sans réseau : les dépendances viennent du paquet hors ligne de la version
-Python, préparé à l'avance sur une machine connectée
-(`git checkout python-final && ./make_release.sh`) :
-`venv/bin/pip install --no-index --find-links <paquet>/wheels -r requirements-rag.txt`.
-Serveur installé depuis une archive (sans `.git`) : services arrêtés
-(`sudo ./elpis service remove`), remplacez les fichiers du code par ceux de
-l'archive du tag (`git archive --format=tar.gz -o elpis-python-final.tar.gz
-python-final`, sur la machine connectée), comme pour une mise à jour hors
-ligne, puis lancez `./install.sh --offline <paquet de python-final>` et
+Without network: dependencies come from the Python version's offline package,
+prepared beforehand on a connected machine
+(`git checkout python-final && ./make_release.sh`):
+`venv/bin/pip install --no-index --find-links <package>/wheels -r requirements-rag.txt`.
+Server installed from an archive (no `.git`): services stopped
+(`sudo ./elpis service remove`), replace the code files with those of the tag's
+archive (`git archive --format=tar.gz -o elpis-python-final.tar.gz
+python-final`, on the connected machine), as for an offline upgrade, then run
+`./install.sh --offline <python-final package>` and
 `sudo ./elpis service install`.
 
-`node/`, `apps/core/dist`, `apps/toolhost/dist` et `frontend/dist` restent sur
-le disque, sans effet sur le `./elpis` de la version Python. Les `dist` sont
-ignorés par git ; `node/` ne l'est pas dans `python-final` : `git status` le
-montre non suivi (`?? node/`), sans conséquence (`./elpis upgrade` ne regarde
-que les fichiers suivis). Gardez-le pour revenir à la 0.1.0, ou supprimez-le.
-La base garde les tables `shell_jobs` et `shell_job_events` de la 0.1.0 (et
-leurs colonnes `kind` et `detail_json` des sous-agents en fond, ignorées par un
-core plus ancien : un sous-agent en fond resté actif après un arrêt brutal y
-passerait pour une commande, que l'hôte d'outils déclare perdue), et
-`mcp.json` sa migration (`relay: true`, famille `elpis-office`) : la version
-Python s'en accommode. Les connecteurs cloud personnels des comptes non
-administrateurs y redeviennent utilisables (elle ouvre tous les types). Les
-utilisateurs se reconnectent : les cookies de session des deux versions sont
-différents. Si la base a déjà reçu des migrations ajoutées par le core
-TypeScript, repartez de la sauvegarde prise avant la mise à jour ([Revenir en
-arrière](#revenir-en-arrière)).
+`node/`, `apps/core/dist`, `apps/toolhost/dist` and `frontend/dist` stay on
+disk, with no effect on the Python version's `./elpis`. The `dist` folders are
+ignored by git; `node/` is not in `python-final`: `git status` shows it
+untracked (`?? node/`), with no consequence (`./elpis upgrade` looks only at
+tracked files). Keep it to return to 0.1.0, or delete it. The database keeps
+0.1.0's `shell_jobs` and `shell_job_events` tables (and their `kind` and
+`detail_json` columns for background subagents, ignored by an older core: a
+background subagent left active after a hard stop would pass there for a
+command, which the tool host declares lost), and `mcp.json` its migration
+(`relay: true`, `elpis-office` family): the Python version copes with it.
+Non-administrator accounts' personal cloud connectors become usable again there
+(it allows all types). Users sign in again: the session cookies of the two
+versions differ. If the database has already received migrations added by the
+TypeScript core, start again from the backup taken before the upgrade
+([Rolling back](#rolling-back)).
 
-Pour revenir ensuite à la version TypeScript : services arrêtés,
-`git update-index -q --refresh`, `git reset --keep <commit TypeScript>`
-(retrouvé par `git reflog`), puis `./install.sh --yes --service` (`--start`
-sans systemd ; sans réseau, `--offline <paquet>`). Il garde Node.js et les
-bundles du core et de l'hôte d'outils s'ils correspondent aux sources, et
-reconstruit l'interface ; à la main, c'est `deploy/node/installer.sh node`,
-puis `bundles`, puis `web`, et `sudo ./elpis service install`.
+To return to the TypeScript version afterwards: services stopped,
+`git update-index -q --refresh`, `git reset --keep <TypeScript commit>`
+(found with `git reflog`), then `./install.sh --yes --service` (`--start`
+without systemd; without network, `--offline <package>`). It keeps Node.js and
+the core and tool host bundles if they match the sources, and rebuilds the
+interface; by hand, this is `deploy/node/installer.sh node`, then `bundles`,
+then `web`, and `sudo ./elpis service install`.
 
-### Commandes d'exploitation par le core
+### Operations commands run by the core
 
-`./elpis backup`, `./elpis db`, la sauvegarde de
-`./elpis upgrade` et les contrôles de `./elpis doctor` (base joignable,
-verrous de fichiers, bubblewrap, serveur LLM) passent
-par le core Node.js (`apps/core/dist/exploitation.mjs`) : mêmes options, mêmes
-sorties et mêmes codes de sortie que dans la version Python. Le venv ne sert
-plus qu'au moteur Office, à l'extracteur du RAG et à `./elpis configure`.
+`./elpis backup`, `./elpis db`, the backup step of `./elpis upgrade` and the
+checks of `./elpis doctor` (database reachable, file locks, bubblewrap, LLM
+server) go through the Node.js core (`apps/core/dist/exploitation.mjs`): same
+options, same outputs and same exit codes as in the Python version. The venv is
+now used only for the Office engine, the RAG extractor and `./elpis configure`.
 
-## Sauvegarder et restaurer
+## Backing up and restoring
 
-| Moyen | Usage |
+| Method | Use |
 |---|---|
-| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive dans `backups/` (fichier 0600, dossier 0700 s'il est créé) ; le `/work` de chaque compte est lu par l'agent de sa sandbox (démarrée le temps de la lecture si elle dormait) ; code de sortie 1 si la base manque à l'archive, 3 si l'archive est faite sans le `/work` d'au moins un compte (sandbox illisible ; `./elpis upgrade` continue alors) |
-| Console › Système › Données › Sauvegarde | téléchargement de la même archive |
-| Console › Système › Données › Sauvegarde distante | envoi planifié : SFTP (clé), rsync sur SSH, ou dossier monté |
-| Console › Système › Données › Restaurer | archive complète ou par portée |
+| `./elpis backup [full\|db\|sandboxes\|mcp] [--dest DOSSIER]` | archive in `backups/` (file 0600, folder 0700 if created); each account's `/work` is read by its sandbox's agent (started for the duration of the read if it was asleep); exit code 1 if the database is missing from the archive, 3 if the archive is made without the `/work` of at least one account (unreadable sandbox; `./elpis upgrade` then continues) |
+| Admin console › System › Data › Backup | download of the same archive |
+| Admin console › System › Maintenance › Remote backup | scheduled upload: SFTP (key), rsync over SSH, or a mounted folder |
+| Admin console › System › Data › Restore | full archive or by scope |
 
-L'archive complète contient la base (instantané SQLite, quel que soit le
-moteur), `user_db/` (dont la clé de chiffrement et le secret de session : à
-protéger comme eux, et le magasin du RAG `user_db/rag` : documents déposés et
-textes extraits), les sandboxes, les serveurs MCP, les skins et le magasin
-des skills personnels. Dans les sandboxes, seuls les fichiers ordinaires sont
-sauvegardés ; les autres entrées sont listées dans `backup-warnings.txt`.
+The full archive contains the database (SQLite snapshot, whatever the engine),
+`user_db/` (including the encryption key and the session secret: protect them
+accordingly, and the RAG store `user_db/rag`: uploaded documents and extracted
+texts), the sandboxes, the MCP servers, the skins and the personal skills
+store. In the sandboxes, only regular files are backed up; other entries are
+listed in `backup-warnings.txt`.
 
-Non inclus, à sauvegarder à part : `config.json`, `.env`, `mcp.json`, les
-états sauvegardés du navigateur (`browser-service/cookies/`), un magasin du
-RAG placé hors de `user_db/` (`rag.store_dir`) ; ce qui est propre à la machine
-(`.db_password`, état d'une bascule de base) ; les journaux, fichiers PID et le
-cache de l'extracteur (`user_db/logs/`, `user_db/run/`, `user_db/rag-cache/`),
-ni sauvegardés ni restaurés. L'index Qdrant (`rag_app/qdrant/storage/`) n'y est
-pas non plus : après une restauration sur une autre machine, Console › RAG ›
-Changement de modèle d'embedding › « Réindexer toutes les collections » (case
-« Même celles qui utilisent déjà ce modèle ») le reconstruit depuis les textes
-extraits du magasin.
+Not included, to be backed up separately: `config.json`, `.env`, `mcp.json`,
+the browser's saved states (`browser-service/cookies/`), a RAG store placed
+outside `user_db/` (`rag.store_dir`); what is specific to the machine
+(`.db_password`, state of a database switch); logs, PID files and the
+extractor cache (`user_db/logs/`, `user_db/run/`, `user_db/rag-cache/`), neither
+backed up nor restored. The Qdrant index (`rag_app/qdrant/storage/`) is not
+there either: after a restore on another machine, Admin console › Models & services ›
+RAG › Embedding model change › "Reindex all collections" (checkbox "Even those
+already using this model") rebuilds it from the store's extracted texts.
 
-Les `*.lock` de `user_db/`, des sandboxes et de `skills/` sont des verrous en
-cours : inutiles dans une sauvegarde, repris tout seuls si leur processus a
-disparu, supprimables services arrêtés (comme les `*.lock.perime.*` et
-`*.lock.rendu` qu'un arrêt brutal peut laisser).
+The `*.lock` files in `user_db/`, in the sandboxes and in `skills/` are locks
+in use: useless in a backup, taken over automatically if their process has
+disappeared, and can be deleted with services stopped (like the
+`*.lock.perime.*` and `*.lock.rendu` files that a hard stop can leave).
 
 ```cron
-# Sauvegarde complète chaque nuit à 3 h, sous le compte de l'application ;
-# les archives de plus de 14 jours sont supprimées.
+# Full backup every night at 3 a.m., under the application account;
+# archives older than 14 days are deleted.
 0 3 * * * cd /opt/elpis && ./elpis backup full >/dev/null && find backups -name 'backup_*.zip' -mtime +14 -delete
 ```
 
-## Superviser
+## Monitoring
 
-| Commande | Rôle |
+| Command | Role |
 |---|---|
-| `./elpis status` | services et ports |
-| `./elpis doctor` | diagnostic complet (dépendances, Node.js du core, bundle construit, à jour des sources et module natif chargé, base vue par le core, autorités de certification, Docker, image sandbox, bubblewrap, HTTPS, moteur LLM sondé avec sa clé, drapeaux de lancement conseillés pour vLLM et SGLang, dernière sonde du moteur par le core si `main` tourne, RAG : extracteur et son isolation, magasin partagé et jeton, Qdrant, embeddings, OCR, états du navigateur à rattacher) ; les éléments facultatifs sont signalés sans compter comme un problème |
-| `./elpis logs [service] [-f]` | journaux (`qdrant`, `rag`, `toolhost`, `main`, `admin`, `browser`) |
-| `GET /api/admin/metrics/prometheus` | métriques Prometheus (processus admin, :8002) : session admin ou jeton de collecte |
+| `./elpis status` | services and ports |
+| `./elpis doctor` | full diagnostic (dependencies, the core's Node.js, built bundle, up to date with the sources and native module loaded, database as seen by the core, certificate authorities, Docker, sandbox image, bubblewrap, HTTPS, LLM engine probed with its key, recommended launch flags for vLLM and SGLang, the core's last engine probe if `main` is running, RAG: extractor and its isolation, shared store and token, Qdrant, embeddings, OCR, browser states to attach); optional items are reported without counting as a problem |
+| `./elpis logs [service] [-f]` | logs (`qdrant`, `rag`, `toolhost`, `main`, `admin`, `browser`) |
+| `GET /api/admin/metrics/prometheus` | Prometheus metrics (admin process, :8002): admin session or collection token |
 
-La vue d'ensemble de la console signale une sauvegarde trop ancienne.
+The console overview reports a backup that is too old.
 
-## Reprendre après un incident
+## Recovering from an incident
 
-- **Serveur de base injoignable** : `./elpis db use sqlite` puis
-  `sudo systemctl restart elpis.target`. L'application repart sur le fichier
-  SQLite local — celui d'avant la bascule vers le serveur, ou l'instantané
-  d'une sauvegarde mis à sa place : ce qui a été écrit depuis sur le serveur
-  n'y est pas. Pour y revenir, `./elpis db transfer --to <cible>` copie vers
-  une base **vide** (videz ou recréez la base du serveur), puis
-  `./elpis db use <cible>` la désigne.
-- **Redémarrage pendant une génération** : à l'arrêt, le core laisse 300 s
-  aux générations en cours (unités systemd : `TimeoutStopSec=310` ;
-  `./elpis stop` attend autant, et n'arrête les outils qu'ensuite), puis
-  ferme ; la conversation garde ce qui a été enregistré, relancer la
-  demande. Les verrous par conversation sont des `flock` : libérés par la
-  mort du processus, rien à nettoyer.
-- **Redémarrage demandé** (« Redémarrer » de la console, fin d'une bascule de
-  base ou d'HTTPS) : le core s'arrête proprement avec le code de sortie 75.
-  systemd le relance (`Restart=always`) ; sous `./elpis start`, c'est
-  `deploy/node/relance.sh` qui relance main ou admin, et seulement sur ce code
-  (un arrêt par `./elpis stop` ou une panne ne le relance pas).
-- **Restauration d'instantané de sandbox interrompue** : l'interface le
-  signale ; relancer la restauration.
-- **Mise à jour ratée** : `./elpis upgrade` s'arrête à l'étape en échec et le
-  dit ; corriger, puis `./elpis upgrade --no-backup` (la sauvegarde du premier
-  passage est dans `backups/`), ou revenir en arrière.
-- Dans tous les cas : `./elpis doctor`.
+- **Database server unreachable**: `./elpis db use sqlite` then
+  `sudo systemctl restart elpis.target`. The application restarts on the local
+  SQLite file — the one from before the switch to the server, or a backup
+  snapshot put in its place: what has been written to the server since is not
+  in it. To go back to the server, `./elpis db transfer --to <target>` copies
+  to an **empty** database (empty or recreate the server's database), then
+  `./elpis db use <target>` selects it.
+- **Restart during a generation**: on shutdown, the core gives running
+  generations 300 s (systemd units: `TimeoutStopSec=310`; `./elpis stop` waits
+  as long, and stops the tools only afterwards), then closes; the conversation
+  keeps what was saved, so send the request again. Per-conversation locks are
+  `flock`s: released when the process dies, nothing to clean up.
+- **Restart requested** ("Restart" in the console, end of a database or HTTPS
+  switch): the core shuts down cleanly with exit code 75. systemd restarts it
+  (`Restart=always`); under `./elpis start`, `deploy/node/relance.sh` restarts
+  main or admin, and only on that code (a stop by `./elpis stop` or a crash does
+  not restart it).
+- **Interrupted sandbox snapshot restore**: the interface reports it; run the
+  restore again.
+- **Failed upgrade**: `./elpis upgrade` stops at the failing step and says so;
+  fix the problem, then `./elpis upgrade --no-backup` (the first run's backup is
+  in `backups/`), or roll back.
+- In all cases: `./elpis doctor`.
 
-## Compatibilité
+## Compatibility
 
-| Composant | Versions |
+| Component | Versions |
 |---|---|
-| Système | Debian 12 et 13, Ubuntu 24.04 (amd64) |
-| Python | 3.11 à 3.13 (testés en CI : 3.11 et 3.13) |
-| Node.js (core et navigateur) | 24.x, 24.9 au moins ; installé par `install.sh` dans `node/`, sans npm (version et empreinte de `deploy/node/node.env`) |
-| Base | SQLite (défaut) ; PostgreSQL de la distribution — testé en CI : PostgreSQL 17 |
-| Docker | paquet de la distribution (`docker.io`) |
-| bubblewrap | paquet de la distribution, user namespaces autorisés (`./elpis doctor`) |
-| Inférence | `llama-server` (llama.cpp, avec `--jinja`), tout serveur compatible OpenAI, ou un fournisseur distant |
+| System | Debian 12 and 13, Ubuntu 24.04 (amd64) |
+| Python | 3.11 to 3.13 (tested in CI: 3.11 and 3.13) |
+| Node.js (core and browser) | 24.x, 24.9 at least; installed by `install.sh` in `node/`, without npm (version and fingerprint from `deploy/node/node.env`) |
+| Database | SQLite (default); the distribution's PostgreSQL — tested in CI: PostgreSQL 17 |
+| Docker | distribution package (`docker.io`) |
+| bubblewrap | distribution package, user namespaces allowed (`./elpis doctor`) |
+| Inference | `llama-server` (llama.cpp, with `--jinja`), any OpenAI-compatible server, or a remote provider |

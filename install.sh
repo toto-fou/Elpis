@@ -164,7 +164,7 @@ DB_RETIRE="$( { printf '%s\n' "${APP_DB_BACKEND:-}"
             "$ROOT/config.json" 2>/dev/null
     fi; } | tr -d ' ' | tr '[:upper:]' '[:lower:]' | grep -xE 'mysql|mariadb' | head -n1)"
 if [ -n "$DB_RETIRE" ]; then
-    echo "Base « $DB_RETIRE » : MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou ./elpis db transfer puis ./elpis db use vers PostgreSQL), puis relancez l'installation (docs/exploitation.md, « Mettre à jour »)." >&2
+    echo "Base « $DB_RETIRE » : MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou ./elpis db transfer puis ./elpis db use vers PostgreSQL), puis relancez l'installation (docs/operations.md, « Upgrading »)." >&2
     exit 2
 fi
 if [ -n "$OFFLINE_DIR" ]; then

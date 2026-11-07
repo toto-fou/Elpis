@@ -1,159 +1,159 @@
-# Skills — Mémoire procédurale
+# Skills — Procedural memory
 
-Ce dossier contient les **skills** : des procédures markdown décrivant *comment*
-réaliser une action concrète sur une solution logicielle (déployer via Ansible,
-réinitialiser Qdrant, builder le serveur MCP, …).
+This folder holds the **skills**: markdown procedures describing *how* to
+carry out a concrete action on a software solution (deploy with Ansible,
+reset Qdrant, build the MCP server, …).
 
-C'est la troisième mémoire de l'agent, complémentaire des deux autres :
+It is the agent's third memory, complementary to the other two:
 
-| Mémoire | Où | Quoi |
+| Memory | Where | What |
 |---|---|---|
-| Factuelle / long-terme | `apps/core/src/memoire/` (Markdown auto-curé + FTS5) | faits, profil utilisateur |
-| De travail | `apps/core/src/outils/todo/` (todos) | étapes de la tâche en cours |
-| **Procédurale (skills)** | **ici** | **comment faire X** |
+| Factual / long-term | `apps/core/src/memoire/` (self-curated Markdown + FTS5) | facts, user profile |
+| Working | `apps/core/src/outils/todo/` (todos) | steps of the current task |
+| **Procedural (skills)** | **here** | **how to do X** |
 
-Inspiré du pattern Agent Skills (Claude), appliqué aux *procédures*.
+Inspired by the Agent Skills pattern (Claude), applied to *procedures*.
 
-## Organisation : un skill = un dossier (modèle Agent Skill)
+## Organization: one skill = one folder (Agent Skill model)
 
-Le format de référence est le **dossier-skill** : `[<domaine>/]<name>/SKILL.md`
-(+ ressources bundlées `scripts/`, `references/`, `assets/`). Un dossier-skill
-peut contenir des **sous-skills** imbriqués (package) : leur id devient
-`parent/enfant` et seuls les skills de niveau 0 figurent dans l'index injecté —
-les corps des sous-skills se chargent à la demande via `skill_get("parent/enfant")`.
+The reference format is the **skill folder**: `[<domain>/]<name>/SKILL.md`
+(+ bundled resources `scripts/`, `references/`, `assets/`). A skill folder
+can contain nested **sub-skills** (package): their id becomes
+`parent/child` and only level-0 skills appear in the injected index —
+sub-skill bodies are loaded on demand via `skill_get("parent/child")`.
 
 ```
 skills/
-  README.md                ← ce fichier
-  _TEMPLATE.md             ← gabarit (ignoré par le loader)
-  creer-un-skill/          ← assistant de création de skill (livré)
+  README.md                ← this file
+  _TEMPLATE.md             ← template (ignored by the loader)
+  creer-un-skill/          ← skill-creation assistant (shipped)
     SKILL.md
-  creer-une-routine/       ← assistant de création de routine (livré)
+  creer-une-routine/       ← routine-creation assistant (shipped)
     SKILL.md
-  creer-un-agent/          ← assistant de création d'agent personnel (livré)
+  creer-un-agent/          ← personal-agent creation assistant (shipped)
     SKILL.md
-  apparence/               ← assistant d'habillage personnel (livré)
-    SKILL.md               ← entretien ask_user, UN bloc ```elpis-skin de jetons
-    references/            ← jetons.md (liste, requis, contrastes), exemples.md (2 habillages valides)
-    assets/apercu.html     ← maquette HTML/CSS sans script, rendue par la carte du chat pour valider l'habillage
-  learned/                 ← SAS de curation admin (brouillons)
-  <paquet>/                ← exemple de PACKAGE (dossier-skill, id "<paquet>")
-    SKILL.md               ← aperçu du domaine + table d'orientation
-    <sous-skill>/          ← sous-skill (id "<paquet>/<sous-skill>")
+  apparence/               ← personal theming assistant (shipped)
+    SKILL.md               ← ask_user interview, ONE ```elpis-skin block of tokens
+    references/            ← jetons.md (list, required, contrasts), exemples.md (2 valid themes)
+    assets/apercu.html     ← script-free HTML/CSS mockup, rendered by the chat card to validate the theme
+  learned/                 ← admin curation AIRLOCK (drafts)
+  <package>/               ← example of a PACKAGE (skill folder, id "<package>")
+    SKILL.md               ← domain overview + orientation table
+    <sub-skill>/           ← sub-skill (id "<package>/<sub-skill>")
       SKILL.md
-      scripts/run.sh       ← script exécutable, stagé en sandbox
+      scripts/run.sh       ← executable script, staged in the sandbox
       references/exemple.yml
 ```
 
-Le **legacy mono-fichier** `[<domaine>/]<name>.md` reste lu (rétro-compat),
-mais toute NOUVELLE création (UI, API, outil `skill_save`) écrit le format
-dossier. Un legacy édité reste legacy (pas de migration silencieuse).
+The single-file **legacy** `[<domain>/]<name>.md` is still read
+(backward compatibility), but every NEW creation (UI, API, `skill_save` tool)
+writes the folder format. An edited legacy skill stays legacy (no silent migration).
 
-Le `domain` d'un skill = premier sous-dossier (`skills/<domain>/…`),
-surchargeable par le frontmatter `domain:`. Cas du package posé à la racine
-d'un domaine (ex. `skills/ansible/SKILL.md`) : le chemin ne donne PAS de
-domaine (le dossier du skill est lui-même au premier niveau) → poser
-explicitement `domain: ansible` dans son frontmatter pour garder le
-regroupement de l'index.
+A skill's `domain` = its first subfolder (`skills/<domain>/…`),
+overridable by the `domain:` frontmatter. Case of a package placed at the root
+of a domain (e.g. `skills/ansible/SKILL.md`): the path does NOT give a
+domain (the skill's folder is itself at the first level) → set
+`domain: ansible` explicitly in its frontmatter to keep the index
+grouping.
 
-## Comment ça marche (routage = injection déterministe)
+## How it works (routing = deterministic injection)
 
-On n'injecte **jamais** tous les corps dans le contexte. À chaque requête :
+All bodies are **never** injected into the context. On each request:
 
-1. `discoverSkills()` (`packages/skills/src/decouverte.ts`) scanne récursivement les sources et
-   fusionne. L'injection passe `include_learned=False` : `learned/` est un SAS
-   admin, jamais injecté.
-2. `buildSkillsIndexBlock()` (`apps/core/src/prompts/systeme.ts`) injecte un **index
-   léger** des skills de niveau 0 (user+global), **groupé par domaine**
-   (`name — description`), borné par `SKILLS_INDEX_MAX`, avec marqueurs :
-   `· sub-skills` (package) et `· files/scripts` (bundle).
-3. Le modèle charge un corps à la demande via l'outil **`skill_get(name)`**
-   (id qualifié `parent/enfant` pour un sous-skill). Les skills **épinglés**
-   (`/skill` dans le chat, par name) sont injectés en entier.
+1. `discoverSkills()` (`packages/skills/src/decouverte.ts`) recursively scans the sources and
+   merges them. Injection passes `include_learned=False`: `learned/` is an admin
+   airlock, never injected.
+2. `buildSkillsIndexBlock()` (`apps/core/src/prompts/systeme.ts`) injects a **light
+   index** of level-0 skills (user+global), **grouped by domain**
+   (`name — description`), bounded by `SKILLS_INDEX_MAX`, with markers:
+   `· sub-skills` (package) and `· files/scripts` (bundle).
+3. The model loads a body on demand via the **`skill_get(name)`** tool
+   (qualified id `parent/child` for a sub-skill). **Pinned** skills
+   (`/skill` in the chat, by name) are injected in full.
 
-Les fichiers bundlés d'un skill (global ou perso) ne sont **pas montés** dans la
-sandbox : l'agent les lit via **`skill_read_file(name, path)`** et exécute les
-scripts via **`skill_run_script(name, script, args, env)`**. À l'exécution, le
-bundle est stagé dans un répertoire éphémère hors `/work` (`$SKILL_DIR`) et le
-script tourne **depuis `/work`** : les chemins d'`args` sont relatifs au dossier
-de travail et les sorties y atterrissent. Le code des scripts n'entre pas en contexte.
+A skill's bundled files (global or personal) are **not mounted** in the
+sandbox: the agent reads them via **`skill_read_file(name, path)`** and runs the
+scripts via **`skill_run_script(name, script, args, env)`**. At run time, the
+bundle is staged in an ephemeral directory outside `/work` (`$SKILL_DIR`) and the
+script runs **from `/work`**: `args` paths are relative to the working folder
+and outputs land there. Script code does not enter the context.
 
-## Sources (fusionnées, priorité décroissante)
+## Sources (merged, decreasing priority)
 
 ```
-user    ← <sandbox_utilisateur>/skills/   (perso ; écrit par l'agent via skill_save)
-learned ← skills/learned/                 (SAS de curation admin — NON injecté avant promotion)
-global  ← skills/                         (curé, versionné — ce dossier, hors learned/)
+user    ← <user_sandbox>/skills/          (personal; written by the agent via skill_save)
+learned ← skills/learned/                 (admin curation airlock — NOT injected before promotion)
+global  ← skills/                         (curated, versioned — this folder, except learned/)
 ```
 
-En cas de collision de `name`, le plus spécifique gagne (`user` > `learned` > `global`).
-`learned` n'est fusionné que pour la gestion (UI/API) — **jamais** dans le prompt.
-`learned` est un nom réservé (refusé comme name/domaine d'un skill global).
+On a `name` collision, the most specific wins (`user` > `learned` > `global`).
+`learned` is merged only for management (UI/API) — **never** into the prompt.
+`learned` is a reserved name (refused as the name/domain of a global skill).
 
-## Format d'un SKILL.md
+## SKILL.md format
 
 ```markdown
 ---
-name: ansible-write-playbook    # == nom du dossier (règle du spec)
-description: Écrire un playbook Ansible idempotent
+name: ansible-write-playbook    # == folder name (spec rule)
+description: Write an idempotent Ansible playbook
 tags: [ansible, playbook, idempotence]
-# domain: …                     # optionnel : surcharge le domaine dérivé du chemin
-# license / compatibility / allowed-tools / metadata: …   # optionnels (spec)
+# domain: …                     # optional: overrides the domain derived from the path
+# license / compatibility / allowed-tools / metadata: …   # optional (spec)
 ---
 
-# Écrire un playbook Ansible idempotent
+# Write an idempotent Ansible playbook
 
-## Pré-requis
+## Prerequisites
 …
 
-## Étapes
+## Steps
 1. …
 ```
 
-| Champ | Rôle |
+| Field | Role |
 |---|---|
-| `name` | Identifiant **unique globalement** (== nom du dossier pour un dossier-skill). |
-| `description` | Une phrase : sert au matching ET à l'index. **Soigne les mots-clés.** |
-| `tags` | Mots-clés additionnels pour le matching (liste). |
-| `domain` | (optionnel) Surcharge le domaine dérivé du chemin. |
+| `name` | **Globally unique** identifier (== folder name for a skill folder). |
+| `description` | One sentence: used for matching AND for the index. **Take care with the keywords.** |
+| `tags` | Additional keywords for matching (list). |
+| `domain` | (optional) Overrides the domain derived from the path. |
 
-Le **corps markdown** est la procédure elle-même. Pas d'emoji. Si le skill
-embarque des scripts, le corps les référence via l'outil d'exécution
+The **markdown body** is the procedure itself. No emoji. If the skill
+bundles scripts, the body references them through the execution tool
 (`skill_run_script(name="<pkg>/<name>", script="scripts/x.sh", args=[…])`).
 
-## Ajouter / éditer un skill
+## Adding / editing a skill
 
-1. Créer `skills/[<domaine>/]<mon-skill>/SKILL.md` (ou l'UI Skills : création,
-   import `.zip` d'un package, édition — le CRUD est folder-aware).
-2. Aucun redémarrage : `discover_skills` relit le disque à chaque requête (hot-reload).
+1. Create `skills/[<domain>/]<my-skill>/SKILL.md` (or use the Skills UI: creation,
+   `.zip` import of a package, editing — the CRUD is folder-aware).
+2. No restart: `discover_skills` re-reads the disk on every request (hot reload).
 
-L'édition via l'UI/API met à jour le `SKILL.md` **en place** (frontmatter non
-géré par le formulaire préservé, dossier jamais déplacé — un changement de
-domaine pose la surcharge frontmatter). Supprimer un package supprime ses
-sous-skills et son bundle.
+Editing via the UI/API updates the `SKILL.md` **in place** (frontmatter not
+managed by the form is preserved, the folder is never moved — a domain change
+sets the frontmatter override). Deleting a package deletes its
+sub-skills and its bundle.
 
-## Skills perso (`skill_save`) et SAS admin (`learned/`)
+## Personal skills (`skill_save`) and the admin airlock (`learned/`)
 
-- **Agent → perso.** L'agent enregistre une procédure inédite via l'outil
-  `skill_save(…, domain="ansible")`. Le skill atterrit dans **sa sandbox**
-  (`<sandbox_utilisateur>/skills/[<domain>/]<slug>/SKILL.md`, source `user`) :
-  routable pour SES prochaines sessions uniquement, jamais injecté chez un
-  autre utilisateur (isolation — audit CRIT-1).
-- **Admin → learned → global.** Un admin peut déposer un brouillon dans le SAS
-  `learned/` (UI Skills, scope *learned*), puis le **promouvoir** vers la
-  bibliothèque curée : `POST /api/skills/promote {"name": "<slug>"}` — le
-  déplacement préserve le sous-dossier de domaine et fonctionne aussi pour un
-  dossier-skill complet (bundle + sous-skills). Tant qu'il n'est pas promu, un
-  `learned` n'est PAS injecté dans le prompt.
+- **Agent → personal.** The agent saves a new procedure with the
+  `skill_save(…, domain="ansible")` tool. The skill lands in **its sandbox**
+  (`<user_sandbox>/skills/[<domain>/]<slug>/SKILL.md`, source `user`):
+  routable for ITS next sessions only, never injected for another
+  user (isolation — audit CRIT-1).
+- **Admin → learned → global.** An admin can drop a draft in the
+  `learned/` airlock (Skills UI, scope *learned*), then **promote** it to the curated
+  library: `POST /api/skills/promote {"name": "<slug>"}` — the
+  move preserves the domain subfolder and also works for a complete
+  skill folder (bundle + sub-skills). Until promoted, a
+  `learned` skill is NOT injected into the prompt.
 
 ## Configuration
 
-Variables (env / `config.json` › `skills.*`) :
+Variables (env / `config.json` › `skills.*`):
 
-| Clé | Défaut | Rôle |
+| Key | Default | Role |
 |---|---|---|
-| `APP_SKILLS_DIR` / `skills.dir` | `skills` | Dossier global. |
-| `APP_SKILLS_TOP_N` / `skills.top_n` | `3` | Nb de corps injectés (pins). |
-| `APP_SKILLS_MIN_SCORE` / `skills.min_score` | `1.0` | Score lexical min. |
-| `APP_SKILLS_CHAR_BUDGET` / `skills.char_budget` | `12000` | Budget caractères des corps. |
-| `APP_SKILLS_INDEX_MAX` / `skills.index_max` | `100` | Entrées max dans l'index (0 = illimité). |
+| `APP_SKILLS_DIR` / `skills.dir` | `skills` | Global folder. |
+| `APP_SKILLS_TOP_N` / `skills.top_n` | `3` | Number of bodies injected (pins). |
+| `APP_SKILLS_MIN_SCORE` / `skills.min_score` | `1.0` | Minimum lexical score. |
+| `APP_SKILLS_CHAR_BUDGET` / `skills.char_budget` | `12000` | Character budget for bodies. |
+| `APP_SKILLS_INDEX_MAX` / `skills.index_max` | `100` | Max entries in the index (0 = unlimited). |

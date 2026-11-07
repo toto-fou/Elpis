@@ -1,20 +1,20 @@
 ---
-name: Anomalie
-about: Un comportement inattendu
+name: Bug
+about: Unexpected behavior
 labels: bug
 ---
 
-**Version** : commit ou version (`git rev-parse --short HEAD`)
-**Système** : distribution, base (SQLite, PostgreSQL), moteur LLM
+**Version**: commit or version (`git rev-parse --short HEAD`)
+**System**: distribution, database (SQLite, PostgreSQL), LLM engine
 
-**Ce qui se passe**
+**What happens**
 
-**Ce qui était attendu**
+**What was expected**
 
-**Pour reproduire**
+**To reproduce**
 
 1.
 
-**Diagnostic** : sortie de `./elpis doctor`, extrait de `./elpis logs <service>`
+**Diagnostics**: output of `./elpis doctor`, excerpt of `./elpis logs <service>`
 
-<!-- Une faille de sécurité : ne pas ouvrir de ticket public, voir SECURITY.md. -->
+<!-- For a security vulnerability: do not open a public issue, see SECURITY.md. -->

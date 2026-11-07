@@ -1,303 +1,303 @@
 # Architecture
 
-Carte du code d'Elpis : les process, les paquets, où vit chaque chose et les
-invariants qui tiennent l'ensemble. Ce document reste court et suit le code ;
-le détail (API, schémas, séquences, sous-systèmes) est dans
-[docs/architecture.md](docs/architecture.md) ; en cas d'écart, ce fichier et
-le code font foi. L'histoire des règles du cœur (boucle agentique, flux de
-chat) est dans l'historique git.
+Elpis code map: the processes, the packages, where everything lives and the
+invariants that hold it together. This document stays short and follows the code;
+the detail (API, schemas, sequences, subsystems) is in
+[docs/architecture.md](docs/architecture.md); where they differ, this file and
+the code are authoritative. The history of the core rules (agent loop, chat
+flow) is in the git history.
 
-## Vue d'ensemble
+## Overview
 
-Elpis est une application **multi-process** auto-hébergée : le core
-TypeScript (Node, Fastify) sert l'interface et orchestre le LLM, un hôte d'outils
-exécute les outils MCP, chaque utilisateur a son conteneur Docker, et des
-services satellites (RAG, navigateur, contrôle d'écran, voix) sont optionnels
-et reliés par HTTP.
+Elpis is a self-hosted **multi-process** application: the TypeScript core
+(Node, Fastify) serves the interface and orchestrates the LLM, a tool host
+runs the MCP tools, each user has their own Docker container, and satellite
+services (RAG, browser, screen control, voice) are optional
+and linked by HTTP.
 
-| Process | Port | Entrée | Rôle |
+| Process | Port | Entry | Role |
 |---|---|---|---|
-| **main** | 8001 | `apps/core/dist/main.mjs` (Node, `APP_MODE=main`) | chat, éditeur, sandbox, routines, statiques ; un process |
-| **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | console d'administration et `/api/admin/*` ; un process |
-| **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | hôte des outils MCP (HTTP streamable `/mcp[/<famille>]`, SSE), API sandbox et terminal ; sa propre base `user_db/toolhost.db` ; sert lui-même ses familles d'outils, dont Office (worker Python `office/`) |
-| **rag_app** | 8000 (loopback) | `rag_app/start.sh` | extracteur du RAG (FastAPI, sans état) : texte, pages, localisation, OCR ; le RAG lui-même (collections, droits, indexation, recherche) est dans le core, avec Qdrant :6333 |
-| **browser-service** | 3000 | `browser-service/server.js` | navigateur piloté (Node + Playwright) — optionnel |
-| **desktop-agent** | 8765 (sur la machine pilotée) | `desktop-agent/` | contrôle d'écran Windows (pywinauto) / Linux (AT-SPI) — optionnel |
-| **llama-server** | 8080 | llama.cpp, hors dépôt | inférence locale ; ou tout moteur compatible OpenAI, ou un fournisseur distant |
-| **Caddy** | 443 / 8443 | `deploy/caddy/` | frontal HTTPS — optionnel |
+| **main** | 8001 | `apps/core/dist/main.mjs` (Node, `APP_MODE=main`) | chat, editor, sandbox, routines, static files; one process |
+| **admin** | 8002 | `apps/core/dist/main.mjs` (Node, `APP_MODE=admin`) | admin console and `/api/admin/*`; one process |
+| **toolhost** | 8765 | `apps/toolhost/dist/main.mjs` (Node) | MCP tool host (streamable HTTP `/mcp[/<family>]`, SSE), sandbox and terminal API; its own database `user_db/toolhost.db`; serves its tool families itself, including Office (Python worker `office/`) |
+| **rag_app** | 8000 (loopback) | `rag_app/start.sh` | RAG extractor (FastAPI, stateless): text, pages, localization, OCR; the RAG itself (collections, permissions, indexing, search) is in the core, with Qdrant :6333 |
+| **browser-service** | 3000 | `browser-service/server.js` | driven browser (Node + Playwright) — optional |
+| **desktop-agent** | 8765 (on the controlled machine) | `desktop-agent/` | Windows (pywinauto) / Linux (AT-SPI) screen control — optional |
+| **llama-server** | 8080 | llama.cpp, outside the repository | local inference; or any OpenAI-compatible engine, or a remote provider |
+| **Caddy** | 443 / 8443 | `deploy/caddy/` | HTTPS front end — optional |
 
-`./elpis start` lance qdrant, rag, toolhost, main, admin
-et browser ;
-`sudo ./elpis service install` en fait des services systemd (`elpis.target`).
+`./elpis start` launches qdrant, rag, toolhost, main, admin
+and browser;
+`sudo ./elpis service install` turns them into systemd services (`elpis.target`).
 
-## Le parcours d'un message
+## The path of a message
 
-Un tour de chat, de la requête au dernier événement :
+A chat turn, from the request to the last event:
 
-1. **Entrée.** L'interface envoie `POST /api/chat-saved-stream3`
-   (`apps/core/src/familles/chat.ts`). L'admission (`apps/core/src/tour/ouverture.ts`,
-   `admission.ts`) authentifie, puis refuse si une compaction ou une
-   génération tourne déjà sur cette conversation (409) ou si le compte a trop
-   d'exécutions en cours (429). La préparation (`tour/preparation.ts`) décide
-   ensuite tout le tour : cible, outils, historique, compaction, titre.
-2. **Cible.** `apps/core/src/llm/cible.ts` résout le moteur : `llama-server`
-   intégré par défaut, ou un connecteur (activé, clé lisible, fournisseur
-   autorisé). Les adresses des serveurs MCP sont résolues côté serveur,
-   jamais reprises du client.
-3. **Verrou et flux.** Un verrou de présence par conversation, en mémoire
-   (main est un seul process, `tour/etat.ts`) ; la route le prend, le tour le
-   réclame. La réponse est un flux NDJSON (`tour/execution.ts`) pompé par
-   `tour/evenements.ts`, jetons regroupés toutes les 25 ms. L'ordre des
-   événements et les invariants du flux sont écrits dans
+1. **Entry.** The interface sends `POST /api/chat-saved-stream3`
+   (`apps/core/src/familles/chat.ts`). Admission (`apps/core/src/tour/ouverture.ts`,
+   `admission.ts`) authenticates, then refuses if a compaction or a
+   generation is already running on this conversation (409) or if the account has too
+   many runs in progress (429). Preparation (`tour/preparation.ts`) then decides
+   the whole turn: target, tools, history, compaction, title.
+2. **Target.** `apps/core/src/llm/cible.ts` resolves the engine: the built-in
+   `llama-server` by default, or a connector (enabled, readable key, allowed
+   provider). MCP server addresses are resolved on the server side,
+   never taken from the client.
+3. **Lock and stream.** An in-memory presence lock per conversation
+   (main is a single process, `tour/etat.ts`); the route takes it, the turn
+   claims it. The response is an NDJSON stream (`tour/execution.ts`) pumped by
+   `tour/evenements.ts`, tokens batched every 25 ms. The order of
+   events and the stream invariants are written in
    [apps/core/src/tour/README.md](apps/core/src/tour/README.md).
-4. **Ordonnancement.** Pour une cible llama.cpp, `apps/core/src/llm/ordonnanceur/`
-   applique l'exclusivité de modèle, les créneaux (slots) et le disjoncteur.
-5. **Boucle.** Un seul chemin, avec outils : l'orchestrateur
-   (`apps/core/src/boucle/orchestrateur.ts`) collecte les outils dans le pool
-   MCP et assemble la tête système, puis, à chaque itération, un tour LLM
-   (`boucle/tour-llm.ts`) : porte de compaction, élagage périodique,
-   ajustement au contexte, appel du modèle (Anthropic natif ou compatible
-   OpenAI). Puis l'exécution du lot d'appels d'outils, la même pour les appels
-   natifs et les appels écrits en texte (`boucle/dispatch-outils.ts`,
-   `execution-outils.ts`) : les outils mutants un par un, les autres en
-   parallèle borné, résultats remis dans l'ordre ; traits de chaque outil dans
-   `apps/core/src/outils/traits.ts`. Réponse finale, synthèse sur limite et
-   sortie d'erreur sont dans `boucle/sortie.ts`.
-6. **Outils.** Le pool MCP (`apps/core/src/outils/mcp/clients.ts`) joint
-   l'**hôte d'outils** (`apps/toolhost`, :8765, service requis : le core ne le
-   lance jamais lui-même) ; l'identité du compte voyage dans `_meta`. Les
-   familles liées au compte (mémoire, tâches, skills, graphiques) sont servies
-   en processus par main (`outils/mcp/en-processus.ts`).
-7. **Exécution.** Les commandes shell tournent dans le conteneur de
-   l'utilisateur (`docker exec`, privilèges abaissés à l'UID 10001). Les outils
-   fichiers, l'éditeur et Git passent par l'agent de ce conteneur
-   (`shared_infra/sandbox/agent/`, client `@elpis/fichiers`), sous le même
-   UID ; les opérations Git réseau lancées par Elpis passent par le relais
-   authentifiant de l'hôte (`packages/fichiers/src/relais-git.ts`).
-8. **Fin de tour.** Le tour est enregistré (`tour/persistance.ts` puis
-   `apps/core/src/chats/stockage.ts`, contrôle optimiste sur `updated_at` : un
-   conflit est signalé, rien n'est écrasé), puis les événements `kv_cache` et
-   `final` partent. La consommation va dans `usage_events`, les appels
-   d'outils dans `tool_call_metrics`, les compteurs dans `metric_events`.
-9. **Arrêt et reprise.** `POST /api/chat/cancel`
-   (`apps/core/src/familles/chat-controle.ts`) arrête le tour par son
-   AbortSignal. Si le navigateur se déconnecte, l'exécution continue détachée
-   (dès qu'un outil a tourné, ou si la reprise est activée) ou s'arrête en
-   enregistrant le partiel ; on la rejoint par `GET /api/chat/{id}/run/events`,
-   y compris après un redémarrage (`tour/journal-run.ts`).
+4. **Scheduling.** For a llama.cpp target, `apps/core/src/llm/ordonnanceur/`
+   applies model exclusivity, slots and the circuit breaker.
+5. **Loop.** A single path, with tools: the orchestrator
+   (`apps/core/src/boucle/orchestrateur.ts`) collects the tools from the MCP
+   pool and assembles the system head, then, at each iteration, an LLM turn
+   (`boucle/tour-llm.ts`): compaction gate, periodic pruning,
+   fitting to the context, model call (native Anthropic or OpenAI-compatible).
+   Then the execution of the batch of tool calls, the same for native calls
+   and calls written in text (`boucle/dispatch-outils.ts`,
+   `execution-outils.ts`): mutating tools one by one, the others in
+   bounded parallel, results returned in order; traits of each tool in
+   `apps/core/src/outils/traits.ts`. The final answer, the synthesis on limit and
+   the error exit are in `boucle/sortie.ts`.
+6. **Tools.** The MCP pool (`apps/core/src/outils/mcp/clients.ts`) reaches the
+   **tool host** (`apps/toolhost`, :8765, a required service: the core never
+   launches it itself); the account's identity travels in `_meta`. The
+   account-bound families (memory, tasks, skills, charts) are served
+   in-process by main (`outils/mcp/en-processus.ts`).
+7. **Execution.** Shell commands run in the user's container
+   (`docker exec`, privileges lowered to UID 10001). File tools, the editor and Git
+   go through that container's agent
+   (`shared_infra/sandbox/agent/`, client `@elpis/fichiers`), under the same
+   UID; network Git operations launched by Elpis go through the host's
+   authenticating relay (`packages/fichiers/src/relais-git.ts`).
+8. **End of turn.** The turn is recorded (`tour/persistance.ts` then
+   `apps/core/src/chats/stockage.ts`, optimistic check on `updated_at`: a
+   conflict is reported, nothing is overwritten), then the `kv_cache` and
+   `final` events go out. Consumption goes into `usage_events`, tool calls
+   into `tool_call_metrics`, counters into `metric_events`.
+9. **Stop and resume.** `POST /api/chat/cancel`
+   (`apps/core/src/familles/chat-controle.ts`) stops the turn through its
+   AbortSignal. If the browser disconnects, the run continues detached
+   (as soon as a tool has run, or if resume is enabled) or stops
+   after recording the partial output; you rejoin it through `GET /api/chat/{id}/run/events`,
+   even after a restart (`tour/journal-run.ts`).
 
-## Carte du code
+## Code map
 
-### `apps/core/` — le core TypeScript
+### `apps/core/` — the TypeScript core
 
-- `src/main.ts` (process, signaux), `composition.ts` (assemblage),
-  `familles/` (routes HTTP par famille, montées selon `APP_MODE` ; liste dans
+- `src/main.ts` (process, signals), `composition.ts` (assembly),
+  `familles/` (HTTP routes by family, mounted according to `APP_MODE`; list in
   `familles.ts`).
-- **Chat** : `tour/` (admission, préparation, exécution, pompe NDJSON,
-  persistance, historique d'un tour), `boucle/` (boucle agentique : dispatch
-  des outils, appels écrits en texte, balises du flux, contrat de résultat),
-  `chats/` (stockage, prompts, gabarits).
-- **LLM** : `llm/` (fournisseurs, cible par requête, paramètres, santé,
-  capacités, `ordonnanceur/`), `contexte/` (budget, élagage, assemblage,
+- **Chat**: `tour/` (admission, preparation, execution, NDJSON pump,
+  persistence, a turn's history), `boucle/` (agent loop: tool
+  dispatch, calls written in text, stream tags, result contract),
+  `chats/` (storage, prompts, templates).
+- **LLM**: `llm/` (providers, per-request target, parameters, health,
+  capabilities, `ordonnanceur/`), `contexte/` (budget, pruning, assembly,
   compression).
-- **Outils** : `outils/` (catalogue, catégories, MCP, OpenAPI, outils
-  intégrés), `relais/` (vers l'hôte d'outils), `memoire/`, `skills/`,
+- **Tools**: `outils/` (catalog, categories, MCP, OpenAPI, built-in
+  tools), `relais/` (to the tool host), `memoire/`, `skills/`,
   `graphiques/`, `images/`, `rag/`, `voix/`.
-- **Exploitation** : `admin/` et `administration/` (console), `ops/`
-  (sauvegardes, bascule de base, entretien, redémarrage), `observabilite/`,
+- **Operations**: `admin/` and `administration/` (console), `ops/`
+  (backups, database switchover, maintenance, restart), `observabilite/`,
   `evenements/`, `routines/`, `executions/`, `notifications/`, `interface/`
-  (pages, statiques).
-- `packages/` : paquets partagés avec l'hôte d'outils (`contracts` pour les
-  événements du flux, `db` pour le schéma et les moteurs, `http` pour le socle
-  Fastify, `auth`, `securite`, `config`, `mcp`, `outils-mcp`, `navigateur`,
+  (pages, static files).
+- `packages/`: packages shared with the tool host (`contracts` for the stream
+  events, `db` for the schema and engines, `http` for the Fastify
+  base, `auth`, `securite`, `config`, `mcp`, `outils-mcp`, `navigateur`,
   `bureau`, `fichiers`, `images`, `skills`, `verrous`, `bac`, `commun`).
-- `apps/toolhost/` : hôte d'outils TS (familles natives, dont Office et son
-  worker Python `mcp/office/`, sandbox, terminal).
+- `apps/toolhost/`: TS tool host (native families, including Office and its
+  Python worker `mcp/office/`, sandbox, terminal).
 
-### `office/` — le moteur Office
+### `office/` — the Office engine
 
-- `elpis_office/` : paquet Python autonome (python-docx, python-pptx, lxml,
-  Pillow, pydantic, markdown-it-py ; aucun import de `shared_infra`) qui porte les sept outils Word et PowerPoint (`word.py`,
-  `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, rendu ECharts `echarts_ssr.cjs`).
-  Il ne voit le monde que par l'`Env` (`commun.py`) que lui branche l'hôte :
-  lecture et écriture de fichiers, graphiques, conversion PDF.
-- `canal.py` et `__main__.py` : le worker (`python -m elpis_office`), lancé par
-  `apps/toolhost/src/mcp/office/worker.ts` ; cadres JSON et corps binaire sur
-  stdin (appels) et descripteur 3 (réponses), stdout et stderr au journal,
-  plusieurs appels en parallèle, rappels vers l'hôte.
-- `requirements.txt` : ses dépendances, incluses par `requirements.txt`.
+- `elpis_office/`: standalone Python package (python-docx, python-pptx, lxml,
+  Pillow, pydantic, markdown-it-py; no `shared_infra` import) that carries the seven Word and PowerPoint tools (`word.py`,
+  `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, ECharts rendering `echarts_ssr.cjs`).
+  It sees the world only through the `Env` (`commun.py`) that the host plugs into it:
+  file reading and writing, charts, PDF conversion.
+- `canal.py` and `__main__.py`: the worker (`python -m elpis_office`), launched by
+  `apps/toolhost/src/mcp/office/worker.ts`; JSON frames and binary body on
+  stdin (calls) and descriptor 3 (responses), stdout and stderr to the log,
+  several calls in parallel, callbacks to the host.
+- `requirements.txt`: its dependencies, included by `requirements.txt`.
 
-### `shared_infra/` — le Python restant, rangé par famille
+### `shared_infra/` — the remaining Python, organized by family
 
-Ce qu'importe l'assistant de configuration (`deploy/`), plus l'agent du bac
-(`sandbox/agent/`, bibliothèque standard seulement). Les routes HTTP sont
-toutes dans le core TypeScript.
+What the configuration wizard (`deploy/`) imports, plus the sandbox agent
+(`sandbox/agent/`, standard library only). The HTTP routes are
+all in the TypeScript core.
 
-| Famille | Contenu |
+| Family | Content |
 |---|---|
-| `accounts` | comptes (`users.py`) |
-| `db` | persistance multi-moteurs du Python restant (`_dialect.py`, migrations historiques) |
-| `llm` | connecteurs de modèles |
-| `memory` | mise à niveau des anciennes tables de la mémoire AX (`ax/`) |
+| `accounts` | accounts (`users.py`) |
+| `db` | multi-engine persistence of the remaining Python (`_dialect.py`, historical migrations) |
+| `llm` | model connectors |
+| `memory` | upgrade of the old AX memory tables (`ax/`) |
 | `observability` | `swallow()` |
-| `runtime` | verrous de fichiers entre process (`elpis.verrou.v1.1`) |
-| `sandbox` | agent du conteneur (`agent/`) |
-| `security` | chiffrement Fernet |
-| `ops` | génération de base publiée par la bascule |
+| `runtime` | file locks between processes (`elpis.verrou.v1.1`) |
+| `sandbox` | container agent (`agent/`) |
+| `security` | Fernet encryption |
+| `ops` | database generation published by the switchover |
 
-`config.py` résout la configuration du Python restant (variable
-d'environnement > `config.json` > défaut).
+`config.py` resolves the configuration of the remaining Python (environment
+variable > `config.json` > default).
 
-### `frontend/` — l'interface
+### `frontend/` — the interface
 
-- Workspace npm `@elpis/web` (TypeScript, Vue 3.5, Vite) : `npm run build:web`
-  écrit `frontend/dist/` ; deux entrées `src/entries/main.ts` (application) et
-  `admin.ts` (console), posées dans `index.html` et `admin.html` par
-  `<!-- @entree … -->` (manifeste lu par `apps/core/src/interface/pages.ts`).
-- `src/platform/` (client HTTP, `ApiResult`, lecteur NDJSON),
-  `src/features/<domaine>/` (logique typée : auth, chat, editor, terminal,
+- npm workspace `@elpis/web` (TypeScript, Vue 3.5, Vite): `npm run build:web`
+  writes `frontend/dist/`; two entries `src/entries/main.ts` (application) and
+  `admin.ts` (console), placed in `index.html` and `admin.html` by
+  `<!-- @entree … -->` (manifest read by `apps/core/src/interface/pages.ts`).
+- `src/platform/` (HTTP client, `ApiResult`, NDJSON reader),
+  `src/features/<domain>/` (typed logic: auth, chat, editor, terminal,
   admin, reglages, routines, studio, images, voix, mascotte, skills, code),
-  `src/components/<domaine>/` (SFC), `src/utils/`, `src/modeles/` ; contrats
-  réseau validés par `@elpis/contracts` (Zod). Console : registre
-  `features/admin/registre.ts`, index Ctrl+K `features/admin/champs.gen.ts`
-  (**généré** par `frontend/champs-admin.mts`).
-- Racines `src/components/racine/{App,AppConsole}.vue` sur `src/app/racine/`
-  (état partagé, session, montage des modules, clavier, notifications) ;
-  `index.html` et `admin.html` sont des coquilles. Le build embarque le
-  runtime Vue sans compilateur de gabarits ; les pages portent une CSP stricte
+  `src/components/<domain>/` (SFCs), `src/utils/`, `src/modeles/`; network
+  contracts validated by `@elpis/contracts` (Zod). Console: registry
+  `features/admin/registre.ts`, Ctrl+K index `features/admin/champs.gen.ts`
+  (**generated** by `frontend/champs-admin.mts`).
+- Roots `src/components/racine/{App,AppConsole}.vue` on `src/app/racine/`
+  (shared state, session, module mounting, keyboard, notifications);
+  `index.html` and `admin.html` are shells. The build embeds the Vue
+  runtime without a template compiler; the pages carry a strict CSP
   (`security.csp`).
-- `css/style.css` (jetons, composants), `css/style.tailwind.css` (**généré**),
-  `css/skins/` (skins intégrés et leur registre `skins.json`) ; `vendor/` :
-  Phosphor et le compilateur Tailwind du générateur ; les autres bibliothèques
+- `css/style.css` (tokens, components), `css/style.tailwind.css` (**generated**),
+  `css/skins/` (bundled skins and their registry `skins.json`); `vendor/`:
+  Phosphor and the generator's Tailwind compiler; the other libraries
   (Vue, Monaco, xterm, ECharts, Chart.js, Marked, highlight.js, Mermaid,
-  DOMPurify, Zod) sont des paquets npm aux versions figées.
+  DOMPurify, Zod) are npm packages at pinned versions.
 
-### Services et déploiement
+### Services and deployment
 
-- `apps/toolhost/` : hôte d'outils déployable seul (MCP, sandbox, terminal ;
-  `deploy/toolhost/` pour une machine distante), jeton
-  `user_db/.local_mcp_token` + en-tête d'identité signé.
-- `rag_app/` : extracteur du RAG (sans `shared_infra`), appelé par `apps/core/src/rag/`.
-- `browser-service/`, `desktop-agent/` : voir le tableau des process.
-- `deploy/` : Caddy, image sandbox (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
-  Qdrant, toolhost distant, voix (whisper.cpp :8090, Piper :8091),
-  assistant de configuration (`configure.py`, `wizard.py`, `tui.py`).
-- `install.sh`, `elpis` (CLI d'exploitation), `make_release.sh` (paquet hors
-  ligne), `tools/generate_tailwind_css.mjs`.
-- `system_prompts/` (prompts, en anglais), `skills/` (skills globaux ;
-  `learned/` = sas de l'administrateur).
+- `apps/toolhost/`: tool host deployable on its own (MCP, sandbox, terminal;
+  `deploy/toolhost/` for a remote machine), token
+  `user_db/.local_mcp_token` + signed identity header.
+- `rag_app/`: RAG extractor (no `shared_infra`), called by `apps/core/src/rag/`.
+- `browser-service/`, `desktop-agent/`: see the process table.
+- `deploy/`: Caddy, sandbox image (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
+  Qdrant, remote toolhost, voice (whisper.cpp :8090, Piper :8091),
+  configuration wizard (`configure.py`, `wizard.py`, `tui.py`).
+- `install.sh`, `elpis` (operations CLI), `make_release.sh` (offline
+  package), `tools/generate_tailwind_css.mjs`.
+- `system_prompts/` (prompts, in English), `skills/` (global skills;
+  `learned/` = administrator's airlock).
 
-### Données d'exécution (hors dépôt)
+### Runtime data (outside the repository)
 
-`config.json` (racine), `user_db/` (base SQLite, secret de session, jetons,
-mot de passe de la base, uploads), `user_sandboxes/` (un dossier par
-utilisateur, monté sur `/work`), `user_skills/`, `user_skins/` (skins
-importés), `logs/`, et
-`../mcp_custom_servers/` (à côté du dépôt).
+`config.json` (root), `user_db/` (SQLite database, session secret, tokens,
+database password, uploads), `user_sandboxes/` (one folder per
+user, mounted on `/work`), `user_skills/`, `user_skins/` (imported
+skins), `logs/`, and
+`../mcp_custom_servers/` (next to the repository).
 
-## Base de données
+## Database
 
-- Moteurs : **SQLite** (défaut, better-sqlite3) et **PostgreSQL** (pg),
-  choisis par `database.backend` dans `config.json` ou `APP_DB_*` ; le mot de
-  passe vient de `APP_DB_PASSWORD` ou `user_db/.db_password`, jamais de
+- Engines: **SQLite** (default, better-sqlite3) and **PostgreSQL** (pg),
+  chosen by `database.backend` in `config.json` or `APP_DB_*`; the
+  password comes from `APP_DB_PASSWORD` or `user_db/.db_password`, never from
   `config.json`.
-- `packages/db/src/` : `ouvrir.ts` (ouverture selon les réglages),
-  `sqlite.ts` (écritures et transactions sérialisées), `postgres.ts` (pool
-  borné, valeurs et erreurs relues comme en SQLite), `dialecte.ts` (SQL propre
-  à chaque moteur), `schema.ts` et `schema.gen.ts` (schéma de référence),
-  `init.ts` (pose du schéma, migrations suivies dans `schema_migrations`).
-  Transfert entre moteurs : `apps/core/src/ops/transfert.ts`. Le Python
-  restant (configuration) passe par `shared_infra/db/`.
-- Bascule à chaud : `apps/core/src/ops/bascule.ts` (mode maintenance, 503 sur
-  les écritures, génération incrémentée), pilotée par la console ou
+- `packages/db/src/`: `ouvrir.ts` (opening according to the settings),
+  `sqlite.ts` (serialized writes and transactions), `postgres.ts` (bounded
+  pool, values and errors read back as in SQLite), `dialecte.ts` (SQL specific
+  to each engine), `schema.ts` and `schema.gen.ts` (reference schema),
+  `init.ts` (schema setup, migrations tracked in `schema_migrations`).
+  Transfer between engines: `apps/core/src/ops/transfert.ts`. The remaining
+  Python (configuration) goes through `shared_infra/db/`.
+- Hot switchover: `apps/core/src/ops/bascule.ts` (maintenance mode, 503 on
+  writes, incremented generation), driven by the console or
   `./elpis db`.
 
-## Sandbox et exécution
+## Sandbox and execution
 
-Un conteneur Docker **par utilisateur** (`elpis-sb-<utilisateur>`, étiquettes
-`elpis.*`), image `elpis/sandbox`,
-dossier de l'utilisateur monté sur `/work`, réseau coupé sauf profil réseau
-attribué, limites mémoire / CPU / processus, seules les capacités nécessaires
-(`CAPABILITIES`, sans `NET_RAW` ni `MKNOD`). Le
-conteneur est la frontière de sécurité : toute opération sur `/work` s'y
-exécute, par son agent (ci-dessous), sous l'UID du conteneur, seul à y
-écrire (fichiers 0644, dossiers 0755). L'hôte ne lit ni n'écrit `/work`
-(exceptions : `du` du quota, suppression d'un compte, création de
-`P/work` ; cf. `docs/sandbox-gateway.md`). Git tourne dans le conteneur, par l'agent
-(`packages/fichiers/src/git.ts`) ; ses opérations réseau passent par le relais
-authentifiant de l'hôte (`packages/fichiers/src/relais-git.ts`) : un ticket par opération,
-le seul dépôt de l'opération joignable, l'identifiant du connecteur ajouté
-par l'hôte, jamais dans la sandbox.
+One Docker container **per user** (`elpis-sb-<user>`, `elpis.*`
+labels), image `elpis/sandbox`,
+the user's folder mounted on `/work`, network cut off except for an assigned
+network profile, memory / CPU / process limits, only the necessary capabilities
+(`CAPABILITIES`, without `NET_RAW` or `MKNOD`). The
+container is the security boundary: every operation on `/work` runs
+there, through its agent (below), under the container's UID, the only one to
+write there (files 0644, folders 0755). The host neither reads nor writes `/work`
+(exceptions: `du` for the quota, account deletion, creation of
+`P/work`; see `docs/sandbox-gateway.md`). Git runs in the container, through the agent
+(`packages/fichiers/src/git.ts`); its network operations go through the host's
+authenticating relay (`packages/fichiers/src/relais-git.ts`): one ticket per operation,
+only the operation's repository reachable, the connector's credential added
+by the host, never in the sandbox.
 
-Dans chaque conteneur, un **agent** (`shared_infra/sandbox/agent/server.py`,
-Python, bibliothèque standard) exécute les opérations sur `/work` que l'hôte lui demande : HTTP sur
-`/run/elpis/agent.sock` (dossier `<utilisateur>/.elpis-agent` monté), code monté en
-lecture seule depuis l'application, démarré à la demande sous l'UID du
-conteneur, relancé s'il n'a pas la version de l'application. L'hôte le joint
-par `@elpis/fichiers` (`packages/fichiers/src/agent.ts`), qui saisit le socket
-sans suivre de lien et tient toute réponse pour non fiable.
+In each container, an **agent** (`shared_infra/sandbox/agent/server.py`,
+Python, standard library) executes the operations on `/work` that the host asks of it: HTTP on
+`/run/elpis/agent.sock` (mounted folder `<user>/.elpis-agent`), code mounted
+read-only from the application, started on demand under the container's
+UID, relaunched if it does not have the application's version. The host reaches it
+through `@elpis/fichiers` (`packages/fichiers/src/agent.ts`), which opens the socket
+without following a link and treats every response as untrusted.
 
-## Outils externes (MCP, OAuth, OpenAPI)
+## External tools (MCP, OAuth, OpenAPI)
 
-Les familles d'outils de la sandbox sont servies par l'**hôte d'outils**
-(`apps/toolhost` ; Office par un worker Python), en MCP par famille
-(`/mcp/<famille>`). Les clients externes le joignent par l'origine de l'app :
-le **relais** `apps/core/src/familles/pont-mcp.ts` (`/api/mcp-bridge[/<famille>]`)
-vérifie le jeton du client — jeton personnel (`packages/auth/src/jetons.ts`,
-en empreinte) ou jeton OAuth (`packages/auth/src/oauth.ts`,
-`apps/core/src/familles/oauth.ts` : Elpis est son propre serveur
-d'autorisation) — puis présente à l'hôte un jeton de délégation signé
-(`packages/mcp/src/delegation.ts`) qui porte le compte et ses familles : le
-jeton du client ne quitte jamais le relais. Les familles liées au compte
-(mémoire, tâches, skills, graphiques) sont servies par main lui-même. La **façade OpenAPI** (`apps/core/src/outils/openapi.ts`)
-expose les mêmes outils en HTTP ordinaire. Le **navigateur** (`browser-service/`)
-passe par un relais local filtrant (`proxy_guard.js`, `url_guard.js`).
+The sandbox tool families are served by the **tool host**
+(`apps/toolhost`; Office by a Python worker), over MCP per family
+(`/mcp/<family>`). External clients reach it through the app's origin:
+the **relay** `apps/core/src/familles/pont-mcp.ts` (`/api/mcp-bridge[/<family>]`)
+verifies the client's token — personal token (`packages/auth/src/jetons.ts`,
+stored as a fingerprint) or OAuth token (`packages/auth/src/oauth.ts`,
+`apps/core/src/familles/oauth.ts`: Elpis is its own authorization
+server) — then presents the host with a signed delegation token
+(`packages/mcp/src/delegation.ts`) that carries the account and its families: the
+client's token never leaves the relay. The account-bound families
+(memory, tasks, skills, charts) are served by main itself. The **OpenAPI facade** (`apps/core/src/outils/openapi.ts`)
+exposes the same tools over plain HTTP. The **browser** (`browser-service/`)
+goes through a local filtering relay (`proxy_guard.js`, `url_guard.js`).
 
 ## Invariants
 
-- **Séparation des process.** Les routes d'administration sont **montées**
-  seulement en `APP_MODE=admin` (ou `full`) : absentes du process main, ce
-  n'est pas un contrôle à l'exécution. Le process admin tourne sous le même
-  compte non privilégié, jamais en root.
-- **Tête système stable à l'octet.** Un seul message `role: system`, dans un
-  ordre figé (`apps/core/src/contexte/assemblage.ts`), pour le cache de préfixe
-  du moteur ; le jeu d'outils ne varie pas d'un message à l'autre ; les
-  résumés de compaction ne sont jamais fusionnés dans le socle.
-- **Une seule autorité de comptage** : `apps/core/src/contexte/tokens.ts`.
-  Aucune décision ne repose sur un ratio caractères/token.
-- **Élagage** (`apps/core/src/contexte/elagage.ts`) : ne modifie jamais les
-  messages de travail, ne sépare jamais un appel d'outil de son résultat, ne
-  tronque pas la dernière perception de bureau, garde les messages système et
-  les plus récents.
-- **Outils** : l'exécution d'un appel ne lève jamais (erreur rendue en JSON) ;
-  le pool MCP ne rejoue jamais un appel qui a peut-être déjà agi.
-- **Configuration** : variable d'environnement > `config.json` > défaut ; un
-  réglage modifiable depuis la console se relit à chaud (`liveConfigValue()`,
-  `configView()` de `packages/config/src/vivant.ts`, règle de lint
-  `elpis/reglages-vifs`), sinon la console l'annonce comme « Redémarrage
-  nécessaire » ; ne jamais modifier le dictionnaire rendu par `configView()`.
-- **État partagé entre process** (main, admin, hôte d'outils) :
-  seulement la base ou le canal interne. main est un seul process : ses tours
-  en cours, verrous de présence et annulations vivent en mémoire. Une
-  annulation ne passe jamais par les événements système (fuite
-  d'identifiants de conversation).
-- **Base** : SQL portable via `packages/db/src/dialecte.ts` ; une nouvelle
-  table ou colonne est une migration de `MIGRATIONS_TS`
-  (`packages/db/src/init.ts`) ; côté Python, tout `db()` a son `close()`.
-- **Tâches planifiées** (routines, entretien, sauvegardes) : dans main, un
-  seul planificateur actif entre les process (`apps/core/src/routines/meneur.ts`),
-  jamais dans le process admin.
-- **Sandbox** : le conteneur est la barrière ; toute opération sur `/work`
-  passe par l'agent du conteneur (`@elpis/fichiers`), jamais par un `open`,
-  `readdir`, `chmod` ou `rm` de l'hôte (exceptions, métadonnées seules :
-  `docs/sandbox-gateway.md`) ; aucun `git` côté hôte sur un dépôt de sandbox ;
-  tout conteneur passe par la résolution du profil réseau (un profil imposé
-  par l'administrateur l'emporte).
+- **Process separation.** The admin routes are **mounted**
+  only in `APP_MODE=admin` (or `full`): absent from the main process, this
+  is not a runtime check. The admin process runs under the same
+  unprivileged account, never as root.
+- **Byte-stable system head.** A single `role: system` message, in a fixed
+  order (`apps/core/src/contexte/assemblage.ts`), for the engine's prefix cache;
+  the set of tools does not vary from one message to the next; compaction
+  summaries are never merged into the base.
+- **A single counting authority**: `apps/core/src/contexte/tokens.ts`.
+  No decision relies on a characters/token ratio.
+- **Pruning** (`apps/core/src/contexte/elagage.ts`): never modifies the
+  working messages, never separates a tool call from its result, does not
+  truncate the last desktop perception, keeps the system messages and
+  the most recent ones.
+- **Tools**: executing a call never throws (error returned as JSON);
+  the MCP pool never replays a call that may already have acted.
+- **Configuration**: environment variable > `config.json` > default; a
+  console-editable setting is reread live (`liveConfigValue()`,
+  `configView()` of `packages/config/src/vivant.ts`, lint rule
+  `elpis/reglages-vifs`), otherwise the console announces it as "Restart
+  required"; never modify the dictionary returned by `configView()`.
+- **State shared between processes** (main, admin, tool host):
+  only the database or the internal channel. main is a single process: its running
+  turns, presence locks and cancellations live in memory. A
+  cancellation never goes through system events (leak of
+  conversation identifiers).
+- **Database**: portable SQL via `packages/db/src/dialecte.ts`; a new
+  table or column is a `MIGRATIONS_TS` migration
+  (`packages/db/src/init.ts`); on the Python side, every `db()` has its `close()`.
+- **Scheduled tasks** (routines, maintenance, backups): in main, a
+  single active scheduler across processes (`apps/core/src/routines/meneur.ts`),
+  never in the admin process.
+- **Sandbox**: the container is the barrier; every operation on `/work`
+  goes through the container's agent (`@elpis/fichiers`), never through a host `open`,
+  `readdir`, `chmod` or `rm` (exceptions, metadata only:
+  `docs/sandbox-gateway.md`); no host-side `git` on a sandbox repository;
+  every container goes through network profile resolution (a profile imposed
+  by the administrator wins).
 
 ## Tests
 
-Les tests (Vitest pour le TypeScript, pytest pour le Python restant, parcours
-réels dans Chromium) vivent dans le dépôt de développement des mainteneurs,
-qui les passent avant chaque fusion. Dans ce dépôt : `npm run typecheck`,
-`npm run lint` et `npm run build` ([AGENTS.md](AGENTS.md),
+The tests (Vitest for TypeScript, pytest for the remaining Python, real
+journeys in Chromium) live in the maintainers' development repository,
+which runs them before every merge. In this repository: `npm run typecheck`,
+`npm run lint` and `npm run build` ([AGENTS.md](AGENTS.md),
 [CONTRIBUTING.md](CONTRIBUTING.md)).

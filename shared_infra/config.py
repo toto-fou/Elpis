@@ -168,7 +168,7 @@ def retired_backend_message(backend: str) -> str:
             "MariaDB/MySQL n'est plus pris en charge. Revenir à la version précédente "
             "d'Elpis, y quitter ce moteur (console › Base de données › « Revenir à SQLite », "
             "ou « ./elpis db transfer » puis « ./elpis db use » vers PostgreSQL), puis "
-            "refaire la mise à jour (docs/exploitation.md, « Mettre à jour »).")
+            "refaire la mise à jour (docs/operations.md, « Upgrading »).")
 
 if DB_BACKEND in DB_BACKENDS_RETIRED:
     import logging as _logging

@@ -160,8 +160,8 @@ de l'image de la sandbox tire en plus l'image `debian:bookworm-slim` de Docker
 Hub, des paquets des miroirs Debian et de PyPI, et des outils publiés sur
 GitHub et download.mozilla.org (Firefox ESR). Un serveur **sans accès à
 internet** s'installe depuis un paquet préparé sur une machine connectée :
-[docs/exploitation.md](docs/exploitation.md), « Installer un serveur hors
-ligne ».
+[docs/operations.md](docs/operations.md#installing-an-offline-server),
+« Installing an offline server ».
 
 | Page | Contenu |
 |---|---|
@@ -194,7 +194,7 @@ Chaque étape reste disponible seule :
 ./elpis configure              # revoir la configuration (valeurs actuelles proposées)
 sudo ./elpis service install   # services systemd
 ./elpis start | stop | status | logs [service] | doctor
-./elpis backup | upgrade       # sauvegarde, mise à jour (docs/exploitation.md)
+./elpis backup | upgrade       # sauvegarde, mise à jour (docs/operations.md)
 ./elpis db info | check | transfer | use       # base de données
 ```
 
@@ -225,6 +225,8 @@ sudo ./elpis service install   # services systemd
 
 ## Documentation
 
+La documentation est en anglais ; seul le guide utilisateur existe aussi en français.
+
 - [ARCHITECTURE.md](ARCHITECTURE.md) — carte du code : process, paquets,
   invariants.
 - [PRODUCT.md](PRODUCT.md) · [DESIGN.md](DESIGN.md) — public, principes,
@@ -232,9 +234,9 @@ sudo ./elpis service install   # services systemd
 - [AGENTS.md](AGENTS.md) — consignes pour les agents de code (commandes,
   conventions, pièges).
 - [CHANGELOG.md](CHANGELOG.md) — journal des modifications.
-- [Guide utilisateur](docs/guide-utilisateur.md)
+- [Guide utilisateur](docs/fr/user-guide.md)
 - [Installation et configuration](docs/configuration.md)
-- [Exploitation](docs/exploitation.md) — installation hors ligne, mise à
+- [Exploitation](docs/operations.md) — installation hors ligne, mise à
   jour, retour à la version Python (tag `python-final`), sauvegardes,
   supervision.
 - [Feuille de route](ROADMAP.md)

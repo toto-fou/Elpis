@@ -514,7 +514,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           const dev = ["dev", "developer", "developpeur", "devs"].includes(
             stripPy(strPy(doc || "")).toLowerCase(),
           );
-          const etiquette = dev ? "docs/architecture.md" : "docs/guide-utilisateur.md";
+          const etiquette = dev ? "docs/architecture.md" : "docs/fr/user-guide.md";
           const resolu = dev ? "dev" : "user";
           const chemin = join(dep.racine, etiquette);
           if ((await stat(chemin).catch(() => null)) === null)

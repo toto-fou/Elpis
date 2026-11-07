@@ -1,32 +1,31 @@
-# Feuille de route
+# Roadmap
 
-Les grandes étapes à venir, sans date. Le détail avance lot par lot dans les
-pull requests ; ce qui est fait, publié ou non, est dans
+The major upcoming steps, with no dates. Details move forward batch by batch in
+pull requests; what is done, released or not, is in
 [CHANGELOG.md](CHANGELOG.md).
 
-## Fait (non publié)
+## Done (unreleased)
 
-- **Contrats d'outils explicites** : une seule description des propriétés
-  d'un outil (lecture seule, écriture, réseau, exécution en série).
-- **Agent résident dans la sandbox** : fichiers et Git exécutés dans le
-  conteneur de l'utilisateur ; l'hôte ne touche plus à son contenu.
-- **Observabilité** : trace de chaque tour, « Détails » d'une réponse,
-  vue des exécutions dans la console.
+- **Explicit tool contracts**: a single description of a tool's properties
+  (read-only, write, network, serial execution).
+- **Agent resident in the sandbox**: files and Git run inside the user's
+  container; the host no longer touches its content.
+- **Observability**: a trace of each turn, the "Run details" of a response,
+  a runs view in the console.
 
-## Ensuite
+## Next
 
-- **Projets** : un espace par dépôt, `AGENTS.md` comme mémoire du projet.
-- **Points de reprise et worktrees** : revenir à un état antérieur d'une
-  session, mener plusieurs branches en parallèle.
-- **`devcontainer.json`** : l'environnement de la sandbox décrit par le dépôt.
-- **Politiques et secrets** : règles pour les actions hors sandbox, rotation
-  des secrets.
+- **Projects**: one workspace per repository, `AGENTS.md` as the project's memory.
+- **Checkpoints and worktrees**: go back to an earlier state of a session,
+  work on several branches in parallel.
+- **`devcontainer.json`**: the sandbox environment described by the repository.
+- **Policies and secrets**: rules for actions outside the sandbox, secret
+  rotation.
 
-## Plus tard
+## Later
 
-- Collaboration entre utilisateurs (projet partagé, passation).
+- Collaboration between users (shared project, handover).
 
-## En continu
+## Ongoing
 
-- Découpage des plus gros modules, tests de concurrence, périmètre typé
-  élargi.
+- Splitting the largest modules, concurrency tests, wider typed scope.

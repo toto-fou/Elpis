@@ -1,8 +1,8 @@
 # Product
 
-Fiche produit d'Elpis : à qui il s'adresse, ce qu'il promet, et les règles qui
-en découlent pour l'interface. Toute décision d'écran (contributeur humain ou
-agent de code) s'y réfère ; le système visuel qui l'applique est décrit dans
+Elpis product sheet: who it is for, what it promises, and the rules that
+follow for the interface. Every screen decision (human contributor or
+coding agent) refers to it; the visual system that applies it is described in
 [DESIGN.md](DESIGN.md).
 
 ## Register
@@ -11,92 +11,93 @@ product
 
 ## Platform
 
-web — application de bureau dans le navigateur (desktop d'abord ; une fenêtre
-étroite à côté d'un chat doit rester utilisable, pas de cible mobile).
+web — desktop application in the browser (desktop first; a narrow window
+next to a chat must stay usable, no mobile target).
 
 ## Users
 
-Équipes techniques qui hébergent elles-mêmes leur assistant LLM : développeurs,
-opérateurs, utilisateurs avancés, et l'administrateur de l'instance.
+Technical teams that host their own LLM assistant: developers,
+operators, power users, and the instance administrator.
 
-- Ils dialoguent avec un **chat agentique** qui appelle des outils (fichiers,
-  shell, Git, navigateur, graphiques, mémoire), délègue à des sous-agents et
-  consulte leurs documents (RAG).
-- Ils éditent du code dans l'**éditeur intégré**, sur une sandbox Docker
-  personnelle avec terminal.
-- Ils planifient des **routines** et branchent leurs propres serveurs MCP.
-- L'administrateur règle l'instance depuis la **console d'administration** :
-  moteurs d'inférence, comptes, sandbox, sauvegardes, supervision.
+- They talk with an **agentic chat** that calls tools (files,
+  shell, Git, browser, charts, memory), delegates to subagents and
+  consults their documents (RAG).
+- They edit code in the **built-in editor**, on a personal Docker
+  sandbox with a terminal.
+- They schedule **routines** and plug in their own MCP servers.
+- The administrator configures the instance from the **admin console**:
+  inference engines, accounts, sandbox, backups, monitoring.
 
-État d'esprit : concentré, orienté tâche, souvent en train de surveiller une
-génération longue ou une commande qui tourne. Langue de travail : le français.
+Mindset: focused, task-oriented, often watching a long generation or a
+running command. Working language: French for the interface,
+English for the documentation.
 
 ## Product Purpose
 
-Un assistant LLM **entièrement auto-hébergé** : tout tourne sur le serveur de
-l'équipe, avec `llama-server` (llama.cpp) ou tout moteur compatible OpenAI, sans
-dépendance à un service tiers.
+A **fully self-hosted** LLM assistant: everything runs on the team's server,
+with `llama-server` (llama.cpp) or any OpenAI-compatible engine, with no
+dependency on a third-party service.
 
-Le succès se mesure à deux choses :
+Success is measured by two things:
 
-- l'utilisateur comprend d'un coup d'œil l'état de son travail (modèle, contexte
-  consommé, outils en cours, fichiers modifiés) et avance sans friction ;
-- l'administrateur voit en arrivant ce qui demande son attention, règle une
-  fonctionnalité sur un seul écran et ne perd jamais une modification.
+- the user understands the state of their work at a glance (model, context
+  used, tools in progress, changed files) and moves forward without friction;
+- the administrator sees on arrival what needs attention, configures a
+  feature on a single screen and never loses a change.
 
 ## Brand Personality
 
-Précis, calme, fiable. « L'outil s'efface derrière la tâche. » Une confiance
-d'expert, sans effet de manche.
+Precise, calm, reliable. "The tool fades behind the task." An expert's
+confidence, without showmanship.
 
-Trois mots : **précis, calme, lisible**.
+Three words: **precise, calm, legible**.
 
 ## Voice & Tone
 
-- **Français** partout dans l'interface, **vouvoiement**.
-- **Libellés courts** : un ou deux mots. Pas de paragraphe d'aide à l'écran :
-  le détail va dans l'infobulle (`title`), le texte indicatif du champ ou la
+- **One language** throughout the interface, in the formal register
+  (the French interface uses the formal "vous").
+- **Short labels**: one or two words. No help paragraph on screen:
+  the detail goes in the tooltip (`title`), the field's placeholder text or the
   documentation.
-- **Aucun emoji** dans l'interface. Seuls les signes ✓ ✗ ⚠ sont tolérés.
-- Vocabulaire constant : « Enregistrer » pour les réglages, « Sauvegarde » pour
-  les archives ; « RAG » reste « RAG » ; statuts en français (« En cours »,
-  « Arrêté »), jamais de code interne (`status=error`) à l'écran.
-- Messages d'erreur actionnables : ce qui s'est passé, puis quoi faire.
+- **No emoji** in the interface. Only the signs ✓ ✗ ⚠ are tolerated.
+- Consistent vocabulary: "Save" for settings, "Backup" for
+  archives; "RAG" stays "RAG"; statuses in plain words ("Running",
+  "Stopped"), never an internal code (`status=error`) on screen.
+- Actionable error messages: what happened, then what to do.
 
 ## Anti-references
 
-- Panneaux « admin IA » saturés : micro-majuscules espacées au-dessus de chaque
-  section, cartes imbriquées, navigation fragmentée en écrans aux en-têtes
-  redondants.
-- Micro-typographie gris clair sur blanc (contraste à la limite).
-- Tableaux de bord gamifiés ou multicolores ; couleur décorative.
-- Complexité de graphe de nœuds façon Flowise.
+- Overloaded "AI admin" panels: spaced-out small caps above every
+  section, nested cards, navigation fragmented into screens with redundant
+  headers.
+- Light-gray micro-typography on white (borderline contrast).
+- Gamified or multicolor dashboards; decorative color.
+- Flowise-style node-graph complexity.
 
 ## Design Principles
 
-1. **Un seul espace de travail.** Une surface cohérente : pas de saut de
-   contexte, pas d'en-tête répété.
-2. **Lisibilité avant densité.** Chaque libellé est mérité ; la hiérarchie se
-   joue par taille et graisse, pas par des gris plus clairs ni des
-   micro-majuscules.
-3. **Le contenu est le héros.** La conversation et son activité en direct
-   (état, tokens, outils en cours) sont le contenu, pas le décor.
-4. **Familiarité méritée.** Des affordances produit standard ; l'outil
-   disparaît dans la tâche.
-5. **Un accent, couleur sémantique seulement.** Bleu = action ou sélection ;
-   les couleurs de statut signalent un état anormal ; rien de décoratif.
-6. **Rien ne se perd en silence.** Un écran modifié ne se quitte pas sans
-   choix explicite ; l'irréversible demande une confirmation nommée (ou
-   saisie) ; ce qui n'agira qu'au redémarrage est annoncé.
+1. **A single workspace.** One coherent surface: no context jumps,
+   no repeated header.
+2. **Legibility before density.** Every label is earned; hierarchy comes from
+   size and weight, not from lighter grays or small caps.
+3. **Content is the hero.** The conversation and its live activity
+   (state, tokens, tools in progress) are the content, not the decoration.
+4. **Earned familiarity.** Standard product affordances; the tool
+   disappears into the task.
+5. **One accent, semantic color only.** Blue = action or selection;
+   status colors signal an abnormal state; nothing decorative.
+6. **Nothing is lost silently.** A modified screen is not left without an
+   explicit choice; the irreversible requires a named (or typed)
+   confirmation; whatever will only take effect on restart is announced.
 
 ## Accessibility & Inclusion
 
-- WCAG 2.1 AA : texte courant ≥ 4,5:1, textes indicatifs compris ; la rampe de
-  gris des jetons est calibrée pour.
-- Navigation clavier complète ; focus visible ; les modales piègent la
-  tabulation et rendent le focus à la fermeture ; Échap ferme la couche la
-  plus haute.
-- `prefers-reduced-motion` respecté : chaque animation a son alternative.
-- Régions en direct (activité, statut) annoncées (`aria-live`) ; sélection et
-  page courante exposées (`aria-selected`, `aria-current`) ; graphiques doublés
-  d'un résumé texte.
+- WCAG 2.1 AA: body text ≥ 4.5:1, placeholder texts included; the token gray
+  ramp is calibrated for it.
+- Full keyboard navigation; visible focus; modals trap the
+  Tab key and return focus on close; Esc closes the topmost
+  layer.
+- `prefers-reduced-motion` respected: every animation has its alternative.
+- Live regions (activity, status) announced (`aria-live`); selection and
+  current page exposed (`aria-selected`, `aria-current`); charts paired
+  with a text summary.

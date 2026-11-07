@@ -45,7 +45,7 @@
 #                    (GPL/LGPL, image sandbox) dans sandbox/sources/. Les sources
 #                    des paquets Debian de l'image : apt-get source n'existe que
 #                    sous Debian ; sinon https://snapshot.debian.org (versions de
-#                    sandbox/SOURCES.txt), voir docs/exploitation.md.
+#                    sandbox/SOURCES.txt), voir docs/operations.md.
 #    --sign          signature GPG détachée (gpg --detach-sign --armor) de
 #                    MANIFEST.txt et du .tar ; clé : variable ELPIS_SIGN_KEY
 #                    (empreinte ou identifiant). Vérification :

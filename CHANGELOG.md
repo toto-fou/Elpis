@@ -20,6 +20,9 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Chat: rendered messages kept across conversations.** Switching conversations no longer
+  empties the cache of rendered messages (Markdown, code highlighting, sanitizing): going back
+  to a conversation shows it without parsing its messages again.
 - **Licence policy in `THIRD_PARTY_LICENSES/policy.json`.** The licenses admitted for
   shipped packages, the development-only ones and the per-package overrides leave
   `migration-kit/deps.map.json`, a leftover of the TypeScript migration; `migration-kit/`

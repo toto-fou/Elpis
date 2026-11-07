@@ -33,6 +33,14 @@ Latin subsets in WOFF2, unmodified, from the Fontsource packages. Downloaded by 
 | Instrument Sans (variable, roman and italic) | `@fontsource-variable/instrument-sans` 5.3.0 | OFL-1.1 | `instrument-sans-latin-wght-*.woff2` | https://github.com/Instrument/instrument-sans |
 | Red Hat Mono (variable, roman) | `@fontsource-variable/red-hat-mono` 5.3.0 | OFL-1.1 | `red-hat-mono-latin-wght-normal.woff2` | https://github.com/RedHatOfficial/RedHatFont |
 
+### `frontend/css/skins/terminal/polices/` (fonts of the Terminal skin)
+
+Latin subsets in WOFF2, unmodified, from the Fontsource packages. Downloaded by the browser only when the skin uses them.
+
+| Component | Version | License | Files | Upstream |
+|---|---|---|---|---|
+| JetBrains Mono (variable, roman and italic) | `@fontsource-variable/jetbrains-mono` 5.3.0 | OFL-1.1 | `jetbrains-mono-latin-wght-*.woff2` | https://github.com/JetBrains/JetBrainsMono |
+
 ### `frontend/assets/mascotte/` and `frontend/*.png` (project artwork)
 
 Not third-party code. The pixel-art mascots are drawn by script from the grids

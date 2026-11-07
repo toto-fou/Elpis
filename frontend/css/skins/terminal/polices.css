@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/terminal/polices.css — police embarquée de Terminal : JetBrains Mono 5.3.0 (@fontsource-variable, OFL-1.1). */
+
+@font-face {
+    font-family: "Terminal JetBrains Mono";
+    font-style: normal;
+    font-weight: 100 800;
+    font-display: swap;
+    src: url("polices/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Terminal JetBrains Mono";
+    font-style: italic;
+    font-weight: 100 800;
+    font-display: swap;
+    src: url("polices/jetbrains-mono-latin-wght-italic.woff2") format("woff2");
+}

@@ -1,0 +1,777 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/terminal/skin.css — l'assistant comme un shell ; tout en chasse fixe, volets séparés par des filets, la ligne choisie en vidéo inverse. */
+
+/* ── Jetons : clair, le papier listing ──────────────────────────────────── */
+body.elpis-skin-terminal {
+    --tm-fond:     #eef1f3;
+    --tm-feuille:  #f8fafb;
+    --tm-relief:   #e6eaee;
+    --tm-filet:    #d3dae0;
+    --tm-encre:    #0f1b28;
+    --tm-second:   #4a5b6b;
+    --tm-cyan:     #006a85;
+    --tm-cyan-2:   #00566c;
+    --tm-sur-cyan: #ffffff;
+    --tm-mono:     "Terminal JetBrains Mono", "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --tm-voile-modale: rgb(15 27 40 / 0.42);
+    --tm-selection:    rgb(0 106 133 / 0.18);
+    --tm-syn-mot:      #1f4fb5;
+    --tm-syn-texte:    #276b3a;
+    --tm-syn-nombre:   #8a5200;
+    --tm-syn-type:     #6b3fb0;
+    --tm-syn-com:      #5b6b7a;
+    --tm-syn-ajout:    #dcf0e2;
+    --tm-syn-retrait:  #f8e1e1;
+
+    --radius:    0.125rem;
+    --radius-sm: 0.125rem;
+    --radius-md: 0.125rem;
+    --radius-lg: 0.1875rem;
+    --radius-xl: 0.25rem;
+
+    --app-bg:    var(--tm-fond);
+    --surface:   var(--tm-feuille);
+    --surface-2: #f1f4f6;
+    --surface-3: var(--tm-relief);
+    --surface-4: #dce2e7;
+    --surface-5: #c3ccd4;
+    --border:            var(--tm-filet);
+    --border-soft:       #e2e7eb;
+    --table-cell-border: #dde3e8;
+
+    --text-900: var(--tm-encre);
+    --text-800: #172535;
+    --text-700: #243445;
+    --text-600: #334456;
+    --text-500: #3f5062;
+    --text-400: var(--tm-second);
+    --text-300: #7d8b98;
+    --text-max: #050b12;
+
+    --prose-body:       #172535;
+    --prose-heading:    var(--tm-encre);
+    --prose-strong:     var(--tm-encre);
+    --prose-link:       var(--tm-cyan);
+    --prose-link-hover: var(--tm-cyan-2);
+
+    --code-inline-bg:     var(--tm-relief);
+    --code-inline-fg:     var(--tm-encre);
+    --code-inline-border: transparent;
+    --code-bg:        #f1f4f6;
+    --code-fg:        #172535;
+    --code-border:    var(--tm-filet);
+    --code-header-bg: #f1f4f6;
+    --code-header-fg: var(--tm-second);
+
+    --danger-surface:     rgb(176 42 42 / 0.06);
+    --danger-border:      #e9c2c2;
+    --danger-border-soft: #f3dddd;
+    --danger-text:        #a82727;
+    --danger-strong:      #861d1d;
+    --danger-icon-bg:     #f6e0e0;
+    --danger-icon-fg:     #a82727;
+
+    --scrollbar-thumb:        #c3ccd4;
+    --scrollbar-thumb-hover:  #9aa7b3;
+    --scrollbar-thumb-custom: #c3ccd4;
+
+    --accent:             var(--tm-cyan);
+    --accent-strong:      var(--tm-cyan-2);
+    --accent-500:         #007a99;
+    --accent-400:         #1a8ba8;
+    --accent-300:         #7fc0d1;
+    --accent-fg:          var(--tm-sur-cyan);
+    --accent-text:        var(--tm-cyan);
+    --accent-text-strong: var(--tm-cyan-2);
+    --accent-surface:     #e1f0f4;
+    --accent-surface-2:   #cce6ed;
+    --accent-border:      #9fcfdb;
+    --accent-ring:        var(--tm-cyan);
+
+    --ok:             #1d6b45;
+    --ok-strong:      #155235;
+    --ok-soft:        #2a8a5b;
+    --ok-400:         #4bb07e;
+    --ok-text:        #1d6b45;
+    --ok-text-strong: #155235;
+    --ok-surface:     #e5f2eb;
+    --ok-surface-2:   #d0e8db;
+    --ok-border:      #a8d4bd;
+    --ok-fg:          #ffffff;
+
+    --warn:             #8a5200;
+    --warn-soft:        #c27a12;
+    --warn-text:        #8a5200;
+    --warn-text-strong: #6e4100;
+    --warn-surface:     #fbf3e3;
+    --warn-surface-2:   #f5e5c4;
+    --warn-border:      #e8cf98;
+
+    --role-admin-text:    #6b3fb0;
+    --role-admin-surface: #f2edfa;
+    --role-admin-border:  #dccff0;
+
+    --rail-bg:           var(--tm-fond);
+    --rail-bg-2:         var(--tm-fond);
+    --rail-border:       var(--tm-filet);
+    --rail-text:         #243445;
+    --rail-text-strong:  var(--tm-encre);
+    --rail-muted:        var(--tm-second);
+    --rail-hover:        rgb(15 27 40 / 0.06);
+    --rail-chip:         rgb(15 27 40 / 0.07);
+    --rail-active-bg:    var(--tm-cyan);
+    --rail-input-bg:     var(--tm-feuille);
+    --rail-input-border: var(--tm-filet);
+    --rail-ok:           #1d6b45;
+    --rail-ok-strong:    #155235;
+
+    --toast-bg:       var(--tm-encre);
+    --toast-fg:       #ffffff;
+    --toast-error-bg: #a82727;
+    --toast-error-fg: #ffffff;
+
+    --hl-bg: #f5e5c4;
+    --hl-fg: #573400;
+
+    --term-surface:   #0f1825;
+    --term-strip-bg:  #0b121c;
+
+    font-family: var(--tm-mono);
+    font-variant-ligatures: none;
+}
+
+/* ── Jetons : sombre, bleu nuit ─────────────────────────────────────────── */
+body.elpis-skin-terminal.elpis-app-dark {
+    --tm-fond:     #0f1825;
+    --tm-feuille:  #131e2d;
+    --tm-relief:   #1a2738;
+    --tm-filet:    #23324a;
+    --tm-encre:    #d3dde6;
+    --tm-second:   #8da0b3;
+    --tm-cyan:     #4fd1e8;
+    --tm-cyan-2:   #82e0f0;
+    --tm-sur-cyan: #0f1825;
+    --tm-voile-modale: rgb(4 8 14 / 0.66);
+    --tm-selection:    rgb(79 209 232 / 0.24);
+    --tm-syn-mot:      #8fb8ff;
+    --tm-syn-texte:    #a5d6a7;
+    --tm-syn-nombre:   #f0c06a;
+    --tm-syn-type:     #c3a6ff;
+    --tm-syn-com:      #7d8fa3;
+    --tm-syn-ajout:    rgb(165 214 167 / 0.14);
+    --tm-syn-retrait:  rgb(255 143 143 / 0.14);
+
+    --app-bg:    var(--tm-fond);
+    --surface:   var(--tm-feuille);
+    --surface-2: #162233;
+    --surface-3: var(--tm-relief);
+    --surface-4: #213046;
+    --surface-5: #2c3e57;
+    --border:            var(--tm-filet);
+    --border-soft:       #1c2a3d;
+    --table-cell-border: #1f2d41;
+
+    --text-900: var(--tm-encre);
+    --text-800: #c6d1db;
+    --text-700: #b7c3ce;
+    --text-600: #a8b6c3;
+    --text-500: #9aabba;
+    --text-400: var(--tm-second);
+    --text-300: #62758a;
+    --text-max: #f2f6f9;
+
+    --prose-body:       #c6d1db;
+    --prose-heading:    #e4ebf1;
+    --prose-strong:     #eef3f7;
+    --prose-link:       var(--tm-cyan);
+    --prose-link-hover: var(--tm-cyan-2);
+
+    --code-inline-bg:     var(--tm-relief);
+    --code-inline-fg:     #e4ebf1;
+    --code-inline-border: transparent;
+    --code-bg:        #0d1520;
+    --code-fg:        #c6d1db;
+    --code-border:    var(--tm-filet);
+    --code-header-bg: #0d1520;
+    --code-header-fg: var(--tm-second);
+
+    --danger-surface:     rgb(255 143 143 / 0.1);
+    --danger-border:      rgb(255 143 143 / 0.34);
+    --danger-border-soft: rgb(255 143 143 / 0.18);
+    --danger-text:        #ff9d9d;
+    --danger-strong:      #ffc2c2;
+    --danger-icon-bg:     rgb(255 143 143 / 0.14);
+    --danger-icon-fg:     #ff8f8f;
+
+    --scrollbar-thumb:        #2c3e57;
+    --scrollbar-thumb-hover:  #3b5170;
+    --scrollbar-thumb-custom: #2c3e57;
+
+    --accent:             var(--tm-cyan);
+    --accent-strong:      var(--tm-cyan-2);
+    --accent-500:         #4fd1e8;
+    --accent-400:         #82e0f0;
+    --accent-300:         #b0ecf6;
+    --accent-fg:          var(--tm-sur-cyan);
+    --accent-text:        var(--tm-cyan);
+    --accent-text-strong: var(--tm-cyan-2);
+    --accent-surface:     rgb(79 209 232 / 0.1);
+    --accent-surface-2:   rgb(79 209 232 / 0.17);
+    --accent-border:      rgb(79 209 232 / 0.4);
+    --accent-ring:        var(--tm-cyan);
+
+    --ok:             #7fd69b;
+    --ok-strong:      #a7e5bb;
+    --ok-soft:        #7fd69b;
+    --ok-400:         #7fd69b;
+    --ok-text:        #7fd69b;
+    --ok-text-strong: #a7e5bb;
+    --ok-surface:     rgb(127 214 155 / 0.1);
+    --ok-surface-2:   rgb(127 214 155 / 0.17);
+    --ok-border:      rgb(127 214 155 / 0.38);
+    --ok-fg:          #0b2415;
+
+    --warn:             #f0c06a;
+    --warn-soft:        #f0c06a;
+    --warn-text:        #f0c06a;
+    --warn-text-strong: #f6d89f;
+    --warn-surface:     rgb(240 192 106 / 0.1);
+    --warn-surface-2:   rgb(240 192 106 / 0.17);
+    --warn-border:      rgb(240 192 106 / 0.38);
+
+    --role-admin-text:    #c3a6ff;
+    --role-admin-surface: rgb(195 166 255 / 0.1);
+    --role-admin-border:  rgb(195 166 255 / 0.34);
+
+    --rail-bg:           var(--tm-fond);
+    --rail-bg-2:         var(--tm-fond);
+    --rail-border:       var(--tm-filet);
+    --rail-text:         #b7c3ce;
+    --rail-text-strong:  #e4ebf1;
+    --rail-muted:        var(--tm-second);
+    --rail-hover:        rgb(211 221 230 / 0.06);
+    --rail-chip:         rgb(211 221 230 / 0.08);
+    --rail-active-bg:    var(--tm-cyan);
+    --rail-input-bg:     var(--tm-feuille);
+    --rail-input-border: var(--tm-filet);
+    --rail-ok:           #7fd69b;
+    --rail-ok-strong:    #a7e5bb;
+
+    --toast-bg:       #d3dde6;
+    --toast-fg:       #0f1825;
+    --toast-error-bg: #ff9d9d;
+    --toast-error-fg: #3a0b0b;
+
+    --hl-bg: rgb(240 192 106 / 0.26);
+    --hl-fg: #f6d89f;
+
+    --term-surface:   #0d1520;
+    --term-strip-bg:  #0a111a;
+}
+
+body.elpis-skin-terminal ::selection { background: var(--tm-selection); }
+body.elpis-skin-terminal :is(textarea, input, select, button) { font-family: inherit; font-variant-ligatures: none; }
+
+/* ── Chasse fixe : les tailles d'interface baissent d'un cran pour garder les gabarits ── */
+body.elpis-skin-terminal .text-base { font-size: 0.9375rem; }
+body.elpis-skin-terminal .text-sm { font-size: 0.8125rem; }
+body.elpis-skin-terminal .text-\[13\.5px\] { font-size: 0.8125rem; }
+body.elpis-skin-terminal .text-\[15px\] { font-size: 0.875rem; }
+body.elpis-skin-terminal .text-\[12\.5px\] { font-size: 0.75rem; }
+body.elpis-skin-terminal .text-xs { font-size: 0.71875rem; }
+
+/* ── Les volets : à angles droits, séparés par un filet, sans ombre ─────── */
+body.elpis-skin-terminal aside.elpis-slide-panel {
+    border-radius: 0;
+    border-right: 1px solid var(--tm-filet);
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-terminal aside.elpis-slide-panel.pointer-events-none { border-right-width: 0; }
+body.elpis-skin-terminal .elpis-slide-panel.rounded-l-\[10px\] {
+    border-radius: 0;
+    border-left-color: var(--tm-filet);
+    background: var(--surface);
+}
+/* Chaque volet a sa barre de titre pleine, à la même hauteur : une bande continue d'un bord à l'autre. */
+body.elpis-skin-terminal .elpis-slide-panel > .h-16,
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .h-14 {
+    height: 2.75rem;
+    border-bottom: 1px solid var(--tm-filet);
+    background: var(--tm-relief);
+}
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .h-14 img { width: 1.5rem; height: 1.5rem; border-radius: 0.125rem; }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .h-14 .text-\[15px\] { font-size: 0.8125rem; font-weight: 700; letter-spacing: 0; }
+body.elpis-skin-terminal .elpis-slide-panel .bg-white.rounded-xl.border {
+    border-color: var(--tm-filet);
+    background: var(--surface);
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+/* La barre d'état du volet de conversation : pleine, opaque, le titre à gauche. */
+body.elpis-skin-terminal main > header {
+    height: 2.75rem;
+    border-bottom: 1px solid var(--tm-filet);
+    background: var(--tm-relief);
+}
+body.elpis-skin-terminal main > header > .elpis-chat-topfade { display: none; }
+body.elpis-skin-terminal main > header > .relative {
+    align-items: center;
+    height: 100%;
+    padding: 0 0.5rem 0 1.5rem;
+}
+body.elpis-skin-terminal main > header > .relative > :first-child > span {
+    color: var(--text-900);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+body.elpis-skin-terminal main > header button { width: 1.75rem; height: 1.75rem; }
+
+/* ── Le rail ────────────────────────────────────────────────────────────── */
+body.elpis-skin-terminal aside.elpis-slide-panel .border-t { border-top-color: var(--tm-filet); }
+body.elpis-skin-terminal aside.elpis-slide-panel .elpis-rail-foot { background: transparent; --sb-ring-offset: var(--rail-bg); }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2 button.h-8 { height: 1.875rem; border-radius: 0.125rem; font-weight: 400; }
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row] { height: 1.75rem; border-radius: 0.125rem; }
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row] > button { border-radius: 0.125rem; }
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row]:not(.bg-blue-600\/20) { font-weight: 400; }
+body.elpis-skin-terminal aside.elpis-slide-panel .chat-history-scroll .text-\[11px\] {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    padding-top: 0.875rem;
+    color: var(--rail-muted);
+}
+body.elpis-skin-terminal aside.elpis-slide-panel .rounded-full.bg-blue-600.w-8 {
+    border-radius: 0.125rem;
+    background: var(--surface-4);
+    color: var(--text-800);
+    --tw-ring-color: transparent;
+}
+/* « Nouveau chat » : une ligne de la liste comme les autres, « + » en cyan ; le cyan plein reste à la ligne choisie. */
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2.pt-0\.5 { padding-top: 0.5rem; }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2 > .px-1:has(> button.bg-blue-700) { padding: 0; }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] button.bg-blue-700 {
+    justify-content: flex-start;
+    gap: 0.625rem;
+    height: 1.875rem;
+    margin-bottom: 0.125rem;
+    padding: 0 0.75rem;
+    border-radius: 0.125rem;
+    background: transparent;
+    color: var(--rail-text-strong);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    --tw-ring-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] button.bg-blue-700:hover { background: var(--rail-hover); }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] button.bg-blue-700 > i { color: var(--accent-text); font-size: 1rem; }
+body.elpis-skin-terminal aside.elpis-slide-panel .w-12 button.bg-blue-700 {
+    border-radius: 0.125rem;
+    background: transparent;
+    color: var(--accent-text);
+    --tw-ring-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-terminal aside.elpis-slide-panel .w-12 button.bg-blue-700:hover { background: var(--rail-hover); }
+body.elpis-skin-terminal aside.elpis-slide-panel .elpis-rail-flyout {
+    --sb-ring-offset: var(--surface);
+    border-color: var(--tm-filet);
+    border-radius: 0.125rem;
+    background: var(--surface);
+}
+
+/* ── La signature : la ligne choisie passe en vidéo inverse ─────────────── */
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row].bg-blue-600\/20,
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2 button.bg-blue-600\/20,
+body.elpis-skin-terminal aside.elpis-slide-panel .w-12 button.bg-blue-600\/20,
+body.elpis-skin-terminal .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-current="page"],
+body.elpis-skin-terminal .adm-rail__icon.is-active,
+body.elpis-skin-terminal [data-rail-parametres] nav button[aria-current="page"],
+body.elpis-skin-terminal [role="menu"] :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is(:hover, :focus-visible),
+body.elpis-skin-terminal [role="listbox"] [role="option"]:is([aria-selected="true"], :hover) {
+    background: var(--tm-cyan);
+    color: var(--tm-sur-cyan);
+    font-weight: 600;
+}
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row].bg-blue-600\/20 *,
+body.elpis-skin-terminal aside.elpis-slide-panel :is(.w-\[260px\] > .px-2, .w-12) button.bg-blue-600\/20 *,
+body.elpis-skin-terminal .adm-nav :is(.adm-nav__entry, .adm-nav__sub)[aria-current="page"] *,
+body.elpis-skin-terminal .adm-rail__icon.is-active *,
+body.elpis-skin-terminal [data-rail-parametres] nav button[aria-current="page"] *,
+body.elpis-skin-terminal [role="menu"] :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is(:hover, :focus-visible) *,
+body.elpis-skin-terminal [role="listbox"] [role="option"]:is([aria-selected="true"], :hover) * { color: inherit; }
+/* Sur la ligne inverse, les pastilles (capacités d'un modèle…) perdent leur fond et prennent l'encre de la ligne. */
+body.elpis-skin-terminal [role="listbox"] [role="option"]:is([aria-selected="true"], :hover) :is([class*="bg-slate-"], .bg-white),
+body.elpis-skin-terminal [role="menu"] :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is(:hover, :focus-visible) :is([class*="bg-slate-"], .bg-white) {
+    border-color: color-mix(in srgb, currentColor 50%, transparent);
+    background: transparent;
+}
+/* Sur la ligne inverse, l'anneau de focus prend l'encre de la ligne. */
+body.elpis-skin-terminal .chat-history-scroll [data-chat-row].bg-blue-600\/20 :focus-visible,
+body.elpis-skin-terminal :is(.adm-nav__entry, .adm-nav__sub)[aria-current="page"]:focus-visible,
+body.elpis-skin-terminal [data-rail-parametres] nav button[aria-current="page"]:focus-visible,
+body.elpis-skin-terminal aside.elpis-slide-panel .w-\[260px\] > .px-2 button.bg-blue-600\/20:focus-visible {
+    outline: 2px solid var(--tm-sur-cyan);
+    outline-offset: -4px;
+    box-shadow: none;
+}
+
+/* ── Le fil : un journal sur toute la largeur du volet, aligné à gauche, 100 signes au plus ── */
+body.elpis-skin-terminal main > .overflow-y-auto.scroll-smooth { padding-top: 3.75rem; scrollbar-gutter: stable; }
+/* La largeur de colonne réglée par compte est remplacée : ce skin lit en journal, pas en colonne centrée. */
+body.elpis-skin-terminal .elpis-chat-col {
+    max-width: 54rem !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+}
+body.elpis-skin-terminal .elpis-chat-col.space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.75rem; }
+body.elpis-skin-terminal .elpis-msg-user,
+body.elpis-skin-terminal .elpis-msg-assistant { position: relative; gap: 0; }
+body.elpis-skin-terminal .elpis-msg-user > .shrink-0 { display: none; }
+/* La question : « › » puis le texte, sans boîte, comme une commande tapée. */
+body.elpis-skin-terminal .elpis-msg-user > .flex-1 {
+    position: relative;
+    padding: 0 2.5rem 0 1.25rem;
+}
+body.elpis-skin-terminal .elpis-msg-user > .flex-1::before {
+    content: "›" / "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--accent-text);
+    font-weight: 700;
+    line-height: 1.65;
+    font-size: 0.875rem;
+}
+body.elpis-skin-terminal .elpis-msg-user > .flex-1:has([data-edit-message-input]) { padding: 0; }
+body.elpis-skin-terminal .elpis-msg-user > .flex-1:has([data-edit-message-input])::before { content: none; }
+body.elpis-skin-terminal .elpis-msg-user .markdown-body { color: var(--text-900); font-weight: 600; }
+body.elpis-skin-terminal .elpis-msg-user .markdown-body > :last-child,
+body.elpis-skin-terminal .elpis-msg-user .markdown-body > div:last-child > :last-child { margin-bottom: 0; }
+body.elpis-skin-terminal .elpis-msg-user > .flex-1 > .flex.items-baseline {
+    position: absolute;
+    top: -0.125rem;
+    right: 0;
+    margin: 0;
+}
+/* Le nom reste lu par les lecteurs d'écran. */
+body.elpis-skin-terminal .elpis-msg-user > .flex-1 > .flex.items-baseline > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+body.elpis-skin-terminal .elpis-msg-assistant > .shrink-0 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0;
+}
+body.elpis-skin-terminal .elpis-msg-assistant > .shrink-0 img {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 0;
+    border-radius: 0.125rem;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+body.elpis-skin-terminal .elpis-msg-assistant > .flex-1 > .flex.items-baseline {
+    align-items: center;
+    min-height: 1.25rem;
+    margin-bottom: 0.5rem;
+    padding-left: 1.75rem;
+}
+body.elpis-skin-terminal .elpis-msg-assistant > .flex-1 > .flex.items-baseline > span {
+    color: var(--text-400);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* ── Prose : 14 px, interligne large ; la colonne borne la ligne à 100 signes ── */
+body.elpis-skin-terminal .markdown-body {
+    font-family: var(--tm-mono);
+    font-size: 0.875rem;
+    line-height: 1.65;
+    font-variant-ligatures: none;
+}
+body.elpis-skin-terminal .markdown-body p { margin-bottom: 0.95em; }
+body.elpis-skin-terminal .markdown-body h1,
+body.elpis-skin-terminal .markdown-body h2,
+body.elpis-skin-terminal .markdown-body h3 {
+    margin-top: 1.6em;
+    margin-bottom: 0.5em;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0;
+}
+/* Le niveau du titre s'écrit comme dans la source Markdown ; les lecteurs d'écran l'ignorent. */
+body.elpis-skin-terminal .markdown-body h1::before { content: "# " / ""; color: var(--text-300); font-weight: 400; }
+body.elpis-skin-terminal .markdown-body h2::before { content: "## " / ""; color: var(--text-300); font-weight: 400; }
+body.elpis-skin-terminal .markdown-body h3::before { content: "### " / ""; color: var(--text-300); font-weight: 400; }
+body.elpis-skin-terminal .markdown-body > :first-child,
+body.elpis-skin-terminal .markdown-body > div > :first-child { margin-top: 0; }
+body.elpis-skin-terminal .markdown-body li + li { margin-top: 0.2em; }
+/* Tiret de liste ; les listes de tâches gardent leur case seule. */
+body.elpis-skin-terminal .markdown-body ul > li:not(:has(> input[type="checkbox"]), :has(> p > input[type="checkbox"]))::marker { content: "-  "; color: var(--text-400); }
+body.elpis-skin-terminal .markdown-body ol > li::marker { color: var(--text-400); }
+body.elpis-skin-terminal .markdown-body a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+body.elpis-skin-terminal .markdown-body blockquote {
+    margin: 1em 0;
+    padding: 0 0 0 1.5ch;
+    border-left: 2px solid var(--surface-5);
+    background: transparent;
+    color: var(--text-600);
+    font-style: normal;
+}
+body.elpis-skin-terminal .markdown-body blockquote > :last-child { margin-bottom: 0; }
+body.elpis-skin-terminal .markdown-body li:has(> input[type="checkbox"]),
+body.elpis-skin-terminal .markdown-body li:has(> p > input[type="checkbox"]) { margin-left: -1.25rem; list-style: none; }
+body.elpis-skin-terminal .markdown-body hr { margin: 1.6em 0; border-top: 1px dashed var(--border); }
+
+/* Tableaux : une grille de filets, comme une sortie de commande. */
+body.elpis-skin-terminal .markdown-body table {
+    margin: 1.1em 0;
+    border: 1px solid var(--border);
+    border-radius: 0;
+    font-size: 0.8125rem;
+}
+body.elpis-skin-terminal .markdown-body th {
+    padding: 0.3125rem 1ch;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-3);
+    color: var(--text-700);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+body.elpis-skin-terminal .markdown-body td {
+    padding: 0.3125rem 1ch;
+    border-right: 1px solid var(--table-cell-border);
+}
+body.elpis-skin-terminal .markdown-body th:not(:last-child) { border-right: 1px solid var(--table-cell-border); }
+body.elpis-skin-terminal .markdown-body td:last-child { border-right: 0; }
+
+/* Code : un volet bordé, l'en-tête en minuscules. */
+body.elpis-skin-terminal .markdown-body code:not(pre code) {
+    padding: 0.06em 0.4ch;
+    border-width: 0;
+    border-radius: 0.125rem;
+    font-family: var(--tm-mono);
+    font-size: 0.93em;
+    font-weight: 500;
+}
+body.elpis-skin-terminal .code-wrapper {
+    margin: 1rem 0;
+    border: 1px solid var(--code-border);
+    border-radius: 0.125rem;
+    box-shadow: none;
+}
+body.elpis-skin-terminal .code-header {
+    padding-block: 0.25rem;
+    border-bottom: 1px solid var(--code-border);
+    border-radius: 0;
+    font-family: var(--tm-mono);
+    font-size: 0.75rem;
+}
+body.elpis-skin-terminal .code-header > :first-child { color: var(--code-header-fg); text-transform: lowercase; font-weight: 500; }
+body.elpis-skin-terminal .code-wrapper pre { border-radius: 0 !important; }
+body.elpis-skin-terminal .markdown-body pre code { font-family: var(--tm-mono); font-size: 0.8125rem; line-height: 1.6; }
+body.elpis-skin-terminal .code-header button:hover,
+body.elpis-skin-terminal .copy-sticky .code-actions button:hover {
+    color: var(--text-900);
+    background: var(--surface-4);
+    border-color: transparent;
+    box-shadow: none;
+}
+body.elpis-skin-terminal .copy-sticky .code-actions button { border-color: transparent; border-radius: 0.125rem; }
+body.elpis-skin-terminal :is(.hljs-keyword, .hljs-doctag, .hljs-template-tag, .hljs-template-variable, .hljs-meta .hljs-keyword, .hljs-type, .hljs-variable.language_) { color: var(--tm-syn-mot); }
+body.elpis-skin-terminal :is(.hljs-title, .hljs-title.class_, .hljs-title.function_, .hljs-title.class_.inherited__) { color: var(--code-fg); font-weight: 700; }
+body.elpis-skin-terminal :is(.hljs-string, .hljs-regexp, .hljs-meta .hljs-string, .hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo) { color: var(--tm-syn-texte); }
+body.elpis-skin-terminal :is(.hljs-number, .hljs-literal, .hljs-attr, .hljs-attribute, .hljs-operator, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-variable, .hljs-meta, .hljs-bullet) { color: var(--tm-syn-nombre); }
+body.elpis-skin-terminal :is(.hljs-built_in, .hljs-symbol) { color: var(--tm-syn-type); }
+body.elpis-skin-terminal :is(.hljs-comment, .hljs-code, .hljs-formula) { color: var(--tm-syn-com); font-style: italic; }
+body.elpis-skin-terminal :is(.hljs-subst, .hljs-emphasis, .hljs-strong) { color: var(--code-fg); }
+body.elpis-skin-terminal .hljs-section { color: var(--tm-syn-mot); }
+body.elpis-skin-terminal .hljs-addition { color: var(--code-fg); background-color: var(--tm-syn-ajout); }
+body.elpis-skin-terminal .hljs-deletion { color: var(--code-fg); background-color: var(--tm-syn-retrait); }
+
+body.elpis-skin-terminal .shell-live { border: 1px solid var(--tm-filet); border-radius: 0.125rem; background: var(--term-surface); box-shadow: none; }
+body.elpis-skin-terminal .shell-live-header { border-bottom: 1px solid #23324a; background: var(--term-strip-bg); font-family: var(--tm-mono); }
+body.elpis-skin-terminal [data-think] [class*="text-violet"] { color: var(--text-500); }
+body.elpis-skin-terminal [data-think] [class*="border-violet"] { border-color: var(--border); }
+body.elpis-skin-terminal [data-pipeline] .border-l-2 { border-left-style: dashed; border-color: var(--border); }
+
+/* ── Composeur : une ligne de commande collée en bas du volet, sur toute sa largeur ── */
+body.elpis-skin-terminal main > div:has(> .elpis-compose-col) {
+    top: auto;
+    bottom: 0;
+    padding: 0;
+}
+body.elpis-skin-terminal .elpis-compose-col { max-width: none !important; }
+/* Opaque, y compris contre les fonds translucides du mode sombre plus bas. */
+body.elpis-skin-terminal main .elpis-compose-card.elpis-compose-card {
+    border: 0;
+    border-top: 1px solid var(--tm-filet);
+    border-radius: 0;
+    background: var(--surface);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+body.elpis-skin-terminal .elpis-compose-card:focus-within { border-top-color: var(--tm-cyan); }
+body.elpis-skin-terminal .elpis-compose-card > .flex-col {
+    position: relative;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0 0.5rem;
+    padding: 0.25rem 0.5rem 0.25rem 1.5rem;
+}
+/* Ce qui s'ajoute à la ligne (pièces jointes, aperçus) garde sa propre rangée. */
+body.elpis-skin-terminal .elpis-compose-card > .flex-col > :not(textarea, [data-barre-composeur], input) { flex-basis: 100%; }
+body.elpis-skin-terminal .elpis-compose-card > .flex-col::before {
+    content: "›" / "";
+    position: absolute;
+    top: 0.75rem;
+    left: 1.5rem;
+    color: var(--accent-text);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    pointer-events: none;
+}
+body.elpis-skin-terminal .elpis-compose-card textarea {
+    flex: 1 1 24ch;
+    width: auto;
+    min-width: 0;
+    /* Une seule ligne, à l'accueil comme dans la conversation : la hauteur minimale posée par l'application est ramenée à une ligne. */
+    min-height: 2.25rem !important;
+    padding-left: 1.25rem;
+    font-weight: 500;
+    caret-color: var(--tm-cyan);
+    caret-shape: block;
+}
+body.elpis-skin-terminal .elpis-compose-card textarea::placeholder { color: var(--text-400); }
+/* Ligne étroite : l'indication tient sur une ligne et finit par une ellipse plutôt que d'être coupée. */
+body.elpis-skin-terminal .elpis-compose-card textarea:placeholder-shown { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+body.elpis-skin-terminal .elpis-compose-card [data-barre-composeur] {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    width: auto;
+    margin-left: auto;
+    padding-bottom: 0.125rem;
+}
+/* Le modèle entre crochets, comme un champ à choisir dans un programme en mode texte. */
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] > button { gap: 0; padding: 0.25rem 0.375rem; color: var(--text-500); }
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] > button:hover { color: var(--text-900); }
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] > button::before { content: "[" / ""; margin-right: 0.5ch; color: var(--text-400); }
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] > button::after { content: "]" / ""; margin-left: 0.5ch; color: var(--text-400); }
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] > button > i { margin-left: 0.75ch; }
+body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] .truncate { max-width: 22ch; }
+body.elpis-skin-terminal .elpis-compose-card .bg-blue-600.h-8.w-8 { border-radius: 0.125rem; }
+body.elpis-skin-terminal .elpis-compose-card .bg-blue-600.h-8.w-8:disabled { background: var(--surface-3); color: var(--text-400); }
+@media (max-width: 639px) {
+    body.elpis-skin-terminal .elpis-compose-card [data-menu-modele] .truncate { max-width: 9ch; }
+}
+/* Petit écran : le fil n'a qu'un rem de marge, l'invite de la ligne de commande s'y aligne. */
+@media (max-width: 767px) {
+    body.elpis-skin-terminal .elpis-compose-card > .flex-col { padding-left: 1rem; }
+    body.elpis-skin-terminal .elpis-compose-card > .flex-col::before { left: 1rem; }
+}
+
+/* ── Accueil : un message d'ouverture de session, en haut à gauche ─────── */
+body.elpis-skin-terminal .elpis-welcome {
+    min-height: 0;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0.25rem 0 0;
+    text-align: left;
+}
+body.elpis-skin-terminal .elpis-welcome > .mb-4 { margin-bottom: 1rem; }
+body.elpis-skin-terminal .elpis-welcome > .mb-4 img { width: 3rem !important; height: 3rem !important; border-radius: 0.125rem; }
+body.elpis-skin-terminal .elpis-welcome h2 {
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0;
+}
+body.elpis-skin-terminal .elpis-welcome p { color: var(--text-500); font-size: 0.875rem; font-weight: 400; }
+
+/* ── Fonds translucides en sombre ───────────────────────────────────────── */
+body.elpis-skin-terminal.elpis-app-dark .bg-white\/60 { background-color: color-mix(in srgb, var(--surface) 60%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-white\/70 { background-color: color-mix(in srgb, var(--surface) 70%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-white\/80 { background-color: color-mix(in srgb, var(--surface) 80%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-white\/90 { background-color: color-mix(in srgb, var(--surface) 90%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-white\/95 { background-color: color-mix(in srgb, var(--surface) 95%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-slate-50\/50 { background-color: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-slate-50\/60 { background-color: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+body.elpis-skin-terminal.elpis-app-dark .bg-slate-50\/80 { background-color: color-mix(in srgb, var(--surface-2) 80%, transparent); }
+
+/* ── Formes et reliefs : angles droits, pas d'ombre, un filet à la place ── */
+body.elpis-skin-terminal :is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) { border-radius: 0.125rem; }
+body.elpis-skin-terminal :is(.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+/* Ce qui flotte (menus, modales) garde un filet : rien ne se détache par une ombre. */
+body.elpis-skin-terminal :is(.shadow-lg, .shadow-xl, .shadow-2xl):not(.elpis-compose-card, aside, main, .elpis-slide-panel) { outline: 1px solid var(--tm-filet); outline-offset: -1px; }
+body.elpis-skin-terminal .shadow-2xl.ring-1 { --tw-ring-color: transparent; }
+body.elpis-skin-terminal .font-mono { font-family: var(--tm-mono); }
+body.elpis-skin-terminal :is(.text-violet-600, .text-violet-700, .text-purple-700) { color: var(--accent-text); }
+body.elpis-skin-terminal :is(.bg-violet-50, .bg-violet-100, .bg-violet-500\/15) { background-color: var(--accent-surface); }
+body.elpis-skin-terminal .hover\:bg-violet-100:hover { background-color: var(--accent-surface-2); }
+body.elpis-skin-terminal .bg-violet-600 { background-color: var(--accent); color: var(--accent-fg); }
+body.elpis-skin-terminal .hover\:bg-violet-700:hover { background-color: var(--accent-strong); }
+body.elpis-skin-terminal .adm-seg { gap: 0; padding: 0; border: 1px solid var(--tm-filet); border-radius: 0.125rem; background: transparent; }
+body.elpis-skin-terminal .adm-seg__btn { border: 0; border-radius: 0; }
+body.elpis-skin-terminal .adm-seg__btn + .adm-seg__btn { border-left: 1px solid var(--tm-filet); }
+body.elpis-skin-terminal .adm-seg__btn:hover:not(.is-active) { background: var(--surface-3); }
+body.elpis-skin-terminal .adm-seg__btn.is-active { background: var(--tm-cyan); color: var(--tm-sur-cyan); box-shadow: none; }
+body.elpis-skin-terminal .set-seg { border-radius: 0.125rem; }
+body.elpis-skin-terminal .set-seg__btn { border-radius: 0.125rem; }
+body.elpis-skin-terminal .uppercase { letter-spacing: 0; text-transform: none; }
+body.elpis-skin-terminal :is(.tracking-wide, .tracking-wider, .tracking-widest) { letter-spacing: 0; }
+body.elpis-skin-terminal :is(.bg-slate-900\/80, .bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-900\/40) { background-color: var(--tm-voile-modale); }
+body.elpis-skin-terminal .bg-gradient-to-tr.from-blue-500 { background-image: none; background-color: var(--surface-4); color: var(--text-800); }
+body.elpis-skin-terminal input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body.elpis-skin-terminal textarea,
+body.elpis-skin-terminal select { border-radius: 0.125rem; }
+body.elpis-skin-terminal :focus-visible { outline-color: var(--accent-ring); }
+
+/* ── Paramètres ─────────────────────────────────────────────────────────── */
+body.elpis-skin-terminal [data-rail-parametres] { border-right-color: var(--tm-filet); background: var(--app-bg); }
+body.elpis-skin-terminal [data-rail-parametres] nav button { border-radius: 0.125rem; }
+/* Les champs de recherche étroits : un cran plus petit, pour que l'indication tienne. */
+body.elpis-skin-terminal :is([data-rail-parametres], .adm-nav-arbre__recherche) input { font-size: 0.75rem; }
+
+/* ── Console ────────────────────────────────────────────────────────────── */
+body.elpis-skin-terminal aside.adm-rail { border-right: 1px solid var(--tm-filet); }
+body.elpis-skin-terminal .adm-main { background: var(--surface); }
+body.elpis-skin-terminal .adm-page-head { background: var(--surface); border-bottom: 1px solid var(--tm-filet); }
+body.elpis-skin-terminal .adm-card { border-color: var(--tm-filet); border-radius: 0.125rem; box-shadow: none; }
+body.elpis-skin-terminal .adm-card__head { padding-block: 0.625rem; border-bottom-color: var(--tm-filet); background: var(--surface-2); }
+body.elpis-skin-terminal .adm-nav :is(.adm-nav__entry, .adm-nav__sub) { border-radius: 0.125rem; }
+body.elpis-skin-terminal .adm-me__avatar { border-radius: 0.125rem; background: var(--surface-4); color: var(--text-800); }
+body.elpis-skin-terminal .adm-nav-arbre__recherche { border-color: var(--tm-filet); border-radius: 0.125rem; background: var(--surface); }
+body.elpis-skin-terminal aside.elpis-slide-panel .adm-nav-arbre__recherche input { background: transparent; }
+
+/* ── Mouvement : net et bref, comme un programme en mode texte ; opacité et position seulement ── */
+body.elpis-skin-terminal :is(.popover-enter-active, .popover-leave-active, .popover-up-enter-active, .popover-up-leave-active) {
+    transition: opacity 90ms linear, transform 90ms ease-out;
+}
+body.elpis-skin-terminal :is(.popover-enter-from, .popover-leave-to) { transform: translateY(-2px); }
+body.elpis-skin-terminal :is(.popover-up-enter-from, .popover-up-leave-to) { transform: translateY(2px); }
+body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) { transition-duration: 110ms; }
+body.elpis-skin-terminal :is(.modal-enter-active, .modal-leave-active) > * { transition: opacity 110ms linear, transform 110ms ease-out; }
+body.elpis-skin-terminal :is(.modal-enter-from, .modal-leave-to) > * { transform: translateY(4px); }
+
+/* Étiquettes de la console (« Défaut »…) : l'accent prévu pour le texte, lisible en petite taille. */
+body.elpis-skin-terminal .adm-tag:not(.adm-tag--soft) { color: var(--accent-text); }

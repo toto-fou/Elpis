@@ -125,6 +125,9 @@ export function creerMetriques(b: BaseAdmin) {
   const { showToast, openConfirm, fetchAuth } = ctx;
   const dashboardData: Ref<DonneesTableauBord> = ref({ layout: [], data: {} });
   const instances: Record<string, ChartJs> = {};
+  // Graphiques à créer, un par image : un tableau de bord entier ne fait plus une seule longue tâche.
+  const aCreer = new Map<string, () => void>();
+  let imageCreation = 0;
   let minuterieSondage: ReturnType<typeof setInterval> | null = null;
   let minuterieLive: ReturnType<typeof setInterval> | null = null;
   let minuterieRendu: ReturnType<typeof setTimeout> | null = null;
@@ -522,6 +525,21 @@ export function creerMetriques(b: BaseAdmin) {
     return options as ChartOptions;
   }
 
+  /** Crée le graphique suivant de la file, puis repasse à l'image suivante tant qu'il en reste. */
+  function creerSuivant(): void {
+    imageCreation = 0;
+    const [id, creer] = aCreer.entries().next().value ?? [];
+    if (!id || !creer) return;
+    aCreer.delete(id);
+    creer();
+    if (aCreer.size) imageCreation = requestAnimationFrame(creerSuivant);
+  }
+
+  function planifierCreation(id: string, creer: () => void): void {
+    aCreer.set(id, creer);
+    imageCreation ||= requestAnimationFrame(creerSuivant);
+  }
+
   /** Chart.js est demandé à la volée (une fois) ; sans lui, le rendu est reporté. */
   function renderDynamicDashboard(): void {
     const Constructeur = window.Chart;
@@ -550,10 +568,14 @@ export function creerMetriques(b: BaseAdmin) {
         existante.update("none");
       } else {
         existante?.destroy();
-        instances[widget.id] = new Constructeur(canvas, {
-          type: type as "bar",
-          data: donnees as unknown as { datasets: [] },
-          options: optionsGraphique(widget, donnees) as ChartOptions<"bar">,
+        delete instances[widget.id];
+        planifierCreation(widget.id, () => {
+          if (!canvas.isConnected || instances[widget.id]) return;
+          instances[widget.id] = new Constructeur(canvas, {
+            type: type as "bar",
+            data: donnees as unknown as { datasets: [] },
+            options: optionsGraphique(widget, donnees) as ChartOptions<"bar">,
+          });
         });
       }
     }
@@ -614,6 +636,9 @@ export function creerMetriques(b: BaseAdmin) {
   }
   /** Détruit toutes les instances Chart.js vivantes : leur écouteur de redimensionnement global survivrait au canvas retiré. */
   function destroyAllCharts(): void {
+    aCreer.clear();
+    if (imageCreation) cancelAnimationFrame(imageCreation);
+    imageCreation = 0;
     for (const id of Object.keys(instances)) {
       try {
         instances[id]?.destroy();

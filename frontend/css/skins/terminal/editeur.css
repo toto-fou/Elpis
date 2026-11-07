@@ -1,0 +1,79 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/terminal/editeur.css — éditeur de Terminal, en chasse fixe, le fichier ouvert dans l'arbre en vidéo inverse. */
+body.elpis-skin-terminal .ed2 {
+  --ed-r: 2px;
+  --ed-r-lg: 2px;
+  --ed-arbre-taille: 12.5px;
+  --ed-arbre-hauteur: 24px;
+  --ed-police: "Terminal JetBrains Mono", "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+body.elpis-skin-terminal .ed2--encre {
+  --ed-code-bg: #0d1520;
+  --ed-code-fg: #c6d1db;
+  --ed-code-muted: #8da0b3;
+  --ed-code-accent: #4fd1e8;
+  --ed-plan: #0d1520;
+  --ed-bande: #0f1825;
+  --ed-releve: #1a2738;
+  --ed-champ: #131e2d;
+  --ed-ink: #d3dde6;
+  --ed-ink-2: #b7c3ce;
+  --ed-muted: #8da0b3;
+  --ed-line: #23324a;
+  --ed-line-soft: #1c2a3d;
+  --ed-hover: rgb(211 221 230 / 0.06);
+  --ed-press: rgb(211 221 230 / 0.1);
+  --ed-select: rgb(79 209 232 / 0.14);
+  --ed-select-ink: #4fd1e8;
+  --ed-accent: #4fd1e8;
+  --ed-accent-fg: #0f1825;
+  --ed-ring: #4fd1e8;
+  --ed-ok: #7fd69b;
+  --ed-warn: #f0c06a;
+  --ed-danger: #ff9d9d;
+  --ed-ic-dossier: #8da0b3;
+  --ed-syn-mot: #8fb8ff;
+  --ed-syn-texte: #a5d6a7;
+  --ed-syn-nombre: #f0c06a;
+  --ed-syn-com: #7d8fa3;
+  --ed-syn-type: #c3a6ff;
+  --ed-syn-var: #d3dde6;
+  --ed-syn-op: #a8b6c3;
+}
+body.elpis-skin-terminal .ed2--papier {
+  --ed-code-bg: #f8fafb;
+  --ed-code-fg: #0f1b28;
+  --ed-code-muted: #4a5b6b;
+  --ed-code-accent: #006a85;
+  --ed-plan: #f8fafb;
+  --ed-bande: #eef1f3;
+  --ed-releve: #ffffff;
+  --ed-champ: #f1f4f6;
+  --ed-ink: #0f1b28;
+  --ed-ink-2: #243445;
+  --ed-muted: #4a5b6b;
+  --ed-line: #d3dae0;
+  --ed-line-soft: #e2e7eb;
+  --ed-hover: rgb(15 27 40 / 0.05);
+  --ed-press: rgb(15 27 40 / 0.09);
+  --ed-select: rgb(0 106 133 / 0.12);
+  --ed-select-ink: #00566c;
+  --ed-accent: #006a85;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #006a85;
+  --ed-ok: #1d6b45;
+  --ed-warn: #8a5200;
+  --ed-danger: #a82727;
+  --ed-ic-dossier: #4a5b6b;
+  --ed-syn-mot: #1f4fb5;
+  --ed-syn-texte: #276b3a;
+  --ed-syn-nombre: #8a5200;
+  --ed-syn-com: #5b6b7a;
+  --ed-syn-type: #6b3fb0;
+  --ed-syn-var: #0f1b28;
+  --ed-syn-op: #334456;
+}
+/* La signature du skin dans l'arbre : le fichier ouvert passe en vidéo inverse. */
+body.elpis-skin-terminal .ed2.ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active { background: var(--ed-accent); }
+body.elpis-skin-terminal .ed2.ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active > span:nth-child(2) { color: var(--ed-accent-fg) !important; font-weight: 600; }
+body.elpis-skin-terminal .ed2.ed2 .elpis-ed-explorateur [role="treeitem"].elpis-tree-active :is(.ph, span) { color: var(--ed-accent-fg); }

@@ -111,6 +111,18 @@
       ],
       "builtin": true,
       "enabled_by_default": true
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal",
+      "desc": "L'assistant comme un shell : tout en chasse fixe, bleu nuit et cyan, ligne choisie en vidéo inverse.",
+      "sw": [
+        "#0f1825",
+        "#131e2d",
+        "#4fd1e8"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
     }
   ],
   "alias": {

@@ -67,3 +67,10 @@ path = "frontend/css/skins/veilleuse/polices/red-hat-mono-*.woff2"
 precedence = "override"
 SPDX-FileCopyrightText = "2024 The Red Hat Project Authors"
 SPDX-License-Identifier = "OFL-1.1"
+
+# Police embarquée du skin Terminal (THIRD_PARTY_LICENSES/jetbrains-mono.txt).
+[[annotations]]
+path = "frontend/css/skins/terminal/polices/jetbrains-mono-*.woff2"
+precedence = "override"
+SPDX-FileCopyrightText = "2020 The JetBrains Mono Project Authors"
+SPDX-License-Identifier = "OFL-1.1"

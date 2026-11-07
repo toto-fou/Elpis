@@ -13,6 +13,10 @@ follow [SemVer](https://semver.org/).
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and
   the lamp is a fixed-size layer moved by `transform`, so resizing the window does not
   repaint it.
+- **Terminal skin.** The assistant as a shell: everything in JetBrains Mono (OFL-1.1,
+  downloaded only by this skin), night blue and cyan, ruled panels, the selected row in
+  reverse video and the prompt bar as a command line across the bottom of the pane. Its
+  menus and dialogs open in under 0.11 s.
 
 ### Changed
 

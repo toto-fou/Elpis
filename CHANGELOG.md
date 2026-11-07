@@ -27,6 +27,10 @@ follow [SemVer](https://semver.org/).
   shipped packages, the development-only ones and the per-package overrides leave
   `migration-kit/deps.map.json`, a leftover of the TypeScript migration; `migration-kit/`
   is no longer in the repository. The builds read the same list as before.
+- **Chat: conversations open on their last messages.** The first frame shows the last 8
+  messages, then 6 more are added per frame up to the usual 25 (or the whole conversation
+  below 30 messages), so opening a long conversation no longer freezes the page. Scrolling
+  stops the growth, and a jump to a message completes it at once.
 - **One cap per account on engine requests.** `llm.max_requests_per_user` (Admin console ›
   Connections, engine card) caps the engine requests an account runs at the same time:
   conversations, subagents, routines and `/compact` together. The surplus waits instead of

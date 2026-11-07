@@ -154,10 +154,8 @@ const SEGMENT_INACTIF = "text-slate-600 hover:text-slate-800";
 
 <template>
   <div
-    class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200"
-    :class="
-      rg.showSamplingPanel ? 'w-[320px] opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none'
-    "
+    class="elpis-slide-panel h-full shrink-0 flex flex-col bg-slate-50 z-20 border-l border-slate-200 rounded-l-[10px] overflow-hidden"
+    :class="rg.showSamplingPanel ? 'w-[320px] opacity-100' : 'w-0 opacity-0 pointer-events-none'"
     :inert="rg.showSamplingPanel ? undefined : true"
     data-panneau-generation
   >

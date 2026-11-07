@@ -95,6 +95,8 @@ follow [SemVer](https://semver.org/).
   (`cache_control`, 5 min): each iteration rereads the prefix already paid for, billed
   at 0.1 × the input price, instead of resending it at full price. One-shot calls
   (title, compaction) set none.
+- **MCP and Generation panels: rounded left corners.** Both side panels round their left
+  corners like the rail, with their content clipped to the curve.
 
 ### Removed
 

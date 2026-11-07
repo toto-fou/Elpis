@@ -81,14 +81,6 @@ export interface EtatCompression {
   reason?: string;
 }
 
-export interface EtatFileAttente {
-  kind: string;
-  position: number;
-  active: number;
-  est_ms: number;
-  pct: number | null;
-}
-
 export interface QuestionAssistant {
   q: string;
   options?: readonly string[];
@@ -150,7 +142,6 @@ export interface DomaineComposeur {
   slashCmdOk(item: EntreeSlash): boolean;
   promptPreview(item: EntreeSlash): string;
   readonly isStreaming: boolean;
-  readonly queueStatus: EtatFileAttente | null;
   stopGeneration(): void;
   readonly conversationTooLong: boolean;
   readonly ctxRealPct: number;

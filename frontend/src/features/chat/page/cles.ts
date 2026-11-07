@@ -170,7 +170,6 @@ const COMPOSEUR: Cles<DomaineComposeur> = {
   slashCmdOk: true,
   promptPreview: true,
   isStreaming: true,
-  queueStatus: true,
   stopGeneration: true,
   conversationTooLong: true,
   ctxRealPct: true,

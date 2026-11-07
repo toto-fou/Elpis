@@ -127,6 +127,9 @@ follow [SemVer](https://semver.org/).
   `./elpis configure`, is removed now that the configuration goes through the core.
   `pg8000` leaves `requirements.txt`; `cryptography` stays installed for the RAG
   extractor (a `pdfminer.six` dependency), now pinned in `requirements-rag.txt`.
+- **Queue banner above the message box.** The "N request(s) running · you are Nth" banner is
+  gone: the waiting message in the conversation is enough. A model being loaded is still shown
+  in the message.
 - **MCP servers: folder upload.** `POST /api/mcp/upload` and the interface's folder
   import are removed: no MCP code is uploaded to the server anymore, and a
   server is connected by its address (HTTP or SSE). Folders already present

@@ -315,7 +315,6 @@ export function setupChat(
       _revokeAllWebShotBlobs: captures._revokeAllWebShotBlobs,
       _vsReset: fenetre._vsReset,
       _vsInitTail: fenetre._vsInitTail,
-      clearMarkdownCache: renduChat.clearMarkdownCache,
       clearChartInstances: renduChat.clearChartInstances,
       resetDiffCardState: carteFichiers.resetDiffCardState,
       resetMessageSearch: recherche.resetMessageSearch,

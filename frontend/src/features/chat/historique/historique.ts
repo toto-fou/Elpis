@@ -67,7 +67,6 @@ export interface DepsHistorique {
   _revokeAllWebShotBlobs(): void;
   _vsReset(): void;
   _vsInitTail(n: number): void;
-  clearMarkdownCache(): void;
   clearChartInstances?: Rappel;
   resetDiffCardState?: Rappel;
   loadAvailableModels(): unknown;
@@ -345,7 +344,6 @@ export function creerHistoriqueChat(
   function viderRendu(): void {
     deps._revokeAllWebShotBlobs();
     deps._vsReset();
-    deps.clearMarkdownCache();
     appeler(deps.clearChartInstances);
     appeler(deps.resetDiffCardState);
     appeler(deps.resetMessageSearch);

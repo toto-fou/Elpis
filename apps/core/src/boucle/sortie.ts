@@ -390,7 +390,7 @@ export async function finishOnLimit(
           ...ctx.optionsSlot(),
           toolChoice: "none",
         });
-      });
+      }, signal);
       const usage = (brut["usage"] || {}) as Dict;
       if (intPy(usage["prompt_tokens"] || 0) > 0) dernierUsage = { ...usage };
       rec.cumulIn += Number(usage["prompt_tokens"] ?? 0);

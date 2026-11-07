@@ -428,59 +428,6 @@ const adm = domaineAdmin();
         </div>
       </section>
 
-      <section id="sandbox-agents-parallel" class="adm-card scroll-mt-32">
-        <header class="adm-card__head">
-          <i class="ph ph-arrows-split adm-card__icon" aria-hidden="true"></i>
-          <div>
-            <h3 class="adm-card__title">Parallélisme</h3>
-            <span class="sr-only"
-              >Sous-agents d'un même tour lancés ensemble ; les suivants attendent qu'une place se
-              libère.</span
-            >
-          </div>
-        </header>
-        <div class="adm-rows">
-          <div class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
-                title="Sous-agents d'un même tour lancés ensemble ; les suivants attendent qu'une place se libère."
-                for="ag-parallele"
-                >Sous-agents simultanés par tour</label
-              >
-              <span class="sr-only"
-                >Sous-agents d'un même tour lancés ensemble ; les suivants attendent qu'une place se
-                libère.</span
-              >
-            </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="ag-parallele"
-                v-model.number="adm.agentsConfig.max_parallel"
-                data-field="agents:max_parallel"
-                type="number"
-                :min="adm.agentsBounds[0]"
-                :max="adm.agentsBounds[1]"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">de {{ adm.agentsBounds[0] }} à {{ adm.agentsBounds[1] }}</span>
-            </div>
-          </div>
-          <p
-            v-if="
-              !Number.isInteger(adm.agentsConfig.max_parallel) ||
-              adm.agentsConfig.max_parallel < adm.agentsBounds[0] ||
-              adm.agentsConfig.max_parallel > adm.agentsBounds[1]
-            "
-            role="alert"
-            class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
-          >
-            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
-            Un nombre entier de {{ adm.agentsBounds[0] }} à {{ adm.agentsBounds[1] }}.
-          </p>
-        </div>
-      </section>
-
       <section id="sandbox-agents-plafonds" class="adm-card scroll-mt-32">
         <header class="adm-card__head">
           <i class="ph ph-gauge adm-card__icon" aria-hidden="true"></i>
@@ -596,44 +543,6 @@ const adm = domaineAdmin();
           </div>
         </header>
         <div class="adm-rows">
-          <div class="adm-row">
-            <div>
-              <label
-                class="adm-row__label"
-                title="Sous-agents en fond actifs au plus pour un compte, toutes conversations comprises ; sur llama.cpp, plafonné aussi par les slots du serveur."
-                for="ag-fond-max"
-                >Agents en fond par compte</label
-              >
-              <span class="sr-only"
-                >Sous-agents en fond actifs au plus pour un compte, toutes conversations comprises ; sur
-                llama.cpp, plafonné aussi par les slots du serveur.</span
-              >
-            </div>
-            <div class="flex items-center gap-2">
-              <input
-                id="ag-fond-max"
-                v-model.number="adm.agentsConfig.background_max"
-                data-field="agents:background_max"
-                type="number"
-                :min="adm.agentsBoundsFond[0]"
-                :max="adm.agentsBoundsFond[1]"
-                class="set-input adm-num font-mono"
-              />
-              <span class="adm-unit">de {{ adm.agentsBoundsFond[0] }} à {{ adm.agentsBoundsFond[1] }}</span>
-            </div>
-          </div>
-          <p
-            v-if="
-              !Number.isInteger(adm.agentsConfig.background_max) ||
-              adm.agentsConfig.background_max < adm.agentsBoundsFond[0] ||
-              adm.agentsConfig.background_max > adm.agentsBoundsFond[1]
-            "
-            role="alert"
-            class="py-2 text-[11px] text-red-600 flex items-center gap-1.5"
-          >
-            <i class="ph ph-warning-circle shrink-0" aria-hidden="true"></i>
-            Un nombre entier de {{ adm.agentsBoundsFond[0] }} à {{ adm.agentsBoundsFond[1] }}.
-          </p>
           <div class="adm-row">
             <div>
               <label

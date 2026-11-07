@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/chat-compression.ts — compression manuelle d'une conversation hors flux : état pour le bouton, compaction `/compact` persistée en tête du chat (chatbot_app/routes/chat_compression.py). */
-import { getUserSettings } from "@elpis/auth";
+import { getUserSettings, getUsernameById } from "@elpis/auth";
 import {
   estDict,
   floatPy,
@@ -19,6 +19,7 @@ import type { Base } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { horsTour, llamaChatCompaction } from "../boucle/appels-uniques";
+import { avecPartDuCompte } from "../llm/part-compte";
 import { clearChatCtxUsage, getChat, upsertChat } from "../chats/stockage";
 import type { LlamaChatFn } from "../contexte/compresseur";
 import { maybeCompressConversation } from "../contexte/compresseur";
@@ -199,9 +200,13 @@ async function compresser(dep: DependancesChatCompression, req: FastifyRequest, 
         for (const k of ["round", "covered_turns", "summary_xml", "turns_compressed", "ledger_block"])
           if (k in ev) recu[k] = ev[k];
     };
+    const compte = (await getUsernameById(dep.base, uid)) || `user_${uid}`;
     const resume: LlamaChatFn =
       resumeurDeTest ??
-      ((messages, o) => horsTour(model, "high", o.signal, () => llamaChatCompaction(messages, o)));
+      ((messages, o) =>
+        avecPartDuCompte(compte, o.signal, () =>
+          horsTour(model, "high", o.signal, () => llamaChatCompaction(messages, o)),
+        ));
     const t0 = Date.now() / 1000;
     const [, stats] = await useLlmTarget(cible, () =>
       runScope(

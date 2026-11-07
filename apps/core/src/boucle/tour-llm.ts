@@ -629,7 +629,7 @@ export async function callLlm(
             fluxCoupe = f;
           },
         });
-      });
+      }, signalFlux);
     } finally {
       coupure?.liberer();
     }

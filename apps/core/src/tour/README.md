@@ -4,8 +4,7 @@
 only chains steps:
 
 1. admission (`admettreTour` from `apps/core/src/tour/ouverture.ts`, helpers in `apps/core/src/tour/admission.ts`):
-   409 if a manual compression or a generation is already running on the conversation, 429 beyond the account's
-   run cap;
+   409 if a manual compression or a generation is already running on the conversation;
 2. preparation (`apps/core/src/tour/preparation.ts`);
 3. presence lock, database resync after a handover, lock reservation;
 4. the turn (`apps/core/src/tour/execution.ts`), pumped by `apps/core/src/tour/evenements.ts`.
@@ -24,8 +23,7 @@ other chat routes:
 ## Invariants to keep in any rework
 
 - **One turn at a time per conversation**: in-memory presence lock, a single main process
-  (`apps/core/src/tour/etat.ts`). A compaction or a generation already running returns 409, too many runs for the
-  account 429.
+  (`apps/core/src/tour/etat.ts`). A compaction or a generation already running returns 409.
 - **Presence lock never lost**: any exception between taking it and opening the stream releases it. It is
   then reserved until the turn claims it, and a safety net releases it if nobody claims it. If lost, it
   would return 409 on this chat until restart.

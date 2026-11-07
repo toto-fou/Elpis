@@ -16,27 +16,22 @@ export const MODES_REFLEXION: readonly ModeReflexion[] = ["off", "on", "inherit"
 
 export interface ReglagesAgents {
   readonly read_only: { readonly defaults: ParType; readonly forced: ParType };
-  readonly max_parallel: number;
   /** Lancements `task` (neufs, reprises) au plus par tour de l'agent principal. */
   readonly max_tasks_per_turn: number;
   /** Jetons d'entrée + sortie cumulés au plus des enfants d'un tour ; 0 : sans plafond. */
   readonly max_child_tokens_per_turn: number;
   readonly thinking: { readonly defaults: ParMode };
   readonly thinking_budget_tokens: number;
-  /** Sous-agents lancés en fond (`task(background=true)`) actifs au plus par compte. */
-  readonly background_max: number;
   /** Délai (s) d'un sous-agent en fond : la fin propre (échéance souple, rapport) s'y mesure comme pour un lancement synchrone. */
   readonly background_timeout_s: number;
   /** Un agent réglé « peut utiliser ma session web » la reçoit ; faux : tout sous-agent garde sa session isolée. */
   readonly user_browser_session_allowed: boolean;
 }
 
-export const BORNES_PARALLELE: readonly [number, number] = [1, 10];
 export const BORNES_BUDGET_REFLEXION: readonly [number, number] = [512, 131072];
 export const BORNES_TACHES_PAR_TOUR: readonly [number, number] = [1, 100];
 /** Bornes d'un plafond de jetons posé ; 0 reste permis (sans plafond). */
 export const BORNES_JETONS_ENFANTS: readonly [number, number] = [10_000, 50_000_000];
-export const BORNES_FOND: readonly [number, number] = [1, 10];
 export const BORNES_DELAI_FOND: readonly [number, number] = [300, 21_600];
 
 /** Vrai si le plafond de jetons est 0 (aucun) ou dans ses bornes. */
@@ -58,12 +53,10 @@ const borneBudget = (n: number): number =>
 
 export const DEFAUTS_AGENTS: ReglagesAgents = {
   read_only: { defaults: parTypeDe((t) => t === "explore" || t === "web"), forced: parTypeDe(() => false) },
-  max_parallel: 3,
   max_tasks_per_turn: 12,
   max_child_tokens_per_turn: 0,
   thinking: { defaults: parTypeDe((t) => DEFAUT_REFLEXION[t] ?? "off") },
   thinking_budget_tokens: borneBudget(LLAMA_THINKING_BUDGET_TOKENS),
-  background_max: 2,
   background_timeout_s: 3600,
   user_browser_session_allowed: true,
 };
@@ -127,12 +120,6 @@ function accesLu(v: unknown): boolean {
 export function reglagesAgentsDepuis(brut: unknown): ReglagesAgents {
   const src: Dict = estDict(brut) ? brut : {};
   const ro: Dict = estDict(src["read_only"]) ? src["read_only"] : {};
-  let n: number;
-  try {
-    n = intPy(getPy(src, "max_parallel", DEFAUTS_AGENTS.max_parallel));
-  } catch {
-    n = DEFAUTS_AGENTS.max_parallel;
-  }
   const th: Dict = estDict(src["thinking"]) ? src["thinking"] : {};
   let budget: number;
   try {
@@ -157,10 +144,6 @@ export function reglagesAgentsDepuis(brut: unknown): ReglagesAgents {
       defaults: parTypeLu(ro["defaults"], DEFAUTS_AGENTS.read_only.defaults),
       forced: parTypeLu(ro["forced"], DEFAUTS_AGENTS.read_only.forced),
     },
-    max_parallel:
-      Number.isInteger(n) && n >= BORNES_PARALLELE[0] && n <= BORNES_PARALLELE[1]
-        ? n
-        : DEFAUTS_AGENTS.max_parallel,
     max_tasks_per_turn:
       taches >= BORNES_TACHES_PAR_TOUR[0] && taches <= BORNES_TACHES_PAR_TOUR[1]
         ? taches
@@ -171,7 +154,6 @@ export function reglagesAgentsDepuis(brut: unknown): ReglagesAgents {
       budget >= BORNES_BUDGET_REFLEXION[0] && budget <= BORNES_BUDGET_REFLEXION[1]
         ? budget
         : DEFAUTS_AGENTS.thinking_budget_tokens,
-    background_max: entierBorne(src, "background_max", BORNES_FOND),
     background_timeout_s: entierBorne(src, "background_timeout_s", BORNES_DELAI_FOND),
     user_browser_session_allowed: accesLu(src["user_browser_session_allowed"]),
   };
@@ -215,18 +197,6 @@ export function assainirReglagesAgents(brut: unknown, courant: ReglagesAgents): 
   if (ro !== undefined && ro !== null && !estDict(ro))
     throw new HttpError(400, "agents.read_only doit être un objet");
   const roD: Dict = estDict(ro) ? ro : {};
-  let n = courant.max_parallel;
-  if (brut["max_parallel"] !== undefined) {
-    const v = brut["max_parallel"];
-    if (typeof v !== "number" || !Number.isInteger(v))
-      throw new HttpError(400, "agents.max_parallel doit être un entier");
-    if (v < BORNES_PARALLELE[0] || v > BORNES_PARALLELE[1])
-      throw new HttpError(
-        400,
-        `agents.max_parallel doit être entre ${BORNES_PARALLELE[0]} et ${BORNES_PARALLELE[1]}`,
-      );
-    n = v;
-  }
   let taches = courant.max_tasks_per_turn;
   if (brut["max_tasks_per_turn"] !== undefined) {
     const v = brut["max_tasks_per_turn"];
@@ -275,12 +245,10 @@ export function assainirReglagesAgents(brut: unknown, courant: ReglagesAgents): 
       defaults: parTypeEcrit(roD["defaults"], courant.read_only.defaults, "defaults"),
       forced: parTypeEcrit(roD["forced"], courant.read_only.forced, "forced"),
     },
-    max_parallel: n,
     max_tasks_per_turn: taches,
     max_child_tokens_per_turn: jetons,
     thinking: { defaults: parModeEcrit(thD["defaults"], courant.thinking.defaults) },
     thinking_budget_tokens: budget,
-    background_max: entierEcrit(brut, "background_max", BORNES_FOND, courant.background_max),
     background_timeout_s: entierEcrit(
       brut,
       "background_timeout_s",

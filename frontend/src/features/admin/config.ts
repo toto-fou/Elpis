@@ -170,6 +170,7 @@ function completerConfig(brut: Noeud): ConfigAdmin {
       n_ctx: 4096,
     });
   }
+  completer(section(c, "llm"), { max_requests_per_user: 0 });
 
   const mcp = section(c, "mcp");
   completer(mcp, { servers_dir: "../mcp_custom_servers", tools_cache_ttl_sec: 0 });

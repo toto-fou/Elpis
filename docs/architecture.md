@@ -733,7 +733,7 @@ sequenceDiagram
     participant R as runTurn
     participant B as loop
     C->>H: POST /api/chat-saved-stream3
-    H->>H: admission (409 compaction or generation in progress, 429 account cap)
+    H->>H: admission (409 compaction or generation in progress)
     H->>P: client payload
     P-->>H: TurnPlan, TurnResources, PersistBaseline
     H->>H: presence lock (+ rebase after a handover)
@@ -1511,16 +1511,17 @@ now knows `task` only through its own bound (`bornesDuLot`) and the refusal of a
   (`slotParent`) and those of its running siblings and of the account's background children (`slotAvoid`,
   `SLOTS_FOND`), and finds its last slot again (`slotPrefere`, rechecked on a fresh reading). Compaction
   and synthesis go through the same affinity. vLLM and SGLang never receive an `id_slot`.
-- **Parallelism**: consecutive `task` calls of a response start together, bounded by
-  `agents.max_parallel` (on llama.cpp: `total_slots − 1` at most, minus the account's background children,
-  at least one: `tachesSimultanees`, passed to the loop as the tool's own bound). No write ordering: two writers,
+- **Parallelism**: consecutive `task` calls of a response start together (three at a time if the batch
+  contains a `web` agent; on llama.cpp: `total_slots − 1` at most, minus the account's background children,
+  at least one: `tachesSimultanees`, passed to the loop as the tool's own bound); their engine calls count
+  toward `llm.max_requests_per_user`. No write ordering: two writers,
   a `verify` during an `implement`, start together; it is up to the parent to coordinate (note 4) and the
   summary flags it afterwards (`concurrent`). The `implement` and `pr` personas read the sync
   file named in the brief before writing and note in it what they take and what they changed.
 - **Background launch (`background: true`)**: `task` registers the child among the background tasks
   (`PortTachesFond`, `shell_jobs` row with `kind = 'agent'`) and immediately returns `task_id` and `job_id`.
-  A saved conversation and a top-level turn are required (`not_available_here`), at most
-  `agents.background_max` active children per account (`background_limit`). The child lives outside the turn (neither
+  A saved conversation and a top-level turn are required (`not_available_here`); on llama.cpp,
+  at most `total_slots − 1` active children per account (`background_limit`). The child lives outside the turn (neither
   Stop nor cancellation of the parent; its ✕, "Stop" in `/jobs` or deleting its conversation
   stops it), runs after the interactive turns (`low` priority), with the same clean ending. Its
   steps go to the turn that launched it while it is active and to its progress (`chat_job`, 3 s). Its end
@@ -3477,7 +3478,7 @@ Some models leave their conclusion in the thinking phase.
 | 404 | Not found — **or global feature disabled** |
 | 409 | Conflict: username taken, `generation_running`, `compression_running`, version conflict, isolated network profile (preview) |
 | 413 | Payload too large |
-| 429 | Too many requests (rate limit) or too many runs in progress for the user (`too_many_runs`, `llm.max_runs_per_user`) |
+| 429 | Too many requests (rate limit) |
 | 500 | Server error |
 | 502 | LLM or RAG unavailable |
 | 503 | Service unavailable (restart, sandbox not ready yet → **client retry**) |

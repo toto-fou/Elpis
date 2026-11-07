@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion, sous-agents simultanés et plafonds par tour, section `agents` de config.json. */
+/** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion et plafonds par tour, section `agents` de config.json. */
 import { estDict, getPy, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { auditEvent, TYPES_AGENTS_REGLABLES } from "@elpis/securite";
@@ -10,9 +10,7 @@ import {
   assainirReglagesAgents,
   BORNES_BUDGET_REFLEXION,
   BORNES_DELAI_FOND,
-  BORNES_FOND,
   BORNES_JETONS_ENFANTS,
-  BORNES_PARALLELE,
   BORNES_TACHES_PAR_TOUR,
   reglagesAgentsDepuis,
 } from "../outils/integres/task/reglages";
@@ -34,11 +32,9 @@ function vue(r: ReglagesAgents): Dict {
     config: r,
     types: [...TYPES_AGENTS_REGLABLES],
     bounds: {
-      max_parallel: [...BORNES_PARALLELE],
       max_tasks_per_turn: [...BORNES_TACHES_PAR_TOUR],
       max_child_tokens_per_turn: [...BORNES_JETONS_ENFANTS],
       thinking_budget_tokens: [...BORNES_BUDGET_REFLEXION],
-      background_max: [...BORNES_FOND],
       background_timeout_s: [...BORNES_DELAI_FOND],
     },
   };
@@ -58,19 +54,17 @@ async function enregistrer(dep: DependancesAdminAgents, req: FastifyRequest): Pr
     username: req.utilisateur?.username ?? null,
     action: "admin.agents.update",
     details: {
-      max_parallel: ecrit.max_parallel,
       max_tasks_per_turn: ecrit.max_tasks_per_turn,
       max_child_tokens_per_turn: ecrit.max_child_tokens_per_turn,
       forced: ecrit.read_only.forced,
       thinking: ecrit.thinking.defaults,
       thinking_budget_tokens: ecrit.thinking_budget_tokens,
-      background_max: ecrit.background_max,
       background_timeout_s: ecrit.background_timeout_s,
       user_browser_session_allowed: ecrit.user_browser_session_allowed,
     },
   });
   dep.journal.info(
-    `[admin] réglages des sous-agents enregistrés (max_parallel=${ecrit.max_parallel}, max_tasks_per_turn=${ecrit.max_tasks_per_turn}, max_child_tokens_per_turn=${ecrit.max_child_tokens_per_turn})`,
+    `[admin] réglages des sous-agents enregistrés (max_tasks_per_turn=${ecrit.max_tasks_per_turn}, max_child_tokens_per_turn=${ecrit.max_child_tokens_per_turn})`,
   );
   return { ok: true, config: ecrit };
 }

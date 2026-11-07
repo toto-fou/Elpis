@@ -122,8 +122,8 @@ The main and admin processes share the **same session secret** (injected by
 The core is written in TypeScript (`apps/core/`, shared packages in `packages/`).
 Account-bound tools (memory, tasks, skills, charts) are served
 by main itself. The remaining Python serves the Office engine (**`office/`**, a worker of
-the tool host), the sandbox agent, the configuration assistant and the RAG extractor:
-**`shared_infra/`** (infrastructure organized by family).
+the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assistant
+(**`deploy/`**) and the RAG extractor (**`rag_app/`**).
 
 ---
 
@@ -132,7 +132,7 @@ the tool host), the sandbox agent, the configuration assistant and the RAG extra
 | Component | Technology |
 |---|---|
 | Backend | Core and tool host: Node 24, TypeScript, Fastify; Office engine, RAG extractor, configuration: Python 3.11+ |
-| Database | SQLite 3 (WAL) by default; PostgreSQL optional (core: better-sqlite3, pg; Python: pg8000) |
+| Database | SQLite 3 (WAL) by default; PostgreSQL optional (better-sqlite3, pg) |
 | HTTP client | undici (core, LLM calls); httpx (Python) |
 | Tool protocol | `@modelcontextprotocol/sdk` (TS): stdio + SSE + HTTP |
 | Encryption at rest | `cryptography` / Fernet (API keys, MCP secrets) |
@@ -275,8 +275,7 @@ flowchart LR
 
 ## Project tree
 
-The detailed code map (one paragraph per package, one line per `shared_infra/`
-family) is in
+The detailed code map (one paragraph per package) is in
 [ARCHITECTURE.md › Code map](../ARCHITECTURE.md#code-map). Overview:
 
 ```
@@ -284,8 +283,7 @@ elpis/
 ├── apps/            # core/ (TS core, main and admin), toolhost/ (TS tool host)
 ├── packages/        # shared TS packages: contracts, db, outils-mcp, navigateur…
 ├── office/          # Office engine (Python, elpis_office/): tool host worker
-├── shared_infra/    # Python infra by family: accounts, db, llm, memory, ops,
-│                    #   observability, runtime, sandbox (container agent), security
+├── sandbox-agent/   # agent run inside each sandbox container (Python, standard library)
 ├── frontend/        # interface (@elpis/web, Vite): src/ (TS, SFC), css/, assets/, index.html and admin.html shells
 ├── browser-service/ # Node + Playwright (:3000)
 ├── desktop-agent/   # screen control agent (Windows/Linux)
@@ -335,8 +333,7 @@ An npm workspace at the root (Node 24, strict TypeScript, ESM):
    `/work`), `navigateur`, `bureau`, `images`, `skills`, `verrous`, `commun`
    (Python-compatible JSON, errors).
 4. **Remaining Python** — `office/` (Office engine, tool host worker),
-   `shared_infra/` (sandbox agent, database access for configuration),
-   `rag_app/`, `desktop-agent/`, `deploy/`.
+   `sandbox-agent/` (container agent), `rag_app/`, `desktop-agent/`, `deploy/`.
 
 ---
 
@@ -358,8 +355,8 @@ position.
 | `erreurs.ts` | errors classified like those of `sqlite3` (integrity, operation, data…) |
 
 Copy between engines: `apps/core/src/ops/transfert.ts` (`./elpis db transfer`).
-The remaining Python (configuration assistant) reads the same database
-through `shared_infra/db/`, which keeps the same dialect.
+The configuration assistant reaches the database through the core
+(`exploitation.mjs db check`, `admin`, `connecteur`).
 
 An empty database receives the whole reference schema at once, and the migrations it
 covers are stamped; an existing database receives its missing tables and columns,
@@ -449,7 +446,7 @@ NULL = built-in), `system_prompt`, `task_prompt`, `mcp_snapshot`,
 - Deleting a user = **application cascade**: chats, prompts,
   shares, sandbox, container, connectors, routines, notifications, memory,
   generated images (rows and files).
-- **Secrets encrypted at rest** (Fernet, `@elpis/securite`, format shared with `shared_infra/security/encryption.py`) for the
+- **Secrets encrypted at rest** (Fernet, `@elpis/securite`) for the
   API keys of LLM connectors and of the image engine, and for shared MCP auth secrets. The functions
   exposed to routes never return the secret — only `has_key` /
   `has_auth`. Only the host-side resolvers read the decrypted value.
@@ -469,7 +466,7 @@ module variable:
 |---|---|---|
 | **Database** | `packages/db` | Any state that must outlive the process (chats, routines, revoked sessions, subagent resume) |
 | **Internal main → admin channel** | `apps/core/src/evenements/canal.ts` (`/api/internal/events`) | Live metrics, staff logs, "Restart required": SSE with a ring buffer, resume through `Last-Event-ID` |
-| **`elpis.verrou.v1.1` lock** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`), `shared_infra/runtime/verrou_fichier.py` on the Python side | A single active scheduler (`apps/core/src/routines/meneur.ts`); on the Python side, startup cleanup of the database, creation of the schema and the encryption key |
+| **`elpis.verrou.v1.1` lock** | `@elpis/verrous` (`packages/verrous/src/verrou.ts`) | A single active scheduler (`apps/core/src/routines/meneur.ts`), startup cleanup of the database, creation of the schema and the encryption key |
 | **Runtime files** | `ELPIS_RUNTIME_DIR`: run journal (`tour/journal-run.ts`), shared JSONL journal (`evenements/journal-commun.ts`), tool category cache (`outils/categories.ts`) | Reattach to a run after a restart; journal read by the console; tools discovered by another process |
 
 A cancellation never goes through system events: a Stop ends the
@@ -3364,7 +3361,7 @@ independent of the state of the Routines feature.
 | Mechanism | Module | Note |
 |---|---|---|
 | **CSRF** | `packages/auth/src/csrf.ts` | On mutating requests; `Sec-Fetch-Site` primary, `Origin` as fallback; no cookie ⇒ tolerated; exemptions `/api/sandbox/preview/`, `/api/webhooks/`; WebSocket handshakes are checked separately |
-| **Swallowed errors** | `apps/core/src/observabilite/traces.ts`; `shared_infra/observability/tracing.py` on the Python side | Deliberately swallowed error: counted and logged with its stack, without changing the flow; never a cancellation |
+| **Swallowed errors** | `apps/core/src/observabilite/traces.ts` | Deliberately swallowed error: counted and logged with its stack, without changing the flow; never a cancellation |
 | **Sessions** | `packages/config/src/vivant.ts` › `sessionCookieAttrs()`; signed cookie `packages/auth/src/cookie.ts` | **Single** source of cookie attributes; `max_age` aligned with the logical expiry |
 | **Revocation** | `revoked_sessions` + `security.session.global_min_ts` | Logout really revokes server-side |
 | **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session cleared before the account is associated |

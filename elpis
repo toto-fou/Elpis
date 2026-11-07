@@ -672,7 +672,7 @@ cmd_doctor() {
         info "paquets apt : dpkg-query absent, prérequis non vérifiés (deploy/prerequis-apt.txt)"
     fi
     check "venv Python" "./install.sh" test -x "$PY"
-    check "dépendances Python" "./install.sh" "$PY" -c 'import fastapi, httpx, uvicorn, cryptography' 
+    check "dépendances Python" "./install.sh" "$PY" -c 'import fastapi, httpx, uvicorn' 
     local v_runtime="NODE_RUNTIME_SHA256_$(uname -m)" runtime_attendu
     runtime_attendu="${!v_runtime:-absente}"
     if [ "$NODE" = "$NODE_DIR/bin/node" ]; then

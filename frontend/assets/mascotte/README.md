@@ -44,7 +44,7 @@ one (`welcome_mascot_on`, Settings › Appearance › Mascot). A skin that bring
 `mascottes.json` is the SINGLE list of mascots offered on the welcome screen
 (`id`, `label`, in display order; `"apercu": false` excludes it from the
 preview characters of the console). The server uses it to validate the
-`welcome_mascot` setting (`shared_infra/appearance/skins.py`) and serves it to the
+`welcome_mascot` setting (`apps/core/src/apparence/skins.ts`) and serves it to the
 interface (`mascottes_catalogue` in `GET /api/settings`); the console
 reads it statically. Mascots specific to a skin (`kiki`) are not listed there:
 they come from the `mascot` field of the skin registry
@@ -57,9 +57,7 @@ they come from the `mascot` field of the skin registry
    `socle-mascottes.json`.
 3. Add `{"id": "<id>", "label": "<Name>"}` to `mascottes.json`.
 
-The server refuses any identifier absent from `mascottes.json`
-(`tests/shared_infra/test_skins_plugins_2026_09_28.py` checks that each
-entry has its folder, its CSS sheet and its entry in `socle-mascottes.json`).
+The server refuses any identifier absent from `mascottes.json`.
 
 ## Origin and license
 

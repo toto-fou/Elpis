@@ -131,24 +131,19 @@ main and admin; `apps/toolhost`: tool host), shared packages in
   message.
 - `from __future__ import annotations`; logging via
   `logging.getLogger("uvicorn.error")`, messages prefixed `[domain]`.
-- Errors: `with swallow("domain.action"):`
-  (`shared_infra/observability/tracing.py`) rather than `except Exception: pass`;
-  never swallow `BaseException` or `asyncio.CancelledError`; a deliberate broad
-  `except` carries `# noqa: BLE001`.
-- Setting read by the remaining Python: constant in `shared_infra/config.py`
-  (priority: environment variable > `config.json` > default), documented
-  in `docs/configuration.md`.
+- Errors: never a silent `except Exception: pass`; never swallow `BaseException`
+  or `asyncio.CancelledError`; a deliberate broad `except` carries `# noqa: BLE001`.
+- Setting of a Python service: read from its environment (set by `./elpis`),
+  documented in `docs/configuration.md`.
 
 **Database**
 
 - **Portable** SQL for SQLite / PostgreSQL: go through
-  `packages/db/src/dialecte.ts` for anything that differs (`shared_infra/db/_dialect.py`
-  on the remaining Python side).
+  `packages/db/src/dialecte.ts` for anything that differs.
 - Schema: `packages/db/src/schema.ts` (tables in `schema.gen.ts`); a new
   table or column = a migration added to `MIGRATIONS_TS`
   (`packages/db/src/init.ts`); no DDL outside `packages/db` (only
   exception: the database transfer, `apps/core/src/ops/transfert.ts`).
-- Python: every `db()` is followed by its `close()` (or `with db_conn()`).
 
 **Organization**
 
@@ -156,8 +151,6 @@ main and admin; `apps/toolhost`: tool host), shared packages in
   `apps/core/src/familles.ts`), mounted according to `APP_MODE`; a topic's logic
   lives in its folder in `apps/core/src/` or in a `packages/` package
   shared with the tool host.
-- `shared_infra/` (remaining Python) is organized **by family** (accounts,
-  db, llm, memory, observability, ops, runtime, sandbox, security).
 - Admin routes: `admin-*` families in `apps/core/src/familles/`
   (admin process only); role checked by `exigerRole`
   (`packages/auth/src/garde.ts`). `is_admin` is 0, 1 (admin) or 2

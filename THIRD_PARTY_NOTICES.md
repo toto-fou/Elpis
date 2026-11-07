@@ -361,9 +361,6 @@ and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requi
 | XlsxWriter | BSD-2-Clause |
 | lxml | BSD-3-Clause |
 | markdown-it-py | MIT |
-| cryptography | Apache-2.0 OR BSD-3-Clause |
-| pg8000 (PostgreSQL driver) | BSD-3-Clause |
-| scramp, asn1crypto, python-dateutil, six (pg8000 dependencies) | MIT-0 / MIT / Apache-2.0 OR BSD-3-Clause / MIT |
 | ruff | MIT |
 | pytest, pytest-asyncio, pytest-xdist (tests) | MIT / Apache-2.0 / MIT |
 | mypy, mypy-extensions, librt, ast-serialize, typing-extensions, pathspec (typage, développement) | MIT / MIT / MIT / MIT / PSF-2.0 / MPL-2.0 |
@@ -377,6 +374,7 @@ and pinned versions are in `requirements.txt`, `office/requirements.txt`, `requi
 | pdfplumber | MIT |
 | pypdfium2 (includes PDFium) | Apache-2.0 OR BSD-3-Clause (PDFium: BSD-3-Clause / Apache-2.0) |
 | charset-normalizer | MIT |
+| cryptography (pdfminer.six dependency) | Apache-2.0 OR BSD-3-Clause |
 | openpyxl | MIT |
 | fpdf2 | **LGPL-3.0** — redistributed as a wheel in the offline package, see § 3 |
 

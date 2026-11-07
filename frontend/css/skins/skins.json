@@ -1,5 +1,5 @@
 {
-  "_doc": "Skins INTÉGRÉS (registre unique, lu par shared_infra/appearance/skins.py et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>/skin.css + un <link> dans index.html et admin.html. Son éditeur : frontend/css/skins/<id>/editeur.css, facultatif ; sans lui, éditeur classique. Les skins importés vivent dans SKINS_DIR (user_skins/). `palettes` : jeux de couleurs d'une même structure, sous la classe elpis-palette-<id> (id vide : les jetons de base). `alias` : ancien skin fusionné → skin et palette qui le remplacent.",
+  "_doc": "Skins INTÉGRÉS (registre unique, lu par apps/core/src/apparence/skins.ts et servi par GET /api/skins). Ajouter un skin intégré = une entrée ici + frontend/css/skins/<id>/skin.css + un <link> dans index.html et admin.html. Son éditeur : frontend/css/skins/<id>/editeur.css, facultatif ; sans lui, éditeur classique. Les skins importés vivent dans SKINS_DIR (user_skins/). `palettes` : jeux de couleurs d'une même structure, sous la classe elpis-palette-<id> (id vide : les jetons de base). `alias` : ancien skin fusionné → skin et palette qui le remplacent.",
   "skins": [
     {
       "id": "elpis",

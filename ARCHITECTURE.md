@@ -117,7 +117,7 @@ A chat turn, from the request to the last event:
 ### `office/` — the Office engine
 
 - `elpis_office/`: standalone Python package (python-docx, python-pptx, lxml,
-  Pillow, pydantic, markdown-it-py; no `shared_infra` import) that carries the seven Word and PowerPoint tools (`word.py`,
+  Pillow, pydantic, markdown-it-py) that carries the seven Word and PowerPoint tools (`word.py`,
   `powerpoint.py`, `_docx/`, `_pptx/`, `_chart/`, ECharts rendering `echarts_ssr.cjs`).
   It sees the world only through the `Env` (`commun.py`) that the host plugs into it:
   file reading and writing, charts, PDF conversion.
@@ -132,25 +132,6 @@ A chat turn, from the request to the last event:
 `server.py`, Python standard library only: mounted read-only in each sandbox
 container (`/opt/elpis/agent`) and started on demand by the host
 (`@elpis/fichiers`).
-
-### `shared_infra/` — the remaining Python, organized by family
-
-What the configuration wizard (`deploy/`) imports. The HTTP routes are
-all in the TypeScript core.
-
-| Family | Content |
-|---|---|
-| `accounts` | accounts (`users.py`) |
-| `db` | multi-engine persistence of the remaining Python (`_dialect.py`, historical migrations) |
-| `llm` | model connectors |
-| `memory` | upgrade of the old AX memory tables (`ax/`) |
-| `observability` | `swallow()` |
-| `runtime` | file locks between processes (`elpis.verrou.v1.1`) |
-| `security` | Fernet encryption |
-| `ops` | database generation published by the switchover |
-
-`config.py` resolves the configuration of the remaining Python (environment
-variable > `config.json` > default).
 
 ### `frontend/` — the interface
 
@@ -181,7 +162,7 @@ variable > `config.json` > default).
 - `apps/toolhost/`: tool host deployable on its own (MCP, sandbox, terminal;
   `deploy/toolhost/` for a remote machine), token
   `user_db/.local_mcp_token` + signed identity header.
-- `rag_app/`: RAG extractor (no `shared_infra`), called by `apps/core/src/rag/`.
+- `rag_app/`: RAG extractor, called by `apps/core/src/rag/`.
 - `browser-service/`, `desktop-agent/`: see the process table.
 - `deploy/`: Caddy, sandbox image (`docker/sandbox/`, `elpis/sandbox:1.7.0`),
   Qdrant, remote toolhost, voice (whisper.cpp :8090, Piper :8091),
@@ -210,8 +191,8 @@ skins), `logs/`, and
   pool, values and errors read back as in SQLite), `dialecte.ts` (SQL specific
   to each engine), `schema.ts` and `schema.gen.ts` (reference schema),
   `init.ts` (schema setup, migrations tracked in `schema_migrations`).
-  Transfer between engines: `apps/core/src/ops/transfert.ts`. The remaining
-  Python (configuration) goes through `shared_infra/db/`.
+  Transfer between engines: `apps/core/src/ops/transfert.ts`. `./elpis configure`
+  goes through the core (`exploitation.mjs db check`, `admin`, `connecteur`).
 - Hot switchover: `apps/core/src/ops/bascule.ts` (maintenance mode, 503 on
   writes, incremented generation), driven by the console or
   `./elpis db`.

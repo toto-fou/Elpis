@@ -27,7 +27,7 @@ npm ci          # Node ≥ 24 (.nvmrc): TypeScript development tools
 | an agent tool | native family: `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`); Office family: `apps/toolhost/src/mcp/office/` (host, files and conversions) and the Python engine `office/elpis_office/` |
 | an operation on a sandbox's files | host side: `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/`; inside the container: the agent `sandbox-agent/server.py` (`/v1` API); never direct host access |
 | a sandbox's Git | `packages/fichiers/src/git.ts` (through the agent), `relais-git.ts` (network), routes `apps/toolhost/src/git/` |
-| the database | `packages/db/` (schema, migrations, dialects); `shared_infra/db/` for the remaining Python |
+| the database | `packages/db/` (schema, migrations, dialects) |
 | the interface | `frontend/src/`: `features/<domain>/` (TS logic), `components/<domain>/` (Vue SFCs), `entries/` (entry points), `app/racine/`; styles `frontend/css/`, images `frontend/assets/` |
 | installation, launch | `install.sh`, `elpis`, `deploy/` |
 | the operations documentation | `docs/operations.md`, `docs/configuration.md` |

@@ -11,8 +11,8 @@ la garde. En mode non interactif (``--yes``, ou pas de terminal), aucune
 question n'est posée : l'ordre ci-dessus suffit, ce qui rend le script
 utilisable en CI.
 
-Ordre des étapes : les fichiers (config.json, jetons, mcp.json) sont écrits AVANT d'importer le code de l'application,
-parce que ``shared_infra.config`` lit config.json à l'import. Les étapes qui
+Ordre des étapes : les fichiers (config.json, jetons, mcp.json) sont écrits AVANT d'appeler le core
+(``apps/core/dist/exploitation.mjs``), qui lit config.json au démarrage. Les étapes qui
 touchent la base (compte admin, connecteur cloud) viennent donc en dernier.
 
 Sondes réseau : uniquement ``GET /v1/models`` et ``/health`` (clé API du
@@ -40,9 +40,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config.json"
 ENV_FILE = ROOT / ".env"
 USER_DB = ROOT / "user_db"
+# Commandes du core (base, compte administrateur, connecteur cloud) : bundle construit par install.sh.
+CORE_CLI = ROOT / "apps" / "core" / "dist" / "exploitation.mjs"
+CORE_ABSENT = "core non construit (apps/core/dist/exploitation.mjs absent) : lancer ./install.sh"
 
-# Fournisseurs cloud proposés — alignés sur shared_infra/llm/connectors.py
-# (PROVIDER_PRESETS) ; relus depuis ce module quand il est importable.
+# Fournisseurs cloud proposés : ceux de PROVIDER_PRESETS (apps/core/src/llm/connecteurs.ts) à adresse fixe.
 CLOUD_PROVIDERS = ["anthropic", "openai", "mistral", "groq", "openrouter",
                    "deepseek", "moonshot"]
 ENGINES = {"llamacpp": "llama.cpp", "vllm": "vLLM", "sglang": "SGLang",
@@ -778,20 +780,15 @@ def refuse_retired_db() -> None:
 
 
 def _db_check(target: Dict[str, Any]) -> Dict[str, Any]:
-    """Teste la connexion dans un SOUS-PROCESSUS : ``shared_infra.config`` lit
-    config.json à l'import, et le process courant ne doit importer le code de
-    l'application qu'une fois config.json écrit (cf. docstring du module)."""
-    code = ("import json, sys\n"
-            "from shared_infra.db.transfer import check_target\n"
-            "try:\n"
-            "    print(json.dumps(check_target(json.load(sys.stdin))))\n"
-            "except Exception as e:\n"
-            "    print(json.dumps({'ok': False, 'error': str(e)[:300]}))\n")
+    """Teste la connexion par ``./elpis db check`` du core, mot de passe passé par l'environnement."""
+    if not CORE_CLI.is_file():
+        return {"ok": False, "error": CORE_ABSENT}
     try:
-        r = subprocess.run([sys.executable, "-c", code], input=json.dumps(target),
-                           capture_output=True, text=True, timeout=90, cwd=str(ROOT),
-                           env=dict(os.environ, PYTHONPATH=str(ROOT)))
-        return json.loads(r.stdout.strip().splitlines()[-1])
+        r = subprocess.run([node_bin(), str(CORE_CLI), "db", "--password-env", "ELPIS_DB_CHECK_PW", "check",
+                            _db_url(target)], stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                           timeout=90, cwd=str(ROOT),
+                           env=dict(os.environ, ELPIS_RACINE=str(ROOT), ELPIS_DB_CHECK_PW=target.get("password") or ""))
+        return json.loads(r.stdout)
     except Exception as e:                                      # noqa: BLE001
         return {"ok": False, "error": str(e)[:300]}
 
@@ -904,16 +901,30 @@ def node_bin() -> str:
     return str(local) if os.access(local, os.X_OK) else (shutil.which("node") or "node")
 
 
+def core_json(cmd: str, request: Dict[str, Any]) -> Dict[str, Any]:
+    """Commande ``cmd`` du core : requête JSON sur stdin (secrets compris), réponse JSON sur la dernière ligne de stdout."""
+    if not CORE_CLI.is_file():
+        return {"ok": False, "error": CORE_ABSENT}
+    try:
+        r = subprocess.run([node_bin(), str(CORE_CLI), cmd], input=json.dumps(request), capture_output=True,
+                           text=True, timeout=300, cwd=str(ROOT), env=dict(os.environ, ELPIS_RACINE=str(ROOT)))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return {"ok": False, "error": f"core injoignable ({e})"}
+    try:
+        return json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"ok": False, "error": (r.stderr.strip().splitlines() or [f"code {r.returncode}"])[-1]}
+
+
 def apply_db_transfer(plan: Dict[str, Any]) -> bool:
     """Copie SQLite → serveur par ``./elpis db transfer`` du core (config.json
     déjà écrit). Rend False si la copie a échoué."""
     info("Copie des données SQLite vers la nouvelle base…")
-    exploitation = ROOT / "apps" / "core" / "dist" / "exploitation.mjs"
-    if not exploitation.is_file():
-        warn("Copie impossible : core non construit (apps/core/dist/exploitation.mjs absent).")
+    if not CORE_CLI.is_file():
+        warn(f"Copie impossible : {CORE_ABSENT}.")
         return False
     try:
-        r = subprocess.run([node_bin(), str(exploitation), "db", "--password-env", "ELPIS_DB_TRANSFER_PW",
+        r = subprocess.run([node_bin(), str(CORE_CLI), "db", "--password-env", "ELPIS_DB_TRANSFER_PW",
                             "transfer", "--from", plan["source"], "--to", plan["target"],
                             "--report", str(USER_DB / "db-transfer-report.json")],
                            cwd=str(ROOT), capture_output=True, text=True,
@@ -931,7 +942,7 @@ def apply_db_transfer(plan: Dict[str, Any]) -> bool:
 
 def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
     """Copie échouée : Elpis reste sur SQLite, où sont les données et les
-    comptes. Sans ce retour, l'étape suivante (compte admin, ``init_db()``)
+    comptes. Sans ce retour, l'étape suivante (compte admin, schéma posé par le core)
     posait le schéma dans la nouvelle base, qui n'était plus vierge : la copie
     ne pouvait plus être relancée. La cible est gardée « en attente »
     (``database.pending``, comme « Enregistrer » de la console), à basculer
@@ -1130,12 +1141,7 @@ def migrate_missing_families(path: Path, ecrire: bool = True) -> List[str]:
 
 def step_admin(p: Prompter, a: argparse.Namespace) -> None:
     title("8/8  Compte administrateur")
-    sys.path.insert(0, str(ROOT))
-    from shared_infra.accounts import users as U
-    from shared_infra.db import init_db
-
-    init_db()
-    existing = U.get_all_users()
+    existing = admin_request({"action": "list"})["users"]
     user = pick(a.admin_user, "ELPIS_CFG_ADMIN_USER", None, "admin").strip() or "admin"
     pw = pick(a.admin_password, "ELPIS_CFG_ADMIN_PASSWORD", None, "")
     if existing:
@@ -1146,12 +1152,11 @@ def step_admin(p: Prompter, a: argparse.Namespace) -> None:
         if reset and target:
             pw = pw or p.secret(f"Nouveau mot de passe de « {target} »", confirm=True, min_len=8)
             if pw:
-                row = U.get_user(target)
-                U.reset_user_password(int(row["id"]), pw)
+                admin_request({"action": "password", "username": target, "password": pw})
                 ok(f"Mot de passe de « {target} » changé.")
         return
     user = p.ask("Nom du compte administrateur", user,
-                 validate=lambda v: _username_error(U, v), allow_empty=False)
+                 validate=_username_error, allow_empty=False)
     if not pw:
         pw = p.secret(f"Mot de passe de « {user} » (8 caractères min., vide = généré)",
                       confirm=True, min_len=8)
@@ -1161,7 +1166,8 @@ def step_admin(p: Prompter, a: argparse.Namespace) -> None:
     generated = not pw
     if generated:
         pw = secrets.token_urlsafe(12)
-    U.create_user(user, pw, is_admin=1, must_change_pwd=1 if (generated or pre_generated) else 0)
+    admin_request({"action": "create", "username": user, "password": pw,
+                   "must_change_pwd": generated or pre_generated})
     ok(f"Compte administrateur « {user} » créé.")
     if generated:
         show_secret(f"    Mot de passe initial (à changer à la première connexion) : {pw}")
@@ -1187,18 +1193,25 @@ def show_secret(line: str) -> None:
               f"seul propriétaire ; supprimez-le après la première connexion)")
 
 
-def _username_error(U, v: str) -> Optional[str]:
-    try:
-        U.validate_username(v)
-        return None
-    except ValueError as e:
-        return f"Nom refusé : {e}"
+def admin_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    """Requête ``admin`` du core ; un refus arrête la configuration (code 1, config.json déjà écrit)."""
+    res = core_json("admin", request)
+    if not res.get("ok"):
+        warn(f"Compte administrateur : {str(res.get('error')).rstrip('.')}. Corriger puis relancer ./elpis configure.")
+        raise SystemExit(1)
+    return res
+
+
+def _username_error(v: str) -> Optional[str]:
+    res = core_json("admin", {"action": "check", "username": v})
+    return None if res.get("ok") else f"Nom refusé : {res.get('error')}"
 
 
 def apply_cloud(cloud: Dict[str, str]) -> None:
-    from shared_infra.llm import connectors as C
-
-    preset = C.PROVIDER_PRESETS[cloud["provider"]]
+    preset = core_json("connecteur", {"action": "preset", "provider": cloud["provider"]})
+    if not preset.get("ok"):
+        warn(f"Connecteur {cloud['provider']} non créé : {str(preset.get('error')).rstrip('.')}.")
+        return
     base = preset["base_url"]
     headers = ({"x-api-key": cloud["api_key"], "anthropic-version": "2023-06-01"}
                if preset["wire"] == "anthropic" else {"Authorization": f"Bearer {cloud['api_key']}"})
@@ -1207,16 +1220,14 @@ def apply_cloud(cloud: Dict[str, str]) -> None:
     if err:
         warn(f"{cloud['provider']} : liste des modèles indisponible ({err}) — vérifiez la clé.")
     model = cloud.get("model") or (models[0] if models else "")
-    existing = [r for r in C.list_shared_connectors() if r.get("provider_type") == cloud["provider"]]
-    fields = dict(api_key=cloud["api_key"], default_model=model,
-                  models_json=json.dumps(models[:50]) if models else "")
-    if existing:
-        C.update_shared_connector(int(existing[0]["id"]), **fields)
-        ok(f"Connecteur {cloud['provider']} mis à jour.")
-    else:
-        C.create_connector(scope="shared", provider_type=cloud["provider"], wire=preset["wire"],
-                           base_url=base, label=preset["label"], **fields)
+    res = core_json("connecteur", {"action": "save", "provider": cloud["provider"], "api_key": cloud["api_key"],
+                                   "default_model": model, "models_json": json.dumps(models[:50]) if models else ""})
+    if not res.get("ok"):
+        warn(f"Connecteur {cloud['provider']} non enregistré : {res.get('error')} (Administration → Connexions).")
+    elif res.get("created"):
         ok(f"Connecteur {cloud['provider']} créé (partagé) — modèle {model or '?'}.")
+    else:
+        ok(f"Connecteur {cloud['provider']} mis à jour.")
 
 
 def apply_https(https: Dict[str, Any]) -> None:
@@ -1458,7 +1469,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     write_json(CONFIG, cfg)
     ok("config.json écrit (0600).")
-    # Avant le compte admin : init_db() poserait le schéma dans la base vide,
+    # Avant le compte admin : le core poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.
     if transfer and not apply_db_transfer(transfer):
         keep_sqlite_after_failed_transfer(cfg)

@@ -8,6 +8,12 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **`./elpis configure` goes through the core.** The database test, the creation of the
+  database and administrator account, and the cloud connector are done by the core
+  (`exploitation.mjs db check`, `admin`, `connecteur`) instead of the remaining Python
+  code. A new database now gets the core's schema right away. The configuration needs
+  the core bundle (`./install.sh` builds it first); without it, `./elpis configure` stops
+  at the administrator account with a clear message.
 - **Sandbox agent in `sandbox-agent/`.** The agent that runs inside each sandbox
   container leaves `shared_infra/`. Because its mount path changes, each sandbox
   container is recreated once on first use after the update, as after an image update;

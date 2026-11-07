@@ -481,6 +481,11 @@ checks of `./elpis doctor` (database reachable, file locks, bubblewrap, LLM
 server) go through the Node.js core (`apps/core/dist/exploitation.mjs`): same
 options, same outputs and same exit codes as in the Python version. The venv is
 now used only for the Office engine, the RAG extractor and `./elpis configure`.
+`./elpis configure` itself asks the core to test a database (`db check`), to create
+the database and the administrator account (`admin`) and to save the cloud
+connector (`connecteur`, API key encrypted by the core); `admin` and `connecteur` read
+a JSON request on stdin, so no secret goes on a command line. The configuration
+therefore needs the core bundle, which `./install.sh` builds before configuring.
 
 ## Backing up and restoring
 

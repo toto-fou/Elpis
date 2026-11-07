@@ -88,6 +88,8 @@ export interface OptionsFlux {
   signal?: AbortSignal;
   samplingOverride?: Dict | null;
   thinkingMode?: boolean;
+  /** Budget de réflexion envoyé à llama.cpp (`thinking_budget_tokens`), pour un appel court qui doit répondre. */
+  reasoningBudget?: number | null;
   chatId?: string | null;
   resumeThink?: string | null;
   resumeNativeOk?: boolean;
@@ -552,6 +554,7 @@ export async function llamaChatWithToolsStream(
       chatId,
       reasoningEffort: sanitizeReasoningEffort(o.samplingOverride),
       preserveReasoning: sanitizePreserveReasoning(o.samplingOverride),
+      reasoningBudget: o.reasoningBudget ?? null,
       slotAvoidOwn: o.slotAvoidOwn ?? false,
       slotKey: o.slotKey ?? null,
       slotAvoid: o.slotAvoid ?? null,

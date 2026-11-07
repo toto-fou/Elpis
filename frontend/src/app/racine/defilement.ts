@@ -25,9 +25,11 @@ export function creerDefilementChat(src: SourceDefilement) {
 
   function brancher(el: HTMLElement): () => void {
     dernierHaut = el.scrollTop;
+    let colle = distance(el) <= 4;
     const surDefilement = (): void => {
-      // Position toujours suivie, même verrouillée : le bouton « descendre » dépend de la position.
+      // Position toujours suivie, même verrouillée : le bouton « descendre » et le collage en bas en dépendent.
       const dist = distance(el);
+      colle = dist <= 4;
       chatAwayFromBottom.value = dist > LOIN_DU_BAS_PX;
       if (Date.now() < verrouJusqua) {
         dernierHaut = el.scrollTop;
@@ -58,8 +60,14 @@ export function creerDefilementChat(src: SourceDefilement) {
     el.addEventListener("touchstart", surToucher, { passive: true });
     el.addEventListener("touchmove", surGlisser, { passive: true });
     el.addEventListener("keydown", surTouche);
-    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés.
+    // Le contenu grandit ou rétrécit sans événement de défilement : viewport et colonne observés ; collé en bas, le fil y reste dans la même image.
     const obs = new ResizeObserver(() => {
+      if (colle && !src.isUserScrolling.value && distance(el) > 4) {
+        const avant = el.style.scrollBehavior;
+        el.style.scrollBehavior = "auto";
+        el.scrollTop = el.scrollHeight;
+        el.style.scrollBehavior = avant;
+      }
       chatAwayFromBottom.value = distance(el) > LOIN_DU_BAS_PX;
     });
     obs.observe(el);

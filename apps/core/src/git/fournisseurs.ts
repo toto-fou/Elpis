@@ -275,7 +275,7 @@ function prDesactivees(): Dict {
     ok: false,
     error_code: "pull_requests_disabled",
     error:
-      "Les Pull Requests sont DÉSACTIVÉES sur ce dépôt Gitea. Activez-les : dépôt → Paramètres → onglet « Unités » (ou Advanced) → cochez « Pull Requests », puis réessayez.",
+      'Pull Requests are DISABLED on this Gitea repository. Enable them: repository → Settings → "Units" tab (or Advanced) → check "Pull Requests", then retry.',
     status: 404,
   };
 }

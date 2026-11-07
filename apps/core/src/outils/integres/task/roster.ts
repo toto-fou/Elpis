@@ -11,6 +11,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 
+import { ValueErrorEn } from "../../../erreur-bilingue";
 import { journal } from "../../../journal";
 import {
   TASK_MAX_ITERS_CUSTOM,
@@ -146,21 +147,30 @@ export const AGENTS: ReadonlyMap<string, AgentSpec> = new Map([
 /** Liste `custom_agents` canonique pour PUT /api/settings ; lève (`ValueError`) les seules fautes saisissables. */
 export function validateCustomAgents(raw: unknown): Dict[] {
   if (raw === null || raw === undefined) return [];
-  if (!Array.isArray(raw)) erreurValeur("custom_agents doit être une liste.");
+  if (!Array.isArray(raw))
+    throw new ValueErrorEn("custom_agents doit être une liste.", "custom_agents must be a list.");
   const entrees = raw as unknown[];
   if (entrees.length > CUSTOM_AGENTS_MAX)
-    erreurValeur(`custom_agents : maximum ${CUSTOM_AGENTS_MAX} agents.`);
+    throw new ValueErrorEn(
+      `custom_agents : maximum ${CUSTOM_AGENTS_MAX} agents.`,
+      `custom_agents: at most ${CUSTOM_AGENTS_MAX} agents.`,
+    );
   const sortie: Dict[] = [];
   const vus = new Set<string>();
   const demandes = new Set(entrees.filter(estDict).map((e) => nomDe(e["name"])));
   entrees.forEach((entry, idx) => {
     const i = idx + 1;
-    if (!estDict(entry)) erreurValeur(`agent ${i} : entrée invalide (objet attendu).`);
+    if (!estDict(entry))
+      throw new ValueErrorEn(
+        `agent ${i} : entrée invalide (objet attendu).`,
+        `agent ${i}: invalid entry (object expected).`,
+      );
     const e = entry as Dict;
     let name = nomDe(e["name"]);
     if (!AGENT_NAME_RE.test(name))
-      erreurValeur(
+      throw new ValueErrorEn(
         `agent ${i} : nom invalide « ${name} » (1-32 caractères a-z 0-9 - _, commence et finit par un alphanumérique).`,
+        `agent ${i}: invalid name "${name}" (1-32 characters a-z 0-9 - _, must start and end with an alphanumeric).`,
       );
     if (RESERVED_AGENT_NAMES.has(name)) {
       const renomme = freeAgentName(name, new Set([...vus, ...demandes]));
@@ -169,19 +179,35 @@ export function validateCustomAgents(raw: unknown): Dict[] {
       );
       name = renomme;
     }
-    if (vus.has(name)) erreurValeur(`agent ${i} : nom « ${name} » en double.`);
+    if (vus.has(name))
+      throw new ValueErrorEn(
+        `agent ${i} : nom « ${name} » en double.`,
+        `agent ${i}: duplicate name "${name}".`,
+      );
     vus.add(name);
     const surcharge = AGENTS.has(name);
     const prompt = stripPy(texteOu(e["prompt"], ""));
-    if (!prompt && !surcharge) erreurValeur(`agent ${i} (${name}) : prompt système requis.`);
+    if (!prompt && !surcharge)
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : prompt système requis.`,
+        `agent ${i} (${name}): system prompt required.`,
+      );
     if (longueurPy(prompt) > CUSTOM_PROMPT_MAX)
-      erreurValeur(
+      throw new ValueErrorEn(
         `agent ${i} (${name}) : prompt trop long (${longueurPy(prompt)} > ${CUSTOM_PROMPT_MAX} caractères).`,
+        `agent ${i} (${name}): prompt too long (${longueurPy(prompt)} > ${CUSTOM_PROMPT_MAX} characters).`,
       );
     const catsBrut = veritePy(e["tool_categories"]) ? e["tool_categories"] : [];
-    if (!Array.isArray(catsBrut)) erreurValeur(`agent ${i} (${name}) : tool_categories doit être une liste.`);
+    if (!Array.isArray(catsBrut))
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : tool_categories doit être une liste.`,
+        `agent ${i} (${name}): tool_categories must be a list.`,
+      );
     if ((catsBrut as unknown[]).length > CUSTOM_CATS_MAX)
-      erreurValeur(`agent ${i} (${name}) : maximum ${CUSTOM_CATS_MAX} catégories.`);
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : maximum ${CUSTOM_CATS_MAX} catégories.`,
+        `agent ${i} (${name}): at most ${CUSTOM_CATS_MAX} categories.`,
+      );
     let cats: string[] = [];
     for (const c of catsBrut as unknown[]) {
       const slug = nomDe(c);
@@ -192,9 +218,16 @@ export function validateCustomAgents(raw: unknown): Dict[] {
       if (!cats.includes(slug)) cats.push(slug);
     }
     const mcpBrut = veritePy(e["mcp_server_ids"]) ? e["mcp_server_ids"] : [];
-    if (!Array.isArray(mcpBrut)) erreurValeur(`agent ${i} (${name}) : mcp_server_ids doit être une liste.`);
+    if (!Array.isArray(mcpBrut))
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : mcp_server_ids doit être une liste.`,
+        `agent ${i} (${name}): mcp_server_ids must be a list.`,
+      );
     if ((mcpBrut as unknown[]).length > CUSTOM_MCP_MAX)
-      erreurValeur(`agent ${i} (${name}) : maximum ${CUSTOM_MCP_MAX} serveurs MCP.`);
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : maximum ${CUSTOM_MCP_MAX} serveurs MCP.`,
+        `agent ${i} (${name}): at most ${CUSTOM_MCP_MAX} MCP servers.`,
+      );
     const mcpIds: string[] = [];
     for (const s of mcpBrut as unknown[]) {
       const sid = stripPy(texteOu(s, ""));
@@ -217,15 +250,24 @@ export function validateCustomAgents(raw: unknown): Dict[] {
     if (e["enabled"] === false) canon["enabled"] = false;
     const ro = e["read_only"];
     if (ro !== undefined && ro !== null && typeof ro !== "boolean")
-      erreurValeur(`agent ${i} (${name}) : read_only doit être un booléen.`);
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : read_only doit être un booléen.`,
+        `agent ${i} (${name}): read_only must be a boolean.`,
+      );
     if (typeof ro === "boolean") canon["read_only"] = ro;
     const th = e["thinking"];
     if (th !== undefined && th !== null && modeReflexionLu(th) === null)
-      erreurValeur(`agent ${i} (${name}) : thinking doit valoir ${MODES_REFLEXION.join(", ")}.`);
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : thinking doit valoir ${MODES_REFLEXION.join(", ")}.`,
+        `agent ${i} (${name}): thinking must be one of ${MODES_REFLEXION.join(", ")}.`,
+      );
     if (th !== undefined && th !== null) canon["thinking"] = th;
     const ub = e["user_browser_session"];
     if (ub !== undefined && ub !== null && typeof ub !== "boolean")
-      erreurValeur(`agent ${i} (${name}) : user_browser_session doit être un booléen.`);
+      throw new ValueErrorEn(
+        `agent ${i} (${name}) : user_browser_session doit être un booléen.`,
+        `agent ${i} (${name}): user_browser_session must be a boolean.`,
+      );
     if (ub === true) canon["user_browser_session"] = true;
     if (
       surcharge &&

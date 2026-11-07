@@ -8,6 +8,7 @@ import { err, ok } from "@elpis/outils-mcp";
 import { BUILTIN_KEY, canUseEngine } from "../../llm/acces-moteurs";
 import { getToolCategoriesDict } from "../categories";
 import type { Dict } from "../../python";
+import { texteModele } from "../../erreur-bilingue";
 import { createRoutine } from "../../routines/magasin";
 import { chargeRoutine } from "../../routines/validation";
 import type { OutilIntegre } from "../catalogue";
@@ -105,13 +106,13 @@ function serveursLocaux(cats: string[]): Dict[] {
 function categoriesDemandees(brut: unknown): string[] {
   const connues = categoriesRoutine();
   const out: string[] = [];
-  if (brut != null && !Array.isArray(brut)) throw new HttpError(400, "tool_categories doit être une liste");
+  if (brut != null && !Array.isArray(brut)) throw new HttpError(400, "tool_categories must be a list");
   for (const c of brut ?? []) {
     const n = stripPy(String(c)).toLowerCase();
     if (!connues.includes(n))
       throw new HttpError(
         400,
-        `tool_categories : catégorie inconnue ${n} (valeurs valides : ${connues.join(", ")})`,
+        `tool_categories: unknown category ${n} (valid values: ${connues.join(", ")})`,
       );
     if (!out.includes(n)) out.push(n);
   }
@@ -143,10 +144,10 @@ export async function routineSave(base: Base, uid: number, a: Dict): Promise<Dic
   if (inconnus.length)
     return err("invalid_argument", `unexpected argument(s): ${inconnus.join(", ")}`, { retryable: true });
   try {
-    if (!stripPy(String(a["cron_expr"] ?? ""))) throw new HttpError(400, "cron_expr requis");
-    if (!stripPy(String(a["task_prompt"] ?? ""))) throw new HttpError(400, "task_prompt requis");
+    if (!stripPy(String(a["cron_expr"] ?? ""))) throw new HttpError(400, "cron_expr required");
+    if (!stripPy(String(a["task_prompt"] ?? ""))) throw new HttpError(400, "task_prompt required");
     if (a["thinking_mode"] != null && typeof a["thinking_mode"] !== "boolean")
-      throw new HttpError(400, "thinking_mode doit être un booléen");
+      throw new HttpError(400, "thinking_mode must be a boolean");
     const cats = categoriesDemandees(a["tool_categories"]);
     const champs = await chargeRoutine(base, corpsForce(a, cats), uid);
     const id = await createRoutine(base, uid, champs);
@@ -163,7 +164,7 @@ export async function routineSave(base: Base, uid: number, a: Dict): Promise<Dic
       note,
     });
   } catch (e) {
-    if (e instanceof HttpError) return err("invalid_argument", e.message, { retryable: true });
+    if (e instanceof HttpError) return err("invalid_argument", texteModele(e), { retryable: true });
     throw e;
   }
 }

@@ -1,117 +1,117 @@
-# Service de synthèse — Piper
+# Synthesis service — Piper
 
-Piper est une bibliothèque, pas un serveur : `tts_service.py` l'enveloppe dans
-le strict nécessaire pour qu'Elpis lui demande un WAV.
+Piper is a library, not a server: `tts_service.py` wraps it in
+the bare minimum so that Elpis can ask it for a WAV.
 
-CPU uniquement, environ ×20 le temps réel sur une machine modeste : une phrase
-de trois secondes se synthétise en 150 ms. Aucune carte son n'est requise.
+CPU only, about 20x real time on a modest machine: a three-second sentence
+is synthesized in 150 ms. No sound card is required.
 
 ## Installation
 
 ```bash
-sudo bash install_tts.sh                      # voix fr_FR-siwis-medium
-sudo bash install_tts.sh fr_FR-tom-medium     # ou une autre
+sudo bash install_tts.sh                      # voice fr_FR-siwis-medium
+sudo bash install_tts.sh fr_FR-tom-medium     # or another one
 
 sudo systemctl enable --now elpis-tts
 curl -s http://localhost:8091/health
 ```
 
-## Les voix
+## Voices
 
-| Voix | Genre | Taux | Poids | Remarque |
+| Voice | Gender | Rate | Size | Note |
 |---|---|---|---|---|
-| `fr_FR-siwis-medium` | femme | 22 050 Hz | 63 Mo | le défaut : nette, bien articulée |
-| `fr_FR-siwis-low` | femme | 16 000 Hz | 28 Mo | deux fois plus rapide, moins définie |
-| `fr_FR-upmc-medium` | femme et homme | 22 050 Hz | 77 Mo | deux locuteurs : `jessica`, `pierre` |
-| `fr_FR-tom-medium` | homme | 44 100 Hz | 64 Mo | la plus définie du lot |
-| `fr_FR-gilles-low` | homme | 16 000 Hz | 63 Mo | timbre plus grave |
-| `fr_FR-mls-medium` | variés | 22 050 Hz | 77 Mo | 125 lecteurs, qualité inégale |
-| `fr_FR-mls_1840-low` | homme | 16 000 Hz | 63 Mo | un seul lecteur |
+| `fr_FR-siwis-medium` | female | 22,050 Hz | 63 MB | the default: clear, well articulated |
+| `fr_FR-siwis-low` | female | 16,000 Hz | 28 MB | twice as fast, less defined |
+| `fr_FR-upmc-medium` | female and male | 22,050 Hz | 77 MB | two speakers: `jessica`, `pierre` |
+| `fr_FR-tom-medium` | male | 44,100 Hz | 64 MB | the most defined of the set |
+| `fr_FR-gilles-low` | male | 16,000 Hz | 63 MB | deeper timbre |
+| `fr_FR-mls-medium` | various | 22,050 Hz | 77 MB | 125 readers, uneven quality |
+| `fr_FR-mls_1840-low` | male | 16,000 Hz | 63 MB | a single reader |
 
 ```bash
 sudo bash fetch_voices.sh fr_FR-tom-medium fr_FR-upmc-medium
 sudo systemctl restart elpis-tts
 ```
 
-Les voix installées apparaissent dans la console admin d'Elpis après un clic sur
-**Tester**. Une voix n'est visible que si ses **deux** fichiers sont là
-(`.onnx` et `.onnx.json`) — un téléchargement coupé ne se propose jamais.
+Installed voices appear in Elpis's admin console after a click on
+**Test**. A voice is visible only if **both** its files are there
+(`.onnx` and `.onnx.json`) — an interrupted download is never offered.
 
-> Piper ne clone pas une voix. Les moteurs de clonage à la volée demandent un
-> GPU et ne tiennent pas la conversation en temps réel sur CPU. Pour une autre
-> voix, on change de modèle.
+> Piper does not clone a voice. On-the-fly cloning engines need a
+> GPU and cannot hold a real-time conversation on CPU. For a different
+> voice, you change the model.
 
 ## API
 
-| Route | Corps | Rendu |
+| Route | Body | Returns |
 |---|---|---|
 | `GET /health` | — | `{ok, voice, sample_rate, installed, loaded}` |
-| `GET /voices` | — (jeton exigé s'il est configuré) | voix du disque + voix par défaut + catalogue ; alimente la liste déroulante de la console |
+| `GET /voices` | — (token required if one is configured) | voices on disk + default voice + catalog; feeds the console's drop-down list |
 | `POST /tts` | `{text, voice?, speed?, pitch?, speaker?}` | `audio/wav` |
-| `POST /v1/audio/speech` | `{input, voice?, speed?}` | `audio/wav` — alias OpenAI |
+| `POST /v1/audio/speech` | `{input, voice?, speed?}` | `audio/wav` — OpenAI alias |
 
-L'alias OpenAI existe pour qu'un autre moteur (Kokoro FastAPI, par exemple)
-puisse prendre la place de celui-ci sans rien changer côté Elpis : il suffit de
-basculer le champ *Format* de la console admin.
+The OpenAI alias exists so that another engine (Kokoro FastAPI, for example)
+can take this one's place without changing anything on the Elpis side: you only need to
+switch the *Format* field in the admin console.
 
-En-têtes de réponse utiles au diagnostic : `X-Elpis-Voice`,
+Response headers useful for diagnosis: `X-Elpis-Voice`,
 `X-Elpis-Sample-Rate`, `X-Elpis-Synth-Ms`.
 
-## Réglages
+## Settings
 
-| Variable d'unité | Défaut | Rôle |
+| Unit variable | Default | Role |
 |---|---|---|
-| `ELPIS_TTS_VOICE` | `fr_FR-siwis-medium` | voix par défaut, préchargée au démarrage |
-| `ELPIS_TTS_VOICES_DIR` | `/opt/elpis-voice/voices` | où sont les `.onnx` |
-| `ELPIS_TTS_HOST` | `127.0.0.1` | adresse d'écoute : Elpis sur cette machine. Elpis ailleurs : IP privée ou `0.0.0.0` (`ELPIS_VOICE_HOST` à l'installation, `install_offline.sh --lan`) |
-| `ELPIS_TTS_PORT` | `8091` | à reporter dans la console admin |
-| `ELPIS_TTS_MAX_CHARS` | `4000` | plafond par requête — Elpis ne dépasse jamais 4000 (`tts.max_chars`) |
-| `ELPIS_TTS_MAX_CONCURRENT` | `2` | synthèses simultanées |
-| `ELPIS_TTS_MAX_VOICES` | `2` | voix gardées en mémoire (la plus ancienne est déchargée) |
-| `ELPIS_TTS_THREADS` | moitié des cœurs | threads ONNX par synthèse ; `0` = ONNX décide (tous les cœurs, à chaque synthèse) |
+| `ELPIS_TTS_VOICE` | `fr_FR-siwis-medium` | default voice, preloaded at startup |
+| `ELPIS_TTS_VOICES_DIR` | `/opt/elpis-voice/voices` | where the `.onnx` files are |
+| `ELPIS_TTS_HOST` | `127.0.0.1` | listen address: Elpis on this machine. Elpis elsewhere: private IP or `0.0.0.0` (`ELPIS_VOICE_HOST` at installation, `install_offline.sh --lan`) |
+| `ELPIS_TTS_PORT` | `8091` | to be copied into the admin console |
+| `ELPIS_TTS_MAX_CHARS` | `4000` | per-request cap — Elpis never exceeds 4000 (`tts.max_chars`) |
+| `ELPIS_TTS_MAX_CONCURRENT` | `2` | simultaneous syntheses |
+| `ELPIS_TTS_MAX_VOICES` | `2` | voices kept in memory (the oldest is unloaded) |
+| `ELPIS_TTS_THREADS` | half the cores | ONNX threads per synthesis; `0` = ONNX decides (all cores, on every synthesis) |
 
-Le jeton vit dans `/opt/elpis-voice/tts/token.env`, jamais dans l'unité :
-`systemctl cat` est lisible par tout le monde. **Il est généré à l'installation
-et doit être recopié** dans la console admin d'Elpis (Moteur vocal › Synthèse ›
-Jeton) — sans lui, chaque phrase répond « Jeton refusé par le moteur vocal ».
-Supprimez ce fichier pour un service ouvert sur le réseau local.
+The token lives in `/opt/elpis-voice/tts/token.env`, never in the unit:
+`systemctl cat` is readable by everyone. **It is generated at installation
+and must be copied** into Elpis's admin console (Models & services › Voice › Synthesis ›
+Token) — without it, every sentence answers "Jeton refusé par le moteur vocal" (the message as printed today; "Token rejected by the voice engine" in the English UI).
+Delete this file for a service open on the local network.
 
 ```bash
 sudo cat /opt/elpis-voice/tts/token.env        # ELPIS_TTS_TOKEN=...
 ```
 
-`ProtectHome=true` dans l'unité : les voix doivent vivre sous
-`/opt/elpis-voice/voices`, jamais dans un dossier personnel, invisible au
-service.
+`ProtectHome=true` in the unit: voices must live under
+`/opt/elpis-voice/voices`, never in a home folder, which the
+service cannot see.
 
-Trois réglages voyagent par requête et se pilotent depuis Elpis : la vitesse
-(0,5 à 2,0), la hauteur (0,7 à 1,4) et le locuteur pour les voix qui en portent
-plusieurs. Au-delà de ces bornes Piper produit du bruit — elles sont appliquées
-dans le service, pas seulement dans l'interface.
+Three settings travel with each request and are driven from Elpis: speed
+(0.5 to 2.0), pitch (0.7 to 1.4) and the speaker for voices that carry
+several. Beyond these bounds Piper produces noise — they are enforced
+in the service, not only in the interface.
 
-## Ce qui est repris d'un projet antérieur, et pourquoi
+## What is carried over from an earlier project, and why
 
-* **Voix chargée une fois, gardée chaude.** Le premier appel à ONNX Runtime
-  alloue ses arènes et spécialise ses noyaux : ~300 ms, payés au démarrage
-  plutôt qu'à la première phrase lue à l'utilisateur.
-* **`normalize_audio=False`.** Piper normalise chaque appel indépendamment ;
-  comme Elpis synthétise phrase par phrase, la normalisation ferait varier le
-  volume d'une phrase à l'autre au milieu d'une réponse.
-* **La hauteur par le taux de lecture.** Piper n'a pas de réglage de hauteur :
-  on annonce un autre taux d'échantillonnage et on compense la durée par
-  `length_scale`, pour que seule la hauteur change, pas le débit.
-* **Écrêtage avant conversion 16 bits.** Sans lui, un dépassement repasse par
-  zéro et s'entend comme un craquement.
+* **Voice loaded once, kept warm.** The first call to ONNX Runtime
+  allocates its arenas and specializes its kernels: ~300 ms, paid at startup
+  rather than on the first sentence read to the user.
+* **`normalize_audio=False`.** Piper normalizes each call independently;
+  since Elpis synthesizes sentence by sentence, normalization would make the
+  volume vary from one sentence to the next in the middle of an answer.
+* **Pitch through the playback rate.** Piper has no pitch setting:
+  we announce a different sample rate and compensate the duration with
+  `length_scale`, so that only the pitch changes, not the speaking rate.
+* **Clipping before 16-bit conversion.** Without it, an overflow wraps through
+  zero and is heard as a crackle.
 
-## Dépannage
+## Troubleshooting
 
-| Symptôme | Cause | Geste |
+| Symptom | Cause | Action |
 |---|---|---|
-| `health` rend `ok: false` | voix absente | `sudo bash fetch_voices.sh` |
-| Elpis : « Jeton refusé par le moteur vocal » | jeton de `token.env` non recopié dans la console | voir *Réglages* ci-dessus |
-| Machine saturée pendant la lecture | `ELPIS_TTS_THREADS=0` avec 2 synthèses simultanées | laisser le défaut (moitié des cœurs) |
-| `404 Voix absente du disque` | nom mal orthographié, ou `.onnx.json` manquant | `ls /opt/elpis-voice/voices` |
-| `503 piper-tts n'est pas installé` | venv incomplet | relancer `install_tts.sh` |
-| Première phrase lente, les suivantes rapides | préchauffage raté au démarrage | `journalctl -u elpis-tts -n 30` |
-| Volume qui saute d'une phrase à l'autre | `normalize_audio` réactivé | ne pas y toucher |
-| Craquements | écrêtage contourné, ou `pitch` hors bornes | vérifier les réglages côté Elpis |
+| `health` returns `ok: false` | voice missing | `sudo bash fetch_voices.sh` |
+| Elpis: "Token rejected by the voice engine" (today's UI: "Jeton refusé par le moteur vocal") | the `token.env` token was not copied into the console | see *Settings* above |
+| Machine saturated during playback | `ELPIS_TTS_THREADS=0` with 2 simultaneous syntheses | keep the default (half the cores) |
+| `404 Voix absente du disque` (service message, printed as is) | misspelled name, or `.onnx.json` missing | `ls /opt/elpis-voice/voices` |
+| `503 piper-tts n'est pas installé` (service message, printed as is) | incomplete venv | re-run `install_tts.sh` |
+| First sentence slow, the following ones fast | warm-up failed at startup | `journalctl -u elpis-tts -n 30` |
+| Volume jumping from one sentence to the next | `normalize_audio` re-enabled | do not touch it |
+| Crackling | clipping bypassed, or `pitch` out of bounds | check the settings on the Elpis side |

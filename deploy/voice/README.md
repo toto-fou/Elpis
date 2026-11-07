@@ -1,84 +1,84 @@
-# Moteur vocal Elpis — ce qui tourne ailleurs
+# Elpis voice engine — what runs elsewhere
 
-Elpis ne fait aucun calcul audio. L'hôte applicatif valide, borne et relaie ; la
-reconnaissance et la synthèse tournent sur des machines dédiées.
+Elpis does no audio computation. The application host validates, bounds and relays; speech
+recognition and synthesis run on dedicated machines.
 
 ```
-Navigateur                Hôte Elpis                    Machines d'inférence
-──────────                ──────────                    ────────────────────
-micro → WAV 16 kHz  ───▶  POST /api/voice/transcribe ─▶  whisper-server  :8090   (deploy/voice/stt)
-lecture ← WAV       ◀───  POST /api/voice/speak      ─▶  elpis-tts       :8091   (deploy/voice/tts)
+Browser                   Elpis host                    Inference machines
+───────                   ──────────                    ──────────────────
+mic → 16 kHz WAV    ───▶  POST /api/voice/transcribe ─▶  whisper-server  :8090   (deploy/voice/stt)
+playback ← WAV      ◀───  POST /api/voice/speak      ─▶  elpis-tts       :8091   (deploy/voice/tts)
 ```
 
-**Deux services, deux machines possibles, deux URL.** whisper occupe le GPU par
-salves courtes ; le mettre sur la machine qui sert le LLM ferait s'attendre les
-deux. Piper, lui, est léger (CPU, temps réel ×20) et peut vivre n'importe où —
-il reste malgré tout un service distinct, avec sa propre unité systemd.
+**Two services, possibly two machines, two URLs.** whisper uses the GPU in
+short bursts; putting it on the machine that serves the LLM would make the
+two wait for each other. Piper is light (CPU, 20x real time) and can live anywhere —
+it is still a separate service, with its own systemd unit.
 
 ## Installation
 
-Sur la machine de reconnaissance :
+On the recognition machine:
 
 ```bash
-sudo bash deploy/voice/stt/build_whisper.sh          # compile whisper.cpp
-sudo bash deploy/voice/stt/fetch_models.sh           # small-q5_1 ; large-v3-turbo-q5_0 avec GPU
+sudo bash deploy/voice/stt/build_whisper.sh          # builds whisper.cpp
+sudo bash deploy/voice/stt/fetch_models.sh           # small-q5_1; large-v3-turbo-q5_0 with a GPU
 sudo systemctl enable --now elpis-whisper
 ```
 
-Sur la machine de synthèse :
+On the synthesis machine:
 
 ```bash
-sudo bash deploy/voice/tts/install_tts.sh            # venv + Piper + voix + unité
+sudo bash deploy/voice/tts/install_tts.sh            # venv + Piper + voices + unit
 sudo systemctl enable --now elpis-tts
 ```
 
-**Écoute.** Les deux unités écoutent sur `127.0.0.1` (Elpis sur la même
-machine). `install.sh` ne propose pas d'installer la voix : elle se déploie sur
-la machine choisie avec les commandes ci-dessus. Services sur une machine à part :
-préfixez l'installation de `ELPIS_VOICE_HOST=<IP privée>` (ou `0.0.0.0`) —
-`sudo ELPIS_VOICE_HOST=10.0.0.12 bash …` — puis filtrez les ports 8090/8091 à
-l'hôte Elpis (whisper-server n'a aucune authentification).
+**Listening.** Both units listen on `127.0.0.1` (Elpis on the same
+machine). `install.sh` does not offer to install voice: it is deployed on the
+chosen machine with the commands above. For services on a separate machine,
+prefix the installation with `ELPIS_VOICE_HOST=<private IP>` (or `0.0.0.0`) —
+`sudo ELPIS_VOICE_HOST=10.0.0.12 bash …` — then filter ports 8090/8091 to
+the Elpis host only (whisper-server has no authentication).
 
-Détails, variantes GPU, tailles de modèles et mesures : `stt/README.md` et `tts/README.md`.
+Details, GPU variants, model sizes and measurements: `stt/README.md` and `tts/README.md`.
 
-## Installation hors-ligne (machine sans internet)
+## Offline installation (machine without internet)
 
-Même principe que les lots `caddy` et `libreoffice` : on vendorise sur un poste
-connecté, on transporte le dossier par copie, on installe sans réseau.
+Same principle as the `caddy` and `libreoffice` bundles: you vendor on a connected
+machine, carry the folder by copy, and install without network.
 
-Sur un poste **connecté** :
+On a **connected** machine:
 
 ```bash
-bash deploy/voice/fetch_offline.sh                       # modèle small + voix siwis, CPU
+bash deploy/voice/fetch_offline.sh                       # small model + siwis voice, CPU
 bash deploy/voice/fetch_offline.sh --target cuda \
      --model small-q5_1 --voices fr_FR-siwis-medium,fr_FR-tom-medium
 ```
 
-Il produit `deploy/voice/offline/` : le binaire `whisper-server` **compilé**
-avec ses bibliothèques, le modèle ggml, les voix Piper, les roues Python du
-service de synthèse, la source whisper.cpp en repli, et un `MANIFEST.txt`
-(empreintes sha256 + révision compilée).
+It produces `deploy/voice/offline/`: the **compiled** `whisper-server` binary
+with its libraries, the ggml model, the Piper voices, the Python wheels of the
+synthesis service, the whisper.cpp source as a fallback, and a `MANIFEST.txt`
+(sha256 checksums + compiled revision).
 
-Copiez `deploy/voice/` sur la machine cible, puis :
+Copy `deploy/voice/` to the target machine, then:
 
 ```bash
-sudo bash deploy/voice/install_offline.sh            # --lan si Elpis tourne ailleurs
+sudo bash deploy/voice/install_offline.sh            # --lan if Elpis runs elsewhere
 sudo systemctl enable --now elpis-whisper elpis-tts
 ```
 
-La cible n'a besoin que de **python3 (avec `python3-venv`) et systemd** : ni
-compilateur, ni pip en ligne, ni curl, ni le moindre accès réseau. Ce sont des
-paquets de base, que n'importe quel dépôt Debian local fournit — le lot ne porte
-que ce qui ne s'y trouve pas : le binaire whisper, ses bibliothèques, et les
-roues `piper` / `onnxruntime`. Si la cible n'a même pas cela, `--with-debs`
-ajoute `python3` et `python3-venv` au lot (14 Mo).
+The target only needs **python3 (with `python3-venv`) and systemd**: no
+compiler, no online pip, no curl, no network access at all. These are base
+packages that any local Debian repository provides — the bundle carries
+only what is not there: the whisper binary, its libraries, and the
+`piper` / `onnxruntime` wheels. If the target does not even have those, `--with-debs`
+adds `python3` and `python3-venv` to the bundle (14 MB).
 
-### Cible d'une AUTRE distribution que le poste de préparation
+### Target on a DIFFERENT distribution than the preparation machine
 
-C'est le cas courant : on prépare depuis la machine de développement, la cible
-est un serveur plus ancien. La glibc n'étant pas rétro-compatible, un binaire
-compilé sur Debian 13 **ne démarre pas** sur Debian 12. On compile donc *dans*
-la distribution visée :
+This is the usual case: you prepare from the development machine and the target
+is an older server. glibc is not backward compatible, so a binary
+compiled on Debian 13 **does not start** on Debian 12. So you compile *inside*
+the target distribution:
 
 ```bash
 bash deploy/voice/fetch_offline.sh --docker debian:bookworm-slim \
@@ -86,67 +86,66 @@ bash deploy/voice/fetch_offline.sh --docker debian:bookworm-slim \
      --voices fr_FR-siwis-medium,fr_FR-tom-medium
 ```
 
-`--docker` fait faire **deux** choses au conteneur, et c'est le point : la
-compilation **et** le téléchargement des roues Python. Les roues sont liées à la
-version de Python, et celle du conteneur *est* celle de la distribution visée
-(3.11 pour Debian 12, 3.13 pour Debian 13) — plus aucun risque de décalage.
+`--docker` makes the container do **two** things, and that is the point: the
+compilation **and** the download of the Python wheels. Wheels are tied to the
+Python version, and the container's version *is* the target distribution's
+(3.11 for Debian 12, 3.13 for Debian 13) — no more risk of a mismatch.
 
-Le `MANIFEST.txt` enregistre la distribution et la version de Python employées :
-en cas de doute sur un lot reçu, la réponse est dans son en-tête.
+`MANIFEST.txt` records the distribution and the Python version used:
+if in doubt about a bundle you received, the answer is in its header.
 
-Deux points à connaître, tous deux vérifiés par l'installeur :
+Two points to know, both checked by the installer:
 
-* **Le binaire est compilé sur le poste de préparation**, sauf avec `--docker`.
-  Sans cette option, préparez le lot sur une distribution identique à la cible
-  ou plus ancienne. `install_offline.sh` lance le binaire avant de conclure et,
-  s'il ne démarre pas, recompile depuis la source vendorisée quand `cmake` est
-  présent — sinon il s'arrête en le disant.
-* **Les roues Python sont liées à la version de Python.** Avec `--docker`
-  c'est réglé d'office ; sinon, préparez le lot avec le même `x.y` que la cible
-  (`--python python3.11`). En cas de décalage, pip refuse les roues et le
-  message nomme les deux versions.
+* **The binary is compiled on the preparation machine**, except with `--docker`.
+  Without that option, prepare the bundle on a distribution identical to the target
+  or older. `install_offline.sh` runs the binary before concluding and,
+  if it does not start, recompiles from the vendored source when `cmake` is
+  present — otherwise it stops and says so.
+* **The Python wheels are tied to the Python version.** With `--docker`
+  this is handled automatically; otherwise, prepare the bundle with the same `x.y` as the target
+  (`--python python3.11`). On a mismatch, pip refuses the wheels and the
+  message names both versions.
 
-### Le lot produit, en chiffres
+### The bundle in numbers
 
-> Le dépôt ne contient **pas** de lot : `deploy/voice/offline/` n'y garde que
-> `MANIFEST.txt`, celui du dernier lot construit (utile pour comparer les
-> empreintes d'un lot reçu). Binaires, modèles, voix et roues se reconstruisent
-> avec `fetch_offline.sh` ; `install_offline.sh` refuse de s'exécuter sans eux.
+> The repository does **not** contain a bundle: `deploy/voice/offline/` keeps only
+> `MANIFEST.txt` there, the one from the last bundle built (useful to compare the
+> checksums of a bundle you received). Binaries, models, voices and wheels are rebuilt
+> with `fetch_offline.sh`; `install_offline.sh` refuses to run without them.
 
-Exemple de lot Debian 12 (trois modèles, quatre voix) :
+Example of a Debian 12 bundle (three models, four voices):
 
-| Partie | Taille | Contenu |
+| Part | Size | Content |
 |---|---|---|
-| `models/` | 1,8 Go | `ggml-small-q5_1` (181 Mo) + `ggml-large-v3-turbo-q5_0` (547 Mo) + `ggml-large-v3-q5_0` (1,01 Go) |
-| `voices/` | 267 Mo | `fr_FR-siwis-medium`, `fr_FR-tom-medium`, `fr_FR-upmc-medium`, `fr_FR-mls-medium` |
-| `wheels/` | 81 Mo | roues Python 3.11 du service de synthèse |
-| `bin/` | 9,2 Mo | `whisper-server`, ses bibliothèques ggml, et **`libgomp.so.1`** |
-| **total** | **~2,2 Go** | |
+| `models/` | 1.8 GB | `ggml-small-q5_1` (181 MB) + `ggml-large-v3-turbo-q5_0` (547 MB) + `ggml-large-v3-q5_0` (1.01 GB) |
+| `voices/` | 267 MB | `fr_FR-siwis-medium`, `fr_FR-tom-medium`, `fr_FR-upmc-medium`, `fr_FR-mls-medium` |
+| `wheels/` | 81 MB | Python 3.11 wheels of the synthesis service |
+| `bin/` | 9.2 MB | `whisper-server`, its ggml libraries, and **`libgomp.so.1`** |
+| **total** | **~2.2 GB** | |
 
-Les trois modèles couvrent les trois usages : `small-q5_1` sur une machine
-modeste, `large-v3-turbo-q5_0` pour la latence, `large-v3-q5_0` pour la
-**qualité maximale en français** — c'est le plus gros modèle publié en
-quantifié, et il n'y a pas de raison de prendre le f16 (2,9 Go) pour un gain
-inaudible en dictée.
+The three models cover the three uses: `small-q5_1` on a modest machine,
+`large-v3-turbo-q5_0` for latency, `large-v3-q5_0` for **maximum quality in
+French** — it is the largest model published quantized, and there is no reason
+to take the f16 (2.9 GB) for a gain that is inaudible in dictation.
 
-Côté voix, `medium` **est** le haut de gamme français de Piper : le catalogue
-`rhasspy/piper-voices` ne publie aucune voix `fr_FR` en `high`. Les quatre
-embarquées sont donc les meilleures disponibles ; elles se choisissent dans la
-console admin (Connexions › Moteur vocal › Voix).
+For voices, `medium` **is** the top of Piper's French range: the
+`rhasspy/piper-voices` catalog publishes no `fr_FR` voice in `high`. The four
+bundled voices are therefore the best available; you choose among them in the
+admin console (Models & services › Voice).
 
-`libgomp` (le moteur OpenMP) est embarqué délibérément : il arrive avec
-`build-essential` sur la machine de compilation, mais **manque sur une Debian
-nue** — sans lui le binaire refuse de démarrer, et c'est exactement le genre de
-panne qu'on ne découvre qu'une fois chez le client.
+`libgomp` (the OpenMP runtime) is bundled on purpose: it comes with
+`build-essential` on the build machine, but is **missing on a bare Debian** —
+without it the binary refuses to start, and that is exactly the kind of
+failure you only discover on the customer's site.
 
-`install_offline.sh` prend **le plus petit** modèle par défaut (il tourne
-partout) et affiche les autres ; `--model large-v3-q5_0` sur un serveur qui a
-les épaules.
+`install_offline.sh` picks **the smallest** model by default (it runs
+everywhere) and lists the others; use `--model large-v3-q5_0` on a server that
+can handle it.
 
-### Ajouter un modèle ou une voix à un lot déjà construit
+### Adding a model or voice to an already built bundle
 
-`--skip-build` ne touche **ni au binaire ni aux roues** : il ne fait que
-compléter `models/` et `voices/`, puis refait le `MANIFEST.txt`.
+`--skip-build` touches **neither the binary nor the wheels**: it only
+completes `models/` and `voices/`, then rebuilds `MANIFEST.txt`.
 
 ```bash
 bash deploy/voice/fetch_offline.sh --skip-build \
@@ -154,23 +153,23 @@ bash deploy/voice/fetch_offline.sh --skip-build \
      --voices fr_FR-siwis-medium,fr_FR-tom-medium,fr_FR-upmc-medium,fr_FR-mls-medium
 ```
 
-C'est la seule façon correcte d'enrichir un lot préparé pour une **autre**
-distribution : une relance sans cette option recompilerait le binaire ici et
-écraserait celui de la cible. L'en-tête du manifeste continue d'annoncer la
-distribution d'origine du binaire, pas celle du poste qui a lancé le script.
+This is the only correct way to extend a bundle prepared for an **other**
+distribution: running again without this option would recompile the binary here and
+overwrite the target's. The manifest header still announces the binary's original
+distribution, not that of the machine that ran the script.
 
-### Le lot tient-il debout ? Une commande
+### Does the bundle hold up? One command
 
 ```bash
-bash deploy/voice/essai_lot.sh          # debian:bookworm-slim par défaut
+bash deploy/voice/essai_lot.sh          # debian:bookworm-slim by default
 ```
 
-Monte une machine **neuve** dans la distribution visée, avec les seuls outils de
-base et **le réseau coupé**, puis installe le lot, démarre les deux services
-comme le feraient les unités systemd, et fait la boucle complète : une phrase
-synthétisée, ramenée à 16 kHz, repassée à la reconnaissance.
+It spins up a **fresh** machine in the target distribution, with only the base
+tools and **the network cut**, then installs the bundle, starts both services
+as the systemd units would, and runs the full loop: a sentence is
+synthesized, resampled to 16 kHz, and fed back to recognition.
 
-Exemple de passage (lot de 2,2 Go) :
+Example run (2.2 GB bundle):
 
 ```
     synthese : {"ok":true,"voice":"fr_FR-siwis-medium","installed":4,...}
@@ -180,114 +179,114 @@ Exemple de passage (lot de 2,2 Go) :
     LA BOUCLE EST BONNE
 ```
 
-Ni compilateur ni pip dans la machine d'essai : ce qui manquerait au lot se voit
-là, pas sur le serveur de production.
+The test machine has neither compiler nor pip: whatever the bundle is missing shows
+up there, not on the production server.
 
-### Ce que le script vérifie avant de dire « prêt »
+### What the script checks before saying "ready"
 
-Avec `--docker`, deux épreuves tournent dans la distribution visée :
+With `--docker`, two tests run in the target distribution:
 
-1. le binaire est **lancé** (`--help`) et la version de glibc réellement exigée
-   est relevée ;
-2. les roues sont **installées hors ligne** dans un venv neuf, puis importées.
+1. the binary is **launched** (`--help`) and the glibc version it actually
+   requires is recorded;
+2. the wheels are **installed offline** in a fresh venv, then imported.
 
-Un lot qui échoue à l'une des deux n'est pas déclaré prêt. C'est deux minutes
-ici contre un aller-retour sur la machine cible.
+A bundle that fails either test is not declared ready. That is two minutes
+here instead of a round trip to the target machine.
 
-Le lot est **hors git** (`deploy/voice/offline/`) ; seul le `MANIFEST.txt` est
-versionné. Les empreintes sont revérifiées
-à l'installation : une copie tronquée est refusée tout de suite, au lieu de
-donner un service qui meurt trois minutes plus tard sur un modèle illisible.
+The bundle is **outside git** (`deploy/voice/offline/`); only `MANIFEST.txt`
+is versioned. Checksums are re-verified
+at installation: a truncated copy is refused immediately, instead of
+producing a service that dies three minutes later on an unreadable model.
 
-`--no-stt` / `--no-tts` n'installent qu'un des deux services.
+`--no-stt` / `--no-tts` install only one of the two services.
 
-## Configuration côté Elpis
+## Configuration on the Elpis side
 
-Console admin › Configuration › Connexions › **Moteur vocal**, ou directement
-dans `config.json` :
+Admin console › Models & services › **Voice**, or directly
+in `config.json`:
 
 ```json
 "voice": {
   "enabled": true,
   "stt": { "endpoint_url": "http://machine-stt:8090", "format": "whisper.cpp", "language": "fr" },
   "tts": { "endpoint_url": "http://machine-tts:8091", "format": "elpis-tts",
-           "voice": "fr_FR-siwis-medium", "token": "<contenu de token.env>" }
+           "voice": "fr_FR-siwis-medium", "token": "<content of token.env>" }
 }
 ```
 
-Formats de synthèse :
+Synthesis formats:
 
-| Format | Serveur | Appel |
+| Format | Server | Call |
 |---|---|---|
-| `elpis-tts` | `deploy/voice/tts` (ce dépôt) | `POST /tts` |
-| `piper-http` | `python -m piper.http_server` (Piper 1.x installé à la main) | `POST /synthesize` (Piper ≥ 1.5), repli `POST /` (1.3–1.4) |
-| `openai` | OpenAI, Kokoro-FastAPI, speaches… | `POST /v1/audio/speech` — **`model` obligatoire** (ex. `tts-1`) |
+| `elpis-tts` | `deploy/voice/tts` (this repository) | `POST /tts` |
+| `piper-http` | `python -m piper.http_server` (Piper 1.x installed by hand) | `POST /synthesize` (Piper ≥ 1.5), fallback `POST /` (1.3–1.4) |
+| `openai` | OpenAI, Kokoro-FastAPI, speaches… | `POST /v1/audio/speech` — **`model` required** (e.g. `tts-1`) |
 
-Clés facultatives par section : `verify` (`false` pour un moteur HTTPS à
-certificat auto-signé), `max_concurrent` (STT : 1 par défaut, whisper-server
-traite une requête à la fois), `timeout_sec`. `tts.max_chars` est borné à 4000.
+Optional keys per section: `verify` (`false` for an HTTPS engine with a
+self-signed certificate), `max_concurrent` (STT: 1 by default, whisper-server
+handles one request at a time), `timeout_sec`. `tts.max_chars` is capped at 4000.
 
-Le bouton **Tester** de la console interroge les deux services sans rien
-enregistrer, **et** dit ce qui manque encore pour que ça marche : moteur
-désactivé, configuration non enregistrée, cases utilisateur, HTTPS.
+The console's **Test** button queries both services without saving anything,
+**and** tells you what is still missing for it to work: engine
+disabled, configuration not saved, user checkboxes, HTTPS.
 
-## Vérifier à la main
+## Checking by hand
 
 ```bash
-# reconnaissance — le WAV doit être en 16 kHz mono
+# recognition — the WAV must be 16 kHz mono
 curl -F file=@essai.wav -F response_format=verbose_json -F language=fr \
      http://machine-stt:8090/inference
 
-# synthèse — elpis-tts (ajoutez -H "Authorization: Bearer <jeton>" si token.env existe)
+# synthesis — elpis-tts (add -H "Authorization: Bearer <token>" if token.env exists)
 curl -X POST http://machine-tts:8091/tts -H 'Content-Type: application/json' \
      -d '{"text":"Bonjour, ceci est un essai."}' -o essai.wav
 ffprobe essai.wav
 
-# synthèse — piper.http_server installé à la main (port 5000 par défaut)
+# synthesis — piper.http_server installed by hand (port 5000 by default)
 curl -X POST http://machine-tts:5000/synthesize -H 'Content-Type: application/json' \
      -d '{"text":"Bonjour, ceci est un essai."}' -o essai.wav
 
-# santé
+# health
 curl http://machine-stt:8090/health           # {"status":"ok"}
 curl http://machine-tts:8091/health           # {"ok":true,"service":"elpis-tts",...}
 ```
 
-**Lancez ces `curl` depuis l'hôte Elpis**, pas depuis la machine d'inférence :
-c'est lui qui appelle, et un pare-feu ou une écoute sur `127.0.0.1` ne se voit
-que de là.
+**Run these `curl` commands from the Elpis host**, not from the inference machine:
+the host is what makes the calls, and a firewall or a `127.0.0.1` listener
+is only visible from there.
 
-## Dépannage
+## Troubleshooting
 
-Dans l'ordre où on les rencontre :
+In the order you meet them:
 
-| Symptôme | Cause | Geste |
+| Symptom | Cause | Action |
 |---|---|---|
-| Le bouton micro n'apparaît pas, ou la case Dictée est grisée | l'application est servie en **HTTP sur une IP du LAN** : les navigateurs n'ouvrent le micro qu'en **HTTPS ou sur `localhost`** | activer HTTPS (Caddy) : Console admin › Sécurité › Accès HTTPS |
-| Le bouton micro n'apparaît pas | `voice.enabled` à `false`, ou adresse STT vide, ou config non **enregistrée** | Console admin › Connexions › Moteur vocal, cocher Activer, **Enregistrer** |
-| Tout est configuré, toujours rien | « Dictée » et « Réponse vocale » sont **décochées par défaut pour chaque utilisateur** (`/transcribe` répond 403) | chaque compte : Paramètres › Dictée / Réponse vocale |
-| Rien après avoir activé dans la console | les fonctions actives sont lues au chargement de la page | **recharger la page** (onglets déjà ouverts compris) |
-| « Jeton refusé par le moteur vocal » | le jeton généré par `install_tts.sh` (`token.env`) n'a pas été recopié | `sudo cat /opt/elpis-voice/tts/token.env`, coller la valeur dans la console |
-| « Chemin introuvable » (ex-« HTTP 404 ») en synthèse | un Piper installé à la main (`python -m piper.http_server`) n'a pas de `/tts` | format **`piper-http`**, adresse = base (`http://machine:5000`) |
-| « Chemin introuvable » en reconnaissance | mauvais format, ou adresse pointant sur autre chose que whisper-server | format `whisper.cpp` + adresse `http://machine:8090` |
-| « Moteur vocal injoignable » avec un whisper-server installé à la main | il écoute par défaut sur **`127.0.0.1:8080`** | relancer avec `--host 0.0.0.0 --port 8090` (et filtrer le port, voir `stt/README.md`) |
-| « Moteur vocal injoignable », services vocaux sur une autre machine | les unités écoutent sur **`127.0.0.1`** par défaut | réinstaller avec `install_offline.sh --lan` (ou `ELPIS_VOICE_HOST=<IP privée>`), ou `systemctl edit` (`WHISPER_HOST`, `ELPIS_TTS_HOST`) ; filtrer les ports |
-| « Moteur vocal injoignable » | service arrêté, ou pare-feu | `systemctl status elpis-whisper` / `elpis-tts`, puis le `curl` ci-dessus **depuis l'hôte Elpis** |
-| Format `openai` en synthèse : HTTP 400/422 | champ `model` absent | renseigner `tts.model` (ex. `tts-1`) |
-| « Moteur de dictée occupé » (503) | énoncés en file au-delà de 15 s | modèle plus petit, ou GPU ; `stt.max_concurrent` > 1 n'aide pas whisper-server |
-| Longs énoncés en 504 | CPU trop lent pour le modèle | `small-q5_1` sur CPU ; le délai grandit déjà avec la durée (10 s + 3 s par seconde d'audio) |
-| Erreur de certificat vers un moteur HTTPS | certificat auto-signé | `"verify": false` dans la section concernée |
-| « Merci. » dicté n'apparaît pas | whisper doutait (score bas ou `no_speech_prob` haut) : la formule est traitée comme une hallucination | parler plus près du micro ; les formules longues ne sont pas concernées |
-| Latence soudainement triplée | un second `whisper-server` tourne avec d'autres réglages | `pgrep -a whisper-server` |
-| Transcriptions fantômes pendant les silences | filtre anti-hallucination contourné | vérifier que l'adresse STT pointe bien sur whisper et non sur un modèle de chat |
-| La voix lit les backticks et les URL | requête envoyée sans passer par `/api/voice/speak` | le nettoyage markdown est côté Elpis, pas côté service |
+| The mic button does not appear, or the Dictation checkbox is greyed out | the application is served over **HTTP on a LAN IP**: browsers only open the mic over **HTTPS or on `localhost`** | enable HTTPS (Caddy): Admin console › System › HTTPS access |
+| The mic button does not appear | `voice.enabled` is `false`, or the STT address is empty, or the config is not **saved** | Admin console › Models & services › Voice, check Enable, **Save** |
+| Everything is configured, still nothing | "Dictation" and "Voice reply" are **unchecked by default for each user** (`/transcribe` answers 403) | each account: Settings › Chat › Voice › Dictation / Voice reply |
+| Nothing after enabling in the console | active features are read when the page loads | **reload the page** (including tabs that are already open) |
+| "Token rejected by the voice engine" | the token generated by `install_tts.sh` (`token.env`) was not copied over | `sudo cat /opt/elpis-voice/tts/token.env`, paste the value into the console |
+| "Path not found" (formerly "HTTP 404") on synthesis | a hand-installed Piper (`python -m piper.http_server`) has no `/tts` | format **`piper-http`**, address = base (`http://machine:5000`) |
+| "Path not found" on recognition | wrong format, or the address points at something other than whisper-server | format `whisper.cpp` + address `http://machine:8090` |
+| "Voice engine unreachable" with a hand-installed whisper-server | it listens by default on **`127.0.0.1:8080`** | restart with `--host 0.0.0.0 --port 8090` (and filter the port, see `stt/README.md`) |
+| "Voice engine unreachable", voice services on another machine | the units listen on **`127.0.0.1`** by default | reinstall with `install_offline.sh --lan` (or `ELPIS_VOICE_HOST=<private IP>`), or `systemctl edit` (`WHISPER_HOST`, `ELPIS_TTS_HOST`); filter the ports |
+| "Voice engine unreachable" | service stopped, or firewall | `systemctl status elpis-whisper` / `elpis-tts`, then the `curl` above **from the Elpis host** |
+| `openai` format on synthesis: HTTP 400/422 | `model` field missing | set `tts.model` (e.g. `tts-1`) |
+| "Dictation engine busy" (503) | utterances queued beyond 15 s | smaller model, or GPU; `stt.max_concurrent` > 1 does not help whisper-server |
+| Long utterances return 504 | CPU too slow for the model | `small-q5_1` on CPU; the timeout already grows with duration (10 s + 3 s per second of audio) |
+| Certificate error toward an HTTPS engine | self-signed certificate | `"verify": false` in the relevant section |
+| A dictated "Merci." does not appear | whisper was unsure (low score or high `no_speech_prob`): the phrase is treated as a hallucination | speak closer to the mic; long phrases are not affected |
+| Latency suddenly tripled | a second `whisper-server` is running with other settings | `pgrep -a whisper-server` |
+| Phantom transcriptions during silences | anti-hallucination filter bypassed | check that the STT address points at whisper and not at a chat model |
+| The voice reads backticks and URLs | request sent without going through `/api/voice/speak` | markdown cleaning is on the Elpis side, not in the service |
 
-## Variante Windows
+## Windows variant
 
-Aucun script Windows n'est livré dans ce dépôt : `whisper-server` et
-`tts/tts_service.py` peuvent y être lancés à la main, sur 8090 / 8091, puis
-leurs adresses saisies dans la console d'administration.
+No Windows script ships in this repository: `whisper-server` and
+`tts/tts_service.py` can be launched there by hand, on 8090 / 8091, and then
+their addresses entered in the admin console.
 
-## Origine
+## Origin
 
-La reconnaissance et la synthèse reprennent le moteur d'un projet antérieur,
-rendu joignable par HTTP et sans micro ni haut-parleur local.
+Recognition and synthesis reuse the engine of an earlier project,
+made reachable over HTTP and with no local mic or speaker.

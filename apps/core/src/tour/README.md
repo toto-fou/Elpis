@@ -1,60 +1,60 @@
-# Flux d'un tour de chat
+# Chat turn flow
 
-`POST /api/chat-saved-stream3` (`apps/core/src/familles/chat.ts`) génère un tour en flux NDJSON. La route
-n'enchaîne que des étapes :
+`POST /api/chat-saved-stream3` (`apps/core/src/familles/chat.ts`) generates a turn as an NDJSON stream. The route
+only chains steps:
 
-1. admission (`admettreTour` de `apps/core/src/tour/ouverture.ts`, aides de `apps/core/src/tour/admission.ts`) :
-   409 si une compression manuelle ou une génération tourne déjà sur la conversation, 429 au-delà du plafond
-   d'exécutions du compte ;
-2. préparation (`apps/core/src/tour/preparation.ts`) ;
-3. verrou de présence, recalage de la base après une passation, réservation du verrou ;
-4. le tour (`apps/core/src/tour/execution.ts`), pompé par `apps/core/src/tour/evenements.ts`.
+1. admission (`admettreTour` from `apps/core/src/tour/ouverture.ts`, helpers in `apps/core/src/tour/admission.ts`):
+   409 if a manual compression or a generation is already running on the conversation, 429 beyond the account's
+   run cap;
+2. preparation (`apps/core/src/tour/preparation.ts`);
+3. presence lock, database resync after a handover, lock reservation;
+4. the turn (`apps/core/src/tour/execution.ts`), pumped by `apps/core/src/tour/evenements.ts`.
 
-Le réveilleur des tâches de fond (`apps/core/src/jobs/service.ts`) ouvre aussi des tours, par la même
-`ouvrirTour` : message de réveil en rôle `user` (`origin: "job_wake"`), `data` construit côté serveur, run
-reprenable consommé sans client, au plus `wake_concurrency` (1) à la fois par compte.
+The background-task waker (`apps/core/src/jobs/service.ts`) also opens turns, through the same
+`ouvrirTour`: wake message with role `user` (`origin: "job_wake"`), `data` built on the server side, resumable
+run consumed without a client, at most `wake_concurrency` (1) at a time per account.
 
-Un corps qui porte `image_gen` est un tour « Images » (`apps/core/src/tour/image.ts`), après les mêmes gardes. Les
-autres routes du chat :
+A body that carries `image_gen` is an "Images" turn (`apps/core/src/tour/image.ts`), after the same guards. The
+other chat routes:
 
-- `apps/core/src/familles/chat-controle.ts` : Stop, état, rattachement à un run par
-  `apps/core/src/tour/suivi-run.ts` ;
-- `apps/core/src/familles/chat-compression.ts` : compression manuelle.
+- `apps/core/src/familles/chat-controle.ts`: Stop, state, attaching to a run through
+  `apps/core/src/tour/suivi-run.ts`;
+- `apps/core/src/familles/chat-compression.ts`: manual compression.
 
-## Invariants à garder dans toute refonte
+## Invariants to keep in any rework
 
-- **Un tour à la fois par conversation** : verrou de présence en mémoire, un seul process main
-  (`apps/core/src/tour/etat.ts`). Une compaction ou une génération déjà en cours rend 409, trop d'exécutions du
-  compte 429.
-- **Verrou de présence jamais perdu** : toute exception entre sa prise et l'ouverture du flux le relâche. Il est
-  ensuite réservé jusqu'à ce que le tour le réclame, et un filet le relâche si personne ne le réclame. Perdu, il
-  rendrait 409 sur ce chat jusqu'au redémarrage.
-- **Adresses des serveurs MCP** : résolues côté serveur à la préparation, jamais reprises du client.
-- **Annulation** : par l'AbortSignal du tour (Stop : drapeau, contrôleur abandonné, session du moteur arrêtée),
-  jamais par les événements système (vérifié par les tests des mainteneurs). Le partiel est enregistré. Le signal
-  atteint l'hôte d'outils (`notifications/cancelled`) : la commande shell de premier plan y est tuée dans le
-  conteneur (voir « Sous-agents » de `docs/architecture.md`) ; un client déconnecté dont le run se détache
-  n'abandonne rien.
-- **Client déconnecté** : le run se détache s'il est reprenable (`resumable`), si un outil a déjà tourné ou si
-  `llm.detach_run_on_disconnect` est actif ; sinon il s'arrête en enregistrant le partiel. Un Stop l'arrête
-  toujours. On s'y rattache par `GET /api/chat/{id}/run/events`, y compris après un redémarrage
+- **One turn at a time per conversation**: in-memory presence lock, a single main process
+  (`apps/core/src/tour/etat.ts`). A compaction or a generation already running returns 409, too many runs for the
+  account 429.
+- **Presence lock never lost**: any exception between taking it and opening the stream releases it. It is
+  then reserved until the turn claims it, and a safety net releases it if nobody claims it. If lost, it
+  would return 409 on this chat until restart.
+- **MCP server addresses**: resolved on the server side at preparation, never taken from the client.
+- **Cancellation**: through the turn's AbortSignal (Stop: flag, controller abandoned, engine session stopped),
+  never through system events (verified by the maintainers' tests). The partial is saved. The signal
+  reaches the tool host (`notifications/cancelled`): the foreground shell command is killed there in the
+  container (see "Subagents" in `docs/architecture.md`); a disconnected client whose run detaches
+  abandons nothing.
+- **Disconnected client**: the run detaches if it is resumable (`resumable`), if a tool has already run or if
+  `llm.detach_run_on_disconnect` is active; otherwise it stops, saving the partial. A Stop always stops it.
+  You re-attach with `GET /api/chat/{id}/run/events`, including after a restart
   (`apps/core/src/tour/journal-run.ts`).
-- **Enregistrement optimiste** sur `updated_at` (`apps/core/src/tour/persistance.ts`) : un conflit est signalé, rien
-  n'est écrasé. La persistance précède `kv_cache` et `final`.
-- **Types du flux NDJSON** : registre `packages/contracts/src/stream-events.gen.ts`.
-- **RAG et cache du préfixe** (`apps/core/src/rag/chat.ts`, `apps/core/src/rag/outils-chat.ts`) : la tête système ne
-  dépend jamais des collections actives (outils `rag_*` et `FRAGMENT_RAG` statiques ; seuls 0 → 1 et 1 → 0 collection
-  changent la liste d'outils) ; le bloc `<rag_context>` est un suffixe de la question du tour où la sélection change,
-  enregistré dans `llm_user_suffixes` et rejoué à l'identique ; les passages n'arrivent que par les résultats
-  d'outils, numérotés une fois pour toutes ; les sources du message (`rag_sources`) ne repartent jamais au modèle.
-- **Chemin outils seul** : le chemin classique sans outils de la version Python n'est pas repris.
+- **Optimistic saving** on `updated_at` (`apps/core/src/tour/persistance.ts`): a conflict is reported, nothing
+  is overwritten. Persistence precedes `kv_cache` and `final`.
+- **NDJSON stream types**: registry `packages/contracts/src/stream-events.gen.ts`.
+- **RAG and prefix cache** (`apps/core/src/rag/chat.ts`, `apps/core/src/rag/outils-chat.ts`): the system head never
+  depends on the active collections (`rag_*` tools and `FRAGMENT_RAG` are static; only 0 → 1 and 1 → 0 collections
+  change the tool list); the `<rag_context>` block is a suffix of the question of the turn where the selection changes,
+  saved in `llm_user_suffixes` and replayed identically; passages arrive only through tool results,
+  numbered once and for all; the message's sources (`rag_sources`) never go back to the model.
+- **Tools-only path**: the classic no-tools path from the Python version is not carried over.
 
-## Ordre des événements d'un tour
+## Event order of a turn
 
-Ordre figé par les scénarios `flux_route_outils_*` des tests des mainteneurs (dépôt de développement), qui relisent
-aussi ce bloc : chaque scénario doit s'y conformer, étape après étape, sans retour en arrière. Une ligne donne une étape et ses
-types ; `<boucle>` désigne les autres événements de la boucle
-(`LOOP_EVENTS` du registre) : un type cité dans le bloc n'est permis qu'à ses étapes.
+Order fixed by the maintainers' `flux_route_outils_*` test scenarios (development repository), which also re-read
+this block: each scenario must conform to it, step after step, with no going back. A line gives a step and its
+types; `<boucle>` stands for the other loop events
+(`LOOP_EVENTS` in the registry): a type named in the block is allowed only at its steps.
 
 ```ordre-du-flux
 1 mode
@@ -65,26 +65,26 @@ types ; `<boucle>` désigne les autres événements de la boucle
 6 final
 ```
 
-1. **`mode`** : serveurs MCP actifs et/ou « Documents » (collections RAG actives dans le chat).
-2. **Attente du moteur** :
-   - `queue_status` si le moteur n'est pas prêt ;
-   - `thinking` « En attente… » si la requête doit attendre un créneau du serveur ;
-   - d'autres `queue_status` pendant l'attente.
-3. **`queue_cleared`** : seulement si un `queue_status` est parti.
-4. **Boucle** : `mode` « Outils prêts… », puis les événements de la boucle (`tool_call`, `tool_result`, jetons,
-   compression, `rag_sources` après un outil `rag_*` qui a numéroté des passages…).
-5. **Fin du travail** : `kv_cache` si l'occupation du contexte a pu être mesurée ; `error` en cas de panne.
-6. **`final`** : réponse, métriques, `persisted` et `rag_sources` (sources du message, `cited` posé d'après la
-   réponse), puis fin du flux.
+1. **`mode`**: active MCP servers and/or "Documents" (RAG collections active in the chat).
+2. **Waiting for the engine**:
+   - `queue_status` if the engine is not ready;
+   - `thinking` "Waiting…" if the request has to wait for a server slot;
+   - more `queue_status` events during the wait.
+3. **`queue_cleared`**: only if a `queue_status` was sent.
+4. **Loop**: `mode` "Tools ready…", then the loop events (`tool_call`, `tool_result`, tokens,
+   compression, `rag_sources` after a `rag_*` tool that numbered passages…).
+5. **End of work**: `kv_cache` if context occupancy could be measured; `error` on failure.
+6. **`final`**: answer, metrics, `persisted` and `rag_sources` (the message's sources, `cited` set from the
+   answer), then end of stream.
 
-Ce qui peut s'intercaler, et les variantes :
+What can be interleaved, and the variants:
 
-- **`ping`** : à tout moment, quand le flux est inactif.
-- **Chargement d'un modèle** : le suivi (`evenements.ts`) republie `queue_status` à chaque pas, puis émet son propre
-  `queue_cleared`, n'importe où tant que le chargement dure.
-- **Panne** : `error`, puis un `final` partiel.
-- **Stop pendant l'attente** : un `final` partiel (scénarios `flux_route_outils_stop_file*`).
-- **Stop pendant la génération** : plus aucun événement, sauf le `final` partiel et le `task_step` `status=final`
-  d'un sous-agent (état terminal de sa ligne). L'instantané `tool_history_partial` rend, pour l'appel `task` en
-  vol, le `task_cancelled` avec son `task_id` plutôt que la sentinelle (l'outil le dépose dans le lot partiel :
-  `AppelIntegre.rendreSiAnnule`), sans changer ni l'ordre ni les types des événements.
+- **`ping`**: at any time, when the stream is idle.
+- **Model loading**: the tracking (`evenements.ts`) republishes `queue_status` at each step, then emits its own
+  `queue_cleared`, anywhere as long as loading lasts.
+- **Failure**: `error`, then a partial `final`.
+- **Stop during the wait**: a partial `final` (scenarios `flux_route_outils_stop_file*`).
+- **Stop during generation**: no more events, except the partial `final` and a subagent's `task_step` `status=final`
+  (terminal state of its row). The `tool_history_partial` snapshot returns, for the in-flight `task` call, the
+  `task_cancelled` with its `task_id` rather than the sentinel (the tool puts it in the partial batch:
+  `AppelIntegre.rendreSiAnnule`), without changing the order or types of events.

@@ -1,203 +1,201 @@
 # Design
 
-Le système visuel d'Elpis : jetons, thèmes, typographie, composants et règles.
-Les intentions (public, ton, principes) sont dans [PRODUCT.md](PRODUCT.md) ; ce
-document décrit comment l'interface les applique, d'après le code
+Elpis's visual system: tokens, themes, typography, components and rules.
+The intentions (audience, tone, principles) are in [PRODUCT.md](PRODUCT.md); this
+document describes how the interface applies them, based on the code
 (`frontend/css/style.css`, `frontend/css/skins/`, `frontend/src/features/reglages/apparence.ts`).
 
-## En bref
+## At a glance
 
-- **Build Vite** : Vue 3 et TypeScript, composants en SFC compilés par Vite
-  (`frontend/dist`) ; les feuilles de `frontend/css/` sont servies telles
-  quelles.
-- **Tout passe par des jetons** (variables CSS) définis dans `style.css`. Un
-  thème ne fait que redéfinir des jetons ; le mode sombre aussi.
-- **Tailwind précompilé** (`frontend/css/style.tailwind.css`, généré) ; les
-  utilitaires de couleur courants sont **re-mappés sur les jetons** : écrire
-  `bg-white` ou `text-slate-700` suit le thème et le mode sombre.
-- **Un seul accent** (bleu en thème Ardoise) ; les couleurs de statut ne
-  signalent qu'un état ; icônes monochromes.
+- **Vite build**: Vue 3 and TypeScript, components as SFCs compiled by Vite
+  (`frontend/dist`); the stylesheets in `frontend/css/` are served as is.
+- **Everything goes through tokens** (CSS variables) defined in `style.css`. A
+  theme only redefines tokens; so does dark mode.
+- **Precompiled Tailwind** (`frontend/css/style.tailwind.css`, generated); the
+  common color utilities are **re-mapped to tokens**: writing
+  `bg-white` or `text-slate-700` follows the theme and dark mode.
+- **A single accent** (blue in the Slate theme); status colors only signal
+  a state; monochrome icons.
 
-## Jetons
+## Tokens
 
-Déclarés sur `:root` (mode clair), redéfinis sous `body.elpis-app-dark` (mode
-sombre) et `body.elpis-dark-surface` (familles sémantiques claires-sur-sombre),
-puis par chaque thème.
+Declared on `:root` (light mode), redefined under `body.elpis-app-dark` (dark
+mode) and `body.elpis-dark-surface` (the light-on-dark semantic families),
+then by each theme.
 
-| Famille | Jetons | Usage |
+| Family | Tokens | Use |
 |---|---|---|
-| Fond | `--app-bg` | fond de page |
-| Surfaces | `--surface`, `--surface-2` … `--surface-5` | cartes et panneaux, du plus clair au plus dense |
-| Bordures | `--border`, `--border-soft`, `--table-cell-border` | contours, séparateurs |
-| Texte | `--text-900` … `--text-300`, `--text-max` | rampe du plus fort au plus discret |
-| Accent | `--accent`, `--accent-strong`, `--accent-500/400/300`, `--accent-fg`, `--accent-text(-strong)`, `--accent-surface(-2)`, `--accent-border`, `--accent-ring` | action principale, sélection, focus |
-| Succès | `--ok*` | état actif, réussite |
-| Attention | `--warn*` | en attente, à surveiller |
-| Danger | `--danger-surface`, `--danger-border(-soft)`, `--danger-text`, `--danger-strong`, `--danger-icon-bg/fg` | erreur, action destructrice |
-| Rôle admin | `--role-admin-text/surface/border` | badge de rôle uniquement |
-| Rail | `--rail-bg`, `--rail-bg-2`, `--rail-border`, `--rail-text(-strong)`, `--rail-muted`, `--rail-hover`, `--rail-active-bg`… | barres latérales (chat et console), sombres par défaut |
-| Code | `--code-bg`, `--code-fg`, `--code-border`, `--code-header-bg/fg`, `--code-inline-*` | blocs de code (sombres dans les deux modes) et code en ligne |
-| Prose | `--prose-body`, `--prose-heading`, `--prose-strong`, `--prose-link(-hover)` | rendu Markdown des messages |
-| Divers | `--toast-*`, `--hl-bg/fg`, `--scrollbar-*` | toasts (surface inversée stable), surlignage de recherche, barres de défilement |
-| Titres | `--font-titre` (aucune valeur sur `:root`) | police serif des titres, posée par le thème Elpis ; à lire avec `var(--font-titre, inherit)` |
-| Rayons | `--radius` et `--radius-sm/md/lg/xl` (dérivés) | un thème change `--radius`, l'échelle suit |
+| Background | `--app-bg` | page background |
+| Surfaces | `--surface`, `--surface-2` … `--surface-5` | cards and panels, from lightest to densest |
+| Borders | `--border`, `--border-soft`, `--table-cell-border` | outlines, separators |
+| Text | `--text-900` … `--text-300`, `--text-max` | ramp from strongest to most discreet |
+| Accent | `--accent`, `--accent-strong`, `--accent-500/400/300`, `--accent-fg`, `--accent-text(-strong)`, `--accent-surface(-2)`, `--accent-border`, `--accent-ring` | primary action, selection, focus |
+| Success | `--ok*` | active state, success |
+| Warning | `--warn*` | pending, to watch |
+| Danger | `--danger-surface`, `--danger-border(-soft)`, `--danger-text`, `--danger-strong`, `--danger-icon-bg/fg` | error, destructive action |
+| Admin role | `--role-admin-text/surface/border` | role badge only |
+| Rail | `--rail-bg`, `--rail-bg-2`, `--rail-border`, `--rail-text(-strong)`, `--rail-muted`, `--rail-hover`, `--rail-active-bg`… | sidebars (chat and console), dark by default |
+| Code | `--code-bg`, `--code-fg`, `--code-border`, `--code-header-bg/fg`, `--code-inline-*` | code blocks (dark in both modes) and inline code |
+| Prose | `--prose-body`, `--prose-heading`, `--prose-strong`, `--prose-link(-hover)` | Markdown rendering of messages |
+| Misc | `--toast-*`, `--hl-bg/fg`, `--scrollbar-*` | toasts (stable inverted surface), search highlight, scrollbars |
+| Headings | `--font-titre` (no value on `:root`) | serif font for headings, set by the Elpis theme; read it with `var(--font-titre, inherit)` |
+| Radii | `--radius` and `--radius-sm/md/lg/xl` (derived) | a theme changes `--radius`, the scale follows |
 
-**Contraste.** La rampe de texte est recalibrée pour l'AA : `--text-400`
-(#64748b) et `--text-500` (#5b6a80) sont plus sombres que les gris Tailwind
-natifs sur surface claire (≥ 4,5:1). Sur le rail sombre, utiliser
-`--rail-muted`, pas la rampe de texte.
+**Contrast.** The text ramp is recalibrated for AA: `--text-400`
+(#64748b) and `--text-500` (#5b6a80) are darker than the native Tailwind
+grays on a light surface (≥ 4.5:1). On the dark rail, use
+`--rail-muted`, not the text ramp.
 
-## Thèmes et mode sombre
+## Themes and dark mode
 
-Trois classes sur `<body>`, posées par `frontend/src/features/reglages/apparence.ts` :
+Three classes on `<body>`, set by `frontend/src/features/reglages/apparence.ts`:
 
-| Classe | Rôle |
+| Class | Role |
 |---|---|
-| `elpis-skin-<id>` | le thème choisi (`frontend/css/skins/<id>/skin.css`, plus `editeur.css` pour l'éditeur) |
-| `elpis-app-dark` | le mode sombre (bloc de jetons neutres + variantes sombres des thèmes) |
-| `elpis-dark-surface` | marqueur « la surface de base est sombre » : mode sombre **ou** thème à base sombre (`darkBase`, ex. Émeraude) ; tous les re-mappages clair-sur-sombre en dépendent |
+| `elpis-skin-<id>` | the chosen theme (`frontend/css/skins/<id>/skin.css`, plus `editeur.css` for the editor) |
+| `elpis-app-dark` | dark mode (a block of neutral tokens + the themes' dark variants) |
+| `elpis-dark-surface` | marker "the base surface is dark": dark mode **or** a dark-based theme (`darkBase`, e.g. Emerald); all the light-on-dark re-mappings depend on it |
 
-Thème et mode se composent : `body.elpis-app-dark` (0,2,0) bat `:root` ; un
-thème (0,2,0, chargé après) bat `:root` ; sa variante sombre (0,3,0) bat le
-sombre par défaut.
+Theme and mode compose: `body.elpis-app-dark` (0,2,0) beats `:root`; a
+theme (0,2,0, loaded after) beats `:root`; its dark variant (0,3,0) beats the
+default dark.
 
-Un thème peut poser `--font-titre` (Elpis : Georgia) ; sans lui, les
-titres du questionnaire héritent de la police du thème (Pingouins garde la sienne).
+A theme can set `--font-titre` (Elpis: Georgia); without it, the
+questionnaire headings inherit the theme's font (Penguins keeps its own).
 
-Thèmes livrés : **Ardoise** (sans classe de thème), **Elpis** (défaut, palettes
-**Or** et **Argile**), **llama.cpp**, **Émeraude** (base sombre), **Pingouins**,
-**Kiki**. Le réglage est par utilisateur : `skin`, `skin_palette`, et le mode
-Système / Clair / Sombre (`dark_mode`, `dark_mode_auto`), dans les Paramètres ;
-le menu du compte de la console propose les skins et le mode.
+Bundled themes: **Slate** (no theme class), **Elpis** (default, palettes
+**Gold** and **Clay**), **llama.cpp**, **Emerald** (dark base), **Penguins**,
+**Kiki**. The setting is per user: `skin`, `skin_palette`, and the
+System / Light / Dark mode (`dark_mode`, `dark_mode_auto`), in Settings;
+the console's account menu offers the skins and the mode.
 
-**Palettes.** Des thèmes qui ne diffèrent que par leurs couleurs partagent une
-structure : une palette n'est qu'un bloc de jetons sous
-`body.elpis-skin-<id>.elpis-palette-<palette>`, annoncé par le champ `palettes`
-du registre (id vide : les jetons de base). L'ancien skin Parchemin est devenu la
-palette Argile d'Elpis ; le champ `alias` du registre y ramène les comptes restés
-sur l'ancien identifiant. Un thème qui a sa propre mise en page reste un thème.
+**Palettes.** Themes that differ only in their colors share a
+structure: a palette is just a block of tokens under
+`body.elpis-skin-<id>.elpis-palette-<palette>`, declared by the registry's
+`palettes` field (empty id: the base tokens). The former Parchment skin became
+Elpis's Clay palette; the registry's `alias` field maps accounts still on the
+old identifier to it. A theme that has its own layout stays a theme.
 
-**Habillages personnels.** Un compte peut définir ses propres habillages
-(`/api/skins/perso`), faits de jetons seuls : aucun CSS libre, aucune image.
-Le serveur n'admet qu'une liste blanche de jetons de `style.css` (fonds,
-surfaces, bordures, rampe de texte, accent, rail, lien de prose, code,
-`--radius`), exige le cœur en clair et en sombre, dérive le reste (famille
-accent, `--accent-fg` blanc ou noir par contraste, échelle des rayons), refuse
-tout texte sous 4,5:1 et tout élément d'interface sous 3:1, puis génère la
-feuille sous `body.elpis-skin-perso` (+ `.elpis-app-dark`). Même spécificité
-qu'un thème livré : la feuille se charge après `style.css`.
+**Personal skins.** An account can define its own skins
+(`/api/skins/perso`), made of tokens only: no free-form CSS, no images.
+The server accepts only an allowlist of `style.css` tokens (backgrounds,
+surfaces, borders, text ramp, accent, rail, prose link, code,
+`--radius`), requires the core in light and dark, derives the rest (accent
+family, `--accent-fg` white or black by contrast, radius scale), rejects
+any text under 4.5:1 and any interface element under 3:1, then generates the
+stylesheet under `body.elpis-skin-perso` (+ `.elpis-app-dark`). Same specificity
+as a bundled theme: the stylesheet loads after `style.css`.
 
-**Sous-parties des Paramètres.** Un onglet chargé se scinde en un bandeau horizontal
-d'onglets soulignés, au-dessus du contenu (`sections` dans `features/reglages/rail.ts`) ;
-la dernière partie ouverte est mémorisée et la recherche du rail y mène.
+**Settings subsections.** A loaded tab splits into a horizontal strip
+of underlined tabs above the content (`sections` in `features/reglages/rail.ts`);
+the last open section is remembered and the rail search leads to it.
 
-Ajouter un thème : un fichier `frontend/css/skins/<id>/skin.css` qui redéfinit les
-jetons sous `body.elpis-skin-<id>` (et `.elpis-app-dark` pour le sombre), une
-entrée dans le registre `frontend/css/skins/skins.json` (servi par `/api/skins`), le `<link>` dans `index.html` et
-`admin.html` après `style.css`. Pour son éditeur, un fichier
-`frontend/css/skins/<id>/editeur.css` : pas de `<link>`, le front le lie à la
-demande. Les polices restent locales (pas de téléchargement : l'application doit
-fonctionner hors ligne).
+Adding a theme: a file `frontend/css/skins/<id>/skin.css` that redefines the
+tokens under `body.elpis-skin-<id>` (and `.elpis-app-dark` for dark), an
+entry in the registry `frontend/css/skins/skins.json` (served by `/api/skins`), the `<link>` in `index.html` and
+`admin.html` after `style.css`. For its editor, a file
+`frontend/css/skins/<id>/editeur.css`: no `<link>`, the frontend links it
+on demand. Fonts stay local (no download: the application must
+work offline).
 
-**Éditeur lié au skin.** Un skin est un dossier : `skin.css` pour l'application, et
-`editeur.css`, facultatif, pour l'éditeur. Sa présence suffit : sans lui, l'éditeur
-reste classique, comme pour un habillage personnel (jetons seuls). Le compte choisit
-*Selon le skin* (défaut) ou *Classique*. Le socle `frontend/css/editeur.css` re-mappe
-les composants du classique sur des jetons `--ed-*` ; `editeur.css` les pose, sous
-`.ed2--encre` et `.ed2--papier` (« Thème sombre » de l'éditeur) :
+**Skin-linked editor.** A skin is a folder: `skin.css` for the application, and
+`editeur.css`, optional, for the editor. Its presence is enough: without it, the editor
+stays classic, as with a personal skin (tokens only). The account chooses
+*Follow skin* (default) or *Classic*. The base `frontend/css/editeur.css` re-maps
+the classic components to `--ed-*` tokens; `editeur.css` sets them, under
+`.ed2--encre` and `.ed2--papier` (the editor's "Dark theme"):
 
-| Jetons | Rôle |
+| Tokens | Role |
 |---|---|
-| `--ed-code-bg`, `--ed-code-fg`, `--ed-code-muted`, `--ed-code-accent` | surface du code, lue par le thème de Monaco : couleurs simples |
-| `--ed-plan`, `--ed-bande`, `--ed-releve`, `--ed-champ` | les plans : colonne et code, bandes en retrait, menus, champs |
-| `--ed-ink`, `--ed-ink-2`, `--ed-muted`, `--ed-line`, `--ed-line-soft`, `--ed-hover`, `--ed-press` | encres, filets et états |
-| `--ed-select`, `--ed-select-ink`, `--ed-accent`, `--ed-accent-fg`, `--ed-ring` | sélection et accent |
-| `--ed-ok`, `--ed-warn`, `--ed-danger` | statuts Git, et rouge, vert, jaune du terminal |
-| `--ed-syn-mot`, `-texte`, `-nombre`, `-com`, `-type`, `-var`, `-op` | coloration syntaxique ; `-op` colore aussi les accolades |
-| `--ed-ansi-rouge`, `-vert`, `-jaune`, `-bleu`, `-magenta`, `-cyan` | terminal, facultatifs |
-| `--ed-ic-dossier`, `-fichier`, `-bleu`, `-jaune`, `-orange`, `-vert` | icônes de l'arbre, facultatives (monochromes sinon) |
-| `--ed-police`, `--ed-arbre-police`, `--ed-arbre-taille`, `--ed-arbre-hauteur`, `--ed-r`, `--ed-r-lg` | polices, densité de l'arbre, rayons |
+| `--ed-code-bg`, `--ed-code-fg`, `--ed-code-muted`, `--ed-code-accent` | code surface, read by the Monaco theme: plain colors |
+| `--ed-plan`, `--ed-bande`, `--ed-releve`, `--ed-champ` | the planes: column and code, inset bands, menus, fields |
+| `--ed-ink`, `--ed-ink-2`, `--ed-muted`, `--ed-line`, `--ed-line-soft`, `--ed-hover`, `--ed-press` | inks, rules and states |
+| `--ed-select`, `--ed-select-ink`, `--ed-accent`, `--ed-accent-fg`, `--ed-ring` | selection and accent |
+| `--ed-ok`, `--ed-warn`, `--ed-danger` | Git statuses, and the terminal's red, green, yellow |
+| `--ed-syn-mot`, `-texte`, `-nombre`, `-com`, `-type`, `-var`, `-op` | syntax highlighting; `-op` also colors the braces |
+| `--ed-ansi-rouge`, `-vert`, `-jaune`, `-bleu`, `-magenta`, `-cyan` | terminal, optional |
+| `--ed-ic-dossier`, `-fichier`, `-bleu`, `-jaune`, `-orange`, `-vert` | tree icons, optional (monochrome otherwise) |
+| `--ed-police`, `--ed-arbre-police`, `--ed-arbre-taille`, `--ed-arbre-hauteur`, `--ed-r`, `--ed-r-lg` | fonts, tree density, radii |
 
-Un `editeur.css` change l'apparence (couleurs, rayons, polices, forme de l'onglet
-actif, marque de la rangée active), jamais la place des éléments ni leur
-comportement. Le contraste des skins intégrés est testé
-(`frontend/test/css/contraste-editeur.test.ts`) : texte 4,5:1, icônes 3:1.
+An `editeur.css` changes the appearance (colors, radii, fonts, active tab
+shape, active row marker), never the position of elements or their
+behavior. The contrast of the bundled skins is tested
+(`frontend/test/css/contraste-editeur.test.ts`): text 4.5:1, icons 3:1.
 
-## Typographie
+## Typography
 
-- Texte : pile système (`-apple-system, BlinkMacSystemFont, "Segoe UI",
+- Text: system stack (`-apple-system, BlinkMacSystemFont, "Segoe UI",
   Roboto, Helvetica, Arial, sans-serif`).
-- Code : `"JetBrains Mono"` puis polices monospace système.
-- Un thème peut donner des titres serif (Georgia, présente partout) ; aucune
-  police n'est téléchargée.
-- Hiérarchie par **taille et graisse**, pas par des gris plus clairs ni des
-  micro-majuscules espacées ; en-têtes de tableau en casse normale.
+- Code: `"JetBrains Mono"` then system monospace fonts.
+- A theme can give serif headings (Georgia, available everywhere); no
+  font is downloaded.
+- Hierarchy by **size and weight**, not by lighter grays or spaced-out
+  small caps; table headers in normal case.
 
-## Calques (z-index)
+## Layers (z-index)
 
-Échelle de fait, à respecter pour qu'une couche nouvelle trouve sa place :
+De facto scale, to follow so a new layer finds its place:
 
-| Valeur | Couche |
+| Value | Layer |
 |---|---|
-| 40–100 | menus déroulants, panneaux flottants de page |
-| 5000 | grandes modales (Paramètres, clonage Git) |
-| 6000 | modales au-dessus d'une modale (transcriptions, gabarits, skills) |
-| 7000 | confirmation générique (confirmer, saisir, choisir) |
-| 7500 | modales de groupes |
-| 8000 | menu contextuel |
-| 9000+ | toasts et alertes système |
+| 40–100 | dropdown menus, floating page panels |
+| 5000 | large modals (Settings, Git clone) |
+| 6000 | modals above a modal (transcripts, templates, skills) |
+| 7000 | generic confirmation (confirm, type, choose) |
+| 7500 | group modals |
+| 8000 | context menu |
+| 9000+ | toasts and system alerts |
 
-## Mouvement
+## Motion
 
-- Transitions de 150 à 260 ms ; entrées en `ease-out`, panneaux coulissants en
+- Transitions of 150 to 260 ms; entrances in `ease-out`, sliding panels in
   `cubic-bezier(0.4, 0, 0.2, 1)` (`.elpis-slide-panel`, 260 ms).
-- Animer `opacity` et `transform` ; éviter les propriétés de mise en page
-  (exception assumée : la largeur des panneaux coulissants).
-- `prefers-reduced-motion: reduce` coupe les animations non essentielles
-  (bloc dédié dans `style.css`) ; toute animation nouvelle prévoit son
-  alternative (fondu ou changement instantané).
+- Animate `opacity` and `transform`; avoid layout properties
+  (accepted exception: the width of sliding panels).
+- `prefers-reduced-motion: reduce` turns off non-essential animations
+  (dedicated block in `style.css`); every new animation provides its
+  alternative (fade or instant change).
 
-## Iconographie
+## Iconography
 
-Phosphor (police vendorée, `ph ph-<nom>`), monochrome, `aria-hidden="true"`
-sur l'icône ; le nom accessible est porté par le bouton (`aria-label`) quand
-il n'a pas de texte.
+Phosphor (vendored font, `ph ph-<name>`), monochrome, `aria-hidden="true"`
+on the icon; the accessible name is carried by the button (`aria-label`) when
+it has no text.
 
-## Composants
+## Components
 
-| Préfixe | Où | Exemples |
+| Prefix | Where | Examples |
 |---|---|---|
-| `set-*` | réglages (Paramètres, console) | `set-input`, `set-select`, `set-textarea`, `set-switch-track`, `set-row` |
-| `adm-*` | console d'administration | `adm-card`, `adm-rows`/`adm-row`, `adm-btn` (+ `--primary`, `--quiet`, `--icon`, `--danger`, `--warn`), `adm-seg`, `adm-pill`, `adm-table`, `adm-details` (et `--rows` pour « Avancé »), `adm-savebar`, `adm-drawer`, `adm-zone`, `adm-kpi`, `adm-palette` |
-| `elpis-*` | chat, éditeur, bandeaux | `elpis-editor-tab`, `elpis-code-diff`, `elpis-effect`, `elpis-banner-btn`, `elpis-slide-panel` |
-| `markdown`, `code-*`, `diff-*` | rendu des messages | prose, blocs de code, diffs |
-| `toast`, `modal`, `popover` | couches | notifications, dialogues, menus |
+| `set-*` | settings (Settings, console) | `set-input`, `set-select`, `set-textarea`, `set-switch-track`, `set-row` |
+| `adm-*` | admin console | `adm-card`, `adm-rows`/`adm-row`, `adm-btn` (+ `--primary`, `--quiet`, `--icon`, `--danger`, `--warn`), `adm-seg`, `adm-pill`, `adm-table`, `adm-details` (and `--rows` for "Advanced"), `adm-savebar`, `adm-drawer`, `adm-zone`, `adm-kpi`, `adm-palette` |
+| `elpis-*` | chat, editor, banners | `elpis-editor-tab`, `elpis-code-diff`, `elpis-effect`, `elpis-banner-btn`, `elpis-slide-panel` |
+| `markdown`, `code-*`, `diff-*` | message rendering | prose, code blocks, diffs |
+| `toast`, `modal`, `popover` | layers | notifications, dialogs, menus |
 
-Règles de composition :
+Composition rules:
 
-- **Pas de carte dans une carte** : une section = une surface ; les objets
-  d'une liste sont des rangées, un objet complexe s'ouvre dans un tiroir ou
-  un éditeur en ligne.
-- **Rangée de réglage** : libellé court à gauche (détail en `title`), contrôle
-  dimensionné à la donnée à droite, unité en suffixe.
-- **Boutons** : une famille ; un seul bouton principal (accent) par écran ;
-  les actions destructrices en variante danger, confirmées.
-- **Actions sensibles** en fin de page, dans une « Zone sensible »
-  (`adm-zone`) ; l'irréversible demande de recopier un mot
+- **No card in a card**: one section = one surface; the objects of a list
+  are rows, a complex object opens in a drawer or an inline editor.
+- **Setting row**: short label on the left (detail in `title`), control
+  sized to the data on the right, unit as a suffix.
+- **Buttons**: one family; a single primary (accent) button per screen;
+  destructive actions in the danger variant, confirmed.
+- **Sensitive actions** at the end of the page, in a "Danger zone"
+  (`adm-zone`); the irreversible ones require retyping a word
   (`openTypedConfirm`).
-- **Réglages rares** repliés sous « Avancé » (`adm-details--rows`) ; un objet
-  (connecteur…) s'édite dans un tiroir (`adm-drawer`) avec son propre
-  Enregistrer.
-- **Couleur de statut seulement sur anomalie** : « 0 erreur » reste neutre.
+- **Rare settings** folded under "Advanced" (`adm-details--rows`); an object
+  (connector…) is edited in a drawer (`adm-drawer`) with its own
+  Save.
+- **Status color only on anomaly**: "0 errors" stays neutral.
 
-## Règles
+## Rules
 
-- Jamais de couleur en dur dans un composant : un jeton, ou un utilitaire
-  Tailwind re-mappé sur un jeton.
-- Jamais de classe de couleur sur `<body>` : le fond et le texte viennent de
-  la règle `body` de `style.css`.
-- Après avoir ajouté des classes utilitaires dans un gabarit :
-  `node tools/generate_tailwind_css.mjs` (la parité est vérifiée par les tests
-  des mainteneurs).
-- Vérifier chaque écran en clair et en sombre, et sur au moins un thème à base
-  sombre (Émeraude).
+- Never a hard-coded color in a component: a token, or a Tailwind utility
+  re-mapped to a token.
+- Never a color class on `<body>`: the background and text come from
+  the `body` rule in `style.css`.
+- After adding utility classes in a template:
+  `node tools/generate_tailwind_css.mjs` (parity is checked by the
+  maintainers' tests).
+- Check every screen in light and dark, and on at least one dark-based
+  theme (Emerald).

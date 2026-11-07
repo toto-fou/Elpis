@@ -1,75 +1,75 @@
-# Extracteur du RAG intégré
+# Built-in RAG extractor
 
-Service Python sans état (FastAPI, port 8000, service `elpis-rag`). Le core TypeScript fait tout le reste du RAG
-(collections, droits, découpage, embeddings, Qdrant, recherche, outils du chat) ; ce service ne fait que lire les
-documents que le core lui désigne. Il n'a ni console, ni base, ni collection, ni état sur disque hors de son cache.
+Stateless Python service (FastAPI, port 8000, `elpis-rag` service). The TypeScript core does everything else in RAG
+(collections, permissions, chunking, embeddings, Qdrant, search, chat tools); this service only reads the
+documents the core points it to. It has no console, no database, no collection, and no on-disk state beyond its cache.
 
-## Lancer
+## Running
 
-`./elpis start` (ou les unités systemd de `sudo ./elpis service install`) le lance avec les bonnes variables. À la
-main, depuis ce dossier :
+`./elpis start` (or the systemd units from `sudo ./elpis service install`) launches it with the right variables. By
+hand, from this folder:
 
 ```bash
 ./start.sh
 ```
 
-| Variable | Rôle | Défaut |
+| Variable | Role | Default |
 |---|---|---|
-| `RAG_STORE_DIR` | Magasin du core, lu seulement : les chemins reçus lui sont relatifs | `../user_db/rag` |
-| `RAG_CACHE_DIR` | Seul dossier écrit : PDF convertis par LibreOffice (`conv/`), temporaires | `<magasin>-cache` |
-| `RAG_SERVICE_TOKEN` | Jeton de service attendu en `Authorization: Bearer` | contenu de `RAG_SERVICE_TOKEN_FILE` |
-| `RAG_SERVICE_TOKEN_FILE` | Fichier du jeton (écrit par `./elpis configure`, lu aussi par le core) | `../user_db/.rag_service_token` |
-| `RAG_HOST`, `RAG_PORT` | Adresse d'écoute | `127.0.0.1`, `8000` |
+| `RAG_STORE_DIR` | The core's store, read-only: the paths received are relative to it | `../user_db/rag` |
+| `RAG_CACHE_DIR` | The only folder written to: PDFs converted by LibreOffice (`conv/`), temporary files | `<store>-cache` |
+| `RAG_SERVICE_TOKEN` | Service token expected in `Authorization: Bearer` | content of `RAG_SERVICE_TOKEN_FILE` |
+| `RAG_SERVICE_TOKEN_FILE` | Token file (written by `./elpis configure`, also read by the core) | `../user_db/.rag_service_token` |
+| `RAG_HOST`, `RAG_PORT` | Listen address | `127.0.0.1`, `8000` |
 
-Le core et l'extracteur doivent voir le même magasin : `./elpis` donne à chacun le `RAG_STORE_DIR` que le core
-calcule (`rag.store_dir` de `config.json`, sinon `user_db/rag`). Sans jeton configuré, seul un appel direct de la
-machine locale passe (aucun en-tête de relais).
+The core and the extractor must see the same store: `./elpis` gives each of them the `RAG_STORE_DIR` the core
+computes (`rag.store_dir` in `config.json`, otherwise `user_db/rag`). With no token configured, only a direct call from the
+local machine gets through (no relay header).
 
 ## Routes
 
-Toutes exigent le jeton, sauf `/api/health`.
+All require the token, except `/api/health`.
 
-- `GET /api/health` : `{ok, service, version, soffice, isolated, ocr}` (LibreOffice présent ; analyses dans la prison
-  bubblewrap ; OCR pris en charge). Rien de sensible.
-- `POST /api/extract {source, ext, ocr?, max_chars?, ocr_service?}` : flux NDJSON, lignes `progress` puis `result`
-  (`meta {pages, title, text_layer, mime}`, `blocks`, `warnings`) ou `error` (`no_text`, `encrypted`, `unsupported`,
-  `too_large`, `timeout`, `corrupt`, `ocr_unavailable`). Bloc : `{kind, text, level?, page?, boxes?, sheet?,
-  slide?}`, boîtes `[x0, y0, x1, y1]` en points PDF, origine en haut à gauche.
-- `POST /api/render {source, ext, page, dpi?}` : `image/webp` d'une page (PDF direct ; docx, pptx, xlsx convertis par
-  LibreOffice puis mis en cache par sha256). En-têtes `X-Rag-Pages`, `X-Rag-Page-Width`, `X-Rag-Page-Height`.
-- `POST /api/locate {source, ext, text, page_hint?}` : `{page, boxes, score, page_width, page_height}` (`page` nul si
-  le passage est introuvable).
+- `GET /api/health`: `{ok, service, version, soffice, isolated, ocr}` (LibreOffice present; analyses inside the bubblewrap
+  jail; OCR supported). Nothing sensitive.
+- `POST /api/extract {source, ext, ocr?, max_chars?, ocr_service?}`: NDJSON stream, `progress` lines then `result`
+  (`meta {pages, title, text_layer, mime}`, `blocks`, `warnings`) or `error` (`no_text`, `encrypted`, `unsupported`,
+  `too_large`, `timeout`, `corrupt`, `ocr_unavailable`). Block: `{kind, text, level?, page?, boxes?, sheet?,
+  slide?}`, boxes `[x0, y0, x1, y1]` in PDF points, origin at top left.
+- `POST /api/render {source, ext, page, dpi?}`: `image/webp` of one page (PDF directly; docx, pptx, xlsx converted by
+  LibreOffice then cached by sha256). Headers `X-Rag-Pages`, `X-Rag-Page-Width`, `X-Rag-Page-Height`.
+- `POST /api/locate {source, ext, text, page_hint?}`: `{page, boxes, score, page_width, page_height}` (`page` is null if
+  the passage is not found).
 
-Les chemins sont **relatifs** au magasin : chemin absolu, `..`, lien symbolique, fichier non ordinaire et extension
-hors liste sont refusés (400 `bad_path`, 404 `not_found`, `unsupported`).
+Paths are **relative** to the store: an absolute path, `..`, a symbolic link, a non-regular file and an extension
+not on the list are refused (400 `bad_path`, 404 `not_found`, `unsupported`).
 
 ## OCR
 
-Les pages sans texte d'un PDF sont lues par un modèle de vision compatible OpenAI (`/v1/chat/completions`, format
-« grounding » de la famille DeepSeek-OCR). Le service n'a pas de configuration propre : le core envoie
-`ocr_service {url, model, api_key, timeout_s, max_side_px, max_tokens}` à chaque extraction d'une collection où
-l'OCR est activé, à partir de `config.json › rag.ocr` (console › RAG › Reclassement et OCR). Sans `ocr_service`, un
-PDF sans aucun texte finit en `ocr_unavailable` et un PDF mixte garde son texte natif avec un avertissement.
+Pages without text in a PDF are read by an OpenAI-compatible vision model (`/v1/chat/completions`, DeepSeek-OCR family
+"grounding" format). The service has no configuration of its own: the core sends
+`ocr_service {url, model, api_key, timeout_s, max_side_px, max_tokens}` with each extraction of a collection where
+OCR is enabled, taken from `config.json › rag.ocr` (Admin console › Models & services › RAG › Reranking and OCR). Without `ocr_service`, a
+PDF with no text at all ends in `ocr_unavailable` and a mixed PDF keeps its native text with a warning.
 
-## Isolation et limites
+## Isolation and limits
 
-Chaque analyse tourne dans un interpréteur enfant (`python -I`, environnement minimal, `setrlimit` mémoire, CPU et
-taille d'écriture, session propre), tué au délai ou à la fermeture du flux. Cet enfant et LibreOffice tournent dans
-une prison bubblewrap, celle des aperçus Office : aucun réseau, rien du disque hors `/usr`, de l'interpréteur et du
-code de l'extracteur, sinon le seul fichier analysé (en lecture) ou le dossier de travail de la conversion.
-LibreOffice y convertit les Word, Excel et PowerPoint avec un profil neuf qui coupe les macros et les liens des
-documents. `RAG_ISOLATION` vaut `auto` (défaut : prison dès que `bwrap` marche ici), `bwrap` (exigée, sinon 503
-`isolation_unavailable`) ou `none`. `/api/health` le dit (`isolated`) et `./elpis doctor` le signale (paquet
-`bubblewrap`, user namespaces autorisés). Réglages : `RAG_EXTRACT_TIMEOUT_S` (300,
-lu aussi par le core pour son propre délai), `RAG_EXTRACT_MEM_MB` (3072), `RAG_EXTRACT_MAX_BYTES` (200 Mo),
-`RAG_EXTRACT_MAX_CHARS` (20 M), `RAG_EXTRACT_ZIP_MAX_MB` (1024, taille décompressée des archives Office),
+Each analysis runs in a child interpreter (`python -I`, minimal environment, `setrlimit` on memory, CPU and
+write size, own session), killed at the timeout or when the stream closes. This child and LibreOffice run in
+a bubblewrap jail, the one used for Office previews: no network, nothing from the disk outside `/usr`, the interpreter and the
+extractor code, except the single file being analyzed (read-only) or the conversion's working folder.
+LibreOffice converts Word, Excel and PowerPoint there with a fresh profile that turns off macros and document
+links. `RAG_ISOLATION` is `auto` (default: jail as soon as `bwrap` works here), `bwrap` (required, otherwise 503
+`isolation_unavailable`) or `none`. `/api/health` reports it (`isolated`) and `./elpis doctor` flags it (`bubblewrap`
+package, user namespaces allowed). Settings: `RAG_EXTRACT_TIMEOUT_S` (300,
+also read by the core for its own timeout), `RAG_EXTRACT_MEM_MB` (3072), `RAG_EXTRACT_MAX_BYTES` (200 MB),
+`RAG_EXTRACT_MAX_CHARS` (20 M), `RAG_EXTRACT_ZIP_MAX_MB` (1024, uncompressed size of Office archives),
 `RAG_EXTRACT_CONCURRENCY` (2), `RAG_RENDER_TIMEOUT_S` (60), `RAG_RENDER_MAX_PIXELS` (60 M), `RAG_SOFFICE_TIMEOUT_S`
-(180), `RAG_CACHE_MAX_MB` (2048), `RAG_SOFFICE_BIN` (chemin de `soffice` hors PATH).
+(180), `RAG_CACHE_MAX_MB` (2048), `RAG_SOFFICE_BIN` (path of `soffice` outside PATH).
 
-Dépendances : `requirements-rag.txt` (pdfplumber, pypdfium2, pypdf, openpyxl…) et, pour le rendu des Word, Excel et
-PowerPoint, LibreOffice (paquets apt du groupe `apercus-office`). Sans LibreOffice, l'extraction marche ; seules les
-pages rendues de ces formats manquent (503 `soffice_unavailable`).
+Dependencies: `requirements-rag.txt` (pdfplumber, pypdfium2, pypdf, openpyxl…) and, to render Word, Excel and
+PowerPoint, LibreOffice (apt packages of the `apercus-office` group). Without LibreOffice, extraction works; only the rendered
+pages of these formats are missing (503 `soffice_unavailable`).
 
 ## Tests
 
-`venv/bin/python -m pytest tests/rag_app` (sans réseau ; les tests qui demandent LibreOffice sont sautés sans lui).
+`venv/bin/python -m pytest tests/rag_app` (no network; tests that need LibreOffice are skipped without it).

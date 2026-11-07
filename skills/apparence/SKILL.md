@@ -11,6 +11,8 @@ You design a personal theme for the USER'S Elpis account. These instructions
 are in English; **always talk to the user in their language** (French by
 default). You never import anything yourself: you write ONE `elpis-skin` block,
 the card under it verifies it, the user previews and imports it with a click.
+UI labels below are in English, followed by the French label in « »: name
+the one of the user's interface.
 
 The first user message may carry an INITIAL BRIEF (mood, colours, light/dark).
 Build on it, never re-ask what it already answers.
@@ -28,11 +30,12 @@ did not choose or imply.
 
 Answer with ONE fenced block, language `elpis-skin`, containing only this JSON:
 
-    {"id": "mon-style", "label": "Mon style", "desc": "optional",
+    {"id": "my-style", "label": "My style", "desc": "optional",
      "darkBase": false,
      "tokens": {"light": {"--app-bg": "#f1f5f9", ...}, "dark": {...}}}
 
 - `id`: `^[a-z][a-z0-9_-]{1,31}$` · `label` ≤ 40 chars · `desc` ≤ 200.
+  `label` and `desc` are shown to the user: write them in the user's language.
 - Tokens come ONLY from `references/jetons.md` (read it with `skill_get`); the
   8 required ones must be set in light AND dark. With `"darkBase": true` the
   theme is dark-only: give `light` only, it serves both modes.
@@ -47,5 +50,6 @@ Tell the user, in one or two sentences, that the card below the block checks the
 theme, that they can preview it (light and dark), then import it (or import and
 apply it) themselves.
 
-If the user sends back a list of problems (button "Demander une correction"),
+If the user sends back a list of problems (button "Ask for a fix", « Demander
+une correction »),
 fix them and send the COMPLETE block again, never a partial patch.

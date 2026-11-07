@@ -1,70 +1,70 @@
-# Elpis — Installation et configuration
+# Elpis — Installation and configuration
 
-> Architecture interne : [architecture.md](architecture.md).
-> Guide utilisateur : [guide-utilisateur.md](guide-utilisateur.md).
+> Internal architecture: [architecture.md](architecture.md).
+> User guide: [user-guide.md](user-guide.md).
 
-## Sommaire
+## Contents
 
-- [Prérequis](#prérequis)
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Démarrage](#démarrage)
+- [Startup](#startup)
 - [Configuration](#configuration)
-  - [Fichier `config.json`](#fichier-configjson)
+  - [`config.json` file](#configjson-file)
   - [RAG](#rag-rag)
-  - [Fournisseurs cloud des comptes](#fournisseurs-cloud-des-comptes-llmallowed_provider_types)
-  - [Variables d'environnement](#variables-denvironnement)
-  - [`context_config.json` — textes injectés au LLM](#context_configjson--textes-injectés-au-llm)
-  - [Priorité de résolution et hot-reload](#priorité-de-résolution-et-hot-reload)
-- [Multi-process : séparation main / admin](#multi-process--séparation-main--admin)
-- [Process du core](#process-du-core)
-- [HTTPS : frontal Caddy](#https--frontal-caddy)
-- [Tracing et debug multi-utilisateur](#tracing-et-debug-multi-utilisateur)
+  - [Cloud providers for accounts](#cloud-providers-for-accounts-llmallowed_provider_types)
+  - [Environment variables](#environment-variables)
+  - [`context_config.json` — text injected into the LLM](#context_configjson--text-injected-into-the-llm)
+  - [Resolution priority and hot reload](#resolution-priority-and-hot-reload)
+- [Multi-process: main / admin split](#multi-process-main--admin-split)
+- [Core processes](#core-processes)
+- [HTTPS: Caddy front end](#https-caddy-front-end)
+- [Tracing and multi-user debugging](#tracing-and-multi-user-debugging)
 
 ---
 
-## Prérequis
+## Prerequisites
 
-- **Système** : Debian 12/13 ou Ubuntu 24.04 (amd64).
-- **Docker** : la sandbox par utilisateur (outils shell, terminal, éditeur)
-  tourne dans un conteneur.
-- **Un moteur d'inférence** : `llama-server` (llama.cpp) ou tout serveur
-  compatible OpenAI (vLLM, TGI, Ollama, LM Studio), ou un fournisseur distant
-  (connecteurs OpenAI-compatibles, Anthropic).
-- **Paquets système** : ceux de
-  [deploy/prerequis-apt.txt](../deploy/prerequis-apt.txt) (socle, plus un
-  groupe par composant), qu'`install.sh` installe par apt (sudo) ;
-  `--no-apt` les vérifie seulement, commandes apt :
-  [exploitation.md](exploitation.md#prérequis-système-paquets-apt).
-- `install.sh` installe le reste : le venv Python et ses dépendances, Node.js
-  24 sans npm dans `node/` (core et service navigateur) et le bundle du core
-  (`apps/core/dist`), Qdrant (RAG), Chromium, image sandbox.
+- **System**: Debian 12/13 or Ubuntu 24.04 (amd64).
+- **Docker**: the per-user sandbox (shell tools, terminal, editor)
+  runs in a container.
+- **An inference engine**: `llama-server` (llama.cpp) or any
+  OpenAI-compatible server (vLLM, TGI, Ollama, LM Studio), or a remote provider
+  (OpenAI-compatible connectors, Anthropic).
+- **System packages**: those listed in
+  [deploy/prerequis-apt.txt](../deploy/prerequis-apt.txt) (a base set, plus one
+  group per component), which `install.sh` installs with apt (sudo);
+  `--no-apt` only checks them. apt commands:
+  [operations.md](operations.md#system-prerequisites-apt-packages).
+- `install.sh` installs the rest: the Python venv and its dependencies, Node.js
+  24 without npm in `node/` (core and browser service) and the core bundle
+  (`apps/core/dist`), Qdrant (RAG), Chromium, and the sandbox image.
 
-### Moteur d'inférence
+### Inference engine
 
-Conçu pour `llama-server` en **mode routeur** (plusieurs modèles, plusieurs
-slots), **vLLM** et **SGLang** : le type déclaré dans `llama.engine` fait foi et
-Elpis en utilise toutes les adresses et capacités (voir
-[Moteur d'inférence déclaré](#moteur-dinférence-déclaré-llamaengine)). D'autres
-moteurs OpenAI-compatibles (TGI, Ollama, LM Studio) fonctionnent en `generic` —
-voir [Cibles d'inférence](architecture.md#cibles-dinférence-et-fournisseurs).
+Built for `llama-server` in **router mode** (several models, several
+slots), **vLLM** and **SGLang**: the type declared in `llama.engine` is
+authoritative, and Elpis uses all of that engine's addresses and capabilities (see
+[Declared inference engine](#declared-inference-engine-llamaengine)). Other
+OpenAI-compatible engines (TGI, Ollama, LM Studio) work as `generic` —
+see [Inference targets](architecture.md#inference-targets-and-providers).
 
-> **Version minimale recommandée** : une version incluant le parser tool-calls
-> XML GLM (chercher `arg_key` / `arg_value` dans `common/chat-auto-parser.h`).
+> **Recommended minimum version**: a version that includes the GLM XML
+> tool-call parser (look for `arg_key` / `arg_value` in `common/chat-auto-parser.h`).
 
-> **Routeur et chargement des modèles.** Elpis ne charge un modèle qu'à
-> l'envoi d'un message (ou par le bouton Charger) : ses lectures d'information
-> (`/props`, `/slots`, `/metrics`) passent `autoload=false` et ne nomment que le
-> modèle chargé. La jauge KV et les métriques exigent des modèles lancés avec
-> `--metrics` (sinon le serveur répond 501 ; Elpis cesse alors de demander
-> pendant 5 minutes).
+> **Router and model loading.** Elpis loads a model only when a message is
+> sent (or with the Load button). Its information reads
+> (`/props`, `/slots`, `/metrics`) pass `autoload=false` and name only the
+> loaded model. The KV gauge and the metrics require models started with
+> `--metrics` (otherwise the server answers 501, and Elpis stops asking
+> for 5 minutes).
 
-> **`--jinja` est requis pour le tool-calling natif.** Sans ce flag, le modèle
-> ne peut pas émettre de `tool_calls` structurés et « free-forme » ses appels en
-> texte. Symptôme : du markup (`<tool_call>`, `<function=write_file>`) apparaît
-> dans la bulle de réponse. Le backend nettoie ce markup à l'affichage
-> (`_strip_tool_call_markup`), donc il ne fuit plus visuellement, mais le
-> tool-calling **reste dégradé**. Diagnostic : la ligne `markup d'appel d'outil
-> nettoyé du flux final` dans les logs backend.
+> **`--jinja` is required for native tool calling.** Without this flag, the model
+> cannot emit structured `tool_calls` and writes its calls as free-form
+> text. Symptom: markup (`<tool_call>`, `<function=write_file>`) appears
+> in the response bubble. The backend strips this markup at display time
+> (`_strip_tool_call_markup`), so it no longer leaks visually, but tool calling
+> **stays degraded**. Diagnosis: the log line `markup d'appel d'outil
+> nettoyé du flux final` (tool-call markup stripped from the final stream) in the backend logs.
 
 ```bash
 git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
@@ -73,70 +73,69 @@ cmake -B build -DGGML_CUDA=ON      # CUDA
 cmake --build build --config Release -j$(nproc)
 ```
 
-### Aperçus Office de l'éditeur (optionnel)
+### Office previews in the editor (optional)
 
-docx et pptx s'affichent dans l'éditeur après conversion par LibreOffice
-**sur l'hôte**, dans une prison `bubblewrap` sans réseau ni fichiers de l'hôte.
-Les PDF n'ont besoin de rien, et les xlsx sont lus directement en flux
-(`apps/toolhost/src/office/xlsx.ts`) : LibreOffice ne sert qu'à la vue
-« Pages » d'un tableur. Un document lourd affiche ses premières pages tout de
-suite, puis le document complet quand la conversion est terminée.
+docx and pptx files appear in the editor after conversion by LibreOffice
+**on the host**, in a `bubblewrap` jail with no network and no host files.
+PDFs need nothing, and xlsx files are streamed directly
+(`apps/toolhost/src/office/xlsx.ts`): LibreOffice is used only for the
+spreadsheet "Pages" view. A heavy document shows its first pages right
+away, then the full document once the conversion finishes.
 
-Installation : `./install.sh --with-office`.
+Install with `./install.sh --with-office`.
 
-- Ubuntu 24.04 restreint les user namespaces non privilégiés
-  (`kernel.apparmor_restrict_unprivileged_userns`) : si `bwrap` est bloqué,
-  l'installeur pose le profil AppArmor `/etc/apparmor.d/elpis-bwrap` ; sinon
-  l'aperçu répond « Isolation indisponible ».
-- Réglages : `config.json › office_preview` (`isolation` `auto`|`none`,
-  `timeout_s`, `slots`, `max_mb`, `max_pages`, `xlsx_max_rows`, `cache_mb`…) ;
-  interrupteur admin « Aperçu Office » (`features.office_preview`). Cache :
-  `user_sandboxes/.office-cache` (élagué par la maintenance).
+- Ubuntu 24.04 restricts unprivileged user namespaces
+  (`kernel.apparmor_restrict_unprivileged_userns`): if `bwrap` is blocked,
+  the installer adds the AppArmor profile `/etc/apparmor.d/elpis-bwrap`;
+  otherwise the preview answers "Isolation unavailable".
+- Settings: `config.json › office_preview` (`isolation` `auto`|`none`,
+  `timeout_s`, `slots`, `max_mb`, `max_pages`, `xlsx_max_rows`, `cache_mb`…);
+  admin switch "Office preview" (`features.office_preview`). Cache:
+  `user_sandboxes/.office-cache` (pruned by maintenance).
 
-### Git d'une sandbox
+### Git in a sandbox
 
-Les commandes Git des outils de l'agent et du panneau Git de l'éditeur
-tournent dans le conteneur de l'utilisateur, par son agent et sous son UID :
-ce qu'un dépôt fait exécuter reste dans la sandbox (les hooks restent
-désactivés pour ces commandes). Les opérations réseau lancées par Elpis
-(`clone`, `fetch`, `pull`, `push`, `ls-remote` ; `https` et `http`
-seulement) passent par le relais de l'hôte, y compris avec un profil réseau
-isolé : un ticket par opération, le seul dépôt de l'opération joignable,
-l'identifiant du connecteur Git ajouté par l'hôte (jamais dans la sandbox),
-la garde anti-SSRF refaite à chaque requête et, au push de l'éditeur, seules
-les refs que `git push` mettrait à jour d'après la configuration du dépôt,
-sans suppression, sans mise à jour forcée non demandée ni réécriture d'une
-étiquette existante (l'assistant ne pousse que sa branche). Un refus du
-relais est rendu en 409, avec son motif ; un rejet de l'amont (en retard) en
-400. Identifiants saisis : envoyés après un 401 de l'amont sur la découverte
-(`info/refs`) ; un amont qui ne les demande qu'au `POST` n'est pas pris en
-charge.
+The Git commands of the agent tools and of the editor's Git panel
+run in the user's container, through the user's agent and under the user's UID:
+whatever a repository makes run stays in the sandbox (hooks stay
+disabled for these commands). The network operations Elpis starts
+(`clone`, `fetch`, `pull`, `push`, `ls-remote`; `https` and `http`
+only) go through the host relay, even with an isolated network profile:
+one ticket per operation, only the operation's repository reachable,
+the Git connector credential added by the host (never inside the sandbox),
+the anti-SSRF guard redone on every request and, on an editor push, only the
+refs that `git push` would update according to the repository configuration,
+with no deletion, no unrequested forced update and no rewriting of an existing
+tag (the assistant pushes only its own branch). A relay refusal is returned as a
+409, with its reason; an upstream rejection (behind) as a 400. Credentials
+entered: sent after an upstream 401 on discovery (`info/refs`); an
+upstream that asks for them only on `POST` is not supported.
 
-Le relais écoute sur `user_sandboxes/.elpis-relay/<pid>.sock` (un socket par
-processus de l'app), dossier monté en lecture seule dans les conteneurs : une
-connexion sans ticket valide est fermée sans rien relayer. Pendant une
-opération, tout processus de la sandbox peut passer par l'écoute locale de
-l'agent, mais seulement vers le dépôt, le service et les refs du ticket.
+The relay listens on `user_sandboxes/.elpis-relay/<pid>.sock` (one socket per
+app process), a folder mounted read-only in the containers: a connection
+without a valid ticket is closed without relaying anything. During an
+operation, any process in the sandbox can use the agent's local listener,
+but only toward the ticket's repository, service and refs.
 
-Certificats TLS : le magasin du système (`/etc/ssl`, `SSL_CERT_FILE`,
-`SSL_CERT_DIR`), plus `GIT_SSL_CAINFO` / `GIT_SSL_CAPATH` s'ils sont définis
-pour le service. **Aucun proxy** : le relais joint l'amont directement
-(variables `*_PROXY` ignorées). Une redirection de l'amont est refusée, avec
-l'adresse vers laquelle corriger l'URL du remote. Un remote `http://` passe
-en clair, identifiant du connecteur compris : préférer `https://`.
+TLS certificates: the system store (`/etc/ssl`, `SSL_CERT_FILE`,
+`SSL_CERT_DIR`), plus `GIT_SSL_CAINFO` / `GIT_SSL_CAPATH` if they are set
+for the service. **No proxy**: the relay reaches the upstream directly
+(`*_PROXY` variables are ignored). An upstream redirect is refused, with
+the address to which to correct the remote URL. An `http://` remote goes
+in clear text, connector credential included: prefer `https://`.
 
-Mise à jour depuis une version où Git tournait sur l'hôte : la configuration
-Git du compte de service (`http.sslCAInfo` de `/etc/gitconfig`, `http.proxy`,
-`http.extraHeader`) ne s'applique plus au réseau Git. Une CA interne se
-déclare dans le magasin du système ou par `GIT_SSL_CAINFO` dans
-l'environnement du service.
+Upgrading from a version where Git ran on the host: the service account's
+Git configuration (`http.sslCAInfo` of `/etc/gitconfig`, `http.proxy`,
+`http.extraHeader`) no longer applies to Git network access. Declare an internal CA
+in the system store or with `GIT_SSL_CAINFO` in the service
+environment.
 
-Ubuntu ≥ 23.10 réserve les user namespaces aux programmes munis d'un profil
-AppArmor. Si `bwrap` est bloqué, l'installeur (sauf `--skip-system`) pose
-`/etc/apparmor.d/elpis-bwrap`. Compromis : ce profil vaut pour tout compte
-de la machine qui lance `bwrap`, et rouvre donc pour lui la surface du noyau que
-la restriction réduit. Le retirer (`apparmor_parser -R`, puis supprimer le
-fichier) désactive la prison des aperçus Office.
+Ubuntu ≥ 23.10 reserves user namespaces for programs that have an AppArmor
+profile. If `bwrap` is blocked, the installer (unless `--skip-system`) adds
+`/etc/apparmor.d/elpis-bwrap`. Trade-off: this profile applies to every account
+on the machine that runs `bwrap`, and so reopens for that account the kernel surface that
+the restriction reduces. Removing it (`apparmor_parser -R`, then deleting the
+file) disables the Office previews jail.
 
 ---
 
@@ -144,374 +143,372 @@ fichier) désactive la prison des aperçus Office.
 
 ```bash
 git clone https://github.com/toto-fou/Elpis.git elpis && cd elpis    # 1
-./install.sh                                   # 2 : questions, installation, configuration, démarrage
+./install.sh                                   # 2: questions, installation, configuration, startup
 ```
 
-`install.sh` est **guidé** : il détecte le système (Debian 12/13, Ubuntu
-24.04), vérifie les droits AVANT toute question, ouvre l'assistant par pages
-(`deploy/wizard.py`, bibliothèque standard Python seule : il tourne avant le
-venv), installe, configure avec les réponses de l'assistant, puis démarre
-(services systemd ou `./elpis start`). Il est idempotent : le relancer ne
-refait que ce qui manque, et l'assistant reprend alors la configuration en
-place. Tout est journalisé dans `logs/install.log`, sauf les écrans de
-l'assistant et les mots de passe (écrits sur le terminal seulement).
-`./install.sh --dry-run` affiche le plan sans rien faire.
+`install.sh` is **guided**: it detects the system (Debian 12/13, Ubuntu
+24.04), checks permissions BEFORE asking anything, opens the wizard page by page
+(`deploy/wizard.py`, Python standard library only: it runs before the
+venv), installs, configures with the wizard's answers, then starts
+(systemd services or `./elpis start`). It is idempotent: running it again
+redoes only what is missing, and the wizard then picks up the configuration in
+place. Everything is logged in `logs/install.log`, except the wizard screens
+and passwords (written to the terminal only).
+`./install.sh --dry-run` prints the plan and does nothing.
 
-**Droits.** Depuis un compte normal : `sudo -v` au lancement (une seule
-saisie), jeton entretenu pendant toute l'installation. Sans sudo : on arrête,
-ou on continue sans rien de ce qui demande root (Caddy, base locale,
-services). Par `sudo ./install.sh` : les
-étapes système en root, l'application (venv, Chromium, configuration,
-démarrage) sous le compte qui a lancé sudo (`SUDO_USER`, ou `ELPIS_USER`, ou
-le propriétaire du dépôt) — jamais en root.
+**Permissions.** From a normal account: `sudo -v` at launch (a single
+prompt), with the ticket kept alive for the whole installation. Without sudo: stop,
+or continue without anything that needs root (Caddy, local database,
+services). With `sudo ./install.sh`: the system
+steps run as root, the application (venv, Chromium, configuration,
+startup) runs under the account that ran sudo (`SUDO_USER`, or `ELPIS_USER`, or
+the repository owner) — never as root.
 
-**Assistant.** ↑↓ se déplacer, Espace cocher ou choisir, Entrée valider et
-avancer, 1-9 choix direct, Tab / Maj+Tab changer de page, Échap quitter sans
-rien modifier. Une réponse désactive les saisies qu'elle rend inutiles (avec
-la raison affichée) ; une valeur devenue impossible reprend la première
-valeur possible (Caddy décoché : HTTPS repasse à « HTTP direct »). Les
-adresses LLM et d'embeddings sont sondées (`GET /v1/models`) et le modèle se
-choisit dans la liste annoncée. Réponses dans `user_db/run/install-answers.json`
-(0600, secrets compris), supprimé à la fin. `--plain` garde les questions en
-lignes ; sans terminal (ou `TERM=dumb`), elles aussi.
+**Wizard.** ↑↓ move, Space check or choose, Enter confirm and
+advance, 1-9 direct choice, Tab / Shift+Tab change page, Esc quit without
+changing anything. An answer disables the inputs it makes useless (with
+the reason shown); a value that has become impossible falls back to the first
+possible value (Caddy unchecked: HTTPS goes back to "Direct HTTP"). LLM and embeddings
+addresses are probed (`GET /v1/models`) and you pick the model from the announced list.
+Answers are stored in `user_db/run/install-answers.json`
+(0600, secrets included), deleted at the end. `--plain` keeps the questions as
+plain lines; without a terminal (or with `TERM=dumb`), they are plain lines too.
 
-**Base de données.** Préparée (serveur local) et testée juste après le venv,
-avant les étapes longues. Échec : `--yes` s'arrête (rien n'est configuré sur
-une base injoignable) ; en interactif, choix entre réessayer, modifier les
-réglages (retour à la page Base), passer à SQLite ou abandonner.
+**Database.** Prepared (local server) and tested right after the venv,
+before the long steps. On failure, `--yes` stops (nothing is configured against
+an unreachable database); in interactive mode, you choose between retrying, changing the
+settings (back to the Database page), switching to SQLite, or aborting.
 
-| Question (option qui y répond) | Défaut | Effet |
+| Question (option that answers it) | Default | Effect |
 |---|---|---|
-| Service navigateur (`--with-browser`, `--no-browser`) | oui | `npm ci` + Chromium (Playwright) |
-| Image sandbox (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` de `deploy/docker/sandbox/`, ou `docker pull` + étiquette |
-| Base de données (`--db sqlite\|postgres-local\|external`) | sqlite (1re fois ; inchangée ensuite) | voir [Base de données](#base-de-données) |
-| LibreOffice (`--with-office`, `--no-office`) | oui s'il est déjà installé | aperçus docx/xlsx/pptx (LibreOffice nogui + bubblewrap, installés par apt) |
-| Caddy (`--with-caddy`, `--no-caddy`) | non | frontal HTTPS (paquet `caddy` installé par apt, puis configuré par install.sh ; voir [HTTPS](#https--frontal-caddy)) |
-| Extras AGPL (`--with-agpl`, `--no-agpl`) | non | PyMuPDF et pdf2docx |
-| Configuration (`--configure`, `--no-configure`) | oui (1re fois) | `./elpis configure` |
-| Démarrage (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` ou `./elpis start` |
+| Browser service (`--with-browser`, `--no-browser`) | yes | `npm ci` + Chromium (Playwright) |
+| Sandbox image (`--sandbox build\|pull\|none`, `--pull IMAGE`) | build | `docker build` of `deploy/docker/sandbox/`, or `docker pull` + tag |
+| Database (`--db sqlite\|postgres-local\|external`) | sqlite (first time; unchanged afterwards) | see [Database](#database) |
+| LibreOffice (`--with-office`, `--no-office`) | yes if already installed | docx/xlsx/pptx previews (LibreOffice nogui + bubblewrap, installed with apt) |
+| Caddy (`--with-caddy`, `--no-caddy`) | no | HTTPS front end (`caddy` package installed with apt, then configured by install.sh; see [HTTPS](#https-caddy-front-end)) |
+| AGPL extras (`--with-agpl`, `--no-agpl`) | no | PyMuPDF and pdf2docx |
+| Configuration (`--configure`, `--no-configure`) | yes (first time) | `./elpis configure` |
+| Startup (`--service`, `--start`, `--no-start`) | service | `sudo ./elpis service install` or `./elpis start` |
 
-`--yes` supprime toutes les questions (défauts + options) ; les options de
-`./elpis configure` se passent après `--` (en mode assistant, elles
-pré-remplissent les pages) :
+`--yes` suppresses all questions (defaults + options); pass the options of
+`./elpis configure` after `--` (in wizard mode, they pre-fill the pages):
 
 ```bash
 ELPIS_CFG_ADMIN_PASSWORD='…' ./install.sh --yes --with-caddy --service -- \
     --llm-url http://gpu.example.lan:8080 --https local --embed-url http://gpu.example.lan:8081
 ```
 
-Dépendances Python : `requirements.txt` (cœur), `requirements-rag.txt`
-(extracteur du RAG), `requirements-agpl-optional.txt` (optionnel, AGPL, plus
-utilisé),
-`requirements-dev.txt` (tests). Hors-ligne : `./install.sh --offline <dir>`
-avec le paquet produit par `make_release.sh` (voir
-[exploitation.md](exploitation.md#installer-un-serveur-hors-ligne)).
+Python dependencies: `requirements.txt` (core), `requirements-rag.txt`
+(RAG extractor), `requirements-agpl-optional.txt` (optional, AGPL, no longer
+used),
+`requirements-dev.txt` (tests). Offline: `./install.sh --offline <dir>`
+with the package produced by `make_release.sh` (see
+[operations.md](operations.md#installing-an-offline-server)).
 
 ### `./elpis configure`
 
-Sans option, dans un terminal : le même assistant par pages (sans la page
-Composants), pré-rempli avec la configuration en place, puis application
-sans question. Avec des options (`--yes`, `--llm-url`…) ou sans terminal :
-`deploy/configure.py` directement, questions en lignes. Relancer `configure`
-ne régénère aucun secret (`--force` repart de `config.example.json`).
-`--answers FICHIER` applique les réponses de l'assistant ; `--check-db` teste
-seulement la connexion à la base retenue.
+With no option, in a terminal: the same page-by-page wizard (without the
+Components page), pre-filled with the configuration in place, then applied
+without questions. With options (`--yes`, `--llm-url`…) or without a terminal:
+`deploy/configure.py` directly, with line-by-line questions. Running `configure` again
+regenerates no secret (`--force` starts over from `config.example.json`).
+`--answers FILE` applies the wizard's answers; `--check-db` only tests
+the connection to the selected database.
 
-| Étape | Questions | Écrit dans |
+| Step | Questions | Written to |
 |---|---|---|
-| 1. LLM | type (llama.cpp, vLLM, SGLang, autre OpenAI-compatible) ; adresse, dont le port suit le type tant qu'aucune adresse n'est saisie (8080, 8000, 30000) ; clé API facultative (`--api-key` du serveur, saisie masquée) ; sonde `GET /v1/models` avec la clé en Bearer (401 : « clé refusée »), jamais `/props?model=` qui chargerait un modèle ; modèle choisi dans la liste annoncée ; drapeaux de lancement conseillés pour vLLM et SGLang | `config.json › llama` : `engine`, `url` (base du serveur), `api_key`, `model` ; seules les valeurs changées sont réécrites |
-| 2. Cloud | fournisseur (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), clé API masquée, modèle | connecteur **partagé** en base, clé chiffrée (Fernet) |
-| 3. Accès | HTTPS : non / certificat local (`install_caddy.sh`) / domaine public Let's Encrypt (`Caddyfile.acme.template`) ; sans HTTPS, écoute (`--listen local\|lan` : ce serveur seulement ou réseau local, voir [Écoute](#écoute-securitylisten)) ; nom d'hôte d'accès ; ports déjà occupés signalés | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
-| 4. RAG | activation, serveur d'embeddings (sondé) et modèle, reranker, OCR vision | `config.json › rag` (`embed`, `reranker`, `ocr`), voir [RAG](#rag-rag) |
-| 5. Sandbox | image Docker (présence vérifiée), mémoire par sandbox | `executors` |
-| 6. Voix | activation, URL whisper-server et elpis-tts (locales si installées, jeton repris) | `voice` |
-| 7. Base de données | moteur (SQLite, PostgreSQL), hôte, port, base, utilisateur, mot de passe (masqué), TLS ; connexion testée ; copie des données d'une base SQLite existante vers une base vide | `config.json › database`, `user_db/.db_password` (0600) |
-| 8. Admin | nom et mot de passe (masqué, confirmé, 8 caractères min. ; vide = généré, à changer à la 1re connexion) ; si des comptes existent : changement de mot de passe proposé | base `user_db/app.db` |
+| 1. LLM | type (llama.cpp, vLLM, SGLang, other OpenAI-compatible); address, whose port follows the type until an address is entered (8080, 8000, 30000); optional API key (the server's `--api-key`, masked input); probe `GET /v1/models` with the key as Bearer (401: "key rejected"), never `/props?model=`, which would load a model; model chosen from the announced list; recommended launch flags for vLLM and SGLang | `config.json › llama`: `engine`, `url` (server base), `api_key`, `model`; only changed values are rewritten |
+| 2. Cloud | provider (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), masked API key, model | **shared** connector in the database, key encrypted (Fernet) |
+| 3. Access | HTTPS: no / local certificate (`install_caddy.sh`) / public domain with Let's Encrypt (`Caddyfile.acme.template`); without HTTPS, listening (`--listen local\|lan`: this server only or local network, see [Listening](#listening-securitylisten)); access host name; ports already in use are flagged | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
+| 4. RAG | activation, embeddings server (probed) and model, reranker, vision OCR | `config.json › rag` (`embed`, `reranker`, `ocr`), see [RAG](#rag-rag) |
+| 5. Sandbox | Docker image (presence checked), memory per sandbox | `executors` |
+| 6. Voice | activation, whisper-server and elpis-tts URLs (local if installed, token reused) | `voice` |
+| 7. Database | engine (SQLite, PostgreSQL), host, port, database, user, password (masked), TLS; connection tested; copy of the data from an existing SQLite database to an empty one | `config.json › database`, `user_db/.db_password` (0600) |
+| 8. Admin | name and password (masked, confirmed, 8 characters min.; empty = generated, to change at first sign-in); if accounts exist: password change offered | database `user_db/app.db` |
 
-Secrets générés (fichiers 0600) : `app.session_secret`,
-`user_db/.local_mcp_token` (hôte d'outils, référencé par `mcp.json`),
-`user_db/.rag_service_token`. Chaque réponse peut être donnée par option
-(`./elpis configure --help`) ou variable `ELPIS_CFG_*` (`ELPIS_CFG_ENGINE`,
+Generated secrets (0600 files): `app.session_secret`,
+`user_db/.local_mcp_token` (tool host, referenced by `mcp.json`),
+`user_db/.rag_service_token`. Each answer can be given as an option
+(`./elpis configure --help`) or an `ELPIS_CFG_*` variable (`ELPIS_CFG_ENGINE`,
 `ELPIS_CFG_LLM_URL`, `ELPIS_CFG_LLM_API_KEY`, `ELPIS_CFG_CLOUD_API_KEY`,
-`ELPIS_CFG_ADMIN_PASSWORD`…) ; `--yes` ne pose aucune question. Les secrets
-passent par ces variables (l'assistant les transmet ainsi) : une option comme
-`--llm-api-key` se voit dans la liste des processus. Aucune clé n'apparaît
-dans le résumé, les journaux (`logs/install.log` les masque) ni `export-sh`.
+`ELPIS_CFG_ADMIN_PASSWORD`…); `--yes` asks no questions. Secrets
+go through these variables (the wizard passes them this way): an option such as
+`--llm-api-key` is visible in the process list. No key appears
+in the summary, in the logs (`logs/install.log` masks them) or in `export-sh`.
 
-Une configuration existante reste valide telle quelle : sans `engine`
-(llama.cpp), avec `ip` et `port` seuls, ou avec une URL complète
-`…/v1/chat/completions`. `configure` n'y réécrit que ce qui change ; une
-nouvelle adresse est écrite en base du serveur (`url`).
+An existing configuration stays valid as is: without `engine`
+(llama.cpp), with `ip` and `port` only, or with a full
+`…/v1/chat/completions` URL. `configure` rewrites only what changes; a
+new address is written to the server's base (`url`).
 
-### Base de données
+### Database
 
-SQLite (fichier `user_db/app.db`) reste le défaut et suffit jusqu'à quelques
-dizaines d'utilisateurs. PostgreSQL se justifie pour une base managée
-existante, des sauvegardes point-in-time, de la réplication ou de la BI sur
-les tables de télémétrie. Pilote Python pur, sous licence permissive :
-pg8000 (BSD-3) ; le serveur vient des dépôts de l'OS et n'est jamais livré
-avec Elpis. MariaDB/MySQL n'est plus pris en charge (voir
-[exploitation](exploitation.md#mettre-à-jour) pour en sortir).
+SQLite (file `user_db/app.db`) remains the default and is enough for up to a few
+dozen users. PostgreSQL is justified for an existing managed database,
+point-in-time backups, replication, or BI on
+the telemetry tables. Pure-Python driver under a permissive license:
+pg8000 (BSD-3); the server comes from the OS repositories and is never shipped
+with Elpis. MariaDB/MySQL is no longer supported (see
+[operations](operations.md#upgrading) for moving off it).
 
-| Choix d'`install.sh` | Ce qui est fait |
+| `install.sh` choice | What is done |
 |---|---|
-| `sqlite` | rien à installer |
-| `postgres-local` | paquet `postgresql`, rôle et base `elpis` (UTF-8, `template0`), extension `unaccent`, mot de passe aléatoire dans `user_db/.db_password` |
-| `external` | questions de `./elpis configure` : hôte, port, base, utilisateur, mot de passe, TLS d'un serveur PostgreSQL |
+| `sqlite` | nothing to install |
+| `postgres-local` | `postgresql` package, `elpis` role and database (UTF-8, `template0`), `unaccent` extension, random password in `user_db/.db_password` |
+| `external` | `./elpis configure` questions: host, port, database, user, password, TLS of a PostgreSQL server |
 
-Hors ligne (`--offline`), aucun serveur de base n'est dans le paquet : seuls
-`sqlite`, `external` ou un serveur déjà installé sont possibles.
+Offline (`--offline`), no database server is in the package: only
+`sqlite`, `external` or an already installed server are possible.
 
-Section `database` de `config.json` (chaque clé peut être imposée par une
-variable, qui prime) :
+`database` section of `config.json` (each key can be forced by a
+variable, which takes precedence):
 
-| Clé | Variable | Défaut |
+| Key | Variable | Default |
 |---|---|---|
-| `backend` | `APP_DB_BACKEND` | `sqlite` (ou `postgres`) |
+| `backend` | `APP_DB_BACKEND` | `sqlite` (or `postgres`) |
 | `host`, `port` | `APP_DB_HOST`, `APP_DB_PORT` | `127.0.0.1`, 5432 |
 | `name`, `user` | `APP_DB_NAME`, `APP_DB_USER` | `elpis` |
 | `tls` | `APP_DB_TLS` | `off` (`require`, `verify`) |
-| `pool_max`, `timeout` | `APP_DB_POOL_MAX`, `APP_DB_TIMEOUT` | 8 connexions par process, 60 s |
-| — (mot de passe) | `APP_DB_PASSWORD` | fichier `user_db/.db_password` (0600), jamais dans `config.json` |
-| `generation` | — | écrite par la bascule depuis l'administration |
-| `pending` | — | cible enregistrée par « Enregistrer » sans bascule (mot de passe dans `user_db/.db_password.pending`) ; la base active n'en est pas modifiée, la bascule l'applique puis l'efface |
+| `pool_max`, `timeout` | `APP_DB_POOL_MAX`, `APP_DB_TIMEOUT` | 8 connections per process, 60 s |
+| — (password) | `APP_DB_PASSWORD` | file `user_db/.db_password` (0600), never in `config.json` |
+| `generation` | — | written by the switch from the admin console |
+| `pending` | — | target saved by "Save" without a switch (password in `user_db/.db_password.pending`); the active database is not changed by it, the switch applies it then clears it |
 
-Au premier démarrage, une base vide reçoit le schéma complet ; une base
-existante reçoit ses tables et colonnes manquantes puis ses migrations en
-attente. Une base PostgreSQL naît toujours de ce schéma :
-les migrations qu'il contient y sont inscrites sans être rejouées. Un seul process à la fois pose le schéma (verrou fichier), les
-workers peuvent donc démarrer ensemble.
+On first startup, an empty database receives the full schema; an existing
+database receives its missing tables and columns, then its pending migrations. A PostgreSQL database is always created from this schema:
+the migrations it contains are recorded there without being replayed. Only one process at a time lays down the schema (file lock), so
+workers can start together.
 
-Exploitation (`./elpis db …`, servi par le core : `apps/core/dist/exploitation.mjs db …`) :
+Operations (`./elpis db …`, served by the core: `apps/core/dist/exploitation.mjs db …`):
 
 ```bash
-./elpis db info                                   # moteur, version, taille, schéma, pool
+./elpis db info                                   # engine, version, size, schema, pool
 ./elpis db check postgres://elpis@db.lan:5432/elpis
 ./elpis db transfer --to postgres://elpis@db.lan:5432/elpis --dry-run
-./elpis db transfer --to postgres://elpis@db.lan:5432/elpis   # copie vers une base VIDE
-./elpis db use sqlite                             # porte de sortie si le serveur tombe
+./elpis db transfer --to postgres://elpis@db.lan:5432/elpis   # copy to an EMPTY database
+./elpis db use sqlite                             # escape hatch if the server goes down
 ```
 
-Mot de passe : `--password-env NOM_DE_VARIABLE` ou saisie masquée. Le
-transfert copie les tables dans l'ordre des clés étrangères, écarte et compte
-les lignes orphelines, recale les identités, vérifie comptes et empreintes et
-écrit un rapport JSON. Depuis la console, la page **Base de données** fait la
-même chose en « Migrer et basculer » (écritures suspendues pendant la copie,
-redémarrage automatique) et propose « Revenir à SQLite ».
+Password: `--password-env VARIABLE_NAME` or masked input. The
+transfer copies the tables in foreign-key order, sets aside and counts
+orphan rows, resets the identity sequences, checks counts and checksums, and
+writes a JSON report. From the console, the **Data** page does the
+same with "Migrate and switch" (writes suspended during the copy,
+automatic restart) and offers "Back to SQLite".
 
-Sauvegarde : hors SQLite, la sauvegarde « base » produit un instantané SQLite
-(restaurable partout). `.db_password` (et `.db_password.pending`) n'est ni
-sauvegardé ni restauré. Pour
-restaurer la base d'un moteur serveur : revenir à SQLite, restaurer, puis
-migrer.
+Backup: outside SQLite, the "database" backup produces a SQLite snapshot
+(restorable anywhere). `.db_password` (and `.db_password.pending`) is neither
+backed up nor restored. To
+restore a server-engine database: go back to SQLite, restore, then
+migrate.
 
-`configure` est, avec le toggle de la console admin, le seul écrivain de
-`security.https` : il le fait à l'installation, puis configure Caddy dans la
-foulée. Si Elpis tourne déjà, redémarrez-le ensuite (`./elpis restart` ou
+`configure` is, with the admin console toggle, the only writer of
+`security.https`: it does so at installation, then configures Caddy right
+after. If Elpis is already running, restart it afterwards (`./elpis restart` or
 `sudo systemctl restart elpis.target`).
 
 ---
 
-## Démarrage
+## Startup
 
-### Mode manuel
+### Manual mode
 
 ```bash
-./elpis start      # démarre tous les services
-./elpis status     # état
-./elpis logs       # journaux
+./elpis start      # starts all services
+./elpis status     # status
+./elpis logs       # logs
 ./elpis stop
-./elpis doctor     # diagnostic de l'installation
+./elpis doctor     # installation diagnostics
 ```
 
-`start` enchaîne : Qdrant (6333) → RAG (8000) → hôte
-d'outils MCP (8765) → main (8001) → admin (8002) → service navigateur (3000) ;
-les outils du compte sont servis par main lui-même. Main et admin
-écoutent selon [`security.listen`](#écoute-securitylisten) (`127.0.0.1` derrière
-Caddy dans tous les cas) ; l'extracteur du RAG et Qdrant n'écoutent qu'en local.
+`start` runs in sequence: Qdrant (6333) → RAG (8000) → MCP tool
+host (8765) → main (8001) → admin (8002) → browser service (3000);
+the account's tools are served by main itself. Main and admin
+listen according to [`security.listen`](#listening-securitylisten) (`127.0.0.1` behind
+Caddy in every case); the RAG extractor and Qdrant listen locally only.
 
-### Écoute (`security.listen`)
+### Listening (`security.listen`)
 
-Hors HTTPS, adresse d'écoute de main (8001) et admin (8002) :
+Without HTTPS, the listening address of main (8001) and admin (8002):
 
-| Situation | Écoute |
+| Situation | Listening |
 |---|---|
-| HTTPS actif | `127.0.0.1` (Caddy est le frontal ; le réglage est sans objet) |
-| `config.json` absent ou illisible | `127.0.0.1` |
-| `"listen": "local"` (défaut d'une installation neuve) | `127.0.0.1` : ce serveur seulement |
-| `"listen": "lan"` | `0.0.0.0` : ports ouverts **en clair** au réseau |
-| clé absente d'une config existante | `0.0.0.0` (installations d'avant le réglage, inchangées) |
-| variable `BIND` | prioritaire (break-glass) |
+| HTTPS active | `127.0.0.1` (Caddy is the front end; the setting has no effect) |
+| `config.json` missing or unreadable | `127.0.0.1` |
+| `"listen": "local"` (default of a new installation) | `127.0.0.1`: this server only |
+| `"listen": "lan"` | `0.0.0.0`: ports open **in clear text** to the network |
+| key missing from an existing config | `0.0.0.0` (installations that predate the setting, unchanged) |
+| `BIND` variable | takes precedence (break-glass) |
 
-Règle unique : `apps/core/src/ecoute.ts` (core), lue par
-`./elpis › _bind_default` pour son message de démarrage. L'extracteur du RAG
-écoute sur `127.0.0.1` quel que soit ce réglage (`RAG_HOST` pour un core sur
-une autre machine). Écrivains : `./elpis configure` (question
-« Accès » de la page Accès, `--listen local|lan`, `ELPIS_CFG_LISTEN`) et
-Console admin › Sécurité › Accès HTTPS › Écoute (redémarre l'application ;
-« local » n'y est accepté que depuis la machine elle-même, pour ne pas se
-couper l'accès). L'éditeur brut ne le réécrit pas (`_OWNED_PATHS`).
-Réinstallation : la valeur en place (ou son absence) est conservée.
+Single rule: `apps/core/src/ecoute.ts` (core), read by
+`./elpis › _bind_default` for its startup message. The RAG extractor
+listens on `127.0.0.1` whatever this setting says (`RAG_HOST` for a core on
+another machine). Writers: `./elpis configure` ("Access"
+question on the Access page, `--listen local|lan`, `ELPIS_CFG_LISTEN`) and
+Admin console › System › HTTPS access › Listening (restarts the application;
+"local" is accepted there only from the machine itself, so you do not
+cut off your own access). The raw editor does not rewrite it (`_OWNED_PATHS`).
+Reinstallation: the value in place (or its absence) is kept.
 
-### Politique de sécurité du contenu (`security.csp`)
+### Content security policy (`security.csp`)
 
-Les pages de l'application (`/` du chat, `/` et `/admin` de la console)
-portent un en-tête de politique de sécurité du contenu (CSP) : scripts de
-l'origine seulement, aucun script en ligne ni évalué, aucun objet embarqué, pas
-d'encadrement par un autre site (`apps/core/src/interface/pages.ts ›
-POLITIQUE_CSP`). Réglage de repli, relu à chaque page (sans redémarrage) :
+The application pages (`/` of the chat, `/` and `/admin` of the console)
+carry a content security policy (CSP) header: scripts from the
+origin only, no inline or evaluated scripts, no embedded objects, no
+framing by another site (`apps/core/src/interface/pages.ts ›
+POLITIQUE_CSP`). Fallback setting, re-read on every page (no restart needed):
 
-| Valeur | Effet |
+| Value | Effect |
 |---|---|
-| `"enforce"` (défaut, clé absente ou valeur inconnue) | `Content-Security-Policy` : la politique est appliquée |
-| `"report-only"` | `Content-Security-Policy-Report-Only` : les violations sont signalées dans la console du navigateur, rien n'est bloqué |
-| `"off"` | politique retirée (repli d'urgence si une extension du navigateur ou un mandataire réécrit les pages) ; reste l'en-tête commun à toutes les réponses, `frame-ancestors 'self'` |
+| `"enforce"` (default, key missing or unknown value) | `Content-Security-Policy`: the policy is enforced |
+| `"report-only"` | `Content-Security-Policy-Report-Only`: violations are reported in the browser console, nothing is blocked |
+| `"off"` | policy removed (emergency fallback if a browser extension or a proxy rewrites the pages); the header common to all responses, `frame-ancestors 'self'`, remains |
 
 ```json
 { "security": { "csp": "report-only" } }
 ```
 
-Les aperçus du bac, l'aperçu HTML des blocs de code du chat (`/apercu-code`) et
-l'écran de consentement OAuth gardent leur propre politique, indépendante de ce
-réglage.
+The sandbox previews, the HTML preview of chat code blocks (`/apercu-code`) and
+the OAuth consent screen keep their own policy, independent of this
+setting.
 
-### Mode production (systemd)
+### Production mode (systemd)
 
 ```bash
-sudo ./elpis service install    # ou : service remove ; ./elpis service print pour voir les unités
+sudo ./elpis service install    # or: service remove ; ./elpis service print to see the units
 ```
 
-- Une unité par service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
-  `elpis-main`, `elpis-admin`, `elpis-browser`), regroupées sous
-  `elpis.target`, démarrées au boot, relancées en cas d'échec, journaux dans
+- One unit per service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
+  `elpis-main`, `elpis-admin`, `elpis-browser`), grouped under
+  `elpis.target`, started at boot, restarted on failure, logs in
   journald (`./elpis logs main -f`).
-- Utilisateur des services : celui qui lance `sudo` (proposé, modifiable ;
-  `ELPIS_USER=nom` sans question). Il doit pouvoir lire le dépôt ; il est
-  ajouté au groupe `docker`.
-- `elpis.target` entraîne aussi Caddy quand HTTPS est actif, et les services
-  vocaux locaux (`elpis-whisper`, `elpis-tts`) quand ils sont installés.
-- `.env` est lu par chaque unité (`EnvironmentFile`) ; il l'emporte sur les
-  valeurs par défaut des unités.
+- Service user: the one who runs `sudo` (suggested, changeable;
+  `ELPIS_USER=name` with no question). It must be able to read the repository; it is
+  added to the `docker` group.
+- `elpis.target` also pulls in Caddy when HTTPS is active, and the local
+  voice services (`elpis-whisper`, `elpis-tts`) when they are installed.
+- `.env` is read by each unit (`EnvironmentFile`); it overrides the
+  units' default values.
 
-### Lancement minimal
+### Minimal launch
 
 ```bash
 export APP_SESSION_SECRET="$(cat user_db/.session_secret)"
 ELPIS_RACINE=$PWD APP_MODE=main node/bin/node apps/core/dist/main.mjs
 ```
 
-> **Secret de session.** Ordre : `APP_SESSION_SECRET` > `config.json ›
-> app.session_secret` > `user_db/.session_secret` (créé en 0600 sous verrou
-> `fcntl` au premier démarrage, et re-durci à 0600 à chaque boot). Les
-> placeholders publiés (`mysecretsessiontomodify`, `changeme`, …) sont **traités
-> comme absents** — sans quoi l'exemple commité aurait servi de clé de
-> signature. Un secret faible ou court (< 32 c.) déclenche un avertissement
-> `[CRITICAL]` au boot.
+> **Session secret.** Order: `APP_SESSION_SECRET` > `config.json ›
+> app.session_secret` > `user_db/.session_secret` (created with 0600 under an
+> `fcntl` lock on first startup, and re-hardened to 0600 on every boot). The published
+> placeholders (`mysecretsessiontomodify`, `changeme`, …) are **treated
+> as absent** — otherwise the committed example would have served as the signing
+> key. A weak or short secret (< 32 chars) triggers a
+> `[CRITICAL]` warning at boot.
 
 ---
 
 ## Configuration
 
-### Fichier `config.json`
+### `config.json` file
 
-`config.json`, **à la racine du dépôt** (chemin surchargeable par
-`APP_CONFIG_PATH`), est la configuration d'instance. Il n'est **pas versionné** :
-le dépôt ne contient qu'un exemple.
+`config.json`, **at the repository root** (path overridable with
+`APP_CONFIG_PATH`), is the instance configuration. It is **not versioned**:
+the repository contains only an example.
 
-> Il vivait autrefois dans `shared_infra/`. Une installation qui ne
-> l'a pas encore déplacé continue de fonctionner — `shared_infra/config.py` se
-> replie sur l'ancien emplacement en l'affichant au démarrage. Ce repli est
-> transitoire : sans lui, un fichier introuvable serait lu comme `{}` **sans
-> erreur**, et l'instance repartirait avec un secret de session neuf (sessions
-> invalidées), sans TLS et sans clé Qdrant.
+> It used to live in `shared_infra/`. An installation that has not
+> moved it yet keeps working — `shared_infra/config.py` falls
+> back to the old location and prints a notice at startup. This fallback is
+> temporary: without it, a file that cannot be found would be read as `{}` **without
+> an error**, and the instance would restart with a new session secret (sessions
+> invalidated), no TLS and no Qdrant key.
 
-Sections :
+Sections:
 
-| Section | Contenu |
+| Section | Contents |
 |---|---|
-| `llama` | `engine`, `url` (base du serveur) ou `ip`/`port`, `api_key`, `model`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
+| `llama` | `engine`, `url` (server base) or `ip`/`port`, `api_key`, `model`, timeouts, retries, `max_concurrency`, `max_models`, `n_ctx`, `max_tool_iterations`, `tool_timeout_s`, `thinking_budget_tokens`, `max_tokens_chat`/`max_tokens_thinking`, `thinking_output_uncapped`, `think_resume_max`/`think_resume_total_tokens` |
 | `mcp` | `tools_cache_ttl_sec`, `servers_dir`, `local_url`/`local_host`/`local_port`/`local_transport` |
-| `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, chemins `system_prompts.*` |
-| `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (sous-agents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
-| `agents` | Sous-agents (`task`), propre au TS, relu à chaud et écrit par `POST /api/admin/agents` seulement (Console › Sandbox › Sous-agents ; l'éditeur brut et les écritures champ par champ ne l'écrivent pas) : `read_only.defaults.<type>` (lecture seule par défaut ; `explore` et `web` vrais, les autres faux : un agent `web` garde tout son navigateur, seules les écritures dans le bac sont retirées ; la valeur écrite par la console, ou posée par le compte pour son agent, l'emporte), `read_only.forced.<type>` (imposée : ni le compte ni l'agent principal ne la lèvent ; faux par défaut), `max_parallel` (sous-agents d'un même tour lancés ensemble, 1 à 10, défaut 3 ; sur llama.cpp, plafonné à `total_slots − 1` pour laisser un slot au parent, cf. [Sous-agents](architecture.md#sous-agents-outil-task) ; la description de `task` ne le cite pas, « bounded by the server »), `max_tasks_per_turn` (lancements `task` au plus par tour de l'agent principal, 1 à 100, défaut 12 ; une reprise par `task_id` n'y compte pas, elle est limitée à 3 par agent et par tour) et `max_child_tokens_per_turn` (jetons d'entrée + sortie cumulés au plus des enfants d'un tour, ceux en cours comptés au mieux de l'usage déjà connu, `0` ou 10 000 à 50 000 000, défaut `0` : sans plafond) — au-delà, un nouveau lancement est refusé avant de démarrer (`task_budget_exhausted`, avec `fix`), les enfants déjà lancés continuent ; vaut pour le chat (une routine n'a pas de sous-agents), relu à chaque lancement, jamais annoncé dans la description de `task`. `thinking.defaults.<type>` (réflexion : `off`, `on` ou `inherit` = celle du tour de l'agent principal ; `implement` et `verify` `on`, `explore`, `web` et `pr` `off`, `custom` `inherit`), `thinking_budget_tokens` (budget de réflexion d'un sous-agent, 512 à 131072, défaut `llama.thinking_budget_tokens`, cf. [Réflexion des sous-agents](#réflexion-des-sous-agents-agentsthinking)). `background_max` (sous-agents lancés en fond, `task(background=true)`, actifs au plus pour un compte, toutes conversations comprises, 1 à 10, défaut 2 ; sur llama.cpp, plafonné aussi à `total_slots − 1`, partagé avec les sous-agents synchrones du compte ; au-delà, `background_limit`) et `background_timeout_s` (délai d'un sous-agent en fond, 300 à 21 600 s, défaut 3600 : son `max_seconds` y est borné et la fin propre — échéance souple, rapport — s'y mesure comme pour un lancement synchrone, que borne `llm.task.child_timeout_s`), `user_browser_session_allowed` (vrai par défaut ; une valeur qui n'est pas un booléen la ferme ; faux : aucun sous-agent ne reçoit la session web du compte, même réglé « Ma session web » dans la page Agents, Console › Sandbox › Sous-agents › Navigateur) ; un lancement en fond compte dans `max_tasks_per_turn` et ses jetons dans `max_child_tokens_per_turn` du tour qui le lance, tant que ce tour tourne. Types : `explore`, `implement`, `verify`, `web`, `pr` et `custom` (tous les agents personnels). Lecture seule effective = imposée, OU demandée par `task(read_only=true)`, OU case du compte (si posée, sinon défaut). Une valeur illisible ou hors bornes retombe sur son défaut |
+| `app` | `db_path`, `session_secret`, `max_recent_chats`, `sandbox_dir`, `enable_model_selector`, `sandbox_quota_mb`, `max_upload_mb`, `system_prompts.*` paths |
+| `llm` | `scheduling_mode`, `compression.*`, `compaction.*`, `prune.*`, `task.*` (subagents), `debug.*`, `allowed_provider_types`, `ctx_image_token_cost` |
+| `agents` | Subagents (`task`), specific to the TS core, re-read live and written only by `POST /api/admin/agents` (Admin console › Sandbox › Subagents; the raw editor and field-by-field writes do not write it): `read_only.defaults.<type>` (read-only by default; `explore` and `web` true, the others false: a `web` agent keeps its whole browser, only writes to the sandbox are removed; the value written by the console, or set by the account for its agent, wins), `read_only.forced.<type>` (enforced: neither the account nor the main agent can lift it; false by default), `max_parallel` (subagents of a single turn launched together, 1 to 10, default 3; on llama.cpp, capped at `total_slots − 1` to leave a slot for the parent, see [Subagents](architecture.md#subagents-task-tool); the description of `task` does not mention it, "bounded by the server"), `max_tasks_per_turn` (at most this many `task` launches per main-agent turn, 1 to 100, default 12; a resume by `task_id` does not count, and is limited to 3 per agent and per turn) and `max_child_tokens_per_turn` (cumulative input + output tokens of a turn's children at most, those still running counted at best from the usage already known, `0` or 10,000 to 50,000,000, default `0`: no cap) — beyond it, a new launch is refused before it starts (`task_budget_exhausted`, with `fix`), children already launched continue; applies to the chat (a routine has no subagents), re-read on every launch, never announced in the description of `task`. `thinking.defaults.<type>` (thinking: `off`, `on` or `inherit` = that of the main agent's turn; `implement` and `verify` `on`, `explore`, `web` and `pr` `off`, `custom` `inherit`), `thinking_budget_tokens` (thinking budget of a subagent, 512 to 131072, default `llama.thinking_budget_tokens`, see [Subagent thinking](#subagent-thinking-agentsthinking)). `background_max` (subagents launched in the background, `task(background=true)`, active at most for an account, all conversations included, 1 to 10, default 2; on llama.cpp, also capped at `total_slots − 1`, shared with the account's synchronous subagents; beyond it, `background_limit`) and `background_timeout_s` (timeout of a background subagent, 300 to 21,600 s, default 3600: its `max_seconds` is bounded by it and the clean finish — soft deadline, report — is measured against it as for a synchronous launch, which `llm.task.child_timeout_s` bounds), `user_browser_session_allowed` (true by default; a value that is not a boolean closes it; false: no subagent receives the account's web session, even if set to "My web session" in the Agents page, Admin console › Sandbox › Subagents › Browser); a background launch counts toward `max_tasks_per_turn` and its tokens toward `max_child_tokens_per_turn` of the turn that launches it, as long as that turn runs. Types: `explore`, `implement`, `verify`, `web`, `pr` and `custom` (all personal agents). Effective read-only = enforced, OR requested by `task(read_only=true)`, OR the account's checkbox (if set, otherwise the default). An unreadable or out-of-range value falls back to its default |
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
-| `executors` | `image` (image tierce seulement ; sans elle, celle de la version), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (tâches de fond), `disk.warn_pct` / `disk.refuse_pct` (espace disque des bacs en %, 85 et 97 par défaut, relus à chaud : alerte des outils qui écrivent, puis refus des écritures et des nouvelles tâches ; Console › Sandbox › Limites) |
-| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, voir [Écoute](#écoute-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, voir [CSP](#politique-de-sécurité-du-contenu-securitycsp)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` appartiennent à leurs endpoints, l'éditeur brut ne les écrit pas |
-| `vision` / `desktop` | Endpoint d'annotation, format, modèle, passes ; cibles desktop, scopes, budgets |
-| `rag` | Extracteur, magasin, Qdrant, embeddings, reclassement, OCR, groupes, quotas, indexation : voir [RAG](#rag-rag) |
-| `maintenance` | Rétentions, heure de passe, digest quotidien |
-| `features` | Flags globaux (`opencode`, `office_preview`) |
-| `welcome` / `app_info` / `login_page` | Branding (édité depuis la console admin) ; `app_info.name` est le nom de l'application et de l'assistant, `app_info.logo_b64` son logo et l'avatar de l'assistant, pour tous les comptes |
-| `skins` | `dir` (dossier des skins importés ou créés, défaut `user_skins`, surchargeable par `APP_SKINS_DIR`, lu au démarrage), `enabled` (`{id: booléen}`, relu à chaud : un intégré absent prend sa valeur de `frontend/css/skins/skins.json`, Kiki désactivé ; un skin importé absent est désactivé ; Ardoise et le skin par défaut restent actifs), `default` (défaut `elpis` : skin des comptes sans choix ou dont le skin a été désactivé). Réglé depuis Console › Système › Apparence ; le dossier est inclus dans les sauvegardes complètes |
-| `voice` | Moteur vocal — `enabled`, puis deux sous-blocs indépendants : `stt.*` (adresse, `format` parmi `whisper.cpp`/`openai`/`llama-audio`, langue, vocabulaire, `logprob_min`, plafonds) et `tts.*` (adresse, `format`, voix, vitesse, plafonds). Coercition et bornes dans `apps/core/src/voix/config.ts`, relues à CHAQUE appel |
-| `image` | Génération d'images — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` appartient à `PUT /api/admin/image/key` : l'éditeur brut ne l'écrit pas. Voir [Génération d'images](#génération-dimages) |
+| `executors` | `image` (third-party image only; without it, the one of the release), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (background tasks), `disk.warn_pct` / `disk.refuse_pct` (sandbox disk space in %, 85 and 97 by default, re-read live: warning from the tools that write, then refusal of writes and of new tasks; Admin console › Sandbox › Limits & policy) |
+| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, see [Listening](#listening-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, see [CSP](#content-security-policy-securitycsp)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` belong to their own endpoints, the raw editor does not write them |
+| `vision` / `desktop` | Annotation endpoint, format, model, passes; desktop targets, scopes, budgets |
+| `rag` | Extractor, store, Qdrant, embeddings, reranking, OCR, groups, quotas, indexing: see [RAG](#rag-rag) |
+| `maintenance` | Retention, run time, daily digest |
+| `features` | Global flags (`opencode`, `office_preview`) |
+| `welcome` / `app_info` / `login_page` | Branding (edited from the admin console); `app_info.name` is the name of the application and of the assistant, `app_info.logo_b64` is its logo and the assistant's avatar, for all accounts |
+| `skins` | `dir` (folder of imported or created skins, default `user_skins`, overridable with `APP_SKINS_DIR`, read at startup), `enabled` (`{id: boolean}`, re-read live: a built-in that is absent takes its value from `frontend/css/skins/skins.json`, Kiki disabled; an imported skin that is absent is disabled; Ardoise and the default skin stay active), `default` (default `elpis`: skin of accounts with no choice or whose skin was disabled). Set from Admin console › System › Appearance; the folder is included in full backups |
+| `voice` | Voice engine — `enabled`, then two independent sub-blocks: `stt.*` (address, `format` among `whisper.cpp`/`openai`/`llama-audio`, language, vocabulary, `logprob_min`, caps) and `tts.*` (address, `format`, voice, speed, caps). Coercion and bounds in `apps/core/src/voix/config.ts`, re-read on EVERY call |
+| `image` | Image generation — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` belongs to `PUT /api/admin/image/key`: the raw editor does not write it. See [Image generation](#image-generation) |
 
-### Publication par les sous-agents
+### Publication by subagents
 
-`git_submit` (pousser la branche et ouvrir la pull request, visibles hors de la
-machine) n'est jamais offert à un sous-agent : l'agent `pr` prépare la branche et le
-commit, puis rend l'appel `git_submit` exact, que l'assistant lance lui-même dans le chat,
-où vous voyez l'appel. **Cette règle ne couvre que l'outil `git_submit` d'Elpis.** Un
-agent du compte auquel vous attachez un serveur MCP tiers (`mcp_server_ids` d'une entrée
-de `custom_agents`) qui sait publier (le serveur GitHub : `create_pull_request`,
-`push_files`, `merge_pull_request`…) publie seul, comme le ferait l'assistant lui-même :
-Elpis ne sait pas ce que fait un outil tiers, et le shell d'un agent qui l'a pousse comme
-le profil réseau du bac le permet. Ne rattachez à un agent que les serveurs dont vous
-acceptez qu'il se serve seul, ou désactivez leurs outils d'écriture dans le panneau MCP.
+`git_submit` (push the branch and open the pull request, both visible outside the
+machine) is never offered to a subagent: the `pr` agent prepares the branch and the
+commit, then returns the exact `git_submit` call, which the assistant runs itself in the chat,
+where you see the call. **This rule covers only Elpis's `git_submit` tool.** An
+account agent to which you attach a third-party MCP server (`mcp_server_ids` of an entry
+of `custom_agents`) that can publish (the GitHub server: `create_pull_request`,
+`push_files`, `merge_pull_request`…) publishes on its own, as the assistant itself would:
+Elpis does not know what a third-party tool does, and the shell of an agent that has it pushes as
+far as the sandbox network profile allows. Attach to an agent only the servers you
+accept it using on its own, or disable their write tools in the MCP panel.
 
-### Réflexion des sous-agents (`agents.thinking`)
+### Subagent thinking (`agents.thinking`)
 
-Un sous-agent (outil `task`) est le meilleur endroit pour réfléchir : sa réflexion
-reste dans son contexte isolé et seul son rapport remonte. Console › Sandbox ›
-Sous-agents règle le mode par type d'agent, et la page Agents le fait par
-agent du compte.
+A subagent (`task` tool) is the best place to think: its thinking
+stays in its isolated context and only its report comes back. Admin console › Sandbox ›
+Subagents sets the mode per agent type, and the Agents page does it per
+account agent.
 
-- **Mode** : `off` (pas de réflexion), `on`, ou `inherit` (« Comme la conversation » dans
-  l'interface : celle du tour de l'agent principal, case « Réflexion » du chat ou de la routine). Défauts
-  livrés : `implement` et `verify` `on`, `explore`, `web` et `pr` `off`,
-  `custom` (agents du compte) `inherit`.
-- **Priorité** : le choix du compte pour un agent (`thinking` d'une entrée de
-  `custom_agents`, agent personnel ou surcharge d'un livré), sinon le défaut de
-  l'administrateur pour son type.
-- **Effectif = mode voulu ET moteur qui l'honore.** Le mode est calculé une fois,
-  au lancement de l'enfant (reprise par `task_id` comprise) : il ne varie jamais
-  entre deux itérations d'un même enfant, la tête du prompt en dépend. Il ne
-  charge jamais de modèle et, au moindre échec, la réflexion est coupée. Un
-  enfant qui ne réfléchit pas ne reçoit ni `reasoning_effort`, ni
-  `thinking_budget_tokens`, ni `preserve_reasoning` de l'agent principal.
-  `think_tokens` de l'étape finale `task_step` et du run compte ses jetons de
-  réflexion, et la carte du chat n'affiche « réflexion » que s'ils sont mesurés
+- **Mode**: `off` (no thinking), `on`, or `inherit` ("Same as the conversation" in
+  the interface: that of the main agent's turn, the "Thinking" checkbox of the chat or routine). Shipped
+  defaults: `implement` and `verify` `on`, `explore`, `web` and `pr` `off`,
+  `custom` (account agents) `inherit`.
+- **Priority**: the account's choice for an agent (`thinking` of an entry of
+  `custom_agents`, personal agent or override of a built-in), otherwise the
+  administrator's default for its type.
+- **Effective = wanted mode AND an engine that honors it.** The mode is computed once,
+  when the child is launched (resume by `task_id` included): it never changes
+  between two iterations of the same child, since the head of the prompt depends on it. It
+  never loads a model and, at the slightest failure, thinking is turned off. A
+  child that does not think receives none of the main agent's `reasoning_effort`,
+  `thinking_budget_tokens` or `preserve_reasoning`.
+  `think_tokens` of the final `task_step` step and of the run counts its thinking tokens,
+  and the chat card shows "thinking" only if they are measured
   (> 0).
-- **`thinking_budget_tokens`** : budget de réflexion d'un enfant qui réfléchit
-  (512 à 131072, défaut `llama.thinking_budget_tokens` du moteur, 8192). Posé
-  dans l'échantillonnage de l'enfant (`thinking_budget_tokens`), sauf si l'agent
-  principal en impose déjà un plus bas.
+- **`thinking_budget_tokens`**: thinking budget of a child that thinks
+  (512 to 131072, default `llama.thinking_budget_tokens` of the engine, 8192). Set
+  in the child's sampling (`thinking_budget_tokens`), unless the main
+  agent already imposes a lower one.
 
 | | llama.cpp | vLLM | SGLang | generic, cloud |
 |---|---|---|---|---|
-| Interrupteur | `enable_thinking` du gabarit, si le gabarit du modèle déclare la réflexion (`/props`) | `enable_thinking` toujours accepté (sans effet sur un modèle qui ne raisonne pas) | idem vLLM | aucun : l'enfant ne réfléchit pas |
-| Budget | Elpis demande au moteur de fermer le raisonnement à ce seuil | non appliqué (Elpis ne sait pas le fermer) | non appliqué | — |
-| Raisonnement conservé | non (la réflexion des tours d'outils n'est pas renvoyée au moteur) | non | celui du chat (éteint par défaut), effectif si un `--reasoning-parser` est actif | — |
+| Switch | the template's `enable_thinking`, if the model's template declares thinking (`/props`) | `enable_thinking` always accepted (no effect on a model that does not reason) | same as vLLM | none: the child does not think |
+| Budget | Elpis asks the engine to close the reasoning at this threshold | not applied (Elpis cannot close it) | not applied | — |
+| Reasoning kept | no (thinking from tool turns is not sent back to the engine) | no | the chat's (off by default), effective if a `--reasoning-parser` is active | — |
 
-« Raisonnement conservé » n'est jamais imposé à un sous-agent : il garde
-l'échantillonnage du chat qui le lance, où l'option est éteinte par défaut.
-Activée dans le chat (SGLang), la réflexion de chaque appel d'outil de l'enfant
-repart au moteur : son préfixe se prolonge d'un tour à l'autre et RadixAttention
-le réutilise, mais sa fenêtre se remplit d'autant plus vite. Cette réflexion
-n'est pas enregistrée dans l'historique du chat, mais l'enregistrement de
-reprise de l'enfant la garde (`reasoning_content` de ses messages assistant) :
-une reprise par `task_id` renvoie au moteur le même préfixe. La description de
-l'outil `task` ne dit rien du mode : elle fait partie de la tête de l'agent
-principal et ne change pas avec ces réglages.
+"Reasoning kept" is never imposed on a subagent: it keeps the sampling
+of the chat that launches it, where the option is off by default.
+Turned on in the chat (SGLang), the thinking of each of the child's tool calls
+goes back to the engine: its prefix grows from one turn to the next and RadixAttention
+reuses it, but its window fills up that much faster. This thinking
+is not recorded in the chat history, but the child's resume
+record keeps it (`reasoning_content` of its assistant messages):
+a resume by `task_id` sends the engine the same prefix. The description of the
+`task` tool says nothing about the mode: it is part of the main agent's head
+and does not change with these settings.
 
 ### RAG (`rag`)
 
-Relue à chaque appel par le core (`packages/config/src/rag.ts`) : un
-changement s'applique sans redémarrage. Console › Modèles & services › RAG
-l'écrit champ par champ ; `./elpis configure` (page RAG) pose l'adresse et le
-modèle des embeddings, le reclassement et l'OCR. Sans `embed.url`, le RAG est
-désactivé (la page RAG le dit, aucune indexation).
+Re-read on every call by the core (`packages/config/src/rag.ts`): a
+change applies without a restart. Admin console › Models & services › RAG
+writes it field by field; `./elpis configure` (RAG page) sets the address and
+model of the embeddings, the reranking and the OCR. Without `embed.url`, RAG is
+disabled (the RAG page says so, no indexing).
 
 ```json
 "rag": {
@@ -526,46 +523,46 @@ désactivé (la page RAG le dit, aucune indexation).
 }
 ```
 
-| Clé | Rôle | Défaut |
+| Key | Role | Default |
 |---|---|---|
-| `service_url` | Extracteur `rag_app` (variable `RAG_SERVICE_URL` prioritaire) | `http://127.0.0.1:8000` |
-| `service_token` | Jeton de l'extracteur ; sans lui, `RAG_SERVICE_TOKEN` puis `user_db/.rag_service_token` (écrit par `./elpis configure`, lu aussi par l'extracteur) | — |
-| `store_dir` | Magasin des fichiers (`RAG_STORE_DIR` prioritaire) : originaux, extraits, pages rendues, par compte et par collection ; `./elpis` donne le même dossier à l'extracteur | `<dossier de la base>/rag` (`user_db/rag`) |
-| `qdrant_url` | Qdrant, local et sans clé (`./elpis` le lance sur `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
-| `embed.*` | Serveur d'embeddings compatible OpenAI (`/v1/embeddings`), modèle, clé, taille des lots (1 à 512), délai (1 à 600 s). Changer de modèle lance la réindexation de toutes les collections (console) | modèle `bge-m3` |
-| `reranker.*` | Reclassement facultatif (`/v1/rerank`) | désactivé |
-| `ocr.*` | Modèle de vision compatible OpenAI qui lit les pages scannées (format « grounding » de la famille DeepSeek-OCR) ; `url` vide = pas d'OCR. Le core envoie ces réglages à l'extracteur à chaque extraction d'une collection où l'OCR est activé | désactivé |
-| `groups` | Identifiants des groupes qui ont le droit RAG ; vide = tous les comptes ; l'admin l'a toujours | `[]` |
-| `quotas.*` | Par compte : stockage (Mo), collections, taille d'un fichier (Mo), documents par collection ; une surcharge par compte (Console › RAG › Quotas par compte, `settings_json.rag_quota`) remplace clé par clé | 2048, 10, 200, 2000 |
-| `indexation.*` | Documents indexés en même temps sur l'instance (1 à 16) et par compte (au plus `concurrence`) | 2, 1 |
+| `service_url` | `rag_app` extractor (`RAG_SERVICE_URL` variable takes precedence) | `http://127.0.0.1:8000` |
+| `service_token` | Extractor token; without it, `RAG_SERVICE_TOKEN` then `user_db/.rag_service_token` (written by `./elpis configure`, also read by the extractor) | — |
+| `store_dir` | File store (`RAG_STORE_DIR` takes precedence): originals, extracts, rendered pages, per account and per collection; `./elpis` gives the same folder to the extractor | `<database folder>/rag` (`user_db/rag`) |
+| `qdrant_url` | Qdrant, local and keyless (`./elpis` starts it on `127.0.0.1:6333`) | `http://127.0.0.1:6333` |
+| `embed.*` | OpenAI-compatible embeddings server (`/v1/embeddings`), model, key, batch size (1 to 512), timeout (1 to 600 s). Changing the model reindexes all collections (console) | model `bge-m3` |
+| `reranker.*` | Optional reranking (`/v1/rerank`) | disabled |
+| `ocr.*` | OpenAI-compatible vision model that reads scanned pages ("grounding" format of the DeepSeek-OCR family); empty `url` = no OCR. The core sends these settings to the extractor on every extraction of a collection where OCR is enabled | disabled |
+| `groups` | IDs of the groups that have the RAG permission; empty = all accounts; the admin always has it | `[]` |
+| `quotas.*` | Per account: storage (MB), collections, file size (MB), documents per collection; a per-account override (Admin console › RAG › Per-account quotas, `settings_json.rag_quota`) replaces key by key | 2048, 10, 200, 2000 |
+| `indexation.*` | Documents indexed at the same time on the instance (1 to 16) and per account (at most `concurrence`) | 2, 1 |
 
-Une valeur illisible ou hors bornes retombe sur son défaut.
+An unreadable or out-of-range value falls back to its default.
 
-- **Droits.** Le compte qui crée une collection en est le propriétaire et le
-  seul à la modifier. Il la publie aux groupes dont il est membre ; seul un
-  admin publie à « Tous les comptes ». Les comptes qui la lisent (lecteurs)
-  cherchent dedans et voient les passages ; ils n'ouvrent l'original que si le
-  propriétaire l'a permis. La publication garde sa valeur si son auteur quitte
-  le groupe ou perd le droit RAG, jusqu'à la suppression de son compte. L'admin
-  voit les métadonnées de toutes les collections et peut en supprimer une ; il
-  ne lit jamais le contenu d'une collection qui ne lui est pas ouverte.
-- **Secrets.** `embed.api_key`, `ocr.api_key` et `service_token` sont masqués
-  (`********`) dans la console et l'éditeur brut, absents des journaux et des
-  copies de configuration des comptes (`user_db/configs/`).
-- **Extracteur.** Ses propres réglages (délais, mémoire, tailles, isolation
-  `RAG_ISOLATION`) sont des variables d'environnement :
-  [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` sert aussi
-  au délai du core. Il écoute sur `127.0.0.1:8000` (`RAG_HOST` pour un core sur
-  une autre machine, qui doit alors voir le même magasin).
+- **Permissions.** The account that creates a collection owns it and is the
+  only one to modify it. It publishes it to the groups it belongs to; only an
+  admin publishes to "All accounts". The accounts that read it (readers)
+  search in it and see the passages; they open the original only if the
+  owner allowed it. A publication keeps its value if its author leaves
+  the group or loses the RAG permission, until their account is deleted. The admin
+  sees the metadata of all collections and can delete one; the admin
+  never reads the content of a collection that is not open to them.
+- **Secrets.** `embed.api_key`, `ocr.api_key` and `service_token` are masked
+  (`********`) in the console and the raw editor, and absent from the logs and from the
+  accounts' configuration copies (`user_db/configs/`).
+- **Extractor.** Its own settings (timeouts, memory, sizes, isolation
+  `RAG_ISOLATION`) are environment variables:
+  [`rag_app/README.md`](../rag_app/README.md). `RAG_EXTRACT_TIMEOUT_S` also sets
+  the core's timeout. It listens on `127.0.0.1:8000` (`RAG_HOST` for a core on
+  another machine, which must then see the same store).
 
-### Moteur d'inférence déclaré (`llama.engine`)
+### Declared inference engine (`llama.engine`)
 
-Le type écrit dans `config.json` fait foi : Elpis n'essaie pas de deviner le
-moteur. Il applique le profil du type déclaré (une table unique,
-`apps/core/src/llm/profils.ts`) : adresses, capacités, métriques et options de
-lancement conseillées. Une adresse attendue qui ne répond pas est signalée
-(journal du démarrage, Console › Inférence › Capacités) sans changer de
-comportement.
+The type written in `config.json` is authoritative: Elpis does not try to guess the
+engine. It applies the profile of the declared type (a single table,
+`apps/core/src/llm/profils.ts`): addresses, capabilities, metrics and recommended
+launch options. An expected address that does not answer is flagged
+(startup log, Admin console › Inference › Capabilities) without changing
+behavior.
 
 ```json
 "llama": {
@@ -576,57 +573,57 @@ comportement.
 }
 ```
 
-- **`engine`** : `llamacpp` (alias `llama.cpp`, `llama-cpp`, `llama`), `vllm`,
-  `sglang` ou `generic` (alias `openai`, `tgi`, `ollama`, `lmstudio` ; toute
-  autre valeur vaut `generic`). Pris en compte au redémarrage.
-- **`url`** : la base du serveur (`http://hôte:port`) ; une adresse qui finit par
-  `/v1` ou `/v1/chat/completions` est acceptée et normalisée. Sans `url`,
-  `ip` et `port` donnent `http://ip:port`. Les configurations existantes
-  (URL complète) continuent de marcher.
-- **`api_key`** : facultative, la valeur de `--api-key` du serveur, envoyée en
-  `Authorization: Bearer` sur chaque appel au moteur par défaut (`LLAMA_API_KEY`
-  la remplace). Elle n'est jamais renvoyée à l'interface : la console affiche
-  `********` et l'éditeur brut la garde quand ce masque revient tel quel ; un
-  champ vidé la retire. Elle n'apparaît dans aucun journal.
-- **`model`** : pour vLLM, un nom servi (`--served-model-name`, sinon le chemin
-  du modèle) ; vLLM refuse un autre nom, la sonde le signale.
+- **`engine`**: `llamacpp` (aliases `llama.cpp`, `llama-cpp`, `llama`), `vllm`,
+  `sglang` or `generic` (aliases `openai`, `tgi`, `ollama`, `lmstudio`; any
+  other value means `generic`). Takes effect on restart.
+- **`url`**: the server base (`http://host:port`); an address ending in
+  `/v1` or `/v1/chat/completions` is accepted and normalized. Without `url`,
+  `ip` and `port` give `http://ip:port`. Existing configurations
+  (full URL) keep working.
+- **`api_key`**: optional, the value of the server's `--api-key`, sent as
+  `Authorization: Bearer` on every call to the default engine (`LLAMA_API_KEY`
+  overrides it). It is never sent back to the interface: the console shows
+  `********` and the raw editor keeps the key when this mask comes back unchanged; an
+  emptied field removes it. It appears in no log.
+- **`model`**: for vLLM, a served name (`--served-model-name`, otherwise the model
+  path); vLLM refuses any other name, and the probe flags it.
 
-Ce que fait chaque profil :
+What each profile does:
 
 | | llama.cpp | vLLM 0.31 | SGLang 0.5.21 | generic |
 |---|---|---|---|---|
-| Santé | `/health` | `/health` | `/health` | `/v1/models` |
+| Health | `/health` | `/health` | `/health` | `/v1/models` |
 | Version | `/props` (`build_info`) | `/version` | `/server_info` | — |
-| Contexte | `/props` (par slot) | `max_model_len` de `/v1/models` | `max_model_len` de `/v1/models` | déclaré ou deviné |
-| Jetons exacts | `/apply-template` puis `/tokenize` | `/tokenize` (`messages` en un appel) | `/v1/tokenize` (`messages` en un appel) | estimés |
-| Métriques | `/metrics` (`--metrics`) | `/metrics` (`vllm:*`) | `/metrics` (`--enable-metrics`) | — |
-| Cache KV de la jauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocs de `vllm:cache_config_info` | `sglang:kv_used_tokens` ÷ `sglang:max_total_num_tokens` (répliques `--dp` additionnées, rangs TP comptés une fois ; sinon `sglang:token_usage` et `max_total_num_tokens` de `/server_info`) | — |
-| Prefill du moteur (charge) | — | délai du premier jeton (`vllm:time_to_first_token_seconds`) | délai du premier jeton (`sglang:time_to_first_token_seconds`), débit de prefill (`sglang:realtime_tokens_total{mode="prefill_compute"}`) | — |
-| Jetons repris du cache | `usage.prompt_tokens_details` ou `timings.cache_n` | `usage.prompt_tokens_details.cached_tokens` (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | si fourni |
-| Concurrence | file d'Elpis (slots) | lots continus du moteur | lots continus du moteur | requêtes en parallèle |
-| Débits d'un appel (bulle) | `timings` du flux | mesurés par Elpis : génération = après le premier jeton ; lecture (prefill = délai du premier jeton, file du moteur comprise) seulement avec les jetons en cache rapportés (`--enable-prompt-tokens-details`) | idem (`--enable-cache-report`) | — |
-| Charger / décharger | mode routeur | non (modèle choisi au lancement) | non | non |
+| Context | `/props` (per slot) | `max_model_len` from `/v1/models` | `max_model_len` from `/v1/models` | declared or guessed |
+| Exact tokens | `/apply-template` then `/tokenize` | `/tokenize` (`messages` in one call) | `/v1/tokenize` (`messages` in one call) | estimated |
+| Metrics | `/metrics` (`--metrics`) | `/metrics` (`vllm:*`) | `/metrics` (`--enable-metrics`) | — |
+| KV cache of the gauge | `llamacpp:kv_cache_tokens` ÷ `n_ctx_total` | `vllm:kv_cache_usage_perc` × blocks from `vllm:cache_config_info` | `sglang:kv_used_tokens` ÷ `sglang:max_total_num_tokens` (`--dp` replicas added up, TP ranks counted once; otherwise `sglang:token_usage` and `max_total_num_tokens` from `/server_info`) | — |
+| Engine prefill (load) | — | time to first token (`vllm:time_to_first_token_seconds`) | time to first token (`sglang:time_to_first_token_seconds`), prefill throughput (`sglang:realtime_tokens_total{mode="prefill_compute"}`) | — |
+| Tokens reused from cache | `usage.prompt_tokens_details` or `timings.cache_n` | `usage.prompt_tokens_details.cached_tokens` (`--enable-prompt-tokens-details`) | same (`--enable-cache-report`) | if provided |
+| Concurrency | Elpis queue (slots) | engine's continuous batching | engine's continuous batching | parallel requests |
+| Speeds of a call (bubble) | stream `timings` | measured by Elpis: generation = after the first token; reading (prefill = time to first token, engine queue included) only with the cached tokens reported (`--enable-prompt-tokens-details`) | same (`--enable-cache-report`) | — |
+| Load / unload | router mode | no (model chosen at launch) | no | no |
 
-Avec vLLM et SGLang, les requêtes partent en parallèle : le moteur les
-regroupe lui-même (`--max-num-seqs`, `--max-running-requests`) et
-`llama.max_concurrency` ne s'applique qu'à llama.cpp. Le sélecteur de modèle du
-chat n'affiche ni « Charger » ni « Décharger » ; la jauge du cache KV et la
-ligne de charge (requêtes en cours et en attente, débit, débit de prefill,
-délai du premier jeton, cache de préfixe) viennent des métriques du moteur. Le
-délai du premier jeton est la moyenne des requêtes finies entre deux lectures ;
-sans requête nouvelle, la dernière moyenne reste affichée.
+With vLLM and SGLang, requests go out in parallel: the engine groups them
+itself (`--max-num-seqs`, `--max-running-requests`) and
+`llama.max_concurrency` applies only to llama.cpp. The chat's model selector
+shows neither "Load" nor "Unload"; the KV cache gauge and the
+load line (running and waiting requests, throughput, prefill throughput,
+time to first token, prefix cache) come from the engine's metrics. The
+time to first token is the average of the requests finished between two reads;
+with no new request, the last average stays displayed.
 
-Avec vLLM et SGLang, le pied du menu des modèles du chat montre le contexte de
-la conversation ouverte (« Contexte ») ; le pool KV du moteur, partagé entre
-toutes les conversations, reste dans l'infobulle. Sans occupation connue
-(nouveau chat, après compression, ancien chat), le pied montre ce pool sous le
-libellé « Moteur ». La part relue du cache par conversation
-exige `--enable-prompt-tokens-details` (vLLM) ou `--enable-cache-report` (SGLang).
+With vLLM and SGLang, the foot of the chat's model menu shows the context of
+the open conversation ("Context"); the engine's KV pool, shared among
+all conversations, stays in the tooltip. With no known usage
+(new chat, after compression, old chat), the foot shows this pool under the
+label "Engine". The per-conversation share of the cache that is read back
+requires `--enable-prompt-tokens-details` (vLLM) or `--enable-cache-report` (SGLang).
 
-Lancements conseillés (options vérifiées dans le code de ces versions) :
+Recommended launches (options checked in the code of these versions):
 
 ```bash
-# vLLM 0.31 — le cache de préfixe est actif par défaut ; ne pas passer --disable-log-stats (métriques)
+# vLLM 0.31 — the prefix cache is on by default; do not pass --disable-log-stats (metrics)
 vllm serve Qwen/Qwen3-8B --host 0.0.0.0 --port 8000 \
   --max-model-len 32768 \
   --reasoning-parser qwen3 \
@@ -643,777 +640,776 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
   --api-key "$CLE"
 ```
 
-- **Réflexion** : sans `--reasoning-parser`, la réflexion d'un modèle qui
-  réfléchit arrive dans la réponse. Noms : `qwen3`, `deepseek_r1`,
-  `openai_gptoss` (vLLM) ; `qwen3`, `deepseek-r1`, `gpt-oss` (SGLang).
-- **Raisonnement conservé** (SGLang, désactivé par défaut) : l'interrupteur des
-  réglages de génération est offert quand le serveur a un `--reasoning-parser`.
-  Activé, la réflexion de chaque appel d'outil du tour est rendue au moteur
-  (`reasoning_content` du message assistant) ; le gabarit du modèle décide de ce
-  qu'il garde (Qwen3, GLM-4.5/4.6, MiniMax-M2 : la réflexion qui suit la
-  dernière question). Le prompt d'un tour d'outils s'allonge d'autant, et la
-  question suivante recalcule les appels d'outils de ce tour : cette réflexion
-  n'est jamais enregistrée dans l'historique. vLLM ne la reçoit pas.
-- **Outils** : sans parseur d'appels d'outils, le modèle ne peut pas appeler les
-  outils d'Elpis : `--enable-auto-tool-choice --tool-call-parser hermes`
-  (vLLM, Qwen ; `llama3_json` pour Llama) ou `--tool-call-parser qwen25`
-  (SGLang ; `llama3` pour Llama). Le parseur suit le format d'appel du modèle,
-  pas seulement sa famille ; noms SGLang : `qwen25` (Qwen2.5, Qwen3 : JSON dans
-  `<tool_call>`), `qwen3_coder` (Qwen3-Coder et modèles au format XML
+- **Thinking**: without `--reasoning-parser`, the thinking of a model that
+  thinks arrives in the response. Names: `qwen3`, `deepseek_r1`,
+  `openai_gptoss` (vLLM); `qwen3`, `deepseek-r1`, `gpt-oss` (SGLang).
+- **Reasoning kept** (SGLang, off by default): the switch in the
+  generation settings is offered when the server has a `--reasoning-parser`.
+  When on, the thinking of each tool call of the turn is sent back to the engine
+  (`reasoning_content` of the assistant message); the model's template decides
+  what it keeps (Qwen3, GLM-4.5/4.6, MiniMax-M2: the thinking that follows the
+  last question). The prompt of a tool turn grows by that much, and the next
+  question recomputes the tool calls of that turn: this thinking
+  is never recorded in the history. vLLM does not receive it.
+- **Tools**: without a tool-call parser, the model cannot call Elpis's
+  tools: `--enable-auto-tool-choice --tool-call-parser hermes`
+  (vLLM, Qwen; `llama3_json` for Llama) or `--tool-call-parser qwen25`
+  (SGLang; `llama3` for Llama). The parser follows the model's call format,
+  not just its family; SGLang names: `qwen25` (Qwen2.5, Qwen3: JSON in
+  `<tool_call>`), `qwen3_coder` (Qwen3-Coder and models using the XML format
   `<function=…>`), `glm45` (GLM-4.5, 4.6), `glm47`, `kimi_k2`, `minimax-m2`,
-  `gpt-oss`. Un parseur inadapté avale les appels ou les livre en texte ; la
-  sonde le signale quand le nom du modèle le permet. Une réponse vide après la
-  réflexion alors que des outils étaient offerts peut venir du parseur d'outils
-  ou du parseur de réflexion.
-- **Clé d'API** : la `--api-key` de vLLM ne protège que `/v1/*` (`/tokenize`,
-  `/metrics`, `/version` restent ouverts) ; celle de SGLang tout sauf
-  `/health`, `/ready` et `/metrics`. Gardez ces serveurs sur un réseau fermé.
-- **Port** : sur la machine d'Elpis, le port 8000 est celui de l'extracteur du RAG ;
-  lancez vLLM ailleurs ou sur un autre port (`--port`). L'assistant et
-  `configure` le signalent.
+  `gpt-oss`. An unsuitable parser swallows the calls or delivers them as text; the
+  probe flags it when the model name allows. An empty response after
+  thinking when tools were offered can come from the tool parser
+  or the thinking parser.
+- **API key**: vLLM's `--api-key` protects only `/v1/*` (`/tokenize`,
+  `/metrics`, `/version` stay open); SGLang's protects everything except
+  `/health`, `/ready` and `/metrics`. Keep these servers on a closed network.
+- **Port**: on Elpis's machine, port 8000 is the RAG extractor's;
+  launch vLLM elsewhere or on another port (`--port`). The wizard and
+  `configure` flag this.
 
-L'installeur (`./install.sh`, `./elpis configure`) propose ces quatre types,
-la clé et le port par défaut de chacun ; sa note finale et `./elpis doctor`
-rappellent ces drapeaux pour vLLM et SGLang. `./elpis doctor` sonde aussi
-`GET /v1/models` avec la clé (« clé refusée » sur un 401) et, si `main` tourne,
-affiche la dernière sonde du core (lignes `[moteur]` de son journal, depuis le
-dernier démarrage).
+The installer (`./install.sh`, `./elpis configure`) offers these four types,
+with the default key and port of each; its final note and `./elpis doctor`
+recall these flags for vLLM and SGLang. `./elpis doctor` also probes
+`GET /v1/models` with the key ("key rejected" on a 401) and, if `main` is running,
+shows the core's last probe (`[moteur]` lines of its log, since the last
+startup).
 
-**Sonde.** Au démarrage, le process `main` sonde le moteur déclaré et écrit une
-ligne de résumé (`[moteur] vLLM 0.31.0 sur http://…, modèle …, contexte …
+**Probe.** At startup, the `main` process probes the declared engine and writes a
+summary line (`[moteur] vLLM 0.31.0 sur http://…, modèle …, contexte …
 jetons, métriques oui, tokenisation exacte oui, concurrence gérée par le
-moteur`), puis chaque option manquante avec le drapeau exact à ajouter. Console ›
-Inférence › Capacités affiche le même rapport ; « Tester » le refait, avec une
-réponse d'un jeton pour vérifier le détail des jetons en cache de vLLM. Pendant
-le chat, une réflexion reçue en balises, des appels d'outils reçus en texte, une
-réponse vide après la réflexion alors que des outils étaient offerts ou une
-réponse de vLLM sans `prompt_tokens_details` ajoutent le conseil
-correspondant (journal et console), une fois par moteur. Le test d'un connecteur
-`llamacpp`, `vllm` ou `sglang` montre le même rapport.
+moteur`), then each missing option with the exact flag to add. Admin console ›
+Inference › Capabilities shows the same report; "Test" redoes it, with a
+one-token response to check vLLM's cached-token details. During
+chat, thinking received in tags, tool calls received as text, an empty
+response after thinking when tools were offered, or a vLLM response with no `prompt_tokens_details` add the
+matching advice (log and console), once per engine. Testing a
+`llamacpp`, `vllm` or `sglang` connector shows the same report.
 
-**Connecteurs.** Les types `vllm` et `sglang` (préréglages « vLLM (local) » et
-« SGLang (local) ») utilisent le même profil que le moteur par défaut ; leur
-adresse est la base du serveur suivie de `/v1`.
+**Connectors.** The `vllm` and `sglang` types (presets "vLLM (local)" and
+"SGLang (local)") use the same profile as the default engine; their
+address is the server base followed by `/v1`.
 
-### Fournisseurs cloud des comptes (`llm.allowed_provider_types`)
+### Cloud providers for accounts (`llm.allowed_provider_types`)
 
-Un compte branche un fournisseur cloud avec sa propre clé dans Réglages › Modèles
-IA. `llm.allowed_provider_types` liste les types que les comptes **non
-administrateurs** (modérateurs compris) peuvent y choisir : `anthropic`, `openai`,
+An account connects a cloud provider with its own key in Settings › AI
+models. `llm.allowed_provider_types` lists the types that **non-administrator**
+accounts (moderators included) can choose there: `anthropic`, `openai`,
 `mistral`, `groq`, `openrouter`, `deepseek`, `moonshot`, `opencode`.
 
-- **Absente, vide ou illisible : aucun** (défaut depuis la 0.1.0 ; avant, tous
-  les types cloud étaient ouverts). Une instance hors ligne ne laisse ainsi partir
-  aucune donnée vers un service cloud sans décision de l'administrateur.
-- Les comptes **administrateurs** ne sont pas concernés : leurs connecteurs
-  personnels gardent tous les types cloud, et les connecteurs partagés
-  (Console › Modèles, y compris `llamacpp`, `vllm` et `generic`) ne changent pas.
-- Les types locaux (`llamacpp`, `vllm`, `generic`) restent réservés aux connecteurs
-  partagés : un compte non administrateur s'en sert par les serveurs que
-  l'administrateur partage et par le moteur intégré.
-- La liste est relue à chaque création et à chaque génération : un connecteur
-  personnel d'un type fermé reste en base, marqué « fermé par l'administrateur »
-  dans les Réglages, mais n'est plus utilisable (« Ce fournisseur n'est plus
-  autorisé sur cette instance. ») tant que son type n'est pas rouvert.
+- **Missing, empty or unreadable: none** (default since 0.1.0; before, all
+  cloud types were open). An offline instance thus lets no data
+  leave for a cloud service without an administrator decision.
+- **Administrator** accounts are not affected: their personal connectors
+  keep all cloud types, and shared connectors
+  (Admin console › Models & services, including `llamacpp`, `vllm` and `generic`) do not change.
+- The local types (`llamacpp`, `vllm`, `generic`) stay reserved for shared
+  connectors: a non-administrator account uses them through the servers the
+  administrator shares and through the built-in engine.
+- The list is re-read on every creation and every generation: a personal
+  connector of a closed type stays in the database, marked "closed by the administrator"
+  in Settings, but is no longer usable ("This provider is no longer
+  allowed on this instance.") until its type is reopened.
 
-Réglage : Console › Modèles › Accès utilisateurs › Fournisseurs autorisés, ou à
-la main :
+Setting: Admin console › Models & services › User access › Allowed providers, or by
+hand:
 
 ```json
 { "llm": { "allowed_provider_types": ["anthropic", "mistral"] } }
 ```
 
-**Mise à jour depuis la 0.0.1** : sans cette clé, les connecteurs cloud
-personnels des comptes non administrateurs cessent de servir après la mise à
-jour ; cochez les types à garder dans la console.
+**Upgrading from 0.0.1**: without this key, the personal cloud connectors
+of non-administrator accounts stop working after the
+upgrade; check the types to keep in the console.
 
-Chaque utilisateur a en plus ses réglages en base (`users.settings_json`) ;
+Each user also has settings in the database (`users.settings_json`);
 
-`user_db/configs/{user_id}.json` conserve une copie personnelle de la config
-d'application.
+`user_db/configs/{user_id}.json` keeps a personal copy of the application
+config.
 
-> **Flags de fonctionnalités GLOBAUX** (`config.json › features`) : lus par
-> `feature_enabled(name)` (défaut `true` si absent), **relus sur disque à chaque
-> appel** (donc multi-worker-safe et sans redémarrage), exposés au front par
-> `GET /api/public-config`, et **gardés côté backend** (404). Aujourd'hui :
-> `opencode` et `office_preview`. Le front reçoit aussi `agents` (dérivé de `llm.task.enabled`),
-> l'interrupteur maître des sous-agents, ainsi que `voice_stt` et `voice_tts`
-> (dérivés de `voice.enabled` **et** de la présence d'une adresse). Ces deux-là
-> sont en défaut **OFF strict** : contrairement aux autres, une fonction qui
-> ouvre le micro ou sort du son ne s'active pas par rétro-compatibilité.
+> **GLOBAL feature flags** (`config.json › features`): read by
+> `feature_enabled(name)` (default `true` if missing), **re-read from disk on every
+> call** (so multi-worker-safe and no restart needed), exposed to the front end by
+> `GET /api/public-config`, and **enforced on the backend** (404). Today:
+> `opencode` and `office_preview`. The front end also receives `agents` (derived from `llm.task.enabled`),
+> the master switch for subagents, as well as `voice_stt` and `voice_tts`
+> (derived from `voice.enabled` **and** from the presence of an address). These two
+> default to strict **OFF**: unlike the others, a feature that
+> opens the microphone or produces sound is not turned on for backward compatibility.
 
-### Variables d'environnement
+### Environment variables
 
-Toute valeur de `config.json` peut être surchargée par l'environnement, qui est
-**toujours prioritaire**. Une variable positionnée mais **vide** est traitée
-comme absente.
+Any `config.json` value can be overridden by the environment, which
+**always takes precedence**. A variable that is set but **empty** is treated
+as missing.
 
-#### Inférence
+#### Inference
 
-| Variable | Clé JSON | Défaut | Description |
+| Variable | JSON key | Default | Description |
 |---|---|---|---|
-| `LLAMA_IP` | `llama.ip` | `127.0.0.1` | Adresse du moteur |
+| `LLAMA_IP` | `llama.ip` | `127.0.0.1` | Engine address |
 | `LLAMA_PORT` | `llama.port` | `8080` | Port |
-| `LLAMA_URL` | `llama.url` | dérivée | Base du serveur (`/v1` ou `/v1/chat/completions` acceptés) — prioritaire sur IP/PORT |
-| `LLAMA_API_KEY` | `llama.api_key` | vide | Clé du moteur par défaut (`Authorization: Bearer`), jamais affichée |
-| `LLAMA_MODEL` | `llama.model` | `local-model` | Modèle par défaut |
-| `LLAMA_ENGINE` | `llama.engine` | `llamacpp` | `llamacpp` \| `vllm` \| `sglang` \| `generic` (le type déclaré fait foi) |
-| `LLAMA_TIMEOUT_SEC` | `llama.timeout_sec` | `600` | Timeout requête |
-| `LLAMA_RETRIES` | `llama.retries` | `3` | Tentatives |
-| `LLAMA_RETRY_BACKOFF_SEC` | `llama.retry_backoff_sec` | `0.6` | Base du backoff |
-| `LLAMA_RETRY_BACKOFF_CAP_S` | `llama.retry_backoff_cap_s` | `15` | Plafond full-jitter |
-| `LLAMA_LOADING_WAIT_S` | `llama.loading_wait_s` | `90` | Attente « modèle en chargement » (503 → sonde `/health`) |
-| `LLAMA_MAX_CONCURRENCY` | `llama.max_concurrency` | `4` | llama.cpp : repli si `/props.total_slots` indisponible (vLLM et SGLang regroupent eux-mêmes les requêtes) |
-| `ELPIS_LLM_SLOTS_DIR` | — | `/tmp/elpis_llm_slots` | Créneaux du llama-server communs à tous les process (un fichier verrouillé par créneau) ; doit appartenir au compte du service |
-| `LLAMA_MAX_MODELS` | `llama.max_models` | `1` | Modèles simultanés côté serveur |
-| `LLAMA_MAX_TOOL_ITERATIONS` | `llama.max_tool_iterations` | `200` | Itérations **productives** max par tour |
-| `LLAMA_TOOL_TIMEOUT_S` | `llama.tool_timeout_s` | `300` | Borne dure par appel d'outil |
-| `LLAMA_TOOL_LOOP_MAX_S` | `llama.tool_loop_max_s` | `0` (off) | Budget mur d'horloge d'un tour outillé : à son terme, la génération en cours est coupée (texte reçu gardé), puis tour de synthèse sans outils |
-| `LLAMA_THINKING_BUDGET_TOKENS` | `llama.thinking_budget_tokens` | `8192` | Budget de réflexion (chat simple ; clampé `[512..131072]`, alias llama.cpp `reasoning_budget_tokens`) |
-| `LLAMA_MAX_TOKENS_CHAT` | `llama.max_tokens_chat` | `16384` | Cap théorique de génération (mode chat) : longueur « Auto » et réserve de sortie. Une longueur choisie dans le panneau Génération n'est bornée que par la place libre de la fenêtre (fenêtre − prompt estimé − marge), pour tous les moteurs |
-| `LLAMA_MAX_TOKENS_THINKING` | `llama.max_tokens_thinking` | `24576` | Cap théorique (mode thinking) — sert surtout la **réserve de prompt** depuis `thinking_output_uncapped` |
-| `LLAMA_THINKING_OUTPUT_UNCAPPED` | `llama.thinking_output_uncapped` | `true` | Mode thinking **local** : aucun `max_tokens` envoyé (raisonnements longs non coupés ; aligné Open WebUI / webui llama.cpp) |
-| `LLAMA_THINK_RESUME_MAX` | `llama.think_resume_max` | `6` | Auto-reprises max d'un raisonnement coupé (`finish=length` en plein `<think>`) par appel LLM ; `0` = off |
-| `LLAMA_THINK_RESUME_TOTAL_TOKENS` | `llama.think_resume_total_tokens` | `131072` | Budget total de thinking cumulé par chaînage d'auto-reprises |
+| `LLAMA_URL` | `llama.url` | derived | Server base (`/v1` or `/v1/chat/completions` accepted) — takes precedence over IP/PORT |
+| `LLAMA_API_KEY` | `llama.api_key` | empty | Default engine key (`Authorization: Bearer`), never displayed |
+| `LLAMA_MODEL` | `llama.model` | `local-model` | Default model |
+| `LLAMA_ENGINE` | `llama.engine` | `llamacpp` | `llamacpp` \| `vllm` \| `sglang` \| `generic` (the declared type is authoritative) |
+| `LLAMA_TIMEOUT_SEC` | `llama.timeout_sec` | `600` | Request timeout |
+| `LLAMA_RETRIES` | `llama.retries` | `3` | Attempts |
+| `LLAMA_RETRY_BACKOFF_SEC` | `llama.retry_backoff_sec` | `0.6` | Backoff base |
+| `LLAMA_RETRY_BACKOFF_CAP_S` | `llama.retry_backoff_cap_s` | `15` | Full-jitter cap |
+| `LLAMA_LOADING_WAIT_S` | `llama.loading_wait_s` | `90` | Wait for "model loading" (503 → `/health` probe) |
+| `LLAMA_MAX_CONCURRENCY` | `llama.max_concurrency` | `4` | llama.cpp: fallback if `/props.total_slots` is unavailable (vLLM and SGLang batch requests themselves) |
+| `ELPIS_LLM_SLOTS_DIR` | — | `/tmp/elpis_llm_slots` | llama-server slots shared by all processes (one locked file per slot); must belong to the service account |
+| `LLAMA_MAX_MODELS` | `llama.max_models` | `1` | Simultaneous models on the server |
+| `LLAMA_MAX_TOOL_ITERATIONS` | `llama.max_tool_iterations` | `200` | Max **productive** iterations per turn |
+| `LLAMA_TOOL_TIMEOUT_S` | `llama.tool_timeout_s` | `300` | Hard limit per tool call |
+| `LLAMA_TOOL_LOOP_MAX_S` | `llama.tool_loop_max_s` | `0` (off) | Wall-clock budget of a tool-using turn: when it runs out, the generation in progress is cut (received text kept), then a synthesis turn without tools |
+| `LLAMA_THINKING_BUDGET_TOKENS` | `llama.thinking_budget_tokens` | `8192` | Thinking budget (plain chat; clamped `[512..131072]`, llama.cpp alias `reasoning_budget_tokens`) |
+| `LLAMA_MAX_TOKENS_CHAT` | `llama.max_tokens_chat` | `16384` | Theoretical generation cap (chat mode): "Auto" length and output reserve. A length chosen in the Generation panel is bounded only by the free room in the window (window − estimated prompt − margin), for all engines |
+| `LLAMA_MAX_TOKENS_THINKING` | `llama.max_tokens_thinking` | `24576` | Theoretical cap (thinking mode) — mostly serves the **prompt reserve** since `thinking_output_uncapped` |
+| `LLAMA_THINKING_OUTPUT_UNCAPPED` | `llama.thinking_output_uncapped` | `true` | **Local** thinking mode: no `max_tokens` sent (long reasoning not cut off; aligned with Open WebUI / the llama.cpp webui) |
+| `LLAMA_THINK_RESUME_MAX` | `llama.think_resume_max` | `6` | Max auto-resumes of a cut-off reasoning (`finish=length` in the middle of `<think>`) per LLM call; `0` = off |
+| `LLAMA_THINK_RESUME_TOTAL_TOKENS` | `llama.think_resume_total_tokens` | `131072` | Total thinking budget accumulated across a chain of auto-resumes |
 
-> ⚠️ `LLAMA_MAX_MSGS` a été **retiré**. Le clamp en *nombre* de
-> messages amputait silencieusement l'historique. La seule borne est désormais
-> le budget en **tokens** ; au-delà, le serveur répond « contexte dépassé »
-> (`KIND_CONTEXT_OVERFLOW`) avec un message utilisateur clair.
+> ⚠️ `LLAMA_MAX_MSGS` was **removed**. Clamping by *number* of
+> messages silently cut the history. The only limit is now
+> the **token** budget; beyond it, the server answers "context exceeded"
+> (`KIND_CONTEXT_OVERFLOW`) with a clear user message.
 
-#### Contexte, compaction, élagage
+#### Context, compaction, pruning
 
-| Variable | Clé JSON | Défaut | Description |
+| Variable | JSON key | Default | Description |
 |---|---|---|---|
-| `APP_COMPACTION_BUFFER_TOKENS` | `llm.compaction.buffer_tokens` | `0` (auto) | Marge sous le plafond (`min(20k, 10 % n_ctx)`) |
-| `APP_COMPACTION_PARTIAL_TARGET_RATIO` | `llm.compaction.partial_target_ratio` | `0.6` | Cible d'une compaction partielle |
-| `APP_COMPACTIONS_PER_RUN_MAX` | `llm.compaction.per_run_max` | `8` | Compactions réussies par run (plancher mis à l'échelle du budget d'itérations) |
-| `APP_COMPRESSION_MODEL` | `llm.compression.external_model` | — | Modèle dédié au résumé |
-| `APP_COMPRESSION_ENDPOINT_URL` | `llm.compression.endpoint_url` | — | Endpoint dédié (path OpenAI complété) |
-| `APP_COMPRESSION_ENDPOINT_MODEL` | `llm.compression.endpoint_model` | — | Modèle sur cet endpoint |
+| `APP_COMPACTION_BUFFER_TOKENS` | `llm.compaction.buffer_tokens` | `0` (auto) | Margin under the ceiling (`min(20k, 10 % n_ctx)`) |
+| `APP_COMPACTION_PARTIAL_TARGET_RATIO` | `llm.compaction.partial_target_ratio` | `0.6` | Target of a partial compaction |
+| `APP_COMPACTIONS_PER_RUN_MAX` | `llm.compaction.per_run_max` | `8` | Successful compactions per run (floor scaled to the iteration budget) |
+| `APP_COMPRESSION_MODEL` | `llm.compression.external_model` | — | Model dedicated to the summary |
+| `APP_COMPRESSION_ENDPOINT_URL` | `llm.compression.endpoint_url` | — | Dedicated endpoint (OpenAI path completed) |
+| `APP_COMPRESSION_ENDPOINT_MODEL` | `llm.compression.endpoint_model` | — | Model on this endpoint |
 | `APP_COMPRESSION_ENDPOINT_TIMEOUT_SEC` | … | `120` | Timeout |
-| `APP_COMPRESSION_MAX_PER_CHAT` | `llm.compression.max_per_chat` | `12` | Cap dur (auto **et** manuelles) ; `0` = illimité |
-| `APP_PRUNE_PROTECT_TOKENS` | `llm.prune.protect_tokens` | `0` (auto 20 % n_ctx) | Fenêtre récente jamais élaguée |
-| `APP_PRUNE_MIN_TOKENS` | `llm.prune.min_tokens` | `0` (auto) | Gain minimal pour acter une passe |
-| `APP_PRUNE_EVERY_ITERS` | `llm.prune.every_iters` | `10` | Cadence d'élagage **pendant** un run (0 = fin de tour) |
-| `APP_CTX_IMAGE_TOKEN_COST` | `llm.ctx_image_token_cost` | `1500` | Coût forfaitaire d'une image (surestime volontairement) |
+| `APP_COMPRESSION_MAX_PER_CHAT` | `llm.compression.max_per_chat` | `12` | Hard cap (auto **and** manual); `0` = unlimited |
+| `APP_PRUNE_PROTECT_TOKENS` | `llm.prune.protect_tokens` | `0` (auto 20 % n_ctx) | Recent window never pruned |
+| `APP_PRUNE_MIN_TOKENS` | `llm.prune.min_tokens` | `0` (auto) | Minimum gain to commit a pass |
+| `APP_PRUNE_EVERY_ITERS` | `llm.prune.every_iters` | `10` | Pruning cadence **during** a run (0 = end of turn) |
+| `APP_CTX_IMAGE_TOKEN_COST` | `llm.ctx_image_token_cost` | `1500` | Flat cost of an image (deliberately overestimates) |
 
-> **Clés inertes.** `trigger_after_turns`, `compress_every`, `pct_of_ctx`,
-> `cooldown_iters`, `min_growth_tokens` traînent dans d'anciens `config.json` :
-> plus aucun lecteur. Le déclenchement de compaction est une **règle unique
-> d'occupation** — quand le prompt réel atteint `usable = n_ctx − cap de
-> génération − buffer`. Ne pas les documenter comme des leviers.
+> **Inert keys.** `trigger_after_turns`, `compress_every`, `pct_of_ctx`,
+> `cooldown_iters`, `min_growth_tokens` linger in old `config.json` files:
+> nothing reads them anymore. The compaction trigger is a **single
+> occupancy rule** — when the real prompt reaches `usable = n_ctx − generation
+> cap − buffer`. Do not document them as levers.
 
-#### Sous-agents
+#### Subagents
 
-| Variable | Clé JSON | Défaut |
+| Variable | JSON key | Default |
 |---|---|---|
-| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — délai **dur** d'un sous-agent, plafond du `max_seconds` de `task`, compté dès l'entrée dans `task`, attente d'une place au moteur comprise (`queued_s` du bilan ; `duration_s` part de cette place) ; l'agent doit finir avant son échéance souple, `délai − réserve` (réserve : `min(⅓ du délai, max(120 s, délai / 10))`, de quoi faire la synthèse) : à cette échéance, la génération en cours est coupée et chacun de ses appels d'outils aussi (au plus 3 s après), puis l'agent rédige son rapport ; au délai dur (moteur bloqué ou trop lent), le rapport rendu est la synthèse déjà produite, ou un rapport partiel assemblé par le harnais |
-| `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **sans effet** en TS : un sous-agent ne lance jamais de sous-agent (lu pour la compatibilité de `config.json`) |
+| `APP_TASK_CHILD_TIMEOUT_S` | `llm.task.child_timeout_s` | `3600` — **hard** timeout of a subagent, cap of `task`'s `max_seconds`, counted from entry into `task`, wait for an engine slot included (`queued_s` of the report; `duration_s` starts from that slot); the agent must finish before its soft deadline, `timeout − reserve` (reserve: `min(⅓ of the timeout, max(120 s, timeout / 10))`, enough to write the synthesis): at that deadline, the generation in progress is cut and so is each of its tool calls (at most 3 s later), then the agent writes its report; at the hard timeout (engine stuck or too slow), the report returned is the synthesis already produced, or a partial report assembled by the harness |
+| `APP_TASK_SUBAGENT_DEPTH` | `llm.task.subagent_depth` | `1` — **no effect** in TS: a subagent never launches a subagent (read for `config.json` compatibility) |
 | `APP_TASK_RESUME_TTL_S` | `llm.task.resume_ttl_s` | `21600` |
 | `APP_TASK_RESUME_MAX` | `llm.task.resume_max` | `200` |
 | `APP_TASK_MAX_ITERS_EXPLORE` / `_IMPLEMENT` / `_VERIFY` / `_WEB` / `_PR` | `llm.task.max_iters.*` | `60` / `100` / `60` / `60` / `40` |
-| `APP_TASK_MAX_ITERS_CUSTOM` | `llm.task.max_iters.custom` | valeur de `_GENERAL` |
-| `APP_TASK_MAX_ITERS_GENERAL` | `llm.task.max_iters.general` | `80` (repli des agents personnalisés) |
-| — | `llm.task.enabled` | `true` (interrupteur maître) |
+| `APP_TASK_MAX_ITERS_CUSTOM` | `llm.task.max_iters.custom` | value of `_GENERAL` |
+| `APP_TASK_MAX_ITERS_GENERAL` | `llm.task.max_iters.general` | `80` (fallback for custom agents) |
+| — | `llm.task.enabled` | `true` (master switch) |
 
 #### Application
 
-| Variable | Clé JSON | Défaut | Description |
+| Variable | JSON key | Default | Description |
 |---|---|---|---|
-| `APP_CONFIG_PATH` | — | `config.json` (racine) | Chemin de la config |
-| `APP_CONTEXT_CONFIG` | — | `shared_infra/context_config.json` | Textes LLM |
-| `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | Fichier SQLite (moteur par défaut) |
-| `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Signature des sessions |
-| `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Conversations actives max — **destructif** au-delà (cf. plus bas) ; relu à chaud |
-| `APP_SANDBOX_DIR` | `app.sandbox_dir` | `user_sandboxes` | Racine des sandboxes (propagée en absolu) |
-| `APP_SKILLS_DIR` / `APP_USER_SKILLS_DIR` | `skills.dir` / `skills.user_dir` | `skills` / `user_skills` | Stores de skills |
-| `APP_SKINS_DIR` | `skins.dir` | `user_skins` | Skins importés ou créés depuis la console (un sous-dossier `<id>/` par skin) |
-| `APP_MAX_UPLOAD_MB` | `app.max_upload_mb` | `50` | Plafond par fichier uploadé |
-| `APP_BUILD_ID` | — | auto | Cache-busting des assets |
-| `APP_MODE` | — | `main` | `main` \| `admin` \| `full` (absent ou invalide → `main`) |
-| `APP_SERVICE` | — | `main` | Tag de logs (`./elpis start` le pose par service) |
-| `ADMIN_PUBLIC_URL` / `MAIN_PUBLIC_URL` | — | — | URLs externes (réécriture localhost automatique) |
+| `APP_CONFIG_PATH` | — | `config.json` (root) | Config path |
+| `APP_CONTEXT_CONFIG` | — | `shared_infra/context_config.json` | LLM texts |
+| `APP_DB_PATH` | `app.db_path` | `user_db/app.db` | SQLite file (default engine) |
+| `APP_SESSION_SECRET` | `app.session_secret` | `user_db/.session_secret` | Session signing |
+| `APP_MAX_RECENT_CHATS` | `app.max_recent_chats` | `100` | Max active conversations — **destructive** beyond it (see below); re-read live |
+| `APP_SANDBOX_DIR` | `app.sandbox_dir` | `user_sandboxes` | Sandbox root (propagated as an absolute path) |
+| `APP_SKILLS_DIR` / `APP_USER_SKILLS_DIR` | `skills.dir` / `skills.user_dir` | `skills` / `user_skills` | Skill stores |
+| `APP_SKINS_DIR` | `skins.dir` | `user_skins` | Skins imported or created from the console (one `<id>/` subfolder per skin) |
+| `APP_MAX_UPLOAD_MB` | `app.max_upload_mb` | `50` | Cap per uploaded file |
+| `APP_BUILD_ID` | — | auto | Asset cache busting |
+| `APP_MODE` | — | `main` | `main` \| `admin` \| `full` (missing or invalid → `main`) |
+| `APP_SERVICE` | — | `main` | Log tag (`./elpis start` sets it per service) |
+| `ADMIN_PUBLIC_URL` / `MAIN_PUBLIC_URL` | — | — | External URLs (automatic localhost rewrite) |
 | `APP_LLM_SCHEDULING` | `llm.scheduling_mode` | `auto` | `auto` \| `classic` \| `optimized` |
-| `APP_GIT_TOOL_TIMEOUT_S` | `tools.git.timeout_s` | `60` | Commandes Git locales |
-| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 à 400 selon la table | Rétentions (`0` = pas de purge) ; celle de `usage_events` vaut aussi pour les exécutions (`runs`) |
-| `APP_MAINTENANCE_HOUR` | `maintenance.hour` | `6` | Heure de la passe quotidienne |
+| `APP_GIT_TOOL_TIMEOUT_S` | `tools.git.timeout_s` | `60` | Local Git commands |
+| `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 to 400 depending on the table | Retention (`0` = no purge); the one for `usage_events` also applies to runs (`runs`) |
+| `APP_MAINTENANCE_HOUR` | `maintenance.hour` | `6` | Hour of the daily pass |
 
-#### Serveur MCP local
+#### Local MCP server
 
-**Manifeste `mcp.json`.** Les serveurs d'outils par défaut se
-déclarent dans `mcp.json` à la racine (format `mcpServers` des clients MCP +
-bloc `x-elpis` par entrée : rôle, familles, `default_on`, familles publiées à
-opencode, commande stdio exportée). Schéma : `docs/schemas/mcp.schema.json`. Chargeur :
-`packages/mcp/src/manifeste.ts`. Sans fichier, le manifeste est synthétisé depuis
-les variables ci-dessous (comportement hérité). Avec un fichier, `LOCAL_MCP_URL`,
-`LOCAL_MCP_TOKEN`, `LOCAL_MCP_TOOL_FAMILIES` et `LOCAL_MCP_OPENCODE_FAMILIES`
-restent des SURCHARGES. Console admin → Connexions →
-« Outils par défaut » : état des entrées + Recharger (`POST /api/admin/mcp/manifest/reload`,
-sans redémarrage). Les serveurs `x-elpis.role: external` apparaissent dans le
-panneau MCP (bloc « Déclarés », état per-chat `mf:<nom>`).
+**`mcp.json` manifest.** The default tool servers are
+declared in `mcp.json` at the root (the `mcpServers` format of MCP clients +
+an `x-elpis` block per entry: role, families, `default_on`, families published to
+opencode, exported stdio command). Schema: `docs/schemas/mcp.schema.json`. Loader:
+`packages/mcp/src/manifeste.ts`. Without a file, the manifest is synthesized from
+the variables below (legacy behavior). With a file, `LOCAL_MCP_URL`,
+`LOCAL_MCP_TOKEN`, `LOCAL_MCP_TOOL_FAMILIES` and `LOCAL_MCP_OPENCODE_FAMILIES`
+remain OVERRIDES. Admin console → Models & services → MCP tools →
+"Default tools": state of the entries + Reload (`POST /api/admin/mcp/manifest/reload`,
+no restart). Servers with `x-elpis.role: external` appear in the
+MCP panel ("Declared" block, per-chat state `mf:<name>`).
 
-**Un serveur = une entrée = un endpoint.** `mcp.json` déclare UNE
-entrée par famille d'outils, chacune avec son endpoint : `elpis-git` →
-`http://<hôte>:8765/mcp/git`. Retirer l'entrée (ou `"enabled": false`) retire ses
-outils du chat, sans toucher à aucune autre liste. L'hôte sert les trois
-transports en parallèle pour chaque famille :
+**One server = one entry = one endpoint.** `mcp.json` declares ONE
+entry per tool family, each with its endpoint: `elpis-git` →
+`http://<host>:8765/mcp/git`. Removing the entry (or `"enabled": false`) removes its
+tools from the chat, without touching any other list. The host serves all three
+transports in parallel for each family:
 
 | transport | endpoint |
 |---|---|
-| HTTP streamable | `…:8765/mcp/<famille>` |
-| SSE | `…:8765/sse/<famille>` (messages sur `/messages/`) |
-| stdio | `node apps/toolhost/dist/main.mjs --stdio --families <famille>` |
+| Streamable HTTP | `…:8765/mcp/<family>` |
+| SSE | `…:8765/sse/<family>` (messages on `/messages/`) |
+| stdio | `node apps/toolhost/dist/main.mjs --stdio --families <family>` |
 
-Sans segment de famille, `/mcp` et `/sse` servent toutes les familles
-enregistrées. L'app joint toujours l'hôte en réseau : elle ne lance jamais de
-sous-process stdio, et un hôte arrêté rend les outils indisponibles (message
-dans le journal ; `./elpis doctor` le signale). La commande stdio d'une entrée
-`role: toolhost` (`x-elpis.fallback`, dérivée par défaut :
-`<node> apps/toolhost/dist/main.mjs --stdio --families <ses familles>`, `"fallback": false`
-pour la retirer) ne sert qu'à l'export vers un applicatif tiers. En stdio, l'hôte
-sert lui-même ses familles natives, sans jeton ni port : le client est un process
-local de confiance, le compte est le `_meta.username` de chaque appel (`guest`
-sans lui), comme `python -m toolhost --stdio` ; aucune famille servie : refus (code 2).
-Une entrée par famille, comme `mcp.example.json`. L'export signale dans `omis` (et la console
-dans son message) les entrées sans le transport demandé ; en SSE, il demande à l'hôte
-(`/manifest`, jeton de service et enveloppe de l'administrateur) quelles familles le
-servent et omet celles qui ne le servent pas (hôte muet : rien n'est retiré). Les familles liées au compte (`chart`, `memory`,
-`skill`, `todo`) sont des entrées `role: app` `type: inprocess` (sans URL) servies
-par main lui-même : elles écrivent dans la base et les dossiers de l'app ;
-`/api/mcp-bridge/<famille>` les sert directement et l'hôte d'outils ne les
-enregistre pas. `./elpis configure`, `start` et `upgrade` retirent les URL
-`http://127.0.0.1:8766/...` de l'ancien service `appmcp` d'un `mcp.json` existant (URL
-distantes gardées), et `./elpis doctor` signale celles qui restent. L'origine et le jeton de l'hôte vivent
-dans `toolHosts` (alias de `sandboxHosts`), avec un bloc `serve`
-(`host`/`port`/`transports`). `relay: true` (posé par défaut, ajouté aux
-`mcp.json` existants par `./elpis configure`) fait relayer par main, même en
-loopback, `/api/sandbox/*`, `/api/terminal/*`, `/ws/terminal*`, les captures
-(`/api/playwright/screenshot/*`) et les trames (`/api/desktop/frame/*`) vers
-l'hôte, avec son jeton et l'identité signée de la session : main ne sert plus
-ces routes lui-même. À la connexion, main ouvre aussi la session d'historique
-des fichiers du compte sur l'hôte (`POST /internal/file-history/session`, mêmes
-jeton et identité), là où l'éditeur et l'assistant notent leurs écritures :
-3 s d'attente au plus ; en cas d'échec, la connexion passe, un avertissement
-est journalisé et la session précédente continue. Hôte en loopback arrêté ou
-relais inactif : la session s'ouvre sur place (même disque). Export prêt à
-coller dans un autre applicatif :
-Console admin → Connexions → « Outils par défaut » → Exporter, ou
-`GET /api/admin/mcp/manifest/export?transport=http|sse|stdio&with_token=1`, ou
-`GET /manifest?transport=…` sur l'hôte.
+Without a family segment, `/mcp` and `/sse` serve all registered
+families. The app always reaches the host over the network: it never launches a
+stdio subprocess, and a stopped host makes the tools unavailable (message
+in the log; `./elpis doctor` flags it). The stdio command of a
+`role: toolhost` entry (`x-elpis.fallback`, derived by default:
+`<node> apps/toolhost/dist/main.mjs --stdio --families <its families>`, `"fallback": false`
+to remove it) is used only for export to a third-party application. In stdio, the host
+itself serves its native families, with no token or port: the client is a trusted
+local process, the account is the `_meta.username` of each call (`guest`
+without it), like `python -m toolhost --stdio`; no family served: refusal (code 2).
+One entry per family, like `mcp.example.json`. The export flags in `omis` (and the console
+in its message) the entries without the requested transport; in SSE, it asks the host
+(`/manifest`, service token and administrator envelope) which families
+it serves and omits those it does not (silent host: nothing is removed). The account-bound families (`chart`, `memory`,
+`skill`, `todo`) are `role: app` `type: inprocess` entries (no URL) served
+by main itself: they write to the app's database and folders;
+`/api/mcp-bridge/<family>` serves them directly and the tool host does not
+register them. `./elpis configure`, `start` and `upgrade` remove the
+`http://127.0.0.1:8766/...` URLs of the old `appmcp` service from an existing `mcp.json` (remote
+URLs kept), and `./elpis doctor` flags those that remain. The host's origin and token live
+in `toolHosts` (alias of `sandboxHosts`), with a `serve` block
+(`host`/`port`/`transports`). `relay: true` (set by default, added to existing
+`mcp.json` files by `./elpis configure`) makes main relay, even over
+loopback, `/api/sandbox/*`, `/api/terminal/*`, `/ws/terminal*`, screenshots
+(`/api/playwright/screenshot/*`) and frames (`/api/desktop/frame/*`) to
+the host, with its token and the session's signed identity: main no longer serves
+these routes itself. At sign-in, main also opens the account's file-history
+session on the host (`POST /internal/file-history/session`, same
+token and identity), where the editor and the assistant record their writes:
+3 s wait at most; on failure, the sign-in goes through, a warning
+is logged and the previous session continues. Loopback host stopped or
+relay inactive: the session opens locally (same disk). Export ready to
+paste into another application:
+Admin console → Models & services → MCP tools → "Default tools" → Export, or
+`GET /api/admin/mcp/manifest/export?transport=http|sse|stdio&with_token=1`, or
+`GET /manifest?transport=…` on the host.
 
-⚠ En transport stdio, la sortie standard EST le canal JSON-RPC : tout
-diagnostic du service part sur `stderr`.
+⚠ In stdio transport, standard output IS the JSON-RPC channel: every
+service diagnostic goes to `stderr`.
 
-**Jetons personnels.** Chaque compte crée ses jetons dans Paramètres ›
-Connexions ; seule leur empreinte SHA-256 est gardée (jeton montré une fois,
-régénérable). Trois types : `pcr_` (opencode : greffon, `opencode.json`, relais
-MCP), `ept_` (outils : relais MCP et façade OpenAPI, familles cochées ∩
-politique, expiration) et `evt_` (vision d'une automatisation de bureau, 12 h,
-seulement `/api/desktop/locate`, créé automatiquement, 20 au plus par compte,
-masqué de la liste). Politique `mcp.tokens.*`, relue à chaud : `tools_enabled`
-(vrai), `tools_families` (`fs,shell,git,desktop,browser,skill_run`),
-`max_days` (90 ; 0 = sans limite), `max_per_user` (20, jetons opencode et
-outils valides). Révoquer les sessions d'un compte, réinitialiser ou changer
-son mot de passe révoque aussi tous ses jetons et ses applications OAuth ;
-l'administrateur voit et coupe ces accès depuis la fiche du compte.
-`GET /api/code/config` ne renvoie plus de jeton : l'installeur et l'appairage
-en créent un.
+**Personal tokens.** Each account creates its tokens in Settings ›
+Access tokens; only their SHA-256 fingerprint is kept (token shown once,
+regenerable). Three types: `pcr_` (opencode: plugin, `opencode.json`, MCP
+relay), `ept_` (tools: MCP relay and OpenAPI facade, checked families ∩
+policy, expiry) and `evt_` (vision for a desktop automation, 12 h,
+`/api/desktop/locate` only, created automatically, 20 at most per account,
+hidden from the list). `mcp.tokens.*` policy, re-read live: `tools_enabled`
+(true), `tools_families` (`fs,shell,git,desktop,browser,skill_run`),
+`max_days` (90; 0 = no limit), `max_per_user` (20, valid opencode and
+tool tokens). Revoking an account's sessions, resetting or changing
+its password also revokes all its tokens and its OAuth apps;
+the administrator sees and cuts these accesses from the account's page.
+`GET /api/code/config` no longer returns a token: the installer and pairing
+create one.
 
-**Façade OpenAPI.** Les familles du service partagé qui ont un
-point d'accès externe (`fs`, `shell`, `git`, `desktop`, `browser`, `skill_run`)
-sont aussi servies en
-OpenAPI 3.1 sous l'origine de l'app : `GET /api/tools/<famille>/openapi.json`
-(générée depuis `tools/list`, cache 60 s) et `POST /api/tools/<famille>/<outil>`.
-Authentification par jeton d'outils `ept_` seul ; portée = familles du jeton ∩
-`mcp.tokens.tools_families` ; `mcp.tokens.tools_enabled: false` coupe la façade
-(404). L'appel part avec le jeton de SERVICE et l'identité du propriétaire du
-jeton dans le `_meta` MCP, avec le délai propre à l'outil ; au plus 4 appels
-simultanés par compte et par worker (429). Code :
+**OpenAPI facade.** The families of the shared service that have an
+external access point (`fs`, `shell`, `git`, `desktop`, `browser`, `skill_run`)
+are also served as
+OpenAPI 3.1 under the app's origin: `GET /api/tools/<family>/openapi.json`
+(generated from `tools/list`, 60 s cache) and `POST /api/tools/<family>/<tool>`.
+Authentication by `ept_` tool token only; scope = the token's families ∩
+`mcp.tokens.tools_families`; `mcp.tokens.tools_enabled: false` cuts the facade
+(404). The call goes out with the SERVICE token and the identity of the token's
+owner in the MCP `_meta`, with the tool's own timeout; at most 4
+simultaneous calls per account and per worker (429). Code:
 `apps/core/src/outils/openapi.ts`, `apps/core/src/familles/openapi.ts`.
 
-**Conformité MCP.** Le service d'outils suit la spécification
-MCP (révisions 2024-11-05 à 2025-11-25, transport HTTP streamable), vérifiée par
-un banc qui fait parler les clients de référence (SDK officiel et FastMCP) au
-relais : `initialize` pour chaque version (version d'Elpis dans `serverInfo`,
-`tools.listChanged: false` — aucune notification de liste n'est émise),
-`tools/list` paginé (`nextCursor`, `LOCAL_MCP_LIST_PAGE_SIZE`, 100 par défaut,
-de quoi tenir un endpoint de famille en une page), outils nommés, titrés,
-annotés (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`),
-`inputSchema`/`outputSchema` en JSON Schema, `structuredContent` conforme à
-`outputSchema`. Un échec d'outil — arguments invalides compris — est un résultat
-`isError` ; un outil inconnu, éteint ou hors des familles du client est une
-erreur JSON-RPC `-32602` (même réponse dans les trois cas). Transport : le relais
-public `/api/mcp-bridge[/<famille>]` ne sert que l'HTTP streamable, refuse une
-`MCP-Protocol-Version` inconnue (400) et contrôle `Origin` (403) comme le service
-d'outils : un en-tête absent (clients natifs) passe, sinon l'origine doit figurer
-dans `mcp.allowed_origins` (relue à chaud, motif `scheme://hôte:*` accepté),
-`app.cors_origins` ou `LOCAL_MCP_ALLOWED_ORIGINS` (jamais déduite de l'en-tête
-`Host`, relais compris). Le relais ne retransmet jamais le jeton du client : il le vérifie
-(`apps/core/src/familles/pont-mcp.ts`) puis présente au service un
-jeton de DÉLÉGATION `dlg_…` (`packages/mcp/src/delegation.ts`) — enveloppe HMAC
-signée avec le jeton de service, d'audience `elpis-mcp`, valable ±60 s, qui porte
-le compte, le type de client et ses familles. Le service en tire les restrictions
-qu'aurait eues le jeton du client, jamais la confiance de l'app ; un service qui
-ne connaît pas `dlg_` le refuse (401). Un jeton personnel présenté directement au
-service (client local sur la boucle locale) reste accepté.
+**MCP compliance.** The tool service follows the MCP
+specification (revisions 2024-11-05 to 2025-11-25, streamable HTTP transport), verified by
+a test bench that has the reference clients (official SDK and FastMCP) talk to the
+relay: `initialize` for each version (Elpis version in `serverInfo`,
+`tools.listChanged: false` — no list notification is emitted),
+paginated `tools/list` (`nextCursor`, `LOCAL_MCP_LIST_PAGE_SIZE`, 100 by default,
+enough to hold a family endpoint on one page), named, titled,
+annotated tools (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`),
+`inputSchema`/`outputSchema` in JSON Schema, `structuredContent` conforming to
+`outputSchema`. A tool failure — invalid arguments included — is an `isError`
+result; an unknown tool, a disabled tool, or one outside the client's families is a JSON-RPC
+error `-32602` (same response in all three cases). Transport: the public relay
+`/api/mcp-bridge[/<family>]` serves only streamable HTTP, rejects an unknown
+`MCP-Protocol-Version` (400) and checks `Origin` (403) like the tool
+service: a missing header (native clients) passes, otherwise the origin must appear
+in `mcp.allowed_origins` (re-read live, `scheme://host:*` pattern accepted),
+`app.cors_origins` or `LOCAL_MCP_ALLOWED_ORIGINS` (never inferred from the `Host`
+header, relay included). The relay never forwards the client's token: it verifies it
+(`apps/core/src/familles/pont-mcp.ts`) then presents the service with a
+`dlg_…` DELEGATION token (`packages/mcp/src/delegation.ts`) — an HMAC envelope
+signed with the service token, with audience `elpis-mcp`, valid ±60 s, carrying
+the account, the client type and its families. The service derives from it the restrictions
+the client's token would have had, never the app's trust; a service that
+does not know `dlg_` rejects it (401). A personal token presented directly to the
+service (local client on the loopback) is still accepted.
 
-**Autorisation OAuth 2.1 des clients MCP.** Elpis est son propre serveur
-d'autorisation (spécification MCP « Authorization » 2025-11-25) :
-`/.well-known/oauth-protected-resource[/api/mcp-bridge[/<famille>]]` (RFC 9728 :
-la ressource annoncée est celle du chemin demandé, `<origine>/api/mcp-bridge`
-ou `<origine>/api/mcp-bridge/<famille>` — un jeton obtenu pour une famille y
-est borné ; portées `tools` et `tools:<famille>`), `/.well-known/oauth-authorization-server` (RFC 8414),
-`/oauth/register` (RFC 7591, redirections limitées à `http://127.0.0.1|localhost|[::1]`
-et `https://`), `/oauth/authorize` (session Elpis puis écran de consentement,
-code + PKCE S256 obligatoire, `resource` RFC 8707 obligatoire), `/oauth/token`
-(code ou rafraîchissement avec rotation), `/oauth/revoke` (RFC 7009). Les clients
-décrits par un document https (CIMD) sont acceptés quand le document est
-joignable (garde SSRF commune, connexion à l'adresse vérifiée, document récupéré
-seulement pour un compte connecté). Tant qu'un client enregistré de lui-même
-n'a été autorisé par personne, une demande en erreur s'affiche sur place,
-sans redirection vers son adresse de retour. Le relais répond `401` avec
-`WWW-Authenticate: Bearer resource_metadata="…"` (et `scope="tools:<famille>"` sur
-un point d'accès de famille), et `403 insufficient_scope` pour une famille non
-accordée. Jetons opaques en empreinte SHA-256 (`eoa_` accès, `eor_`
-rafraîchissement ; un rafraîchissement ou un code rejoué révoque toute
-l'autorisation), tables de la migration 0023, familles toujours bornées par
-`mcp.tokens.tools_enabled` / `tools_families`. Politique `mcp.oauth.*`, relue à
-chaud : `enabled` (vrai), `dcr_enabled` (vrai), `access_ttl_s` (3600),
-`refresh_days` (30, borné par `mcp.tokens.max_days`). Console › Outils MCP :
-réglages et clients enregistrés (suppression) ; Paramètres › Connexions :
-applications autorisées par le compte (retrait).
+**OAuth 2.1 authorization for MCP clients.** Elpis is its own authorization
+server (MCP "Authorization" specification 2025-11-25):
+`/.well-known/oauth-protected-resource[/api/mcp-bridge[/<family>]]` (RFC 9728:
+the advertised resource is the one of the requested path, `<origin>/api/mcp-bridge`
+or `<origin>/api/mcp-bridge/<family>` — a token obtained for a family is
+bound to it; scopes `tools` and `tools:<family>`), `/.well-known/oauth-authorization-server` (RFC 8414),
+`/oauth/register` (RFC 7591, redirects limited to `http://127.0.0.1|localhost|[::1]`
+and `https://`), `/oauth/authorize` (Elpis session then consent screen,
+code + PKCE S256 mandatory, RFC 8707 `resource` mandatory), `/oauth/token`
+(code or refresh with rotation), `/oauth/revoke` (RFC 7009). Clients
+described by an https document (CIMD) are accepted when the document is
+reachable (shared SSRF guard, connection to the verified address, document fetched
+only for a signed-in account). As long as a self-registered client
+has been authorized by no one, a request in error is shown in place,
+with no redirect to its return address. The relay answers `401` with
+`WWW-Authenticate: Bearer resource_metadata="…"` (and `scope="tools:<family>"` on
+a family access point), and `403 insufficient_scope` for a family not
+granted. Opaque tokens stored as SHA-256 fingerprints (`eoa_` access, `eor_`
+refresh; a replayed refresh or code revokes the whole
+authorization), tables from migration 0023, families always bounded by
+`mcp.tokens.tools_enabled` / `tools_families`. `mcp.oauth.*` policy, re-read
+live: `enabled` (true), `dcr_enabled` (true), `access_ttl_s` (3600),
+`refresh_days` (30, bounded by `mcp.tokens.max_days`). Admin console › MCP tools:
+settings and registered clients (deletion); Settings › Access tokens:
+apps authorized by the account (removal).
 
-**Politique d'exécution et événements live.** Chaque outil
-porte ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
-``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy`` ; le
-harnais la lit à la connexion (``_mcp_categories.tool_policy``) et n'utilise
-les anciennes listes par nom qu'en repli (serveur externe, registre vide). Le
-terminal en direct voyage en notifications MCP **structurées**
+**Execution policy and live events.** Each tool
+carries ``meta.policy`` (``timeout_s``, ``serial``, ``replay_safe``, ``prune``,
+``deny_for``) via ``_toolkit.tool_kw_*(…, **policy)`` / ``with_policy``; the
+harness reads it at connection (``_mcp_categories.tool_policy``) and uses
+the old by-name lists only as a fallback (external server, empty registry). The
+live terminal travels as **structured** MCP notifications
 (``ctx.log(…, logger_name="elpis.shell", extra={"kind": "shell_output", …})``,
-corrélées par ``log_token``/``call_id`` dans ``extra``) ; la sentinelle JSON
-``__shell_output__`` n'est plus qu'un repli. Un **battement**
-(``extra.kind: heartbeat``, toutes les ``ELPIS_TOOL_HEARTBEAT_S`` s, défaut 15,
-0 = off) garde vivant le flux HTTP d'un ``tools/call`` long (shell, scripts de
-skills, ``pw_wait``, ``desktop_wait``) ; le client le consomme sans événement.
-``skill_run_script`` streame sa sortie comme ``execute_shell``.
+correlated by ``log_token``/``call_id`` in ``extra``); the JSON sentinel
+``__shell_output__`` is only a fallback now. A **heartbeat**
+(``extra.kind: heartbeat``, every ``ELPIS_TOOL_HEARTBEAT_S`` s, default 15,
+0 = off) keeps the HTTP stream of a long ``tools/call`` alive (shell, skill
+scripts, ``pw_wait``, ``desktop_wait``); the client consumes it without an event.
+``skill_run_script`` streams its output like ``execute_shell``.
 
-**Hôte d'outils déportable.** L'hôte d'outils (``apps/toolhost``, bundle Node
-``apps/toolhost/dist/main.mjs``) = le service MCP + l'API sandbox (``/api/sandbox/*``, git, cycle de vie, instantanés),
-le terminal (``/api/terminal/*``, ``/ws/terminal*``) et les actifs (captures,
-trames) sur UN port, derrière le jeton de service et une enveloppe d'identité
-signée (``X-Elpis-Identity``, ``packages/securite/src/identite.ts``). Mode local :
-``./elpis start`` le lance en loopback, l'app sert ses routeurs en direct
-(aucun relais). Mode distant : ``mcp.json › sandboxHosts.<id>.url`` hors loopback
-(ou ``relay: true``) → le relais du core (``apps/core/src/relais/``) relaie ces
-chemins tels quels vers l'hôte (HTTP + WebSocket), fabrique l'enveloppe depuis la
-session (jamais depuis un en-tête du navigateur), pousse le miroir des skills
-(``POST /api/sandbox/skills-mirror``), rapatrie captures/trames pour la vision et
-ouvre au login la session d'historique des fichiers (``POST /internal/file-history/session``).
-Avec un ``toolhost.json`` (hôte distant), l'hôte n'ouvre pas ``app.db`` : identité par enveloppe/``_meta``
-(``IdentityCapture``), rappels ``/api/internal/*`` (introspection des jetons
-``pcr_``, identité, identifiants git ; pour la famille ``desktop`` servie par l'hôte TS :
-notification de fin d'automatisation et mémoire des ancres, compte tiré de
-l'enveloppe d'identité signée) avec le jeton de service, base LOCALE
-(``toolhost.json › db_path``) pour ses sessions de terminal et la mémoire AX.
-Familles liées au COMPTE (``memory``, ``todo``, ``chart``, ``skill`` = bibliothèque)
-= entrées ``role: app`` du manifeste, servies par main, jamais par un hôte
-distant (elles écrivent dans sa base) ; ``skill_run``
-(exécution dans le sandbox) reste sur l'hôte. Déploiement :
+**Relocatable tool host.** The tool host (``apps/toolhost``, Node bundle
+``apps/toolhost/dist/main.mjs``) = the MCP service + the sandbox API (``/api/sandbox/*``, git, lifecycle, snapshots),
+the terminal (``/api/terminal/*``, ``/ws/terminal*``) and the assets (screenshots,
+frames) on ONE port, behind the service token and a signed identity
+envelope (``X-Elpis-Identity``, ``packages/securite/src/identite.ts``). Local mode:
+``./elpis start`` launches it on loopback, the app serves its routers directly
+(no relay). Remote mode: ``mcp.json › sandboxHosts.<id>.url`` off loopback
+(or ``relay: true``) → the core relay (``apps/core/src/relais/``) relays these
+paths as they are to the host (HTTP + WebSocket), builds the envelope from the
+session (never from a browser header), pushes the skills mirror
+(``POST /api/sandbox/skills-mirror``), brings back screenshots/frames for vision and
+opens the file-history session at sign-in (``POST /internal/file-history/session``).
+With a ``toolhost.json`` (remote host), the host does not open ``app.db``: identity by envelope/``_meta``
+(``IdentityCapture``), ``/api/internal/*`` callbacks (introspection of ``pcr_``
+tokens, identity, git credentials; for the ``desktop`` family served by the TS host:
+automation-finished notification and anchor memory, account taken from
+the signed identity envelope) with the service token, LOCAL database
+(``toolhost.json › db_path``) for its terminal sessions and the AX memory.
+ACCOUNT-bound families (``memory``, ``todo``, ``chart``, ``skill`` = library)
+= ``role: app`` manifest entries, served by main, never by a remote
+host (they write to its database); ``skill_run``
+(execution in the sandbox) stays on the host. Deployment:
 ``deploy/toolhost/`` (``install_toolhost.sh``, ``toolhost.example.json``,
 ``elpis-toolhost.service``,
-``Caddyfile.toolhost``), schéma
-``docs/schemas/toolhost.schema.json``. ``toolhost.json › bind.host`` vaut
-``127.0.0.1`` dans l'exemple : l'app joint l'hôte par ``Caddyfile.toolhost``
-(TLS, ``reverse_proxy 127.0.0.1:8765``). Sans ce frontal, ``0.0.0.0`` (ou l'IP
-privée) est nécessaire, port filtré à l'hôte Elpis. ``app.memory_dir`` / ``APP_MEMORY_DIR`` :
-racine du magasin mémoire (défaut : racine des sandboxes). **Mise à jour** : l'hôte
-d'outils, local ou distant, se met à jour avec le core (comme le service navigateur) :
-il retire le joint invisible (U+2060) que le core glisse dans les marqueurs de tour des
-résultats, des arguments des outils qu'il sert (``identity: "meta"``), que le core lui
-envoie tels que le modèle les a écrits ; un hôte plus ancien écrirait ce joint dans les
-fichiers, les commandes et les pages.
+``Caddyfile.toolhost``), schema
+``docs/schemas/toolhost.schema.json``. ``toolhost.json › bind.host`` is
+``127.0.0.1`` in the example: the app reaches the host through ``Caddyfile.toolhost``
+(TLS, ``reverse_proxy 127.0.0.1:8765``). Without this front end, ``0.0.0.0`` (or the private
+IP) is needed, with the port filtered to the Elpis host. ``app.memory_dir`` / ``APP_MEMORY_DIR``:
+root of the memory store (default: the sandbox root). **Upgrade**: the tool
+host, local or remote, is upgraded with the core (like the browser service):
+it strips the invisible joiner (U+2060) that the core slips into the turn markers of
+results, from the arguments of the tools it serves (``identity: "meta"``), which the core sends
+it exactly as the model wrote them; an older host would write this joiner into
+files, commands and pages.
 
-**Hôte d'outils TypeScript.** Le service ``toolhost`` de
-``./elpis`` (unité ``elpis-toolhost``) est le bundle Node ``apps/toolhost/dist/main.mjs`` ;
-il lit ``toolhost.json`` et les variables ``LOCAL_MCP_*`` / ``TOOLHOST_*`` (schéma
-vérifié au démarrage, écarts journalisés, jamais bloquants) et, après un ``SIGHUP``,
-s'arrête proprement puis sort en 75 pour être relancé, comme le core. Il sert
-lui-même les familles de ``families`` portées en TypeScript (``browser``,
-``desktop``, ``fs``, ``git``, ``office``, ``shell``, ``skill_run``) : ``/mcp/<famille>`` et ``/sse/<famille>`` de ces familles, mêmes
-jetons, portée et délégation ; ``/health`` et ``/manifest`` les agrègent. Pour ne pas
-servir une famille, la retirer de ``families``. L'ancienne clé ``familles_natives`` est
-ignorée avec un avertissement (elpis-tools n'existe plus) ; ``./elpis doctor`` affiche
-les familles servies (``main.mjs --familles-natives``).
-Famille ``office`` native : l'hôte lance un worker Python partagé (``python -m elpis_office``
-depuis ``office/``, relancé à l'appel suivant s'il disparaît) qui construit les documents Word et
-PowerPoint en mémoire ; les fichiers du bac, l'historique, le verrou de l'éditeur, les graphiques
-du cache du core, LibreOffice (``office_preview``) et le rendu ECharts sont faits par l'hôte.
-``ELPIS_OFFICE_PARALLELE`` borne les appels simultanés du worker (8 par défaut).
-Famille ``skill_run`` native : les skills du compte sont lus dans son magasin protégé
-(``skills.user_dir``, hôte local) ou, à défaut, dans le miroir
-``<sandbox_dir>/<compte>/skills`` que l'app pousse après chaque modification (hôte
-distant) ; un ancien magasin laissé sur un hôte distant par le Python prime sur le
-miroir : le supprimer.
-Famille ``git`` native : le réseau (clone, fetch, pull, push) passe par le relais
-authentifiant, le jeton d'un Connecteur Git n'est donné qu'à l'hôte exact du dépôt ;
-``git_submit`` pousse la branche d'agent puis demande la PR au core
-(``POST /api/internal/git/pr``, compte de l'enveloppe signée) qui résout le
-connecteur, garde son ``api_base`` et appelle l'API de PR : le jeton de cette API
-ne quitte pas le core. Core injoignable après le push : erreur
-``pr_service_unavailable`` (branche poussée, PR à rouvrir) ; ``git_set_credential``
-et le jeton saisi au clone sont enregistrés par le core
-(``credential_store_unavailable`` s'il ne répond pas). Avec cette famille native,
-un outil de l'agent ne crée de connecteur que pour un hôte (port compris) déjà
-enregistré par le compte ou par un administrateur : sinon ``host_not_registered``,
-le connecteur s'ajoute dans Réglages → Connecteurs Git ; il ne met à jour que les
-connecteurs qu'il a créés (``auto``), jamais un connecteur saisi dans Réglages ou
-importé (``connector_exists``) ; un ancien
-``.git-credentials.json`` du bac suit la même règle (gardé si un hôte est refusé) ;
-le clone de l'éditeur n'a pas cette limite.
-``TOOLHOST_APP_URL`` pointe vers le core local (``http://127.0.0.1:8001``, posé par
-``./elpis`` sauf valeur déjà dans l'environnement) : sans URL du core, les rappels
-``/api/internal/*`` sont inactifs (``shell_job`` répond ``not_available_here``,
-identifiants git, PR, quota et notifications sont ignorés). Une requête MCP qu'aucune
-famille native ne prend répond 503 (``/sse`` n'est servi que si ``sse`` figure dans
-``bind.transports``). ``mcp_upstream`` et ``mcp_upstream_sse`` (ou
-``TOOLHOST_MCP_UPSTREAM[_SSE]``), qui désignaient elpis-tools, sont ignorés avec un
-avertissement : le service ``tools`` n'existe plus, ``./elpis service install`` et
-``install_toolhost.sh`` retirent son unité. Le core ouvre une connexion MCP par
-famille (``/mcp/<famille>``) vers une entrée ``toolhost`` à plusieurs familles et
-fusionne leurs outils dans l'ordre canonique ; une famille coupée est rouverte seule,
-une famille injoignable est retirée sans priver les autres et relistée 15 s plus tard.
-L'ancien hôte Python (``python -m toolhost``) n'existe plus depuis la 0.1.0 :
-``ELPIS_TOOLHOST=python`` dans ``.env`` est ignoré (``./elpis doctor`` le signale).
-**Construction** : ``npm run build`` (core et hôte) ; node-pty, sans binaire Linux
-précompilé, est compilé par ``npm ci`` (build-essential, python3 : groupe apt
-``construction-hote``) ; le paquet hors ligne de ``make_release.sh`` contient le
-bundle de l'hôte pour son architecture (``toolhost/``). ``./elpis doctor`` vérifie
-le bundle (``main.mjs --empreinte``, ``--natif``) et l'import du moteur Office.
+**TypeScript tool host.** The ``toolhost`` service of
+``./elpis`` (unit ``elpis-toolhost``) is the Node bundle ``apps/toolhost/dist/main.mjs``;
+it reads ``toolhost.json`` and the ``LOCAL_MCP_*`` / ``TOOLHOST_*`` variables (schema
+checked at startup, deviations logged, never blocking) and, after a ``SIGHUP``,
+stops cleanly then exits with 75 to be restarted, like the core. It serves
+itself the families of ``families`` ported to TypeScript (``browser``,
+``desktop``, ``fs``, ``git``, ``office``, ``shell``, ``skill_run``): ``/mcp/<family>`` and ``/sse/<family>`` of these families, same
+tokens, scope and delegation; ``/health`` and ``/manifest`` aggregate them. To not
+serve a family, remove it from ``families``. The old ``familles_natives`` key is
+ignored with a warning (elpis-tools no longer exists); ``./elpis doctor`` shows
+the families served (``main.mjs --familles-natives``).
+Native ``office`` family: the host launches a shared Python worker (``python -m elpis_office``
+from ``office/``, restarted on the next call if it disappears) that builds Word and
+PowerPoint documents in memory; sandbox files, history, the editor lock, charts
+from the core's cache, LibreOffice (``office_preview``) and ECharts rendering are done by the host.
+``ELPIS_OFFICE_PARALLELE`` bounds the worker's simultaneous calls (8 by default).
+Native ``skill_run`` family: the account's skills are read from its protected store
+(``skills.user_dir``, local host) or, failing that, from the mirror
+``<sandbox_dir>/<account>/skills`` that the app pushes after every change (remote
+host); an old store left on a remote host by the Python core takes precedence over the
+mirror: delete it.
+Native ``git`` family: the network (clone, fetch, pull, push) goes through the authenticating
+relay, and a Git connector's token is given only to the repository's exact host;
+``git_submit`` pushes the agent branch then asks the core for the PR
+(``POST /api/internal/git/pr``, account of the signed envelope), which resolves the
+connector, keeps its ``api_base`` and calls the PR API: this API's token
+never leaves the core. Core unreachable after the push: error
+``pr_service_unavailable`` (branch pushed, PR to reopen); ``git_set_credential``
+and the token entered at clone time are stored by the core
+(``credential_store_unavailable`` if it does not answer). With this native family,
+an agent tool creates a connector only for a host (port included) already
+registered by the account or by an administrator: otherwise ``host_not_registered``,
+and the connector is added in Settings → Git accounts; it updates only the
+connectors it created (``auto``), never a connector entered in Settings or
+imported (``connector_exists``); an old
+``.git-credentials.json`` in the sandbox follows the same rule (kept if a host is refused);
+the editor's clone has no such limit.
+``TOOLHOST_APP_URL`` points to the local core (``http://127.0.0.1:8001``, set by
+``./elpis`` unless a value is already in the environment): without the core URL, the
+``/api/internal/*`` callbacks are inactive (``shell_job`` answers ``not_available_here``,
+git credentials, PR, quota and notifications are ignored). An MCP request that no
+native family takes answers 503 (``/sse`` is served only if ``sse`` is in
+``bind.transports``). ``mcp_upstream`` and ``mcp_upstream_sse`` (or
+``TOOLHOST_MCP_UPSTREAM[_SSE]``), which designated elpis-tools, are ignored with a
+warning: the ``tools`` service no longer exists, and ``./elpis service install`` and
+``install_toolhost.sh`` remove its unit. The core opens one MCP connection per
+family (``/mcp/<family>``) to a multi-family ``toolhost`` entry and
+merges their tools in canonical order; a dropped family is reopened alone,
+and an unreachable family is removed without depriving the others and listed again 15 s later.
+The old Python host (``python -m toolhost``) no longer exists since 0.1.0:
+``ELPIS_TOOLHOST=python`` in ``.env`` is ignored (``./elpis doctor`` flags it).
+**Build**: ``npm run build`` (core and host); node-pty, which has no prebuilt Linux
+binary, is compiled by ``npm ci`` (build-essential, python3: apt group
+``construction-hote``); the offline package from ``make_release.sh`` contains the
+host bundle for its architecture (``toolhost/``). ``./elpis doctor`` checks
+the bundle (``main.mjs --empreinte``, ``--natif``) and the import of the Office engine.
 
-**Plusieurs hôtes d'outils.** ``mcp.json › sandboxHosts`` peut
-déclarer N hôtes ; ``placement.strategy`` = ``single`` (tout le monde sur
-``placement.host``) ou ``by_user`` (table ``sandbox_placements`` : un compte est
-affecté à sa première utilisation à l'hôte le moins chargé, puis y reste —
-sandbox, terminal et outils sur le même hôte). Console admin → Sandbox →
-« Hôtes d'outils » : santé de chaque hôte (``/health``), comptes affectés,
-réaffectation et MIGRATION d'un compte (``/api/sandbox/export`` de l'ancien
-hôte → ``/api/sandbox/import`` sur le nouveau → réaffectation ; un instantané
-du ``/work`` remplacé est pris d'abord, l'import est refusé s'il ne peut
-l'être). Routes :
+**Several tool hosts.** ``mcp.json › sandboxHosts`` can
+declare N hosts; ``placement.strategy`` = ``single`` (everyone on
+``placement.host``) or ``by_user`` (table ``sandbox_placements``: an account is
+assigned on first use to the least loaded host, then stays there —
+sandbox, terminal and tools on the same host). Admin console → Sandbox →
+"Tool hosts": health of each host (``/health``), assigned accounts,
+reassignment and MIGRATION of an account (``/api/sandbox/export`` of the old
+host → ``/api/sandbox/import`` on the new one → reassignment; a snapshot
+of the replaced ``/work`` is taken first, and the import is refused if one cannot
+be taken). Routes:
 ``GET /api/admin/toolhosts``, ``POST /api/admin/toolhosts/placements/{uid}``
-(``{host_id}``), ``…/migrate``, ``DELETE …``. Ajouter un hôte = une entrée
-``sandboxHosts`` dans ``mcp.json`` + ``toolhost.json`` sur la machine.
-Supprimer un compte avec son bac (``DELETE /api/admin/users/{id}?delete_sandbox=true``)
-supprime aussi celui d'un hôte distant, par la route interne
-``POST /api/internal/sandbox/delete`` de cet hôte (enveloppe signée, jamais relayée),
-avant le dossier local ; un profil réseau imposé détruit le conteneur sur l'hôte du compte.
-Toute suppression de compte appelle aussi ``POST /api/internal/account/purge`` sur
-chaque hôte déclaré (même enveloppe signée) : les identifiants de sites de la mémoire AX
-du compte sont retirés de la base de l'hôte. Un hôte injoignable ou sans jeton est
-signalé dans ``hosts_purge_errors`` de la réponse et au journal : ses identifiants
-restent alors à retirer avant de recréer un compte du même nom.
+(``{host_id}``), ``…/migrate``, ``DELETE …``. Adding a host = one
+``sandboxHosts`` entry in ``mcp.json`` + ``toolhost.json`` on the machine.
+Deleting an account with its sandbox (``DELETE /api/admin/users/{id}?delete_sandbox=true``)
+also deletes the one on a remote host, through that host's internal route
+``POST /api/internal/sandbox/delete`` (signed envelope, never relayed),
+before the local folder; an enforced network profile destroys the container on the account's host.
+Every account deletion also calls ``POST /api/internal/account/purge`` on
+each declared host (same signed envelope): the site credentials in the account's AX memory
+are removed from the host's database. A host that is unreachable or has no token is
+flagged in the response's ``hosts_purge_errors`` and in the log: its credentials
+must then be removed before recreating an account with the same name.
 
 
-| Variable | Défaut | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `MCP_TOOLS_CACHE_TTL_SEC` | `360` | TTL du cache `list_tools` |
-| `MCP_SERVERS_DIR` | `../mcp_custom_servers` | Serveurs uploadés |
-| `LOCAL_MCP_URL` | dérivée (`http://127.0.0.1:8765/mcp`) | Adresse de l'hôte d'outils (`…/mcp` = HTTP streamable, `…/sse` = SSE) ; l'app ne le lance jamais en sous-process |
-| `LOCAL_MCP_HOST` / `LOCAL_MCP_PORT` / `LOCAL_MCP_TRANSPORT` | `127.0.0.1` / `8765` / `sse` | Utilisés **par** le serveur en mode service (`./elpis start` : `streamable-http`) |
+| `MCP_TOOLS_CACHE_TTL_SEC` | `360` | TTL of the `list_tools` cache |
+| `MCP_SERVERS_DIR` | `../mcp_custom_servers` | Uploaded servers |
+| `LOCAL_MCP_URL` | derived (`http://127.0.0.1:8765/mcp`) | Tool host address (`…/mcp` = streamable HTTP, `…/sse` = SSE); the app never launches it as a subprocess |
+| `LOCAL_MCP_HOST` / `LOCAL_MCP_PORT` / `LOCAL_MCP_TRANSPORT` | `127.0.0.1` / `8765` / `sse` | Used **by** the server in service mode (`./elpis start`: `streamable-http`) |
 
-| `LOCAL_MCP_TOKEN` | — | Jeton de **service** de l'app (Bearer, **vérifié** côté serveur sur SSE/HTTP) ; `./elpis configure` le génère dans `user_db/.local_mcp_token` |
-| `LOCAL_MCP_CLIENT_TOKENS` | — | Jetons de **clients externes** configurés à la main, chacun lié à un compte : `tok1:alice,tok2:bob` (toutes les familles) |
-| `LOCAL_MCP_TOOL_FAMILIES` | `all` | Familles enregistrées : `fs,shell,git` ou `all,-desktop,-browser` |
-| `MCP_TOOL_MAX_CONCURRENT` | `48` | Appels d'outils simultanés sur le service, tous comptes confondus (`0` = sans plafond) |
-| `MCP_TOOL_MAX_CONCURRENT_PER_USER` | `12` | Appels simultanés d'un même compte (`0` = sans plafond) ; un appel sans identité ne compte que dans le total |
-| `MCP_TOOL_QUEUE_WAIT_S` | `30` | Attente maximale d'une place ; au-delà (ou file pleine : deux fois le plafond total, et pas plus d'appels en attente par compte que son plafond) l'outil répond par une erreur lisible par le modèle. Courte exprès : un appel abandonné par l'app (Stop) mais encore en file s'exécuterait à sa place |
-| `MCP_TOOL_THREADS` | `64` | Threads du service pour les outils synchrones et ses routes HTTP (défaut anyio : 40) ; garder 8 threads de plus que `MCP_TOOL_MAX_CONCURRENT` |
-| `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Outils par page de `tools/list` (pagination par `cursor`) |
-| `LOCAL_MCP_ALLOWED_ORIGINS` | *(vide)* | Origines de navigateur autorisées en plus de `mcp.allowed_origins` et `app.cors_origins` (séparées par des virgules, `scheme://hôte:*` accepté) |
-| `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Familles **publiées** à opencode, une **entrée MCP (= une bascule) par famille** → `…/mcp/<famille>`. Liste d'inclusion : une famille ajoutée plus tard doit être nommée pour apparaître |
-| `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,office,skill_run` | Familles **toujours refusées** aux clients opencode (jeton elpis-remote `pcr_…`, accepté en Bearer) — opencode a ses propres outils fichiers/shell ; ces familles agissent sur la sandbox de l'hôte |
-| `LOCAL_MCP_PUBLIC_URL` | — | URL du service telle que les postes la joignent (bloc `mcp` d'`opencode.json`) ; vide → hôte de l'app + `LOCAL_MCP_PORT` |
-| `TOOL_TEXT_BUDGET` / `TOOL_LIST_BUDGET` | `6000` / `50` | Budgets de sortie des outils (caractères d'un texte / éléments d'une liste paginée) |
+| `LOCAL_MCP_TOKEN` | — | App **service** token (Bearer, **verified** on the server side over SSE/HTTP); `./elpis configure` generates it in `user_db/.local_mcp_token` |
+| `LOCAL_MCP_CLIENT_TOKENS` | — | Tokens of **external clients** configured by hand, each tied to an account: `tok1:alice,tok2:bob` (all families) |
+| `LOCAL_MCP_TOOL_FAMILIES` | `all` | Registered families: `fs,shell,git` or `all,-desktop,-browser` |
+| `MCP_TOOL_MAX_CONCURRENT` | `48` | Simultaneous tool calls on the service, all accounts combined (`0` = no cap) |
+| `MCP_TOOL_MAX_CONCURRENT_PER_USER` | `12` | Simultaneous calls of a single account (`0` = no cap); a call with no identity counts only in the total |
+| `MCP_TOOL_QUEUE_WAIT_S` | `30` | Maximum wait for a slot; beyond it (or with a full queue: twice the total cap, and no more waiting calls per account than its cap) the tool answers with an error the model can read. Short on purpose: a call abandoned by the app (Stop) but still queued would run in its place |
+| `MCP_TOOL_THREADS` | `64` | Service threads for synchronous tools and its HTTP routes (anyio default: 40); keep 8 more threads than `MCP_TOOL_MAX_CONCURRENT` |
+| `LOCAL_MCP_LIST_PAGE_SIZE` | `100` | Tools per `tools/list` page (pagination by `cursor`) |
+| `LOCAL_MCP_ALLOWED_ORIGINS` | *(empty)* | Browser origins allowed in addition to `mcp.allowed_origins` and `app.cors_origins` (comma-separated, `scheme://host:*` accepted) |
+| `LOCAL_MCP_OPENCODE_FAMILIES` | `git,browser,desktop` | Families **published** to opencode, one **MCP entry (= one toggle) per family** → `…/mcp/<family>`. Inclusion list: a family added later must be named to appear |
+| `LOCAL_MCP_OPENCODE_EXCLUDE_FAMILIES` | `fs,shell,office,skill_run` | Families **always refused** to opencode clients (elpis-remote token `pcr_…`, accepted as Bearer) — opencode has its own file/shell tools; these families act on the host's sandbox |
+| `LOCAL_MCP_PUBLIC_URL` | — | Service URL as workstations reach it (`mcp` block of `opencode.json`); empty → app host + `LOCAL_MCP_PORT` |
+| `TOOL_TEXT_BUDGET` / `TOOL_LIST_BUDGET` | `6000` / `50` | Tool output budgets (characters of a text / items of a paginated list) |
 
-> **Auth MCP.** Dès qu'un jeton est configuré, le service partagé
-> exige `Authorization: Bearer …` (FastMCP `StaticTokenVerifier`). Le jeton de
-> service laisse le `meta` (username/chat_id) faire autorité ; un jeton client
-> impose l'identité du compte qui lui est lié. **Sans aucun jeton, le serveur
-> refuse de se lier hors loopback.** Clients externes (opencode : `type: "remote"`,
-> URL `…/mcp`, en-tête Bearer).
+> **MCP auth.** As soon as a token is configured, the shared service
+> requires `Authorization: Bearer …` (FastMCP `StaticTokenVerifier`). The service
+> token lets the `meta` (username/chat_id) be authoritative; a client token
+> imposes the identity of the account tied to it. **With no token at all, the server
+> refuses to bind off loopback.** External clients (opencode: `type: "remote"`,
+> URL `…/mcp`, Bearer header).
 
-#### Services satellites
+#### Satellite services
 
-| Variable | Défaut | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Service navigateur (côté app) |
-| `FIREFOX_SERVICE_PORT` | `3000` | Port d'écoute du service navigateur |
-| `PW_STATE_MAX_AGE_D` | `30` | Jours de conservation d'un état sauvegardé du navigateur (`save_state`) après son enregistrement ou son rattachement, même s'il sert ; `0` = jamais supprimé. Lu au démarrage du service navigateur (`.env`). Les états d'avant la 0.0.1, sans compte, ne sont jamais purgés : voir [exploitation.md](exploitation.md#mettre-à-jour) |
-| `PW_ARTIFACT_MAX_AGE_H` | `24` | Heures de conservation des téléchargements, HAR, vidéos et traces du navigateur ; `0` = jamais supprimés |
-| `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Options Playwright |
-| `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Endpoint d'annotation visuelle |
-| `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, prompt d'annotation |
-| `APP_DESKTOP_*` | voir `config.py` | Agents de contrôle : timeouts, scope d'observation, format de capture, plafonds |
-| `DESKTOP_AGENT_TOKEN` | — | Jeton envoyé aux agents de bureau (`Authorization: Bearer`) quand la machine n'a pas son propre `agent_token` (`desktop.targets[].agent_token`, Console › Connexions › Machines, rechargé à chaud). Côté machine pilotée : `DESKTOP_AGENT_TOKEN` ou `agent_token.txt`, généré par l'installation de l'agent ; sans jeton ni fichier, l'agent génère `agent_token.txt` au démarrage et écrit le jeton dans son journal ; `DESKTOP_AGENT_INSECURE=1` le fait démarrer sans jeton. Le jeton est visible des administrateurs dans la console (champ masqué à la saisie seulement) |
-| `OPENCODE_DIST_DIR` | `cli_dist/` | Binaires OpenCode servis sur le LAN |
+| `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Browser service (app side) |
+| `FIREFOX_SERVICE_PORT` | `3000` | Browser service listening port |
+| `PW_STATE_MAX_AGE_D` | `30` | Days to keep a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read at browser service startup (`.env`). States from before 0.0.1, with no account, are never purged: see [operations.md](operations.md#upgrading) |
+| `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours to keep browser downloads, HAR files, videos and traces; `0` = never deleted |
+| `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Playwright options |
+| `APP_VISION_ENDPOINT_URL` / `APP_VISION_FORMAT` / `APP_VISION_MODEL` | — / `omniparser` / — | Visual annotation endpoint |
+| `APP_VISION_PASSES` / `APP_VISION_TIMEOUT_SEC` / `APP_VISION_PROMPT` | `2` (1-3) / `30` (5-300) / — | Passes, timeout, annotation prompt |
+| `APP_DESKTOP_*` | see `config.py` | Control agents: timeouts, observation scope, capture format, caps |
+| `DESKTOP_AGENT_TOKEN` | — | Token sent to desktop agents (`Authorization: Bearer`) when the machine has no `agent_token` of its own (`desktop.targets[].agent_token`, Admin console › Vision & machines, reloaded live). On the controlled machine: `DESKTOP_AGENT_TOKEN` or `agent_token.txt`, generated by the agent installation; with no token or file, the agent generates `agent_token.txt` at startup and writes the token in its log; `DESKTOP_AGENT_INSECURE=1` makes it start without a token. Administrators can see the token in the console (field masked at input only) |
+| `OPENCODE_DIST_DIR` | `cli_dist/` | OpenCode binaries served on the LAN |
 
-#### Résilience et verrous
+#### Resilience and locks
 
-| Variable | Défaut | Description |
+| Variable | Default | Description |
 |---|---|---|
-| `LLM_BREAKER` | `1` | Disjoncteur LLM (`0` = désactivé) |
-| `LLM_BREAKER_FAILS` | `5` | Échecs transport consécutifs avant ouverture |
-| `LLM_BREAKER_COOLDOWN_S` | `15` | Durée du fail-fast |
-| `SKILLS_FILELOCK` | `1` | Verrou de fichier entre processus (`elpis.verrou.v1.1`) des écritures skills |
-| `ROUTINES_PER_USER_CAP` | `5` | Runs simultanés par utilisateur |
-| `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Reprise bornée d'un run |
-| `PTY_MAX_PER_USER` | dérivé | Terminaux par utilisateur |
+| `LLM_BREAKER` | `1` | LLM circuit breaker (`0` = disabled) |
+| `LLM_BREAKER_FAILS` | `5` | Consecutive transport failures before opening |
+| `LLM_BREAKER_COOLDOWN_S` | `15` | Fail-fast duration |
+| `SKILLS_FILELOCK` | `1` | Cross-process file lock (`elpis.verrou.v1.1`) for skill writes |
+| `ROUTINES_PER_USER_CAP` | `5` | Simultaneous runs per user |
+| `ROUTINES_RUN_MAX_ATTEMPTS` / `_RETRY_BACKOFF_S` | `2` / `3.0` | Bounded retry of a run |
+| `PTY_MAX_PER_USER` | derived | Terminals per user |
 
-### Navigateur piloté : destinations autorisées
+### Controlled browser: allowed destinations
 
-Le service navigateur (`browser-service/`, outils `pw_*`) ne joint que des
-adresses `http` et `https` (plus `about:blank`). Tout son trafic — navigation,
-redirections, sous-ressources, WebSocket — passe par un relais local qui
-résout lui-même chaque nom et ne se connecte qu'à l'adresse qu'il a jugée.
-Sont refusés : la boucle locale, le lien-local (dont les adresses de
-métadonnées), les adresses propres à l'hôte Elpis et les réseaux de
-conteneurs. Le réseau local est autorisé par défaut (intranet). Liste
-blanche facultative, relue à chaud : `browser.url_allowlist` dans
-`config.json` (ou `BROWSER_URL_ALLOWLIST`, séparée par des virgules ou des
-espaces) — hôtes exacts, `*.domaine`, adresses IP ou blocs CIDR ; posée, elle
-restreint le RÉSEAU LOCAL aux hôtes et réseaux qu'elle nomme (les
-destinations publiques restent joignables, les refus ci-dessus restent
-absolus). Les sessions, états sauvegardés,
-téléchargements et références visuelles sont rangés par compte ; au plus 3
-sessions par propriétaire (`BROWSER_MAX_SESSIONS_PER_OWNER`), au plus 4 pour un compte et
-ses sous-agents ensemble (`BROWSER_MAX_SESSIONS_PER_GROUP`, jamais en dessous du quota par
-propriétaire), 10 en tout pour les comptes (`BROWSER_MAX_SESSIONS`) et, à part, 6 en tout pour les
-sous-agents (`BROWSER_MAX_CHILD_SESSIONS`) : un sous-agent ne prend jamais la place d'un compte ;
-une nouvelle session ne ferme jamais
-celle d'un autre compte, ni la session du compte ou d'un frère quand c'est un sous-agent
-qui la demande. Chaque sous-agent `task` qui pilote le navigateur a sa session privée, qui
-compte dans le quota de groupe de son compte, dont une place reste à la session du chat :
-avec le chat et les trois agents `web` que `agents.max_parallel` lance par défaut, les
-quatre places suffisent. Au quota, le démarrage est refusé par l'erreur `browser_quota` (avec
-son `fix`, lisible par le modèle), et le lancement d'un agent `web` l'est avant même qu'il
-essaie (`task_unavailable`). Relevez `BROWSER_MAX_SESSIONS_PER_GROUP` (agents en parallèle
-+ 1 pour la session du chat) si vous montez `agents.max_parallel`, et `BROWSER_MAX_CHILD_SESSIONS`
-si plusieurs comptes lancent des agents `web` en parallèle.
-Redémarrez le service avec le core. Un service ou un hôte d'outils plus ancien que le
-core ne connaît pas le quota par groupe (chaque enfant compte à part) ni la
-fermeture sûre des sessions d'un enfant : mettez-les à jour ensemble.
+The browser service (`browser-service/`, `pw_*` tools) reaches only
+`http` and `https` addresses (plus `about:blank`). All its traffic — navigation,
+redirects, subresources, WebSocket — goes through a local relay that
+resolves each name itself and connects only to the address it has judged.
+Refused: loopback, link-local (including metadata
+addresses), addresses belonging to the Elpis host, and container
+networks. The local network is allowed by default (intranet). Optional
+allowlist, re-read live: `browser.url_allowlist` in
+`config.json` (or `BROWSER_URL_ALLOWLIST`, separated by commas or
+spaces) — exact hosts, `*.domain`, IP addresses or CIDR blocks; when set, it
+restricts the LOCAL NETWORK to the hosts and networks it names (public
+destinations stay reachable, and the refusals above stay
+absolute). Sessions, saved states,
+downloads and visual references are filed per account; at most 3
+sessions per owner (`BROWSER_MAX_SESSIONS_PER_OWNER`), at most 4 for an account and
+its subagents together (`BROWSER_MAX_SESSIONS_PER_GROUP`, never below the per-owner
+quota), 10 in all for accounts (`BROWSER_MAX_SESSIONS`) and, separately, 6 in all for
+subagents (`BROWSER_MAX_CHILD_SESSIONS`): a subagent never takes an account's place;
+a new session never closes
+another account's session, nor the account's or a sibling's session when a subagent
+is the one asking. Each `task` subagent that drives the browser has its own private session, which
+counts toward its account's group quota, with one place left for the chat's session:
+with the chat and the three `web` agents that `agents.max_parallel` launches by default, the
+four places are enough. At the quota, startup is refused with the error `browser_quota` (with
+its `fix`, readable by the model), and the launch of a `web` agent is refused even before it
+tries (`task_unavailable`). Raise `BROWSER_MAX_SESSIONS_PER_GROUP` (parallel agents
++ 1 for the chat's session) if you raise `agents.max_parallel`, and `BROWSER_MAX_CHILD_SESSIONS`
+if several accounts launch `web` agents in parallel.
+Restart the service together with the core. A service or tool host older than the
+core does not know the group quota (each child counts separately) or the
+safe closing of a child's sessions: upgrade them together.
 
-⚠ **Mise à jour** : une automatisation qui naviguait vers `localhost`,
-l'adresse de l'hôte ou un conteneur local est désormais refusée.
+⚠ **Upgrade**: an automation that navigated to `localhost`,
+the host's address or a local container is now refused.
 
-### Génération d'images
+### Image generation
 
-Un seul moteur, réglé dans Console › Modèles & services › Images
-(`config.json › image`, relu à chaud) :
+A single engine, set in Admin console › Models & services › Images
+(`config.json › image`, re-read live):
 
-| Moteur | API | File et arrêt |
+| Engine | API | Queue and stop |
 |---|---|---|
-| `sdcpp` | `sd-server` de stable-diffusion.cpp, `/sdcpp/v1` (`capabilities`, `img_gen`, `jobs/{id}`) | file de sd-server, position affichée ; Stop annule un job en file, un job déjà lancé est abandonné et son résultat ignoré |
-| `openai` | `POST /v1/images/generations` et `/v1/images/edits` (LocalAI, sd-server en dialecte OpenAI, gpt-image…) | `max_concurrent` générations à la fois, tous workers confondus (verrous fichier dans le répertoire d'exécution) |
+| `sdcpp` | stable-diffusion.cpp `sd-server`, `/sdcpp/v1` (`capabilities`, `img_gen`, `jobs/{id}`) | sd-server queue, position displayed; Stop cancels a queued job, a job already started is abandoned and its result ignored |
+| `openai` | `POST /v1/images/generations` and `/v1/images/edits` (LocalAI, sd-server in OpenAI dialect, gpt-image…) | `max_concurrent` generations at a time, all workers combined (file locks in the run directory) |
 
-- **Un modèle par processus** côté sd-server : changer de modèle, c'est
-  changer d'adresse. « Tester » lit les limites annoncées (`capabilities`).
-- **Tailles** : `free` = largeur × hauteur au multiple de 64, plus grand côté
-  ≤ `max_side` ; `fixed` = liste fermée `sizes` (modèles OpenAI, défaut
-  1024x1024, 1536x1024, 1024x1536). sd-server est toujours en `free`, et
-  `max_concurrent` ne vaut que pour un service OpenAI.
-- **TLS** : magasin de certificats du système, plus l'autorité collée dans
-  `ca_pem` (PKI interne). `verify: false` ne sert qu'aux essais.
-- **Clé API** : chiffrée (Fernet) dans `api_key_enc`, écrite par
-  `PUT /api/admin/image/key`, jamais renvoyée. Elle est liée à l'adresse du
-  moteur (schéma, hôte et port) : après un changement d'adresse vers une
-  autre machine, ressaisissez-la (la console l'indique). Un test vers une
-  autre adresse n'utilise que la clé saisie dans le formulaire.
-- **Accès** : `enabled` et une adresse ; `groups` (ids, vide = tout le monde,
-  administrateurs toujours autorisés) est vérifié à chaque tour et à chaque
-  appel de l'outil `generate_image`. Chaque compte peut ensuite couper
-  « Images » et « Images par le modèle » dans ses Paramètres.
-- **Outil du modèle** : au plus `tool_max_calls` appels et `max_n` images par
-  tour, refusé en mode plan.
-- **Stockage** : `user_db/generated_images/<compte>/` (dossier de la base),
-  chemins relatifs en base, vignettes WebP ; les `keep_per_user` images les
-  plus récentes de chaque compte sont gardées (jamais moins que le lot qui
-  vient d'être produit). Supprimer une conversation ou un compte supprime ses
-  images ; les images d'une session éphémère sont gardées un jour. La
-  maintenance quotidienne balaie les fichiers orphelins, les lignes dont le
-  fichier a disparu, et applique la rétention à tous les comptes. Les images
-  sont comprises dans `./elpis backup` (portées `full` et `db`), avec
-  `user_db/` ou à part si la base est ailleurs.
-- ⚠ **Plusieurs hôtes** sur une même base PostgreSQL : chaque fichier
-  reste sur l'hôte qui l'a écrit.
+- **One model per process** on the sd-server side: changing the model means
+  changing the address. "Test" reads the announced limits (`capabilities`).
+- **Sizes**: `free` = width × height in multiples of 64, longest side
+  ≤ `max_side`; `fixed` = closed `sizes` list (OpenAI models, default
+  1024x1024, 1536x1024, 1024x1536). sd-server is always `free`, and
+  `max_concurrent` applies only to an OpenAI service.
+- **TLS**: system certificate store, plus the authority pasted into
+  `ca_pem` (internal PKI). `verify: false` is for testing only.
+- **API key**: encrypted (Fernet) in `api_key_enc`, written by
+  `PUT /api/admin/image/key`, never sent back. It is tied to the engine's
+  address (scheme, host and port): after changing the address to
+  another machine, enter it again (the console says so). A test against
+  another address uses only the key entered in the form.
+- **Access**: `enabled` and an address; `groups` (ids, empty = everyone,
+  administrators always allowed) is checked on every turn and on every
+  call of the `generate_image` tool. Each account can then turn off
+  "Images" and "Images by the model" in its Settings.
+- **Model tool**: at most `tool_max_calls` calls and `max_n` images per
+  turn, refused in plan mode.
+- **Storage**: `user_db/generated_images/<account>/` (database folder),
+  relative paths in the database, WebP thumbnails; the `keep_per_user` most
+  recent images of each account are kept (never fewer than the batch just
+  produced). Deleting a conversation or an account deletes its
+  images; images from an ephemeral session are kept for one day. Daily
+  maintenance sweeps orphan files and rows whose
+  file is gone, and applies retention to all accounts. Images
+  are included in `./elpis backup` (scopes `full` and `db`), with
+  `user_db/` or separately if the database is elsewhere.
+- ⚠ **Several hosts** on the same PostgreSQL database: each file
+  stays on the host that wrote it.
 
-### `context_config.json` — textes injectés au LLM
+### `context_config.json` — text injected into the LLM
 
-Objectif : **aucun texte destiné au modèle ne doit être un littéral Python
-figé**. `shared_infra/context_config.json` centralise préfixes, en-têtes,
-séparateurs, catalogue d'erreurs et budgets. Chargé une fois au boot.
+Goal: **no text meant for the model should be a frozen Python
+literal**. `shared_infra/context_config.json` centralizes prefixes, headers,
+separators, error catalog and budgets. Loaded once at boot.
 
-Conventions :
+Conventions:
 
 ```jsonc
-"clé": ""                    // vide → l'appelant garde son fallback (comportement historique)
-"clé": {"file": "x.md"}      // contenu lu au boot
-"clé": {"inline": "..."}     // texte inline
-"clé": "texte"               // texte direct
-// clé absente               → fallback de l'appelant
+"key": ""                    // empty → the caller keeps its fallback (historical behavior)
+"key": {"file": "x.md"}      // content read at boot
+"key": {"inline": "..."}     // inline text
+"key": "text"                // direct text
+// key missing               → caller's fallback
 ```
 
-Sections : `budgets`, `tools.<nom>.enabled` (kill-switch par outil),
+Sections: `budgets`, `tools.<name>.enabled` (per-tool kill switch),
 `system_prompt`, `assembly`, `skills`, `memory`, `compression`, `context`,
-`vision`, `result_formatting`, `model_profiles`, `errors` (surcharge
-`message`/`fix` par code d'erreur d'outil).
+`vision`, `result_formatting`, `model_profiles`, `errors` (overrides
+`message`/`fix` per tool error code).
 
-> ⚠️ `tool_gating.gated` (masquage de catégories par mots-clés) est **inerte** :
-> son unique appelant ne passe jamais `keywords_text`, parce qu'un jeu d'outils
-> variant au fil des messages invaliderait le prefix-cache KV. La fonction est
-> testée mais non branchée ; un avertissement est émis au boot si la map est non
-> vide. Seul `tools.<nom>.enabled` est câblé.
+> ⚠️ `tool_gating.gated` (hiding categories by keywords) is **inert**:
+> its only caller never passes `keywords_text`, because a tool set
+> varying from message to message would invalidate the KV prefix cache. The function is
+> tested but not wired; a warning is emitted at boot if the map is not
+> empty. Only `tools.<name>.enabled` is wired.
 
-### Priorité de résolution et hot-reload
+### Resolution priority and hot reload
 
-1. Variable d'environnement (si définie et **non vide**)
-2. Valeur dans `config.json`
-3. Défaut codé dans `config.py`
+1. Environment variable (if set and **non-empty**)
+2. Value in `config.json`
+3. Default coded in `config.py`
 
-Les chemins relatifs sont résolus depuis `PROJECT_ROOT`.
+Relative paths are resolved from `PROJECT_ROOT`.
 
-**Trois classes de réglages**, à ne pas confondre :
+**Three classes of settings**, not to be confused:
 
-| Classe | Mécanisme | Exemples |
+| Class | Mechanism | Examples |
 |---|---|---|
-| **Figé à l'import** | Constante module-level de `config.py` | Budgets de sous-agents, timeouts LLM, limites de skills |
-| **Relu à chaque appel** | Helper qui lit le fichier | `feature_enabled()`, `https_enabled()`, `https_ports()`, `session_cookie_attrs()`, `max_recent_chats()`, `live_config_value()` |
-| **Hot-reload avec cache mtime** | `reload_*_from_disk()` | `COMPRESSION_*`/`PRUNE_*`, `VISION_*`/`DESKTOP_*`, `MEMORY_*` |
+| **Frozen at import** | Module-level constant of `config.py` | Subagent budgets, LLM timeouts, skill limits |
+| **Re-read on every call** | Helper that reads the file | `feature_enabled()`, `https_enabled()`, `https_ports()`, `session_cookie_attrs()`, `max_recent_chats()`, `live_config_value()` |
+| **Hot reload with mtime cache** | `reload_*_from_disk()` | `COMPRESSION_*`/`PRUNE_*`, `VISION_*`/`DESKTOP_*`, `MEMORY_*` |
 
-> ⚠️ **Piège multi-worker.** Muter une constante module-level depuis un endpoint
-> admin ne change l'état que du worker qui a reçu le POST. Pour tout réglage
-> modifiable depuis l'admin et lu en cours d'exécution, utiliser
-> `live_config_value()` (source de vérité = le fichier) ou un
+> ⚠️ **Multi-worker trap.** Mutating a module-level constant from an admin
+> endpoint changes the state only of the worker that received the POST. For any setting
+> editable from the admin and read at runtime, use
+> `live_config_value()` (source of truth = the file) or a
 > `reload_*_from_disk()`.
 
-[↑ Sommaire](#sommaire)
+[↑ Contents](#contents)
 
 ---
 
-## Multi-process : séparation main / admin
+## Multi-process: main / admin split
 
 | Aspect | main (8001) | admin (8002) |
 |---|---|---|
-| Routes montées | Tout sauf `/api/admin/*` et `/admin` | `/api/admin/*`, auth, system-events, public-config, changement de mot de passe, `/admin` |
-| User Linux | non privilégié | non privilégié, jamais root |
-| Surface HTTP | large | réduite |
-| Schedulers | routines, maintenance, sauvegardes, sampler | sampler uniquement |
-| Prewarm MCP | oui | non (première ouverture d'onglet paie ~500 ms) |
-| Cookie | scopé HOST — valide sur les deux ports | idem |
+| Mounted routes | Everything except `/api/admin/*` and `/admin` | `/api/admin/*`, auth, system-events, public-config, password change, `/admin` |
+| Linux user | unprivileged | unprivileged, never root |
+| HTTP surface | large | reduced |
+| Schedulers | routines, maintenance, backups, sampler | sampler only |
+| MCP prewarm | yes | no (the first tab opening pays ~500 ms) |
+| Cookie | HOST-scoped — valid on both ports | same |
 
-Le core monte ses familles de routes selon `APP_MODE` (absent ou invalide :
-`main`). L'isolation est faite **au montage** : en `APP_MODE=main`, les routes
-d'administration n'entrent jamais dans la table de routage.
+The core mounts its route families according to `APP_MODE` (missing or invalid:
+`main`). Isolation happens **at mount time**: with `APP_MODE=main`, the
+administration routes never enter the routing table.
 
-Les cookies étant scopés HOST (pas port), une session créée sur `:8001` vaut sur
-`:8002` — à condition que les deux process partagent `APP_SESSION_SECRET`.
+Since cookies are HOST-scoped (not port-scoped), a session created on `:8001` is valid on
+`:8002` — provided both processes share `APP_SESSION_SECRET`.
 
-Le bouton « Admin » du front redirige vers `ADMIN_PUBLIC_URL` ; « Quitter
-l'admin » vers `MAIN_PUBLIC_URL` (lus depuis `/api/public-config`, avec
-réécriture automatique des `localhost` pour un client distant).
-
----
-
-## Process du core
-
-Le core TypeScript tourne en **un process par mode** (`apps/core/dist/main.mjs` :
-`APP_MODE=main` sur 8001, `APP_MODE=admin` sur 8002), sans workers : les confs
-Gunicorn et `uvicorn_worker.py` sont retirées avec le Python du core.
-`SIGTERM`, `SIGINT` et `SIGHUP` déclenchent un arrêt gracieux (générations en
-cours jusqu'à 300 s) ; après un `SIGHUP`, le process sort en 75 pour être
-relancé par `./elpis` ou systemd. L'adresse d'écoute suit la règle d'[Écoute](#écoute-securitylisten)
-(`BIND` prioritaire).
+The front end's "Admin" button redirects to `ADMIN_PUBLIC_URL`; "Back to chat"
+goes to `MAIN_PUBLIC_URL` (read from `/api/public-config`, with
+automatic rewriting of `localhost` for a remote client).
 
 ---
 
-## HTTPS : frontal Caddy
+## Core processes
 
-Voir [`deploy/caddy/README.md`](../deploy/caddy/README.md) pour le détail.
+The TypeScript core runs as **one process per mode** (`apps/core/dist/main.mjs`:
+`APP_MODE=main` on 8001, `APP_MODE=admin` on 8002), without workers: the
+Gunicorn configs and `uvicorn_worker.py` were removed along with the core's Python.
+`SIGTERM`, `SIGINT` and `SIGHUP` trigger a graceful shutdown (generations in
+progress up to 300 s); after a `SIGHUP`, the process exits with 75 to be
+restarted by `./elpis` or systemd. The listening address follows the rule in [Listening](#listening-securitylisten)
+(`BIND` takes precedence).
+
+---
+
+## HTTPS: Caddy front end
+
+See [`deploy/caddy/README.md`](../deploy/caddy/README.md) for details.
 
 ```
-navigateur ──https──▶ Caddy (même hôte, catch-all) ──http 127.0.0.1──▶ services
+browser ──https──▶ Caddy (same host, catch-all) ──http 127.0.0.1──▶ services
    :443  ────────────────────────────────────────▶ 127.0.0.1:8001  (main)
    :8443 ────────────────────────────────────────▶ 127.0.0.1:8002  (admin)
-   :80   ─ redirige 302 vers https + sert /ca.crt
-         └ EXCEPTION @bootstrap : installeurs servis EN CLAIR ─▶ :8001
+   :80   ─ redirects 302 to https + serves /ca.crt
+         └ EXCEPTION @bootstrap: installers served IN CLEAR ─▶ :8001
 ```
 
-Points de conception :
+Design points:
 
-- **PKI openssl stable 10 ans**, pas `tls internal` de Caddy (qui fait tourner
-  ses certs toutes les 12 h → l'avertissement navigateur reviendrait sans cesse).
-- **Sites catch-all** : n'importe quelle IP/nom joignant la machine fonctionne.
-  Main et admin partagent le hostname (ports différents) → le cookie host-scopé
-  reste partagé.
-- Caddy tourne **en permanence** ; la bascule HTTPS ↔ HTTP direct se fait depuis
-  la console admin, qui écrit `security.https.enabled` puis redémarre le core
-  (`SIGHUP`, relance par `./elpis` ou systemd), qui relit le flag au démarrage. Une **garde
-  anti-lockout** sonde les ports avant de couper l'accès direct.
-- `@bootstrap` : les routes d'installation restent en clair sur `:80` — la
-  machine cible ne connaît pas encore la CA. Voir
-  [Distribution CLI](architecture.md#distribution-cli--opencode-lan).
+- **Stable 10-year openssl PKI**, not Caddy's `tls internal` (which rotates
+  its certs every 12 h → the browser warning would keep coming back).
+- **Catch-all sites**: any IP/name reaching the machine works.
+  Main and admin share the hostname (different ports) → the host-scoped cookie
+  stays shared.
+- Caddy runs **permanently**; switching HTTPS ↔ direct HTTP is done from
+  the admin console, which writes `security.https.enabled` then restarts the core
+  (`SIGHUP`, restart by `./elpis` or systemd), which re-reads the flag at startup. An **anti-lockout
+  guard** probes the ports before cutting off direct access.
+- `@bootstrap`: the install routes stay in clear text on `:80` — the
+  target machine does not know the CA yet. See
+  [CLI distribution](architecture.md#cli-distribution--opencode-lan).
 
-### `security.https` appartient au toggle, à personne d'autre
+### `security.https` belongs to the toggle, and to no one else
 
-Le bind (`127.0.0.1` en mode HTTPS) est l'unique barrière : `security.https`,
-`session.https_only` et `session.global_min_ts` appartiennent à leur endpoint,
-et l'éditeur « Config principale » ne les réécrit jamais
-(`apps/core/src/admin/config.ts › OWNED_PATHS`), sans quoi une copie
-périmée du formulaire rouvrirait le bind public au redémarrage suivant.
+The bind (`127.0.0.1` in HTTPS mode) is the only barrier: `security.https`,
+`session.https_only` and `session.global_min_ts` belong to their endpoint,
+and the "Main config" editor never rewrites them
+(`apps/core/src/admin/config.ts › OWNED_PATHS`), otherwise a stale
+copy of the form would reopen the public bind at the next restart.
 
-À savoir :
+Worth knowing:
 
-- On **n'active pas** le HTTPS depuis l'éditeur brut — seul le toggle sonde
-  Caddy avant d'écrire (garde anti-lockout).
-- L'**extracteur du RAG (`:8000`)** n'a pas de site Caddy : il écoute sur
-  `127.0.0.1` quel que soit le toggle (`RAG_HOST` pour un core sur une autre
-  machine). Après une mise à jour, `sudo deploy/caddy/install_caddy.sh` retire
-  l'ancien site `:8444`.
+- You **do not enable** HTTPS from the raw editor — only the toggle probes
+  Caddy before writing (anti-lockout guard).
+- The **RAG extractor (`:8000`)** has no Caddy site: it listens on
+  `127.0.0.1` whatever the toggle says (`RAG_HOST` for a core on another
+  machine). After an upgrade, `sudo deploy/caddy/install_caddy.sh` removes
+  the old `:8444` site.
 
 ---
 
-## Tracing et debug multi-utilisateur
+## Tracing and multi-user debugging
 
-Chaque requête LLM reçoit un identifiant tracé `[LLM_REQ xxxxxxxx]`.
+Each LLM request gets a traced identifier `[LLM_REQ xxxxxxxx]`.
 
-| Événement | Format |
+| Event | Format |
 |---|---|
-| Début (chat simple) | `[LLM_REQ a1b2c3d4] START user='alice' model='GLM-4.7' thinking=… msgs=12 prompt_chars=3421 …` |
-| Début (appel outillé) | `[LLM_REQ a1b2c3d4] START_TOOLS user='alice' model='GLM-4.7' n_tools=15 msgs=12 prompt_chars=…` |
-| Slot | `[LLM_REQ a1b2c3d4] SLOT=2 assigné (user='alice')` (si le serveur expose `id_slot`) |
-| Fin (chat simple) | `[LLM_REQ a1b2c3d4] END user='alice' content_chars=… thinking_chars=… in_tok=1849 out_tok=425 resumes=0` |
-| Fin (appel outillé) | `[LLM_REQ a1b2c3d4] END_TOOLS user='alice' n_tool_calls=2 content_chars=… in_tok=… out_tok=… finish=tool_calls` |
-| Échec d'une tentative | `[LLM_REQ a1b2c3d4] attempt=1 failed: …` |
-| Annulation | `[LLM_REQ a1b2c3d4] CANCEL mid-stream → fermeture stream` |
+| Start (plain chat) | `[LLM_REQ a1b2c3d4] START user='alice' model='GLM-4.7' thinking=… msgs=12 prompt_chars=3421 …` |
+| Start (tool call) | `[LLM_REQ a1b2c3d4] START_TOOLS user='alice' model='GLM-4.7' n_tools=15 msgs=12 prompt_chars=…` |
+| Slot | `[LLM_REQ a1b2c3d4] SLOT=2 assigné (user='alice')` (if the server exposes `id_slot`) |
+| End (plain chat) | `[LLM_REQ a1b2c3d4] END user='alice' content_chars=… thinking_chars=… in_tok=1849 out_tok=425 resumes=0` |
+| End (tool call) | `[LLM_REQ a1b2c3d4] END_TOOLS user='alice' n_tool_calls=2 content_chars=… in_tok=… out_tok=… finish=tool_calls` |
+| Failed attempt | `[LLM_REQ a1b2c3d4] attempt=1 failed: …` |
+| Cancellation | `[LLM_REQ a1b2c3d4] CANCEL mid-stream → fermeture stream` |
 
-`stream_options.include_usage: true` est ajouté automatiquement aux requêtes
-streaming — sans quoi `in_tok`/`out_tok` restent à 0.
+`stream_options.include_usage: true` is added automatically to streaming
+requests — without it, `in_tok`/`out_tok` stay at 0. (The log lines are printed in French as shown: `assigné`, `fermeture stream`.)
 
 ```bash
-./elpis logs main -f | grep a1b2c3d4         # une requête
-./elpis logs main -f | grep "user='alice'"   # un utilisateur
+./elpis logs main -f | grep a1b2c3d4         # one request
+./elpis logs main -f | grep "user='alice'"   # one user
 ```
 
-**Trafic LLM.** Si `llm.debug.enabled` (défaut `true`), chaque échange
-app ↔ moteur (requête + réponse, hors thinking) est journalisé dans la table
-`llm_calls` (ring borné, payloads plafonnés) et consultable par l'API
-d'administration (`GET /api/admin/llm-traffic`) ; la console n'a pas de vue
-dédiée.
+**LLM traffic.** If `llm.debug.enabled` (default `true`), every app ↔ engine
+exchange (request + response, thinking excluded) is logged in the
+`llm_calls` table (bounded ring, capped payloads) and can be viewed through the
+administration API (`GET /api/admin/llm-traffic`); the console has no dedicated
+view.
 
-**Journaux en direct.** Console admin → 300 dernières entrées (ring buffer
-serveur) puis flux SSE. `GET /api/admin/logs/recent` + `GET /api/system-events`.
+**Live logs.** Admin console → Monitoring → Logs: last 300 entries (server
+ring buffer) then an SSE stream. `GET /api/admin/logs/recent` + `GET /api/system-events`.
 
-[↑ Sommaire](#sommaire)
+[↑ Contents](#contents)
 
 ---

@@ -367,7 +367,7 @@ def launch_advice(engine: str, key: bool = False) -> List[str]:
     flags = LAUNCH_FLAGS.get(engine)
     if not flags:
         return []
-    lines = [f"{ENGINES[engine]} : drapeaux de lancement conseillés (docs/configuration.md, « Moteur d'inférence déclaré »)"]
+    lines = [f"{ENGINES[engine]} : drapeaux de lancement conseillés (docs/configuration.md, « Declared inference engine »)"]
     for what, opt, detail in flags:
         lines.append(f"  {what:<16}{opt}{' — ' if opt and detail else ''}{detail}")
     if key:
@@ -765,7 +765,7 @@ DB_RETIRED = ("mysql", "mariadb", "mariadb-local")
 DB_RETIRED_HELP = ("MariaDB/MySQL n'est plus pris en charge. Avec la version précédente d'Elpis, "
                    "quittez-le d'abord (console › Base de données › « Revenir à SQLite », ou "
                    "« ./elpis db transfer » puis « ./elpis db use » vers PostgreSQL), puis relancez "
-                   "la configuration (docs/exploitation.md, « Mettre à jour »).")
+                   "la configuration (docs/operations.md, « Upgrading »).")
 
 
 def refuse_retired_db() -> None:

@@ -1,106 +1,106 @@
-# Contribuer à Elpis / Contributing
+# Contributing to Elpis
 
 Contributions are welcome — issues and pull requests may be written in French
 or English.
 
-## Démarrer
+## Getting started
 
 ```bash
-./install.sh    # guidé : installe, configure et démarre
-npm ci          # Node ≥ 24 (.nvmrc) : outils de développement TypeScript
+./install.sh    # guided: installs, configures and starts
+npm ci          # Node ≥ 24 (.nvmrc): TypeScript development tools
 ```
 
-- Carte du code : [ARCHITECTURE.md](ARCHITECTURE.md) (détails :
+- Code map: [ARCHITECTURE.md](ARCHITECTURE.md) (details:
   [docs/architecture.md](docs/architecture.md)).
-- Conventions, commandes et pièges : [AGENTS.md](AGENTS.md) — écrit pour les
-  agents de code, valable pour tout le monde.
-- Interface : [PRODUCT.md](PRODUCT.md) et [DESIGN.md](DESIGN.md).
+- Conventions, commands and pitfalls: [AGENTS.md](AGENTS.md) — written for
+  coding agents, valid for everyone.
+- Interface: [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md).
 
-## Où ranger quoi
+## Where things go
 
-| Je modifie… | Dossier |
+| I am changing… | Folder |
 |---|---|
-| une route HTTP du core | sa famille dans `apps/core/src/familles/` (montage : `apps/core/src/familles.ts`) ; routes de l'hôte d'outils : `apps/toolhost/src/` |
-| la boucle agentique | `apps/core/src/boucle/` (orchestrateur, tour LLM, exécution des outils) |
-| le flux d'un tour de chat | `apps/core/src/familles/chat.ts`, `chat-controle.ts` et `apps/core/src/tour/` (admission, exécution, enregistrement, NDJSON) |
-| le contexte, l'ordonnancement | `apps/core/src/contexte/`, `apps/core/src/llm/ordonnanceur/` |
-| un outil de l'agent | famille native : `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`) ; famille Office : `apps/toolhost/src/mcp/office/` (hôte, fichiers et conversions) et le moteur Python `office/elpis_office/` |
-| une opération sur les fichiers d'une sandbox | côté hôte : `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/` ; dans le conteneur : l'agent `shared_infra/sandbox/agent/server.py` (API `/v1`) ; jamais un accès direct de l'hôte |
-| Git d'une sandbox | `packages/fichiers/src/git.ts` (par l'agent), `relais-git.ts` (réseau), routes `apps/toolhost/src/git/` |
-| la base de données | `packages/db/` (schéma, migrations, dialectes) ; `shared_infra/db/` pour le Python restant |
-| l'interface | `frontend/src/` : `features/<domaine>/` (logique TS), `components/<domaine>/` (SFC Vue), `entries/` (points d'entrée), `app/racine/` ; styles `frontend/css/`, images `frontend/assets/` |
-| l'installation, le lancement | `install.sh`, `elpis`, `deploy/` |
-| la documentation d'exploitation | `docs/exploitation.md`, `docs/configuration.md` |
+| an HTTP route of the core | its family in `apps/core/src/familles/` (mounting: `apps/core/src/familles.ts`); tool host routes: `apps/toolhost/src/` |
+| the agent loop | `apps/core/src/boucle/` (orchestrator, LLM turn, tool execution) |
+| the flow of a chat turn | `apps/core/src/familles/chat.ts`, `chat-controle.ts` and `apps/core/src/tour/` (admission, execution, recording, NDJSON) |
+| the context, the scheduling | `apps/core/src/contexte/`, `apps/core/src/llm/ordonnanceur/` |
+| an agent tool | native family: `apps/toolhost/src/mcp/` (+ `packages/outils-mcp`); Office family: `apps/toolhost/src/mcp/office/` (host, files and conversions) and the Python engine `office/elpis_office/` |
+| an operation on a sandbox's files | host side: `packages/bac`, `packages/fichiers`, `apps/toolhost/src/fichiers/`; inside the container: the agent `shared_infra/sandbox/agent/server.py` (`/v1` API); never direct host access |
+| a sandbox's Git | `packages/fichiers/src/git.ts` (through the agent), `relais-git.ts` (network), routes `apps/toolhost/src/git/` |
+| the database | `packages/db/` (schema, migrations, dialects); `shared_infra/db/` for the remaining Python |
+| the interface | `frontend/src/`: `features/<domain>/` (TS logic), `components/<domain>/` (Vue SFCs), `entries/` (entry points), `app/racine/`; styles `frontend/css/`, images `frontend/assets/` |
+| installation, launch | `install.sh`, `elpis`, `deploy/` |
+| the operations documentation | `docs/operations.md`, `docs/configuration.md` |
 
-Détail des paquets : [ARCHITECTURE.md](ARCHITECTURE.md) ; conventions et
-pièges : [AGENTS.md](AGENTS.md).
+Package details: [ARCHITECTURE.md](ARCHITECTURE.md); conventions and
+pitfalls: [AGENTS.md](AGENTS.md).
 
-## Avant d'ouvrir une pull request
+## Before opening a pull request
 
-Les tests vivent dans le dépôt de développement des mainteneurs, pas dans ce
-dépôt. Avant d'ouvrir une pull request, lancez :
+The tests live in the maintainers' development repository, not in this
+repository. Before opening a pull request, run:
 
 ```bash
 npm ci
-npm run typecheck   # tsc et vue-tsc
+npm run typecheck   # tsc and vue-tsc
 npm run lint        # ESLint
-npm run build       # core, hôte d'outils et frontend
+npm run build       # core, tool host and frontend
 ```
 
-La CI publique (GitHub Actions) lance les mêmes commandes sur Node 24. Les
-mainteneurs passent ensuite la suite complète (TypeScript, Python, parcours
-réels dans Chromium) avant de fusionner.
+The public CI (GitHub Actions) runs the same commands on Node 24. The
+maintainers then run the full suite (TypeScript, Python, real
+journeys in Chromium) before merging.
 
-- Python restant (RAG, moteur Office, `deploy/`) : `venv/bin/ruff check .`.
-- Formatage : `npm run format` (Prettier).
-- Après avoir ajouté des classes utilitaires Tailwind :
+- Remaining Python (RAG, Office engine, `deploy/`): `venv/bin/ruff check .`.
+- Formatting: `npm run format` (Prettier).
+- After adding Tailwind utility classes:
   `node tools/generate_tailwind_css.mjs`.
-- Une pull request = un sujet ; décrivez le comportement avant/après et ce
-  que vous avez essayé à la main.
-- Pas de nouvelle dépendance sous licence copyleft forte (GPL/AGPL) dans le
-  cœur : elle doit rester optionnelle (voir `requirements-agpl-optional.txt`).
-  Toute dépendance livrée est inscrite dans `THIRD_PARTY_NOTICES.md`.
+- One pull request = one topic; describe the before/after behavior and what
+  you tried by hand.
+- No new dependency under a strong copyleft license (GPL/AGPL) in the
+  core: it must stay optional (see `requirements-agpl-optional.txt`).
+  Every shipped dependency is listed in `THIRD_PARTY_NOTICES.md`.
 <!-- REUSE-IgnoreStart -->
-- Nouveaux fichiers source : en-tête `SPDX-License-Identifier: MIT`.
+- New source files: `SPDX-License-Identifier: MIT` header.
 <!-- REUSE-IgnoreEnd -->
-- Signez vos commits (`git commit -s`) : voir « Certificat d'origine » ci-dessous.
+- Sign your commits (`git commit -s`): see "Developer Certificate of Origin" below.
 
-## Certificat d'origine (DCO)
+## Developer Certificate of Origin (DCO)
 
-Chaque commit porte une ligne `Signed-off-by: Prénom Nom <identité Git>`,
-ajoutée par `git commit -s`. Elle atteste le
-[Developer Certificate of Origin 1.1](https://developercertificate.org) : vous
-avez écrit la contribution, ou vous avez le droit de la publier sous la licence
-MIT du projet. Pas de CLA. Oubli : `git commit --amend -s` (dernier commit) ou
-`git rebase --signoff` (plusieurs). Le sign-off n'est pas encore vérifié en CI.
+Every commit carries a `Signed-off-by: First Last <Git identity>` line,
+added by `git commit -s`. It attests to the
+[Developer Certificate of Origin 1.1](https://developercertificate.org): you
+wrote the contribution, or you have the right to publish it under the
+project's MIT license. No CLA. If you forgot: `git commit --amend -s` (last commit) or
+`git rebase --signoff` (several). The sign-off is not yet checked in CI.
 
-Le texte du DCO fait foi en anglais ; il n'est pas recopié ici.
+The DCO text is authoritative in English; it is not copied here.
 
-## Code assisté par IA
+## AI-assisted code
 
-Vous pouvez utiliser un assistant de code (Claude Code, Copilot, etc.), sous
-ces conditions :
+You may use a coding assistant (Claude Code, Copilot, etc.), under
+these conditions:
 
-- Vous restez l'**auteur** et le **responsable** de la contribution : le
-  sign-off (DCO) est le vôtre, jamais celui de l'outil.
-- Vous **relisez et comprenez** chaque ligne proposée, et vous l'avez essayée
-  vous-même ; une pull request que son auteur ne sait pas expliquer est refusée.
-- Vous **garantissez les droits** sur le résultat : pas de code généré qui
-  reproduit du code tiers sous une licence incompatible avec la licence MIT
-  (copyleft, licence inconnue, source sans licence), pas de texte ou d'image
-  copiés d'une œuvre protégée, pas de secret ni de donnée personnelle dans les
-  invites.
-- Dites-le dans la description de la pull request lorsqu'une part importante a
-  été générée (nom de l'outil, étendue) ; une trace `Co-Authored-By` dans le
-  message de commit est bienvenue.
-- Les mêmes règles valent pour les images, les icônes et les textes.
+- You remain the **author** and the **person responsible** for the contribution: the
+  sign-off (DCO) is yours, never the tool's.
+- You **read and understand** every proposed line, and you have tried it
+  yourself; a pull request that its author cannot explain is rejected.
+- You **guarantee the rights** to the result: no generated code that
+  reproduces third-party code under a license incompatible with the MIT license
+  (copyleft, unknown license, source without a license), no text or image
+  copied from a protected work, no secret or personal data in the
+  prompts.
+- State it in the pull request description when a significant part was
+  generated (tool name, extent); a `Co-Authored-By` trailer in the commit
+  message is welcome.
+- The same rules apply to images, icons and texts.
 
-## Code de conduite
+## Code of conduct
 
-La participation au projet suppose le respect du
-[code de conduite](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
+Participation in the project assumes respect for the
+[code of conduct](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
 
-## Licence
+## License
 
-En contribuant, vous acceptez que votre contribution soit distribuée sous
-licence MIT (voir [LICENSE](LICENSE)).
+By contributing, you agree that your contribution is distributed under the
+MIT license (see [LICENSE](LICENSE)).

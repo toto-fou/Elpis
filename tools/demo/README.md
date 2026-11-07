@@ -1,17 +1,17 @@
-# Démo du README
+# README demo
 
-Enregistre la présentation de `docs/media/elpis-demo.gif` sans GPU ni données réelles : une instance
-isolée (racine `.instance/`, ports 38001, 38765 et 38080) répond par un faux moteur qui rejoue le
-scénario de `scenes/presentation.mts`, Chromium tourne dans un écran Xvfb et ffmpeg filme sans perte.
+Records the presentation in `docs/media/elpis-demo.gif` with no GPU and no real data: an isolated
+instance (root `.instance/`, ports 38001, 38765 and 38080) answers through a fake engine that replays the
+scenario in `scenes/presentation.mts`, Chromium runs in an Xvfb screen and ffmpeg films losslessly.
 
 ```sh
-npm run build                              # à la racine : core, hôte d'outils et interface
+npm run build                              # at the root: core, tool host and interface
 cd tools/demo && npm ci
-npx playwright-core install chromium       # si le Chromium de Playwright 1.64 manque
-node record.mts                            # → out/presentation.gif, .mp4 et .png
+npx playwright-core install chromium       # if Playwright 1.64's Chromium is missing
+node record.mts                            # → out/presentation.gif, .mp4 and .png
 cp out/presentation.gif ../../docs/media/elpis-demo.gif
 ```
 
-Prérequis : Docker et l'image `elpis/sandbox`, `Xvfb`, `ffmpeg`. La sandbox de démo appartient au seul
-compte `alex` (id 4242, conteneur `elpis-sb-alex`), supprimé à la fin ; aucun autre conteneur n'est touché.
-Un poste chargé donne une capture saccadée : enregistrer sur une machine au repos.
+Prerequisites: Docker and the `elpis/sandbox` image, `Xvfb`, `ffmpeg`. The demo sandbox belongs only to the
+`alex` account (id 4242, container `elpis-sb-alex`), deleted at the end; no other container is touched.
+A busy machine gives a choppy capture: record on an idle machine.

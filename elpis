@@ -724,7 +724,7 @@ cmd_doctor() {
     check "familles d'outils de mcp.example.json présentes dans mcp.json" "./elpis configure" "$PY" "$ROOT/deploy/configure.py" --verifier-familles-mcp
     local retire
     for retire in ELPIS_TOOLHOST ELPIS_APPMCP ELPIS_CLI; do
-        [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/exploitation.md), à retirer de .env"
+        [ "${!retire:-}" = python ] && info "$retire=python : ignoré depuis la 0.1.0 (retour à la version Python : tag python-final, docs/operations.md), à retirer de .env"
     done
     check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
     check "service navigateur" "./install.sh" test -d "$ROOT/browser-service/node_modules"
@@ -761,7 +761,7 @@ cmd_doctor() {
     if [ -f "$ROOT/config.json" ] && [ "$core_ok" -eq 1 ]; then
         local db_hint="./elpis db info pour le détail ; ./elpis db use sqlite en secours"
         if [ "$(core_cmd config base-retiree 2>/dev/null)" = oui ]; then
-            db_hint="MariaDB/MySQL n'est plus pris en charge : docs/exploitation.md, « Mettre à jour »"
+            db_hint="MariaDB/MySQL n'est plus pris en charge : docs/operations.md, « Upgrading »"
         fi
         check "base de données joignable" "$db_hint" core_cmd db info
         check_out "base vue par le core" "./elpis db info" core_cmd migrations

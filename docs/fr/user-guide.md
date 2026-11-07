@@ -1638,7 +1638,7 @@ précisément ce qui s'est passé.
 
 Ce document s'adresse aux utilisateurs. Pour **l'architecture technique**,
 **l'installation**, **le déploiement** ou **l'extension** de l'application,
-voir la **[documentation développeur](architecture.md)** — accessible aussi
+voir la **[documentation développeur](../architecture.md)** — accessible aussi
 depuis la modale d'aide de l'application, onglet *Développeur*.
 
 ---

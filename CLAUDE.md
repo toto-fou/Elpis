@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Les consignes pour les agents de code sont communes à tous les outils et vivent
-dans [AGENTS.md](AGENTS.md), importé ci-dessous.
+The instructions for coding agents are shared by all tools and live in
+[AGENTS.md](AGENTS.md), imported below.
 
 @AGENTS.md

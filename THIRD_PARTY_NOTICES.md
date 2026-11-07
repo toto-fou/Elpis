@@ -487,4 +487,4 @@ source URL of hadolint, upx and radare2) and `sandbox/OFFRE-SOURCES.txt`
 (written offer), and `--with-sources` downloads the source archives of those
 three programs; `deploy/voice/fetch_offline.sh --with-sources` does the same
 for piper-tts. The Debian packages of the image have their sources on
-https://snapshot.debian.org (see `docs/exploitation.md`).
+https://snapshot.debian.org (see `docs/operations.md`).

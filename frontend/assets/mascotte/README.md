@@ -1,75 +1,75 @@
-# Mascottes
+# Mascots
 
-Les personnages de l'écran d'accueil et des avatars, en pixel art.
+The characters of the welcome screen and avatars, in pixel art.
 
-| Dossier | Personnage |
+| Folder | Character |
 |---|---|
-| `elpis/` | le buste couronné de laurier |
-| `boite_or/` | un coffre |
-| `flamme/`, `flamme_bleue/` | une flamme |
-| `fantome/` | un fantôme |
-| `kiki/`, `kiki_face/`, `kiki_dodo/`, `kiki_guerriere/` | la scène d'accueil du skin `kiki` |
+| `elpis/` | the laurel-crowned bust |
+| `boite_or/` | a chest |
+| `flamme/`, `flamme_bleue/` | a flame |
+| `fantome/` | a ghost |
+| `kiki/`, `kiki_face/`, `kiki_dodo/`, `kiki_guerriere/` | the welcome scene of the `kiki` skin |
 
-## Fichiers servis au navigateur
+## Files served to the browser
 
-- `socle-mascottes.css` : une planche CSS animée par personnage et par état.
-  Usage : `<span class="socle-mascotte" data-perso="elpis" data-etat="repos"></span>`.
-  États : `repos`, `reflexion`, `parole`, `sommeil`, `salut`, `erreur`,
+- `socle-mascottes.css`: one animated CSS sheet per character and per state.
+  Usage: `<span class="socle-mascotte" data-perso="elpis" data-etat="repos"></span>`.
+  States: `repos`, `reflexion`, `parole`, `sommeil`, `salut`, `erreur`,
   `chantier`, `reveil`.
-- `socle-mascottes.json` : la même description, en données (fenêtre, états,
-  animations de chaque personnage).
-- `<perso>/source.json` : les images et les points d'ancrage que lit le moteur
-  de l'écran d'accueil (`src/features/mascotte/accueil.ts`).
-- `<perso>/*.png`, `<perso>/atlas.webp` : les planches. Chaque planche porte une
-  copie de sa première image à la fin, ce qui rend l'animation indépendante de
-  la taille d'affichage.
-- `kiki/marionnette.json` : les membres articulés de la scène Kiki.
-- `accueil.css` (le moteur est dans `src/features/mascotte/`) : l'écran d'accueil animé (le mot
-  ELPIS et la mascotte qui vit dedans).
+- `socle-mascottes.json`: the same description, as data (window, states,
+  animations of each character).
+- `<perso>/source.json`: the images and anchor points read by the welcome-screen
+  engine (`src/features/mascotte/accueil.ts`).
+- `<perso>/*.png`, `<perso>/atlas.webp`: the sprite sheets. Each sheet carries a
+  copy of its first frame at the end, which makes the animation independent of
+  the display size.
+- `kiki/marionnette.json`: the articulated limbs of the Kiki scene.
+- `accueil.css` (the engine is in `src/features/mascotte/`): the animated welcome screen (the word
+  ELPIS and the mascot that lives in it).
 
-## Contrainte d'usage
+## Usage constraint
 
-Le dessin tient dans une fenêtre de 24 ou 48 pixels. Il reste net aux
-**multiples entiers** (48, 96, 144, 192). Entre deux, le navigateur invente des
-pixels et le rendu devient irrégulier.
+The drawing fits in a window of 24 or 48 pixels. It stays sharp at
+**integer multiples** (48, 96, 144, 192). In between, the browser invents
+pixels and the rendering becomes uneven.
 
 ## Activation
 
-Les mascottes sont coupées par défaut : l'accueil montre le logo tant que le compte n'en a pas
-choisi une (`welcome_mascot_on`, Paramètres › Apparence › Mascotte). Un skin qui apporte la sienne
-(`mascot`) l'affiche tant que le compte ne l'a pas coupée.
+Mascots are off by default: the welcome screen shows the logo until the account has chosen
+one (`welcome_mascot_on`, Settings › Appearance › Mascot). A skin that brings its own
+(`mascot`) shows it until the account turns it off.
 
-## Registre
+## Registry
 
-`mascottes.json` est la liste UNIQUE des mascottes proposées à l'accueil
-(`id`, `label`, dans l'ordre d'affichage ; `"apercu": false` l'écarte des
-personnages de l'aperçu de la console). Le serveur l'utilise pour valider le
-réglage `welcome_mascot` (`shared_infra/appearance/skins.py`) et la sert à
-l'interface (`mascottes_catalogue` dans `GET /api/settings`) ; la console la
-lit en statique. Les mascottes propres à un skin (`kiki`) n'y figurent pas :
-elles viennent du champ `mascot` du registre des skins
+`mascottes.json` is the SINGLE list of mascots offered on the welcome screen
+(`id`, `label`, in display order; `"apercu": false` excludes it from the
+preview characters of the console). The server uses it to validate the
+`welcome_mascot` setting (`shared_infra/appearance/skins.py`) and serves it to the
+interface (`mascottes_catalogue` in `GET /api/settings`); the console
+reads it statically. Mascots specific to a skin (`kiki`) are not listed there:
+they come from the `mascot` field of the skin registry
 (`frontend/css/skins/skins.json`).
 
-## Ajouter un personnage
+## Adding a character
 
-1. Déposer son dossier ici (`<id>/`, planches et `source.json`).
-2. Ajouter ses règles à `socle-mascottes.css` et son entrée à
+1. Drop its folder here (`<id>/`, sheets and `source.json`).
+2. Add its rules to `socle-mascottes.css` and its entry to
    `socle-mascottes.json`.
-3. Ajouter `{"id": "<id>", "label": "<Nom>"}` à `mascottes.json`.
+3. Add `{"id": "<id>", "label": "<Name>"}` to `mascottes.json`.
 
-Le serveur refuse tout identifiant absent de `mascottes.json`
-(`tests/shared_infra/test_skins_plugins_2026_09_28.py` vérifie que chaque
-entrée a son dossier, sa planche CSS et son entrée dans `socle-mascottes.json`).
+The server refuses any identifier absent from `mascottes.json`
+(`tests/shared_infra/test_skins_plugins_2026_09_28.py` checks that each
+entry has its folder, its CSS sheet and its entry in `socle-mascottes.json`).
 
-## Origine et licence
+## Origin and license
 
-- Pixel art (coffre, flammes, fantôme, buste d'Elpis) : dessiné par script à
-  partir des grilles de `source.json`, sous la licence du projet (MIT).
-- Logo d'Elpis (`frontend/elpis-*.png`) et illustrations du skin Kiki
-  (`kiki*/`, découpées avec les outils du dossier) : produits par génération
-  d'images. Leur protection par le droit d'auteur est incertaine : aucun droit
-  n'est revendiqué, ils sont placés sous CC0-1.0 (`REUSE.toml`).
+- Pixel art (chest, flames, ghost, Elpis bust): drawn by script from
+  the grids in `source.json`, under the project license (MIT).
+- Elpis logo (`frontend/elpis-*.png`) and Kiki skin illustrations
+  (`kiki*/`, cut out with the tools in the folder): produced by image
+  generation. Their copyright protection is uncertain: no right
+  is claimed, and they are placed under CC0-1.0 (`REUSE.toml`).
 
-Réserve : la ressemblance des images générées avec des œuvres existantes n'est
-pas contrôlée. Le skin Kiki est désactivé par défaut ; un déploiement sensible
-peut garder les seuls dessins générés par script.
+Caveat: the resemblance of the generated images to existing works is not
+checked. The Kiki skin is disabled by default; a sensitive deployment
+can keep only the script-drawn images.

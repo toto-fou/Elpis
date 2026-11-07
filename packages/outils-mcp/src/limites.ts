@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/outils-mcp/src/limites.ts — limite de débit par (compte, outil) et limite de concurrence des appels (llm_core/tools/_mcp_compliance_middleware.py). */
+/** packages/outils-mcp/src/limites.ts — limite de débit par (compte, outil) et limite de concurrence des appels, sans plafond par défaut : une variable d'environnement en pose un (llm_core/tools/_mcp_compliance_middleware.py). */
 import { floatPy, intPy, stripPy } from "@elpis/commun";
 
 function lireEnv<T>(nom: string, defaut: T, lire: (s: string) => T): T {
@@ -11,11 +11,11 @@ function lireEnv<T>(nom: string, defaut: T, lire: (s: string) => T): T {
   }
 }
 
-export const RATE_RPS = lireEnv("MCP_TOOL_RATE_LIMIT_RPS", 20.0, floatPy);
+export const RATE_RPS = lireEnv("MCP_TOOL_RATE_LIMIT_RPS", 0, floatPy);
 export const RATE_BURST =
   lireEnv("MCP_TOOL_RATE_LIMIT_BURST", 0, intPy) || Math.trunc(Math.max(1.0, RATE_RPS) * 2);
-export const CONC_MAX = lireEnv("MCP_TOOL_MAX_CONCURRENT", 48, intPy);
-export const CONC_PER_USER = lireEnv("MCP_TOOL_MAX_CONCURRENT_PER_USER", 12, intPy);
+export const CONC_MAX = lireEnv("MCP_TOOL_MAX_CONCURRENT", 0, intPy);
+export const CONC_PER_USER = lireEnv("MCP_TOOL_MAX_CONCURRENT_PER_USER", 0, intPy);
 export const CONC_WAIT_S = lireEnv("MCP_TOOL_QUEUE_WAIT_S", 30.0, floatPy);
 
 /** Erreur de limite rendue en résultat `isError` (texte = message). */

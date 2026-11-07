@@ -20,12 +20,14 @@ export interface OptionsPart {
 const parts = new Map<string, Part>();
 const partTenue = new AsyncLocalStorage<string>();
 
-/** Plafond en vigueur ; absent, illisible, nul, négatif ou non entier : 0, sans plafond. */
-export function plafondRequetesParCompte(): number {
-  const brut = liveConfigValue("llm.max_requests_per_user", 0);
+/** Plafond réglé par l'admin, relu à chaud ; absent, illisible, nul, négatif ou non entier : 0, sans plafond. */
+export function plafondConfig(chemin: string): number {
+  const brut = liveConfigValue(chemin, 0);
   const v = typeof brut === "string" && brut.trim() ? Number(brut) : brut;
   return typeof v === "number" && Number.isInteger(v) && v > 0 ? v : 0;
 }
+
+export const plafondRequetesParCompte = (): number => plafondConfig("llm.max_requests_per_user");
 
 function aDeLaPlace(part: Part): boolean {
   const max = plafondRequetesParCompte();

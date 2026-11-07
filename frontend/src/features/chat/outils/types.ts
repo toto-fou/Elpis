@@ -90,6 +90,7 @@ export interface GroupeSegment {
   nComp: number;
   pills: { pills: readonly PastilleOutil[]; extraCount: number };
   running: boolean;
+  parallele?: number;
   shellRuns: readonly { step: EtapeOutil; flat: number }[];
   shellMeta: MetaConsoleShell | null;
 }

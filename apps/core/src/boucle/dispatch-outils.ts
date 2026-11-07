@@ -491,6 +491,7 @@ async function appelerOutil(
       meta: o.meta ?? null,
       onProgress: o.onProgress ?? null,
       onLog: o.onLog ?? null,
+      onAttente: o.onAttente ?? null,
       timeoutS: toolTimeoutS(toolName),
       queueTimeoutS: TOOL_QUEUE_WAIT_S,
       signal: o.signal,

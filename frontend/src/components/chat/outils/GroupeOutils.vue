@@ -45,6 +45,9 @@ function basculerGroupe(ev: Event): void {
       ></i>
       <span class="text-[12.5px] font-semibold text-slate-500">
         <template v-if="grp.nTools > 0"> {{ grp.nTools }} outil{{ grp.nTools > 1 ? "s" : "" }} </template>
+        <template v-if="(grp.parallele ?? 0) >= 2">
+          <span class="text-slate-400 font-normal"> · </span>{{ grp.parallele }} en parallèle
+        </template>
         <template v-if="grp.nComp > 0">
           <span v-if="grp.nTools > 0" class="text-slate-400 font-normal"> · </span>
           {{ grp.nComp }} compression{{ grp.nComp > 1 ? "s" : "" }} du contexte

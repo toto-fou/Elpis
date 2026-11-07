@@ -26,10 +26,11 @@ const emit = defineEmits<{
   capture: [rang: number];
 }>();
 
-type Signe = "cours" | "echec" | "arret" | "ok";
+type Signe = "cours" | "attente" | "echec" | "arret" | "ok";
 
 function signe(s: EtapeOutil): Signe {
   if (s.status === "running") return "cours";
+  if (s.status === "waiting") return "attente";
   if (s.status === "stopped") return "arret";
   if (s._is_error) return "echec";
   return "ok";
@@ -37,21 +38,31 @@ function signe(s: EtapeOutil): Signe {
 
 const ICONES: Readonly<Record<Signe, string>> = {
   cours: "ph-spinner-gap animate-spin text-blue-500",
+  attente: "ph-hourglass text-slate-400",
   echec: "ph-x-circle text-red-500",
   arret: "ph-stop-circle text-slate-400",
   ok: "ph-check text-emerald-600",
 };
 const NOMS: Readonly<Record<Signe, string>> = {
   cours: "En cours",
+  attente: "En attente",
   echec: "Échec",
   arret: "Arrêtée",
   ok: "Terminée",
 };
 
 const enCours = computed(() => [...props.etapes].reverse().find((e) => e.etape.status === "running") ?? null);
+const simultanes = computed(() => props.etapes.filter((e) => e.etape.status === "running").length);
 const signeGroupe = computed<Signe>(() => {
   const s = props.etapes.map((e) => signe(e.etape));
-  return s.includes("cours") ? "cours" : s.includes("echec") ? "echec" : s.includes("arret") ? "arret" : "ok";
+  if (s.includes("cours")) return "cours";
+  return s.includes("attente")
+    ? "attente"
+    : s.includes("echec")
+      ? "echec"
+      : s.includes("arret")
+        ? "arret"
+        : "ok";
 });
 const ids = computed(() =>
   props.etapes
@@ -77,6 +88,7 @@ function tete(s: EtapeOutil): { debut: string; mono: boolean; objet: string } {
 function duree(s: EtapeOutil): string {
   if (s.status === "running")
     return typeof s.startedAt === "number" ? fmtDuree(props.maintenant - s.startedAt) : "";
+  if (s.status === "waiting") return "en attente";
   if (typeof s.durationMs !== "number") return s.status === "stopped" ? "arrêtée" : "";
   return s.status === "stopped" ? "arrêtée à " + fmtDuree(s.durationMs) : fmtDuree(s.durationMs);
 }
@@ -107,7 +119,10 @@ const sortie = computed(() => (enCours.value ? dernieresLignes(enCours.value.eta
         @click="emit('basculer')"
       >
         <i class="ph shrink-0 text-[14px]" :class="ICONES[signeGroupe]" :aria-label="NOMS[signeGroupe]"></i>
-        <span v-if="enCours" class="flex-1 min-w-0 truncate" aria-live="polite"
+        <span v-if="simultanes >= 2" class="flex-1 min-w-0 truncate" aria-live="polite" data-parallele
+          >{{ simultanes }} outils en parallèle</span
+        >
+        <span v-else-if="enCours" class="flex-1 min-w-0 truncate" aria-live="polite"
           >{{ "Étape " + enCours.numero + " · "
           }}<span :class="tete(enCours.etape).mono ? 'font-mono' : ''">{{ tete(enCours.etape).debut }}</span
           ><b class="font-semibold">{{ tete(enCours.etape).objet }}</b></span

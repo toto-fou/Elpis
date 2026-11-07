@@ -25,6 +25,8 @@ export interface GroupeAffiche {
   nComp: number;
   pills: Pastilles | null;
   running: boolean;
+  /** Outils du groupe qui tournent en même temps. */
+  parallele: number;
   shellRuns: { step: EtapeChat; flat: number }[];
   shellMeta: MetaShell | null;
 }
@@ -88,6 +90,7 @@ export function creerSegmentsVue(
       nComp: 0,
       pills: null,
       running: false,
+      parallele: 0,
       shellRuns: [],
       shellMeta: null,
     }));
@@ -106,7 +109,8 @@ export function creerSegmentsVue(
         g.disp.push({ step: s, flat, shell });
         if (s._kind === "compression") g.nComp++;
         else g.nTools++;
-        if (s.status === "running") g.running = true;
+        if (s.status === "running" || s.status === "waiting") g.running = true;
+        if (s.status === "running" && s._kind !== "compression") g.parallele++;
       }
       if (shell) g.shellRuns.push({ step: s, flat });
     }
@@ -136,17 +140,22 @@ export function creerSegmentsVue(
     let label = "";
     if (enCours) {
       const steps = msg.toolSteps || [];
-      for (let i = steps.length - 1; i >= 0; i--) {
-        const s = steps[i];
-        if (!s || s.status !== "running" || EXCLUS_LIBELLE.has(s._kind || "")) continue;
-        if (s._kind === "compression") label = "compression du contexte";
-        else if ((s.name || "").startsWith("rag_")) label = s.ragLabel || "consultation documentaire";
-        else {
-          const a = toolKeyArg(s);
-          label = a ? s.name + " · " + a : s.name || "outil";
+      const simultanes = steps.filter(
+        (s) => s.status === "running" && !EXCLUS_LIBELLE.has(s._kind || ""),
+      ).length;
+      if (simultanes >= 2) label = simultanes + " outils en parallèle";
+      else
+        for (let i = steps.length - 1; i >= 0; i--) {
+          const s = steps[i];
+          if (!s || s.status !== "running" || EXCLUS_LIBELLE.has(s._kind || "")) continue;
+          if (s._kind === "compression") label = "compression du contexte";
+          else if ((s.name || "").startsWith("rag_")) label = s.ragLabel || "consultation documentaire";
+          else {
+            const a = toolKeyArg(s);
+            label = a ? s.name + " · " + a : s.name || "outil";
+          }
+          break;
         }
-        break;
-      }
     }
     let resume = "";
     const st = Array.isArray(msg.segTexts) ? msg.segTexts : [];

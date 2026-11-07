@@ -1848,6 +1848,7 @@ the registry).
 | `tool_call` / `tool_call_delta` | Tool call decided; arguments being generated |
 | `tool_result` | Result of a tool, with `duration_ms` (call duration, shown live; not kept on reload) |
 | `tool_progress` / `tool_log` / `shell_output` | Progress, log, live output of a command |
+| `tool_state` | State of one call of a batch: `waiting` (its turn or a place in the account's quota), `running` once it starts after waiting, `done` (with `duration_ms`) as soon as it ends, before the batch's `tool_result` events |
 | `tool_limit` | Iteration cap reached |
 | `tool_history_partial` | **Delta** of the tool history (never a cumulative total) |
 | `task_step` | Subagent lifecycle (spawned, steps, final) |

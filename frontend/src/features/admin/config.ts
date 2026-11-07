@@ -173,7 +173,11 @@ function completerConfig(brut: Noeud): ConfigAdmin {
   completer(section(c, "llm"), { max_requests_per_user: 0 });
 
   const mcp = section(c, "mcp");
-  completer(mcp, { servers_dir: "../mcp_custom_servers", tools_cache_ttl_sec: 0 });
+  completer(mcp, {
+    servers_dir: "../mcp_custom_servers",
+    tools_cache_ttl_sec: 0,
+    max_tool_calls_per_user: 0,
+  });
   completer(section(mcp, "tokens"), {
     tools_enabled: true,
     tools_families: "fs,shell,git,desktop,browser,skill_run",

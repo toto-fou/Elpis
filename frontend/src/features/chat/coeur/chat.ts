@@ -606,7 +606,6 @@ export function setupChat(
     chatContainer: e.chatContainer,
     isThinking: e.isThinking,
     statusText: e.statusText,
-    queueStatus: e.queueStatus,
     todoList: e.todoList,
     todoPanelOpen: e.todoPanelOpen,
     composeColRef: e.composeColRef,

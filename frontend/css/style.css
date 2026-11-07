@@ -1216,16 +1216,10 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
        qui, sans ça, continuaient de tourner indéfiniment (spinners plein
        écran, spinners de connexion) malgré la demande de l'OS. WCAG 2.3.3. */
     [class*="animate-"],
-    .queue-progress-bar,
     .elpis-changed-line-highlight,
     .elpis-changed-line-gutter {
         animation: none !important;
     }
-    /* La barre file d'attente se REMPLIT via l'animation queueProgressFill ;
-       animation coupée = barre figée à scaleX(0) = piste VIDE (perçue comme
-       cassée). On la fige REMPLIE et atténuée : état d'attente statique, la
-       durée réelle restant portée par le compte à rebours « ~Xs » à côté. */
-    .queue-progress-bar { transform: scaleX(1) !important; opacity: 0.5; }
     /* …mais une roue de chargement FIGÉE est indiscernable d'un gel de
        l'app : les indicateurs d'activité (.animate-spin) sont essentiels
        (WCAG 2.3.3 ne vise que le mouvement décoratif). On garde la
@@ -1249,14 +1243,13 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
        ci-dessus (pas de préfixe "transition-"/"animate-") : modales et
        toasts continuaient d'animer malgré la préférence OS. Liste tenue
        en phase avec les <Transition name="…"> du markup (fade, modal,
-       queue-widget, model-load, toast, tool-detail). */
+       model-load, toast, tool-detail). */
     .modal-enter-active, .modal-leave-active,
     .modal-enter-active > *, .modal-leave-active > *,
     .toast-enter-active, .toast-leave-active, .toast-move,
     .fade-enter-active, .fade-leave-active,
     .popover-enter-active, .popover-leave-active,
     .popover-up-enter-active, .popover-up-leave-active,
-    .queue-widget-enter-active, .queue-widget-leave-active,
     .model-load-enter-active, .model-load-leave-active,
     .tool-detail-enter-active, .tool-detail-leave-active {
         transition-duration: 0.01ms !important;
@@ -1297,44 +1290,6 @@ body.elpis-dark-surface .elpis-changed-line-highlight {
         animation: none !important;
         background-color: color-mix(in srgb, var(--accent-500) 14%, transparent) !important;
     }
-}
-
-/* ─── Widget file d'attente ─────────────────────────────────
-   Apparait/disparait sur event SSE "queue_status"/"queue_cleared".
-   Barre de progression animée qui se remplit sur la durée estimée
-   (--animation-duration passé via :style inline sur la barre).
-
-   Transition "queue-widget" : fade + slide vers le bas à l'entrée,
-   symétrique à la sortie. GPU-friendly (transform + opacity seulement).
-   Respecte prefers-reduced-motion : dégradé en simple fade sans slide.
-   ──────────────────────────────────────────────────────────────────── */
-/* Perf (vague 3) : ex-animation de `width` 0→100%. C'était la PIRE des
-   barres car elle anime en CONTINU pendant toute l'attente estimée (souvent
-   plusieurs secondes) → layout + paint à chaque frame. `transform: scaleX`
-   est compositable (GPU), aucun reflow. La barre occupe 100 % de la largeur
-   et se révèle par scale depuis la gauche — rendu visuel identique. */
-.queue-progress-bar {
-    width: 100%;
-    transform: scaleX(0);
-    transform-origin: left;
-    animation-name: queueProgressFill;
-    animation-timing-function: linear;
-    animation-iteration-count: 1;
-    animation-fill-mode: forwards;
-}
-@keyframes queueProgressFill {
-    from { transform: scaleX(0); }
-    to   { transform: scaleX(1); }
-}
-
-.queue-widget-enter-active,
-.queue-widget-leave-active {
-    transition: opacity 200ms ease-out, transform 200ms ease-out;
-}
-.queue-widget-enter-from,
-.queue-widget-leave-to {
-    opacity: 0;
-    transform: translateY(6px);
 }
 
 /* =========================================================================

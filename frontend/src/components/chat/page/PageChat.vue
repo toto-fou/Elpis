@@ -15,7 +15,6 @@ import BoutonBas from "./BoutonBas.vue";
 import EnteteConversation from "./EnteteConversation.vue";
 import EpinglesComposeur from "./EpinglesComposeur.vue";
 import FilConversation from "./FilConversation.vue";
-import FileAttente from "./FileAttente.vue";
 import InfoCompression from "./InfoCompression.vue";
 import MenuSlash from "./MenuSlash.vue";
 import PiedQuestionnaire from "./PiedQuestionnaire.vue";
@@ -105,8 +104,6 @@ function surFichiers(e: Event): void {
         />
 
         <MenuSlash />
-
-        <FileAttente />
 
         <AlerteContexte />
 

@@ -11,7 +11,11 @@ const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string]
 </script>
 
 <template>
-  <div v-if="liste.vsTopPad > 0" :style="{ height: liste.vsTopPad + 'px' }" aria-hidden="true"></div>
+  <div
+    v-if="liste.vsTopPad > 0"
+    :style="{ height: liste.vsTopPad + 'px', overflowAnchor: 'none' }"
+    aria-hidden="true"
+  ></div>
 
   <MessageChat
     v-for="entry in liste.visibleMessages"
@@ -49,7 +53,11 @@ const emit = defineEmits<{ "zoom-image": [url: string]; edition: [texte: string]
     @edition="(t: string) => emit('edition', t)"
   ></MessageChat>
 
-  <div v-if="liste.vsBotPad > 0" :style="{ height: liste.vsBotPad + 'px' }" aria-hidden="true"></div>
+  <div
+    v-if="liste.vsBotPad > 0"
+    :style="{ height: liste.vsBotPad + 'px', overflowAnchor: 'none' }"
+    aria-hidden="true"
+  ></div>
 
   <div
     v-if="

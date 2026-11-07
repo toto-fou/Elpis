@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/rag/sources-ui.ts — sources d'une réponse côté interface : résolution des renvois [n] d'un message de l'assistant, bulle au survol, visionneuse en volet ; un seul objet pour les pastilles, le pied de sources et les notices du fil. */
 import type { CollectionVueRag, SourceCiteeRag } from "@elpis/contracts";
+import { computed } from "vue";
 
 import type { ApiRag } from "./api";
 import { creerBulle } from "./bulle";
@@ -62,18 +63,20 @@ export function creerSources(dep: DepsSources) {
     return visionneuse.ouvrir(s, ensemble);
   }
 
+  // Calculés une fois par changement du fil, et non pour chaque message à chaque rafraîchissement du flux.
+  const premiereSource = computed(() => dep.messages().findIndex((m) => (m.rag_sources?.length ?? 0) > 0));
+  const derniereReponse = computed(() => dep.messages().findLastIndex((m) => m.role === "assistant"));
+
   /** Renvois du message `idx` : `null` quand il n'a rien à voir avec le RAG (un `[1]` y reste du texte). */
   function renvoisPour(idx: number): RenvoisMessage | null {
-    const msgs = dep.messages();
-    const msg = msgs[idx];
+    const msg = dep.messages()[idx];
     if (msg === undefined || msg.role !== "assistant") return null;
-    const avant = msgs.slice(0, idx);
-    const concerne =
-      (msg.rag_sources?.length ?? 0) > 0 || avant.some((m) => (m.rag_sources?.length ?? 0) > 0);
+    const p = premiereSource.value;
+    const concerne = (msg.rag_sources?.length ?? 0) > 0 || (p >= 0 && p < idx);
     // Sans source dans la conversation, seule la dernière réponse d'un chat à collections actives peut citer un [n] sans source.
-    const derniere = msgs.findLastIndex((m) => m.role === "assistant") === idx;
-    if (!concerne && !(derniere && dep.ragActif())) return null;
-    const resoudre = (n: number): SourceCiteeRag | null => sourceDuRenvoi(n, msg, avant);
+    if (!concerne && !(derniereReponse.value === idx && dep.ragActif())) return null;
+    const resoudre = (n: number): SourceCiteeRag | null =>
+      sourceDuRenvoi(n, msg, dep.messages().slice(0, idx));
     return {
       resoudre,
       survol(n, ancre) {

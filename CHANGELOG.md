@@ -30,6 +30,9 @@ follow [SemVer](https://semver.org/).
   failing, interactive calls first. `0`, the default, means no cap; the value is re-read live.
   Subagents of a turn start together as the engine allows (llama.cpp still keeps one slot for
   the parent, and a batch with a `web` agent runs three at a time).
+- **Chat: typing redraws only the message box.** A keystroke no longer re-renders the whole
+  chat page, the box height is measured once per frame, and RAG citations no longer scan the
+  conversation again on each streamed update.
 - **`./elpis configure` goes through the core.** The database test, the creation of the
   database and administrator account, and the cloud connector are done by the core
   (`exploitation.mjs db check`, `admin`, `connecteur`) instead of the remaining Python

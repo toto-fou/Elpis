@@ -55,12 +55,17 @@ export function creerRenduChat(
     });
   }
 
-  // Plancher d'une ligne (deux sur la page de nouveau chat, par la min-height de ZoneSaisie) : la barre grandit jusqu'à 150 px avant de défiler.
+  let imageTaille = 0;
+  // Plancher d'une ligne (deux sur la page de nouveau chat, par la min-height de ZoneSaisie) : la barre grandit jusqu'à 150 px ; une mesure par image, pas une mise en page forcée par touche.
   function autoResize(): void {
-    const el = inputRef.value;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.max(40, Math.min(el.scrollHeight, 150)) + "px";
+    if (imageTaille) return;
+    imageTaille = requestAnimationFrame(() => {
+      imageTaille = 0;
+      const el = inputRef.value;
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = Math.max(40, Math.min(el.scrollHeight, 150)) + "px";
+    });
   }
 
   const showExportFormatMenu = ref(false);

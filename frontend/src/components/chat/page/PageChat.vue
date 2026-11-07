@@ -8,7 +8,6 @@ import { utiliserEchecsJobs } from "../../../features/chat/page/echecs-jobs";
 import MascottePerchee from "../../mascotte/MascottePerchee.vue";
 import MenuMention from "../composeur/MenuMention.vue";
 import PiecesJointes from "../composeur/PiecesJointes.vue";
-import ZoneSaisie from "../composeur/ZoneSaisie.vue";
 import AlerteContexte from "./AlerteContexte.vue";
 import BarreComposeur from "./BarreComposeur.vue";
 import BoutonBas from "./BoutonBas.vue";
@@ -20,6 +19,7 @@ import MenuSlash from "./MenuSlash.vue";
 import PiedQuestionnaire from "./PiedQuestionnaire.vue";
 import PuceQuestionnaire from "./PuceQuestionnaire.vue";
 import QuestionnaireAssistant from "./QuestionnaireAssistant.vue";
+import SaisieComposeur from "./SaisieComposeur.vue";
 import SurvolDepot from "./SurvolDepot.vue";
 
 const p = domaine(CLE_PAGE);
@@ -33,15 +33,6 @@ const annonceQuestionnaire = computed(() => {
 });
 // Rien au-dessus du composeur : l'échec d'une tâche de fond est signalé par un toast.
 utiliserEchecsJobs(p, domaine(CLE_CONVERSATION));
-// Liste ouverte sous la saisie (combobox) et option active, pour le lecteur d'écran.
-const listeOuverte = computed(() => {
-  if (comp.showSlash) return "slash-list";
-  return p.showMentionDropdown && !p.isMentionLoading && p.mentionFiles.length ? "mention-list" : null;
-});
-const optionActive = computed(() => {
-  if (listeOuverte.value === "slash-list") return `slash-opt-${comp.slashIdx}`;
-  return listeOuverte.value === "mention-list" ? `mention-opt-${p.mentionIndex}` : null;
-});
 // Le dépôt ne lit que les fichiers de la cible.
 function surFichiers(e: Event): void {
   p.handleFileUpload({ target: e.target as HTMLInputElement });
@@ -130,32 +121,8 @@ function surFichiers(e: Event): void {
           <PiecesJointes :fichiers="p.attachedFiles" @retirer="p.removeAttachedFile" />
 
           <div class="flex flex-col w-full p-1.5 gap-1">
-            <!-- Saisie EN HAUT, pleine largeur (style Claude/ChatGPT) : le
-                                       texte commence au-dessus de la barre d'outils, pas après le +. -->
-            <!-- Saisie ACTIVE pendant le stream (préparation du prochain
-                                       message, style chatbot classique) — l'ENVOI reste bloqué :
-                                       le bouton devient Stop et Enter insère un retour à la ligne
-                                       (cf. handleInputKeydown). Pas de file d'attente. -->
-            <ZoneSaisie
-              v-model:texte="p.inputMessage"
-              :nouveau-chat="p.messages.length === 0"
-              :liste-id="listeOuverte"
-              :option-active="optionActive"
-              :etiquette="questionnaireOuvert ? 'Autre réponse ou précision' : undefined"
-              :decrit-par="questionnaireOuvert ? 'elpis-ask-question' : undefined"
-              :placeholder="
-                questionnaireOuvert
-                  ? 'Autre réponse, ou une précision…'
-                  : p.isStreaming
-                    ? 'Préparez votre prochain message… (envoi possible une fois la génération terminée)'
-                    : p.imageMode
-                      ? 'Décrivez l’image…'
-                      : p.composerPlaceholder
-              "
-              @element="p.inputRef = $event"
-              @touche="p.handleInputKeydown"
-              @saisie="p.handleInputInput"
-            />
+            <!-- Saisie EN HAUT, pleine largeur (style Claude/ChatGPT) : le texte commence au-dessus de la barre d'outils, pas après le +. -->
+            <SaisieComposeur />
             <!-- « Joindre un fichier » vit dans le menu « + » : l'input caché est déclenché par triggerFileUpload(). -->
             <input
               :ref="(el) => (p.fileInput = el)"

@@ -1789,6 +1789,9 @@ body.elpis-dark-surface textarea {
     color: #e2e8f0;
     color-scheme: dark;   /* native UI elements (date pickers, scrollbars) */
 }
+/* Listes déroulantes natives : liste ouverte sombre (sinon texte clair sur fond blanc), options aux couleurs du thème. */
+body.elpis-dark-surface select { color-scheme: dark; }
+body.elpis-dark-surface :is(option, optgroup) { background-color: var(--surface); color: var(--text-900); }
 /* Mais on PRÉSERVE les inputs qui ont une couleur explicite (text-white déjà). */
 
 /* ── Scrollbars custom ──────────────────────────────────────── */

@@ -151,6 +151,9 @@ follow [SemVer](https://semver.org/).
 - **Tool loop: large results reread faster.** Tool results went
   through a character-by-character JSON reader. They are now reread with `JSON.parse`, with the
   same values: about 40 times faster on a 66 KB result.
+- **Dark mode: readable native dropdown lists.** An open `<select>` list showed light
+  text on a white background in dark mode. The list now opens dark, and its options use
+  the theme's colours.
 - **Anthropic connectors: visible thinking.** With tools active (the usual case
   in chat), thinking was never requested (Opus 4.6 to 4.8, Sonnet 4.6)
   or came back empty (Opus 5, Sonnet 5, Fable: display hidden by default). It is

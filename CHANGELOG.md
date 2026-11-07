@@ -151,6 +151,9 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **`npm run verifier` on the public tree.** It stopped on the missing test kit (goldens
+  replay) and on the absence of tests; both steps now pass when there is nothing to run.
+  One file that failed `format:check` is formatted.
 - **Chat title set as soon as it arrives.** The model's title of a new chat is requested when
   the turn starts, saved and shown right away (new `title` stream event) instead of at the end
   of the answer; stopping the turn no longer drops it, and a manual rename made meanwhile

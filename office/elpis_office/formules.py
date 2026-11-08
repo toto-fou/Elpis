@@ -14,6 +14,7 @@ from openpyxl.utils.cell import range_boundaries
 
 LIGNES_MAX, COLONNES_MAX = 1_048_576, 16_384
 VISITES_MAX = 200_000                       # cellules lues par tous les calculs ; au-delà, cellules seules
+VISITES_DURES = 5_000_000                   # puis plus rien : le calcul d'un classeur reste borné
 PETITE_PLAGE = 64
 PROFONDEUR_MAX = 30                         # formules imbriquées par tentative (bien sous la récursion de Python)
 PILE_MAX = 5_000
@@ -202,19 +203,23 @@ class Classeur:
     def resultat(self, nom: str, ligne: int, col: int) -> Any:
         """Résultat d'une formule pour le cache : nombre, texte, booléen, code d'erreur ; None si Excel doit le calculer."""
         pile = [(nom.casefold(), ligne, col)]       # longue chaîne : les cellules les plus profondes d'abord
+        dans_pile = set(pile)
         while True:
             try:
                 v = self._cellule(*pile[-1])
             except _TropProfond as e:
-                if len(pile) >= PILE_MAX:
+                if e.cle in dans_pile or len(pile) >= PILE_MAX:   # boucle longue ou chaîne sans fin
+                    for cle in pile:
+                        self._valeurs[cle] = _ECHEC
                     return None
                 pile.append(e.cle)
+                dans_pile.add(e.cle)
                 continue
             except (NonCalcule, RecursionError):
                 return None
             if len(pile) == 1:
                 break
-            pile.pop()
+            dans_pile.discard(pile.pop())
         if isinstance(v, Erreur):
             return v.code
         if isinstance(v, float):
@@ -223,7 +228,7 @@ class Classeur:
 
     def _payer(self, n: int) -> None:
         self.visites += n
-        if self.visites > VISITES_MAX and n > PETITE_PLAGE:
+        if self.visites > VISITES_MAX and (n > PETITE_PLAGE or self.visites > VISITES_DURES):
             raise NonCalcule("too many cells read")
 
     def _cellule(self, f: str, ligne: int, col: int) -> Any:

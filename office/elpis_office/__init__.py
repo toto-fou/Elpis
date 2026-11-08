@@ -4,6 +4,7 @@
   docx_create / docx_read / docx_edit     documents Word
   pptx_create / pptx_read / pptx_edit     présentations PowerPoint
   office_export                           PDF par LibreOffice (isolé)
+  office_preview                          une page rendue en image (vue par le modèle)
 
 Chaque appel lit et écrit des fichiers de la SANDBOX de l'appelant, par
 l'``Env`` que fournit l'hôte (``apps/toolhost/src/mcp/office`` dans Elpis).
@@ -18,9 +19,11 @@ guidés (``fix`` + ``example``) et garde-fou anti-boucle par conversation.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import threading
 from collections import OrderedDict
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Tuple
 
 from ._chart import _refus
 from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, indice_chemin, lire
@@ -133,7 +136,8 @@ TOOLS["docx_create"] = {
     "description": (
         "Create a Word document (.docx) in the sandbox from Markdown.\n"
         "content supports: # headings, paragraphs, **bold** / *italic*, H~2~O / x^2^, lists, | tables |, "
-        "> quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n"
+        "> quotes, ```code```, ![caption](images/photo.png) from the sandbox (a missing image becomes a "
+        "grey placeholder, reported in warnings), and:\n"
         "  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool "
         "(native editable chart when possible, else an image); chart_table → a real table\n"
         "  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n"
@@ -340,7 +344,8 @@ TOOLS["xlsx_create"] = {
 TOOLS["office_export"] = {
     "description": (
         "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF "
-        "with LibreOffice. The PDF is written next to it (or to save_as)."),
+        "with LibreOffice. The PDF is written next to it with the same name, replacing a PDF of that "
+        "name (save_as = another path, e.g. to keep the PDFs of report.docx and report.pptx)."),
     "params": OrderedDict([
         ("path", _PATH_EXPORT),
         ("to", {"type": "string", "enum": ["pdf"]}),
@@ -349,13 +354,31 @@ TOOLS["office_export"] = {
     "required": ["path"],
 }
 
+TOOLS["office_preview"] = {
+    "description": (
+        "See a page of an office file of the sandbox: it is rendered by LibreOffice (as office_export) "
+        "and shown to you as an image, with its text. page = a page or slide number (from 1), a range "
+        "'2-4' or a list [1, 3]; 3 pages at most per call. Works on .docx, .pptx, .xlsx (the printed "
+        "pages), .odt, .odp, .ods and .pdf. Use it to check a layout before delivering: overflowing "
+        "text, a table cut by a page break, the size of a chart. save_as = also keep the image(s) in "
+        "the sandbox."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "The file to look at, e.g. 'rapports/bilan-2026.docx'."}),
+        ("page", {"type": ["integer", "string", "array"], "items": {"type": "integer"},
+                  "description": "Page or slide number(s), from 1 (default 1)."}),
+        ("save_as", {"type": "string", "description": "Optional: a .png path to keep the image(s)."}),
+    ]),
+    "required": ["path"],
+}
+
+
 def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
-    from . import excel, powerpoint, word
+    from . import apercu, excel, powerpoint, word
     return {"docx_create": word.docx_create, "docx_read": word.docx_read,
             "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
             "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
             "xlsx_read": excel.xlsx_read, "xlsx_create": excel.xlsx_create,
-            "office_export": office_export}[nom]
+            "office_export": office_export, "office_preview": apercu.office_preview}[nom]
 
 
 # Exportables en PDF : formats que LibreOffice ouvre avec un filtre d'import
@@ -383,6 +406,20 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
     cible = _pdf(a.get("save_as") or (rel.rsplit(".", 1)[0] + ".pdf"), env)
+    pdf, numerotees = pdf_du_fichier(env, rel, ext)
+    res = ecrire(env, cible, pdf)
+    if numerotees:
+        res["toc"] = f"{numerotees} table of contents entries numbered in the PDF (the .docx is unchanged)"
+    autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []
+    if autres:
+        env.notes.warn(f"{res['path']} already existed and was replaced; it may have been the PDF of "
+                       f"{autres[0]}: export again with save_as to keep both")
+    return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
+                              f"({len(pdf) // 1024} KB)"}
+
+
+def pdf_du_fichier(env: Env, rel: str, ext: str, numeroter: bool = True) -> Tuple[bytes, int]:
+    """PDF d'un fichier de la sandbox rendu par LibreOffice, et les entrées de sommaire numérotées pour lui seul."""
     try:
         data = lire(env, rel, "file")
     except FileNotFoundError:
@@ -397,10 +434,51 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             raise OfficeError(str(e), code="bad_file", fix="check that the file is a valid "
                                                            f"{EXT[_SORTE[ext]]} file")
         ext = EXT[_SORTE[ext]]
-    pdf = env.convertir(data, ext, "pdf")
-    res = ecrire(env, cible, pdf)
-    return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
-                              f"({len(pdf) // 1024} KB)"}
+    if env.convertir is None:
+        raise OfficeError("rendering needs LibreOffice, which is not installed on this server",
+                          code="unavailable", fix="tell the user; an administrator can install it "
+                                                  "(./install.sh --with-office)")
+    cle = (hashlib.sha256(data).hexdigest(), ext, numeroter)
+    with _PDF_VERROU:
+        if cle in _PDF_RECENTS:                     # aperçus successifs du même fichier : un seul rendu
+            _PDF_RECENTS.move_to_end(cle)
+            return _PDF_RECENTS[cle]
+    if ext == ".docx" and numeroter:
+        from .sommaire_pdf import pdf_numerote
+        rendu = pdf_numerote(data, env.convertir)
+    else:
+        rendu = env.convertir(data, ext, "pdf"), 0
+    with _PDF_VERROU:
+        _PDF_RECENTS[cle] = rendu
+        while len(_PDF_RECENTS) > PDF_RECENTS_MAX or \
+                sum(len(p) for p, _ in _PDF_RECENTS.values()) > PDF_RECENTS_OCTETS:
+            _PDF_RECENTS.popitem(last=False)
+    return rendu
+
+
+# PDF rendus récemment, par contenu exact du fichier (sha256) : partagés sans risque entre comptes.
+PDF_RECENTS_MAX, PDF_RECENTS_OCTETS = 8, 64 << 20
+_PDF_RECENTS: "OrderedDict[Tuple[str, str, bool], Tuple[bytes, int]]" = OrderedDict()
+_PDF_VERROU = threading.Lock()
+
+
+def _homonymes(env: Env, rel: str) -> list:
+    """Autres fichiers exportables du même nom dans le dossier (rapport.pptx à côté de rapport.docx)."""
+    lister = getattr(env.espace, "lister", None)
+    dossier, _, nom = rel.strip("/").rpartition("/")
+    if lister is None:
+        return ["another file of the same name"]    # sans listing : prévenir quand même
+    try:
+        entrees = lister(dossier) or []
+    except (OSError, ValueError, RuntimeError, OfficeError) as e:
+        if getattr(e, "code", "") == "cancelled":
+            raise
+        return []
+    base = nom.rsplit(".", 1)[0].lower()
+    return [env.espace.afficher(f"{dossier}/{e['nom']}" if dossier else str(e["nom"])) for e in entrees
+            if not e.get("dossier") and str(e["nom"]).lower() != nom.lower() and "." in str(e["nom"])
+            and str(e["nom"]).rsplit(".", 1)[0].lower() == base
+            and "." + str(e["nom"]).rsplit(".", 1)[1].lower() in CONVERTIBLES]
 
 
 def _pdf(path: Any, env: Env) -> str:

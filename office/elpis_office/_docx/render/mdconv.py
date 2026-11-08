@@ -17,8 +17,8 @@ from . import spec as S
 
 _HEADING_TAG = re.compile(r"^h([1-6])$", re.IGNORECASE)
 #: Pandoc's subscript and superscript, without spaces inside: H~2~O, x^2^ (~~strike~~ is parsed before);
-#: not after a slash nor around one, so http://h/~alice/~bob stays a path.
-_SUB_SUP = re.compile(r"(?<!/)~([^\s~/]+)~|(?<!/)\^([^\s^/]+)\^")
+#: a subscript never after nor around a slash (http://h/~alice/~bob stays a path), a superscript may hold one (x^1/2^).
+_SUB_SUP = re.compile(r"(?<!/)~([^\s~/]+)~|(?<!/)\^([^\s^]+)\^")
 
 
 # ---------------------------------------------------------------------------
@@ -223,15 +223,22 @@ def _sub_sup(text: str):
     yield text[position:], {}
 
 
+def _chemin(source: str) -> str:
+    """Image source as written: markdown-it percent-encodes it (équipe.png → %C3%A9quipe.png); data URIs untouched."""
+    from urllib.parse import unquote
+
+    return source if source.startswith("data:") else unquote(source)
+
+
 def _lone_image(inline) -> S.ImageBlock | None:
-    """A paragraph that is nothing but an image becomes an image block."""
+    """An image alone in its paragraph is a figure: its bracket text is the visible caption (as in pandoc) and the alt text."""
     children = [c for c in (inline.children or []) if not (c.type == "text" and not c.content.strip())]
     if len(children) == 1 and children[0].type == "image":
         token = children[0]
-        source = token.attrGet("src") or ""
-        alt = "".join(child.content for child in (token.children or []))
+        source = _chemin(token.attrGet("src") or "")
+        alt = "".join(child.content for child in (token.children or [])).strip()
         return S.ImageBlock(
-            type="image", source=source, caption=(token.attrGet("title") or None), alt_text=alt or None
+            type="image", source=source, caption=(token.attrGet("title") or alt or None), alt_text=alt or None
         )
     return None
 
@@ -359,7 +366,7 @@ def _walk_html(element, blocks: list, heading_offset: int) -> None:
         elif tag == "hr":
             blocks.append(S.RuleBlock(type="hr"))
         elif tag == "img":
-            source = child.get("src") or ""
+            source = _chemin(child.get("src") or "")
             if source:
                 blocks.append(
                     S.ImageBlock(type="image", source=source, alt_text=child.get("alt") or None)

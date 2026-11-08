@@ -279,6 +279,7 @@ def style_levels(document) -> tuple[dict[str, int | None], str | None]:
         if style_id in levels:
             return levels[style_id]
         by_name, outline_level, parent = own[style_id]
+        level: int | None
         if by_name is not None:
             level = by_name
         elif outline_level is not None:

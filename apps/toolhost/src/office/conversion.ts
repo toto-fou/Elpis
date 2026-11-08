@@ -156,13 +156,29 @@ function veriteTexte(x: unknown, defaut: string): string {
   return x === null || x === undefined || x === false || x === "" || x === 0 ? defaut : strPy(x);
 }
 
-const PROFILE_VERSION = "1";
+const PROFILE_VERSION = "2";
+/** Polices d'Office absentes de l'hôte → équivalents libres installés (sinon LibreOffice prend une police à empattements). */
+const REMPLACEMENTS_POLICES: readonly (readonly [string, string])[] = [
+  ["Calibri Light", "Carlito"],
+  ["Aptos", "Carlito"],
+  ["Aptos Display", "Carlito"],
+  ["Consolas", "Liberation Mono"],
+];
+const SUBSTITUTIONS_XCU = REMPLACEMENTS_POLICES.map(
+  ([police, libre], i) =>
+    `<item oor:path="/org.openoffice.Office.Common/Font/Substitution/FontPairs"><node oor:name="_${i}" oor:op="replace">` +
+    `<prop oor:name="Always" oor:op="fuse"><value>true</value></prop>` +
+    `<prop oor:name="OnScreenOnly" oor:op="fuse"><value>false</value></prop>` +
+    `<prop oor:name="ReplaceFont" oor:op="fuse"><value>${police}</value></prop>` +
+    `<prop oor:name="SubstituteFont" oor:op="fuse"><value>${libre}</value></prop></node></item>\n`,
+).join("");
 const REGISTRY_XCU = `<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>
-</oor:items>
+<item oor:path="/org.openoffice.Office.Common/Font/Substitution"><prop oor:name="Replacement" oor:op="fuse"><value>true</value></prop></item>
+${SUBSTITUTIONS_XCU}</oor:items>
 `;
 
 /** `ensure_profile` : profil LibreOffice du créneau semé (appelé sous le verrou du créneau). */

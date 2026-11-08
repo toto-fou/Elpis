@@ -52,6 +52,7 @@ import {
   toolTimeoutJson,
 } from "../outils/mcp/clients";
 import { bornesDuLot } from "../outils/integres/task/tour";
+import { messageImages, reprendreImages } from "../outils/mcp/images-outils";
 import type { Dict } from "../python";
 import { fetchRelayedBytes } from "../relais/services";
 import * as Analyse from "./analyse-appels";
@@ -1109,7 +1110,10 @@ export async function runToolBatch(
     const toolName = strPy(p["tool_name"]);
     const finalArgs = p["final_args"];
     const callId = p["call_id"];
-    const brut = resultats.get(idx) ?? pyJsonDumps({ error: "no_result" });
+    const [brut, imagesOutil] = reprendreImages(
+      resultats.get(idx) ?? pyJsonDumps({ error: "no_result" }),
+      channel.vision && ctx.c.modelHasVision,
+    );
     const resultat = ctx.c.subagent ? sansAlerteDisque(brut) : brut;
     if (!resultIsToolFailure(resultat)) hadSuccess = true;
     const evt: Dict = {
@@ -1193,6 +1197,7 @@ export async function runToolBatch(
     const toolMsg: Dict = { role: "tool", tool_call_id: callId, content: contenu };
     workingMessages.push(toolMsg);
     rec.runToolHistory.push(toolMsg);
+    if (imagesOutil.length) visionsDifferees.push(messageImages(toolName, imagesOutil));
 
     if (!channel.vision) continue;
     const inspect =

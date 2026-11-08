@@ -29,8 +29,8 @@ TROUVES_MAX, CELLULES_FOUILLEES_MAX, FORMULES_MAX = 50, 2_000_000, 200
 _S = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 _PR = "{http://schemas.openxmlformats.org/package/2006/relationships}"
-# Formule sans <v> (ou <v/> vide) avant la fin de sa cellule.
-_SANS_RESULTAT = re.compile(rb"(?:</f>|<f\b[^>]*/>)\s*(?:<v\s*/>|<v>\s*</v>)?\s*</c>")
+# Formule sans <v> (ou <v/> vide) avant la fin de sa cellule ; en temps linéaire (pas de \s* adjacents).
+_SANS_RESULTAT = re.compile(rb"(?:</f>|<f\b[^<>]*/>)\s*(?:(?:<v\s*/>|<v>\s*</v>)\s*)?</c>")
 
 
 def _valeur(cellule: Any) -> Any:
@@ -111,7 +111,9 @@ def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None) -> Tuple[Li
     for cellules in feuille.iter_rows(min_row=debut, max_col=COLONNES_MAX):
         valeurs: List[Any] = [_valeur(c) for c in cellules]
         for k, c in enumerate(next(textes, ()) if textes is not None else ()):
-            if k < len(valeurs) and valeurs[k] in (None, "") and isinstance(c.value, str) and c.value.startswith("="):
+            # t="str" sans valeur : résultat vide enregistré (=IF(…;"";…)), pas une formule à calculer.
+            if k < len(valeurs) and valeurs[k] in (None, "") and getattr(cellules[k], "data_type", "") != "str" \
+                    and isinstance(c.value, str) and c.value.startswith("="):
                 valeurs[k] = {"formula": c.value}
                 sans_resultat += 1
         while valeurs and valeurs[-1] in (None, ""):

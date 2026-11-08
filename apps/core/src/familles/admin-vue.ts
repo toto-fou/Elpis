@@ -7,7 +7,7 @@ import type { Base } from "@elpis/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { lireEvenementsRecents } from "../admin/journaux";
-import { CACHE_TTL, collecter } from "../admin/vue";
+import { alertesPourModerateur, CACHE_TTL, collecter } from "../admin/vue";
 import type { Faits, Sondes } from "../admin/vue";
 import { cheminJournalCommun } from "../evenements/journal-commun";
 import type { EntreeHistorique } from "../evenements/systeme";
@@ -81,7 +81,7 @@ export function creerFamilleAdminVue(dep: DependancesAdminVue): Famille {
     await rafraichir(Boolean(refresh) && r === 1);
     const data: Dict = { ...(cache.data as Dict) };
     data["role"] = r === 1 ? "admin" : "moderator";
-    if (r !== 1) data["alerts"] = (data["alerts"] as Dict[]).map((a) => ({ ...a, action: "" }));
+    if (r !== 1) data["alerts"] = alertesPourModerateur(data["alerts"] as Dict[]);
     return reponseJsonPy(rep, data);
   }
 

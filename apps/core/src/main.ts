@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/main.ts — point d'entrée d'un process du core (`APP_MODE`, écoute sur `BIND`, arrêt gracieux 300 s). */
 import { config, configView, racineDepot } from "@elpis/config";
+import { arreterAudit, demarrerAudit, viderRafalesAudit } from "@elpis/securite";
 
 import { creerApp } from "./app";
 import { base, demarrerBase } from "./base";
@@ -33,6 +34,9 @@ async function principal(): Promise<void> {
   await demarrerBase(mode);
   const composition = await composer(mode, base(), log, undefined, undefined, { cycle });
   brancherTravailDesComptes(cycle, base(), journal("backup"));
+  // Journal de sécurité : début et fin d'écriture de ce process (un écrivain sans fin s'est arrêté brutalement).
+  demarrerAudit();
+  cycle.alArret("journal de sécurité", arreterAudit);
   cycle.alArret("base", () => base().fermer());
   cycle.alArret("journal commun", () => ecrivainDuProcess()?.fermer());
   const app = await creerApp({
@@ -54,6 +58,8 @@ async function principal(): Promise<void> {
   let redemarrage = false;
   /** SIGHUP aussi : le Python y rechargeait ses workers ; ici le process s'arrête proprement (sortie 75) et systemd ou relance.sh le relance. */
   const arreter = (signal: NodeJS.Signals): void => {
+    // Résumés de rafales en attente écrits dès le signal : un arrêt forcé ne les perd pas.
+    viderRafalesAudit();
     if (arretDemande) {
       log.warn(`${signal} reçu pendant l'arrêt : sortie immédiate`);
       process.exit(codeDeSortie(redemarrage && signal === "SIGHUP", false));
@@ -66,7 +72,10 @@ async function principal(): Promise<void> {
     const force = setTimeout(() => {
       log.warn("délai d'arrêt dépassé : connexions fermées de force");
       app.server.closeAllConnections();
-      setTimeout(() => process.exit(codeDeSortie(redemarrage, false)), GRACE_APRES_FORCAGE_MS).unref();
+      setTimeout(() => {
+        viderRafalesAudit();
+        process.exit(codeDeSortie(redemarrage, false));
+      }, GRACE_APRES_FORCAGE_MS).unref();
     }, DELAI_ARRET_MS);
     void app
       .close()

@@ -18,6 +18,7 @@ import { ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { FastifyRequest } from "fastify";
 
 import { urlDeBase } from "../comptes/aides";
+import { auditerRequete } from "../journal-securite/auditer";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import type { DependancesComptes } from "./comptes";
@@ -176,6 +177,12 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
               familles,
               jours === "" || jours === null || jours === undefined ? undefined : jours,
             );
+            auditerRequete(req, "token.create", {
+              token_id: item.id,
+              name: item.name,
+              type: item.kind,
+              expires_at: item.expires_at,
+            });
             return { token, item: itemPy(item) };
           } catch (e) {
             if (e instanceof ErreurJeton) throw new HttpError(422, e.message);
@@ -199,6 +206,7 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
             throw e;
           }
           if (!sortie) throw new HttpError(404, "Jeton introuvable.");
+          auditerRequete(req, "token.regenerate", { token_id, new_token_id: sortie[1].id });
           return { token: sortie[0], item: itemPy(sortie[1]) };
         },
       },
@@ -224,6 +232,7 @@ export function creerFamilleJetons(dep: DependancesComptes): Famille {
           const uid = utilisateur(req);
           const { token_id } = entrees(req, { path: { token_id: py.int() } }).path;
           if (!(await revoquerJeton(base, uid, token_id))) throw new HttpError(404, "Jeton introuvable.");
+          auditerRequete(req, "token.delete", { token_id });
           return { ok: true };
         },
       },

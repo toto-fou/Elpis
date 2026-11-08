@@ -2,7 +2,7 @@
 /** apps/core/src/observabilite/journal-acces.ts — journal commun du process (shared_infra/observability/access_logging.py) : ligne de démarrage, copie des journaux du process, une ligne par requête HTTP, événements explicites (relecture : admin/journaux.ts). */
 import type { ServerResponse } from "node:http";
 
-import { ipClient } from "@elpis/auth";
+import { ipDuClient } from "@elpis/auth";
 import type { Reseau, Session } from "@elpis/auth";
 import { estErreurPython, intPy, prefixePy, reprPy } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
@@ -182,7 +182,7 @@ function niveauAcces(statut: number, chemin: string, service: string): string {
   return statut >= 400 ? "WARNING" : "INFO";
 }
 
-/** Ligne `http` d'une requête finie : statut, durée, compte, IP (X-Forwarded-For cru des seuls mandataires), exception inattendue. */
+/** Ligne `http` d'une requête finie : statut, durée, compte, IP (celle du journal de sécurité, `ipDuClient`), exception inattendue. */
 function journaliserRequete(
   requete: FastifyRequest,
   reponse: ServerResponse,
@@ -195,9 +195,7 @@ function journaliserRequete(
   if (erreur !== undefined) statut = statut || 500;
   const duree = Math.trunc(performance.now() - debut);
   const uid = compteDeSession(requete);
-  const pair =
-    requete.ip.startsWith("::ffff:") && requete.ip.includes(".") ? requete.ip.slice(7) : requete.ip;
-  const ip = ipClient(pair, requete.headers, o.mandataires);
+  const ip = ipDuClient(requete, o.mandataires);
   const categorie = categoriser(chemin);
   const niveau = niveauAcces(statut, chemin, o.service);
   let message = `${requete.method} ${chemin} → ${statut} (${duree}ms) ${uid === null ? "uid=-" : `uid=${uid}`} ip=${ip}`;

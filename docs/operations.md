@@ -499,8 +499,9 @@ therefore needs the core bundle, which `./install.sh` builds before configuring.
 The full archive contains the database (SQLite snapshot, whatever the engine),
 `user_db/` (including the encryption key and the session secret: protect them
 accordingly, and the RAG store `user_db/rag`: uploaded documents and extracted
-texts), the sandboxes, the MCP servers, the skins and the personal skills
-store. In the sandboxes, only regular files are backed up; other entries are
+texts), the sandboxes, the MCP servers, the skins, the personal skills
+store and the security journal (`audit/`, see
+[Security journal and log forwarding](#security-journal-and-log-forwarding)). In the sandboxes, only regular files are backed up; other entries are
 listed in `backup-warnings.txt`.
 
 Not included, to be backed up separately: `config.json`, `.env`, `mcp.json`,
@@ -534,6 +535,140 @@ disappeared, and can be deleted with services stopped (like the
 | `GET /api/admin/metrics/prometheus` | Prometheus metrics (admin process, :8002): admin session or collection token |
 
 The console overview reports a backup that is too old.
+
+## Security journal and log forwarding
+
+Elpis keeps two kinds of logs. The **security journal** records who did what (sign-ins,
+accounts, rights, settings, backups, exports, commands): one signed JSON line per event, one file
+per UTC day, in `/var/lib/elpis/audit`. Its format and the catalogue of events are in
+[audit-events.md](audit-events.md). The **technical logs** are the services' messages and the HTTP
+access log. Elpis sends nothing over the network: sending to a central collector is done by the
+host's rsyslog, from the examples in `deploy/rsyslog/` (see its
+[README](../deploy/rsyslog/README.md)).
+
+### Setting up the journal
+
+```bash
+sudo ./elpis audit setup
+```
+
+Run by `./install.sh` and by `sudo ./elpis service install`; safe to run again. It creates, and
+checks at the end (non-zero exit on any difference):
+
+| What | Detail |
+|---|---|
+| Group `elpis-journal` | Read access to the journals (`ELPIS_GROUPE_JOURNAL=adm` uses the `adm` group instead). The `syslog` account, when it exists, joins it so that rsyslog can read the files; rsyslog is restarted for that |
+| `/var/lib/elpis/audit` and `/var/log/elpis` | Mode `2750`, owned by the service account and the group above, never readable by everyone. The first holds the security journal, the second the access log |
+| `/etc/elpis/audit.key` | Signing key (0440, root and a group holding the service account only: its own primary group, or `elpis-cle`, name set by `ELPIS_GROUPE_CLE`). Created if missing or empty, never replaced. **Back it up off the machine**: without it, signatures can no longer be checked |
+| Existing `logs/audit` | The files of an earlier installation are moved to `/var/lib/elpis/audit` (a file of the same day is appended to). While the services run, the files of today and yesterday stay where they are: stop them (`./elpis stop`, or `sudo systemctl stop elpis.target`) and run the command again |
+
+Run it again after changing the service account, after stopping the services to finish the move
+of `logs/audit`, and whenever `./elpis doctor` or the console asks for it. Without it, the journal
+falls back to `logs/audit` in the repository, and its lines are unsigned if the key is missing.
+
+The service account is the `User=` of the installed units, otherwise `ELPIS_USER`, otherwise the
+account that ran `sudo`; it is never root. From a root shell (`su -`, `sudo -i`) there is no
+`SUDO_USER`: give the account, `sudo ELPIS_USER=name ./elpis audit setup`. When units are
+installed under another account than `ELPIS_USER`, the command refuses; change the account with
+`sudo ELPIS_USER=name ./elpis service install`.
+
+### After an update
+
+`./elpis upgrade` restarts the existing units without rewriting them. After the update that
+brings the security journal, run, in this order:
+
+```bash
+sudo ./elpis audit setup
+sudo ./elpis service install
+```
+
+`service install` rewrites the units (each service gets `SyslogIdentifier=elpis-<service>` and
+the `ELPIS_AUDIT_DIR` and `ELPIS_APP_LOG_DIR` variables), moves what remains in `logs/audit`, and
+restarts `elpis.target`.
+
+### Verifying the journal
+
+```bash
+./elpis audit verify [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--key PATH]... [--host NAME]
+```
+
+Checks the signature of each line and the continuity of the numbers (`seq`) of each writer
+(`boot`), over the whole journal or a period. Exit codes:
+
+| Code | Meaning |
+|---|---|
+| 0 | `intact`: every line signed and valid, no gap, both ends of the journal established |
+| 1 | `anomalies`: invalid signature, unreadable, missing, duplicated or out-of-order lines |
+| 2 | Bad command line; `--key` missing, unreadable or shorter than 32 bytes; or signed lines and no readable key (the default key is readable by the service account only: run the command as that account, or pass `--key`) |
+| 3 | `non_verifie` (unsigned lines, unknown key, start or end of the journal not established, reason printed) or `vide` (nothing in the period) |
+
+The command is itself written to the journal (`cli.audit.verify`). The same check is available in
+the console (Monitoring › Logs › Security › Verify integrity). On a central copy, use the same
+command with `ELPIS_AUDIT_DIR` and `--key` (see the rsyslog README).
+
+### What `./elpis doctor` checks
+
+- the two folders: mode `2750`, service account, group `elpis-journal` (or `adm`); the fallback
+  folder `logs/audit` in use, or files left in it;
+- the key: 0440 root, group of the service account alone, readable by it, 32 bytes at least
+  (otherwise lines are written unsigned);
+- forwarding: a rule `*elpis*.conf` in `/etc/rsyslog.d` (or `/etc/syslog-ng/conf.d`), and the
+  packages its drivers need (`rsyslog-gnutls` for TLS, `rsyslog-relp` for RELP); no rule is
+  reported, not counted as a problem;
+- journald persistent (`/var/log/journal`), see below;
+- the clock synchronised (`timedatectl`), counted as a problem when it is not.
+
+### Retention, hold and purge
+
+The daily maintenance pass (`maintenance.hour`) deletes the daily files whose whole UTC day is older
+than `security.audit.retention_days` (365 by default, 180 to 1095; see
+[configuration.md](configuration.md#security-journal-securityaudit)). At most 31 files go per pass,
+and the `retention_days` most recent files always stay, so a clock set ahead does not empty the
+journal. A signed `audit.purge` line is written before anything is deleted; if it cannot be written,
+nothing is.
+
+- **Hold.** `hold` with a mandatory reason keeps every file, for an investigation or an authority's
+  request. A `.hold` marker in the journal folder doubles it. Set and lifted in Admin console ›
+  System › Logging.
+- **Expected forwarding.** With `forwarding_expected` on, files are deleted only once the syslog
+  agent is installed, active according to systemd, and has a rule reading the journal folder. Turn
+  it on when forwarding is in place: nothing is then erased that was not sent.
+- Also kept, with an alert in the console: a `config.json` or a retention value that cannot be read
+  (the retention and the expected forwarding are copied to a `.settings` file in the journal folder
+  and taken from it if `config.json` loses them).
+
+Each skipped pass writes `audit.purge.skipped` with its reason. The console shows the disk space
+left and the days it represents at the current pace, and raises an alert below 7 days.
+
+### Backups
+
+A full backup (`./elpis backup`, the console, the upgrade backup) includes the journal in an
+`audit/` folder (`backup.include_audit`, on by default). The scheduled remote send leaves it out
+unless `backup.remote.include_audit` is on. A restore never writes it back over the journal in
+place. Keep the backups for no longer than the journal's retention (the example cron above keeps 14
+days): a deleted day must not live on in older archives. The signing key is not in the backup.
+
+### Clock
+
+Timestamps are only as good as the clock. Point the host at an internal time server of the LAN,
+with chrony (or `systemd-timesyncd`): no public server is needed or wanted. For example, in
+`/etc/chrony/chrony.conf`, `server ntp.example.lan iburst`, then `sudo systemctl restart chrony`.
+`./elpis doctor` and the console (Logging page) report an unsynchronised clock.
+
+### Technical logs
+
+| Log | Where | Notes |
+|---|---|---|
+| Service output | journald, tag `elpis-<service>` (`elpis-main`, `elpis-admin`, `elpis-toolhost`…) | `./elpis logs main -f`, or `journalctl -t elpis-main`. Make journald persistent with `deploy/journald/60-elpis.conf.example` (`Storage=persistent`); its optional size and age limits apply to the whole host journal. Keep it shorter than the security journal: it holds names and addresses |
+| Access log | `app.log.jsonl` in `ELPIS_APP_LOG_DIR` (`/var/log/elpis`); `user_db/logs/` of the repository when the variable is not set | Rotated by Elpis itself at 8 MB, 3 old files kept (`ELPIS_APP_LOG_MAX_MO`, `ELPIS_APP_LOG_ROTATIONS`) |
+| `logs/<service>.log` | Repository, only with `./elpis start` (no systemd) | Rotated at each start when above 64 MB, 3 old files kept (`.1` to `.3`) |
+
+Neither rotation depends on systemd or logrotate. Both journal folders must stay readable by the
+rsyslog account: that is what `audit setup` does.
+
+For sending the security journal, the access log and the services' output to a collector (mutual
+TLS, disk queues, what can still be lost), follow
+[deploy/rsyslog/README.md](../deploy/rsyslog/README.md).
 
 ## Recovering from an incident
 

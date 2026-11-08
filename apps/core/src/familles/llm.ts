@@ -22,7 +22,7 @@ import {
 import type { Dict } from "@elpis/commun";
 import { readConfigJson } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { auditEvent } from "@elpis/securite";
+
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { compactionActive, resolveThreshold, resumeFenetre } from "../contexte/porte-compaction";
@@ -77,6 +77,7 @@ import { profilDe, vuePubliqueProfil } from "../llm/profils";
 import { contexteAnnonce, getLlmHealth, setLoadedModelCache } from "../llm/sante";
 import { infosServeur, reflexionConservable } from "../llm/sonde-moteur";
 import type { Famille } from "../routes";
+import { auditer } from "./admin-llm";
 import { utilisateur } from "./comptes";
 import { corpsJson, entrees, ouvrirFlux, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
@@ -273,10 +274,6 @@ function estModeleLocal(modelId: string): boolean {
   return Array.isArray(locaux) ? locaux.includes(modelId) : false;
 }
 
-function auditer(requete: FastifyRequest, uid: number, action: string, details: Dict): void {
-  auditEvent({ userId: uid, username: requete.utilisateur?.username ?? null, action, details });
-}
-
 // ── Connecteurs du compte (routes_connectors.py) ───────────────────────────
 
 async function listerConnecteurs(dep: DependancesLlm, req: FastifyRequest): Promise<Dict> {
@@ -321,7 +318,7 @@ async function creerConnecteur(dep: DependancesLlm, req: FastifyRequest): Promis
       `Stockage du connecteur impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
     );
   }
-  auditer(req, uid, "llm.connector.create", {
+  auditer(req, "llm.connector.create", {
     connector_id: cid,
     provider_type: champs["provider_type"],
     scope: "user",
@@ -350,7 +347,7 @@ async function modifierConnecteur(dep: DependancesLlm, req: FastifyRequest): Pro
     );
   }
   if (!ok) throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
-  auditer(req, uid, "llm.connector.update", { connector_id: cid });
+  auditer(req, "llm.connector.update", { connector_id: cid });
   oublierFenetres();
   return { ok: true };
 }
@@ -360,7 +357,7 @@ async function supprimerConnecteur(dep: DependancesLlm, req: FastifyRequest): Pr
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
   if (!(await deleteUserConnector(dep.base, uid, cid))) throw new HttpError(404, "Connecteur introuvable");
   oublierServeur(connectorKey(cid));
-  auditer(req, uid, "llm.connector.delete", { connector_id: cid });
+  auditer(req, "llm.connector.delete", { connector_id: cid });
   oublierFenetres();
   return { ok: true };
 }
@@ -372,11 +369,12 @@ async function testerConnecteur(dep: DependancesLlm, req: FastifyRequest): Promi
   if (!ligne) throw new HttpError(404, "Connecteur introuvable");
   const sonde = parametreRequete(req, "sonde");
   const res = await testConnector(ligne, { sonde: sonde === "1" || sonde === "true" });
-  auditer(req, uid, "llm.connector.test", {
-    connector_id: cid,
-    ok: veritePy(res["ok"]),
-    status: res["status"] ?? null,
-  });
+  auditer(
+    req,
+    "llm.connector.test",
+    { connector_id: cid, ok: veritePy(res["ok"]), status: res["status"] ?? null },
+    veritePy(res["ok"]),
+  );
   return res;
 }
 

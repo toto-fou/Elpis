@@ -21,6 +21,32 @@ follow [SemVer](https://semver.org/).
   the page open in a rail blends into the sheet, one lagoon accent, airy tables and the
   user's message as a veil on the right. Figtree and Atkinson Hyperlegible Mono (OFL-1.1,
   downloaded only by this skin).
+- **Signed security journal.** Every process writes one JSON line per security event
+  (format v1, `docs/audit-events.md`) into daily files, each line signed with an HMAC
+  and numbered (`seq`, per `boot`) so that a missing or altered line is detected.
+  `./elpis audit verify` checks signatures and continuity (exit 0 intact, 1 anomalies,
+  2 usage or key error, 3 not verified or empty). `sudo ./elpis audit setup` creates the
+  folders (`/var/lib/elpis/audit`, `/var/log/elpis`, mode 2750), the read group for
+  rsyslog and the key `/etc/elpis/audit.key`, and moves `logs/audit`; `service install`
+  gives each unit `SyslogIdentifier=elpis-<service>` and the folders' variables;
+  `./elpis doctor` checks folders, key, forwarding rule, journald and clock. Examples for
+  rsyslog (sender and collector) and journald are in `deploy/`.
+  **After updating, run `sudo ./elpis audit setup`, then `sudo ./elpis service install`**:
+  `./elpis upgrade` does not rewrite the systemd units.
+- **Security journal: event catalogue.** Sign-in and sign-out, password changes, accounts,
+  groups, tokens, OAuth, settings, security settings, backups, exports, LLM traffic reads,
+  restarts, `./elpis` commands, CSRF and role refusals. Repeated refusals are summarized once a
+  minute, so a flood does not fill the journal. Never logged: passwords, tokens, keys, prompts
+  (`docs/audit-events.md`).
+- **Security journal: retention, hold and administrator access.** Files are kept 365 days
+  (180 to 1095, `security.audit.retention_days`); a hold (with a reason) keeps them all; with
+  `security.audit.forwarding_expected` the purge waits until the syslog agent is active with
+  an Elpis rule; each purge is itself logged first. Full backups include the journal
+  (`backup.include_audit`; a scheduled remote send only with `backup.remote.include_audit`).
+  Search, CSV and JSONL export and integrity check are reserved to administrators; the
+  state (disk, clock, rsyslog), the alerts and a test event are available to them.
+  The process samples and Prometheus gain an event-loop latency gauge (p99 and max over the
+  last minute).
 
 ### Changed
 
@@ -261,6 +287,10 @@ follow [SemVer](https://semver.org/).
   relaid out the editor on every mouse move, which stuttered. One position is applied per
   frame and the size observers do the layout; the shell receives the terminal size once
   the drag settles.
+- **Logs: safer content.** Control characters are escaped in the text log, query strings are
+  removed from the lines recording a refusal, Prometheus labels are escaped, CSV exports are
+  neutralized against spreadsheet formulas, the console answers 503 instead of an empty list
+  when the database fails, and secrets are masked in the shell commands that are logged.
 
 ## 0.1.2 — 2026-11-01
 

@@ -8,6 +8,8 @@ export type Chargeur = readonly [nom: string, ...arguments: unknown[]];
 interface DefinitionPage {
   id: string;
   label: string;
+  /** Rôle exigé quand il est plus strict que celui de l'entrée. */
+  role?: RoleAdmin;
   wide?: boolean;
   loaders?: readonly Chargeur[];
   stores?: readonly string[];
@@ -62,7 +64,7 @@ const ENTREES: readonly EntreeAdmin[] = [
       { id: "report", label: "Rapport", wide: true, loaders: [["loadDailyReport"]] },
       { id: "runs", label: "Exécutions", wide: true, loaders: [["loadAdminRuns"]] },
       { id: "tool-calls", label: "Appels d’outils", wide: true, loaders: [["loadToolCalls"]] },
-      { id: "audit", label: "Audit", wide: true, loaders: [["loadAuditRecent"]] },
+      { id: "audit", label: "Audit", role: "admin", wide: true, loaders: [["loadAuditRecent"]] },
       { id: "logs", label: "Journaux", wide: true, loaders: [["loadRecentLogs"]] },
     ],
   },
@@ -217,7 +219,7 @@ function construirePages(): Record<string, PageAdmin> {
         paths: p.paths ?? [],
         entry: e.id,
         entryLabel: e.label,
-        role: e.role,
+        role: p.role ?? e.role,
       });
     }
   }

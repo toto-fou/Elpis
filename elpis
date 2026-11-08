@@ -29,6 +29,9 @@
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
 #                                sortie si le serveur de base est tombé)
+#  ./elpis audit verify [--from AAAA-MM-JJ] [--to AAAA-MM-JJ] [--key CHEMIN]
+#                                vérifie le journal de sécurité : signatures,
+#                                lignes manquantes, arrêts propres (0 = intègre)
 # =============================================================================
 set -uo pipefail
 # « su » sans « - » garde le PATH de l'utilisateur, sans /usr/sbin ni /sbin :
@@ -48,6 +51,15 @@ SERVICES=(qdrant rag toolhost main admin browser)
 # Services retirés : leurs unités systemd sont supprimées par « service install » et « service remove ».
 SERVICES_RETIRES=(appmcp tools)
 UNIT_PREFIX="elpis"
+# Journal de sécurité (audit) et journal technique hors du dépôt (sudo ./elpis audit setup) ;
+# ELPIS_PREFIXE_SYSTEME ne sert qu'aux essais (arborescence factice).
+SYS_PREFIXE="${ELPIS_PREFIXE_SYSTEME:-}"
+AUDIT_DIR_SYS="$SYS_PREFIXE/var/lib/elpis/audit"
+AUDIT_KEY_SYS="$SYS_PREFIXE/etc/elpis/audit.key"
+APPLOG_DIR_SYS="$SYS_PREFIXE/var/log/elpis"
+GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
+# Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul.
+GROUPE_CLE="${ELPIS_GROUPE_CLE:-elpis-cle}"
 NODE_DIR="$ROOT/node"
 CORE_DIST="$ROOT/apps/core/dist"
 HOTE_DIST="$ROOT/apps/toolhost/dist"
@@ -65,7 +77,7 @@ info() { printf '\033[1;34m[elpis]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[ ok  ]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn ]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[err  ]\033[0m %s\n' "$*" >&2; exit 1; }
-usage() { sed -n '/^#  \.\/elpis configure/,/^#                                sortie si/p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '/^#  \.\/elpis configure/,/^#                                lignes manquantes, arrêts propres/p' "$0" | sed 's/^# \{0,1\}//'; }
 
 need_venv() { [ -x "$PY" ] || die "venv/ absent : lancez d'abord ./install.sh"; }
 port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && { exec 3>&- 3<&-; return 0; }; return 1; }
@@ -174,7 +186,7 @@ svc_spec() {
             SPEC_ENV+=(LOCAL_MCP_TRANSPORT=streamable-http "LOCAL_MCP_HOST=${LOCAL_MCP_HOST:-127.0.0.1}"
                        "LOCAL_MCP_PORT=$MCP_PORT" "APP_SANDBOX_DIR=$SANDBOX_DIR" "CHART_CACHE_DIR=$CHART_DIR")
             # Rappels de l'hôte vers le core local (shell_job, identifiants git, PR, quota, notifications).
-            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "TOOLHOST_APP_URL=${TOOLHOST_APP_URL:-http://127.0.0.1:$MAIN_PORT}")
+            SPEC_ENV+=("ELPIS_RACINE=$ROOT" "TOOLHOST_APP_URL=${TOOLHOST_APP_URL:-http://127.0.0.1:$MAIN_PORT}" APP_SERVICE=toolhost)
             SPEC_LANCEUR=(bash "$ROOT/deploy/node/relance.sh")
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$HOTE_DIST/main.mjs") ;;
         main)
@@ -197,6 +209,18 @@ svc_spec() {
             SPEC_CMD=("$NODE" server.js) ;;
         *) die "service inconnu : $1" ;;
     esac
+    env_journaux "$1"
+}
+
+# Dossiers système du journal de sécurité et du journal technique, s'ils sont en place :
+# root (unités systemd) ou compte qui peut y écrire (démarrage manuel). Sinon : repli dans le dépôt.
+env_journaux() {
+    case "$1" in main|admin|toolhost) ;; *) return 0 ;; esac
+    local d v
+    for v in "ELPIS_AUDIT_DIR=$AUDIT_DIR_SYS" "ELPIS_APP_LOG_DIR=$APPLOG_DIR_SYS"; do
+        d="${v#*=}"
+        if [ -d "$d" ] && { [ "$(id -u)" -eq 0 ] || [ -w "$d" ]; }; then SPEC_ENV+=("$v"); fi
+    done
 }
 
 # Base PostgreSQL réglée sur cette machine (config.json / APP_DB_*).
@@ -309,6 +333,19 @@ load_runtime() {
 
 pid_of() { local f="$RUN_DIR/$1.pid"; [ -s "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"; }
 
+# PID à signaler, lu dans user_db/run (écrit par le compte des services) : nombre > 1 ; en root, processus du compte des services, du propriétaire du dépôt ou de COMPTES_ARRET, jamais de root.
+pid_signalable() {
+    local uid u
+    [[ $1 =~ ^[0-9]{1,9}$ ]] && [ "$1" -gt 1 ] || return 1
+    [ "$(id -u)" -eq 0 ] || return 0
+    uid="$(awk '$1 == "Uid:" { print $2; exit }' "/proc/$1/status" 2>/dev/null)"
+    [ -n "$uid" ] && [ "$uid" != 0 ] || return 1
+    for u in $(compte_services) "$(stat -c %U -- "$ROOT")" ${COMPTES_ARRET:-}; do
+        [ "$uid" = "$(id -u "$u" 2>/dev/null)" ] && return 0
+    done
+    return 1
+}
+
 systemd_active() { command -v systemctl >/dev/null && systemctl is-active --quiet "${UNIT_PREFIX}.target" 2>/dev/null; }
 systemd_installed() { [ -f "/etc/systemd/system/${UNIT_PREFIX}.target" ]; }
 
@@ -348,6 +385,15 @@ attendre_sante() {
 # =============================================================================
 #  start / stop / status / logs
 # =============================================================================
+# Journal d'un service hors systemd : au-delà de 64 Mio, renommé en .1 (3 anciens gardés) avant le démarrage.
+tourner_journal() {
+    local f="$1" i
+    [ -f "$f" ] || return 0
+    [ "$(stat -c %s "$f" 2>/dev/null || echo 0)" -gt $((64 * 1024 * 1024)) ] || return 0
+    for i in 2 1; do [ -f "$f.$i" ] && mv -f "$f.$i" "$f.$((i + 1))"; done
+    mv -f "$f" "$f.1"
+}
+
 cmd_start() {
     local foreground=0
     [ "${1:-}" = "--foreground" ] && foreground=1
@@ -361,6 +407,7 @@ cmd_start() {
         if ! svc_available "$s"; then warn "$s non installé : ignoré."; continue; fi
         if pid_of "$s" >/dev/null; then info "$s tourne déjà (pid $(pid_of "$s"))."; continue; fi
         svc_spec "$s"
+        tourner_journal "$LOG_DIR/$s.log"
         info "Démarrage de $s…"
         ( cd "$SPEC_DIR" && exec env "${SPEC_ENV[@]}" setsid ${SPEC_LANCEUR[@]+"${SPEC_LANCEUR[@]}"} "${SPEC_CMD[@]}" ) \
             >>"$LOG_DIR/$s.log" 2>&1 </dev/null &
@@ -394,6 +441,7 @@ cmd_start() {
 tuer_fils() {
     local c
     for c in $(cat /proc/"$1"/task/*/children 2>/dev/null || pgrep -P "$1" 2>/dev/null); do
+        pid_signalable "$c" || continue
         kill -KILL -- "-$c" 2>/dev/null || kill -KILL "$c" 2>/dev/null
     done
 }
@@ -403,6 +451,7 @@ arreter() {
     local s i n pid vivant attente=40 pids=() noms=()
     for s in "$@"; do
         pid="$(pid_of "$s")" || { rm -f "$RUN_DIR/$s.pid"; continue; }
+        if ! pid_signalable "$pid"; then warn "$s : pid « $pid » de $RUN_DIR/$s.pid hors des comptes d'Elpis : non signalé (à vérifier)."; continue; fi
         info "Arrêt de $s (pid $pid)…"
         kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
         pids+=("$pid"); noms+=("$s")
@@ -505,6 +554,8 @@ _render_units() {
             echo "[Service]"
             echo "Type=simple"
             echo "User=$run_user"
+            # Identifiant syslog du service (journald, rsyslog) au lieu de « node » ou « uvicorn ».
+            echo "SyslogIdentifier=${UNIT_PREFIX}-$s"
             echo "WorkingDirectory=$SPEC_DIR"
             for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done
             echo "EnvironmentFile=-$ROOT/.env"
@@ -561,11 +612,15 @@ cmd_service() {
     command -v systemctl >/dev/null || die "systemd absent."
     case "$action" in
         install)
-            local run_user="${ELPIS_USER:-${SUDO_USER:-}}" ans
+            # Unités en place : leur compte reste celui par défaut, invite comprise ; ELPIS_USER (ou un nom tapé) pour en changer.
+            local unite run_user ans ancien
+            unite="$(compte_services)"
+            run_user="${ELPIS_USER:-${unite:-${SUDO_USER:-}}}"
             if [ -z "${ELPIS_USER:-}" ] && [ -t 0 ]; then
                 read -r -p "  Utilisateur qui fera tourner les services [${run_user:-?}] : " ans || ans=""
                 run_user="${ans:-$run_user}"
             fi
+            if [ -n "$unite" ] && [ "$run_user" != "$unite" ]; then info "Compte des services : $unite → $run_user."; fi
             [ -n "$run_user" ] && [ "$run_user" != root ] \
                 || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
             id "$run_user" >/dev/null 2>&1 || die "Utilisateur $run_user inexistant (créez-le, ou ELPIS_USER=nom)."
@@ -576,6 +631,9 @@ cmd_service() {
                 warn "Le groupe docker équivaut à root sur l'hôte : $run_user en deviendra membre. Machine dédiée conseillée (SECURITY.md)."
                 usermod -aG docker "$run_user" && info "$run_user ajouté au groupe docker."
             fi
+            ancien="$unite $(stat -c %U -- "$AUDIT_DIR_SYS" 2>/dev/null)"
+            audit_setup "$run_user" "$ancien" 0 \
+                || warn "Journal de sécurité incomplet (voir ci-dessus) : sudo ./elpis audit setup une fois corrigé."
             _render_units "$unit_dir" "$run_user"
             for s in "${SERVICES[@]}" "${SERVICES_RETIRES[@]}"; do
                 case " ${UNITS_WANTS[*]} " in *" ${UNIT_PREFIX}-$s.service "*) continue ;; esac
@@ -589,7 +647,11 @@ cmd_service() {
             systemctl daemon-reload
             systemctl enable "${UNITS_WANTS[@]}" "${UNIT_PREFIX}.target" >/dev/null
             # Les processus lancés à la main laisseraient les ports occupés ; le core peut prendre 300 s.
-            cmd_stop || true
+            COMPTES_ARRET="$ancien $run_user" cmd_stop || true
+            if compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
+                systemctl stop "${UNIT_PREFIX}.target" >/dev/null 2>&1 || true
+                audit_deplacer "$run_user" || warn "Fichiers de logs/audit non déplacés (voir ci-dessus)."
+            fi
             systemctl restart "${UNIT_PREFIX}.target"
             ok "Services installés et démarrés (utilisateur $run_user) : systemctl status ${UNIT_PREFIX}.target"
             ;;
@@ -636,6 +698,103 @@ sonde_du_core() {
         else case "$l" in *" WARNING "*|*" ERROR "*) warn "  $msg" ;; *) info "  $msg" ;; esac; fi
         n=$((n+1))
     done <<< "$lignes"
+}
+
+# Journal de sécurité et centralisation (ANSSI) : dossiers et droits (compte des services), clé de signature, règle rsyslog et ses paquets, journald persistant, horloge ; appelée par cmd_doctor (compteur bad).
+doctor_journaux() {
+    local m d compte regles=()
+    compte="$(compte_services)"
+    [ -n "$compte" ] || compte="$(id -un)"
+    [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    for d in "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS"; do
+        [ -e "$d" ] || [ -L "$d" ] || continue
+        m="$(stat -c '%a %U %G' -- "$d" 2>/dev/null || echo '? ? ?')"
+        case "$m" in
+            "2750 $compte $GROUPE_JOURNAL"|"2750 $compte adm") ok "journaux : $d ($m)" ;;
+            *) warn "journaux : $d en $m (attendu 2750 $compte:$GROUPE_JOURNAL, compte des services : sudo ./elpis audit setup)"; bad=$((bad+1)) ;;
+        esac
+    done
+    if [ ! -d "$AUDIT_DIR_SYS" ]; then
+        warn "journal de sécurité : dossier de repli logs/audit (sudo ./elpis audit setup)"; bad=$((bad+1))
+    elif compgen -G "$ROOT/logs/audit/audit-*.jsonl" >/dev/null; then
+        warn "journal de sécurité : fichiers restés dans logs/audit, ni transmis ni purgés (services arrêtés : ./elpis stop ou sudo systemctl stop ${UNIT_PREFIX}.target, puis sudo ./elpis audit setup, qui les déplace ou les ajoute au fichier du même jour)"; bad=$((bad+1))
+    fi
+    doctor_cle "$compte"
+    mapfile -t regles < <(compgen -G "$SYS_PREFIXE/etc/rsyslog.d/*elpis*.conf")
+    if [ "${#regles[@]}" -gt 0 ]; then
+        ok "centralisation : règle Elpis ${regles[0]}"
+        doctor_paquets_rsyslog "${regles[@]}"
+    elif mapfile -t regles < <(compgen -G "$SYS_PREFIXE/etc/syslog-ng/conf.d/*elpis*.conf") && [ "${#regles[@]}" -gt 0 ]; then
+        ok "centralisation : règle Elpis ${regles[0]}"
+    else
+        info "centralisation : aucune règle rsyslog Elpis (exemples dans deploy/rsyslog/, ANSSI R9)"
+    fi
+    if [ -d /var/log/journal ]; then ok "journald persistant (/var/log/journal)"
+    else info "journald : journaux en mémoire seulement (Storage=persistent, voir deploy/journald/)"; fi
+    if command -v timedatectl >/dev/null 2>&1; then
+        case "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" in
+            yes) ok "horloge synchronisée (NTP)" ;;
+            no)  warn "horloge NON synchronisée : horodatage des journaux douteux (chrony ou timesyncd sur un serveur de temps interne)"; bad=$((bad+1)) ;;
+            *)   info "horloge : état de synchronisation inconnu" ;;
+        esac
+    fi
+}
+
+# Lecture d'un fichier par un compte : essai réel sous root (runuser), sinon d'après le mode et les groupes du compte.
+compte_lit() {
+    local m g
+    if [ "$(id -u)" -eq 0 ]; then (cd / && runuser -u "$1" -- test -r "$2"); return; fi
+    if [ "$(id -un)" = "$1" ] && [ -r "$2" ]; then return 0; fi
+    read -r m g < <(stat -c '%a %G' -- "$2" 2>/dev/null) || return 1
+    [ $(( 8#$m & 8#040 )) -ne 0 ] && id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qx "$g"
+}
+
+# Clé de signature : 0440 root, groupe propre au compte des services, lisible par lui, 32 octets au moins quand ce compte-ci la lit.
+doctor_cle() {
+    local compte="$1" m g dossier="${AUDIT_KEY_SYS%/*}"
+    # Sous le compte des services : lecture réelle ; une session ouverte avant audit setup n'a pas encore le groupe de la clé.
+    if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
+            && { [ ! -x "$dossier" ] || [ -e "$AUDIT_KEY_SYS" ]; } && [ ! -r "$AUDIT_KEY_SYS" ]; then
+        g="$(stat -c %G -- "$AUDIT_KEY_SYS" 2>/dev/null || stat -c %G -- "$dossier")"
+        if ! id -Gn | tr ' ' '\n' | grep -qxF -- "$g" && id -Gn "$compte" | tr ' ' '\n' | grep -qxF -- "$g"; then
+            warn "journal de sécurité : clé illisible par ce processus, sans le groupe $g (session ouverte avant son ajout) : ./elpis start lancé d'ici écrit des lignes non signées (nouvelle session, ou sg $g -c './elpis restart')"
+        else
+            warn "journal de sécurité : clé $AUDIT_KEY_SYS illisible par le compte des services $compte, lignes non signées (sudo ./elpis audit setup)"
+        fi
+        bad=$((bad+1)); return 0
+    fi
+    if [ -d "$dossier" ] && [ ! -x "$dossier" ]; then
+        info "journal de sécurité : clé non vérifiable par ce compte ($dossier réservé au compte des services $compte : doctor sous ce compte ou avec sudo)"; return 0
+    fi
+    if [ ! -e "$AUDIT_KEY_SYS" ] && [ ! -L "$AUDIT_KEY_SYS" ]; then
+        warn "journal de sécurité : lignes non signées (clé absente : sudo ./elpis audit setup)"; bad=$((bad+1)); return 0
+    fi
+    m="$(stat -c '%a %U %G' -- "$AUDIT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
+    if [ -L "$AUDIT_KEY_SYS" ] || [ ! -f "$AUDIT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
+        warn "journal de sécurité : clé $AUDIT_KEY_SYS en ${m:-?} (attendu 440 root, groupe du seul compte $compte : sudo ./elpis audit setup)"
+    elif ! groupe_propre "$g" "$compte"; then
+        warn "journal de sécurité : clé lisible par le groupe $g, qui n'est pas propre au compte $compte (sudo ./elpis audit setup)"
+    elif ! compte_lit "$compte" "$AUDIT_KEY_SYS"; then
+        warn "journal de sécurité : clé illisible par le compte des services $compte, lignes non signées (sudo ./elpis audit setup)"
+    elif [ -r "$AUDIT_KEY_SYS" ] && [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
+        warn "journal de sécurité : clé $AUDIT_KEY_SYS trop courte (32 octets au moins), lignes non signées"
+    else
+        ok "journal de sécurité : lignes signées (clé $AUDIT_KEY_SYS, groupe $g)"; return 0
+    fi
+    bad=$((bad+1))
+}
+
+# Pilotes cités par les règles rsyslog d'Elpis, lignes commentées exclues (gtls : rsyslog-gnutls, omrelp : rsyslog-relp) : rsyslogd -N1 ne signale pas leur absence.
+doctor_paquets_rsyslog() {
+    local texte p paquet
+    command -v dpkg-query >/dev/null 2>&1 || return 0
+    texte="$(grep -hv '^[[:space:]]*#' -- "$@" 2>/dev/null)"
+    for p in gtls:rsyslog-gnutls omrelp:rsyslog-relp; do
+        paquet="${p#*:}"
+        case "$texte" in *"${p%%:*}"*) ;; *) continue ;; esac
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "$paquet" 2>/dev/null)" = installed ]; then ok "centralisation : paquet $paquet"
+        else warn "centralisation : paquet $paquet absent, la règle n'envoie rien (apt install $paquet, depuis le miroir interne)"; bad=$((bad+1)); fi
+    done
 }
 
 cmd_doctor() {
@@ -792,6 +951,7 @@ cmd_doctor() {
     else
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
+    doctor_journaux
     sonde_du_core
     echo
     cmd_status
@@ -815,6 +975,240 @@ cmd_db() {
     charger_instance
     need_exploitation
     core_cmd db "$@"
+}
+
+# Journal de sécurité : mise en place (setup, root) ou vérification des signatures et de la continuité (verify).
+cmd_audit() {
+    if [ "${1:-}" = "setup" ]; then
+        local compte unite
+        unite="$(compte_services)"
+        if [ -n "$unite" ] && [ -n "${ELPIS_USER:-}" ] && [ "$ELPIS_USER" != "$unite" ]; then
+            die "Les services tournent sous $unite (User= des unités systemd), pas sous ELPIS_USER=$ELPIS_USER : sudo ELPIS_USER=$ELPIS_USER ./elpis service install pour changer de compte."
+        fi
+        compte="${unite:-${ELPIS_USER:-${SUDO_USER:-}}}"
+        if [ -z "$SYS_PREFIXE" ]; then
+            [ "$(id -u)" -eq 0 ] || die "Lancez avec sudo : sudo ./elpis audit setup"
+        else
+            compte="${compte:-$(id -un)}"
+        fi
+        [ -n "$compte" ] && [ "$compte" != root ] \
+            || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
+        id -u "$compte" >/dev/null 2>&1 || die "Compte de service $compte inexistant (ELPIS_USER=nom)."
+        if [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
+        audit_setup "$compte" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
+        ok "Journal de sécurité en place (compte $compte)."
+        return 0
+    fi
+    charger_env
+    charger_instance
+    need_exploitation
+    core_cmd audit "$@"
+}
+
+# Compte des services d'après les unités installées (User= de main, admin ou toolhost) ; vide sans unité.
+compte_services() {
+    local s f u
+    for s in main admin toolhost; do
+        f="$SYS_PREFIXE/etc/systemd/system/${UNIT_PREFIX}-$s.service"
+        [ -f "$f" ] || continue
+        u=""
+        if [ -z "$SYS_PREFIXE" ] && command -v systemctl >/dev/null 2>&1; then
+            u="$(systemctl show -p User --value "${UNIT_PREFIX}-$s.service" 2>/dev/null)"
+        fi
+        [ -n "$u" ] || u="$(sed -n 's/^User=//p' "$f" | tail -n 1)"
+        echo "$u"
+        return 0
+    done
+}
+
+# Groupe propre au compte : groupe local sans autre membre, groupe primaire d'aucun autre compte.
+groupe_propre() {
+    local g="$1" u="$2" gid membres
+    gid="$(awk -F: -v g="$g" '$1 == g { print $3; exit }' /etc/group)"
+    [ -n "$gid" ] || return 1
+    membres="$(getent group "$g" | cut -d: -f4)"
+    [ -z "$membres" ] || [ "$membres" = "$u" ] || return 1
+    getent passwd | awk -F: -v g="$gid" -v u="$u" '$4 == g && $1 != u { e = 1 } END { exit e }'
+}
+
+# Groupe de la clé dans GRP_CLE : groupe primaire du compte s'il lui est propre, sinon GROUPE_CLE (créé au besoin) avec ce compte pour seul membre.
+groupe_de_cle() {
+    local compte="$1"
+    GRP_CLE="$(id -gn "$compte")" || return 1
+    if [ "$(id -u)" -ne 0 ] || groupe_propre "$GRP_CLE" "$compte"; then return 0; fi
+    GRP_CLE="$GROUPE_CLE"
+    if ! getent group "$GRP_CLE" >/dev/null; then
+        groupadd --system "$GRP_CLE" || return 1
+        info "Groupe $GRP_CLE créé : lecture de la clé de signature par $compte seul."
+    fi
+    if ! id -nG "$compte" | tr ' ' '\n' | grep -qx "$GRP_CLE"; then
+        info "$compte ajouté au groupe $GRP_CLE : pris par les services systemd à leur redémarrage, par ./elpis start dans une nouvelle session."
+    fi
+    gpasswd -M "$compte" "$GRP_CLE" >/dev/null || return 1
+    groupe_propre "$GRP_CLE" "$compte" || { warn "Groupe $GRP_CLE : groupe primaire d'un autre compte, clé non confiée."; return 1; }
+}
+
+# Dossier système posé sans suivre de lien : créé s'il manque, refusé si c'est un lien, un fichier, le bien d'un autre compte ou (parent inscriptible par d'autres) un dossier de root non vide à céder ; droits posés sur « . » une fois dedans.
+dossier_sur() {
+    local d="$1" mode="$2" proprio="$3" groupe="$4" admis=" root $3 ${5:-} " attendu parent
+    [ "$(id -u)" -eq 0 ] || admis+="$(id -un) "
+    if [ ! -e "$d" ] && [ ! -L "$d" ]; then
+        mkdir -m "$mode" -- "$d" || return 1
+        info "Dossier $d créé."
+    fi
+    parent="$(cd -P -- "$(dirname -- "$d")" && pwd -P)" || return 1
+    attendu="$parent/${d##*/}"
+    (
+        { [ ! -L "$d" ] && cd -P -- "$d" 2>/dev/null && [ "$(pwd -P)" = "$attendu" ]; } \
+            || { warn "$d : lien symbolique, fichier ou dossier déplacé : refusé (à vérifier)."; exit 1; }
+        p="$(stat -c %U .)"
+        case "$admis" in
+            *" $p "*) ;;
+            *) warn "$d appartient à $p, pas à $proprio : refusé (services sous $p : ELPIS_USER=$p ; passage à $proprio : sudo ELPIS_USER=$proprio ./elpis service install)."; exit 1 ;;
+        esac
+        if [ "$p" = root ] && [ "$proprio" != root ] && [ -n "$(ls -A .)" ] \
+                && [ $(( 8#$(stat -c %a -- "$parent") & 8#022 )) -ne 0 ]; then
+            warn "$d : dossier de root non vide à céder à $proprio : refusé (à vérifier)."; exit 1
+        fi
+        if [ "$(id -u)" -eq 0 ]; then chown -h "$proprio:$groupe" . || exit 1; fi
+        chmod "$mode" .
+    )
+}
+
+# Clé de signature : fichier ordinaire, jamais un lien, créée si absente ou vide (jamais remplacée sinon), puis 0440 root:GRP_CLE à chaque passage.
+cle_audit() {
+    local cle="$AUDIT_KEY_SYS"
+    if [ -L "$cle" ] || { [ -e "$cle" ] && [ ! -f "$cle" ]; }; then
+        warn "$cle : lien symbolique ou fichier spécial : refusé (à vérifier)."; return 1
+    fi
+    if [ ! -s "$cle" ]; then
+        ( umask 0337 && od -An -tx1 -N32 /dev/urandom | tr -d ' \n' > "$cle" ) || return 1
+        info "Clé de signature du journal de sécurité créée : $cle (à sauvegarder hors de la machine)."
+    fi
+    if [ "$(id -u)" -eq 0 ]; then chown -h "root:$GRP_CLE" -- "$cle" || return 1; fi
+    chmod 0440 -- "$cle"
+}
+
+# Commande lancée sous le compte des services quand root l'exécute (runuser, depuis /), telle quelle sinon.
+en_compte() {
+    local u="$1"; shift
+    if [ "$(id -u)" -eq 0 ]; then (cd / && runuser -u "$u" -- "$@"); else "$@"; fi
+}
+
+# Vrai si main, admin ou l'hôte d'outils tourne (unité active ou lancement à la main) : ils gardent leur dossier d'audit jusqu'à l'arrêt.
+ecrivains_en_marche() {
+    local s
+    for s in main admin toolhost; do
+        pid_of "$s" >/dev/null && return 0
+        if [ -z "$SYS_PREFIXE" ] && command -v systemctl >/dev/null 2>&1 \
+                && systemctl is-active --quiet "${UNIT_PREFIX}-$s.service" 2>/dev/null; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Fichiers des journaux (audit, app.log.jsonl et ses rotations) rendus au compte par root (chown -h, fichiers ordinaires à un seul lien, dossier à ce compte, lu après cd -P), puis mis en 0640 sous ce compte.
+audit_droits_fichiers() {
+    local compte="$1" d echec=0
+    if [ "$(id -u)" -eq 0 ]; then
+        for d in "$AUDIT_DIR_SYS|audit-*.jsonl" "$APPLOG_DIR_SYS|app.log.jsonl*"; do
+            (
+                motif="${d#*|}"; d="${d%%|*}"; e=0
+                { [ ! -L "$d" ] && cd -P -- "$d" 2>/dev/null && [ "$(stat -c %U .)" = "$compte" ]; } || exit 0
+                for f in $motif; do
+                    [[ -f $f && ! -L $f ]] || continue
+                    [ "$(stat -c '%U:%G' -- "$f")" != "$compte:$GROUPE_JOURNAL" ] || continue
+                    if [ "$(stat -c %h -- "$f")" -ne 1 ]; then warn "$d/$f : plusieurs liens physiques, laissé tel quel (à vérifier)."; e=1; continue; fi
+                    chown -h "$compte:$GROUPE_JOURNAL" -- "$f" || e=1
+                done
+                exit "$e"
+            ) || echec=1
+        done
+    fi
+    en_compte "$compte" find "$AUDIT_DIR_SYS" -maxdepth 1 -type f -name 'audit-*.jsonl' ! -perm 0640 -exec chmod 0640 {} + || echec=1
+    if [ -d "$APPLOG_DIR_SYS" ]; then
+        en_compte "$compte" find "$APPLOG_DIR_SYS" -maxdepth 1 -type f -name 'app.log.jsonl*' ! -perm 0640 -exec chmod 0640 {} + || echec=1
+    fi
+    return "$echec"
+}
+
+# Fichiers de logs/audit déplacés sous le compte des services (jamais par root), ou ajoutés au fichier du même jour s'il existe (seq par boot : l'ordre n'importe pas) ; écrivains en marche : ceux du jour et de la veille restent.
+audit_deplacer() {
+    local compte="$1" f nom jour hier="" deplaces=0 fusionnes=0 gardes=0 recents=0 echec=0
+    [[ -d $AUDIT_DIR_SYS && ! -L $AUDIT_DIR_SYS ]] || { warn "$AUDIT_DIR_SYS absent : rien n'est déplacé."; return 1; }
+    ecrivains_en_marche && hier="$(date -u -d yesterday +%F)"
+    for f in "$ROOT"/logs/audit/audit-*.jsonl; do
+        [[ -e $f || -L $f ]] || continue
+        if [[ -L $f || ! -f $f ]]; then warn "$f : lien symbolique ou fichier spécial, laissé (à vérifier)."; continue; fi
+        nom="${f##*/}"; jour="${nom#audit-}"; jour="${jour%.jsonl}"
+        if [ -n "$hier" ] && ! [[ "$jour" < "$hier" ]]; then recents=$((recents + 1)); continue; fi
+        if [ -e "$AUDIT_DIR_SYS/$nom" ] || [ -L "$AUDIT_DIR_SYS/$nom" ]; then
+            if [[ -L $AUDIT_DIR_SYS/$nom || ! -f $AUDIT_DIR_SYS/$nom || $f -ef $AUDIT_DIR_SYS/$nom ]]; then gardes=$((gardes + 1)); continue; fi
+            en_compte "$compte" sh -c '[ -r "$1" ] && [ -w "${1%/*}" ] && [ -w "$2" ] || exit 3
+                [ -n "$(tail -c 1 -- "$2")" ] && printf "\n" >> "$2"; cat -- "$1" >> "$2" || exit 1; rm -f -- "$1" || exit 2' fusion "$f" "$AUDIT_DIR_SYS/$nom"
+            case $? in
+                0) fusionnes=$((fusionnes + 1)) ;;
+                3) warn "$f : illisible ou non supprimable par $compte, ou $AUDIT_DIR_SYS/$nom non inscriptible : laissé (à vérifier)."; echec=1 ;;
+                2) warn "$f : ajouté à $AUDIT_DIR_SYS/$nom mais non supprimé : à retirer à la main (une relance doublerait ses lignes)."; echec=1 ;;
+                *) warn "$f : ajout à $AUDIT_DIR_SYS/$nom interrompu, fichier gardé (à vérifier : une relance doublerait les lignes déjà ajoutées)."; echec=1 ;;
+            esac
+            continue
+        fi
+        en_compte "$compte" mv -n -- "$f" "$AUDIT_DIR_SYS/$nom"
+        if [ -e "$f" ]; then warn "$f non déplacé."; echec=1; else deplaces=$((deplaces + 1)); fi
+    done
+    [ "$deplaces" -gt 0 ] && info "$deplaces fichier(s) d'audit déplacé(s) de logs/audit vers $AUDIT_DIR_SYS."
+    [ "$fusionnes" -gt 0 ] && info "$fusionnes fichier(s) d'audit de logs/audit ajouté(s) au fichier du même jour de $AUDIT_DIR_SYS."
+    [ "$gardes" -gt 0 ] && warn "$gardes fichier(s) laissé(s) dans logs/audit : le fichier du même jour de $AUDIT_DIR_SYS est un lien, un fichier spécial ou le même fichier (à vérifier)."
+    [ "$recents" -gt 0 ] && warn "$recents fichier(s) du jour et de la veille laissé(s) dans logs/audit : les services y écrivent encore ; relancez sudo ./elpis audit setup une fois arrêtés (./elpis stop, ou systemctl stop ${UNIT_PREFIX}.target)."
+    audit_droits_fichiers "$compte" || echec=1
+    return "$echec"
+}
+
+# Contrôle final : mode des dossiers et de la clé, propriétaire et groupe sous root, clé d'au moins 32 octets ; liste les écarts.
+audit_controle() {
+    local compte="$1" c chemin attendu vu echec=0
+    for c in "$SYS_PREFIXE/var/lib/elpis|755 root root" "$AUDIT_DIR_SYS|2750 $compte $GROUPE_JOURNAL" \
+             "$APPLOG_DIR_SYS|2750 $compte $GROUPE_JOURNAL" "$SYS_PREFIXE/etc/elpis|750 root ${GRP_CLE:-?}" \
+             "$AUDIT_KEY_SYS|440 root ${GRP_CLE:-?}"; do
+        chemin="${c%%|*}"; attendu="${c#*|}"
+        vu="$(stat -c '%a %U %G' -- "$chemin" 2>/dev/null)" || vu="absent"
+        if [ "$(id -u)" -ne 0 ]; then attendu="${attendu%% *}"; vu="${vu%% *}"; fi
+        [ "$vu" = "$attendu" ] || { warn "$chemin : $vu (attendu $attendu)."; echec=1; }
+    done
+    if [ ! -f "$AUDIT_KEY_SYS" ] || [ -L "$AUDIT_KEY_SYS" ] || [ "$(tr -d ' \t\r\n' < "$AUDIT_KEY_SYS" | wc -c)" -lt 32 ]; then
+        warn "Clé $AUDIT_KEY_SYS absente, illisible ou trop courte (32 octets au moins)."; echec=1
+    fi
+    return "$echec"
+}
+
+# Journal de sécurité hors du dépôt (AUDIT_SETUP COMPTE [ANCIENS_COMPTES] [DÉPLACER]) : groupes, dossiers 2750, clé, droits réappliqués, logs/audit déplacé si DÉPLACER=1, contrôle final ; non nul au moindre échec.
+audit_setup() {
+    local compte="$1" ancien="${2:-}" deplacer="${3:-1}" nouveau=0 echec=0 dossiers=0 d
+    if [ "$(id -u)" -eq 0 ]; then
+        if ! getent group "$GROUPE_JOURNAL" >/dev/null; then
+            if groupadd --system "$GROUPE_JOURNAL"; then info "Groupe $GROUPE_JOURNAL créé (lecture des journaux par rsyslog)."; else echec=1; fi
+        fi
+        if id syslog >/dev/null 2>&1 && ! id -nG syslog | tr ' ' '\n' | grep -qx "$GROUPE_JOURNAL"; then
+            if usermod -aG "$GROUPE_JOURNAL" syslog; then nouveau=1; else echec=1; fi
+        fi
+    fi
+    [ -z "$SYS_PREFIXE" ] || mkdir -p "$SYS_PREFIXE/var/lib" "$SYS_PREFIXE/var/log" "$SYS_PREFIXE/etc" || echec=1
+    if dossier_sur "$SYS_PREFIXE/var/lib/elpis" 0755 root root; then
+        for d in "$AUDIT_DIR_SYS" "$APPLOG_DIR_SYS"; do
+            if dossier_sur "$d" 2750 "$compte" "$GROUPE_JOURNAL" "$ancien"; then dossiers=$((dossiers + 1)); else echec=1; fi
+        done
+    else
+        echec=1
+    fi
+    if groupe_de_cle "$compte" && dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE"; then cle_audit || echec=1; else echec=1; fi
+    if [ "$dossiers" -eq 2 ]; then
+        if [ "$deplacer" = 1 ]; then audit_deplacer "$compte" || echec=1; else audit_droits_fichiers "$compte" || echec=1; fi
+    fi
+    if [ "$nouveau" -eq 1 ] && command -v systemctl >/dev/null 2>&1; then systemctl try-restart rsyslog >/dev/null 2>&1 || true; fi
+    audit_controle "$compte" || echec=1
+    return "$echec"
 }
 
 # Image de la sandbox attendue par le code : présente, sinon chargée depuis
@@ -918,6 +1312,7 @@ case "${1:-}" in
     backup)    shift; cmd_backup "$@" ;;
     upgrade)   shift; cmd_upgrade "$@" ;;
     db)        shift; cmd_db "$@" ;;
+    audit)     shift; cmd_audit "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;
 esac

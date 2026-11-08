@@ -13,9 +13,9 @@ import {
 import type { ServiceEssaiRag } from "@elpis/contracts";
 import type { Base } from "@elpis/db";
 import type { ClientQdrant } from "@elpis/rag";
-import { auditEvent } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
+import { auditerRequete as auditer } from "../journal-securite/auditer";
 import {
   essaiServiceRag,
   etatAdminRag,
@@ -55,16 +55,6 @@ function route(methode: DefinitionRoute["methode"], chemin: string, traiter: Tra
 
 const vrai = (v: string | undefined): boolean => v === "1" || v === "true";
 const entierOu = (v: string | undefined, defaut: number): number => (v === undefined ? defaut : Number(v));
-
-/** Trace d'une action d'administration : qui, quoi, sur quelle collection ou quel compte ; jamais de contenu. */
-function auditer(req: FastifyRequest, action: string, details: Record<string, unknown>): void {
-  auditEvent({
-    userId: req.utilisateur?.id ?? null,
-    username: req.utilisateur?.username ?? null,
-    action,
-    details,
-  });
-}
 
 function idCompte(req: FastifyRequest): number {
   const v = parametre(req, "user_id");

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+# Persistent journal, so that the technical logs (stderr) of the Elpis services survive a reboot.
+# Copy to /etc/systemd/journald.conf.d/60-elpis.conf, then `systemctl restart systemd-journald`.
+[Journal]
+Storage=persistent
+# Optional limits. They apply to the whole journal of the host (sshd, sudo, every service), not
+# only to Elpis: choose them for the host. Elpis stderr holds user names and addresses, so keep it
+# shorter than the security journal.
+#SystemMaxUse=2G
+#MaxRetentionSec=3month

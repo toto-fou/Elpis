@@ -21,6 +21,9 @@ declare module "fastify" {
   }
 }
 
+/** Refus signalés au journal de sécurité : requête cross-site, rôle insuffisant, porte loopback, canal interne, jeton de service. */
+export type MotifRefus = "csrf" | "role" | "loopback" | "internal" | "service";
+
 export interface DependancesAuth {
   base: Executeur;
   config(): unknown;
@@ -28,6 +31,21 @@ export interface DependancesAuth {
   secret(): string;
   jetonService(): string;
   maintenant?(): number;
+  signalerRefus?(requete: FastifyRequest, motif: MotifRefus, details: Record<string, unknown>): void;
+}
+
+/** Refus transmis sans jamais faire échouer la requête autrement que par le refus lui-même. */
+export function signalerRefus(
+  dep: Pick<DependancesAuth, "signalerRefus">,
+  requete: FastifyRequest,
+  motif: MotifRefus,
+  details: Record<string, unknown> = {},
+): void {
+  try {
+    dep.signalerRefus?.(requete, motif, details);
+  } catch {
+    /* le journal de sécurité ne bloque pas une réponse */
+  }
 }
 
 export const CHEMINS_SI_MOT_DE_PASSE_A_CHANGER = new Set([
@@ -122,7 +140,13 @@ export async function exigerRole(
 ): Promise<number> {
   const uid = await exigerUtilisateur(requete, dep);
   const moi = await ligneUtilisateur(dep.base, uid);
-  if (!moi || !roles.includes(Number(moi.is_admin))) throw new HttpError(403, message);
+  if (!moi || !roles.includes(Number(moi.is_admin))) {
+    signalerRefus(dep, requete, "role", {
+      required: roles.includes(2) ? "staff" : "admin",
+      role: moi ? Number(moi.is_admin) : null,
+    });
+    throw new HttpError(403, message);
+  }
   return uid;
 }
 
@@ -135,23 +159,36 @@ function bearerAccepte(requete: FastifyRequest, jeton: string): boolean {
 }
 
 /** `require_service_token` : Bearer égal au jeton de service (503 s'il n'y en a pas, 401 sinon). */
-export function exigerJetonService(requete: FastifyRequest, jeton: string): void {
+export function exigerJetonService(
+  requete: FastifyRequest,
+  jeton: string,
+  dep: Pick<DependancesAuth, "signalerRefus"> = {},
+): void {
   if (!jeton) throw new HttpError(503, "aucun jeton de service configuré");
-  if (!bearerAccepte(requete, jeton))
+  if (!bearerAccepte(requete, jeton)) {
+    signalerRefus(dep, requete, "service", { reason: "bad_token" });
     throw new HttpError(401, "jeton de service requis", { "WWW-Authenticate": "Bearer" });
+  }
 }
 
 /** Canal main ↔ admin : boucle locale directe (403 sinon) ET Bearer égal au jeton interne (401 sinon, 503 sans secret). */
-export function exigerJetonInterne(requete: FastifyRequest, jeton: string): void {
+export function exigerJetonInterne(
+  requete: FastifyRequest,
+  jeton: string,
+  dep: Pick<DependancesAuth, "signalerRefus"> = {},
+): void {
   if (!estLocalDirect(requete.socket.remoteAddress, requete.headers)) {
     requete.log.warn(
-      `[interne] ${requete.method} ${requete.url} refusée depuis ${String(requete.socket.remoteAddress)}`,
+      `[interne] ${requete.method} ${chemin(requete)} refusée depuis ${String(requete.socket.remoteAddress)}`,
     );
+    signalerRefus(dep, requete, "internal", { reason: "not_loopback" });
     throw new HttpError(403, "Endpoint restricted to loopback");
   }
   if (!jeton) throw new HttpError(503, "aucun jeton interne configuré");
-  if (!bearerAccepte(requete, jeton))
+  if (!bearerAccepte(requete, jeton)) {
+    signalerRefus(dep, requete, "internal", { reason: "bad_token" });
     throw new HttpError(401, "jeton interne requis", { "WWW-Authenticate": "Bearer" });
+  }
 }
 
 export type GardeAuth = (requete: FastifyRequest, reponse: FastifyReply) => Promise<void>;
@@ -171,15 +208,16 @@ export function creerGardes(
     },
     loopback: async (r) => {
       if (!estLocalDirect(r.socket.remoteAddress, r.headers)) {
-        r.log.warn(`[loopback] ${r.method} ${r.url} refusée depuis ${String(r.socket.remoteAddress)}`);
+        r.log.warn(`[loopback] ${r.method} ${chemin(r)} refusée depuis ${String(r.socket.remoteAddress)}`);
+        signalerRefus(dep, r, "loopback");
         throw new HttpError(403, "Endpoint restricted to loopback");
       }
     },
     service: async (r) => {
-      exigerJetonService(r, dep.jetonService());
+      exigerJetonService(r, dep.jetonService(), dep);
     },
     interne: async (r) => {
-      exigerJetonInterne(r, jetonInterne(dep.secret()));
+      exigerJetonInterne(r, jetonInterne(dep.secret()), dep);
     },
   };
 }

@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: MIT
+# Elpis host -> central log collector (rsyslog sender). Requires rsyslog 8.2108 or later and the
+# rsyslog-gnutls package (rsyslog-relp for the RELP variant). Copy to /etc/rsyslog.d/60-elpis.conf,
+# replace the collector name, port and certificate paths, run `rsyslogd -N1` (it must print no
+# error), then `systemctl restart rsyslog`. Elpis itself never sends anything over the network.
+#
+# What is forwarded:
+#   - the security journal   /var/lib/elpis/audit/audit-YYYY-MM-DD.jsonl  (tag elpis-audit, authpriv)
+#   - HTTP access lines      /var/log/elpis/app.log.jsonl                 (tag elpis-app, local6)
+#   - service stderr         journald, SyslogIdentifier elpis-<service>   (tags elpis-main, elpis-admin...)
+# Each JSON line is sent as the RFC 5424 message, unchanged (ANSSI R13), over mutual TLS with
+# octet-counted framing (RFC 5425; ANSSI R16/R17). UDP is deliberately not offered.
+# Certificates of the internal PKI live in /etc/rsyslog.d/keys/ (README.md, "Certificates").
+
+module(load="imfile" mode="inotify")
+# RELP variant (see the end of this file): uncomment.
+# module(load="omrelp")
+
+# Security journal: one file per UTC day, never renamed, deleted by Elpis after the retention period.
+# freshStartTail="off": on first activation, the whole retained history is sent (throttled below).
+input(type="imfile"
+      File="/var/lib/elpis/audit/audit-*.jsonl"
+      Tag="elpis-audit"
+      Facility="authpriv"
+      Severity="notice"
+      freshStartTail="off"
+      persistStateAfterSubmission="on"
+      ruleset="elpis-audit")
+
+# HTTP access lines (the other lines of this file already reach journald through stderr).
+input(type="imfile"
+      File="/var/log/elpis/app.log.jsonl"
+      Tag="elpis-app"
+      Facility="local6"
+      Severity="info"
+      persistStateAfterSubmission="on"
+      ruleset="elpis-app")
+
+ruleset(name="elpis-app") {
+    if ($msg contains "\"logger\": \"http\"") or ($msg contains "\"category\": \"http\"") then call elpis-forward
+}
+
+# Service stderr, received by the distribution's journald input (imjournal or imuxsock).
+if ($programname startswith "elpis-") and ($programname != "elpis-audit") and ($programname != "elpis-app") then {
+    call elpis-forward
+}
+
+# Security journal (low volume): queue.type="Direct" on the ruleset puts each line in the action's
+# disk queue, synced to disk, before imfile records it as read; the queue survives a power cut or a
+# crash while the collector is unreachable (ANSSI R8), and a line may then be sent twice. Plain TCP
+# has no acknowledgement: lines in flight when the network fails without closing the connection are
+# lost (RELP variant below).
+ruleset(name="elpis-audit" queue.type="Direct") {
+    action(type="omfwd"
+           target="collector.example.lan" port="6514" protocol="tcp"
+           TCP_Framing="octet-counted"
+           template="RSYSLOG_SyslogProtocol23Format"
+           # Mutual TLS with the internal PKI; the collector's certificate name is checked (x509/name).
+           StreamDriver="gtls" StreamDriverMode="1" StreamDriverAuthMode="x509/name"
+           StreamDriverPermittedPeers="collector.example.lan"
+           StreamDriver.CAFile="/etc/rsyslog.d/keys/ca.pem"
+           StreamDriver.CertFile="/etc/rsyslog.d/keys/elpis-host.pem"
+           StreamDriver.KeyFile="/etc/rsyslog.d/keys/elpis-host.key"
+           # Size it as daily volume x longest expected outage (days) x 1.5; queue.size (lines) stays
+           # above what queue.maxDiskSpace holds: past either limit, new lines are dropped after 2 seconds.
+           queue.type="Disk" queue.filename="elpis-audit" queue.maxDiskSpace="2g" queue.size="10000000"
+           queue.syncQueueFiles="on" queue.checkpointInterval="1" queue.saveOnShutdown="on"
+           # About 1,000 lines per second at most while catching up (ANSSI R18).
+           queue.dequeueSlowdown="1000"
+           action.resumeRetryCount="-1" action.resumeInterval="10")
+}
+
+# Access lines and service stderr: memory queue that spills to disk past its high-water mark, saved
+# on a clean shutdown; what it holds in memory is lost on a power cut or a crash.
+ruleset(name="elpis-forward") {
+    action(type="omfwd"
+           target="collector.example.lan" port="6514" protocol="tcp"
+           TCP_Framing="octet-counted"
+           template="RSYSLOG_SyslogProtocol23Format"
+           StreamDriver="gtls" StreamDriverMode="1" StreamDriverAuthMode="x509/name"
+           StreamDriverPermittedPeers="collector.example.lan"
+           StreamDriver.CAFile="/etc/rsyslog.d/keys/ca.pem"
+           StreamDriver.CertFile="/etc/rsyslog.d/keys/elpis-host.pem"
+           StreamDriver.KeyFile="/etc/rsyslog.d/keys/elpis-host.key"
+           queue.type="LinkedList" queue.filename="elpis-forward" queue.saveOnShutdown="on"
+           queue.maxDiskSpace="2g" queue.size="200000"
+           queue.dequeueSlowdown="1000"
+           action.resumeRetryCount="-1" action.resumeInterval="10")
+}
+
+# RELP variant for the security journal: the collector (imrelp with TLS, see collector-elpis.conf.example)
+# acknowledges each line, and lines left unacknowledged by a broken connection are sent again, but
+# not after a crash of rsyslog itself. Load omrelp above and use this action instead of the omfwd
+# action of the elpis-audit ruleset.
+# action(type="omrelp" target="collector.example.lan" port="2514"
+#        template="RSYSLOG_SyslogProtocol23Format"
+#        tls="on" tls.caCert="/etc/rsyslog.d/keys/ca.pem" tls.authMode="name"
+#        tls.permittedPeer=["collector.example.lan"]
+#        tls.myCert="/etc/rsyslog.d/keys/elpis-host.pem" tls.myPrivKey="/etc/rsyslog.d/keys/elpis-host.key"
+#        queue.type="Disk" queue.filename="elpis-audit-relp" queue.maxDiskSpace="2g" queue.size="10000000"
+#        queue.syncQueueFiles="on" queue.checkpointInterval="1" queue.saveOnShutdown="on"
+#        queue.dequeueSlowdown="1000" action.resumeRetryCount="-1" action.resumeInterval="10")

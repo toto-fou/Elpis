@@ -36,18 +36,20 @@ export async function mettreAJourConfigJson(
   });
 }
 
-/** config.json relu sur disque (à appeler sous `sousVerrouConfigJson`) : absent = `{}`, JSON ou UTF-8 illisible = `null`, autre chose qu'un objet = `{}`. */
-export function lireConfigDisque(): Dict | null {
+/** config.json relu sur disque (sous `sousVerrouConfigJson`) : absent = `{}`, illisible = `null`, autre qu'un objet = `{}` ; `stricte` (purge du journal) : absent, vide, illisible ou autre qu'un objet = `null`. */
+export function lireConfigDisque(stricte = false): Dict | null {
   const chemin = config.CONFIG_JSON_PATH;
-  if (!existePy(chemin)) return {};
+  if (!existePy(chemin)) return stricte ? null : {};
   let valeur: unknown;
   try {
-    valeur = pyJsonLoads(lireTextePy(chemin) || "{}");
+    const texte = lireTextePy(chemin);
+    if (stricte && !texte.trim()) return null;
+    valeur = pyJsonLoads(stricte ? texte : texte || "{}");
   } catch (e) {
     if (estErreurValeur(e)) return null;
     throw e;
   }
-  return estDict(valeur) ? valeur : {};
+  return estDict(valeur) ? valeur : stricte ? null : {};
 }
 
 export const CONFIG_ILLISIBLE = "config.json est illisible : corrigez-le avant d'enregistrer.";

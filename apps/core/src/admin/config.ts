@@ -10,6 +10,8 @@ export const OWNED_PATHS: readonly (readonly string[])[] = [
   ["security", "session", "https_only"],
   ["security", "listen"],
   ["security", "session", "global_min_ts"],
+  // Propre au TS : conservation du journal de sécurité, écrite par `/api/admin/audit/settings` seulement.
+  ["security", "audit"],
   ["database"],
   ["image", "api_key_enc"],
   // Propre au TS : réglages des sous-agents, écrits et validés par `/api/admin/agents` seulement.
@@ -83,12 +85,19 @@ function vide(v: unknown): boolean {
   );
 }
 
-/** `_apply_section_ownership` : sections dont le formulaire n'est pas l'auteur réinjectées depuis le disque ; rend les chemins restaurés. */
-export function applySectionOwnership(entrant: Dict, disque: Dict): string[] {
+/** `_apply_section_ownership` : sections dont le formulaire n'est pas l'auteur réinjectées depuis le disque ; rend les chemins restaurés (`disqueLu` faux : disque illisible, rien n'y est pris pour absent). */
+export function applySectionOwnership(entrant: Dict, disque: Dict, disqueLu = true): string[] {
   const restaures: string[] = [];
   for (const chemin of OWNED_PATHS) {
     const [surDisque, valeurDisque] = dig(disque, chemin);
-    if (!surDisque) continue;
+    if (!surDisque) {
+      // Propre au TS : une section réservée absente d'un disque lisible n'est jamais créée par l'éditeur.
+      if (disqueLu && PROPRES_AU_TS.has(chemin.join(".")) && dig(entrant, chemin)[0]) {
+        removePath(entrant, chemin);
+        restaures.push(chemin.join("."));
+      }
+      continue;
+    }
     const [present, valeur] = dig(entrant, chemin);
     if (present && egalPy(valeur, valeurDisque)) continue;
     plant(entrant, chemin, valeurDisque);
@@ -104,6 +113,9 @@ export function applySectionOwnership(entrant: Dict, disque: Dict): string[] {
   }
   return restaures;
 }
+
+/** Sections réservées propres au TS (sans équivalent Python) : écrites seulement par leur route. */
+const PROPRES_AU_TS: ReadonlySet<string> = new Set(["security.audit", "agents"]);
 
 /** `_touches_owned` : le chemin est une zone possédée, est dedans, ou la contient. */
 export function touchesOwned(parties: readonly string[]): boolean {

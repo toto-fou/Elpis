@@ -2,15 +2,16 @@
 /** apps/core/src/familles/metriques.ts — console Métriques de l'admin : tableau de bord, Prometheus et son jeton, export CSV, purge, rapport quotidien, observabilité des outils et de l'audit (routes/admin/metrics.py, routes/admin/observability.py). */
 import { randomBytes } from "node:crypto";
 
-import { exigerRole, ligneUtilisateur } from "@elpis/auth";
+import { exigerRole } from "@elpis/auth";
 import type { DependancesAuth } from "@elpis/auth";
 import {
   ErreurPython,
   floatPy,
+  FlottantPy,
   HttpError,
   intPy,
   prefixePy,
-  reprFlottant,
+  sansFormule,
   stripPy,
   strPy,
   veritePy,
@@ -18,12 +19,19 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { readConfigJson, sousVerrouConfigJson, writeConfigJson } from "@elpis/config";
+
+import { lireConfigPourEcrire } from "../admin/aides";
 import { localDatetime, walCheckpoint } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
-import { auditEvent, readRecentAuditLines } from "@elpis/securite";
+import { etatEcritureAudit } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { journal } from "../journal";
+import { auditerLecture, auditerRequete } from "../journal-securite/auditer";
+import { chercherJournal } from "../journal-securite/recherche";
+import { rechercheSousPlafond } from "./admin-audit";
+import { exigerLectureConsole } from "./garde-console";
+import { clauseTri, conditionRecherche, decalage } from "./liste-paginee";
 import { echantillonsDuProcess } from "../observabilite/echantillonneur";
 import type { Echantillons } from "../observabilite/echantillonneur";
 import type { ContexteMetriques } from "../observabilite/fournisseurs/base";
@@ -37,12 +45,23 @@ import {
 } from "../observabilite/rapports";
 import { registry as registreParDefaut } from "../observabilite/registre";
 import type { MetricsRegistry } from "../observabilite/registre";
+import { CacheLecture } from "../observabilite/cache-lecture";
 import { MesureCpu } from "../observabilite/sondes";
 import type { Famille } from "../routes";
-import { utilisateur } from "./comptes";
 import { analyserRequete, corpsJson, entrees, py, reponseJsonPy } from "@elpis/http";
 
 const log = journal("metrics");
+
+/** Tris permis des erreurs d'outils : clé de la requête vers colonne SQL (liste blanche). */
+const TRIS_ERREURS_OUTILS: Readonly<Record<string, string>> = {
+  ts: "ts",
+  tool_name: "tool_name",
+  server_name: "server_name",
+  status: "status",
+  duration_ms: "duration_ms",
+  run_id: "run_id",
+  user_id: "user_id",
+};
 
 export interface DependancesMetriques {
   readonly base: Base;
@@ -56,6 +75,8 @@ export interface DependancesMetriques {
   readonly pid?: number;
   /** `secrets.token_urlsafe(32)`. */
   readonly genererJeton?: () => string;
+  /** Horloge (ms) du cache de la synthèse par outil : injectée par les tests. */
+  readonly horlogeCache?: () => number;
 }
 
 const PROCESSUS = ["admin"] as const;
@@ -102,10 +123,6 @@ function jetonScrape(): string {
   } catch {
     return "";
   }
-}
-
-async function nomDuCompte(base: Base, uid: number): Promise<string | null> {
-  return (await ligneUtilisateur(base, uid))?.username ?? null;
 }
 
 /** `_purge_where` : clauses paramétrées, les seuls fragments interpolés viennent de la liste fermée. */
@@ -160,13 +177,15 @@ async function purger(x: Executeur, cibles: readonly string[], corps: Dict, simu
   return { comptes, supprimees };
 }
 
-/** `csv.writer` (dialecte excel) : champ cité s'il contient `,`, `"`, `\r` ou `\n`, guillemets doublés, lignes en `\r\n`. */
+/** `csv.writer` (dialecte excel) : champ cité s'il contient `,`, `;` (séparateur d'un Excel français), `"`, `\r` ou `\n`, guillemets doublés, lignes en `\r\n` ; un texte en forme de formule est neutralisé. */
 export function ligneCsvPy(champs: readonly unknown[]): string {
-  const textes = champs.map((c) => (c === null || c === undefined ? "" : strPy(c)));
+  const textes = champs.map((c) =>
+    c === null || c === undefined ? "" : sansFormule(c instanceof FlottantPy ? c.valeur : c, strPy(c)),
+  );
   return (
     textes
       .map((t, _i, tous) =>
-        /[,"\r\n]/u.test(t) || (tous.length === 1 && t === "") ? `"${t.replaceAll('"', '""')}"` : t,
+        /[,;"\r\n]/u.test(t) || (tous.length === 1 && t === "") ? `"${t.replaceAll('"', '""')}"` : t,
       )
       .join(",") + "\r\n"
   );
@@ -195,7 +214,7 @@ const COLONNES_USAGE = [
 ];
 
 /** `api_export_metrics` : CSV des événements ou du registre d'usage sur `days` jours (1 à 3650). */
-async function exporterCsv(x: Executeur, cible: string, jours: number): Promise<string> {
+export async function exporterCsv(x: Executeur, cible: string, jours: number): Promise<string> {
   const depuis = Date.now() / 1000 - Math.max(1, Math.min(3650, jours)) * 86400;
   let colonnes: string[];
   let lignes: unknown[][];
@@ -220,7 +239,7 @@ async function exporterCsv(x: Executeur, cible: string, jours: number): Promise<
       )
     ).map(([type, valeur, ...reste]) => [
       type,
-      typeof valeur === "number" ? reprFlottant(valeur) : valeur,
+      typeof valeur === "number" ? new FlottantPy(valeur) : valeur,
       ...reste,
     ]);
   }
@@ -235,10 +254,64 @@ function parametre(req: FastifyRequest, nom: string): string | undefined {
     .at(-1)?.[1];
 }
 
+/** Durée de vie de la synthèse par outil (relancée à chaque entrée sur Appels d'outils). */
+const TTL_SYNTHESE_OUTILS_MS = 30_000;
+
+interface SyntheseOutils {
+  totals: Dict;
+  perTool: Dict[];
+}
+
+/** Les cinq agrégats communs aux requêtes par outil et globale (n, total_ms, n_error, n_blocked, n_timeout). */
+const AGREGATS_OUTILS =
+  "COUNT(*) AS n, COALESCE(SUM(duration_ms),0) AS total_ms, " +
+  "SUM(CASE WHEN status='error'   THEN 1 ELSE 0 END) AS n_error, " +
+  "SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS n_blocked, " +
+  "SUM(CASE WHEN status='timeout' THEN 1 ELSE 0 END) AS n_timeout";
+
+/** Synthèse par outil ; les totaux se somment depuis la requête par outil quand elle n'a pas été tronquée par `limite`, sinon requête dédiée. */
+async function calculerSyntheseOutils(
+  base: Executeur,
+  heures: number,
+  limite: number,
+): Promise<SyntheseOutils> {
+  const entier = (v: unknown): number => intPy(veritePy(v) ? v : 0);
+  const depuis = Date.now() / 1000 - heures * 3600;
+  const lignes = await base.valeurs(
+    `SELECT tool_name, ${AGREGATS_OUTILS}, SUM(CASE WHEN status!='success' THEN 1 ELSE 0 END) AS n_failed ` +
+      "FROM tool_call_metrics WHERE ts > ? GROUP BY tool_name ORDER BY n DESC LIMIT ?",
+    [depuis, limite],
+  );
+  const perTool = lignes.map((r) => {
+    const [n, total] = [intPy(r[1]), intPy(r[2])];
+    return {
+      tool_name: r[0],
+      n,
+      total_ms: total,
+      n_failed: intPy(r[6]),
+      avg_ms: n ? Math.floor(total / n) : 0,
+    };
+  });
+  let total = (i: number): number => lignes.reduce((acc, r) => acc + entier(r[i + 1]), 0);
+  if (lignes.length >= limite) {
+    const [t] = await base.valeurs(`SELECT ${AGREGATS_OUTILS} FROM tool_call_metrics WHERE ts > ?`, [depuis]);
+    total = (i) => entier(t?.[i]);
+  }
+  const totals = {
+    n: total(0),
+    total_ms: total(1),
+    n_error: total(2),
+    n_blocked: total(3),
+    n_timeout: total(4),
+  };
+  return { totals, perTool };
+}
+
 export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
   const { base } = dep;
   const registre = dep.registre ?? registreParDefaut;
   const exigerEquipe = dep.exigerEquipe ?? ((req) => exigerRole(req, dep.auth, [1, 2], "Staff required"));
+  const syntheseOutils = new CacheLecture<SyntheseOutils>(TTL_SYNTHESE_OUTILS_MS, dep.horlogeCache);
   const mesureCpu = new MesureCpu();
   const cpuPourcent = dep.cpuPourcent ?? (() => mesureCpu.pourcentage());
   const genererJeton = dep.genererJeton ?? (() => randomBytes(32).toString("base64url"));
@@ -292,14 +365,13 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         processus: PROCESSUS,
         acces: "admin",
         traiter: async (req, rep) => {
-          const uid = utilisateur(req);
           const corps = corpsOuVide(corpsTolere(req));
           const brute = corps["action"];
           const action = strPy(veritePy(brute) ? brute : "generate");
           if (action !== "generate" && action !== "revoke") throw new HttpError(400, "Action inconnue");
           const jeton = action === "revoke" ? "" : genererJeton();
           await sousVerrouConfigJson(() => {
-            const cfg = readConfigJson();
+            const cfg = lireConfigPourEcrire();
             if (!Object.hasOwn(cfg, "metrics")) cfg["metrics"] = {};
             const m = cfg["metrics"];
             if (!estDict(m))
@@ -307,12 +379,7 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
             m["scrape_token"] = jeton;
             writeConfigJson(cfg);
           });
-          auditEvent({
-            userId: uid,
-            username: await nomDuCompte(base, uid),
-            action: `admin.metrics.scrape_token.${action}`,
-            details: {},
-          });
+          auditerRequete(req, `admin.metrics.scrape_token.${action}`);
           void rep.headers(SANS_STOCKAGE);
           return { configured: Boolean(jeton), token: jeton || null };
         },
@@ -346,12 +413,18 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         processus: PROCESSUS,
         acces: "staff",
         traiter: async (req, rep) => {
+          exigerLectureConsole(req);
           const { query } = entrees(req, {
             query: { days: py.int().defaut(7), target: py.str().defaut("metric_events") },
           });
           if (query.target !== "metric_events" && query.target !== "usage_events")
             throw new HttpError(400, "Cible d'export inconnue");
           const texte = await exporterCsv(base, query.target, query.days);
+          auditerRequete(req, "admin.metrics.export", {
+            days: query.days,
+            target: query.target,
+            format: "csv",
+          });
           const nom = `${query.target}_${query.days}j_${Math.trunc(Date.now() / 1000)}.csv`;
           return rep
             .header("content-disposition", `attachment; filename=${nom}`)
@@ -365,7 +438,6 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         processus: PROCESSUS,
         acces: "admin",
         traiter: async (req, rep) => {
-          const uid = utilisateur(req);
           const corps = corpsTolere(req);
           if (!estDict(corps)) throw new HttpError(400, "Corps JSON attendu");
           const cibles = corps["targets"];
@@ -381,21 +453,17 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
             ? await purger(base, cibles as string[], corps, true)
             : await base.transaction((tx) => purger(tx, cibles as string[], corps, false));
           if (!simulation) {
-            auditEvent({
-              userId: uid,
-              username: await nomDuCompte(base, uid),
-              action: "admin.metrics.purge",
-              details: {
-                targets: cibles,
-                deleted: supprimees,
-                from: corps["from"] ?? null,
-                to: corps["to"] ?? null,
-                event_types: corps["event_types"] ?? null,
-                sources: corps["sources"] ?? null,
-              },
+            registre.invalider();
+            syntheseOutils.invalider();
+            auditerRequete(req, "admin.metrics.purge", {
+              targets: cibles,
+              deleted: supprimees,
+              from: corps["from"] ?? null,
+              to: corps["to"] ?? null,
+              event_types: corps["event_types"] ?? null,
+              sources: corps["sources"] ?? null,
             });
             await walCheckpoint(base).catch(() => undefined);
-            registre.invalider();
           }
           void rep.headers(SANS_CACHE);
           return { dry_run: simulation, counted: comptes, deleted: supprimees };
@@ -466,7 +534,7 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
           const corps = corpsOuVide(corpsJson(req));
           const actif = veritePy(Object.hasOwn(corps, "enabled") ? corps["enabled"] : false);
           await sousVerrouConfigJson(() => {
-            const complet = readConfigJson();
+            const complet = lireConfigPourEcrire();
             const m = estDict(complet["maintenance"]) ? (complet["maintenance"] as Dict) : {};
             m["daily_digest_enabled"] = actif;
             complet["maintenance"] = m;
@@ -486,26 +554,56 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
               hours: py.int().defaut(24),
               limit: py.int().defaut(50),
               status: py.optional(py.str()).defaut(null),
+              offset: py.int().defaut(0),
+              q: py.str().defaut(""),
+              sort: py.str().defaut(""),
+              dir: py.str().defaut(""),
+              tool: py.str().defaut(""),
+              server: py.str().defaut(""),
             },
           });
           const heures = Math.max(1, Math.min(720, query.hours));
           const limite = Math.max(1, Math.min(500, query.limit));
+          const debut = decalage(query.offset);
           if (query.status && !["error", "blocked", "timeout"].includes(query.status))
             throw new HttpError(400, "status must be one of ['blocked', 'error', 'timeout']");
+          const ordre = clauseTri(
+            query.sort,
+            query.dir,
+            TRIS_ERREURS_OUTILS,
+            { expr: "ts", sens: "DESC" },
+            "id",
+          );
+          // Période (idx_tcm_ts), puis `status != 'success'` toujours présent (SQLite choisit l'index partiel idx_tcm_status), outil, serveur, recherche.
           const where = ["ts > ?"];
           const params: Valeur[] = [Date.now() / 1000 - heures * 3600];
+          where.push("status != 'success'");
           if (query.status) {
             where.push("status = ?");
             params.push(query.status);
-          } else where.push("status != 'success'");
+          }
+          if (query.tool) {
+            where.push("tool_name = ?");
+            params.push(query.tool.slice(0, 200));
+          }
+          if (query.server) {
+            where.push("server_name = ?");
+            params.push(query.server.slice(0, 200));
+          }
+          const rech = conditionRecherche(query.q, ["tool_name", "server_name", "run_id", "error_short"]);
+          if (rech !== null) {
+            where.push(rech.sql);
+            params.push(...rech.params);
+          }
           const items: Dict[] = [];
+          let total: number;
           try {
             const lignes = await base.valeurs(
               "SELECT ts, run_id, user_id, pipeline_id, node_id, member_id, " +
                 "       tool_name, server_name, status, duration_ms, error_short " +
                 `FROM tool_call_metrics WHERE ${where.join(" AND ")} ` +
-                "ORDER BY ts DESC LIMIT ?",
-              [...params, limite],
+                `${ordre} LIMIT ? OFFSET ?`,
+              [...params, limite, debut],
             );
             for (const r of lignes)
               items.push({
@@ -521,11 +619,18 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
                 duration_ms: r[9],
                 error_short: r[10],
               });
+            const [n] = await base.valeurs(
+              `SELECT COUNT(*) FROM tool_call_metrics WHERE ${where.join(" AND ")}`,
+              params,
+            );
+            total = intPy(n?.[0]);
           } catch (e) {
+            // Une base en échec n'est pas « aucune erreur » : la console doit le dire.
             log.warn(`[obs/tool-failures] query failed: ${e instanceof Error ? e.message : strPy(e)}`);
+            throw new HttpError(503, "Lecture des appels d'outils impossible");
           }
           void rep.headers(SANS_CACHE);
-          return { items, total: items.length, hours: heures };
+          return { items, total, offset: debut, limit: limite, hours: heures };
         },
       },
       {
@@ -535,55 +640,22 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         acces: "staff",
         traiter: async (req, rep) => {
           const { query } = entrees(req, {
-            query: { hours: py.int().defaut(24), limit: py.int().defaut(100) },
+            query: { hours: py.int().defaut(24), limit: py.int().defaut(100), fresh: py.int().defaut(0) },
           });
           const heures = Math.max(1, Math.min(720, query.hours));
           const limite = Math.max(1, Math.min(500, query.limit));
-          const depuis = Date.now() / 1000 - heures * 3600;
-          const entier = (v: unknown): number => intPy(veritePy(v) ? v : 0);
-          let totals: Dict;
-          let perTool: Dict[];
+          let synthese: SyntheseOutils;
           try {
-            const [t] = await base.valeurs(
-              "SELECT COUNT(*) AS n, " +
-                "       COALESCE(SUM(duration_ms),0) AS total_ms, " +
-                "       SUM(CASE WHEN status='error'   THEN 1 ELSE 0 END) AS n_error, " +
-                "       SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) AS n_blocked, " +
-                "       SUM(CASE WHEN status='timeout' THEN 1 ELSE 0 END) AS n_timeout " +
-                "FROM tool_call_metrics WHERE ts > ?",
-              [depuis],
+            synthese = await syntheseOutils.lire(
+              `${heures}|${limite}`,
+              () => calculerSyntheseOutils(base, heures, limite),
+              query.fresh === 1,
             );
-            totals = {
-              n: entier(t?.[0]),
-              total_ms: entier(t?.[1]),
-              n_error: entier(t?.[2]),
-              n_blocked: entier(t?.[3]),
-              n_timeout: entier(t?.[4]),
-            };
-            perTool = (
-              await base.valeurs(
-                "SELECT tool_name, COUNT(*) AS n, " +
-                  "       COALESCE(SUM(duration_ms),0) AS total_ms, " +
-                  "       SUM(CASE WHEN status!='success' THEN 1 ELSE 0 END) AS n_failed " +
-                  "FROM tool_call_metrics WHERE ts > ? " +
-                  "GROUP BY tool_name ORDER BY n DESC LIMIT ?",
-                [depuis, limite],
-              )
-            ).map((r) => {
-              const [n, total] = [intPy(r[1]), intPy(r[2])];
-              return {
-                tool_name: r[0],
-                n,
-                total_ms: total,
-                n_failed: intPy(r[3]),
-                avg_ms: n ? Math.floor(total / n) : 0,
-              };
-            });
           } catch (e) {
             log.warn(`[obs/tool-summary] query failed: ${e instanceof Error ? e.message : strPy(e)}`);
-            totals = { n: 0 };
-            perTool = [];
+            throw new HttpError(503, "Lecture des appels d'outils impossible");
           }
+          const { totals, perTool } = synthese;
           void rep.headers(SANS_CACHE);
           return { totals, per_tool: perTool, hours: heures };
         },
@@ -592,8 +664,10 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         methode: "GET",
         chemin: "/api/admin/observability/audit-recent",
         processus: PROCESSUS,
-        acces: "staff",
+        // Journal de sécurité : lecture réservée aux admins (ANSSI R27).
+        acces: "admin",
         traiter: async (req, rep) => {
+          exigerLectureConsole(req);
           const { query } = entrees(req, {
             query: {
               hours: py.int().defaut(24),
@@ -604,12 +678,31 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
           });
           const heures = Math.max(1, Math.min(168, query.hours));
           const limite = Math.max(1, Math.min(500, query.limit));
-          const items = readRecentAuditLines({
-            limit: limite,
-            sinceTs: Date.now() / 1000 - heures * 3600,
-            actionPrefix: stripPy(query.action_prefix || "") || null,
-            userId: query.filter_user_id,
-          });
+          // Même lecteur que la page Audit : à rebours, budget borné, sans signature ni `kid`.
+          const maintenant = Date.now() / 1000;
+          const depuis = maintenant - heures * 3600;
+          const jour = (t: number): string => new Date(t * 1000).toISOString().slice(0, 10);
+          const filtres = {
+            du: jour(depuis),
+            au: jour(maintenant),
+            action: stripPy(query.action_prefix || "").slice(0, 120) || null,
+            utilisateur: query.filter_user_id === null ? null : String(query.filter_user_id),
+          };
+          const page = await rechercheSousPlafond(() =>
+            chercherJournal({ dossier: etatEcritureAudit().dossier, filtres, limite }),
+          );
+          // Lecture tracée comme une recherche de la page Audit, après coup ; mêmes filtres dans la minute : comptés.
+          const actifs = {
+            ...(filtres.action ? { action: filtres.action } : {}),
+            ...(filtres.utilisateur ? { user: filtres.utilisateur } : {}),
+          };
+          auditerLecture(
+            req,
+            "admin.audit.search",
+            `audit-recent|${filtres.du}|${filtres.au}|${JSON.stringify(actifs)}`,
+            { source: "audit-recent", from: filtres.du, to: filtres.au, filters: actifs },
+          );
+          const items = page.events.filter((e) => e.ts === null || e.ts >= depuis);
           void rep.headers(SANS_CACHE);
           return { items, total: items.length, hours: heures };
         },

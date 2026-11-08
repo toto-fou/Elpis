@@ -285,15 +285,27 @@ fi
 # =============================================================================
 #  0 bis. Droits — vérifiés AVANT toute question
 # =============================================================================
+# Compte des services systemd déjà installés (User= de main, admin ou toolhost, comme « ./elpis ») : gardé sans ELPIS_USER explicite.
+compte_des_unites() {
+    local s u
+    for s in main admin toolhost; do
+        [ -f "/etc/systemd/system/elpis-$s.service" ] || continue
+        u="$(systemctl show -p User --value "elpis-$s.service" 2>/dev/null)"
+        [ -n "$u" ] || u="$(sed -n 's/^User=//p' "/etc/systemd/system/elpis-$s.service" | tail -n 1)"
+        echo "$u"; return 0
+    done
+}
 # Utilisateur normal : sudo demandé maintenant, une fois, puis gardé actif
 # pendant toute l'installation (la construction de l'image dure plus que les
 # 15 min de vie d'un jeton sudo, et les étapes système suivantes échouaient).
-# Root (sudo ./install.sh) : l'application tourne sous le compte qui a lancé
-# sudo (ou ELPIS_USER, ou le propriétaire du dépôt), jamais en root.
+# Root (sudo ./install.sh) : l'application tourne sous ELPIS_USER, sinon le
+# compte des unités en place, sinon celui qui a lancé sudo ou le propriétaire
+# du dépôt, jamais en root.
 SUDO=""; AS_ROOT=0; ADMIN_OK=0; APP_USER="$(id -un)"; APP_HOME="${HOME:-}"
+COMPTE_UNITES="$(compte_des_unites)"
 if [ "$(id -u)" -eq 0 ]; then
     AS_ROOT=1; ADMIN_OK=1
-    APP_USER="${ELPIS_USER:-${SUDO_USER:-}}"
+    APP_USER="${ELPIS_USER:-${COMPTE_UNITES:-${SUDO_USER:-}}}"
     { [ -n "$APP_USER" ] && [ "$APP_USER" != root ]; } || APP_USER="$(stat -c %U "$ROOT")"
     if [ "$APP_USER" = root ] || ! id "$APP_USER" >/dev/null 2>&1; then
         die "Lancé en root sans compte pour faire tourner Elpis (le dépôt appartient à root). Clonez le dépôt avec un compte normal et lancez ./install.sh depuis ce compte, ou indiquez-le : ELPIS_USER=nom sudo ./install.sh"
@@ -503,6 +515,13 @@ as_app() {
         "$@"
     fi
 }
+# Groupes du compte que ce processus n'a pas encore (ajoutés depuis l'ouverture de la session).
+groupes_manquants() {
+    local g
+    for g in $(id -Gn "$APP_USER"); do id -Gn | tr ' ' '\n' | grep -qxF -- "$g" || echo "$g"; done
+}
+# Mot entre guillemets simples pour sh -c.
+cite_sh() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 
 # =============================================================================
 #  1. Les choix : assistant par pages, questions en lignes, ou options seules
@@ -1167,23 +1186,40 @@ fi
 # En root : tout ce que les étapes système ont créé revient au compte de
 # l'application (base SQLite, jetons, config, Qdrant, journaux), /work exclu.
 [ "$AS_ROOT" -eq 1 ] && chown_depot
+# Compte des services passé à audit setup et service install : ELPIS_USER s'il est donné, sinon celui des unités en place, sinon celui de l'installation.
+COMPTE_SERVICES="${ELPIS_USER:-${COMPTE_UNITES:-$APP_USER}}"
+if [ -z "${ELPIS_USER:-}" ] && [ -n "$COMPTE_UNITES" ] && [ "$COMPTE_UNITES" != "$APP_USER" ]; then
+    info "Services sous « $COMPTE_UNITES » (unités systemd installées) : compte gardé (ELPIS_USER=nom pour en changer)."
+fi
+# Journal de sécurité hors du dépôt : dossiers, groupe de lecture rsyslog et clé de signature (droits administrateur) ; service install le met en place lui-même.
+if [ "$AFTER" = service ] && [ -f "$ROOT/config.json" ]; then
+    :
+elif [ "$ADMIN_OK" -eq 1 ]; then
+    $SUDO env ELPIS_USER="$COMPTE_SERVICES" "$ROOT/elpis" audit setup \
+        || note_warn "Journal de sécurité non installé (sudo ./elpis audit setup)."
+else
+    note_warn "Journal de sécurité : droits administrateur requis (sudo ./elpis audit setup)."
+fi
 
 if [ -f "$ROOT/config.json" ]; then
     case "$AFTER" in
         service)
             info "Services systemd…"
             if [ "$ADMIN_OK" -eq 1 ]; then
-                $SUDO env ELPIS_USER="$APP_USER" "$ROOT/elpis" service install \
+                $SUDO env ELPIS_USER="$COMPTE_SERVICES" "$ROOT/elpis" service install \
                     || note_warn "Installation des services échouée (sudo ./elpis service install)."
             else
                 note_warn "Services systemd : droits administrateur requis (sudo ./elpis service install)."
             fi
             ;;
         start)
-            # Groupe docker tout juste ajouté : « sg » l'applique sans reconnexion.
-            if [ "$AS_ROOT" -eq 0 ] && have sg && ! id -nG | tr ' ' '\n' | grep -qx docker \
-                    && getent group docker | grep -qw "$APP_USER"; then
-                sg docker -c "'$ROOT/elpis' start" || note_warn "Démarrage incomplet (./elpis status)."
+            # Groupes tout juste ajoutés (docker, clé du journal de sécurité) : « sg » les applique sans reconnexion, le groupe primaire en dernier ; en root, runuser les prend.
+            manquants=""
+            [ "$AS_ROOT" -eq 1 ] || manquants="$(groupes_manquants)"
+            if [ -n "$manquants" ] && have sg; then
+                cmd="sg $(cite_sh "$(id -gn)") -c $(cite_sh "$(cite_sh "$ROOT/elpis") start")"
+                for g in $manquants; do cmd="sg $(cite_sh "$g") -c $(cite_sh "$cmd")"; done
+                sh -c "$cmd" || note_warn "Démarrage incomplet (./elpis status)."
             else
                 as_app "$ROOT/elpis" start || note_warn "Démarrage incomplet (./elpis status)."
             fi

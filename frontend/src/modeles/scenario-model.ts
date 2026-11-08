@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/modeles/scenario-model.ts — modèle pur d'un scénario de test desktop : pas reproductible, ancres, attentes, arbre d'éléments. */
+import { sansFormule } from "@elpis/commun/csv";
 
 export interface ElementUi {
   id?: string | number | null;
@@ -575,15 +576,17 @@ export function a11yAudit(elements?: Elements): Audit {
   return { interactive, rows, unnamed: rows.filter((r) => r.missing !== "auto_id").length };
 }
 
+/** Cellule de l'export séparé par `;` : formule neutralisée (un nombre reste un nombre), champ cité s'il contient `;`, `"` ou un retour. */
+function celluleCsv(v: unknown): string {
+  const t = sansFormule(v, String(v ?? ""), ";");
+  return /[;"\r\n]/u.test(t) ? `"${t.replaceAll('"', '""')}"` : t;
+}
+
 export function a11yAuditCsv(audit?: Audit | null): string {
   const out = ["rôle;manque;chemin;voisin;x1;y1;x2;y2"];
   for (const r of (audit && audit.rows) || []) {
     const b: readonly (number | string)[] = r.box || ["", "", "", ""];
-    out.push(
-      [r.role, r.missing, r.path, r.near, b[0], b[1], b[2], b[3]]
-        .map((v) => String(v == null ? "" : v).replace(/;/g, ","))
-        .join(";"),
-    );
+    out.push([r.role, r.missing, r.path, r.near, b[0], b[1], b[2], b[3]].map(celluleCsv).join(";"));
   }
   return out.join("\n");
 }

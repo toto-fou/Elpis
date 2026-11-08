@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/porte.ts — porte d'entrée de l'hôte (toolhost/auth.py + portes MCP de local_mcp_server.py) : jeton de service, enveloppe d'identité, Origin et famille des chemins MCP. */
+/** apps/toolhost/src/porte.ts — porte d'entrée de l'hôte (toolhost/auth.py + portes MCP de local_mcp_server.py) : jeton de service, enveloppe d'identité, Origin et famille des chemins MCP ; refus au journal de sécurité. */
 import { AsyncResource } from "node:async_hooks";
 
+import { ipDuClient } from "@elpis/auth";
 import { lowerPy, lstripPy, pyJsonDumps, rstripPy, stripPy } from "@elpis/commun";
 import { cheminDecode, premierEntete } from "@elpis/http";
 import { FAMILY_NAMES, originAllowed } from "@elpis/mcp";
-import { avecIdentite, egauxEnTempsConstant, IDENTITY_HEADER, verify } from "@elpis/securite";
+import {
+  auditRafale,
+  avecIdentite,
+  egauxEnTempsConstant,
+  IDENTITY_HEADER,
+  texteBorne,
+  verify,
+} from "@elpis/securite";
 import type { Identity } from "@elpis/securite";
 import type { FastifyInstance, FastifyReply, FastifyRequest, HookHandlerDoneFunction } from "fastify";
 
@@ -90,6 +98,7 @@ type RequeteAvecPortee = FastifyRequest & { [PORTEE]?: AsyncResource };
 /** Contrôles de chemin MCP, dans l'ordre des middlewares (Origin puis famille) ; vrai si une réponse a été envoyée. */
 function porteMcp(requete: FastifyRequest, reponse: FastifyReply, chemin: string): boolean {
   if (!originAllowed(premierEntete(requete, "origin"))) {
+    refusDeLaPorte(requete, chemin, "origin");
     void refusMcp(reponse, 403, "origine non autorisée");
     return true;
   }
@@ -99,6 +108,20 @@ function porteMcp(requete: FastifyRequest, reponse: FastifyReply, chemin: string
     return true;
   }
   return false;
+}
+
+/** Refus de la porte au journal de sécurité (`toolhost.gate.denied`), agrégé par IP du client (celle du core), raison et chemin : jamais le jeton reçu. */
+function refusDeLaPorte(requete: FastifyRequest, chemin: string, raison: string): void {
+  const ip = ipDuClient(requete);
+  const route = texteBorne(chemin, 200);
+  auditRafale(`${ip}|${raison}|${route}`, {
+    userId: null,
+    username: null,
+    action: "toolhost.gate.denied",
+    outcome: "failure",
+    ip,
+    details: { reason: raison, method: requete.method, route },
+  });
 }
 
 /** Porte de toute requête, avant le routage comme le middleware ASGI : `/health` ouvert, chemins MCP aux portes du service, reste sous jeton et enveloppe. */
@@ -114,18 +137,19 @@ export function installerPorte(app: FastifyInstance, reglages: ReglagesPorte): v
         if (porteMcp(requete, reponse, chemin)) return undefined;
         return suite(requete, reponse, fait);
       }
-      const refus = (statut: number, detail: string): void => {
+      const refus = (statut: number, detail: string, raison?: string): void => {
+        if (raison) refusDeLaPorte(requete, chemin, raison);
         if (requete.ws) void reponse.code(403).send();
         else void rejeter(reponse, statut, detail);
       };
       if (!reglages.jeton) return refus(503, MESSAGE_SANS_JETON);
       if (!bearerMatches(requete.headers.authorization, reglages.jeton))
-        return refus(401, "jeton de service requis");
+        return refus(401, "jeton de service requis", "service_token");
       const brut = requete.headers[IDENTITY_HEADER];
       const ident = verify(typeof brut === "string" ? brut : undefined, reglages.jeton, {
         maxSkewS: reglages.decalageMaxS,
       });
-      if (ident === null) return refus(401, "enveloppe d'identité absente ou invalide");
+      if (ident === null) return refus(401, "enveloppe d'identité absente ou invalide", "identity");
       requete.identite = ident;
       return avecIdentite(ident, () => {
         (requete as RequeteAvecPortee)[PORTEE] = new AsyncResource("toolhost-identite");

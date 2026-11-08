@@ -28,7 +28,8 @@ export type NomPurge =
   | "stale_locks"
   | "orphan_parts"
   | "office_cache"
-  | "generated_images";
+  | "generated_images"
+  | "audit_files";
 
 /** Une purge reçoit la rétention (jours) quand le Python lui en passe une. */
 export type Purge = (retentionJours: number) => number | Promise<number>;
@@ -111,6 +112,7 @@ export async function runMaintenanceOnce(
   await tenter("daily_reports", "daily_reports", config.DAILY_REPORT_RETENTION_DAYS);
   await tenter("session_messages", "session_messages", config.SESSION_MESSAGES_RETENTION_DAYS);
   await tenter("action_cache", "action_cache", 0);
+  await tenter("audit_files", "audit_files", 0);
   if (options.balayagesFs ?? true) {
     await tenter("stale_locks", "stale_locks", 0);
     await tenter("orphan_parts", "orphan_parts", 0);

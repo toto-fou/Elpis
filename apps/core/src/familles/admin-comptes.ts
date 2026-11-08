@@ -8,6 +8,7 @@ import {
   ErreurGroupe,
   getAllUsersWithGroups,
   getGroup,
+  getUserGroups,
   getUser,
   getUsernameById,
   getUserSettings,
@@ -114,6 +115,11 @@ function validerMotDePasseRecu(v: unknown, config: unknown): void {
       throw new ErreurPython("TypeError", "expected string or bytes-like object, got '" + nomTypePy(v) + "'");
 }
 
+/** Niveau `is_admin` en rôle lisible. */
+function nomDuRole(niveau: number): string {
+  return niveau === 1 ? "admin" : niveau === 2 ? "moderator" : "user";
+}
+
 export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille {
   const { base, auth } = dep;
   const maintenant = (): number => (auth.maintenant ? auth.maintenant() : Date.now() / 1000);
@@ -150,6 +156,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     let erreur: string | null = null;
     if (avecBac && dossier !== null)
       [supprime, erreur] = await supprimerBac(cible, parti ?? "", dossier, dep.bac);
+    auditer(req, "admin.user.delete", { target_user_id: cible, target_username: parti });
     const echecsHotes = await purgeHotes;
     for (const echec of echecsHotes) dep.journal.error(`[admin] purge du compte échouée : ${echec}`);
     const reponse: Dict = { ok: true, sandbox_deleted: supprime };
@@ -172,10 +179,15 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       throw e;
     }
     validerMotDePasse(password, auth.config());
-    await createUser(base, username, password, {
+    const cree = await createUser(base, username, password, {
       isAdmin: niveau,
       mustChangePwd: 1,
       maintenant: maintenant(),
+    });
+    auditer(req, "admin.user.create", {
+      target_user_id: cree,
+      target_username: username,
+      role: nomDuRole(niveau),
     });
     return { ok: true };
   }
@@ -186,11 +198,17 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const data = corpsJsonValeurs(req);
     const role = getPy(data, "role", "user");
     const niveau = niveauDuRole(role);
-    if (!(await ligneUtilisateur(base, cible))) throw new HttpError(404, "Utilisateur non trouvé");
+    const avant = await ligneUtilisateur(base, cible);
+    if (!avant) throw new HttpError(404, "Utilisateur non trouvé");
     if (cible === uid && niveau !== 1)
       throw new HttpError(400, "Impossible de retirer vos propres droits admin");
     await base.run("UPDATE users SET is_admin=? WHERE id=?", [niveau, cible]);
     invaliderAccesRag(base);
+    auditer(req, "admin.user.role", {
+      target_user_id: cible,
+      before: nomDuRole(Number(avant.is_admin)),
+      after: nomDuRole(niveau),
+    });
     return reponseJsonPy(rep, { ok: true, role });
   }
 
@@ -204,7 +222,8 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     if (typeof mdp !== "string")
       throw new ErreurPython("AttributeError", `'${nomTypePy(mdp)}' object has no attribute 'encode'`);
     const cible = entierBase(exact);
-    await resetUserPassword(base, cible, mdp);
+    // Compte inexistant : réponse `ok` comme le Python, sans ligne de succès au journal.
+    const change = await resetUserPassword(base, cible, mdp);
     await leverMinSession(base, cible, maintenant());
     try {
       await dep.revoquer(cible);
@@ -213,6 +232,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     await revoquerTousAcces(auth, cible);
     await base.run("UPDATE users SET must_change_pwd=1 WHERE id=?", [cible]);
+    if (change) auditer(req, "admin.user.password_reset", { target_user_id: cible, must_change: true });
     return { ok: true };
   }
 
@@ -429,7 +449,9 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const nom = texteRecu(data, "name");
     const description = texteRecu(data, "description");
     if (!nom) throw new HttpError(400, "Nom requis");
-    return { ok: true, id: await createGroup(base, nom, description, maintenant()) };
+    const id = await createGroup(base, nom, description, maintenant());
+    auditer(req, "admin.group.create", { group_id: id, group_name: nom });
+    return { ok: true, id };
   }
 
   async function modifierGroupe(req: FastifyRequest): Promise<Dict> {
@@ -438,7 +460,19 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     const nom = texteRecu(data, "name");
     const description = texteRecu(data, "description");
     if (!nom) throw new HttpError(400, "Nom requis");
+    const avant = await getGroup(base, gid);
     if (!(await updateGroup(base, gid, nom, description))) throw new HttpError(404, "Groupe introuvable");
+    const before: Dict = {};
+    const after: Dict = {};
+    for (const [cle, valeur] of [
+      ["name", nom],
+      ["description", description],
+    ] as const) {
+      if (avant?.[cle] === valeur) continue;
+      before[cle] = avant?.[cle] ?? null;
+      after[cle] = valeur;
+    }
+    auditer(req, "admin.group.update", { group_id: gid, before, after });
     return { ok: true };
   }
 
@@ -448,9 +482,11 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       await deletePrincipalRows(x, "group", gid, base);
       await purgerGroupeRag(x, gid);
     };
+    const nom = (await getGroup(base, gid))?.["name"] ?? null;
     const supprime = await deleteGroup(base, gid, purger);
     invaliderAccesRag(base);
     if (!supprime) throw new HttpError(404, "Groupe introuvable");
+    auditer(req, "admin.group.delete", { group_id: gid, group_name: nom });
     return { ok: true };
   }
 
@@ -467,6 +503,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
     }
     if (!(await ligneUtilisateur(base, cible))) throw new HttpError(404, "Compte introuvable");
     const entiers = ids.map((g) => entierBase(g));
+    const avant = (await getUserGroups(base, cible)).map((g) => Number(g.id));
     try {
       await setUserGroups(base, cible, entiers);
     } catch (e) {
@@ -479,6 +516,11 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
       dep.journal.debug({ err: e }, "[groups] invalidation du cache d'accès échouée");
     }
     invaliderAccesRag(base);
+    auditer(req, "admin.user.groups", {
+      target_user_id: cible,
+      before: avant.sort((a, b) => a - b),
+      after: [...new Set(entiers)].sort((a, b) => a - b),
+    });
     return { ok: true, group_ids: [...new Set(entiers)] };
   }
 
@@ -510,6 +552,7 @@ export function creerFamilleAdminComptes(dep: DependancesAdminComptes): Famille 
   async function supprimerClientOauth(req: FastifyRequest): Promise<Dict> {
     const { client_id: clientId } = entrees(req, { query: { client_id: py.str() } }).query;
     if (!(await deleteClient(base, clientId))) throw new HttpError(404, "Client introuvable.");
+    auditer(req, "admin.oauth_client.delete", { client_id: clientId });
     return { ok: true };
   }
 

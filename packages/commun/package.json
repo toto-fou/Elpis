@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./empreinte": "./src/empreinte.ts",
     "./couleurs": "./src/couleurs.ts",
+    "./csv": "./src/csv.ts",
     "./marqueurs-tour": "./src/marqueurs-tour.ts"
   }
 }

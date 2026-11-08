@@ -18,12 +18,13 @@ import {
 import type { Dict } from "@elpis/commun";
 import { config, liveConfigValue, readConfigJson } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { auditEvent } from "@elpis/securite";
+
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { modifierConfigJson } from "../administration/config-sous-verrou";
 import { clearLlmCalls, getLlmCall, listLlmCalls } from "../administration/trafic-llm";
 import type { Journal } from "../journal";
+import { auditerRequete } from "../journal-securite/auditer";
 import { connectorKey, purgeEngineKey } from "../llm/acces-moteurs";
 import { detectLlamaCapabilities, getLlamaCapabilities, resolveSchedulingMode } from "../llm/capacites";
 import {
@@ -49,7 +50,7 @@ import { builtinEngine } from "../llm/moteurs";
 import { oublierServeur } from "../llm/ordonnanceur/process";
 import { dernierRapportIntegre, sonderMoteur } from "../llm/sonde-moteur";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
-import { utilisateur } from "./comptes";
+import { exigerLectureConsole } from "./garde-console";
 import { corpsJsonValeurs, entrees, parametreRequete, py, reponseJsonPy } from "@elpis/http";
 
 export interface DependancesAdminLlm {
@@ -70,8 +71,8 @@ function route(
   return { methode, chemin, processus: ["admin"], acces, traiter };
 }
 
-function auditer(req: FastifyRequest, uid: number, action: string, details: Dict): void {
-  auditEvent({ userId: uid, username: req.utilisateur?.username ?? null, action, details });
+export function auditer(req: FastifyRequest, action: string, details: Dict, reussi = true): void {
+  auditerRequete(req, action, details, reussi ? {} : { issue: "failure" });
 }
 
 /** `(data.get("api_key") or "").strip()` : un texte, AttributeError (500) pour une autre valeur vraie. */
@@ -129,7 +130,6 @@ async function listerConnecteurs(dep: DependancesAdminLlm): Promise<Dict> {
 }
 
 async function creerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): Promise<Dict> {
-  const uid = utilisateur(req);
   const data = corpsJsonValeurs(req);
   const champs = champsDeCreation(data, true, autorises);
   const apiKey = cleApi(data);
@@ -155,7 +155,7 @@ async function creerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): P
       `Stockage impossible : ${prefixePy(e instanceof Error ? e.message : String(e), 160)}`,
     );
   }
-  auditer(req, uid, "llm.connector.create", {
+  auditer(req, "llm.connector.create", {
     connector_id: cid,
     provider_type: champs["provider_type"],
     scope: "shared",
@@ -165,7 +165,6 @@ async function creerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): P
 }
 
 async function modifierConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): Promise<Dict> {
-  const uid = utilisateur(req);
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
   const data = corpsJsonValeurs(req);
   const champs: ChampsMiseAJour = {};
@@ -185,19 +184,18 @@ async function modifierConnecteur(dep: DependancesAdminLlm, req: FastifyRequest)
     );
   }
   if (!ok) throw new HttpError(404, "Connecteur introuvable ou rien à modifier");
-  auditer(req, uid, "llm.connector.update", { connector_id: cid, scope: "shared" });
+  auditer(req, "llm.connector.update", { connector_id: cid, scope: "shared" });
   oublierFenetres();
   oublierMoteur(cid);
   return { ok: true };
 }
 
 async function supprimerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): Promise<Dict> {
-  const uid = utilisateur(req);
   const { cid } = entrees(req, { path: { cid: py.int() } }).path;
   if (!(await deleteSharedConnector(dep.base, cid))) throw new HttpError(404, "Connecteur introuvable");
   oublierServeur(connectorKey(cid));
   const purgees = await purgeEngineKey(dep.base, connectorKey(cid));
-  auditer(req, uid, "llm.connector.delete", {
+  auditer(req, "llm.connector.delete", {
     connector_id: cid,
     scope: "shared",
     access_lists_purged: purgees,
@@ -215,7 +213,6 @@ async function testerConnecteur(dep: DependancesAdminLlm, req: FastifyRequest): 
 }
 
 async function definirAutorises(req: FastifyRequest): Promise<Dict> {
-  const uid = utilisateur(req);
   const data = corpsJsonValeurs(req);
   const brut = getPy(data, "allowed");
   if (!Array.isArray(brut)) throw new HttpError(400, "'allowed' doit être une liste de provider_type");
@@ -228,7 +225,7 @@ async function definirAutorises(req: FastifyRequest): Promise<Dict> {
   await modifierConfigJson((cfg) => {
     poserCle(sectionModifiable(cfg, "llm"), "allowed_provider_types", permis);
   });
-  auditer(req, uid, "llm.allowed_providers.set", { allowed: permis });
+  auditer(req, "llm.allowed_providers.set", { allowed: permis });
   return { ok: true, allowed: permis };
 }
 
@@ -265,9 +262,8 @@ async function rapportIntegre(rep: FastifyReply): Promise<FastifyReply> {
 
 /** Bouton « Tester » : sonde complète du moteur intégré, complétion d'un jeton comprise (jetons en cache de vLLM). */
 async function testerIntegre(req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> {
-  const uid = utilisateur(req);
   const rapport = await sonderMoteur(builtinEngine(), { generation: true });
-  auditer(req, uid, "llm.engine.test", { type: rapport.type, joignable: rapport.joignable });
+  auditer(req, "llm.engine.test", { type: rapport.type, joignable: rapport.joignable }, !!rapport.joignable);
   return reponseJsonPy(rep, { rapport }, SANS_CACHE);
 }
 
@@ -336,9 +332,11 @@ async function detailTrafic(
   req: FastifyRequest,
   rep: FastifyReply,
 ): Promise<FastifyReply> {
+  exigerLectureConsole(req);
   const { call_id: id } = entrees(req, { path: { call_id: py.int() } }).path;
   const ligne = await getLlmCall(dep.base, id);
   if (ligne === null) throw new HttpError(404, "échange introuvable");
+  auditerRequete(req, "admin.llm_traffic.read", { call_id: id });
   return reponseJsonPy(rep, ligne, SANS_CACHE);
 }
 
@@ -366,10 +364,11 @@ export function creerFamilleAdminLlm(dep: DependancesAdminLlm): Famille {
       route("GET", "/api/admin/llm-traffic/:call_id([0-9]+)", "admin", (req, rep) =>
         detailTrafic(dep, req, rep),
       ),
-      route("DELETE", "/api/admin/llm-traffic", "admin", async () => ({
-        ok: true,
-        deleted: await clearLlmCalls(dep.base),
-      })),
+      route("DELETE", "/api/admin/llm-traffic", "admin", async (req) => {
+        const deleted = await clearLlmCalls(dep.base);
+        auditerRequete(req, "admin.llm_traffic.delete", { deleted });
+        return { ok: true, deleted };
+      }),
     ],
   };
 }

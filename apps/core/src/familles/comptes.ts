@@ -21,8 +21,9 @@ import {
   getAllUsers,
   getUser,
   getUserGroups,
+  getUsernameById,
   getUsersLite,
-  ipClient,
+  ipDuClient,
   leverMinSession,
   ligneUtilisateur,
   rehacherSiAncien,
@@ -36,7 +37,16 @@ import {
 import type { DependancesAuth, DependancesJetons, Reseau } from "@elpis/auth";
 import { decoderUtf8Py, HttpError, intPy, messageErreurOs, stripPy, strPy, veritePy } from "@elpis/commun";
 import { config } from "@elpis/config";
-import { auditLogin, compareDigest, tokenUrlsafe } from "@elpis/securite";
+import type { Base } from "@elpis/db";
+import {
+  auditEvent,
+  auditLogin,
+  cleAuditCourante,
+  compareDigest,
+  empreinteIdentifiant,
+  texteBorne,
+  tokenUrlsafe,
+} from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import {
@@ -49,6 +59,7 @@ import {
   validerMotDePasse,
 } from "../comptes/aides";
 import { ecrireReglages, lireReglages } from "../comptes/reglages";
+import { auditerRefus, auditerRequete } from "../journal-securite/auditer";
 import { typeStatique } from "../interface/statiques";
 import type { Journal } from "../journal";
 import type { ModeApp } from "../mode";
@@ -90,11 +101,9 @@ function maintenant(dep: DependancesComptes): number {
   return dep.auth.maintenant ? dep.auth.maintenant() : Date.now() / 1000;
 }
 
-/** Adresse du client comme `request.client.host` sous uvicorn (IPv4 transposée en IPv6 par une écoute sur `::` ramenée à IPv4). */
+/** Adresse du client, la même que celle du journal de sécurité (`ipDuClient`). */
 function adresseClient(requete: FastifyRequest, dep: DependancesComptes): string {
-  const pair =
-    requete.ip.startsWith("::ffff:") && requete.ip.includes(".") ? requete.ip.slice(7) : requete.ip;
-  return ipClient(pair, requete.headers, dep.mandataires);
+  return ipDuClient(requete, dep.mandataires);
 }
 
 export function utilisateur(requete: FastifyRequest): number {
@@ -178,6 +187,32 @@ async function sansEchec(action: () => Promise<unknown> | undefined): Promise<vo
   } catch {
     return;
   }
+}
+
+/** Refus de connexion au journal : compte existant (même casse que `verifyUser`) gardé, inconnu (amorçage refusé compris) réduit à une empreinte salée par la clé d'audit, rien sans clé ; la recherche n'a lieu que sur ce chemin d'échec. */
+async function auditerRefusConnexion(
+  base: Base,
+  e: { username: string; ip: string; userAgent: string | null; raison: string },
+): Promise<void> {
+  const amorcage = e.raison.startsWith("bootstrap_");
+  let ligne: { id: number } | undefined;
+  if (!amorcage) {
+    try {
+      ligne = await base.get<{ id: number }>("SELECT id FROM users WHERE username=?", [e.username]);
+    } catch {
+      ligne = undefined;
+    }
+  }
+  const inconnu = e.raison === "bootstrap_denied" || (!amorcage && !ligne);
+  auditLogin({
+    userId: ligne ? Number(ligne.id) : null,
+    username: inconnu ? null : e.username,
+    ip: e.ip,
+    userAgent: e.userAgent,
+    success: false,
+    reason: inconnu && e.raison === "bad_password" ? "unknown_user" : e.raison,
+    ...(inconnu && cleAuditCourante() !== null ? { identifierHash: empreinteIdentifiant(e.username) } : {}),
+  });
 }
 
 /** `_read_and_validate_image` : extension tirée des 64 premiers octets ; l'en-tête Content-Type doit être image/*. */
@@ -298,6 +333,13 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
                   mustChangePwd: mode === "file" ? 1 : 0,
                 });
                 await rm(join(dep.racine, "user_db", ".bootstrap_admin"), { force: true });
+                auditEvent({
+                  userId: cree,
+                  username,
+                  action: "auth.bootstrap",
+                  ip,
+                  details: { mode, target_user_id: cree, must_change: mode === "file" },
+                });
                 return cree;
               }
               const raison = amorcage
@@ -305,7 +347,7 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
                 : comptes.length === 0 && username.toLowerCase() !== "admin"
                   ? "bootstrap_denied"
                   : "bad_password";
-              auditLogin({ userId: null, username, ip, userAgent: ua, success: false, reason: raison });
+              await auditerRefusConnexion(base, { username, ip, userAgent: ua, raison });
               throw new HttpError(401, "invalid credentials");
             });
           }
@@ -342,7 +384,6 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           } catch {
             uid = null;
           }
-          const ip = adresseClient(req, dep);
           const ua = entete(req, "user-agent") ?? null;
           try {
             const sid = req.session.get("_sid");
@@ -351,7 +392,15 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
             dep.journal.warn({ err: e }, "[auth] révocation de session au logout échouée");
           }
           req.session.vider();
-          auditLogin({ userId: uid, username: null, ip, userAgent: ua, success: true, reason: "logout" });
+          if (uid !== null) {
+            const nom = await getUsernameById(base, uid).catch(() => null);
+            auditerRequete(
+              req,
+              "auth.logout",
+              { user_agent: texteBorne(ua ?? "", 200) },
+              { userId: uid, username: nom },
+            );
+          }
           void rep.header("set-cookie", enteteSuppressionCookie(dep.auth.attributsCookie(), maintenant(dep)));
           return { ok: true };
         },
@@ -370,19 +419,30 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
           if (!veritePy(nouveau)) throw new HttpError(400, "Mot de passe requis");
           const moi = await ligneUtilisateur(base, uid);
           if (!moi) throw new HttpError(404, "Utilisateur non trouvé");
+          const refuser = (reason: string, e: HttpError): never => {
+            auditerRefus(req, "auth.password.change.denied", { reason });
+            throw e;
+          };
           if (!veritePy(ancien)) {
-            if (!veritePy(moi.must_change_pwd)) throw new HttpError(400, "Ancien mot de passe requis");
+            if (!veritePy(moi.must_change_pwd))
+              refuser("missing_old_password", new HttpError(400, "Ancien mot de passe requis"));
           } else if ((await verifyUser(base, String(moi.username), textePy(ancien))) === null) {
-            throw new HttpError(400, "Ancien mot de passe incorrect");
+            refuser("bad_old_password", new HttpError(400, "Ancien mot de passe incorrect"));
           }
           const motDePasse = textePy(nouveau);
-          validerMotDePasse(motDePasse, dep.auth.config());
+          try {
+            validerMotDePasse(motDePasse, dep.auth.config());
+          } catch (e) {
+            if (e instanceof HttpError) refuser("policy", e);
+            throw e;
+          }
           await resetUserPassword(base, uid, motDePasse);
           const t = maintenant(dep);
           await leverMinSession(base, uid, t);
           req.session.set("_login_ts", t);
           await revoquerTousAcces(dep.auth, uid);
           await base.run("UPDATE users SET must_change_pwd=0 WHERE id=?", [uid]);
+          auditerRequete(req, "auth.password.change", {});
           return { ok: true };
         },
       },

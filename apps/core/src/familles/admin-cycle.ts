@@ -6,6 +6,7 @@ import type { Executeur } from "@elpis/db";
 import type { CycleDeVie } from "../cycle";
 import type { SystemEvents } from "../evenements";
 import type { Journal } from "../journal";
+import { auditerRequete } from "../journal-securite/auditer";
 import { invalidateAllModelCaches } from "../llm/modeles";
 import {
   activeGenerations,
@@ -63,21 +64,24 @@ export function creerFamilleAdminCycle(dep: DependancesAdminCycle): Famille {
         chemin: "/api/admin/restart",
         processus: ["admin"],
         acces: "admin",
-        traiter: async () => {
+        traiter: async (req) => {
           const mainUrl = urlMainRedemarrage(dep.env);
           let r: ReponseMain;
           try {
             r = await appelerRestartSelf(mainUrl, dep.jetonMain?.() ?? "", { fetch: dep.fetch });
           } catch (e) {
             journal.warn(`[admin/restart] HTTP call to main failed: ${messageErreurReseau(e)}`);
+            auditerRequete(req, "admin.restart.failed", { target: "main" });
             return { ok: false, target: "main", error: messageErreurReseau(e) };
           }
           if (r.statut !== 200) {
             journal.warn(
               `[admin/restart] main returned ${r.statut} for restart-self: ${r.texte.slice(0, 200)}`,
             );
+            auditerRequete(req, "admin.restart.failed", { target: "main" });
             return { ok: false, target: "main", main_status: r.statut };
           }
+          auditerRequete(req, "admin.restart", { target: "main" });
           const corps = corpsDeMain(r.texte);
           return {
             ok: true,

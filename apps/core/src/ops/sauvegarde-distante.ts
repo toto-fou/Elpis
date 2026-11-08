@@ -33,7 +33,14 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { config, lireConfigDisque, pyJoin, sousVerrouConfigJson, writeConfigJson } from "@elpis/config";
+import {
+  config,
+  lireConfigDisque,
+  liveConfigValue,
+  pyJoin,
+  sousVerrouConfigJson,
+  writeConfigJson,
+} from "@elpis/config";
 import type { Base } from "@elpis/db";
 import { VerrouFichier } from "@elpis/verrous";
 
@@ -599,7 +606,12 @@ async function envoyer(base: Base, scope: unknown, trigger: string, journal?: Jo
   if (!ok) return { ok: false, error: err };
   const portee = veritePy(scope) ? scope : cfg["scope"];
   if (!estPortee(portee)) return { ok: false, error: "Scope invalide" };
-  const { chemin, nom } = await makeBackupZip(base, portee, journal ? { journal } : {});
+  // Envoi planifié : le journal de sécurité n'y part que sur demande (sa copie de référence est celle du collecteur).
+  const inclureAudit = veritePy(liveConfigValue("backup.remote.include_audit", false));
+  const { chemin, nom } = await makeBackupZip(base, portee, {
+    ...(journal ? { journal } : {}),
+    inclureAudit,
+  });
   let res: Dict;
   try {
     if (cfg["connector"] === "mounted") {

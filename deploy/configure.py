@@ -210,6 +210,29 @@ def read_json(p: Path) -> Dict[str, Any]:
         return {}
 
 
+def read_config_strict(p: Path) -> Optional[Dict[str, Any]]:
+    """config.json relu sans indulgence : None s'il n'est pas un objet JSON lisible."""
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:                                           # noqa: BLE001
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def audit_settings_of(d: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Section security.audit (conservation et gel du journal de sécurité), ou None."""
+    audit = ((d or {}).get("security") or {}).get("audit") if isinstance(d, dict) else None
+    return audit if isinstance(audit, dict) else None
+
+
+def write_config(cfg: Dict[str, Any]) -> None:
+    """config.json écrit avec la section security.audit relue juste avant : un réglage fait depuis la console pendant configure reste."""
+    audit = audit_settings_of(read_config_strict(CONFIG)) if CONFIG.exists() else None
+    if audit is not None:
+        section(cfg, "security")["audit"] = audit
+    write_json(CONFIG, cfg)
+
+
 def write_private(p: Path, content: str) -> None:
     """Écriture atomique, droits 0600 dès la création."""
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -953,7 +976,7 @@ def keep_sqlite_after_failed_transfer(cfg: Dict[str, Any]) -> None:
     db["backend"] = "sqlite"
     if DB_PASSWORD_FILE.is_file():
         write_private(USER_DB / ".db_password.pending", DB_PASSWORD_FILE.read_text(encoding="utf-8"))
-    write_json(CONFIG, cfg)
+    write_config(cfg)
     warn("Elpis reste sur SQLite, données intactes. La nouvelle base est gardée en attente : "
          "console d'administration › Base de données › Migrer, une fois le problème corrigé "
          "(rapport : user_db/db-transfer-report.json).")
@@ -1446,13 +1469,27 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     os.chdir(ROOT)
 
     if CONFIG.exists() and not a.force:
-        cfg = read_json(CONFIG)
+        lue = read_config_strict(CONFIG)
+        if lue is None:
+            warn("config.json est illisible (JSON invalide ou vide) : rien n'est réécrit. Corrigez-le, "
+                 "ou relancez avec --force (l'ancien fichier est gardé dans config.json.bak).")
+            return 1
+        cfg = lue
         info("config.json existant : les valeurs actuelles sont proposées par défaut.")
     else:
+        ancienne: Optional[Dict[str, Any]] = None
         if CONFIG.exists():
             shutil.copy2(CONFIG, ROOT / "config.json.bak")
             info("Ancienne configuration sauvegardée dans config.json.bak.")
+            ancienne = read_config_strict(CONFIG)
+            if ancienne is None:
+                warn("Ancienne configuration illisible : la conservation et le gel du journal de sécurité "
+                     "ne sont pas repris (le témoin du dossier du journal les garde pour la purge).")
         cfg = read_json(ROOT / "config.example.json")
+        # Conservation et gel du journal de sécurité : jamais remis à zéro par --force.
+        audit = audit_settings_of(ancienne)
+        if audit is not None:
+            cfg.setdefault("security", {})["audit"] = audit
     env = read_env_file()
 
     if interactive:
@@ -1467,7 +1504,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     transfer = step_database(p, a, cfg)
     step_secrets(cfg, a.force)
 
-    write_json(CONFIG, cfg)
+    write_config(cfg)
     ok("config.json écrit (0600).")
     # Avant le compte admin : le core poserait le schéma dans la base vide,
     # et le transfert exige une cible vierge.

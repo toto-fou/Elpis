@@ -290,6 +290,53 @@ TOOLS["pptx_edit"] = {
     ]),
     "required": ["path", "ops"],
 }
+TOOLS["xlsx_read"] = {
+    "description": (
+        "Read an Excel workbook (.xlsx, .xlsm) of the sandbox: its sheets (size, hidden), its Excel "
+        "tables, then the cells of one sheet as rows (row number + values; dates in ISO, percentages "
+        "as shown). sheet = name or number (default: the first visible sheet). Long sheets come in "
+        "pages: start = first row (from 1), limit = rows listed (default 100, max 500); call again "
+        "with start=next_row. formulas = also list the formulas of the rows shown; a formula with no "
+        "saved result (file written by a program, never recalculated) is shown as {formula}. find = text "
+        "to locate in every sheet (case ignored)."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "File path in the sandbox, e.g. "
+                                                   "'donnees/ventes-2026.xlsx' (relative to /work)."}),
+        ("sheet", {"type": ["string", "integer"], "description": "Sheet name, or its number from 1."}),
+        ("start", {"type": "integer", "description": "First row to list (from 1)."}),
+        ("limit", {"type": "integer", "description": "Max rows listed (default 100, max 500)."}),
+        ("formulas", {"type": "boolean", "description": "Also list the formulas of the rows shown."}),
+        ("find", {"type": "string", "description": "Text to locate in every sheet."}),
+    ]),
+    "required": ["path"],
+}
+TOOLS["xlsx_create"] = {
+    "description": (
+        "Create an Excel workbook (.xlsx) in the sandbox. sheets = [{name, data, table, totals}]; "
+        "data = the rows, [{column: value}, …] or [[header…], [values…]]. Column types are detected: "
+        "dates, percentages ('12,5 %'), amounts ('1 234,50 €'), numbers; text stays text. A value "
+        "starting with '=' is a formula, written as in English Excel: '=SUM(B2:B13)', '=IF(C2>0,C2/B2,0)', "
+        "another sheet as 'Sheet name'!A1. Simple formulas are computed at once (the others when the file "
+        "is opened); broken ones are reported in warnings. Every sheet gets a styled header, filters, "
+        "a frozen header row and fitted columns; table = true makes an Excel table, totals = true "
+        "adds a total row. An existing file at path is replaced (previous version kept in the file "
+        "history, or in a .bak copy above 5 MB)."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "File path in the sandbox, e.g. "
+                                                   "'donnees/ventes-2026.xlsx' (relative to /work)."}),
+        ("sheets", {"type": "array", "description": "One object per sheet.", "items": {
+            "type": "object", "properties": {
+                "name": {"type": "string", "description": "Sheet name (31 characters at most)."},
+                "data": {"description": "The rows: [{column: value}, …] or [[header…], [values…]]."},
+                "table": {"type": "boolean", "description": "Make the rows an Excel table."},
+                "totals": {"type": "boolean", "description": "Add a total row (sums)."}}}}),
+        ("data", {"description": "Shortcut for a single sheet: its rows."}),
+        ("title", {"type": "string", "description": "Workbook title (file properties)."}),
+        ("author", {"type": "string"}),
+        ("lang", _LANG),
+    ]),
+    "required": ["path"],
+}
 TOOLS["office_export"] = {
     "description": (
         "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF "
@@ -303,10 +350,11 @@ TOOLS["office_export"] = {
 }
 
 def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
-    from . import powerpoint, word
+    from . import excel, powerpoint, word
     return {"docx_create": word.docx_create, "docx_read": word.docx_read,
             "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
             "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
+            "xlsx_read": excel.xlsx_read, "xlsx_create": excel.xlsx_create,
             "office_export": office_export}[nom]
 
 

@@ -312,6 +312,10 @@ def _fit_or_warn(ctx: E.RenderContext, items: Sequence[tuple[str, int]], frame: 
     """Choose a font size, and say so in the notes when the content simply does not fit."""
     size = fit_font_size(items, frame, base_pt=base_pt, min_pt=min_pt, line_spacing=1.16,
                          space_before_pt=base_pt * 0.42)
+    if len(items) > 6 or min_pt < size < base_pt * 0.85:
+        detail = f", shown at {size:g} pt instead of {base_pt:g}" if size < base_pt * 0.85 else ""
+        ctx.note(f"{what} has {len(items)} items{detail}: 6 short items or fewer per slide read "
+                 "better; split it or cut words.")
     if size <= min_pt:
         needed = text_height_cm(items, max(1.0, frame.w_cm - 0.5), min_pt,
                                 line_spacing=1.16, space_before_pt=min_pt * 0.42)
@@ -556,7 +560,7 @@ def _bullets_slide(ctx: E.RenderContext, slide, spec: S.BulletsSlide) -> Frame |
     elif bullets:
         items = [(E.bullet_text(item), item.level) for item in bullets]
         size = _fit_or_warn(ctx, items, body, theme.pt("body"), theme.pt("body") * 0.62,
-                            f"Slide “{spec.title or 'sans titre'}”")
+                            f"Slide “{E.excerpt(spec.title or 'untitled')}”")
         E.add_textbox(
             ctx, slide, body, bullets,
             size_pt=size, color=theme.text, valign="top",

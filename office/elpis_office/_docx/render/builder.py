@@ -221,6 +221,11 @@ def add_block(context: BuildContext, block: S.Block):
 # -- text ------------------------------------------------------------------------
 
 
+def write_inline(document, paragraph, runs: Sequence[S.RunSpec]) -> None:
+    """Append formatted runs to a paragraph of an existing document (edits)."""
+    _write_runs(BuildContext(document=document), paragraph, None, runs)
+
+
 def _write_runs(context: BuildContext, paragraph, text: str | None, runs: Sequence[S.RunSpec]):
     """Fill a paragraph from either a plain string or a list of formatted runs."""
     if runs:
@@ -423,7 +428,7 @@ def _callout(context: BuildContext, block: S.CalloutBlock):
         paragraph = cell.add_paragraph()
     elif glyph:
         apply_run_format(paragraph.add_run(f"{glyph}  "), {"bold": True, "color": accent})
-    paragraph.add_run(block.text)
+    _write_runs(context, paragraph, block.text, block.runs)
     context.document.add_paragraph()  # breathing room after the box
     return table
 

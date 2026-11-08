@@ -33,7 +33,7 @@ from ._docx import docio
 from ._docx.errors import DocxMcpError
 from ._docx.ooxml.util import qn
 from ._docx.render import builder as B, spec as S
-from ._docx.render.mdconv import markdown_to_blocks
+from ._docx.render.mdconv import inline_markdown, markdown_to_blocks
 from .commun import (
     Env,
     OfficeError,
@@ -176,7 +176,6 @@ _VARIANTES = {"note": "note", "info": "info", "tip": "success", "astuce": "succe
               "attention": "warning", "avertissement": "warning", "caution": "danger",
               "danger": "danger", "remarque": "note", "success": "success", "succes": "success",
               "error": "danger", "erreur": "danger"}
-_INLINE_MD = re.compile(r"(\*\*|__|\*|_|`)")
 
 
 def refs_de(contenu: str) -> List[str]:
@@ -248,7 +247,7 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
             titre = m.group("t").strip() or None
             txt = " ".join(c for c in corps if c)
             blocs.append(S.CalloutBlock(type="callout", variant=variante, title=titre,
-                                        text=_INLINE_MD.sub("", txt)))
+                                        text=txt, runs=inline_markdown(txt)))
             continue
         tampon.append(ligne)
         i += 1
@@ -836,7 +835,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         return {"filled": total, "changed": bool(total)}
     if nom == "set":
         par = lot.p(i, nom, requis(i, nom, c, "p", EXEMPLE_OPS[2]))
-        _ecrire_paragraphe(par, _INLINE_MD.sub("", texte(c.get("text"))))
+        _ecrire_paragraphe(document, par, texte(c.get("text")))
         return {"p": entier(c.get("p"))}
     if nom == "delete":
         if c.get("table") is not None:
@@ -883,7 +882,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
                 raise OfficeError(f"ops[{i}] (set_cell): column {c.get('col')!r} does not exist "
                                   f"in table {k} (columns 0 to {len(cells) - 1})",
                                   code="bad_index", example=[EXEMPLE_OPS[5]])
-            _ecrire_cellule(cells[col], texte(c.get("text")))
+            _ecrire_cellule(document, cells[col], texte(c.get("text")))
             return {"table": k, "row": ln, "col": col}
         if nom == "delete_row":
             ln, ligne = lot.ligne(i, nom, k, t, c.get("row"))
@@ -912,7 +911,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         from docx.table import _Row
         ligne = _Row(nouvelle, t)
         for j, cel in enumerate(ligne.cells):
-            _ecrire_cellule(cel, G.cellule(vals[j]) if j < len(vals) else "")
+            _ecrire_cellule(document, cel, G.cellule(vals[j]) if j < len(vals) else "")
         if len(vals) > len(ligne.cells):
             env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(ligne.cells)} extra value(s) ignored")
         return {"table": k, "rows": len(t.rows)}
@@ -926,27 +925,26 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
     raise OfficeError(f"ops[{i}]: operation '{nom}' not supported", code="unknown_op")
 
 
-def _ecrire_paragraphe(par: Paragraph, valeur: str) -> None:
-    """Remplace le texte d'un paragraphe en gardant son style et la mise en
-    forme de son premier fragment."""
+def _ecrire_paragraphe(document: Any, par: Paragraph, valeur: str) -> None:
+    """Réécrit un paragraphe en Markdown en ligne, style et mise en forme du premier fragment gardés."""
     runs = par.runs
-    if runs:
-        runs[0].text = valeur
-        for r in runs[1:]:
-            r._r.getparent().remove(r._r)
-    else:
-        par.add_run(valeur)
+    base = docio.copy_rpr(runs[0]._r) if runs else None
+    suite = runs[0]._r.getnext() if runs else None
+    while suite is not None and suite.tag == qn("w:r"):
+        suite = suite.getnext()
+    for r in runs:
+        r._r.getparent().remove(r._r)
+    avant = set(par._p)
+    B.write_inline(document, par, inline_markdown(valeur))
+    for el in [x for x in par._p if x not in avant]:
+        for r in el.iter(qn("w:r")):
+            docio.merge_rpr(r, base)
+        if suite is not None:
+            suite.addprevious(el)
 
 
-def _ecrire_cellule(cel, valeur: str) -> None:
+def _ecrire_cellule(document: Any, cel, valeur: str) -> None:
     pars = cel.paragraphs
-    premier = pars[0]
-    runs = premier.runs
-    if runs:
-        runs[0].text = valeur
-        for r in runs[1:]:
-            r._r.getparent().remove(r._r)
-    else:
-        premier.add_run(valeur)
+    _ecrire_paragraphe(document, pars[0], valeur)
     for p in pars[1:]:
         p._p.getparent().remove(p._p)

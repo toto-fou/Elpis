@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import io
 import re
 from typing import Any, Iterable
@@ -10,9 +11,43 @@ from typing import Any, Iterable
 import docx
 
 from .errors import InvalidSpec
-from .ooxml.util import qn
+from .ooxml.util import insert_in_order, qn
 
 _HEADING = re.compile(r"^Heading (\d)$", re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Run properties
+# ---------------------------------------------------------------------------
+
+RPR_ORDER = (
+    "rStyle", "rFonts", "b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike",
+    "outline", "shadow", "emboss", "imprint", "noProof", "snapToGrid", "vanish", "webHidden",
+    "color", "spacing", "w", "kern", "position", "sz", "szCs", "highlight", "u", "effect", "bdr",
+    "shd", "fitText", "vertAlign", "rtl", "cs", "em", "lang", "eastAsianLayout", "specVanish",
+    "oMath",
+)
+
+
+def copy_rpr(run):
+    """A detached copy of a run's properties, without its tracked formatting change."""
+    if run.rPr is None:
+        return None
+    rpr = copy.deepcopy(run.rPr)
+    for change in rpr.findall(qn("w:rPrChange")):
+        rpr.remove(change)
+    return rpr
+
+
+def merge_rpr(run, base) -> None:
+    """Give a run the base properties it does not set itself, in schema order."""
+    if base is None:
+        return
+    rpr = run.get_or_add_rPr()
+    present = {child.tag for child in rpr}
+    for child in base:
+        if child.tag not in present:
+            insert_in_order(rpr, copy.deepcopy(child), RPR_ORDER)
 
 
 # ---------------------------------------------------------------------------

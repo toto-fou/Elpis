@@ -29,6 +29,21 @@ def _parser():
     return MarkdownIt("commonmark").enable(["table", "strikethrough"])
 
 
+def inline_markdown(text: str) -> list[S.RunSpec]:
+    """One paragraph of inline Markdown (bold, italic, code, links); raw HTML stays text, a newline stays a line break."""
+    from markdown_it import MarkdownIt
+
+    parser = MarkdownIt("commonmark", {"html": False}).enable(["strikethrough"])
+    runs: list[S.RunSpec] = []
+    for index, line in enumerate((text or "").split("\n")):
+        if index:
+            runs.append(S.RunSpec(text="\n"))
+        tokens = parser.parseInline(line)
+        if tokens:
+            runs.extend(_inline_runs(tokens[0]))
+    return runs
+
+
 def markdown_to_blocks(text: str, heading_offset: int = 0) -> list[S.Block]:
     if not (text or "").strip():
         return []

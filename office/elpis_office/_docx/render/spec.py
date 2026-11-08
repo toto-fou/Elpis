@@ -268,6 +268,7 @@ class QuoteBlock(Base):
 class CalloutBlock(Base):
     type: Literal["callout", "admonition"]
     text: str = ""
+    runs: list[RunSpec] = Field(default_factory=list)
     title: str | None = None
     variant: Literal["info", "note", "success", "warning", "danger"] = "info"
 

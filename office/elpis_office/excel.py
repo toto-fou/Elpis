@@ -278,7 +278,7 @@ _FORMAT_DATE = {"en": "mm/dd/yyyy", "de": "dd.mm.yyyy"}
 _LCID = {"fr": "[$-40C]", "de": "[$-407]", "es": "[$-C0A]", "it": "[$-410]"}
 _MONNAIES = {"€": '#,##0.00 "€"', "$": '"$"#,##0.00', "£": '"£"#,##0.00', "CHF": '#,##0.00 "CHF"'}
 _NOM_INTERDIT = re.compile(r"[\\/?*\[\]:]")
-_FONCTION = re.compile(r"([A-Za-z_][A-Za-z0-9._]*)\s*\(")
+_FONCTION = re.compile(r"(?<![A-Za-z0-9._])([A-Za-z_][A-Za-z0-9._]*)\s*\(")    # linéaire : un départ par nom
 _EPOQUE = dt.datetime(1899, 12, 30)
 _NUMERIQUES = ("number", "currency", "percent", "date")
 

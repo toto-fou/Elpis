@@ -147,42 +147,29 @@ def _paragraph_text(element) -> str:
 
 
 def _find_toc_blocks(paragraphs: list) -> list[tuple[int, int, str]]:
-    """Locate ``(start_index, end_index, instruction)`` for every TOC field."""
+    """Locate ``(start_index, end_index, instruction)`` for every TOC field, in one pass over a field stack."""
     blocks: list[tuple[int, int, str]] = []
-    index = 0
-    while index < len(paragraphs):
-        instructions = [
-            (node.text or "").strip()
-            for node in paragraphs[index].iter(qn("w:instrText"))
-        ]
-        toc = next((text for text in instructions if text.upper().startswith("TOC")), None)
-        if toc is None:
-            index += 1
-            continue
-        # Walk forward tracking field nesting: entries we generated contain their
-        # own PAGEREF fields, so the first w:fldChar end is not necessarily ours.
-        depth = 0
-        end_index = None
-        for cursor in range(index, len(paragraphs)):
-            for field_char in paragraphs[cursor].iter(qn("w:fldChar")):
-                kind = field_char.get(qn("w:fldCharType"))
-                if kind == "begin":
-                    depth += 1
-                elif kind == "end":
-                    depth -= 1
-                    if depth == 0:
-                        end_index = cursor
-                        break
-            if end_index is not None:
-                break
-        if end_index is None:
-            break  # never closed: it runs to the end, and rescanning from each later paragraph is quadratic
-        if end_index == index:
-            index += 1
-            continue
-        blocks.append((index, end_index, toc))
-        index = end_index + 1
-    return blocks
+    stack: list[list] = []  # [start paragraph, instruction] of each open field, innermost last
+    for index, paragraph in enumerate(paragraphs):
+        for node in paragraph.iter(qn("w:fldChar"), qn("w:instrText")):
+            if node.tag == qn("w:instrText"):
+                if stack:
+                    stack[-1][1] += node.text or ""
+                continue
+            kind = node.get(qn("w:fldCharType"))
+            if kind == "begin":
+                stack.append([index, ""])
+            elif kind == "end" and stack:
+                start, instruction = stack.pop()
+                instruction = instruction.strip()
+                if instruction.upper().startswith("TOC") and index != start:
+                    blocks.append((start, index, instruction))
+    # A field never closed is simply left on the stack; nested TOC blocks keep the outer one.
+    kept: list[tuple[int, int, str]] = []
+    for block in sorted(blocks):
+        if not kept or block[0] > kept[-1][1]:
+            kept.append(block)
+    return kept
 
 
 def _levels_from_instruction(instruction: str) -> tuple[int, int]:

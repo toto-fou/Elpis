@@ -225,6 +225,7 @@ export const ROLE_NAMES: Readonly<Record<string, readonly string[]>> = {
   start: ["start", "debut", "date_debut", "begin", "start_date", "commence", "depart", "du"],
   end: ["end", "fin", "date_fin", "finish", "end_date", "echeance", "au", "until"],
   max: ["max", "maximum", "objectif", "cible", "target", "total", "sur", "plafond", "capacite"],
+  unit: ["unit", "unite", "units", "unites"],
   previous: [
     "previous",
     "precedent",
@@ -437,7 +438,8 @@ export function buildSpec(rawArgs: unknown): Spec {
     if (units.size === 1) opts.unit = [...units][0] ?? "";
   }
   const nCoerced = cols.filter((c) => c.kind === "number").reduce((acc, c) => acc + c.nCoerced, 0);
-  if (nCoerced > 0) {
+  // Un tableau montre les valeurs telles qu'écrites (« +13,1 % ») : rien n'y est converti.
+  if (nCoerced > 0 && spec.kind !== "table") {
     const ex = cols.find((c) => c.kind === "number" && c.example !== null)?.example ?? null;
     const exs = ex === null ? "" : ` ('${strPy(ex[0])}' -> ${formatG(ex[1])})`;
     notes.fix(`${nCoerced} value(s) written as text read as numbers${exs}`);

@@ -66,20 +66,25 @@ export function sortieTerme(t: Terme): Nb {
 
 const ESPACE_FINE = " ";
 
+/** Unités qu'une abréviation (k, M, Md) peut précéder : une devise ; « k€ », « kg », « points » gardent le nombre entier. */
+const DEVISE = /^(?:[€$£¥₹₽₩]|US\$|EUR|USD|GBP|CHF|JPY|CAD|AUD|CNY|XOF|XAF|FCFA)$/u;
+
 export function fr(v: number | null, unit = "", digits = 2): string {
   if (v === null) return "—";
   const a = Math.abs(v);
   let s = v;
   let suf = "";
-  if (a >= 1e9) [s, suf] = [v / 1e9, " Md"];
-  else if (a >= 1e6) [s, suf] = [v / 1e6, " M"];
-  else if (a >= 1e4) [s, suf] = [v / 1e3, " k"];
+  const abrege = !unit || DEVISE.test(unit);
+  if (abrege && a >= 1e9) [s, suf] = [v / 1e9, " Md"];
+  else if (abrege && a >= 1e6) [s, suf] = [v / 1e6, " M"];
+  else if (abrege && a >= 1e4) [s, suf] = [v / 1e3, " k"];
   let txt = digits
     ? rstripPy(rstripPy(formatValeur(fl(s), `,.${digits}f`), "0"), ".")
     : formatValeur(fl(s), ",.0f");
   txt = txt.replaceAll(",", ESPACE_FINE).replaceAll(".", ",").replaceAll("-", "−");
   const sep = unit ? ESPACE_FINE : "";
-  return !suf || !unit ? `${txt}${suf}${sep}${unit}` : `${txt}${suf}${unit}`;
+  if (!suf || !unit) return `${txt}${suf}${sep}${unit}`;
+  return /^\p{L}/u.test(unit) ? `${txt}${suf}${sep}${unit}` : `${txt}${suf}${unit}`;
 }
 
 /** `int >= flottant` exact. */

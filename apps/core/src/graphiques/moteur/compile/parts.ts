@@ -300,8 +300,14 @@ export function cProgress(spec: Spec): [Opt, string] {
   return [o, `progress · ${cats.length} bars · ${resume}`];
 }
 
+/** Score en points (NPS) ou en pourcentage : son évolution est un écart en points, pas un pourcentage. */
+const EN_POINTS = /^(?:%|pts?|points?)$/iu;
+/** Unité écrite dans le libellé : « NPS (points) », « Chiffre d'affaires (M€) ». */
+const UNITE_LIBELLE = /^(.*\S)\s*\(([^()\d]{1,12})\)$/u;
+
 export function cKpi(spec: Spec): [Opt, string] {
-  const d = dims(spec.cols);
+  const uc = byName(spec.cols, "unit", ["text"]);
+  const d = dims(spec.cols).filter((c) => c !== uc);
   const m = measures(spec.cols);
   const prev = byName(spec.cols, "previous", ["number"]);
   const mx = byName(spec.cols, "max", ["number"]);
@@ -321,13 +327,22 @@ export function cKpi(spec: Spec): [Opt, string] {
       const v0 = el(vcols, 0);
       const raw = toNumber(lg(r, v0.name));
       const v = raw.value;
-      const ru = raw.unit || v0.unit || unit;
       const d0 = d[0];
-      const t: Opt = { label: d0 !== undefined ? strPy(lg(r, d0.name)) : v0.name, value: fr(v, ru) };
+      let label = d0 !== undefined ? strPy(lg(r, d0.name)) : v0.name;
+      let ru = raw.unit || (uc !== null ? strPy(lg(r, uc.name) ?? "").trim() : "");
+      const lu = ru ? null : UNITE_LIBELLE.exec(label);
+      if (lu) [label, ru] = [lu[1] ?? label, (lu[2] ?? "").trim()];
+      ru = ru || v0.unit || unit;
+      const t: Opt = { label, value: fr(v, ru) };
       if (prev !== null) {
         const p = num(lg(r, prev.name));
-        if (p === 0) spec.notes.warn(`previous = 0 for '${strPy(t["label"])}': change not computable`);
-        if (p !== null && p !== 0 && v !== null) {
+        if (p === 0 && !EN_POINTS.test(ru)) spec.notes.warn(`previous = 0 for '${strPy(t["label"])}': change not computable`);
+        if (p !== null && v !== null && EN_POINTS.test(ru)) {
+          const ecart = v - p;
+          t["delta"] = (ecart >= 0 ? "+" : "−") + fr(Math.abs(ecart), ru === "%" ? "pt" : ru, 1);
+          t["sign"] = ecart > 0 ? "up" : ecart < 0 ? "down" : "flat";
+          t["ref"] = `vs ${fr(p, ru)}`;
+        } else if (p !== null && p !== 0 && v !== null) {
           const delta = (100 * (v - p)) / Math.abs(p);
           t["delta"] = (delta >= 0 ? "+" : "−") + fr(Math.abs(delta), "%", 1);
           t["sign"] = delta > 0 ? "up" : delta < 0 ? "down" : "flat";

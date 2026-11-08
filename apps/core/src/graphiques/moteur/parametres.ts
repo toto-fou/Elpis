@@ -269,8 +269,8 @@ export const PER_TYPE: ReadonlyMap<string, readonly [string, string, readonly st
   [
     "kpi",
     [
-      "Key figures as tiles, with the change vs a previous value.",
-      '{"label":"Tickets","value":1284,"previous":1190}',
+      "Key figures as tiles, with the change vs a previous value. A per-row `unit` overrides the chart unit (a score in points or a % changes by points).",
+      '{"label":"Revenue","value":40030,"previous":35400,"unit":"k€"}',
       ["unit"],
     ],
   ],

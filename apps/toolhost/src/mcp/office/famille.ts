@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/office/famille.ts — famille `office` servie par l'hôte : 7 outils Word et PowerPoint sur les définitions du golden, moteur Python (`office/elpis_office`) en worker, fichiers, graphiques et conversions faits par l'hôte. */
+/** apps/toolhost/src/mcp/office/famille.ts — famille `office` servie par l'hôte : outils Word, PowerPoint et Excel sur les définitions du golden, moteur Python (`office/elpis_office`) en worker, fichiers, graphiques et conversions faits par l'hôte. */
 import { existsSync } from "node:fs";
 import path from "node:path";
 
 import type { Dict } from "@elpis/commun";
 import { racineDepot } from "@elpis/config";
 import { py } from "@elpis/http";
-import { err, getChatId, getUsername, outilDuGolden } from "@elpis/outils-mcp";
+import { err, getChatId, getUsername, jsonPydantic, outilDuGolden, ResultatBrut } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
 import goldenOffice from "@elpis/outils-mcp/goldens/office.json" with { type: "json" };
 import { userIdFor } from "@elpis/securite";
@@ -53,8 +53,22 @@ function signatureDe(nom: string): DefinitionOutil["signature"] {
   );
 }
 
+/** Pages rendues (`_png` d'office_preview) : le JSON sans elles, puis un bloc image MCP par page. */
+export function avecImages(valeur: Dict): Dict | ResultatBrut {
+  const pngs = valeur["_png"];
+  if (!Array.isArray(pngs) || pngs.length === 0) return valeur;
+  const reste = Object.fromEntries(Object.entries(valeur).filter(([k]) => k !== "_png"));
+  return new ResultatBrut(
+    [
+      { type: "text", text: jsonPydantic(reste) },
+      ...pngs.map((data) => ({ type: "image", data: String(data), mimeType: "image/png" })),
+    ],
+    { result: reste },
+  );
+}
+
 function traiterOffice(nom: string, journal: Journal) {
-  return async (_args: Dict, ctx: ContexteAppel, brut: Dict): Promise<Dict> => {
+  return async (_args: Dict, ctx: ContexteAppel, brut: Dict): Promise<Dict | ResultatBrut> => {
     const username = getUsername(ctx);
     const args = Object.fromEntries(Object.entries(brut).filter(([, v]) => v !== null && v !== undefined));
     const soffice = sofficeBin() !== "";
@@ -69,7 +83,7 @@ function traiterOffice(nom: string, journal: Journal) {
     };
     try {
       canalPartage ??= new CanalOffice({ journal, ...(lanceurImpose ? { lanceur: lanceurImpose } : {}) });
-      return await canalPartage.appeler({
+      const valeur = await canalPartage.appeler({
         outil: nom,
         args,
         contexte: {
@@ -81,6 +95,7 @@ function traiterOffice(nom: string, journal: Journal) {
         signal: ctx.signal,
         rappels: creerRappels({ username, signal: ctx.signal }, deps),
       });
+      return avecImages(valeur);
     } catch (e) {
       if (ctx.signal.aborted) throw e;
       journal.warn(`[office] ${nom} a échoué : ${e instanceof Error ? e.message : String(e)}`);

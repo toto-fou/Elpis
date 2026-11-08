@@ -4,6 +4,7 @@
   docx_create / docx_read / docx_edit     documents Word
   pptx_create / pptx_read / pptx_edit     présentations PowerPoint
   office_export                           PDF par LibreOffice (isolé)
+  office_preview                          une page rendue en image (vue par le modèle)
 
 Chaque appel lit et écrit des fichiers de la SANDBOX de l'appelant, par
 l'``Env`` que fournit l'hôte (``apps/toolhost/src/mcp/office`` dans Elpis).
@@ -350,13 +351,31 @@ TOOLS["office_export"] = {
     "required": ["path"],
 }
 
+TOOLS["office_preview"] = {
+    "description": (
+        "See a page of an office file of the sandbox: it is rendered by LibreOffice (as office_export) "
+        "and shown to you as an image, with its text. page = a page or slide number (from 1), a range "
+        "'2-4' or a list [1, 3]; 3 pages at most per call. Works on .docx, .pptx, .xlsx (the printed "
+        "pages), .odt, .odp, .ods and .pdf. Use it to check a layout before delivering: overflowing "
+        "text, a table cut by a page break, the size of a chart. save_as = also keep the image(s) in "
+        "the sandbox."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "The file to look at, e.g. 'rapports/bilan-2026.docx'."}),
+        ("page", {"type": ["integer", "string", "array"], "items": {"type": "integer"},
+                  "description": "Page or slide number(s), from 1 (default 1)."}),
+        ("save_as", {"type": "string", "description": "Optional: a .png path to keep the image(s)."}),
+    ]),
+    "required": ["path"],
+}
+
+
 def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
-    from . import excel, powerpoint, word
+    from . import apercu, excel, powerpoint, word
     return {"docx_create": word.docx_create, "docx_read": word.docx_read,
             "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
             "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
             "xlsx_read": excel.xlsx_read, "xlsx_create": excel.xlsx_create,
-            "office_export": office_export}[nom]
+            "office_export": office_export, "office_preview": apercu.office_preview}[nom]
 
 
 # Exportables en PDF : formats que LibreOffice ouvre avec un filtre d'import
@@ -384,6 +403,18 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
     cible = _pdf(a.get("save_as") or (rel.rsplit(".", 1)[0] + ".pdf"), env)
+    pdf = pdf_du_fichier(env, rel, ext)
+    res = ecrire(env, cible, pdf)
+    autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []
+    if autres:
+        env.notes.warn(f"{res['path']} already existed and was replaced; it may have been the PDF of "
+                       f"{autres[0]}: export again with save_as to keep both")
+    return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
+                              f"({len(pdf) // 1024} KB)"}
+
+
+def pdf_du_fichier(env: Env, rel: str, ext: str) -> bytes:
+    """PDF d'un fichier exportable de la sandbox, rendu par LibreOffice (office_export, office_preview)."""
     try:
         data = lire(env, rel, "file")
     except FileNotFoundError:
@@ -398,14 +429,11 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             raise OfficeError(str(e), code="bad_file", fix="check that the file is a valid "
                                                            f"{EXT[_SORTE[ext]]} file")
         ext = EXT[_SORTE[ext]]
-    pdf = env.convertir(data, ext, "pdf")
-    res = ecrire(env, cible, pdf)
-    autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []
-    if autres:
-        env.notes.warn(f"{res['path']} already existed and was replaced; it may have been the PDF of "
-                       f"{autres[0]}: export again with save_as to keep both")
-    return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
-                              f"({len(pdf) // 1024} KB)"}
+    if env.convertir is None:
+        raise OfficeError("rendering needs LibreOffice, which is not installed on this server",
+                          code="unavailable", fix="tell the user; an administrator can install it "
+                                                  "(./install.sh --with-office)")
+    return env.convertir(data, ext, "pdf")
 
 
 def _homonymes(env: Env, rel: str) -> list:

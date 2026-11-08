@@ -1448,7 +1448,7 @@
     {
       "name": "pptx_edit",
       "title": "Pptx Edit",
-      "description": "Edit a PowerPoint deck of the sandbox with a list of operations, applied together in one save. Slide numbers start at 1 and refer to the deck BEFORE this call; shape numbers come from pptx_read:\n  {op:'replace', find, replace} \u00b7 {op:'fill', values:{client:'ACME'}}\n  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per paragraph\n  {op:'add_slides', slides:[\u2026same objects as pptx_create\u2026], after|before: slide number}\n  {op:'delete_slide', slide} \u00b7 {op:'move_slide', slide, to} \u00b7 {op:'duplicate_slide', slide, to?}   (to = position in the deck at that point)\n  {op:'notes', slide, text} \u00b7 {op:'meta', title, author}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "description": "Edit a PowerPoint deck of the sandbox with a list of operations, applied together in one save. Slide numbers start at 1 and refer to the deck BEFORE this call; shape numbers come from pptx_read:\n  {op:'replace', find, replace} \u00b7 {op:'fill', values:{client:'ACME'}}\n  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per paragraph\n  {op:'add_slides', slides:[\u2026same objects as pptx_create\u2026], after|before: slide number}\n  {op:'delete_slide', slide} \u00b7 {op:'move_slide', slide, after|before} \u00b7 {op:'duplicate_slide', slide, after|before?}\n  {op:'notes', slide, text} \u00b7 {op:'meta', title, author}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1621,18 +1621,18 @@
                   "type": "array"
                 },
                 "after": {
-                  "description": "add_slides: slide number, 'start' or 'end' (default)",
+                  "description": "add_slides / move_slide / duplicate_slide: after this slide; add_slides also 'start' or 'end' (default)",
                   "type": [
                     "integer",
                     "string"
                   ]
                 },
                 "before": {
-                  "description": "add_slides: insert before this slide",
+                  "description": "add_slides / move_slide / duplicate_slide: before this slide",
                   "type": "integer"
                 },
                 "to": {
-                  "description": "move_slide / duplicate_slide: position wanted in the deck at that point (from 1)",
+                  "description": "older form of move_slide / duplicate_slide: position in the deck at that point (from 1)",
                   "type": "integer"
                 },
                 "title": {

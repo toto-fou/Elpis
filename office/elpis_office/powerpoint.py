@@ -152,8 +152,10 @@ CHAMPS_OPS = {
                    "after": ["after_slide", "apres", "position", "at", "where"],
                    "before": ["avant", "before_slide"]},
     "delete_slide": {"slide": _S + ["slides"]},
-    "move_slide": {"slide": _S + ["from"], "to": ["position", "new_position", "vers", "target"]},
-    "duplicate_slide": {"slide": _S, "to": ["position", "after", "vers"]},
+    "move_slide": {"slide": _S + ["from"], "to": ["position", "new_position", "vers", "target"],
+                   "after": ["after_slide", "apres"], "before": ["avant", "before_slide"]},
+    "duplicate_slide": {"slide": _S, "to": ["position", "vers"],
+                        "after": ["after_slide", "apres"], "before": ["avant", "before_slide"]},
     "notes": {"slide": _S, "text": ["notes", "texte", "content", "value"]},
     "meta": {"title": ["titre"], "author": ["auteur"], "subject": ["sujet"],
              "keywords": ["mots_cles", "tags"]},
@@ -825,6 +827,16 @@ def _diapo(i: int, nom: str, v: Any, prs, origine, supprimees) -> Any:
     return s
 
 
+def _placer(i: int, nom: str, c: Dict[str, Any], s: Any, prs, origine, supprimees) -> None:
+    """Place la diapo ``s`` avant / après une diapo désignée par son numéro dans le deck d'origine."""
+    avant = c.get("before") is not None
+    ancre = _diapo(i, nom, c["before"] if avant else c["after"], prs, origine, supprimees)
+    if ancre == s:
+        return
+    cible = _position(prs, ancre) - (1 if _position(prs, s) < _position(prs, ancre) else 0)
+    slide_ooxml.move_slide(prs, _position(prs, s), cible if avant else cible + 1)
+
+
 def _appliquer(i: int, nom: str, c: Dict[str, Any], prs, origine, supprimees,
                ctx: Optional[RenderContext], env: Env) -> Dict[str, Any]:
     if nom == "replace":
@@ -911,21 +923,26 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], prs, origine, supprimees,
             slide_ooxml.delete_slide(prs, _position(prs, s))
         return {"deleted": len(diapos)}
     if nom == "move_slide":
-        s = _diapo(i, nom, requis(i, nom, c, "slide", {"op": "move_slide", "slide": 4, "to": 2}),
-                   prs, origine, supprimees)
-        to = entier(requis(i, nom, c, "to", {"op": "move_slide", "slide": 4, "to": 2}))
-        n = len(prs.slides)
-        if to is None or not 1 <= to <= n:
-            raise OfficeError(f"ops[{i}] (move_slide): position {c.get('to')!r} is outside 1..{n}",
-                              code="bad_index")
-        slide_ooxml.move_slide(prs, _position(prs, s), to - 1)
-        return {"slide": entier(c.get("slide")), "to": to}
+        exemple = {"op": "move_slide", "slide": 4, "before": 2}
+        s = _diapo(i, nom, requis(i, nom, c, "slide", exemple), prs, origine, supprimees)
+        if c.get("after") is None and c.get("before") is None:
+            to = entier(requis(i, nom, c, "before", exemple) if c.get("to") is None else c["to"])
+            n = len(prs.slides)
+            if to is None or not 1 <= to <= n:
+                raise OfficeError(f"ops[{i}] (move_slide): position {c.get('to')!r} is outside 1..{n}",
+                                  code="bad_index", example=[exemple])
+            slide_ooxml.move_slide(prs, _position(prs, s), to - 1)
+        else:
+            _placer(i, nom, c, s, prs, origine, supprimees)
+        return {"slide": entier(c.get("slide")), "at": _position(prs, s) + 1}
     if nom == "duplicate_slide":
         s = _diapo(i, nom, requis(i, nom, c, "slide", {"op": "duplicate_slide", "slide": 2}),
                    prs, origine, supprimees)
         copie = slide_ooxml.duplicate_slide(prs, _position(prs, s))
         to = entier(c.get("to"))
-        if to is not None and 1 <= to <= len(prs.slides):
+        if c.get("after") is not None or c.get("before") is not None:
+            _placer(i, nom, c, copie, prs, origine, supprimees)
+        elif to is not None and 1 <= to <= len(prs.slides):
             slide_ooxml.move_slide(prs, _position(prs, copie), to - 1)
         return {"copy_of": entier(c.get("slide")), "at": _position(prs, copie) + 1}
     if nom == "notes":

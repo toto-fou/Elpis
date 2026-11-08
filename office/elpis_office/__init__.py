@@ -111,10 +111,12 @@ _PPTX_OP = {
         "text": {"type": "string"},
         "slides": {"type": "array", "items": _SLIDE_OBJ, "description": "add_slides: new slides"},
         "after": {"type": ["integer", "string"],
-                  "description": "add_slides: slide number, 'start' or 'end' (default)"},
-        "before": {"type": "integer", "description": "add_slides: insert before this slide"},
-        "to": {"type": "integer", "description": "move_slide / duplicate_slide: position wanted "
-                                                 "in the deck at that point (from 1)"},
+                  "description": "add_slides / move_slide / duplicate_slide: after this slide; "
+                                 "add_slides also 'start' or 'end' (default)"},
+        "before": {"type": "integer",
+                   "description": "add_slides / move_slide / duplicate_slide: before this slide"},
+        "to": {"type": "integer", "description": "older form of move_slide / duplicate_slide: "
+                                                 "position in the deck at that point (from 1)"},
         "title": {"type": "string"}, "author": {"type": "string"},
     },
     "required": ["op"],
@@ -258,8 +260,8 @@ TOOLS["pptx_edit"] = {
         "  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per "
         "paragraph\n"
         "  {op:'add_slides', slides:[…same objects as pptx_create…], after|before: slide number}\n"
-        "  {op:'delete_slide', slide} · {op:'move_slide', slide, to} · "
-        "{op:'duplicate_slide', slide, to?}   (to = position in the deck at that point)\n"
+        "  {op:'delete_slide', slide} · {op:'move_slide', slide, after|before} · "
+        "{op:'duplicate_slide', slide, after|before?}\n"
         "  {op:'notes', slide, text} · {op:'meta', title, author}\n"
         "save_as = write a copy instead of modifying the file. If the file changed since it was "
         "read, nothing is written (concurrent_modification): read it again."),

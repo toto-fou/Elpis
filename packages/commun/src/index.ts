@@ -184,3 +184,4 @@ export {
   texteIp,
 } from "./adresse-ip";
 export type { AdresseIp, Reseau } from "./adresse-ip";
+export { sansFormule } from "./csv";

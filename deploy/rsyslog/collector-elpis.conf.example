@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# Central collector side (rsyslog receiver) for Elpis hosts. Requires rsyslog 8.2112 or later (TLS
+# settings on the input) and the rsyslog-gnutls package. Copy to /etc/rsyslog.d/ on the collector,
+# adapt names and paths, run `rsyslogd -N1` (it must print no error: rsyslog still starts after a
+# configuration error, and a rejected TLS setting leaves the port open in plain TCP), then restart.
+# Security journal lines are stored raw, one folder per sending address and one file per UTC day of
+# the event, named like the originals: `ELPIS_AUDIT_DIR=<folder> ./elpis audit verify` checks a copy.
+
+# Load imtcp here only if the main configuration does not already load it (one load per configuration).
+module(load="imtcp")
+# A file that cannot be opened (rights, missing folder) suspends its action until it can, instead of
+# dropping the line. It applies to every dynaFile action of this rsyslog; one omfile module statement
+# per configuration: merge it into an existing module(load="builtin:omfile" ...) if there is one.
+module(load="builtin:omfile" dynafile.donotsuspend="off")
+# Mutual TLS and its certificates (internal PKI, readable by rsyslog only: README.md, "Certificates")
+# set on the input itself, whatever the module and global defaults are: only certificates issued by
+# the internal CA for the listed Elpis hosts are accepted.
+input(type="imtcp" port="6514" ruleset="elpis-received"
+      StreamDriver.Name="gtls" StreamDriver.Mode="1" StreamDriver.AuthMode="x509/name"
+      StreamDriver.CAFile="/etc/rsyslog.d/keys/ca.pem"
+      StreamDriver.CertFile="/etc/rsyslog.d/keys/collector.pem"
+      StreamDriver.KeyFile="/etc/rsyslog.d/keys/collector.key"
+      PermittedPeer=["elpis.example.lan"])
+# RELP variant of the senders (rsyslog-relp package): uncomment.
+# module(load="imrelp")
+# input(type="imrelp" port="2514" ruleset="elpis-received"
+#       tls="on" tls.caCert="/etc/rsyslog.d/keys/ca.pem" tls.myCert="/etc/rsyslog.d/keys/collector.pem"
+#       tls.myPrivKey="/etc/rsyslog.d/keys/collector.key" tls.authMode="name"
+#       tls.permittedPeer=["elpis.example.lan"])
+
+# Folders named after the sending address (from the connection, not from the message, which the
+# sender writes); a lookup table can map addresses to host names.
+template(name="ElpisAuditFile" type="string" string="/var/log/central/%fromhost-ip%/%$.fichier%")
+template(name="ElpisOtherFile" type="string"
+         string="/var/log/central/%fromhost-ip%/%programname:::secpath-replace%.log")
+template(name="RawMessage" type="string" string="%msg%\n")
+
+ruleset(name="elpis-received") {
+    if $programname == "elpis-audit" then {
+        # Day of the event, from the line itself (v1 lines start with {"v":N,"time":"YYYY-MM-DD...): late
+        # or replayed lines land in the file of their day. Any other line goes to unparsed-<arrival day>.jsonl.
+        set $.jour = re_extract($msg, "^[{]\"v\":[0-9]+,\"time\":\"([0-9]{4}-[0-9]{2}-[0-9]{2})T", 0, 1, "");
+        if $.jour != "" then {
+            set $.fichier = "audit-" & $.jour & ".jsonl";
+        } else {
+            set $.fichier = "unparsed-" & $$now-utc & ".jsonl";
+        }
+        # Own disk queue, synced on every line, retried forever: lines wait in it while their file cannot
+        # be opened; a full disk still drops a line or two (README.md, "What can still be lost").
+        # queue.size (lines) stays above what queue.maxDiskSpace holds: past either limit, new lines are
+        # dropped after 2 seconds.
+        action(type="omfile" dynaFile="ElpisAuditFile" template="RawMessage"
+               fileCreateMode="0640" dirCreateMode="0750"
+               queue.type="Disk" queue.filename="elpis-central" queue.syncQueueFiles="on"
+               queue.checkpointInterval="1" queue.maxDiskSpace="4g" queue.size="10000000"
+               action.resumeRetryCount="-1" action.resumeInterval="10")
+    } else {
+        action(type="omfile" dynaFile="ElpisOtherFile" template="RSYSLOG_FileFormat"
+               fileCreateMode="0640" dirCreateMode="0750")
+    }
+}

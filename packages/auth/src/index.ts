@@ -13,14 +13,16 @@ export {
   exigerUtilisateur,
   ligneUtilisateur,
   revaliderFlux,
+  signalerRefus,
 } from "./garde";
-export type { DependancesAuth, GardeAuth } from "./garde";
+export type { DependancesAuth, GardeAuth, MotifRefus } from "./garde";
 export { installerAuth } from "./installer";
 export {
   adressePair,
   analyserMandataires,
   estMandataireDeConfiance,
   ipClient,
+  ipDuClient,
   MANDATAIRES_DU_JOURNAL_PAR_DEFAUT,
   mandatairesDuJournal,
 } from "./ip-client";
@@ -97,6 +99,7 @@ export {
   authenticateClient,
   checkResource,
   CODE_TTL_S,
+  compteDuJeton,
   deleteClient,
   empreinte,
   ErreurOAuth,

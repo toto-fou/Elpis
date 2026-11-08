@@ -5,10 +5,12 @@ import { createHash } from "node:crypto";
 import {
   authenticateClient,
   checkResource,
+  compteDuJeton,
   ErreurOAuth,
   exchangeCode,
   exigerUtilisateur,
   famillesDePortee,
+  getUsernameById,
   issueCode,
   ligneUtilisateur,
   listGrants,
@@ -45,10 +47,12 @@ import {
 } from "@elpis/commun";
 import { httpsEnabled, httpsPorts } from "@elpis/config";
 import { isFamilyName } from "@elpis/mcp";
-import { signClaims, urlsafeB64Decode, verifyClaims } from "@elpis/securite";
+import type { Dict } from "@elpis/commun";
+import { auditRafale, signClaims, texteBorne, urlsafeB64Decode, verifyClaims } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { urlDeBase } from "../comptes/aides";
+import { auditerRefus, auditerRequete, ipDeRequete } from "../journal-securite/auditer";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import {
@@ -281,9 +285,33 @@ interface Demande {
   implicite: boolean;
 }
 
+/** Enregistrements dynamiques écrits un par un au journal, par adresse et par minute, avant d'être agrégés (la route est publique). */
+const ENREGISTREMENTS_PAR_MINUTE = 10;
+const ADRESSES_SUIVIES = 1024;
+
+/** Texte venu du client, borné à 100 caractères pour le journal. */
+function borner(v: unknown): string {
+  return texteBorne(strPy(v ?? ""), 100);
+}
+
 export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
   const base = dep.oauth.base;
+  const nomDe = (uid: number): Promise<string | null> => getUsernameById(base, uid).catch(() => null);
   const instant = (): number => (dep.oauth.maintenant ? dep.oauth.maintenant() : Date.now() / 1000);
+  const enregistrements = new Map<string, { debut: number; n: number }>();
+  /** Enregistrement réussi : ligne propre jusqu'à `ENREGISTREMENTS_PAR_MINUTE` par adresse et par minute, agrégé au-delà. */
+  const auditerEnregistrement = (req: FastifyRequest, details: Dict): void => {
+    const ip = ipDeRequete(req);
+    const t = Date.now();
+    let f = enregistrements.get(ip);
+    if (f && t - f.debut >= 60_000) f = undefined;
+    if (!f && enregistrements.size >= ADRESSES_SUIVIES)
+      for (const [k, v] of enregistrements) if (t - v.debut >= 60_000) enregistrements.delete(k);
+    if (!f && enregistrements.size < ADRESSES_SUIVIES) enregistrements.set(ip, (f = { debut: t, n: 0 }));
+    if (f && ++f.n <= ENREGISTREMENTS_PAR_MINUTE)
+      auditerRequete(req, "oauth.client.register", details, { userId: null, username: null });
+    else auditRafale(ip, { userId: null, username: null, action: "oauth.client.register", ip, details });
+  };
   const cleConsentement = (): string =>
     createHash("sha256").update(`${CONSENT_AUD}:${dep.auth.secret()}`, "utf8").digest("hex");
   const compteConnecte =
@@ -531,7 +559,12 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
             throw e;
           }
           try {
-            return json(rep, await registerClient(dep.oauth, meta), 201);
+            const client = await registerClient(dep.oauth, meta);
+            auditerEnregistrement(req, {
+              client_id: client["client_id"],
+              client_name: borner(client["client_name"]),
+            });
+            return json(rep, client, 201);
           } catch (e) {
             if (e instanceof ErreurOAuth) return erreurOAuth(rep, e);
             throw e;
@@ -581,7 +614,19 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
             );
           const ruri = strPy(claims["ruri"]);
           const state = strPy(veritePy(claims["st"]) ? claims["st"] : "");
-          if ((champs.get("decision") ?? [""])[0] !== "allow")
+          const clientId = strPy(claims["cid"]);
+          const refuser = async (scope: string[]): Promise<void> =>
+            auditerRequete(
+              req,
+              "oauth.authorize.denied",
+              { client_id: clientId, scope },
+              { userId: uid, username: await nomDe(uid) },
+            );
+          const demandees = (veritePy(claims["fams"]) ? (claims["fams"] as unknown[]) : []).map((f) =>
+            strPy(f),
+          );
+          if ((champs.get("decision") ?? [""])[0] !== "allow") {
+            await refuser(demandees);
             return redirectionErreur(
               req,
               rep,
@@ -590,21 +635,27 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
               "access_denied",
               "Accès refusé par l'utilisateur.",
             );
-          const demandees = (veritePy(claims["fams"]) ? (claims["fams"] as unknown[]) : []).map((f) =>
-            strPy(f),
-          );
+          }
           const choisies = new Set(champs.get("fam") ?? []);
           const familles = demandees.filter((f) => choisies.has(f) && pol.families.includes(f));
-          if (familles.length === 0)
+          if (familles.length === 0) {
+            await refuser([]);
             return redirectionErreur(req, rep, ruri, state, "access_denied", "Aucune famille autorisée.");
+          }
           const code = await issueCode(dep.oauth, {
-            client_id: strPy(claims["cid"]),
+            client_id: clientId,
             user_id: uid,
             redirect_uri: veritePy(claims["imp"]) ? "" : ruri,
             code_challenge: strPy(claims["cc"]),
             resource: strPy(claims["res"]),
             families: familles,
           });
+          auditerRequete(
+            req,
+            "oauth.authorize",
+            { client_id: clientId, scope: familles },
+            { userId: uid, username: await nomDe(uid) },
+          );
           const params: [string, string][] = [
             ["code", code],
             ["iss", urlApp(req)],
@@ -621,13 +672,24 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
         traiter: async (req, rep) => {
           exigerActive();
           const form = formulaire(req);
+          const grant = form.get("grant_type") ?? "";
+          let cid = "";
           try {
-            const [cid, secret] = identifiantsClient(req, form);
+            let secret: string | null;
+            [cid, secret] = identifiantsClient(req, form);
             const client = await authenticateClient(base, cid, secret);
-            const grant = form.get("grant_type") ?? "";
+            const reussi = async (corps: Dict): Promise<FastifyReply> => {
+              const uid = await compteDuJeton(base, corps["access_token"]).catch(() => null);
+              auditerRequete(
+                req,
+                "oauth.token",
+                { client_id: cid, grant_type: borner(grant) },
+                { userId: uid, username: uid === null ? null : await nomDe(uid) },
+              );
+              return json(rep, corps);
+            };
             if (grant === "authorization_code")
-              return json(
-                rep,
+              return await reussi(
                 await exchangeCode(dep.oauth, {
                   code: form.get("code") ?? "",
                   client,
@@ -638,8 +700,7 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
                 }),
               );
             if (grant === "refresh_token")
-              return json(
-                rep,
+              return await reussi(
                 await refresh(dep.oauth, {
                   refreshToken: form.get("refresh_token") ?? "",
                   client,
@@ -650,7 +711,14 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
               );
             throw new ErreurOAuth("unsupported_grant_type", "authorization_code ou refresh_token.");
           } catch (e) {
-            if (e instanceof ErreurOAuth) return erreurOAuth(rep, e);
+            if (e instanceof ErreurOAuth) {
+              auditerRefus(req, "oauth.token.denied", {
+                client_id: borner(cid),
+                grant_type: borner(grant),
+                error: e.error,
+              });
+              return erreurOAuth(rep, e);
+            }
             throw e;
           }
         },
@@ -663,16 +731,26 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
         traiter: async (req, rep) => {
           exigerActive();
           const form = formulaire(req);
-          let cid: string;
+          let cid = "";
           try {
             let secret: string | null;
             [cid, secret] = identifiantsClient(req, form);
             if (cid) await authenticateClient(base, cid, secret);
           } catch (e) {
-            if (e instanceof ErreurOAuth) return erreurOAuth(rep, e);
+            if (e instanceof ErreurOAuth) {
+              auditerRefus(req, "oauth.revoke.denied", { client_id: borner(cid), error: e.error });
+              return erreurOAuth(rep, e);
+            }
             throw e;
           }
-          await revokeToken(dep.oauth, form.get("token") ?? "", cid || null);
+          const revoque = await revokeToken(dep.oauth, form.get("token") ?? "", cid || null);
+          if (revoque)
+            auditerRequete(
+              req,
+              "oauth.revoke",
+              { client_id: revoque.client_id },
+              { userId: revoque.user_id, username: await nomDe(revoque.user_id) },
+            );
           return json(rep, {});
         },
       },
@@ -699,8 +777,13 @@ export function creerFamilleOAuth(dep: DependancesFamilleOAuth): Famille {
         traiter: async (req) => {
           const uid = utilisateur(req);
           const { grant_id } = req.params as { grant_id: string };
+          const lot = await base.get<{ client_id: string }>(
+            "SELECT client_id FROM oauth_tokens WHERE grant_id=? AND user_id=? LIMIT 1",
+            [grant_id, uid],
+          );
           if (!(await revokeGrant(base, uid, grant_id, instant())))
             throw new HttpError(404, "Autorisation introuvable.");
+          auditerRequete(req, "oauth.grant.delete", { grant_id, client_id: lot?.client_id ?? null });
           return { ok: true };
         },
       },

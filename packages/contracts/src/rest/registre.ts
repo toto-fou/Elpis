@@ -18,6 +18,7 @@ import * as adminSkins from "./admin-skins";
 import * as adminCycle from "./admin-cycle";
 import * as adminRuns from "./admin-runs";
 import * as adminSecurite from "./admin-securite";
+import * as adminAudit from "./admin-audit";
 import * as adminComptes from "./admin-comptes";
 import * as adminVue from "./admin-vue";
 import * as adminConfig from "./admin-config";
@@ -575,6 +576,24 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
     "/api/admin/security/listen",
     adminSecurite.schemaReponseEcoute,
     adminSecurite.schemaCorpsEcoute,
+  ),
+  c("admin-audit", "GET", "/api/admin/audit/status", adminAudit.schemaEtatJournal),
+  c("admin-audit", "POST", "/api/admin/audit/test", adminAudit.schemaTestJournal),
+  c("admin-audit", "GET", "/api/admin/audit/events", adminAudit.schemaPageJournal),
+  c(
+    "admin-audit",
+    "POST",
+    "/api/admin/audit/verify",
+    adminAudit.schemaVerificationJournal,
+    adminAudit.schemaCorpsVerificationJournal,
+  ),
+  c("admin-audit", "GET", "/api/admin/audit/settings", adminAudit.schemaReglagesJournal),
+  c(
+    "admin-audit",
+    "PUT",
+    "/api/admin/audit/settings",
+    adminAudit.schemaReglagesJournal,
+    adminAudit.schemaCorpsReglagesJournal,
   ),
   c("admin-runs", "GET", "/api/admin/runs/accounts", adminRuns.schemaReponseExecutionsParCompte),
   c("admin-runs", "GET", "/api/admin/runs", adminRuns.schemaReponseExecutionsConsole),

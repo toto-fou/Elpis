@@ -15,7 +15,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
-import { auditEvent } from "@elpis/securite";
+import type { auditEvent } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
@@ -35,6 +35,7 @@ import { gardeGit } from "../git/garde";
 import type { Fournisseur, Http } from "../git/fournisseurs";
 import { httpJson } from "../git/http";
 import type { OptionsHttp } from "../git/http";
+import { auditerRequete, ipDeRequete } from "../journal-securite/auditer";
 import type { Famille } from "../routes";
 import { utilisateur } from "./comptes";
 import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
@@ -103,12 +104,15 @@ function indice(res: Dict, apiBase: string): string | null {
 export function creerFamilleGit(dep: DependancesGit): Famille {
   const base = dep.base;
   const auditer = (req: FastifyRequest, uid: number, action: string, details: Dict): void =>
-    (dep.auditer ?? auditEvent)({
-      userId: uid,
-      username: req.utilisateur?.username ?? null,
-      action,
-      details,
-    });
+    dep.auditer
+      ? dep.auditer({
+          userId: uid,
+          username: req.utilisateur?.username ?? null,
+          action,
+          details,
+          ip: ipDeRequete(req),
+        })
+      : auditerRequete(req, action, details, { userId: uid });
   const route = (
     methode: "GET" | "POST" | "PUT" | "DELETE",
     chemin: string,

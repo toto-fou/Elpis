@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { ErreurPython, estDossierPy, estFichierPy, existePy, veritePy } from "@elpis/commun";
-import { config, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
+import { config, liveConfigValue, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import Database from "better-sqlite3";
 
@@ -26,7 +26,13 @@ import { root as racineImages } from "../images/magasin";
 import type { Journal } from "../journal";
 import { cibleActive } from "./bascule";
 import { avecChemin, classeErreurPy, estErreurOs, texteErreurPy } from "./erreurs-os";
-import { ErreurCheminBac, lireDossierBrut, ouvrirFeuille, parcourirSous } from "@elpis/securite";
+import {
+  ErreurCheminBac,
+  etatEcritureAudit,
+  lireDossierBrut,
+  ouvrirFeuille,
+  parcourirSous,
+} from "@elpis/securite";
 import { transferer } from "./transfert";
 import { EcrivainZip, ZIP64_LIMIT } from "./zip-disque";
 import type { DateHeureZip } from "@elpis/commun";
@@ -233,6 +239,8 @@ export interface OptionsSauvegarde {
   readonly journal?: Journal;
   /** Horloge en secondes (tests). */
   readonly maintenant?: () => number;
+  /** Journal de sécurité archivé avec la sauvegarde complète (défaut : `backup.include_audit`, vrai). */
+  readonly inclureAudit?: boolean;
 }
 
 /** `_make_backup_zip` : construit l'archive de `scope` ; rend son chemin (0600) et son nom de téléchargement. */
@@ -490,6 +498,16 @@ async function construire(
     if (scope === "full") {
       await ajouterChemin(config.SKINS_DIR, "user_skins");
       await ajouterChemin(config.USER_SKILLS_DIR, "user_skills");
+      // Journal de sécurité archivé avec la sauvegarde complète, jamais restauré par-dessus le journal en place.
+      if (options.inclureAudit ?? veritePy(liveConfigValue("backup.include_audit", true))) {
+        const dossierAudit = etatEcritureAudit().dossier;
+        try {
+          if (existePy(dossierAudit)) readdirSync(dossierAudit);
+          await ajouterChemin(dossierAudit, "audit");
+        } catch (e) {
+          signaler(`${dossierAudit} (journal de sécurité)`, e);
+        }
+      }
     }
     if (skipped.length)
       await zip.ecrireTexte(

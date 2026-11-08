@@ -8,6 +8,8 @@ import { jsonGetParamNum } from "@elpis/db";
 import type { Dialecte, Executeur, Valeur } from "@elpis/db";
 
 import { journal } from "../journal";
+import { arreterSuiviBoucle, latenceBoucle, suivreBoucle } from "./boucle";
+import type { LatenceBoucle } from "./boucle";
 import { logMetric } from "./metriques-evenements";
 import { SondeProcessus } from "./sondes";
 
@@ -58,7 +60,7 @@ export function walMo(chemin: string = config.DB_PATH): number {
 
 export type Echantillons = readonly (readonly [string, () => number])[];
 
-/** `_SAMPLES` : les dix jauges dans l'ordre Python ; un accesseur qui lève est omis de l'échantillon. */
+/** `_SAMPLES` : les dix jauges dans l'ordre Python, puis la latence de la boucle ; un accesseur qui lève est omis de l'échantillon. */
 export function echantillonsDuProcess(proc: SondeProcessus | null = new SondeProcessus()): Echantillons {
   const exigerProc = (): SondeProcessus => {
     if (proc === null) throw new Error("psutil indisponible");
@@ -75,7 +77,16 @@ export function echantillonsDuProcess(proc: SondeProcessus | null = new SondePro
     ["proc_num_threads", () => exigerProc().numThreads()],
     ["proc_sqlite_wal_mb", () => walMo()],
     ["proc_scheduler_alive", () => compteur("planificateurVivant")],
+    // Propres au TS : latence de la boucle d'événements de la dernière minute (garde-fou de performance).
+    ["proc_event_loop_p99_ms", () => arrondiPy(exigerBoucle().p99_ms, 1)],
+    ["proc_event_loop_max_ms", () => arrondiPy(exigerBoucle().max_ms, 1)],
   ];
+}
+
+function exigerBoucle(): LatenceBoucle {
+  const l = latenceBoucle();
+  if (l === null) throw new Error("latence de la boucle non mesurée");
+  return l;
 }
 
 /** `sample_once` : toutes les jauges en UNE ligne `proc_sample` taguée par le PID ; rend les valeurs collectées. */
@@ -156,6 +167,7 @@ export class Echantillonneur {
 
   demarrer(intervalleMs = SAMPLE_INTERVAL_SECONDS * 1000): void {
     if (this.minuterie !== null) return;
+    suivreBoucle();
     this.minuterie = setInterval(() => {
       this.suivre(
         sampleOnce(this.x, this.echantillons).catch((e: unknown) =>
@@ -170,5 +182,6 @@ export class Echantillonneur {
   arreter(): void {
     if (this.minuterie !== null) clearInterval(this.minuterie);
     this.minuterie = null;
+    arreterSuiviBoucle();
   }
 }

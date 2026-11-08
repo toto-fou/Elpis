@@ -3,6 +3,7 @@
 import {
   closeSync,
   existsSync,
+  fchmodSync,
   fstatSync,
   mkdirSync,
   openSync,
@@ -17,8 +18,15 @@ import { prefixePy, pyJsonDumps, reprPy, versFlottantPy } from "@elpis/commun";
 
 import type { EcrireJournal, LigneJournal } from "./systeme";
 
-export const LOG_MAX_BYTES = 8 * 1024 * 1024;
-export const KEPT_ROTATIONS = 3;
+/** Entier d'une variable d'environnement dans [min, max], le défaut sinon. */
+function entierEnv(nom: string, defaut: number, min: number, max: number): number {
+  const n = Number.parseInt(process.env[nom] ?? "", 10);
+  return Number.isFinite(n) && n >= min && n <= max ? n : defaut;
+}
+
+/** Taille d'un fichier avant rotation (ELPIS_APP_LOG_MAX_MO, 8 Mo par défaut) et anciens fichiers gardés (ELPIS_APP_LOG_ROTATIONS, 3). */
+export const LOG_MAX_BYTES = entierEnv("ELPIS_APP_LOG_MAX_MO", 8, 1, 1024) * 1024 * 1024;
+export const KEPT_ROTATIONS = entierEnv("ELPIS_APP_LOG_ROTATIONS", 3, 1, 50);
 /** Contrôle de taille amorti : un `stat` toutes les 256 lignes écrites par ce process. */
 const CONTROLE_TOUTES_LES = 256;
 /** Revalidation de l'inode au plus tard toutes les 2 s (`_REVAL_EVERY_S`). */
@@ -31,9 +39,12 @@ export function masquerJetonsApercu(texte: string): string {
   return texte.replace(JETON_APERCU, "$1<jeton>");
 }
 
-/** `user_db/logs/app.log.jsonl` sous la racine du dépôt : chaque process le suit pour son staff. */
-export function cheminJournalCommun(racine: string): string {
-  return path.join(racine, "user_db", "logs", "app.log.jsonl");
+/** `app.log.jsonl` dans ELPIS_APP_LOG_DIR (installation : /var/log/elpis, lisible par rsyslog), sinon `user_db/logs` du dépôt. */
+export function cheminJournalCommun(racine: string, env: NodeJS.ProcessEnv = process.env): string {
+  const dossier = env["ELPIS_APP_LOG_DIR"];
+  return dossier
+    ? path.join(dossier, "app.log.jsonl")
+    : path.join(racine, "user_db", "logs", "app.log.jsonl");
 }
 
 /** `_rotate_if_needed` : `.3` supprimé, `.2` → `.3`, `.1` → `.2`, le journal → `.1` ; vrai si le journal a été tourné. */
@@ -121,7 +132,14 @@ class Descripteur {
     this.fermer();
     try {
       mkdirSync(path.dirname(this.chemin), { recursive: true });
-      this.fd = openSync(this.chemin, "a", 0o644);
+      this.fd = openSync(this.chemin, "a", 0o640);
+      // Adresses IP et comptes : jamais lisible par tous, même un fichier créé en 0644 par une ancienne version.
+      try {
+        const st = fstatSync(this.fd);
+        if (st.mode & 0o007 && st.uid === process.getuid?.()) fchmodSync(this.fd, 0o640);
+      } catch {
+        /* au mieux */
+      }
       return true;
     } catch {
       this.fd = null;

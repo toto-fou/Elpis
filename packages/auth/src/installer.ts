@@ -5,7 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { enteteCookie, enteteEffacement, lireSession, signerSession, valeurCookie } from "./cookie";
 import { CHEMINS_CSRF_SANS_COOKIE, estInterSite, METHODES_MUTANTES, PREFIXES_EXEMPTES_CSRF } from "./csrf";
-import { maintenant } from "./garde";
+import { maintenant, signalerRefus } from "./garde";
 import type { DependancesAuth } from "./garde";
 import { Session } from "./session";
 
@@ -37,6 +37,16 @@ export function installerAuth(app: FastifyInstance, dep: DependancesAuth): void 
       requete.log.warn(
         `[csrf] ${requete.method} ${url} refusée — origin=${String(requete.headers.origin)} sec-fetch-site=${String(requete.headers["sec-fetch-site"])}`,
       );
+      // Compte visé lu dans le cookie signé (sans la base) : la requête est de toute façon refusée.
+      const brut = valeurCookie(requete.headers.cookie, a.cookie_name);
+      const uid =
+        brut === undefined ? null : lireSession(brut, dep.secret(), a.max_age, maintenant(dep))?.["user_id"];
+      if (typeof uid === "number" && Number.isSafeInteger(uid))
+        requete.utilisateur = { id: uid, username: null };
+      signalerRefus(dep, requete, "csrf", {
+        origin: String(requete.headers.origin ?? "").slice(0, 200),
+        sec_fetch_site: String(requete.headers["sec-fetch-site"] ?? "").slice(0, 40),
+      });
       throw new HttpError(403, "Requête cross-site refusée.");
     }
   });

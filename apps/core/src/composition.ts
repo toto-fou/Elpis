@@ -29,6 +29,8 @@ import { blockRemoteUrlReason, configureAudit, defaultAuditDir, defaultAuditKeyP
 
 import type { Extension } from "./app";
 import { CycleDeVie } from "./cycle";
+import { installerRefusGeneriques, signalerRefusAuth } from "./journal-securite/auditer";
+import { etatJournalSecurite } from "./journal-securite/etat";
 import {
   brancherEvenements,
   cheminJournalCommun,
@@ -301,7 +303,10 @@ function vueAdmin(
     journal,
     racine,
     sondes: sondesParDefaut({ base, journal }),
-    faits: faitsParDefaut({ base, journal, maintenant, enAttente }),
+    faits: {
+      ...faitsParDefaut({ base, journal, maintenant, enAttente }),
+      journalSecurite: async () => (await etatJournalSecurite()).alerts,
+    },
     cheminsRedemarrage: () =>
       restartPaths(
         SOURCE_REDEMARRAGE.lectures,
@@ -385,6 +390,7 @@ export async function composer(
   const auth: DependancesAuth & DependancesJetons = {
     avertir: (message, erreur) => jc.warn({ err: erreur }, message),
     informer: (message) => jc.info(message),
+    signalerRefus: signalerRefusAuth,
     ...dep,
   };
   const jr = journal.child({ domaine: "sandbox-relay" });
@@ -468,6 +474,7 @@ export async function composer(
         : [journalAcces({ service: serviceDuProcess(mode), mandataires: comptes.mandataires })]),
       (app) => installerMaintenance(app),
       (app) => installerAuth(app, auth),
+      (app) => installerRefusGeneriques(app),
       pont.extension,
     ],
     gardes: creerGardes(auth),

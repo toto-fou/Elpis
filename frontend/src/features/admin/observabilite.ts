@@ -140,22 +140,22 @@ export function creerObservabilite(b: BaseAdmin) {
     }
   }
 
-  /** Audit récent, filtré par préfixe d'action ; seule la dernière demande écrit. */
+  /** Journal de sécurité de la période (admins seulement), filtré par préfixe d'action ; seule la dernière demande écrit. */
   async function loadAuditRecent(): Promise<void> {
     const moi = ++sequenceAudit;
     debut();
-    const heures = obsScope.value;
+    const depuis = Date.now() / 1000 - obsScope.value * 3600;
+    const jour = (t: number): string => new Date(t * 1000).toISOString().slice(0, 10);
     try {
-      const r = await ctx.fetchAuth(
-        `/api/admin/observability/audit-recent?hours=${Math.min(heures, 168)}&limit=200` +
-          (obsAuditPrefix.value ? `&action_prefix=${encodeURIComponent(obsAuditPrefix.value)}` : ""),
-        {},
-        true,
-      );
+      const qs = new URLSearchParams({ from: jour(depuis), to: jour(Date.now() / 1000), limit: "200" });
+      if (obsAuditPrefix.value) qs.set("action", obsAuditPrefix.value);
+      const r = await ctx.fetchAuth(`/api/admin/audit/events?${qs.toString()}`, {}, true);
       if (moi !== sequenceAudit) return;
       if (r?.ok) {
         const d = objet(await corpsJson(r));
-        if (moi === sequenceAudit) obsAudit.value = listeObjets(d["items"]) as LigneAudit[];
+        // La recherche va par jours UTC : les lignes antérieures à la période choisie sont écartées ici.
+        const lignes = listeObjets(d["events"]).map((ev) => ({ ...ev, iso: ev["time"] }) as LigneAudit);
+        if (moi === sequenceAudit) obsAudit.value = lignes.filter((l) => (l.ts ?? 0) >= depuis);
       }
       if (moi === sequenceAudit)
         fin(!!r?.ok, "loadAuditRecent", loadAuditRecent, "Réponse du serveur inattendue ou en échec.");

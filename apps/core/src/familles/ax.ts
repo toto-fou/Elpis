@@ -6,6 +6,7 @@ import type { Base } from "@elpis/db";
 import type { FastifyRequest } from "fastify";
 
 import { journal } from "../journal";
+import { auditerRefus } from "../journal-securite/auditer";
 import {
   deleteCredentials,
   deleteSite,
@@ -37,7 +38,10 @@ async function exigerRole(
 ): Promise<number> {
   const uid = utilisateur(req);
   const moi = await ligneUtilisateur(base, uid);
-  if (!moi || !roles.includes(Number(moi.is_admin))) throw new HttpError(403, message);
+  if (!moi || !roles.includes(Number(moi.is_admin))) {
+    auditerRefus(req, "auth.role.denied", { required: roles.includes(2) ? "staff" : "admin" });
+    throw new HttpError(403, message);
+  }
   return uid;
 }
 

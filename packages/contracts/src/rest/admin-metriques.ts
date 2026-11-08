@@ -98,9 +98,12 @@ export const schemaErreurOutil = z.object({
   duration_ms: entier.nullable(),
   error_short: z.string().nullable(),
 });
+/** `total` : lignes pour les mêmes filtres (hors pagination) ; `offset` et `limit` : fenêtre servie. */
 export const schemaReponseErreursOutils = z.object({
   items: z.array(schemaErreurOutil),
   total: entier,
+  offset: entier,
+  limit: entier,
   hours: entier,
 });
 export const schemaReponseSyntheseOutils = z.object({

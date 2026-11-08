@@ -28,6 +28,7 @@ import {
   FIX_SOUS_AGENT,
   lexicalRel,
   lireSousAgent,
+  masquerCommandeShell,
   REFUS_FOND_SOUS_AGENT,
   SHELL_SOUS_AGENT_DELAI_MAX_S,
   toContainer,
@@ -38,7 +39,7 @@ import { alerteRemplissage, refusRemplissage } from "../../fichiers/quota";
 import { plancherDebord } from "./budget";
 import { strErreurAnglais } from "../anglais";
 import { executerDetache } from "./jobs/detache";
-import { shellJob } from "./jobs/outil";
+import { MAX_COMMANDE, shellJob } from "./jobs/outil";
 import type { AppuisJobs, ArgsJob, PortRappelJobs } from "./jobs/outil";
 import { veilleurJobs } from "./jobs/veilleur";
 import { enveloppeAnnulee, PontExec, reglagesPont } from "./pont";
@@ -234,6 +235,11 @@ export async function executeShell(args: ArgsShell, ctx: ContexteAppel, a: Appui
     const sb = await a.racine(username);
     if (typeof args.command !== "string" || !stripPy(args.command))
       return errShell("empty_command", "Provide a command to run.");
+    if (longueurPy(args.command) > MAX_COMMANDE)
+      return errShell(
+        `command too long (${longueurPy(args.command)} characters, max ${MAX_COMMANDE})`,
+        "Write the script to a file under /work, then run it (bash /work/script.sh).",
+      );
     let workdir: string;
     try {
       workdir = await resoudreCwd(a, args.cwd, sb, username);
@@ -496,7 +502,7 @@ export function appuisParDefaut(
                 userId: o.userId,
                 username: o.username,
                 kind: "tools.shell_job",
-                code: o.command,
+                code: masquerCommandeShell(o.command),
                 executor: o.executor,
                 extra: { job_id: o.jobId },
               }),

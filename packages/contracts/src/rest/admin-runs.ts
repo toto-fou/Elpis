@@ -35,7 +35,13 @@ export const schemaExecutionListee = schemaLigneExecution
   })
   .extend({ username: z.string().nullable() });
 export type ExecutionListee = z.infer<typeof schemaExecutionListee>;
-export const schemaReponseExecutionsConsole = z.object({ items: z.array(schemaExecutionListee) });
+/** `total` : lignes pour les mêmes filtres (hors pagination), `null` si la requête a demandé `count=0` ; `offset` et `limit` : fenêtre servie. */
+export const schemaReponseExecutionsConsole = z.object({
+  items: z.array(schemaExecutionListee),
+  total: entier.nullable(),
+  offset: entier,
+  limit: entier,
+});
 
 export const schemaExecutionParCompte = z.object({
   user_id: entier.nullable(),

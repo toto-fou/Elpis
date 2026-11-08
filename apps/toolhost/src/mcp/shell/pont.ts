@@ -19,7 +19,7 @@ import {
   readMetaField,
 } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
-import { auditCodeExec, toContainer } from "@elpis/securite";
+import { auditCodeExec, masquerArgv, toContainer } from "@elpis/securite";
 
 import { strErreurAnglais } from "../anglais";
 
@@ -613,7 +613,7 @@ export class PontExec {
     return this.fabrique(uid, username, this.rappel);
   }
 
-  /** Exécution consignée (`auditCodeExec`) : genre `kind`, commande, conteneur. */
+  /** Exécution consignée (`auditCodeExec`) : genre `kind`, commande déjà masquée, conteneur. */
   auditer(o: {
     userId: number;
     username: string;
@@ -640,8 +640,10 @@ export class PontExec {
     const ctx = o.ctx ?? null;
     const sb = await this.bac(o.userId, o.username);
     const apercu = o.tokens.slice(0, 4).join(" ");
+    // Journal et audit ne gardent jamais un secret tapé sur la ligne de commande, ni son empreinte (devinable hors ligne).
+    const argv = masquerArgv(o.tokens);
     this.journal.info(
-      `[bridge] execute_shell user=${reprPy(o.username)} user_id=${o.userId} tokens=${reprPy(o.tokens.slice(0, 3))} ` +
+      `[bridge] execute_shell user=${reprPy(o.username)} user_id=${o.userId} tokens=${reprPy(argv.slice(0, 3))} ` +
         `→ docker exec ${sb.containerName} (profile=${sb.networkProfileId || "isolated"})`,
     );
     sansAttente(ctx?.info(`shell → ${sb.containerName}: ${apercu}`));
@@ -652,9 +654,9 @@ export class PontExec {
       userId: o.userId,
       username: o.username,
       kind: o.auditKind ?? "tools.shell",
-      code: o.tokens.join(" "),
+      code: argv.join(" "),
       executor: sb.containerName,
-      extra: { cmd_argv: [...o.tokens] },
+      extra: { cmd_argv: argv },
     });
     const flux = o.streamLive && ctx !== null ? new FluxShell(ctx) : null;
     const saveRel = o.saveStdoutRel ?? null;

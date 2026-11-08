@@ -41,7 +41,7 @@ import {
 } from "@elpis/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { entierPy, exigerTexte, lireConfigPourEcrire } from "../admin/aides";
+import { auditer, entierPy, exigerTexte, lireConfigPourEcrire } from "../admin/aides";
 import {
   applySectionOwnership,
   dig,
@@ -61,6 +61,7 @@ import { sectionDict } from "../admin/securite";
 import { existePy } from "../apparence/skins";
 import { closeEndpointClient } from "../contexte/compresseur";
 import type { Journal } from "../journal";
+import { cheminLisible, diffConfig } from "../journal-securite/diff-config";
 import type { Acces, DefinitionRoute, Famille, Traitement } from "../routes";
 import { corpsJsonValeurs, entrees, py, reponseJsonPy } from "@elpis/http";
 
@@ -168,6 +169,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     }
     recharger("reload avant POST échoué");
     const c = { ...config };
+    const avant = champsCompression();
     c.COMPRESSION_ENABLED = veritePy(getPy(corps, "enabled", c.COMPRESSION_ENABLED));
     c.COMPRESSION_KEEP_RECENT = borneEntier(
       getPy(corps, "keep_recent_turns"),
@@ -248,6 +250,7 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     }
     for (const k of Object.keys(c))
       if (k.startsWith("COMPRESSION_") || k.startsWith("COMPACTION_")) (config as Dict)[k] = (c as Dict)[k];
+    auditer(req, "admin.config.compression", { ...diffConfig(avant, champsCompression()) });
     return reponseJsonPy(rep, champsCompression());
   }
 
@@ -297,6 +300,8 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     if (!estDict(entrant)) throw new HttpError(400, "Le contenu doit être un objet JSON.");
     if (type !== "main") throw new HttpError(400, "Unknown config type");
     const chemin = config.CONFIG_JSON_PATH;
+    let avantDisque: Dict = {};
+    let ecrit: unknown = {};
     await sousVerrouConfigJson(() => {
       let texte = contenu;
       try {
@@ -305,13 +310,15 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
           try {
             disque = pyJsonLoads(lireTextePy(chemin));
           } catch {
-            disque = {};
+            disque = null;
           }
-          if (!estDict(disque)) disque = {};
         }
+        const disqueLu = estDict(disque);
+        if (!disqueLu) disque = {};
+        avantDisque = disque as Dict;
         restaurerSecretsMasques(entrant, disque as Dict);
         if (Object.hasOwn(entrant, "llm") && !estDict(entrant["llm"])) poserCle(entrant, "llm", {});
-        const restaures = applySectionOwnership(entrant, disque as Dict);
+        const restaures = applySectionOwnership(entrant, disque as Dict, disqueLu);
         if (restaures.length)
           dep.journal.info(
             `[admin] save config-file : ${restaures.length} section(s) restaurée(s) depuis le disque (le formulaire en portait une copie périmée) : ${restaures.join(", ")}`,
@@ -329,8 +336,14 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
       } catch (e) {
         throw new HttpError(500, `Error writing file: ${messageDe(e, chemin)}`);
       }
+      try {
+        ecrit = pyJsonLoads(texte);
+      } catch {
+        ecrit = {};
+      }
     });
     invalidateConfigCache();
+    auditer(req, "admin.config.file_save", { ...diffConfig(avantDisque, estDict(ecrit) ? ecrit : {}) });
     return { ok: true };
   }
 
@@ -360,11 +373,14 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         paths: possedes,
       });
     const chemin = config.CONFIG_JSON_PATH;
+    let ecrits: ReturnType<typeof diffConfig> = { changes: [] };
     const issue = await sousVerrouConfigJson((): ["illisible"] | ["conflit", Dict[]] | ["ok", number] => {
       let disque: unknown = {};
+      let texte = "{}";
       if (existePy(chemin)) {
         try {
-          disque = pyJsonLoads(lireTextePy(chemin) || "{}");
+          texte = lireTextePy(chemin) || "{}";
+          disque = pyJsonLoads(texte);
         } catch (e) {
           if (e instanceof ErreurJsonPy) return ["illisible"];
           throw e;
@@ -386,10 +402,14 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
         }
         if (conflits.length) return ["conflit", conflits];
       }
+      // Copie relue avant modification : le journal compare les deux configs entières, secrets masqués à toute profondeur.
+      const relu = pyJsonLoads(texte);
+      const avant = estDict(relu) ? relu : {};
       for (const [parties, c] of lus) {
         if (veritePy(getPy(c, "delete", null))) removePath(d, parties);
         else if (!(estSecretMasque(parties) && c["to"] === MASQUE_SECRET)) plant(d, parties, c["to"]);
       }
+      ecrits = diffConfig(avant, d);
       if (existePy(chemin)) copyFileSync(chemin, cheminSauvegarde(chemin));
       writeTextAtomic(chemin, pyJsonDumps(d, { ensureAscii: false, indent: 2 }));
       return ["ok", lus.length];
@@ -398,9 +418,10 @@ export function creerFamilleAdminConfig(dep: DependancesAdminConfig): Famille {
     if (issue[0] === "conflit")
       return reponseJsonPy(rep.code(409), { detail: "Modifié ailleurs entre-temps.", conflicts: issue[1] });
     invalidateConfigCache();
+    auditer(req, "admin.config.patch", { force, ...ecrits });
     dep.journal.info(
       `[admin] config PATCH${force ? " (forcé)" : ""} : ${issue[1]} champ(s) — ${lus
-        .map(([p]) => p.join("."))
+        .map(([p]) => cheminLisible(p))
         .join(", ")
         .slice(0, 400)}`,
     );

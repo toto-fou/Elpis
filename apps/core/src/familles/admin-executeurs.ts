@@ -6,7 +6,6 @@ import { estDict, getPy, HttpError, intPy, ouPy, poserCle, prefixePy, stripPy, s
 import type { Dict } from "@elpis/commun";
 import { safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { auditEvent } from "@elpis/securite";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { lireConfigJson, modifierConfigJson } from "../administration/config-sous-verrou";
@@ -28,6 +27,7 @@ import {
   unassign,
 } from "../administration/hotes-outils";
 import type { Journal } from "../journal";
+import { auditerRequete as auditer } from "../journal-securite/auditer";
 import { resolveNetworkProfileId } from "../relais/identite";
 import { assign, countsByHost } from "../relais/placement";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
@@ -43,16 +43,6 @@ export interface DependancesAdminExecuteurs {
 
 function route(methode: DefinitionRoute["methode"], chemin: string, traiter: Traitement): DefinitionRoute {
   return { methode, chemin, processus: ["admin"], acces: "admin", traiter };
-}
-
-/** `audit_event(user_id=request.state.user_id, username=request.state.username, …)`. */
-function auditer(req: FastifyRequest, action: string, details: Dict): void {
-  auditEvent({
-    userId: req.utilisateur?.id ?? null,
-    username: req.utilisateur?.username ?? null,
-    action,
-    details,
-  });
 }
 
 const idCompte = (req: FastifyRequest): number => entrees(req, { path: { user_id: py.int() } }).path.user_id;

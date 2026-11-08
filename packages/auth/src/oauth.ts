@@ -720,11 +720,13 @@ async function emettrePaire(
   };
 }
 
-async function revoquerLot(dep: DependancesOAuth, tx: Executeur, grantId: unknown): Promise<void> {
-  await tx.run("UPDATE oauth_tokens SET revoked_at=? WHERE grant_id=? AND revoked_at IS NULL", [
+/** Jetons encore valides d'une autorisation révoqués ; rend leur nombre. */
+async function revoquerLot(dep: DependancesOAuth, tx: Executeur, grantId: unknown): Promise<number> {
+  const r = await tx.run("UPDATE oauth_tokens SET revoked_at=? WHERE grant_id=? AND revoked_at IS NULL", [
     maintenant(dep),
     strPy(grantId),
   ]);
+  return r.changes;
 }
 
 /** Cible demandée au point de jeton, comparée à celle de l'autorisation ; erreur rendue, jamais levée. */
@@ -894,22 +896,46 @@ export async function refresh(dep: DependancesOAuth, f: Rafraichissement): Promi
   return out;
 }
 
-/** `revoke_token` (RFC 7009) : rafraîchissement → toute l'autorisation ; accès → lui seul ; inconnu → rien. */
-export async function revokeToken(dep: DependancesOAuth, token: unknown, clientId: unknown): Promise<void> {
+/** Jeton réellement révoqué : client et compte lus en base (journal de sécurité). */
+export interface JetonRevoque {
+  client_id: string;
+  user_id: number;
+}
+
+/** `revoke_token` (RFC 7009) : rafraîchissement → toute l'autorisation ; accès → lui seul ; inconnu → rien ; rend le jeton si quelque chose a été révoqué. */
+export async function revokeToken(
+  dep: DependancesOAuth,
+  token: unknown,
+  clientId: unknown,
+): Promise<JetonRevoque | null> {
   const jeton = strPy(veritePy(token) ? token : "");
-  if (!jeton.startsWith(ACCESS_PREFIX) && !jeton.startsWith(REFRESH_PREFIX)) return;
-  await dep.base.transaction(async (tx) => {
-    const r = await tx.get("SELECT id, grant_id, kind, client_id FROM oauth_tokens WHERE token_hash=?", [
-      empreinte(jeton),
-    ]);
-    if (!r || (veritePy(clientId) && strPy(r["client_id"]) !== strPy(clientId))) return;
-    if (r["kind"] === "refresh") await revoquerLot(dep, tx, r["grant_id"]);
-    else
-      await tx.run("UPDATE oauth_tokens SET revoked_at=? WHERE id=? AND revoked_at IS NULL", [
-        maintenant(dep),
-        Number(r["id"]),
-      ]);
+  if (!jeton.startsWith(ACCESS_PREFIX) && !jeton.startsWith(REFRESH_PREFIX)) return null;
+  return dep.base.transaction(async (tx) => {
+    const r = await tx.get(
+      "SELECT id, grant_id, kind, client_id, user_id FROM oauth_tokens WHERE token_hash=?",
+      [empreinte(jeton)],
+    );
+    if (!r || (veritePy(clientId) && strPy(r["client_id"]) !== strPy(clientId))) return null;
+    const n =
+      r["kind"] === "refresh"
+        ? await revoquerLot(dep, tx, r["grant_id"])
+        : (
+            await tx.run("UPDATE oauth_tokens SET revoked_at=? WHERE id=? AND revoked_at IS NULL", [
+              maintenant(dep),
+              Number(r["id"]),
+            ])
+          ).changes;
+    return n > 0 ? { client_id: strPy(r["client_id"]), user_id: Number(r["user_id"]) } : null;
   });
+}
+
+/** Compte d'un jeton émis (journal de sécurité du point de jeton) ; `null` s'il est inconnu. */
+export async function compteDuJeton(base: Base, jeton: unknown): Promise<number | null> {
+  if (typeof jeton !== "string" || !jeton) return null;
+  const r = await base.get<{ user_id: number }>("SELECT user_id FROM oauth_tokens WHERE token_hash=?", [
+    empreinte(jeton),
+  ]);
+  return r ? Number(r.user_id) : null;
 }
 
 const touchesParBase = new WeakMap<Base, Map<number, number>>();

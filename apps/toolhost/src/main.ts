@@ -6,7 +6,15 @@ import { brancherJournal as brancherJournalCommun } from "@elpis/commun";
 import { verifierEmpreinteBundle } from "@elpis/commun/empreinte";
 import { journalRacine } from "@elpis/http";
 import { parseFamilies } from "@elpis/mcp";
-import { brancherJournal as brancherJournalSecurite } from "@elpis/securite";
+import {
+  arreterAudit,
+  viderRafalesAudit,
+  brancherJournal as brancherJournalSecurite,
+  configureAudit,
+  defaultAuditDir,
+  defaultAuditKeyPath,
+  demarrerAudit,
+} from "@elpis/securite";
 import { brancherJournal as brancherJournalVerrous, definirProcessus } from "@elpis/verrous";
 import { rechargerConfig } from "@elpis/config";
 
@@ -74,10 +82,22 @@ async function principal(argv: readonly string[]): Promise<number | null> {
     return 2;
   }
   await ouvrirBaseHote(journal);
+  // Journal de sécurité : lignes signées « toolhost » (et non « main »), début et fin d'écriture du process.
+  try {
+    configureAudit({
+      service: "toolhost",
+      auditDir: defaultAuditDir(process.env, path.resolve(import.meta.dirname, "..", "..", "..")),
+      hmacKeyPath: defaultAuditKeyPath(process.env),
+    });
+  } catch (e) {
+    log.warn({ err: e }, "[audit] configuration impossible : audit sans signature HMAC");
+  }
+  demarrerAudit();
   const cycle = new CycleDeVie(journal("cycle"));
   const composition = composer(tc, { journal: log, cycle });
   cycle.alArret("service MCP", () => composition.fermer());
   cycle.alArret("base de l'hôte", fermerBaseHote);
+  cycle.alArret("journal de sécurité", arreterAudit);
   const app = await creerAppToolhost({
     tc,
     familles: composition.familles,
@@ -98,6 +118,8 @@ async function principal(argv: readonly string[]): Promise<number | null> {
   let premier: NodeJS.Signals | null = null;
   const sortie = (reussi: boolean): number => (premier === "SIGHUP" ? CODE_RELANCE : reussi ? 0 : 1);
   const arreter = (signal: NodeJS.Signals): void => {
+    // Résumés de rafales en attente écrits dès le signal : un arrêt forcé ne les perd pas.
+    viderRafalesAudit();
     if (premier !== null) {
       log.warn(`${signal} reçu pendant l'arrêt : sortie immédiate`);
       process.exit(sortie(false));
@@ -109,7 +131,10 @@ async function principal(argv: readonly string[]): Promise<number | null> {
     const force = setTimeout(() => {
       log.warn("délai d'arrêt dépassé : connexions fermées de force");
       app.server.closeAllConnections();
-      setTimeout(() => process.exit(sortie(false)), GRACE_APRES_FORCAGE_MS).unref();
+      setTimeout(() => {
+        viderRafalesAudit();
+        process.exit(sortie(false));
+      }, GRACE_APRES_FORCAGE_MS).unref();
     }, DELAI_ARRET_MS);
     void app
       .close()

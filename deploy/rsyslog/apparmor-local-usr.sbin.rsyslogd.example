@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# Ubuntu: if `aa-status` lists rsyslogd in enforce mode, append these rules to
+# /etc/apparmor.d/local/usr.sbin.rsyslogd, then `apparmor_parser -r /etc/apparmor.d/usr.sbin.rsyslogd`.
+/var/lib/elpis/audit/ r,
+/var/lib/elpis/audit/audit-*.jsonl r,
+/var/log/elpis/ r,
+/var/log/elpis/app.log.jsonl* r,

@@ -3,8 +3,6 @@
 import { ErreurPython, estDict, FlottantPy, HttpError, intPy, nomTypePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { CONFIG_ILLISIBLE, lireConfigDisque } from "@elpis/config";
-import { auditEvent } from "@elpis/securite";
-import type { FastifyRequest } from "fastify";
 
 const SUR_MAX = BigInt(Number.MAX_SAFE_INTEGER);
 const HORS_BORNES = "Paramètre hors bornes.";
@@ -62,12 +60,4 @@ export function lireConfigPourEcrire(): Dict {
   return cfg;
 }
 
-/** `audit_event(user_id=request.state.user_id, username=request.state.username, …)`. */
-export function auditer(requete: FastifyRequest, action: string, details: Dict): void {
-  auditEvent({
-    userId: requete.utilisateur?.id ?? null,
-    username: requete.utilisateur?.username ?? null,
-    action,
-    details,
-  });
-}
+export { auditerRequete as auditer } from "../journal-securite/auditer";

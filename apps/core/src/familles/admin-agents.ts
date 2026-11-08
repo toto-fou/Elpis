@@ -2,7 +2,7 @@
 /** apps/core/src/familles/admin-agents.ts — `/api/admin/agents` (propre au TS) : lecture seule et réflexion des sous-agents par type, budget de réflexion et plafonds par tour, section `agents` de config.json. */
 import { estDict, getPy, poserCle } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { auditEvent, TYPES_AGENTS_REGLABLES } from "@elpis/securite";
+import { TYPES_AGENTS_REGLABLES } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { lireConfigJson, modifierConfigJson } from "../administration/config-sous-verrou";
@@ -16,6 +16,7 @@ import {
 } from "../outils/integres/task/reglages";
 import type { ReglagesAgents } from "../outils/integres/task/reglages";
 import type { Journal } from "../journal";
+import { auditerRequete } from "../journal-securite/auditer";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { corpsJsonValeurs } from "@elpis/http";
 
@@ -49,19 +50,14 @@ async function enregistrer(dep: DependancesAdminAgents, req: FastifyRequest): Pr
     poserCle(cfg, "agents", r);
   });
   const ecrit = r as unknown as ReglagesAgents;
-  auditEvent({
-    userId: req.utilisateur?.id ?? null,
-    username: req.utilisateur?.username ?? null,
-    action: "admin.agents.update",
-    details: {
-      max_tasks_per_turn: ecrit.max_tasks_per_turn,
-      max_child_tokens_per_turn: ecrit.max_child_tokens_per_turn,
-      forced: ecrit.read_only.forced,
-      thinking: ecrit.thinking.defaults,
-      thinking_budget_tokens: ecrit.thinking_budget_tokens,
-      background_timeout_s: ecrit.background_timeout_s,
-      user_browser_session_allowed: ecrit.user_browser_session_allowed,
-    },
+  auditerRequete(req, "admin.agents.update", {
+    max_tasks_per_turn: ecrit.max_tasks_per_turn,
+    max_child_tokens_per_turn: ecrit.max_child_tokens_per_turn,
+    forced: ecrit.read_only.forced,
+    thinking: ecrit.thinking.defaults,
+    thinking_budget_tokens: ecrit.thinking_budget_tokens,
+    background_timeout_s: ecrit.background_timeout_s,
+    user_browser_session_allowed: ecrit.user_browser_session_allowed,
   });
   dep.journal.info(
     `[admin] réglages des sous-agents enregistrés (max_tasks_per_turn=${ecrit.max_tasks_per_turn}, max_child_tokens_per_turn=${ecrit.max_child_tokens_per_turn})`,

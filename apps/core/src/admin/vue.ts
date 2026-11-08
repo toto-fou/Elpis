@@ -70,6 +70,8 @@ export interface Faits {
   sauvegarde(): Promise<Dict>;
   securite(): Promise<Dict>;
   enAttente(): Promise<string[]>;
+  /** Alertes du journal de sécurité (propre au TS) : disque, horloge, clé, centralisation, écritures, gel. */
+  journalSecurite?(): Promise<readonly { id: string; level: string; title: string; detail: string }[]>;
 }
 
 /** Une ligne de l'inventaire ; `state` : ok · down · warn · off · unknown. */
@@ -493,6 +495,15 @@ export function faitsParDefaut(dep: DependancesFaits): Faits {
   };
 }
 
+/** Alertes montrées à un modérateur : sans action, et sans détail pour celles du journal de sécurité (motif de gel, chemins, erreurs système). */
+export function alertesPourModerateur(alertes: readonly Dict[]): Dict[] {
+  return alertes.map((a) => ({
+    ...a,
+    action: "",
+    ...(String(a["id"]).startsWith("audit-") ? { detail: "" } : {}),
+  }));
+}
+
 /** `_collect` : sondes en parallèle, compression héritée du moteur local, alertes et liste d'installation. */
 export async function collecter(
   sondes: Sondes,
@@ -623,6 +634,17 @@ export async function collecter(
       page: "sessions",
       action: "page",
     });
+  if (faits.journalSecurite) {
+    try {
+      alertes.push(
+        ...(await faits.journalSecurite()).map((al) => ({ ...al, page: "audit-logging", action: "page" })),
+      );
+    } catch (e) {
+      journal.info(
+        `[overview] état du journal de sécurité illisible : ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
   const moteurOk = services.some(
     (s) => (s["id"] === "llm" || String(s["id"]).startsWith("conn-")) && s["state"] === "ok",
   );

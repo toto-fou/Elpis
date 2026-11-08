@@ -3,13 +3,14 @@
 import { rmSync } from "node:fs";
 import { basename, dirname } from "node:path";
 
-import { ErreurZip, getPy, HttpError, intPy, longueurPy, ouPy, veritePy } from "@elpis/commun";
+import { egalPy, ErreurZip, getPy, HttpError, intPy, longueurPy, ouPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import { send } from "@fastify/send";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import type { Journal } from "../journal";
+import { auditerRequete } from "../journal-securite/auditer";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { dossiersInstance, restoreFromZip } from "../ops/restauration";
 import type { DossiersRestauration } from "../ops/restauration";
@@ -25,6 +26,7 @@ import {
   storeSshKey,
   validateRemoteConfig,
 } from "../ops/sauvegarde-distante";
+import { exigerLectureConsole } from "./garde-console";
 import {
   corpsJson,
   corpsJsonValeurs,
@@ -61,6 +63,7 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
 
   /** `FileResponse(..., background=os.remove)` : archive servie puis supprimée à la fermeture de la réponse. */
   const telecharger = async (req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> => {
+    exigerLectureConsole(req);
     const { query } = entrees(req, { query: { scope: py.str().defaut("full") } });
     if (!estPortee(query.scope)) throw new HttpError(400, "scope invalide");
     const { chemin, nom } = await makeBackupZip(dep.base, query.scope, journal ? { journal } : {});
@@ -77,6 +80,7 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
     const entetes: Record<string, string> = { ...(r.headers as Record<string, string>) };
     if (r.statusCode !== 304 && r.statusCode !== 416) entetes["content-type"] = "application/zip";
     entetes["content-disposition"] = `attachment; filename="${nom}"`;
+    auditerRequete(req, "admin.backup.download", { scope: query.scope });
     if (backupIncomplete(nom)) entetes["x-backup-incomplete"] = "1";
     return rep.code(r.statusCode).headers(entetes).send(r.stream);
   };
@@ -110,9 +114,14 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
         journal,
       );
     } catch (e) {
+      auditerRequete(req, "admin.restore.failed", {
+        size: file.taille,
+        error: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      });
       if (e instanceof ErreurZip && e.type === "BadZipFile") throw new HttpError(400, "Fichier ZIP invalide");
       throw e;
     }
+    auditerRequete(req, "admin.restore", { size: file.taille });
     return rep.send({
       ok: true,
       scope: portee,
@@ -129,7 +138,14 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
     const corps = corpsJsonValeurs(req);
     const [ok, err] = validateRemoteConfig(normalizeRemoteConfig(corps));
     if (!ok && veritePy(champ(corps, "enabled"))) throw new HttpError(400, err);
-    return reponseJsonPy(rep, { ok: true, config: await saveRemoteConfig(corps) });
+    const avant = getRemoteConfig();
+    const config = await saveRemoteConfig(corps);
+    const calcules = new Set(["key_present", "password_present", "next_run_at", "last_send"]);
+    const changed = Object.keys(config)
+      .filter((k) => !calcules.has(k) && !egalPy(avant[k], config[k]))
+      .sort();
+    auditerRequete(req, "admin.backup.remote.update", { changed });
+    return reponseJsonPy(rep, { ok: true, config });
   };
 
   const cle = async (req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> => {
@@ -137,6 +153,7 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
     if (typeof texte !== "string" || !texte.includes("PRIVATE KEY"))
       throw new HttpError(400, "Clé privée invalide (format PEM/OpenSSH attendu)");
     const chemin = storeSshKey(texte);
+    auditerRequete(req, "admin.backup.remote.key", {});
     return rep.send({ ok: true, fingerprint: await keyFingerprint(chemin) });
   };
 
@@ -150,11 +167,15 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
       if (e instanceof Error && e.name === "ValueError") throw new HttpError(400, e.message);
       throw e;
     }
+    auditerRequete(req, "admin.backup.remote.password", {});
     return rep.send({ ok: true, password_present: present });
   };
 
-  const tester = async (_req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> =>
-    reponseJsonPy(rep, await runTest());
+  const tester = async (req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> => {
+    const res = await runTest();
+    auditerRequete(req, "admin.backup.remote.test", { ok: res["ok"] === true });
+    return reponseJsonPy(rep, res);
+  };
 
   const envoyer = async (req: FastifyRequest, rep: FastifyReply): Promise<FastifyReply> => {
     let corps: unknown;
@@ -164,6 +185,7 @@ export function creerFamilleSauvegarde(dep: DependancesSauvegarde): Famille {
       corps = {};
     }
     const res: Dict = await runSend(dep.base, champ(corps, "scope"), journal ? { journal } : {});
+    auditerRequete(req, "admin.backup.remote.send", { ok: res["ok"] === true });
     return reponseJsonPy(rep, res);
   };
 

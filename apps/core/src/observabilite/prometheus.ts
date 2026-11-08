@@ -32,12 +32,14 @@ export function scrapeAutorise(
   return egauxEnTempsConstant(Buffer.from(jeton), Buffer.from(presente));
 }
 
-/** `_esc` : valeur de label sans antislash ni guillemet, « unknown » si vide, 120 caractères au plus. */
+/** `_esc` : valeur de label sans antislash ni guillemet, retours et caractères de contrôle remplacés par une espace (une métrique par ligne), « unknown » si vide, 120 caractères au plus. */
 function echapper(v: unknown): string {
   return prefixePy(
     strPy(veritePy(v) ? v : "unknown")
       .replaceAll("\\", "")
-      .replaceAll('"', ""),
+      .replaceAll('"', "")
+      // eslint-disable-next-line no-control-regex -- retours et caractères de contrôle retirés d'une étiquette
+      .replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, " "),
     120,
   );
 }

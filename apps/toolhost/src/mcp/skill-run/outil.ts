@@ -9,6 +9,7 @@ import {
   estFichierPy,
   existePy,
   intPy,
+  longueurPy,
   lowerPy,
   messageErreurOs,
   messageErreurPy,
@@ -31,6 +32,7 @@ import { uidFor, WorkChanges } from "../changements";
 import { brancherRappelProfil } from "../espace";
 import { enveloppeAnnulee, PontExec, strErreur } from "../shell/pont";
 import type { OptionsShell } from "../shell/pont";
+import { MAX_COMMANDE } from "../shell/jobs/outil";
 import type { ReleveCommande } from "../shell/outil";
 import { archiverDossier, ErreurArchive, tailleDossier } from "./archive";
 
@@ -230,12 +232,17 @@ export async function skillRunScript(
   a: AppuisSkillRun,
 ): Promise<Dict> {
   const username = getUsername(ctx);
+  const argList = Array.isArray(args.args) ? asList(args.args).map((x) => asStr(x)) : [];
+  const longueur = argList.reduce((n, x) => n + longueurPy(x) + 1, 0);
+  if (longueur > MAX_COMMANDE)
+    return enveloppe("skill_run_rejected", `args too long (${longueur} characters, max ${MAX_COMMANDE}).`, {
+      fix: "Pass large inputs in a file under /work and give its path.",
+    });
   const trouve = await scriptDuSkill(args, username, a);
   if (!Array.isArray(trouve)) return trouve;
   const [spec, rel, interp] = trouve;
   const archive = await archiveDuSkill(spec.skillDir ?? "");
   if (!Buffer.isBuffer(archive)) return archive;
-  const argList = Array.isArray(args.args) ? asList(args.args).map((x) => asStr(x)) : [];
   const [refus, env] = environnement(args.env);
   if (refus !== null) return refus;
   const delai = Math.max(

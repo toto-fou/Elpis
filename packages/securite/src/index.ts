@@ -60,16 +60,28 @@ export { brancherComptes, brancherJournal } from "./ports";
 export type { ComptesEnBase, FabriqueJournal, Journal } from "./ports";
 export { urlsafeB64Decode } from "./base64";
 export {
+  arreterAudit,
   auditCodeExec,
   auditEvent,
   auditLogin,
+  cleAuditCourante,
   configureAudit,
   defaultAuditDir,
   defaultAuditKeyPath,
+  demarrerAudit,
+  empreinteIdentifiant,
+  etatEcritureAudit,
+  FICHIER_AUDIT,
+  issueParDefaut,
+  JOUR_AUDIT,
+  lireCleAudit,
   oublierConfigurationAudit,
-  readRecentAuditLines,
+  texteBorne,
 } from "./audit";
-export type { EvenementAudit, FiltresAudit, ReglagesAudit } from "./audit";
+export type { EvenementAudit, IssueAudit, ReglagesAudit } from "./audit";
+export { auditLecture, auditRafale, viderRafalesAudit } from "./audit-agregat";
+export { verifierJournalAudit } from "./audit-verification";
+export type { ResultatVerificationAudit } from "./audit-verification";
 export { CONTEXTE_JETON_INTERNE, jetonInterne } from "./interne";
 export { adresseCritique, blockRemoteUrlReason, GIT_REMOTE_SCHEMES } from "./ssrf";
 export { cibleNonAmbigue, urlNonAmbigue } from "./url-whatwg";
@@ -105,7 +117,14 @@ export {
   restaurerMarqueursArgs,
   restaurerMarqueursTour,
 } from "@elpis/commun/marqueurs-tour";
-export { cheminDiff, masquer, masquerSecretsTexte, secretsDuDiff } from "./secrets";
+export {
+  cheminDiff,
+  masquer,
+  masquerArgv,
+  masquerCommandeShell,
+  masquerSecretsTexte,
+  secretsDuDiff,
+} from "./secrets";
 export type { Trouvaille } from "./secrets";
 export {
   envShellSousAgent,

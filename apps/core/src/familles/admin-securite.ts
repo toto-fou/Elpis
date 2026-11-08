@@ -185,6 +185,7 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       dep.journal.error({ err: e }, "clear-user-revocation failed");
       throw new HttpError(500, "Échec du reset");
     }
+    auditer(req, "admin.security.sessions.clear_user_revocation", { target_user_id: cible });
     return { ok: true, user_id: cible };
   }
 
@@ -214,7 +215,9 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     const operateur = utilisateur(req);
     const corps = corpsOuVide(req);
     const actif = veritePy(getPy(veritePy(corps) ? corps : {}, "enabled", null));
-    const ports = portsHttps(readConfigJson());
+    const avantCfg = readConfigJson();
+    const avant = httpsActif(avantCfg);
+    const ports = portsHttps(avantCfg);
     if (actif) {
       const fermes: number[] = [];
       for (const p of [ports["main"], ports["admin"]] as number[]) if (!(await sonder(p))) fermes.push(p);
@@ -245,6 +248,7 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     dep.journal.warn(
       `[security] HTTPS mode ${actif ? "ENABLED" : "DISABLED"} by uid=${operateur} (binds ${hote}, cookie https_only=${actif ? "True" : "False"})`,
     );
+    auditer(req, "admin.security.https", { before: avant, after: actif });
     const ok = await redemarrerApp(
       redemarrage,
       `Le serveur redémarre pour changer de mode d'accès (${actif ? "HTTPS" : "HTTP direct"}). Reconnexion automatique...`,
@@ -257,9 +261,11 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
     const corps = corpsOuVide(req);
     const ecoute = lowerPy(stripPy(texteOu(getPy(veritePy(corps) ? corps : {}, "listen", null), "")));
     if (ecoute !== "local" && ecoute !== "lan") throw new HttpError(400, "listen : « local » ou « lan »");
+    let avant = "";
     const hote = await sousVerrouConfigJson(() => {
       const cfg = lireConfigPourEcrire();
       const sec = sectionDict(cfg, "security");
+      avant = modeEcoute(cfg);
       if (veritePy(getPy(sousDict(sec, "https"), "enabled", false)))
         throw new HttpError(409, "HTTPS actif : l'application écoute déjà en local derrière Caddy.");
       if (ecoute === "local" && !clientLocal(req)) throw new HttpError(409, REFUS_LOCAL);
@@ -268,6 +274,7 @@ export function creerFamilleAdminSecurite(dep: DependancesAdminSecurite): Famill
       return hoteDEcoute(cfg);
     });
     dep.journal.warn(`[security] listen=${ecoute} by uid=${operateur} (binds ${hote})`);
+    auditer(req, "admin.security.listen", { before: avant, after: ecoute });
     const ok = await redemarrerApp(
       redemarrage,
       `Le serveur redémarre pour changer d'écoute (${ecoute === "lan" ? "réseau local" : "ce serveur seulement"}). Reconnexion automatique...`,

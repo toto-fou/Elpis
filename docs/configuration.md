@@ -372,6 +372,31 @@ The sandbox previews, the HTML preview of chat code blocks (`/apercu-code`) and
 the OAuth consent screen keep their own policy, independent of this
 setting.
 
+### Security journal (`security.audit`)
+
+The security journal (format and events: [audit-events.md](audit-events.md); setup, verification and
+forwarding: [operations.md](operations.md#security-journal-and-log-forwarding)) has four settings,
+read from disk on every use, with no restart. They are written by Admin console › System › Logging;
+the raw editor does not write them, and `./elpis configure --force` keeps them.
+
+| Key | Default | Description |
+|---|---|---|
+| `retention_days` | `365` | Days a daily file is kept, 180 to 1095 from the console. A value written by hand below 180 is raised to 180; above 1095 it is kept as written, and the console flags it. A value that cannot be read (text, list) suspends the purge |
+| `hold` | `false` | `true` keeps every file, whatever the retention. Requires `hold_reason` |
+| `hold_reason` | `""` | Reason for the hold (an incident, an investigation, an authority's request), 500 characters at most; emptied when `hold` is off |
+| `forwarding_expected` | `false` | `true`: files are deleted only while the syslog agent (rsyslog or syslog-ng) is installed, active and has a rule reading the journal folder |
+
+```json
+{ "security": { "audit": { "retention_days": 365, "hold": false, "forwarding_expected": true } } }
+```
+
+The console also copies the retention, the expected forwarding and the hold to marker files in the
+journal folder (`.settings`, `.hold`): the purge falls back on them if `config.json` no longer has
+the section, and deletes nothing if `config.json` cannot be read.
+
+Full backups include the journal unless `backup.include_audit` is `false`; a scheduled remote send
+includes it only if `backup.remote.include_audit` is `true`.
+
 ### Production mode (systemd)
 
 ```bash
@@ -381,7 +406,9 @@ sudo ./elpis service install    # or: service remove ; ./elpis service print to 
 - One unit per service (`elpis-qdrant`, `elpis-rag`, `elpis-toolhost`,
   `elpis-main`, `elpis-admin`, `elpis-browser`), grouped under
   `elpis.target`, started at boot, restarted on failure, logs in
-  journald (`./elpis logs main -f`).
+  journald under the tag `elpis-<service>` (`./elpis logs main -f`).
+  Rerun `sudo ./elpis service install` after an update that changes the units
+  (`./elpis upgrade` does not rewrite them).
 - Service user: the one who runs `sudo` (suggested, changeable;
   `ELPIS_USER=name` with no question). It must be able to read the repository; it is
   added to the `docker` group.
@@ -432,10 +459,11 @@ Sections:
 | `memory` | `enabled`, `memory_char_limit`, `user_char_limit` |
 | `skills` | `dir`, `user_dir`, `top_n`, `min_score`, `char_budget`, `index_max` |
 | `executors` | `image` (third-party image only; without it, the one of the release), `limits.*`, `exec_user`, `force_user_docker`, `idle_kill_hours`, `runtime`, `extra_run_args`, `network_profiles[]`, `jobs.*` (background tasks), `disk.warn_pct` / `disk.refuse_pct` (sandbox disk space in %, 85 and 97 by default, re-read live: warning from the tools that write, then refusal of writes and of new tasks; Admin console › Sandbox › Limits & policy) |
-| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, see [Listening](#listening-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, see [CSP](#content-security-policy-securitycsp)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` belong to their own endpoints, the raw editor does not write them |
+| `security` | `password_policy.*`, `session.*` (cookie, `max_age_sec`, `same_site`, `https_only`, `global_min_ts`), `https.*` (`enabled`, ports, `ca_file`), `listen` (`local` \| `lan`, see [Listening](#listening-securitylisten)), `csp` (`enforce` \| `report-only` \| `off`, see [CSP](#content-security-policy-securitycsp)), `audit.*` (security journal: `retention_days`, `hold`, `hold_reason`, `forwarding_expected`, see [Security journal](#security-journal-securityaudit)) — ⚠ `https.*` + `listen` + `session.https_only` + `session.global_min_ts` + `audit.*` belong to their own endpoints, the raw editor does not write them |
 | `vision` / `desktop` | Annotation endpoint, format, model, passes; desktop targets, scopes, budgets |
 | `rag` | Extractor, store, Qdrant, embeddings, reranking, OCR, groups, quotas, indexing: see [RAG](#rag-rag) |
 | `maintenance` | Retention, run time, daily digest |
+| `backup` | `include_audit` (security journal in the full backups, `true` by default), `remote.*` (scheduled upload, Admin console › System › Data); `remote.include_audit` (`false` by default) adds the journal to that upload. See [Security journal](#security-journal-securityaudit) |
 | `features` | Global flags (`opencode`, `office_preview`) |
 | `welcome` / `app_info` / `login_page` | Branding (edited from the admin console); `app_info.name` is the name of the application and of the assistant, `app_info.logo_b64` is its logo and the assistant's avatar, for all accounts |
 | `skins` | `dir` (folder of imported or created skins, default `user_skins`, overridable with `APP_SKINS_DIR`, read at startup), `enabled` (`{id: boolean}`, re-read live: a built-in that is absent takes its value from `frontend/css/skins/skins.json`, Kiki disabled; an imported skin that is absent is disabled; Ardoise and the default skin stay active), `default` (default `elpis`: skin of accounts with no choice or whose skin was disabled). Set from Admin console › System › Appearance; the folder is included in full backups |
@@ -832,6 +860,23 @@ as missing.
 | `APP_GIT_TOOL_TIMEOUT_S` | `tools.git.timeout_s` | `60` | Local Git commands |
 | `APP_*_RETENTION_DAYS` | `maintenance.*_retention_days` | 90 to 400 depending on the table | Retention (`0` = no purge); the one for `usage_events` also applies to runs (`runs`) |
 | `APP_MAINTENANCE_HOUR` | `maintenance.hour` | `6` | Hour of the daily pass |
+
+#### Journals
+
+Variables read by the services and by `./elpis audit`; the units set the first two when
+`sudo ./elpis audit setup` has created the folders.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ELPIS_AUDIT_DIR` | `/var/lib/elpis/audit` if writable, otherwise `logs/audit` in the repository | Folder of the security journal |
+| `ELPIS_AUDIT_KEY_PATH` | `/etc/elpis/audit.key` | Signing key of the security journal (32 bytes at least); without a usable key, lines are written unsigned |
+| `ELPIS_APP_LOG_DIR` | `user_db/logs` of the repository (`/var/log/elpis` under systemd) | Folder of the access log `app.log.jsonl` |
+| `ELPIS_APP_LOG_MAX_MO` | `8` | Size in MB at which `app.log.jsonl` is rotated (1 to 1024) |
+| `ELPIS_APP_LOG_ROTATIONS` | `3` | Rotated files kept, `app.log.jsonl.1` to `.N` (1 to 50) |
+| `ACCESS_LOG_TRUSTED_PROXIES` | `127.0.0.0/8,::1` | Proxies (addresses or networks, comma-separated) whose `X-Forwarded-For` is believed for the client address of the access log and of the security journal |
+| `ELPIS_GROUPE_JOURNAL` | `elpis-journal` | Group that reads the journal folders (`audit setup`; `adm` is accepted) |
+| `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`) |
+| `ELPIS_USER` | — | Service account for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
 
 #### Local MCP server
 

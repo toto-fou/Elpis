@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
 import docx
+from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Cm, Pt
 
 from ...langue import libelles
@@ -50,6 +51,13 @@ class BuildContext:
     theme: S.ThemeSpec = field(default_factory=S.ThemeSpec)
     notes: list[str] = field(default_factory=list)
     labels: dict[str, str] = field(default_factory=lambda: libelles(None))
+    style_ids: dict[str, str | None] = field(default_factory=dict)
+
+    def set_style(self, paragraph, name: str) -> None:
+        """``paragraph.style = name``, le style cherché une fois par document (python-docx relit tous les styles)."""
+        if name not in self.style_ids:
+            self.style_ids[name] = self.document.part.get_style_id(name, WD_STYLE_TYPE.PARAGRAPH)
+        paragraph._p.style = self.style_ids[name]
 
     def note(self, message: str) -> None:
         if message not in self.notes:
@@ -374,10 +382,11 @@ def _write_run(context: BuildContext, paragraph, run_spec: S.RunSpec):
 
 def _heading(context: BuildContext, block: S.HeadingBlock):
     document = context.document
-    paragraph = document.add_heading("", level=block.level)
+    paragraph = document.add_paragraph()
+    context.set_style(paragraph, "Title" if block.level == 0 else f"Heading {block.level}")
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             context.note(f"Style {block.style!r} is not in this document; used the heading style.")
     _write_runs(context, paragraph, block.text, block.runs)
@@ -396,7 +405,7 @@ def _paragraph(context: BuildContext, block: S.ParagraphBlock):
     paragraph = context.document.add_paragraph()
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             context.note(f"Style {block.style!r} is not in this document; used Normal.")
     _write_runs(context, paragraph, block.text, block.runs)
@@ -437,7 +446,7 @@ def _list(context: BuildContext, block: S.ListBlock):
         paragraph = context.document.add_paragraph()
         if block.style:
             try:
-                paragraph.style = block.style
+                context.set_style(paragraph, block.style)
             except KeyError:
                 context.note(f"Style {block.style!r} is not in this document; used Normal.")
         _write_runs(context, paragraph, item_spec.text, item_spec.runs)
@@ -485,7 +494,7 @@ def _quote(context: BuildContext, block: S.QuoteBlock):
     paragraph = context.document.add_paragraph()
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             paragraph.paragraph_format.left_indent = Cm(1.0)
             context.note(f"Style {block.style!r} is not in this document; indented instead.")

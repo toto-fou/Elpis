@@ -20,7 +20,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import docx
 from docx.text.paragraph import Paragraph
@@ -32,10 +32,19 @@ from ._chart.normalise import fold
 from ._docx import docio
 from ._docx.errors import DocxMcpError
 from ._docx.lecture import Lecteur, bilan_revisions, commentaires, notes, revisions, zones_de_texte
-from ._docx.ooxml.fields import _find_toc_blocks, _levels_from_instruction
+from ._docx.ooxml import refs as R
+from ._docx.ooxml.fields import _find_toc_blocks, _levels_from_instruction, renumber_seq
 from ._docx.ooxml.util import qn
 from ._docx.render import builder as B, spec as S
-from ._docx.render.mdconv import inline_markdown, markdown_to_blocks
+from ._docx.render.mdconv import (
+    END_MARK,
+    FOOTNOTES,
+    NOTE_MARK,
+    REF_MARK,
+    inline_markdown,
+    markdown_to_blocks,
+    parse_attributes,
+)
 from .commun import (
     Env,
     OfficeError,
@@ -185,15 +194,109 @@ _VARIANTES = {"note": "note", "info": "info", "tip": "success", "astuce": "succe
               "error": "danger", "erreur": "danger"}
 
 
+_DEF_NOTE = re.compile(r"^\[\^([^\]\s]+)\]:[ \t]?(.*)$")
+_APPEL_NOTE = re.compile(r"\[\^([^\]\s]+)\]")
+# Renvoi pandoc-crossref : « voir @fig:archi » (pas une adresse : rien de collé devant).
+_RENVOI = re.compile(r"(?<![\w@/.:])@((?:fig|tbl|tab|sec|chap|eq)[:_-][\w:.-]*\w)")
+_CODE_EN_LIGNE = re.compile(r"(`+)(?:.*?)\1")
+_SECTION = re.compile(r"^\s*:::\s*\{?\s*\.?(paysage|landscape|portrait|colonnes|columns|cols)?\s*(\d)?\s*\}?\s*$",
+                      re.IGNORECASE)
+
+
 def refs_de(contenu: str) -> List[str]:
     return G.REF.findall(contenu or "")
 
 
+def _hors_code(ligne: str, f) -> str:
+    """Applique ``f`` au texte d'une ligne hors des `code` en ligne."""
+    morceaux, pos = [], 0
+    for m in _CODE_EN_LIGNE.finditer(ligne):
+        morceaux += [f(ligne[pos:m.start()]), m.group(0)]
+        pos = m.end()
+    return "".join(morceaux + [f(ligne[pos:])])
+
+
+def _notes_et_renvois(contenu: str, env: Env) -> Tuple[str, Dict[str, str]]:
+    """Notes « [^1] » et renvois « @fig:x » → marques lues par le convertisseur ; les définitions « [^1]: … » sortent du texte."""
+    lignes = (contenu or "").replace("\ue000", "").replace("\ue001", "").replace("\ue002", "") \
+        .replace("\r\n", "\n").split("\n")
+    definitions: Dict[str, str] = {}
+    gardees: List[str] = []
+    dans_code, courante = False, None
+    for ligne in lignes:
+        if _FENCE.match(ligne):
+            dans_code, courante = not dans_code, None
+        m = None if dans_code else _DEF_NOTE.match(ligne)
+        if m:
+            courante = m.group(1)
+            definitions[courante] = m.group(2).strip()
+            continue
+        if courante is not None and ligne[:1] in (" ", "\t") and ligne.strip():
+            definitions[courante] += " " + ligne.strip()      # suite indentée de la note
+            continue
+        courante = None
+        gardees.append(ligne)
+    numeros: Dict[str, str] = {}
+    textes: Dict[str, str] = {}
+    absentes: List[str] = []
+
+    def appel(m: "re.Match[str]") -> str:
+        cle = m.group(1)
+        if cle not in definitions:
+            absentes.append(cle)
+            return m.group(0)
+        n = numeros.setdefault(cle, str(len(numeros) + 1))
+        textes[n] = definitions[cle]
+        return f"{NOTE_MARK}{n}{END_MARK}"
+
+    def renvoi(m: "re.Match[str]") -> str:
+        return f"{REF_MARK}{R.normalise_bookmark(m.group(1))}{END_MARK}"
+
+    sortie, dans_code = [], False
+    for ligne in gardees:
+        if _FENCE.match(ligne):
+            dans_code = not dans_code
+        sortie.append(ligne if dans_code else
+                      _hors_code(ligne, lambda t: _RENVOI.sub(renvoi, _APPEL_NOTE.sub(appel, t))))
+    if absentes:
+        env.notes.warn(f"footnote(s) {', '.join(f'[^{x}]' for x in dict.fromkeys(absentes))} have no "
+                       "definition line ([^1]: text): left as written")
+    orphelines = [k for k in definitions if k not in numeros]
+    if orphelines:
+        env.notes.warn(f"footnote definition(s) {', '.join(f'[^{x}]' for x in orphelines)} never cited "
+                       "in the text: dropped")
+    return "\n".join(sortie), textes
+
+
 def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
-                   toc_titre: str = "Sommaire", toc_niveaux: Optional[List[int]] = None) -> List[Any]:
+                   toc_titre: str = "Sommaire", toc_niveaux: Optional[List[int]] = None,
+                   sections: bool = True) -> List[Any]:
     """Markdown étendu → blocs du moteur Word (graphiques déjà préparés)."""
+    contenu, textes_notes = _notes_et_renvois(contenu, env)
+    jeton = FOOTNOTES.set(textes_notes)
+    try:
+        return _blocs_markdown(contenu, rendus, env, toc_titre, toc_niveaux, sections)
+    finally:
+        FOOTNOTES.reset(jeton)
+
+
+def _section_ouverte(genre: str, n: Optional[str]) -> Tuple[str, Any, Any]:
+    """« ::: paysage » / « ::: colonnes 2 » → (genre, bloc d'ouverture, bloc de fermeture)."""
+    if genre in ("paysage", "landscape", "portrait"):
+        sens: Literal["portrait", "landscape"] = "portrait" if genre == "portrait" else "landscape"
+        retour: Literal["portrait", "landscape"] = "landscape" if sens == "portrait" else "portrait"
+        return (sens, S.SectionBlock(type="section", start="new_page", orientation=sens),
+                S.SectionBlock(type="section", start="new_page", orientation=retour))
+    colonnes = max(2, min(4, int(n or 2)))
+    return ("columns", S.SectionBlock(type="section", start="continuous", columns=colonnes),
+            S.SectionBlock(type="section", start="continuous", columns=1))
+
+
+def _blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env, toc_titre: str,
+                    toc_niveaux: Optional[List[int]], sections: bool) -> List[Any]:
     blocs: List[Any] = []
     tampon: List[str] = []
+    fermetures: List[Any] = []
 
     def vider() -> None:
         if tampon:
@@ -218,7 +321,26 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
         m = G.REF_SEULE.match(ligne)
         if m:
             vider()
-            blocs.extend(blocs_graphique(G.rendu(rendus, m.group(1))))
+            attrs = parse_attributes(m.group(2) or "")
+            if m.group(2) and attrs is None:
+                env.notes.warn(f"chart attributes {m.group(2)} not understood (e.g. {{#fig:sales width=60%}}): ignored")
+            blocs.extend(blocs_graphique(G.rendu(rendus, m.group(1)), attrs or {}))
+            i += 1
+            continue
+        m = _SECTION.match(ligne)
+        if m:
+            vider()
+            genre = fold(m.group(1) or "")
+            if not sections:
+                env.notes.warn("'::: landscape' / '::: columns' sections are only available in docx_create: ignored")
+            elif genre:
+                _, ouverture, fermeture = _section_ouverte(genre, m.group(2))
+                blocs.append(ouverture)
+                fermetures.append(fermeture)
+            elif fermetures:
+                blocs.append(fermetures.pop())
+            else:
+                env.notes.fix("a ':::' line closes nothing: ignored")
             i += 1
             continue
         if G.REF.search(ligne):
@@ -260,22 +382,36 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
         tampon.append(ligne)
         i += 1
     vider()
+    if fermetures:
+        env.notes.fix(f"{len(fermetures)} '::: …' section(s) not closed: closed at the end")
+        blocs.extend(reversed(fermetures))
     return blocs
 
 
-def blocs_graphique(r: G.Rendu) -> List[Any]:
+def blocs_graphique(r: G.Rendu, attrs: Optional[Dict[str, Any]] = None) -> List[Any]:
+    """Blocs Word d'un graphique ; ``attrs`` : {#fig:x} (légende numérotée, renvoi) et largeur."""
+    attrs = attrs or {}
+    ident = attrs.get("id")
     if r.mode == "natif":
         n = r.natif
+        part = (attrs.get("width_percent") or 100) / 100
+        largeur = attrs.get("width_cm") or 16.0 * part
+        hauteur = attrs.get("height_cm") or largeur * 9 / 16
+        legende = (n.get("title") or r.kind) if ident else None
         return [S.ChartBlock(type="chart", chart_type=n["chart_type"],
                              categories=n.get("categories") or [],
                              series=[S.SeriesSpec(**s) for s in n["series"]],
-                             title=n.get("title"), x_title=n.get("x_title"),
+                             width_cm=largeur, height_cm=hauteur, caption=legende, bookmark=ident,
+                             title=None if legende else n.get("title"), x_title=n.get("x_title"),
                              y_title=n.get("y_title"), number_format=n.get("number_format"),
                              data_label_format=n.get("data_label_format"),
                              legend=n.get("legend", "auto"), y_max=n.get("y_max"),
                              smooth=n.get("smooth"))]
     if r.mode == "image":
-        return [S.ImageBlock(type="image", source=G.data_uri(r.png), width_cm=16.0,
+        return [S.ImageBlock(type="image", source=G.data_uri(r.png),
+                             width_cm=attrs.get("width_cm") or (None if attrs.get("width_percent") else 16.0),
+                             width_percent=attrs.get("width_percent"), height_cm=attrs.get("height_cm"),
+                             caption=(r.titre or r.kind) if ident else None, bookmark=ident,
                              alt_text=r.titre or r.kind)]
     if r.mode == "kpi":
         lignes = [[t.get("label", ""), t.get("value", ""),
@@ -284,14 +420,15 @@ def blocs_graphique(r: G.Rendu) -> List[Any]:
         lib = libelles(r.lang)
         entete = [lib["indicator"], lib["value"]] + ([lib["change"]] if avec_delta else [])
         rows = [x if avec_delta else x[:2] for x in lignes]
-        return _table_bloc(entete, rows, r.titre)
-    return _table_bloc(r.colonnes, G.cellules_tableau(r.lignes, r.lang), r.titre)
+        return _table_bloc(entete, rows, r.titre, ident)
+    return _table_bloc(r.colonnes, G.cellules_tableau(r.lignes, r.lang), r.titre, ident)
 
 
-def _table_bloc(entete: List[str], lignes: List[List[Any]], titre: str) -> List[Any]:
+def _table_bloc(entete: List[str], lignes: List[List[Any]], titre: str,
+                ident: Optional[str] = None) -> List[Any]:
     return [S.TableBlock(type="table", header=[str(h) for h in entete],
                          rows=[[str(c) for c in ln] for ln in lignes],
-                         caption=titre or None)]
+                         caption=titre or None, bookmark=ident)]
 
 
 # ── Ouverture / écriture ────────────────────────────────────────────────────
@@ -317,6 +454,11 @@ def _ouvrir(env: Env, path: Any) -> Tuple[str, Any, str]:
 def _enregistrer(env: Env, document: Any, rel: str, attendu: Optional[str] = None
                  ) -> Dict[str, Any]:
     B.finalize(document)
+    renumber_seq(document.element.body)          # Figure 1, 2, 3… lisibles sans mise à jour des champs
+    manquants = R.fill_references(document)
+    if manquants:
+        env.notes.warn(f"cross-reference(s) to {', '.join(dict.fromkeys(manquants))}: no figure, table or "
+                       "heading has this id ({#fig:name} after it): shown as « … »")
     sortie = io.BytesIO()
     document.save(sortie)
     return ecrire(env, rel, sortie.getvalue(), attendu)
@@ -1016,7 +1158,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
     if nom in ("insert", "append"):
         contenu = texte(requis(i, nom, c, "content",
                                EXEMPLE_OPS[3] if nom == "insert" else EXEMPLE_OPS[4]))
-        blocs = _moteur(blocs_markdown, contenu, rendus, env)
+        blocs = _moteur(blocs_markdown, contenu, rendus, env, sections=False)
         if nom == "append" or all(c.get(k) is None for k in ("after", "before", "at_end_of")):
             if nom == "insert":
                 env.notes.fix(f"ops[{i}] insert without 'after'/'before': appended at the end")

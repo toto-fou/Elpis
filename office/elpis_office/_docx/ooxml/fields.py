@@ -10,6 +10,7 @@ placeholder, and set ``w:updateFields`` so the reader recalculates on open.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from .util import frag, insert_in_order, make, qn
 
@@ -327,6 +328,35 @@ def add_text_with_fields(paragraph, template: str, **run_format) -> None:
 def add_seq_field(paragraph, label: str) -> None:
     """A ``SEQ`` field — the counter behind auto-numbered Figure/Table captions."""
     add_field(paragraph, f"SEQ {label} \\* ARABIC", placeholder="1")
+
+
+_SEQ = re.compile(r"^\s*SEQ\s+(\S+)(.*)$", re.IGNORECASE)
+
+
+def renumber_seq(root) -> None:
+    """Cached SEQ results in document order (Figure 1, 2, 3…): what a reader that never updates fields shows.
+    Left alone when a counter uses switches that depend on the layout (\\s, \\c, \\h)."""
+    champs: list[tuple[str, str, Any]] = []
+    instruction, separe = None, False
+    for node in root.iter(qn("w:instrText"), qn("w:fldChar"), qn("w:t")):
+        if node.tag == qn("w:instrText"):
+            m = _SEQ.match(node.text or "")
+            instruction = (m.group(1), m.group(2)) if m else None
+        elif node.tag == qn("w:fldChar"):
+            kind = node.get(qn("w:fldCharType"))
+            separe = kind == "separate" and instruction is not None
+            if kind == "end":
+                instruction, separe = None, False
+        elif separe and instruction is not None:
+            champs.append((instruction[0], instruction[1], node))
+            instruction, separe = None, False          # the first text run carries the number
+    if any(re.search(r"\\[sch]\b", switches, re.IGNORECASE) for _, switches, _ in champs):
+        return
+    compteurs: dict[str, int] = {}
+    for label, switches, node in champs:
+        reprise = re.search(r"\\r\s*(\d+)", switches)
+        compteurs[label] = int(reprise.group(1)) if reprise else compteurs.get(label, 0) + 1
+        node.text = str(compteurs[label])
 
 
 def add_cross_reference(paragraph, bookmark: str, placeholder: str = "…") -> None:

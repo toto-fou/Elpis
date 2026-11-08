@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .commun import Env, OfficeError, canon, chemin_entree, ecrire, entier, indice_chemin, lire
 
@@ -62,6 +62,33 @@ def lire_pdf(pdf: bytes, demande: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(fini.stdout)
 
 
+_LEGENDE = re.compile(r"(?:Figure|Fig\.|Tableau|Table|Abbildung|Tabelle|Figura|Tabla|Tabella)\s+\d+[^\r\n]{0,60}")
+
+
+def blancs_de_pages(pdf: bytes) -> Optional[str]:
+    """Avertissement pour les pages qui finissent tôt parce que la figure suivante n'y tenait pas."""
+    try:
+        mesures = lire_pdf(pdf, {"blancs": True})["blancs"]
+    except OfficeError:
+        return None
+    bas = [m["bas"] for m in mesures if m["bas"] is not None]
+    alertes = []
+    for n, (m, suivante) in enumerate(zip(mesures, mesures[1:]), 1):
+        if m["bas"] is None or not suivante["figure"] or suivante["h"] != m["h"]:
+            continue                               # pas de figure en tête, ou changement d'orientation (section)
+        vide = max(m["bas"] - min(min(bas), 0.105 * m["h"]), m.get("trou") or 0) / 72 * 2.54
+        if vide < 0.18 * m["h"] / 72 * 2.54:
+            continue
+        legende = _LEGENDE.search(suivante["debut"] or "")
+        quoi = f"the figure or table «{legende.group(0).strip()}»" if legende else "the figure or table"
+        alertes.append(f"page {n} ends {vide:.1f} cm early: {quoi} at the top of page {n + 1} did not fit")
+    if not alertes:
+        return None
+    return ("; ".join(alertes[:5]) + (f" (+{len(alertes) - 5} more)" if len(alertes) > 5 else "")
+            + ". Make it smaller ({width=80%} right after the image or the chart !id) or move text, "
+              "then check with office_preview")
+
+
 def _rendre(pdf: bytes, pages: List[int]) -> Tuple[int, List[Dict[str, Any]]]:
     resultat = lire_pdf(pdf, {"pages": pages, "cote": COTE})
     total, rendus = resultat["total"], resultat["pages"]
@@ -93,6 +120,9 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     else:
         pdf, _ = pdf_du_fichier(env, rel, ext, numeroter=False)     # un seul rendu : l'aperçu reste rapide
     total, rendus = _rendre(pdf, pages)
+    blancs = blancs_de_pages(pdf) if ext == ".docx" else None
+    if blancs:
+        env.notes.warn(blancs)
     res: Dict[str, Any] = {
         "path": env.espace.afficher(rel), "pages": total,
         "shown": [{"page": r["page"], "size": r["size"], "text": r["text"]} for r in rendus],

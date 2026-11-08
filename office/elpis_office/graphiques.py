@@ -31,7 +31,8 @@ logger = logging.getLogger("uvicorn.error")
 # explicites plutôt que ``\b`` : « _!id_ » (italique Markdown) doit être reconnu
 # par REF comme par REF_SEULE, sinon le graphique n'est jamais préparé.
 REF = re.compile(r"(?<![0-9A-Za-z])!([0-9a-f]{12})(?![0-9A-Za-z])")
-REF_SEULE = re.compile(r"^\s*[`*_]*!([0-9a-f]{12})[`*_]*\s*$")
+# Seule sur sa ligne, avec des attributs facultatifs : « !a1b2c3d4e5f6{#fig:ca width=60%} ».
+REF_SEULE = re.compile(r"^\s*[`*_]*!([0-9a-f]{12})[`*_]*\s*(\{[^{}]*\})?\s*$")
 
 NATIFS = {"bar", "line", "area", "pie", "donut", "radar", "scatter", "bubble", "histogram"}
 

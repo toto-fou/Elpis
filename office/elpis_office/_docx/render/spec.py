@@ -70,6 +70,9 @@ class RunSpec(Base):
     footnote: str | None = Field(
         None, description="Attach a footnote whose text is this value, marked after this run."
     )
+    ref: str | None = Field(
+        None, description="Cross-reference: shows the text of this bookmark (e.g. 'Figure 2'), updated by Word."
+    )
 
 
 InlineText = Union[str, RunSpec]
@@ -188,6 +191,7 @@ class ImageBlock(Base):
     )
     width_cm: float | None = Field(default=None, gt=0, le=200)
     height_cm: float | None = Field(default=None, gt=0, le=200)
+    width_percent: float | None = Field(default=None, gt=0, le=100, description="Share of the text width.")
     align: str | None = "center"
     caption: str | None = None
     alt_text: str | None = None

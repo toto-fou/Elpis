@@ -344,7 +344,7 @@ def _write_run(context: BuildContext, paragraph, run_spec: S.RunSpec):
     # its blue-and-underlined default with "no formatting".
     formatting = {
         key: value
-        for key, value in run_spec.model_dump(exclude={"text", "link", "code", "footnote"}).items()
+        for key, value in run_spec.model_dump(exclude={"text", "link", "code", "footnote", "ref"}).items()
         if value is not None
     }
     if run_spec.code:
@@ -367,6 +367,8 @@ def _write_run(context: BuildContext, paragraph, run_spec: S.RunSpec):
 
     if run_spec.footnote:
         notes.add_footnote(context.document, paragraph, run_spec.footnote)
+    if run_spec.ref:
+        refs.add_cross_reference(context.document, paragraph, run_spec.ref)
     return run
 
 
@@ -667,10 +669,13 @@ def _as_text(value) -> str:
 
 def _image(context: BuildContext, block: S.ImageBlock):
     stream, pixel_size = image_io.resolve_image(block.source)
+    requested = context.content_width_cm() * block.width_percent / 100 if block.width_percent else block.width_cm
     width_cm, height_cm = image_io.fit_size(
-        pixel_size, block.width_cm, block.height_cm, context.content_width_cm()
+        pixel_size, requested, block.height_cm, context.content_width_cm()
     )
     paragraph = context.document.add_paragraph()
+    if block.caption:
+        paragraph.paragraph_format.keep_with_next = True  # the caption never starts the next page alone
     run = paragraph.add_run()
     run.add_picture(
         stream,
@@ -734,6 +739,8 @@ def _chart(context: BuildContext, block: S.ChartBlock):
     )
     paragraph = chart_ooxml.add_native_chart(context.document, request)
     align_paragraph(paragraph, "center")
+    if block.caption:
+        paragraph.paragraph_format.keep_with_next = True
 
     if len(block.series) > len(context.palette()):
         context.note(

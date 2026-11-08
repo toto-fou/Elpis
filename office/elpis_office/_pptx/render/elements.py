@@ -831,53 +831,6 @@ def _cell_borders(ctx, cell, element, is_header: bool) -> None:
     )
 
 
-def render_shape_element(ctx: RenderContext, slide, element: S.ShapeElement, frame: Frame):
-    theme = ctx.theme
-    if str(element.shape).lower() == "line":
-        border_color = element.border.color if element.border else None
-        return add_rule(ctx, slide, frame, element.fill or border_color or theme.border)
-    kind = SHAPE_TYPES.get(str(element.shape).lower())
-    if kind is None:
-        raise InvalidSpec(
-            f"Unknown shape {element.shape!r}. Use one of: {', '.join(sorted(SHAPE_TYPES))}."
-        )
-    box = new_shape(slide, kind, frame)
-    if kind == MSO_SHAPE.ROUNDED_RECTANGLE:
-        shape_ooxml.set_adjustment(box, 0, element.radius if element.radius is not None else 0.055)
-    fill = element.fill or theme.accent
-    if element.gradient:
-        shape_ooxml.gradient_fill(box, element.gradient, angle_deg=element.gradient_angle)
-    else:
-        shape_ooxml.solid_fill(box, fill)
-    if element.border and element.border.color:
-        shape_ooxml.outline(box, element.border.color, element.border.width_pt, element.border.dash)
-    else:
-        shape_ooxml.no_outline(box)
-    if element.shadow:
-        shape_ooxml.soft_shadow(box)
-    else:
-        shape_ooxml.no_shadow(box)
-    if element.rotation:
-        box.rotation = float(element.rotation)
-
-    if element.text or element.runs:
-        text_frame = box.text_frame
-        text_frame.word_wrap = True
-        text_ooxml.set_insets(text_frame, cm(0.2), cm(0.12), cm(0.2), cm(0.12))
-        text_frame.vertical_anchor = anchor(element.valign or "middle")
-        bullet = S.BulletSpec(runs=list(element.runs)) if element.runs else S.BulletSpec(text=element.text)
-        write_paragraph(
-            ctx, slide, text_frame.paragraphs[0], bullet,
-            size_pt=element.font_size_pt or theme.pt("small"),
-            color=element.text_color or theme.on(element.gradient[0] if element.gradient else fill),
-            font=theme.body_font,
-            bold=element.bold if element.bold is not None else True,
-            align=element.align or "center",
-        )
-        text_ooxml.set_autofit(text_frame, "shrink")
-    return box
-
-
 def render_kpi_element(ctx: RenderContext, slide, element: S.KpiElement, frame: Frame):
     items = list(element.items)
     if not items:
@@ -984,8 +937,6 @@ def render_timeline_element(ctx: RenderContext, slide, element: S.TimelineElemen
     milestones = list(element.milestones)
     if not milestones:
         raise InvalidSpec("A timeline needs at least one milestone.")
-    if element.orientation == "vertical":
-        return _timeline_vertical(ctx, slide, frame, milestones)
     return _timeline_horizontal(ctx, slide, frame, milestones)
 
 
@@ -1033,60 +984,14 @@ def _timeline_horizontal(ctx: RenderContext, slide, frame: Frame, milestones):
     return slide.shapes[-1]
 
 
-def _timeline_vertical(ctx: RenderContext, slide, frame: Frame, milestones):
-    theme = ctx.theme
-    axis_x = frame.x + cm(0.95)
-    spine = new_shape(slide, MSO_SHAPE.RECTANGLE,
-                      Frame(axis_x, frame.y, cm(0.055), frame.h))
-    shape_ooxml.solid_fill(spine, theme.border)
-    shape_ooxml.no_outline(spine)
-    shape_ooxml.no_shadow(spine)
-
-    rows = frame.rows(len(milestones), int(ctx.gap * 0.5))
-    dot = cm(0.34)
-    for milestone, row in zip(milestones, rows):
-        marker = new_shape(
-            slide, MSO_SHAPE.OVAL,
-            Frame(axis_x - dot // 2 + cm(0.028), row.y + cm(0.18), dot, dot),
-        )
-        shape_ooxml.solid_fill(marker, theme.accent if milestone.done else theme.background)
-        shape_ooxml.outline(marker, theme.accent, 1.75)
-        shape_ooxml.no_shadow(marker)
-
-        bullets = []
-        if milestone.date:
-            bullets.append(S.BulletSpec(runs=[S.RunSpec(
-                text=milestone.date, color=theme.accent, bold=True,
-                size_pt=theme.pt("caption"), caps="all", letter_spacing_pt=0.8,
-            )]))
-        bullets.append(S.BulletSpec(runs=[S.RunSpec(text=milestone.title, bold=True)],
-                                    space_before_pt=2 if bullets else 0))
-        if milestone.text:
-            bullets.append(S.BulletSpec(
-                runs=[S.RunSpec(text=milestone.text, color=theme.muted)], space_before_pt=2
-            ))
-        add_textbox(
-            ctx, slide, Frame(axis_x + cm(0.65), row.y, frame.right - axis_x - cm(0.65), row.h),
-            bullets,
-            size_pt=theme.pt("small"),
-            color=theme.text,
-            valign="middle",
-            line_spacing=1.12,
-        )
-    return spine
-
-
 def render_process_element(ctx: RenderContext, slide, element: S.ProcessElement, frame: Frame):
     steps = list(element.steps)
     if not steps:
         raise InvalidSpec("A process needs at least one step.")
     theme = ctx.theme
 
-    if element.style == "numbered":
-        return _process_numbered(ctx, slide, frame, steps)
-
-    overlap = cm(0.28) if element.style == "chevron" else int(ctx.gap * 0.6)
-    kind = MSO_SHAPE.CHEVRON if element.style == "chevron" else MSO_SHAPE.PENTAGON
+    overlap = cm(0.28)
+    kind = MSO_SHAPE.CHEVRON
     band_h = min(frame.h, cm(2.35))
     band = Frame(frame.x, frame.y, frame.w, band_h)
     count = len(steps)
@@ -1124,94 +1029,6 @@ def render_process_element(ctx: RenderContext, slide, element: S.ProcessElement,
     return slide.shapes[-1]
 
 
-def _process_numbered(ctx: RenderContext, slide, frame: Frame, steps):
-    theme = ctx.theme
-    columns = frame.columns(len(steps), ctx.gap)
-    badge = cm(1.05)
-    for index, (step, column) in enumerate(zip(steps, columns), start=1):
-        circle = new_shape(slide, MSO_SHAPE.OVAL, Frame(column.x, column.y, badge, badge))
-        shape_ooxml.solid_fill(circle, theme.accent)
-        shape_ooxml.no_outline(circle)
-        shape_ooxml.no_shadow(circle)
-        text_frame = circle.text_frame
-        text_frame.vertical_anchor = anchor("middle")
-        text_ooxml.set_insets(text_frame, 0, 0, 0, 0)
-        write_paragraph(
-            ctx, slide, text_frame.paragraphs[0],
-            S.BulletSpec(runs=[S.RunSpec(text=str(index), bold=True)]),
-            size_pt=theme.pt("small") + 1, color=theme.on_accent, font=theme.heading_font,
-            align="center",
-        )
-        bullets = [S.BulletSpec(runs=[S.RunSpec(text=step.title, bold=True)])]
-        if step.text:
-            bullets.append(S.BulletSpec(
-                runs=[S.RunSpec(text=step.text, color=theme.muted)], space_before_pt=3
-            ))
-        top = column.y + badge + int(ctx.gap * 0.5)
-        add_textbox(
-            ctx, slide, Frame(column.x, top, column.w, max(cm(1.0), column.bottom - top)),
-            bullets,
-            size_pt=theme.pt("small"), color=theme.text, valign="top", line_spacing=1.12,
-        )
-    return slide.shapes[-1]
-
-
-def render_placeholder_element(ctx: RenderContext, slide, element: S.PlaceholderElement,
-                               frame: Frame):
-    placeholder = find_placeholder(slide, idx=element.idx, name=element.name)
-    if placeholder is None:
-        raise InvalidSpec(
-            f"No placeholder {element.idx if element.idx is not None else element.name!r} on this "
-            "slide: use a layout from pptx_create's list instead."
-        )
-    if element.image:
-        return fill_placeholder(ctx, slide, placeholder, {"image": element.image})
-    value: Any = element.text if element.text is not None else [
-        b.model_dump() if isinstance(b, S.BulletSpec) else b for b in element.bullets
-    ]
-    return fill_placeholder(ctx, slide, placeholder, value)
-
-
-def find_placeholder(slide, idx: int | None = None, name: str | None = None):
-    for placeholder in slide.placeholders:
-        if idx is not None and placeholder.placeholder_format.idx == idx:
-            return placeholder
-        if name and (placeholder.name or "").strip().lower() == str(name).strip().lower():
-            return placeholder
-    return None
-
-
-def fill_placeholder(ctx: RenderContext, slide, placeholder, value):
-    """Put a string, a bullet list or an image into a template placeholder."""
-    if isinstance(value, dict) and value.get("image"):
-        resolved = image_io.resolve_image(value["image"])
-        return placeholder.insert_picture(resolved.rewound())
-    if isinstance(value, str):
-        items = [S.BulletSpec(text=value)]
-        bullet_kind = "none"
-    else:
-        items = normalise_bullets(value or [])
-        bullet_kind = "inherit"
-
-    text_frame = placeholder.text_frame
-    text_frame.clear()
-    for index, item in enumerate(items):
-        paragraph = text_frame.paragraphs[0] if index == 0 else text_frame.add_paragraph()
-        paragraph.level = min(max(int(item.level or 0), 0), 4)
-        runs = item.runs or [S.RunSpec(text=bullet_text(item))]
-        for run_spec in runs:
-            run = paragraph.add_run()
-            run.text = run_spec.text or ""
-            # The layout's own text styles decide size and colour; only explicit
-            # overrides are applied, so the corporate look survives.
-            apply_run_format(run, ctx.theme, run_spec)
-            if run_spec.link:
-                set_link(ctx, slide, run, run_spec.link)
-        if bullet_kind == "none":
-            text_ooxml.set_bullet(paragraph, "none")
-    return placeholder
-
-
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -1221,11 +1038,9 @@ _RENDERERS = {
     S.ImageElement: render_image_element,
     S.ChartElement: render_chart_element,
     S.TableElement: render_table_element,
-    S.ShapeElement: render_shape_element,
     S.KpiElement: render_kpi_element,
     S.TimelineElement: render_timeline_element,
     S.ProcessElement: render_process_element,
-    S.PlaceholderElement: render_placeholder_element,
 }
 
 

@@ -16,7 +16,6 @@ from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .util import (
     CSLD_ORDER,
-    SLD_ORDER,
     drop,
     frag,
     insert_in_order,
@@ -31,20 +30,6 @@ R_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 #: Relationships that belong to the *slide's identity*, not its content — a clone
 #: gets its own, so they must not be copied across.
 _NON_CONTENT_RELS = {RT.SLIDE_LAYOUT, RT.NOTES_SLIDE}
-
-TRANSITIONS = {
-    "none": None,
-    "fade": "<p:fade/>",
-    "cut": "<p:cut/>",
-    "dissolve": "<p:dissolve/>",
-    "push": '<p:push dir="u"/>',
-    "wipe": '<p:wipe dir="r"/>',
-    "split": '<p:split orient="horz" dir="out"/>',
-    "cover": '<p:cover dir="d"/>',
-    "zoom": '<p:zoom dir="in"/>',
-}
-
-_SPEEDS = {"slow": "slow", "medium": "med", "med": "med", "fast": "fast"}
 
 
 # ---------------------------------------------------------------------------
@@ -69,36 +54,6 @@ def iter_layouts(presentation) -> Iterable[tuple[int, Any]]:
         for layout in master.slide_layouts:
             yield index, layout
             index += 1
-
-
-def find_layout(presentation, wanted: str | int | None):
-    """Resolve a layout by flat index, exact name, or case-insensitive name.
-
-    Corporate templates name their layouts ("Titre de section", "1_Contenu"), so
-    a name is the only stable reference across template revisions.
-    """
-    layouts = list(iter_layouts(presentation))
-    if wanted is None:
-        return None
-    if isinstance(wanted, int) or (isinstance(wanted, str) and wanted.strip().isdigit()):
-        position = int(wanted)
-        for index, layout in layouts:
-            if index == position:
-                return layout
-        raise KeyError(
-            f"Layout index {position} does not exist — this presentation has "
-            f"{len(layouts)} layouts (0..{len(layouts) - 1})."
-        )
-    text = str(wanted).strip()
-    for _, layout in layouts:
-        if layout.name == text:
-            return layout
-    lowered = text.lower()
-    for _, layout in layouts:
-        if (layout.name or "").lower() == lowered:
-            return layout
-    names = ", ".join(repr(layout.name) for _, layout in layouts)
-    raise KeyError(f"No layout named {text!r}. Available layouts: {names}.")
 
 
 def blank_layout(presentation):
@@ -242,77 +197,19 @@ def _remap_relationship_ids(element, mapping: dict[str, str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def set_background(slide, color: str | None = None, gradient: list[str] | None = None,
-                   angle_deg: float = 90.0) -> None:
-    """Paint the slide background, or clear it back to the master's."""
+def set_background(slide, color: str) -> None:
+    """Paint the slide background with a solid colour."""
     c_sld = slide._element.find(qn("p:cSld"))
     drop(c_sld, "p:bg")
-    if not color and not gradient:
-        return
-    if gradient:
-        stops = list(gradient)
-        if len(stops) == 1:
-            stops.append(stops[0])
-        pieces = "".join(
-            f'<a:gs pos="{int(round(i / (len(stops) - 1) * 100000))}">'
-            f'<a:srgbClr val="{parse_color(stop)}"/></a:gs>'
-            for i, stop in enumerate(stops)
-        )
-        fill = (
-            f'<a:gradFill rotWithShape="1"><a:gsLst>{pieces}</a:gsLst>'
-            f'<a:lin ang="{int(round(angle_deg * 60000)) % 21600000}" scaled="0"/></a:gradFill>'
-        )
-    else:
-        fill = f'<a:solidFill><a:srgbClr val="{parse_color(color)}"/></a:solidFill>'
+    fill = f'<a:solidFill><a:srgbClr val="{parse_color(color)}"/></a:solidFill>'
     insert_in_order(c_sld, frag(
         f"<p:bg {P_NS} {A_NS}><p:bgPr>{fill}<a:effectLst/></p:bgPr></p:bg>"
     ), CSLD_ORDER)
 
 
-def set_transition(slide, kind: str = "fade", speed: str = "medium") -> None:
-    element = slide._element
-    drop(element, "p:transition")
-    body = TRANSITIONS.get(str(kind).lower().strip())
-    if body is None:
-        return
-    insert_in_order(element, frag(
-        f'<p:transition {P_NS} spd="{_SPEEDS.get(str(speed).lower(), "med")}">{body}</p:transition>'
-    ), SLD_ORDER)
-
-
 def set_notes(slide, text: str) -> None:
     """Speaker notes. Creating the notes slide lazily is what python-pptx does too."""
     slide.notes_slide.notes_text_frame.text = text or ""
-
-
-def set_name(slide, name: str) -> None:
-    """Name the slide, which is what the PowerPoint outline and selection pane show."""
-    c_sld = slide._element.find(qn("p:cSld"))
-    c_sld.set("name", name)
-
-
-def clone_footer_placeholders(slide) -> int:
-    """Bring the layout's footer / date / slide-number placeholders onto the slide.
-
-    python-pptx clones only content placeholders, so a slide built from a
-    corporate layout arrives without the branded footer the layout defines. This
-    copies the three furniture placeholders across, which is what PowerPoint does
-    when "Footer" is ticked in the Header & Footer dialog.
-    """
-    layout = slide.slide_layout
-    # Footer and slide number only. A layout's date placeholder carries whatever
-    # static date the template was saved with, which is never the right one.
-    wanted = {13, 15}  # SLIDE_NUMBER, FOOTER
-    existing = {ph.placeholder_format.idx for ph in slide.placeholders}
-    tree = slide.shapes._spTree
-    added = 0
-    for placeholder in layout.placeholders:
-        fmt = placeholder.placeholder_format
-        if int(fmt.type) not in wanted or fmt.idx in existing:
-            continue
-        tree.append(copy.deepcopy(placeholder._element))
-        added += 1
-    return added
 
 
 def enable_header_footer(presentation, slide_number: bool = True, footer: bool = True,

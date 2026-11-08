@@ -53,7 +53,6 @@ __all__ = [
     "RPR_ORDER",
     "SPPR_ORDER",
     "CSLD_ORDER",
-    "SLD_ORDER",
     "TC_PR_ORDER",
 ]
 
@@ -162,8 +161,6 @@ SPPR_ORDER = (
 )
 #: CT_CommonSlideData
 CSLD_ORDER = ("bg", "spTree", "custDataLst", "controls", "extLst")
-#: CT_Slide
-SLD_ORDER = ("cSld", "clrMapOvr", "transition", "timing", "extLst")
 #: CT_TableCellProperties — the border elements are a strict sequence.
 TC_PR_ORDER = (
     "lnL", "lnR", "lnT", "lnB", "lnTlToBr", "lnBlToTr", "cell3D",
@@ -372,5 +369,3 @@ def anchor(value: str | None) -> MSO_ANCHOR | None:
 # ---------------------------------------------------------------------------
 # DrawingML fragments
 # ---------------------------------------------------------------------------
-
-A_NS_DECL = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'

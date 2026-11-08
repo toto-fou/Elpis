@@ -340,31 +340,6 @@ class TableElement(ElementBase):
         return self
 
 
-class ShapeElement(ElementBase):
-    type: Literal["shape"]
-    shape: str = Field(
-        "rounded_rect",
-        description=(
-            "rect, rounded_rect, oval, chevron, arrow, pentagon, triangle, diamond, "
-            "star, plaque, line, callout."
-        ),
-    )
-    text: str | None = None
-    runs: list[RunSpec] = Field(default_factory=list)
-    fill: str | None = None
-    gradient: list[str] | None = None
-    gradient_angle: float = 90.0
-    border: BorderSpec | None = None
-    text_color: str | None = None
-    font_size_pt: float | None = None
-    bold: bool | None = None
-    align: str | None = "center"
-    valign: Literal["top", "middle", "bottom"] | None = "middle"
-    rotation: float | None = None
-    shadow: bool = False
-    radius: float | None = Field(None, ge=0, le=0.5)
-
-
 class KpiElement(ElementBase):
     type: Literal["kpi", "metrics", "stats"]
     items: list[KpiSpec] = Field(default_factory=list)
@@ -375,30 +350,17 @@ class KpiElement(ElementBase):
 class TimelineElement(ElementBase):
     type: Literal["timeline"]
     milestones: list[MilestoneSpec] = Field(default_factory=list)
-    orientation: Literal["horizontal", "vertical"] = "horizontal"
 
 
 class ProcessElement(ElementBase):
     type: Literal["process", "steps"]
     steps: list[StepSpec] = Field(default_factory=list)
-    style: Literal["chevron", "arrow", "numbered"] = "chevron"
-
-
-class PlaceholderElement(ElementBase):
-    """Fill a placeholder of the slide's own layout — the corporate-template path."""
-
-    type: Literal["placeholder"]
-    idx: int | None = Field(None, description="Placeholder index, from pptx_layouts.")
-    name: str | None = Field(None, description="Placeholder name, if you prefer it to idx.")
-    text: str | None = None
-    bullets: list[Bullet] = Field(default_factory=list)
-    image: str | None = None
 
 
 Element = Annotated[
     Union[
-        TextElement, ImageElement, ChartElement, TableElement, ShapeElement,
-        KpiElement, TimelineElement, ProcessElement, PlaceholderElement,
+        TextElement, ImageElement, ChartElement, TableElement, KpiElement, TimelineElement,
+        ProcessElement,
     ],
     Field(discriminator="type"),
 ]
@@ -414,19 +376,6 @@ Content = Union[str, list[Bullet], Element]
 
 class SlideBase(Base):
     notes: str | None = Field(None, description="Speaker notes — the words, not the slide.")
-    background: str | None = None
-    background_gradient: list[str] | None = None
-    background_image: str | None = None
-    background_image_dim: float = Field(
-        0.45, ge=0, le=1, description="Darkening applied over a background image so text stays legible."
-    )
-    hide_footer: bool = False
-    transition: str | None = Field(None, description="none, fade, cut, dissolve, push, wipe, split, cover, zoom.")
-    name: str | None = Field(None, description="Slide name, shown in the PowerPoint outline.")
-    layout_name: str | None = Field(
-        None,
-        description="Build on this layout of the template instead of a blank one, by name or index.",
-    )
     elements: list[Element] = Field(
         default_factory=list, description="Extra elements drawn on top, with their own frames."
     )
@@ -438,16 +387,12 @@ class TitleSlide(SlideBase):
     subtitle: str | None = None
     author: str | None = None
     date: str | None = None
-    logo: str | None = None
-    variant: Literal["left", "centered", "band"] = "left"
 
 
 class SectionSlide(SlideBase):
     layout: Literal["section", "divider"]
     title: str = ""
     subtitle: str | None = None
-    number: str | None = Field(None, description="Section number shown large behind the title, e.g. '02'.")
-    variant: Literal["band", "full", "left"] = "band"
 
 
 class BulletsSlide(SlideBase):
@@ -457,10 +402,7 @@ class BulletsSlide(SlideBase):
     bullets: list[Bullet] = Field(default_factory=list)
     text: str | None = Field(None, description="Prose instead of bullets. Use one or the other.")
     numbered: bool = False
-    columns: int = Field(1, ge=1, le=3)
     image: str | None = Field(None, description="Illustration beside the text.")
-    image_position: Literal["left", "right"] = "right"
-    image_ratio: float = Field(0.42, gt=0.15, lt=0.75, description="Share of the width the image takes.")
     takeaway: str | None = Field(None, description="The one line the audience should leave with.")
 
 
@@ -472,7 +414,6 @@ class TwoContentSlide(SlideBase):
     right: Content | None = None
     left_title: str | None = None
     right_title: str | None = None
-    ratio: float = Field(0.5, gt=0.15, lt=0.85, description="Share of the width the left side takes.")
     takeaway: str | None = None
 
 
@@ -483,7 +424,6 @@ class ImageSlide(SlideBase):
     image: str = ""
     caption: str | None = None
     text: str | None = None
-    variant: Literal["full_bleed", "fit", "split"] = "fit"
     fit: Literal["contain", "cover"] = "cover"
 
 
@@ -514,8 +454,6 @@ class KpiSlide(SlideBase):
     title: str | None = None
     kicker: str | None = None
     items: list[KpiSpec] = Field(default_factory=list)
-    columns: int | None = Field(None, ge=1, le=6)
-    style: Literal["tile", "plain", "outline"] = "tile"
     bullets: list[Bullet] = Field(default_factory=list)
     takeaway: str | None = None
     chart: ChartElement | None = Field(None, description="A chart under the tiles, if the numbers need a shape.")
@@ -535,7 +473,6 @@ class TimelineSlide(SlideBase):
     title: str | None = None
     kicker: str | None = None
     milestones: list[MilestoneSpec] = Field(default_factory=list)
-    orientation: Literal["horizontal", "vertical"] = "horizontal"
     takeaway: str | None = None
 
 
@@ -544,7 +481,6 @@ class ProcessSlide(SlideBase):
     title: str | None = None
     kicker: str | None = None
     steps: list[StepSpec] = Field(default_factory=list)
-    style: Literal["chevron", "arrow", "numbered"] = "chevron"
     takeaway: str | None = None
 
 
@@ -553,7 +489,6 @@ class AgendaSlide(SlideBase):
     title: str | None = "Agenda"
     kicker: str | None = None
     items: list[Bullet] = Field(default_factory=list)
-    active: int | None = Field(None, description="0-based index to highlight, for a per-section agenda.")
 
 
 class QuoteSlide(SlideBase):
@@ -561,7 +496,6 @@ class QuoteSlide(SlideBase):
     text: str = ""
     author: str | None = None
     role: str | None = None
-    variant: Literal["centered", "left"] = "centered"
 
 
 class ClosingSlide(SlideBase):
@@ -569,7 +503,6 @@ class ClosingSlide(SlideBase):
     title: str = "Merci"
     subtitle: str | None = None
     contact: list[str] = Field(default_factory=list)
-    logo: str | None = None
 
 
 class BlankSlide(SlideBase):
@@ -578,24 +511,11 @@ class BlankSlide(SlideBase):
     kicker: str | None = None
 
 
-class TemplateSlide(SlideBase):
-    """A slide built on a corporate layout, filling its placeholders."""
-
-    layout: Literal["template", "placeholder"]
-    placeholders: dict[str, Any] = Field(
-        default_factory=dict,
-        description=(
-            "Placeholder index or name → value. A string fills the text; a list of strings "
-            "fills it as bullets; {\"image\": \"...\"} inserts a picture."
-        ),
-    )
-
-
 Slide = Annotated[
     Union[
         TitleSlide, SectionSlide, BulletsSlide, TwoContentSlide, ImageSlide, ChartSlide,
         TableSlide, KpiSlide, ComparisonSlide, TimelineSlide, ProcessSlide, AgendaSlide,
-        QuoteSlide, ClosingSlide, BlankSlide, TemplateSlide,
+        QuoteSlide, ClosingSlide, BlankSlide,
     ],
     Field(discriminator="layout"),
 ]
@@ -608,12 +528,7 @@ Slide = Annotated[
 
 class MetaSpec(Base):
     title: str | None = None
-    subject: str | None = None
     author: str | None = None
-    keywords: str | None = None
-    category: str | None = None
-    comments: str | None = None
-    company: str | None = None
 
 
 class ThemeSpec(Base):
@@ -641,22 +556,6 @@ class ThemeSpec(Base):
             "small, caption, footer, kpi_value, kpi_label, quote."
         ),
     )
-    source: Literal["template", "preset"] | None = Field(
-        None,
-        description=(
-            "Where the design tokens come from. Defaults to 'template' when a template is "
-            "given — its accents and fonts drive the composed layouts, so a KPI slide matches "
-            "the brand — and 'preset' otherwise. Anything you set explicitly always wins."
-        ),
-    )
-    write_to_master: bool = Field(
-        True,
-        description=(
-            "Push the accent colours and fonts into the theme part, so shapes a human adds "
-            "later inherit the brand. Defaults to false when a template is given: overwriting "
-            "the accents of the brand you were handed is exactly backwards."
-        ),
-    )
 
 
 class SizeSpec(Base):
@@ -668,13 +567,6 @@ class SizeSpec(Base):
 class FooterSpec(Base):
     text: str | None = Field(None, description="Left-hand text — company, document title, classification.")
     slide_numbers: bool = True
-    show_on_title: bool = Field(False, description="Title and section slides normally carry no furniture.")
-    logo: str | None = Field(None, description="Small logo at the right of the footer band.")
-    rule: bool = Field(False, description="Hairline above the footer.")
-    color: str | None = None
-    confidentiality: str | None = Field(
-        None, description="Centred classification marking, e.g. 'Confidentiel — usage interne'."
-    )
 
 
 class DeckSpec(Base):
@@ -693,13 +585,6 @@ class DeckSpec(Base):
             "Normally a catalogue name from pptx_templates ('acme-corporate'); a path inside an "
             "allowed directory or a base64 payload also work. .potx, .ppsx and macro-enabled "
             "files are accepted — macros are dropped."
-        ),
-    )
-    template_slides: Literal["strip", "keep"] = Field(
-        "strip",
-        description=(
-            "What to do with the slides the template ships with. 'strip' (default) removes the "
-            "example and instruction slides a house template carries; 'keep' builds after them."
         ),
     )
     footer: FooterSpec | None = None

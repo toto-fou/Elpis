@@ -231,26 +231,6 @@ def set_alt_text(shape, text: str) -> None:
     c_nv_pr.set("descr", text)
 
 
-def send_to_back(shape) -> None:
-    """Move behind every sibling — but after ``p:nvGrpSpPr``/``p:grpSpPr``,
-    which must stay the first two children of a shape tree."""
-    element = shape._element
-    parent = element.getparent()
-    if parent is None:
-        return
-    parent.remove(element)
-    anchor = None
-    for child in parent:
-        if child.tag in (qn("p:nvGrpSpPr"), qn("p:grpSpPr")):
-            anchor = child
-            continue
-        break
-    if anchor is None:
-        parent.insert(0, element)
-    else:
-        anchor.addnext(element)
-
-
 def set_adjustment(shape, index: int, value: float) -> None:
     """Autoshape adjustment handle, e.g. the corner radius of a rounded rectangle."""
     try:

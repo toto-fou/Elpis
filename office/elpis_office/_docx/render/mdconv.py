@@ -165,6 +165,7 @@ def _parse_table(tokens, index: int) -> tuple[S.TableBlock | None, int]:
     rows: list[list[Any]] = []
     current: list[Any] | None = None
     in_header = False
+    align: str | None = None
     cursor = index + 1
 
     while cursor < len(tokens):
@@ -182,12 +183,17 @@ def _parse_table(tokens, index: int) -> tuple[S.TableBlock | None, int]:
             if current is not None:
                 (header.extend(current) if in_header and not header else rows.append(current))
             current = None
+        elif token.type in ("th_open", "td_open"):
+            style = str(token.attrGet("style") or "")
+            align = style.split(":", 1)[1].strip() if style.startswith("text-align:") else None
         elif token.type == "inline" and current is not None:
             runs = _inline_runs(token)
-            current.append(
-                S.CellSpec(runs=runs) if len(runs) > 1 or (runs and _is_formatted(runs[0]))
-                else (runs[0].text if runs else "")
-            )
+            if len(runs) > 1 or (runs and _is_formatted(runs[0])):
+                current.append(S.CellSpec(runs=runs, align=align))
+            elif align:
+                current.append(S.CellSpec(text=runs[0].text if runs else "", align=align))
+            else:
+                current.append(runs[0].text if runs else "")
         cursor += 1
 
     if not header and not rows:

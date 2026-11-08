@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import copy
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 from docx.oxml.parser import register_element_cls
 from docx.oxml.text.paragraph import CT_P
@@ -353,44 +353,72 @@ def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
 
 
 _TR, _TC, _TC_PR, _GRID_SPAN, _V_MERGE, _VAL = (qn(f"w:{tag}") for tag in ("tr", "tc", "tcPr", "gridSpan", "vMerge", "val"))
+_TR_PR, _GRID_BEFORE = qn("w:trPr"), qn("w:gridBefore")
+_ORPHELINE = object()
+_LARGEUR_MAX = 1024
+
+
+def _val(element, defaut: int) -> int:
+    try:
+        return int(element.get(_VAL)) if element is not None else defaut
+    except (TypeError, ValueError):
+        return defaut
+
+
+def _rangees(table, fin: int | None = None) -> Iterator[tuple[Any, list[tuple[Any, Any, int]]]]:
+    """Par rangée, en une passe : (tr, [(tc, case qui porte son contenu, sa largeur)]) ; une suite de fusion sans départ au-dessus porte le sien."""
+    dessus: dict[int, tuple[Any, int]] = {}
+    for n, tr in enumerate(table._tbl.iterchildren(_TR)):
+        if fin is not None and n >= fin:
+            return
+        proprietes = tr.find(_TR_PR)
+        decalage = max(0, _val(proprietes.find(_GRID_BEFORE) if proprietes is not None else None, 0))
+        ici: dict[int, tuple[Any, int]] = {}
+        cases = []
+        for tc in tr.iterchildren(_TC):
+            proprietes = tc.find(_TC_PR)
+            largeur = min(_LARGEUR_MAX, max(1, _val(proprietes.find(_GRID_SPAN) if proprietes is not None else None, 1)))
+            fusion = proprietes.find(_V_MERGE) if proprietes is not None else None
+            suite = fusion is not None and fusion.get(_VAL, "continue") == "continue"
+            racine = dessus.get(decalage, (_ORPHELINE, largeur)) if suite else (tc, largeur)
+            ici[decalage] = racine
+            cases.append((tc, tc, largeur) if racine[0] is _ORPHELINE else (tc, *racine))
+            decalage += largeur
+        dessus = ici
+        yield tr, cases
+
+
+def table_rows(table, debut: int = 0, fin: int | None = None) -> list[list[Any]]:
+    """``row.cells`` de chaque rangée de ``debut`` à ``fin`` (exclue), en une passe et sans ValueError."""
+    from docx.table import _Cell
+
+    return [[c for _, source, largeur in cases for c in [_Cell(source, table)] * largeur]
+            for n, (_, cases) in enumerate(_rangees(table, fin)) if n >= debut]
 
 
 def row_cells(row) -> list[Any]:
     """``row.cells`` de python-docx, sans ValueError : une suite de fusion verticale sans départ au-dessus est sa propre case."""
     from docx.table import _Cell
 
-    cells: list[Any] = []
-    for tc in row._tr.tc_lst:
-        source = tc
-        try:
-            while source.vMerge == "continue":
-                source = source._tc_above
-        except ValueError:
-            source = tc
-        cells += [_Cell(source, row.table)] * source.grid_span
-    return cells
+    for tr, cases in _rangees(row.table):
+        if tr is row._tr:
+            return [c for _, source, largeur in cases for c in [_Cell(source, row.table)] * largeur]
+    return []
 
 
 def _iter_table(table, base: dict[str, Any]) -> Iterable[tuple[dict[str, Any], Any]]:
-    """Paragraphes de chaque cellule à sa première colonne, comme ``row.cells`` sans un objet par case ; une fusion verticale est lue à son départ (une suite sans départ au-dessus est lue comme une case)."""
+    """Paragraphes de chaque case qui porte son contenu, à sa première colonne de ``row.cells`` (même passe que la lecture)."""
     from docx.table import _Cell
     from docx.text.paragraph import Paragraph
 
-    dessus: set[int] = set()
-    for row_index, tr in enumerate(table._tbl.iterchildren(_TR)):
-        column, fusions = 0, set()
-        for tc in tr.iterchildren(_TC):
-            properties = tc.find(_TC_PR)
-            span = properties.find(_GRID_SPAN) if properties is not None else None
-            merge = properties.find(_V_MERGE) if properties is not None else None
-            if merge is not None:
-                fusions.add(column)
-            if merge is None or merge.get(_VAL, "continue") != "continue" or column not in dessus:
+    for row_index, (_, cases) in enumerate(_rangees(table)):
+        column = 0
+        for tc, source, largeur in cases:
+            if source is tc:
                 cell = _Cell(tc, table)
                 for paragraph in tc.iterchildren(_P):
                     yield {**base, "row": row_index, "column": column}, Paragraph(paragraph, cell)
-            column += int(span.get(_VAL)) if span is not None else 1
-        dessus = fusions
+            column += largeur
 
 
 def _stories(section) -> Iterable[tuple[str, Any]]:

@@ -897,7 +897,7 @@ def _sommaire(paragraphes: List[Paragraph], debut: int, fin: int, instruction: s
 def _decrire_tableau(t: Any, k: int, apres: int) -> Dict[str, Any]:
     rangees = list(t.rows)
     item: Dict[str, Any] = {"table": k, "after_p": apres, "size": f"{len(rangees)}x{len(t.columns)}",
-                            "rows": [[c.text.strip()[:200] for c in docio.row_cells(row)] for row in rangees[:LIGNES_LUES]]}
+                            "rows": [[c.text.strip()[:200] for c in cases] for cases in docio.table_rows(t, 0, LIGNES_LUES)]}
     if len(rangees) > LIGNES_LUES:
         item["more_rows"] = (f"rows {LIGNES_LUES} to {len(rangees) - 1}: docx_read with table={k}, "
                              f"start={LIGNES_LUES}")
@@ -916,7 +916,7 @@ def _lire_tableau(env: Env, rel: str, a: Dict[str, Any], tableaux: List[Any]) ->
     nb = min(max(1, entier(a.get("limit")) or 100), 500)
     res: Dict[str, Any] = {"path": env.espace.afficher(rel), "table": k,
                            "size": f"{len(rangees)}x{len(tableaux[k].columns)}", "first_row": debut,
-                           "rows": [[c.text.strip()[:200] for c in docio.row_cells(row)] for row in rangees[debut:debut + nb]]}
+                           "rows": [[c.text.strip()[:200] for c in cases] for cases in docio.table_rows(tableaux[k], debut, debut + nb)]}
     if debut + nb < len(rangees):
         res["next_start"] = debut + nb
         res["note"] = f"more rows: call docx_read again with table={k}, start={debut + nb}"
@@ -1267,6 +1267,8 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
             vals = [vals]
         import copy
         nouvelle = copy.deepcopy(lignes[-1]._tr)
+        for fusion in nouvelle.iter(qn("w:vMerge")):
+            fusion.getparent().remove(fusion)
         apres = entier(c.get("after"))
         if apres is not None:
             _, ref = lot.ligne(i, nom, k, t, apres)
@@ -1305,6 +1307,10 @@ def _ecrire_paragraphe(document: Any, par: Paragraph, valeur: str) -> None:
 
 def _ecrire_cellule(document: Any, cel, valeur: str) -> None:
     pars = cel.paragraphs
+    if not pars:                                    # case de formulaire : son paragraphe est dans un contrôle de contenu
+        from docx.text.paragraph import Paragraph
+        dans = next((x for sdt in cel._tc.iterchildren(qn("w:sdt")) for x in sdt.iter(qn("w:p"))), None)
+        pars = [Paragraph(dans, cel)] if dans is not None else [cel.add_paragraph()]
     _ecrire_paragraphe(document, pars[0], valeur)
     for p in pars[1:]:
         p._p.getparent().remove(p._p)

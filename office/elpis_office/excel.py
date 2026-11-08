@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""office/elpis_office/excel.py — xlsx_read : feuilles, tableaux et cellules d'un classeur Excel de la sandbox (openpyxl, en flux)."""
+"""office/elpis_office/excel.py — xlsx_read (feuilles, tableaux, cellules d'un classeur, openpyxl en flux) et xlsx_create (XlsxWriter)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from lxml import etree
 
+from . import formules as F
 from ._chart.normalise import Notes, to_date, to_number, to_records
 from .commun import Env, OfficeError, booleen, canon, chemin_sortie, ecrire, entier, lire_fichier, texte
 from .langue import choisir as choisir_langue, textes_de
@@ -28,6 +29,8 @@ TROUVES_MAX, CELLULES_FOUILLEES_MAX, FORMULES_MAX = 50, 2_000_000, 200
 _S = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 _PR = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+# Formule sans <v> (ou <v/> vide) avant la fin de sa cellule.
+_SANS_RESULTAT = re.compile(rb"(?:</f>|<f\b[^>]*/>)\s*(?:<v\s*/>|<v>\s*</v>)?\s*</c>")
 
 
 def _valeur(cellule: Any) -> Any:
@@ -100,12 +103,17 @@ def _dimension(feuille: Any) -> str:
         return ""
 
 
-def _lignes(feuille: Any, debut: int, nb: int) -> Tuple[List[Dict[str, Any]], Optional[int], int]:
-    """Lignes non vides de ``debut`` (1-based), au plus ``nb`` ; rend aussi la ligne suivante et la largeur."""
+def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None) -> Tuple[List[Dict[str, Any]], Optional[int], int, int]:
+    """Lignes non vides dès ``debut`` (au plus ``nb``), ligne suivante, largeur et formules sans résultat montrées {formula}."""
     lignes: List[Dict[str, Any]] = []
-    suite, largeur = None, 0
+    suite, largeur, sans_resultat = None, 0, 0
+    textes = formules.iter_rows(min_row=debut, max_col=COLONNES_MAX) if formules is not None else None
     for cellules in feuille.iter_rows(min_row=debut, max_col=COLONNES_MAX):
-        valeurs = [_valeur(c) for c in cellules]
+        valeurs: List[Any] = [_valeur(c) for c in cellules]
+        for k, c in enumerate(next(textes, ()) if textes is not None else ()):
+            if k < len(valeurs) and valeurs[k] in (None, "") and isinstance(c.value, str) and c.value.startswith("="):
+                valeurs[k] = {"formula": c.value}
+                sans_resultat += 1
         while valeurs and valeurs[-1] in (None, ""):
             valeurs.pop()
         if not valeurs:
@@ -116,7 +124,31 @@ def _lignes(feuille: Any, debut: int, nb: int) -> Tuple[List[Dict[str, Any]], Op
             break
         lignes.append({"row": numero, "cells": valeurs})
         largeur = max(largeur, len(valeurs))
-    return lignes, suite, largeur
+    return lignes, suite, largeur, sans_resultat
+
+
+def _sans_resultat(archive: Any, titre: str) -> bool:
+    """La feuille a-t-elle des formules sans résultat enregistré (classeur écrit par un programme, jamais recalculé) ?"""
+    try:
+        classeur = etree.fromstring(archive.read("xl/workbook.xml"))
+        liens = etree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+    except (KeyError, etree.XMLSyntaxError):
+        return False
+    cibles = {r.get("Id"): r.get("Target", "") for r in liens.iter(f"{_PR}Relationship")}
+    partie = next((_cible("xl", cibles.get(f.get(f"{_R}id"), "")) for f in classeur.iter(f"{_S}sheet")
+                   if f.get("name") == titre), None)
+    if partie is None:
+        return False
+    motif, reste = _SANS_RESULTAT, b""
+    try:
+        with archive.open(partie) as flux:
+            while bloc := flux.read(1 << 20):
+                if motif.search(reste + bloc):
+                    return True
+                reste = bloc[-256:]
+    except KeyError:
+        return False
+    return False
 
 
 def _colonne(n: int) -> str:
@@ -194,9 +226,21 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         feuille = _feuille(classeur, a.get("sheet"))
         debut = max(1, entier(a.get("start")) or 1)
         nb = min(max(1, entier(a.get("limit")) or LIGNES_DEFAUT), LIGNES_MAX)
-        lignes, suite, largeur = _lignes(feuille, debut, nb)
+        formules = None
+        if _sans_resultat(archive, feuille.title):
+            textes = load_workbook(io.BytesIO(brut), read_only=True, data_only=False)
+            formules = textes[feuille.title]
+        try:
+            lignes, suite, largeur, sans_resultat = _lignes(feuille, debut, nb, formules)
+        finally:
+            if formules is not None:
+                textes.close()
         res.update({"sheet": feuille.title, "columns": [_colonne(i) for i in range(1, largeur + 1)],
                     "rows": lignes})
+        if sans_resultat:
+            res["formulas_note"] = (f"{sans_resultat} cell(s) hold a formula with no saved result, shown as "
+                                    "{formula}: the file was written by a program and never recalculated. Excel "
+                                    "or LibreOffice computes them on opening; office_export shows them in a PDF.")
         if (feuille.max_column or 0) > COLONNES_MAX:
             res["columns_note"] = f"only the first {COLONNES_MAX} columns are listed"
         if suite is not None:
@@ -226,9 +270,12 @@ ALIAS_FEUILLE: Dict[str, Iterable[str]] = {
     "totals": ["total", "totaux", "sum_row"],
 }
 LIGNES_CREATION_MAX = 50_000
+FORMULES_CONTROLEES_MAX, DEFAUTS_MONTRES = 5_000, 6
 _FORMAT_DATE = {"en": "mm/dd/yyyy", "de": "dd.mm.yyyy"}
 _MONNAIES = {"€": '#,##0.00 "€"', "$": '"$"#,##0.00', "£": '"£"#,##0.00', "CHF": '#,##0.00 "CHF"'}
 _NOM_INTERDIT = re.compile(r"[\\/?*\[\]:]")
+_EPOQUE = dt.datetime(1899, 12, 30)
+_NUMERIQUES = ("number", "currency", "percent", "date")
 
 
 def _lignes_de(donnees: Any, notes: Notes) -> List[Dict[str, Any]]:
@@ -240,11 +287,15 @@ def _lignes_de(donnees: Any, notes: Notes) -> List[Dict[str, Any]]:
     return to_records(donnees, notes)
 
 
+def _formule(v: Any) -> bool:
+    return isinstance(v, str) and v.startswith("=")
+
+
 def _type_colonne(valeurs: List[Any]) -> Tuple[str, Optional[str]]:
-    """(genre, format Excel) d'une colonne : date, pourcentage, monnaie, nombre, sinon texte."""
-    pleines = [v for v in valeurs if v not in (None, "") and not (isinstance(v, str) and v.startswith("="))]
+    """(genre, format Excel) d'une colonne d'après ses constantes ; « formula » si elle n'a que des formules."""
+    pleines = [v for v in valeurs if v not in (None, "") and not _formule(v)]
     if not pleines:
-        return "text", None
+        return ("formula" if any(_formule(v) for v in valeurs) else "text"), None
     if all(not isinstance(v, (int, float)) and to_date(v) for v in pleines):
         return "date", None
     nombres = [to_number(v) for v in pleines]
@@ -260,6 +311,20 @@ def _type_colonne(valeurs: List[Any]) -> Tuple[str, Optional[str]]:
     return "number", ("#,##0" if entiers else "#,##0.00")
 
 
+def _typee(v: Any, genre: str) -> Any:
+    """Valeur écrite dans la cellule, et vue par les formules : formule, date, nombre ou texte."""
+    if v in (None, ""):
+        return None
+    if _formule(v):
+        return v
+    if genre == "date":
+        return dt.datetime.fromisoformat(str(to_date(v)))
+    if genre in ("percent", "currency", "number"):
+        n = to_number(v).value or 0.0
+        return n / 100 if genre == "percent" and not isinstance(v, (int, float)) else float(n)
+    return v if isinstance(v, (int, float, bool)) else str(v)
+
+
 def _nom_feuille(brut: Any, i: int, vus: set, notes: Notes) -> str:
     nom = _NOM_INTERDIT.sub(" ", str(brut or f"Feuille{i + 1}")).strip(" '")[:31] or f"Feuille{i + 1}"
     base, k = nom, 2
@@ -272,70 +337,167 @@ def _nom_feuille(brut: Any, i: int, vus: set, notes: Notes) -> str:
     return nom
 
 
-def _ecrire_feuille(classeur: Any, feuille: Any, lignes: List[Dict[str, Any]], spec: Dict[str, Any],
-                    format_date: str) -> Dict[str, Any]:
-    entetes = list(dict.fromkeys(k for ligne in lignes for k in ligne))
-    genres = {k: _type_colonne([ligne.get(k) for ligne in lignes]) for k in entetes}
-    formats = {k: classeur.add_format({"num_format": f}) for k, (_, f) in genres.items() if f}
-    fmt_date = classeur.add_format({"num_format": format_date})
-    largeurs = [len(str(k)) for k in entetes]
-    for r, ligne in enumerate(lignes, start=1):
-        for c, k in enumerate(entetes):
-            v = ligne.get(k)
-            genre = genres[k][0]
-            if v in (None, ""):
-                continue
-            if isinstance(v, str) and v.startswith("="):
-                feuille.write_formula(r, c, v, formats.get(k), "")      # résultat inconnu ici : pas de 0 en cache
-            elif genre == "date":
-                feuille.write_datetime(r, c, dt.datetime.fromisoformat(str(to_date(v))), fmt_date)
-            elif genre in ("percent", "currency", "number"):
-                n = to_number(v).value or 0.0
-                feuille.write_number(r, c, n / 100 if genre == "percent" and not isinstance(v, (int, float)) else n,
-                                     formats.get(k))
-            else:
-                feuille.write(r, c, v if isinstance(v, (int, float, bool)) else str(v))
-            largeurs[c] = max(largeurs[c], len(str(v)))
+class _Feuille:
+    """Une feuille à écrire : en-têtes, genre des colonnes et cellules typées (lignes et colonnes à partir de 1)."""
+
+    def __init__(self, nom: str, lignes: List[Dict[str, Any]], spec: Dict[str, Any]) -> None:
+        self.nom, self.n = nom, len(lignes)
+        self.entetes = list(dict.fromkeys(k for ligne in lignes for k in ligne))
+        self.genres = {k: _type_colonne([ligne.get(k) for ligne in lignes]) for k in self.entetes}
+        self.table = booleen(spec.get("table"), False) and bool(self.entetes)
+        self.totaux = booleen(spec.get("totals")) and self.n > 0
+        self.cellules: Dict[Tuple[int, int], Any] = {(1, c): str(k) for c, k in enumerate(self.entetes, 1)}
+        for r, ligne in enumerate(lignes, 2):
+            for c, k in enumerate(self.entetes, 1):
+                v = _typee(ligne.get(k), self.genres[k][0])
+                if v is not None:
+                    self.cellules[(r, c)] = v
+
+    def modele(self) -> Dict[Tuple[int, int], Any]:
+        """Cellules vues par le calcul des formules : dates en numéros de série, comme dans Excel."""
+        return {k: (v - _EPOQUE).total_seconds() / 86400 if isinstance(v, dt.datetime) else v
+                for k, v in self.cellules.items()}
+
+    def formules(self) -> Iterator[Tuple[str, str]]:
+        for (r, c), v in self.cellules.items():
+            if _formule(v):
+                yield f"{_colonne(c)}{r}", v
+
+
+class _Formats:
+    """Formats XlsxWriter partagés, un par style."""
+
+    def __init__(self, classeur: Any, lang: str) -> None:
+        self.classeur, self.prefixe, self.date = classeur, "", _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
+        self._vus: Dict[Tuple[Any, ...], Any] = {}
+
+    def __call__(self, code: Optional[str] = None, **style: Any) -> Any:
+        if code:
+            style["num_format"] = self.prefixe + code
+        cle = tuple(sorted(style.items()))
+        if cle not in self._vus:
+            self._vus[cle] = self.classeur.add_format(style) if style else None
+        return self._vus[cle]
+
+    def du_genre(self, genre: str, code: Optional[str], **style: Any) -> Any:
+        return self(self.date if genre == "date" else code, **style)
+
+
+def _genre_resultat(f: _Feuille, feuilles: Dict[str, _Feuille], formule: str, v: Any) -> Tuple[str, Optional[str]]:
+    """Genre d'une formule d'une colonne sans constantes : celui de la cellule qu'elle calcule, comme Excel."""
+    if isinstance(v, (str, bool)):                  # texte, booléen ou code d'erreur
+        return "text", None
+    exterieure, ref = F.premiere_reference(formule, f.nom)
+    genre, code = "number", None
+    source = feuilles.get(ref[0]) if ref is not None and exterieure not in F.COMPTES else None
+    if source is not None and ref is not None and 2 <= ref[1] <= source.n + 1 and ref[2] <= len(source.entetes):
+        genre, code = source.genres[source.entetes[ref[2] - 1]]
+    if genre not in _NUMERIQUES:
+        genre = "number"
+    if genre == "number":
+        code = "#,##0" if isinstance(v, float) and v.is_integer() else "#,##0.00"
+    return genre, code
+
+
+def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], modele: F.Classeur,
+                    formats: _Formats) -> Dict[str, Any]:
+    genres = dict(f.genres)
+    par_formule: Dict[str, List[Tuple[str, Optional[str]]]] = {k: [] for k, (g, _) in genres.items() if g == "formula"}
+    largeurs = [len(str(k)) for k in f.entetes]
+    non_calculees: List[str] = []
+    for (r, c), v in sorted(f.cellules.items()):
+        if r == 1:
+            continue
+        k = f.entetes[c - 1]
+        genre, code = genres[k]
+        if _formule(v):
+            resultat = modele.resultat(f.nom, r, c)
+            if resultat is None:
+                non_calculees.append(f"{_colonne(c)}{r}")
+            if genre == "formula":
+                genre, code = _genre_resultat(f, feuilles, v, resultat)
+                par_formule[k].append((genre, code))
+            feuille.write_formula(r - 1, c - 1, v, formats.du_genre(genre, code),
+                                  "" if resultat is None else resultat)
+            affiche = "" if resultat is None else resultat
+        elif isinstance(v, dt.datetime):
+            feuille.write_datetime(r - 1, c - 1, v, formats.du_genre("date", None))
+            affiche = formats.date
+        elif genre in ("percent", "currency", "number"):
+            feuille.write_number(r - 1, c - 1, v, formats(code))
+            affiche = f"{v:,.2f}"
+        else:
+            feuille.write(r - 1, c - 1, v)
+            affiche = v
+        largeurs[c - 1] = max(largeurs[c - 1], len(str(affiche)))
+    for k, vus in par_formule.items():
+        distincts = set(vus)
+        genres[k] = distincts.pop() if len(distincts) == 1 else (
+            ("number", "#,##0.00") if vus and all(g in _NUMERIQUES for g, _ in vus) else ("text", None))
     for c, largeur in enumerate(largeurs):
         feuille.set_column(c, c, min(max(8, largeur + 2), 60))
-    n, m = len(lignes), len(entetes)
-    numeriques = [c for c, k in enumerate(entetes) if genres[k][0] in ("number", "currency")]
-    sommes = {c: sum(to_number(ligne.get(entetes[c])).value or 0.0 for ligne in lignes
-                     if not str(ligne.get(entetes[c]) or "").startswith("=")) for c in numeriques}
-    totaux = booleen(spec.get("totals"))
-    if booleen(spec.get("table"), False) and m:
+    n, m = f.n, len(f.entetes)
+    totaux = {}
+    if f.totaux:
+        for c, k in enumerate(f.entetes, 1):
+            somme = genres[k][0] in ("number", "currency")
+            modele.poser(f.nom, n + 2, c, f"=SUBTOTAL(109,{_colonne(c)}2:{_colonne(c)}{n + 1})" if somme
+                         else ("Total" if c == 1 else None))
+            if somme:
+                totaux[c] = modele.resultat(f.nom, n + 2, c)
+    if f.table:
         colonnes = []
-        for c, k in enumerate(entetes):
-            col: Dict[str, Any] = {"header": str(k), **({"format": formats[k]} if k in formats else {})}
-            if totaux:
-                col.update({"total_function": "sum", "total_value": sommes[c]} if c in numeriques else
-                           ({"total_string": "Total"} if c == 0 else {}))
+        for c, k in enumerate(f.entetes, 1):
+            genre, code = genres[k]
+            fmt = formats.du_genre(genre, code) if genre in _NUMERIQUES else None
+            col: Dict[str, Any] = {"header": str(k), **({"format": fmt} if fmt is not None else {})}
+            if f.totaux:
+                col.update({"total_function": "sum", "total_value": "" if totaux[c] is None else totaux[c]}
+                           if c in totaux else ({"total_string": "Total"} if c == 1 else {}))
             colonnes.append(col)
-        feuille.add_table(0, 0, n + (1 if totaux else 0), m - 1,
-                          {"columns": colonnes, "style": "Table Style Medium 2", "total_row": totaux})
+        feuille.add_table(0, 0, n + (1 if f.totaux else 0), m - 1,
+                          {"columns": colonnes, "style": "Table Style Medium 2", "total_row": f.totaux})
     else:
-        style_entete = {"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F4E79", "border": 1,
-                        "border_color": "#1F4E79"}
-        entete = classeur.add_format(style_entete)
-        entete_droite = classeur.add_format({**style_entete, "align": "right"})
-        for c, k in enumerate(entetes):
-            feuille.write(0, c, str(k), entete if genres[k][0] == "text" else entete_droite)
+        style_entete: Dict[str, Any] = {"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F4E79",
+                                        "border": 1, "border_color": "#1F4E79"}
+        for c, k in enumerate(f.entetes):
+            droite = genres[k][0] in _NUMERIQUES
+            feuille.write(0, c, str(k), formats(**style_entete, **({"align": "right"} if droite else {})))
         if n and m:
             feuille.autofilter(0, 0, n, m - 1)
-        if totaux and n:
-            gras = classeur.add_format({"bold": True, "top": 1})
+        if f.totaux:
+            gras = formats(bold=True, top=1)
             for c in range(m):
                 feuille.write_blank(n + 1, c, None, gras)
             feuille.write(n + 1, 0, "Total", gras)
-            for c in numeriques:
-                lettre = _colonne(c + 1)
-                feuille.write_formula(n + 1, c, f"=SUBTOTAL(109,{lettre}2:{lettre}{n + 1})",
-                                      classeur.add_format({"bold": True, "top": 1,
-                                                           "num_format": genres[entetes[c]][1] or "General"}),
-                                      sommes[c])
+            for c, valeur in totaux.items():
+                lettre = _colonne(c)
+                feuille.write_formula(n + 1, c - 1, f"=SUBTOTAL(109,{lettre}2:{lettre}{n + 1})",
+                                      formats(genres[f.entetes[c - 1]][1] or "#,##0.00", bold=True, top=1),
+                                      "" if valeur is None else valeur)
     feuille.freeze_panes(1, 0)
-    return {"sheet": feuille.get_name(), "rows": n, "columns": m,
-            "types": {str(k): genres[k][0] for k in entetes}}
+    bilan: Dict[str, Any] = {"sheet": feuille.get_name(), "rows": n, "columns": m,
+                             "types": {str(k): genres[k][0] for k in f.entetes}}
+    if non_calculees:
+        bilan["computed_on_opening"] = non_calculees[:10] + (["…"] if len(non_calculees) > 10 else [])
+    return bilan
+
+
+def _controler_formules(feuilles: List[_Feuille], notes: Notes) -> None:
+    """Avertit des formules sûrement fausses (feuille absente, fonction inconnue…) : Excel y afficherait une erreur."""
+    noms = [f.nom for f in feuilles]
+    defauts: List[str] = []
+    vues = 0
+    for f in feuilles:
+        for cellule, formule in f.formules():
+            vues += 1
+            if vues > FORMULES_CONTROLEES_MAX:
+                break
+            defauts += [f"'{f.nom}'!{cellule} {formule}: {d}" for d in F.controler(formule, noms)]
+    for d in defauts[:DEFAUTS_MONTRES]:
+        notes.warn(f"{d}; Excel will show an error there")
+    if len(defauts) > DEFAUTS_MONTRES:
+        notes.warn(f"… and {len(defauts) - DEFAUTS_MONTRES} more formula problems")
 
 
 def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
@@ -354,12 +516,7 @@ def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                           example=[{"name": "Ventes", "data": [{"mois": "janv.", "ventes": 120},
                                                               {"mois": "févr.", "ventes": 135}]}])
     lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), *textes_de(feuilles)], env.notes)
-    format_date = _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
-    sortie = io.BytesIO()
-    classeur = xlsxwriter.Workbook(sortie, {"in_memory": True, "strings_to_numbers": False,
-                                            "strings_to_formulas": False, "strings_to_urls": False})
-    classeur.set_properties({"title": texte(a.get("title")) or "", "author": texte(a.get("author")) or ""})
-    bilan: List[Dict[str, Any]] = []
+    prepas: List[_Feuille] = []
     vus: set = set()
     total = 0
     for i, brut in enumerate(feuilles):
@@ -373,8 +530,23 @@ def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             env.notes.warn(f"sheets[{i}]: rows beyond {LIGNES_CREATION_MAX} in total were left out")
             lignes = lignes[:max(0, LIGNES_CREATION_MAX - total)]
         total += len(lignes)
-        feuille = classeur.add_worksheet(_nom_feuille(spec.get("name"), i, vus, env.notes))
-        bilan.append(_ecrire_feuille(classeur, feuille, lignes, spec, format_date))
+        prepas.append(_Feuille(_nom_feuille(spec.get("name"), i, vus, env.notes), lignes, spec))
+    _controler_formules(prepas, env.notes)
+    modele = F.Classeur()
+    for f in prepas:
+        modele.ajouter(f.nom, f.modele())
+        if f.totaux:
+            for c in range(1, len(f.entetes) + 1):
+                modele.reserver(f.nom, f.n + 2, c)
+            modele.etendre(f.nom)
+    sortie = io.BytesIO()
+    classeur = xlsxwriter.Workbook(sortie, {"in_memory": True, "strings_to_numbers": False,
+                                            "strings_to_formulas": False, "strings_to_urls": False,
+                                            "use_future_functions": True})
+    classeur.set_properties({"title": texte(a.get("title")) or "", "author": texte(a.get("author")) or ""})
+    formats = _Formats(classeur, lang)
+    par_nom = {f.nom.casefold(): f for f in prepas}
+    bilan = [_ecrire_feuille(classeur.add_worksheet(f.nom), f, par_nom, modele, formats) for f in prepas]
     classeur.close()
     res = ecrire(env, rel, sortie.getvalue())
     return {**res, "sheets": bilan,

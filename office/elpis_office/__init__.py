@@ -296,8 +296,9 @@ TOOLS["xlsx_read"] = {
         "tables, then the cells of one sheet as rows (row number + values; dates in ISO, percentages "
         "as shown). sheet = name or number (default: the first visible sheet). Long sheets come in "
         "pages: start = first row (from 1), limit = rows listed (default 100, max 500); call again "
-        "with start=next_row. formulas = also list the formulas of the rows shown. find = text to "
-        "locate in every sheet (case ignored)."),
+        "with start=next_row. formulas = also list the formulas of the rows shown; a formula with no "
+        "saved result (file written by a program, never recalculated) is shown as {formula}. find = text "
+        "to locate in every sheet (case ignored)."),
     "params": OrderedDict([
         ("path", {"type": "string", "description": "File path in the sandbox, e.g. "
                                                    "'donnees/ventes-2026.xlsx' (relative to /work)."}),
@@ -313,8 +314,10 @@ TOOLS["xlsx_create"] = {
     "description": (
         "Create an Excel workbook (.xlsx) in the sandbox. sheets = [{name, data, table, totals}]; "
         "data = the rows, [{column: value}, …] or [[header…], [values…]]. Column types are detected: "
-        "dates, percentages ('12,5 %'), amounts ('1 234,50 €'), numbers; text stays text; a value "
-        "starting with '=' is a formula ('=SUM(B2:B13)'). Every sheet gets a styled header, filters, "
+        "dates, percentages ('12,5 %'), amounts ('1 234,50 €'), numbers; text stays text. A value "
+        "starting with '=' is a formula, written as in English Excel: '=SUM(B2:B13)', '=IF(C2>0,C2/B2,0)', "
+        "another sheet as 'Sheet name'!A1. Simple formulas are computed at once (the others when the file "
+        "is opened); broken ones are reported in warnings. Every sheet gets a styled header, filters, "
         "a frozen header row and fitted columns; table = true makes an Excel table, totals = true "
         "adds a total row. An existing file at path is replaced (previous version kept in the file "
         "history, or in a .bak copy above 5 MB)."),

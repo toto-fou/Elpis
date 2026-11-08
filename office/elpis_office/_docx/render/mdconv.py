@@ -16,8 +16,9 @@ from ..errors import InvalidSpec
 from . import spec as S
 
 _HEADING_TAG = re.compile(r"^h([1-6])$", re.IGNORECASE)
-#: Pandoc's subscript and superscript, without spaces inside: H~2~O, x^2^ (~~strike~~ is parsed before).
-_SUB_SUP = re.compile(r"~([^\s~]+)~|\^([^\s^]+)\^")
+#: Pandoc's subscript and superscript, without spaces inside: H~2~O, x^2^ (~~strike~~ is parsed before);
+#: not after a slash nor around one, so http://h/~alice/~bob stays a path.
+_SUB_SUP = re.compile(r"(?<!/)~([^\s~/]+)~|(?<!/)\^([^\s^/]+)\^")
 
 
 # ---------------------------------------------------------------------------
@@ -28,14 +29,15 @@ _SUB_SUP = re.compile(r"~([^\s~]+)~|\^([^\s^]+)\^")
 def _parser():
     from markdown_it import MarkdownIt
 
-    return MarkdownIt("commonmark").enable(["table", "strikethrough"])
+    # Without text_join an escaped \~ stays its own token, out of reach of the subscript rule.
+    return MarkdownIt("commonmark").enable(["table", "strikethrough"]).disable("text_join")
 
 
 def inline_markdown(text: str) -> list[S.RunSpec]:
     """One paragraph of inline Markdown (bold, italic, code, links); raw HTML stays text, a newline stays a line break."""
     from markdown_it import MarkdownIt
 
-    parser = MarkdownIt("commonmark", {"html": False}).enable(["strikethrough"])
+    parser = MarkdownIt("commonmark", {"html": False}).enable(["strikethrough"]).disable("text_join")
     runs: list[S.RunSpec] = []
     for index, line in enumerate((text or "").split("\n")):
         if index:
@@ -248,6 +250,8 @@ def _inline_runs(inline) -> list[S.RunSpec]:
         if kind == "text":
             for part, overrides in _sub_sup(token.content):
                 emit(part, **overrides)
+        elif kind == "text_special":                 # caractère échappé (\~, \^) : littéral
+            emit(token.content)
         elif kind == "code_inline":
             emit(token.content, code=True)
         elif kind == "strong_open":

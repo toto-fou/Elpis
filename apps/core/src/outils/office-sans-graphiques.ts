@@ -9,6 +9,7 @@ const RETIRES: readonly RegExp[] = [
   /, or a chart_table ref '!id'/g,
   /, or a chart ref '!id'/g,
   / \(charts !id allowed\)/g,
+  / or a chart !id/g,
 ];
 
 function nettoyer(valeur: unknown, cle: string): unknown {

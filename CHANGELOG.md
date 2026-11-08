@@ -167,6 +167,13 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Metrics: tokens attributed to their account.** Chat turns, "Images" turns and `/compact`
+  recorded their usage without an account or a source, so "Tokens per user" and "Peaks per
+  user" filed nearly everything under "unattributed" while the Runs page knew the account.
+  These entry points now set their usage scope (account and conversation), and titles,
+  in-turn compressions and image prompts inherit it. A chat run now also takes the outcome
+  of its last LLM turn (`tool_limit`, `aborted`…) instead of `ok`, as `runs` intends. Rows
+  recorded before stay unattributed until they are purged.
 - **Chat: no more jump just after opening a conversation.** The code block headers, added
   once the page is idle, pushed the end of the conversation down by 33 px for a few frames;
   the conversation now stays at the bottom when its content grows.

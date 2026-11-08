@@ -41,6 +41,7 @@ import { canUseEngine } from "../llm/acces-moteurs";
 import { EngineUnavailable, resolveLlmTarget, useLlmTarget } from "../llm/cible";
 import type { LlmTarget } from "../llm/cible";
 import { BUILTIN_KEY, connectorKey } from "../llm/moteurs";
+import { usageScope } from "../observabilite/usage-contexte";
 import { acquireGenPresence, handoverRebaselineOk, reclamerVerrou, reserverVerrou } from "./admission";
 import {
   clearChatCancellation,
@@ -413,10 +414,11 @@ class TourImage {
           engine: cfg.provider,
           sampleSandbox: false,
         },
-        async (run) => {
-          const [statut, kind] = await this.corps();
-          run.finish(statut, kind);
-        },
+        (run) =>
+          usageScope("chat", { userId: this.c.uid, originId: this.c.chatId }, async () => {
+            const [statut, kind] = await this.corps();
+            run.finish(statut, kind);
+          }),
       );
     } finally {
       const j = this.journalRun;

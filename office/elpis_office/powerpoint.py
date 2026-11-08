@@ -46,8 +46,11 @@ from .commun import (
     lire_fichier,
     texte,
 )
+from .langue import choisir as choisir_langue, libelles, textes_de
 from .ops import lire_ops, requis
 from .paquet import PaquetInvalide, normaliser, retirer_lecteur
+
+_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 
 LAYOUTS = {
     "title": ["cover", "titre", "title_slide", "couverture", "page_de_titre", "intro", "opening",
@@ -113,6 +116,7 @@ ALIAS_CREATE = {
     "size": ["format", "ratio", "aspect", "aspect_ratio", "slide_size", "taille"],
     "footer": ["pied", "pied_de_page", "footer_text"],
     "slide_numbers": ["numbering", "page_numbers", "numeros", "numerotation", "numbers"],
+    "lang": ["language", "langue", "locale", "lng"],
 }
 ALIAS_READ = {
     "path": ALIAS_CREATE["path"],
@@ -418,7 +422,6 @@ def normaliser_diapo(i: int, brut: Any, rendus: Dict[str, G.Rendu], env: Env) ->
                               example=[EXEMPLE_SLIDES[1]])
     elif lay == "agenda":
         out["items"] = _puces(d.get("items") if d.get("items") is not None else d.get("bullets"))
-        out.setdefault("title", "Sommaire")
     elif lay == "kpi" and "items" not in out:
         items = d.get("items") or d.get("bullets")
         if not isinstance(items, list) or not items:
@@ -477,7 +480,6 @@ def normaliser_diapo(i: int, brut: Any, rendus: Dict[str, G.Rendu], env: Env) ->
         c = d.get("contact")
         if c:
             out["contact"] = [str(x) for x in (c if isinstance(c, list) else [c])]
-        out.setdefault("title", "Merci")
     elif lay == "title":
         out.setdefault("title", "")
     elif lay == "section":
@@ -576,6 +578,25 @@ def _lecteur(env: Env):
     return _avec_lecteur(env)
 
 
+def _titres_par_defaut(diapos: List[Dict[str, Any]], lib: Dict[str, str]) -> None:
+    for d in diapos:
+        if d.get("layout") in ("agenda", "closing") and not d.get("title"):
+            d["title"] = lib[d["layout"]]
+
+
+def _appliquer_langue(racines: List[Any], lang: str) -> None:
+    """Langue du texte (correcteur, lecteurs d'écran) sur chaque fragment et chaque style de texte."""
+    for racine in racines:
+        for el in racine.iter(*(f"{{{_A}}}{t}" for t in ("rPr", "endParaRPr", "defRPr"))):
+            el.set("lang", lang)
+
+
+def langue_du_deck(prs: Any) -> Optional[str]:
+    """Langue posée à la création (styles de texte par défaut du deck), sinon aucune."""
+    defaut = prs.part._element.find(f".//{{{_A}}}defRPr[@lang]")
+    return defaut.get("lang") if defaut is not None else None
+
+
 def _diapos(env: Env, slides: Any, markdown: str) -> Tuple[List[Dict[str, Any]], Dict[str, G.Rendu]]:
     if isinstance(slides, str) and not markdown:
         markdown, slides = slides, None
@@ -618,6 +639,9 @@ def pptx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     jeton = _lecteur(env)
     try:
         diapos, rendus = _diapos(env, a.get("slides"), texte(a.get("markdown")))
+        lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), texte(a.get("markdown")),
+                                              *textes_de(a.get("slides"))], env.notes)
+        _titres_par_defaut(diapos, libelles(lang))
         pied = a.get("footer")
         spec = _moteur(S.DeckSpec, filename=rel.rsplit("/", 1)[-1],
                        meta=S.MetaSpec(title=a.get("title") or None, author=a.get("author") or None),
@@ -628,6 +652,9 @@ def pptx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                                            slide_numbers=booleen(a.get("slide_numbers"), True)),
                        slides=diapos)
         prs, ctx = _moteur(B.build_deck, spec)
+        _appliquer_langue([prs.part._element, *(m._element for m in prs.slide_masters),
+                           *(lay._element for m in prs.slide_masters for lay in m.slide_layouts),
+                           *(s._element for s in prs.slides)], lang)
     finally:
         retirer_lecteur(jeton)
     for n in ctx.notes:
@@ -896,9 +923,13 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], prs, origine, supprimees,
         slides = c.get("slides")
         md = texte(c.get("markdown"))
         diapos, _ = _diapos(env, slides, md)
+        lang = langue_du_deck(prs)
+        _titres_par_defaut(diapos, libelles(lang))
         parsed = _moteur(S.parse_slides, diapos)
         avant = len(prs.slides)
         _moteur(B.add_slides, ctx, parsed)
+        if lang:
+            _appliquer_langue([s._element for s in list(prs.slides)[avant:]], lang)
         nouvelles = list(prs.slides)[avant:]
         apres, avant_ = c.get("after"), c.get("before")
         pos: Optional[int] = None

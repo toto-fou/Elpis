@@ -113,6 +113,11 @@
             "default": null,
             "description": "e.g. CONFIDENTIEL, BROUILLON",
             "type": "string"
+          },
+          "lang": {
+            "default": null,
+            "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.",
+            "type": "string"
           }
         },
         "required": [
@@ -1025,6 +1030,11 @@
           "markdown": {
             "default": null,
             "description": "Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).",
+            "type": "string"
+          },
+          "lang": {
+            "default": null,
+            "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.",
             "type": "string"
           }
         },
@@ -2173,6 +2183,12 @@
           "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='e.g. CONFIDENTIEL, BROUILLON', json_schema_extra={'type': 'string'})]",
           "requis": false,
           "defaut": null
+        },
+        {
+          "nom": "lang",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.\", json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
         }
       ]
     },
@@ -2284,6 +2300,12 @@
         {
           "nom": "markdown",
           "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "lang",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.\", json_schema_extra={'type': 'string'})]",
           "requis": false,
           "defaut": null
         }

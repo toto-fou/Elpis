@@ -121,6 +121,10 @@ _PPTX_OP = {
     },
     "required": ["op"],
 }
+_LANG = {"type": "string",
+         "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, "
+                        "screen readers, generated labels such as the table of contents title); "
+                        "detected from the text when omitted."}
 
 TOOLS: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 
@@ -164,6 +168,7 @@ TOOLS["docx_create"] = {
                                                             "(default true, false with a "
                                                             "template)."}),
         ("watermark", {"type": "string", "description": "e.g. CONFIDENTIEL, BROUILLON"}),
+        ("lang", _LANG),
     ]),
     "required": ["path", "content"],
 }
@@ -236,6 +241,7 @@ TOOLS["pptx_create"] = {
         ("markdown", {"type": "string", "description": "Alternative to slides: a Markdown outline "
                                                        "(# deck title, ## one slide each, - "
                                                        "bullets)."}),
+        ("lang", _LANG),
     ]),
     "required": ["path"],
 }

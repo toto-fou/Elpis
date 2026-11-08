@@ -48,6 +48,7 @@ from .commun import (
     lire_fichier,
     texte,
 )
+from .langue import choisir as choisir_langue, libelles
 from .ops import lire_ops, requis
 from .paquet import PaquetInvalide, installer_lecteur, normaliser, retirer_lecteur
 
@@ -71,6 +72,7 @@ ALIAS_CREATE = {
     "page_numbers": ["numbering", "page_number", "numeros_de_page", "numerotation",
                      "page_numbering", "numbers"],
     "watermark": ["filigrane"],
+    "lang": ["language", "langue", "locale", "lng"],
 }
 ALIAS_READ = {
     "path": ALIAS_CREATE["path"],
@@ -368,6 +370,8 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                                    "content": "# Summary\n\nRevenue grows by "
                                               "**12%**.\n\n## Details\n\n- Point 1\n- Point 2"})
     titre = str(a.get("title") or "").strip()
+    lang = choisir_langue(a.get("lang"), [titre, str(a.get("subtitle") or ""), contenu_md or ""], env.notes)
+    lib = libelles(lang)
     jeton = _avec_lecteur(env)
     try:
         rendus = G.preparer(env, refs_de(contenu_md))
@@ -387,18 +391,18 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                 blocs.append(S.ParagraphBlock(type="paragraph", text=str(a["subtitle"]),
                                               style="Subtitle"))
         if booleen(a.get("toc")) and not _TOC.search(contenu_md or ""):
-            blocs.append(S.TocBlock(type="toc", title="Sommaire"))
+            blocs.append(S.TocBlock(type="toc", title=lib["toc"]))
         if blocs_bruts is not None:
             env.notes.fix("content given as blocks: built as-is (Markdown is simpler)")
             blocs.extend(_moteur(S.parse_blocks, blocs_bruts))
         else:
-            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env))
+            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"]))
         # Avec un modèle, sa mise en page et son pied font foi : on ne les
         # remplace que sur demande explicite (sinon A4 portrait et « Page X / Y »
         # par défaut effaceraient la charte).
         modele = bool(a.get("template"))
         page = _page(a.get("page"), env) if (a.get("page") or not modele) else None
-        pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele)) \
+        pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele), lib["page"]) \
             if (a.get("footer") or a.get("page_numbers") is not None or not modele) else None
         entete = _entete(a.get("header"))
         if couverture:
@@ -407,7 +411,8 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             pied = pied.model_copy(update={"different_first_page": True}) if pied else None
         spec = _moteur(S.DocumentSpec,
                        filename=rel.rsplit("/", 1)[-1],
-                       meta=S.MetaSpec(title=titre or None, author=a.get("author") or None),
+                       meta=S.MetaSpec(title=titre or None, author=a.get("author") or None,
+                                       language=lang),
                        theme=_theme(a.get("theme"), env), page=page,
                        header=entete,
                        footer=pied,
@@ -498,15 +503,15 @@ def _entete(v: Any) -> Optional[S.HeaderSpec]:
     return S.HeaderSpec(text=str(v), rule=True)
 
 
-def _pied(v: Any, numeros: bool) -> Optional[S.FooterSpec]:
+def _pied(v: Any, numeros: bool, format_page: str) -> Optional[S.FooterSpec]:
     if isinstance(v, dict):
         d = {k: v.get(k) for k in ("text", "left", "center", "right") if v.get(k)}
-        return S.FooterSpec(**d, page_numbers=numeros, page_number_format="Page {PAGE} / {NUMPAGES}")
+        return S.FooterSpec(**d, page_numbers=numeros, page_number_format=format_page)
     if v:
         return S.FooterSpec(left=str(v), align="left", page_numbers=numeros,
-                            page_number_format="Page {PAGE} / {NUMPAGES}")
+                            page_number_format=format_page)
     if numeros:
-        return S.FooterSpec(page_numbers=True, page_number_format="Page {PAGE} / {NUMPAGES}")
+        return S.FooterSpec(page_numbers=True, page_number_format=format_page)
     return None
 
 
@@ -781,7 +786,7 @@ def _ancre(i: int, nom: str, v: Any, lot: _Lot, fin_de_section: bool = False):
 def _inserer(document, blocs: List[Any], ancre, avant: bool, env: Env) -> int:
     corps = document.element.body
     existants = set(corps)          # éléments gardés vivants (cf. docx_read)
-    ctx = B.BuildContext(document=document)
+    ctx = B.BuildContext(document=document, labels=libelles(B.document_language(document)))
     _moteur(B.add_blocks, ctx, blocs)
     _notes_moteur(ctx.notes, env)
     crees = [x for x in corps if x not in existants]

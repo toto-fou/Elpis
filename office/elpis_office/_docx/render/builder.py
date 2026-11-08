@@ -16,6 +16,7 @@ from typing import Any, Iterable, Sequence
 import docx
 from docx.shared import Cm, Pt
 
+from ...langue import libelles
 from ..errors import InvalidSpec
 from ..ooxml import (
     charts as chart_ooxml,
@@ -27,7 +28,7 @@ from ..ooxml import (
     refs,
     tables as table_ooxml,
 )
-from ..ooxml.util import align_paragraph, apply_run_format, make, parse_color, qn, rgb, table_alignment
+from ..ooxml.util import align_paragraph, apply_run_format, insert_in_order, make, parse_color, qn, rgb, table_alignment
 from . import images as image_io, spec as S
 
 MONO_SHADING = "F4F4F2"
@@ -48,6 +49,7 @@ class BuildContext:
     document: Any
     theme: S.ThemeSpec = field(default_factory=S.ThemeSpec)
     notes: list[str] = field(default_factory=list)
+    labels: dict[str, str] = field(default_factory=lambda: libelles(None))
 
     def note(self, message: str) -> None:
         if message not in self.notes:
@@ -81,7 +83,9 @@ def build_document(spec: S.DocumentSpec, base: bytes | None = None,
         for child in list(body):
             if child.tag != qn("w:sectPr"):
                 body.remove(child)
-    context = BuildContext(document=document, theme=spec.theme)
+    context = BuildContext(document=document, theme=spec.theme, labels=libelles(spec.meta.language))
+    if spec.meta.language:
+        apply_language(document, spec.meta.language)
 
     apply_metadata(document, spec.meta)
     apply_theme(document, spec.theme)
@@ -120,6 +124,43 @@ def apply_metadata(document, meta: S.MetaSpec) -> None:
         value = getattr(meta, attribute, None)
         if value:
             setattr(properties, attribute, value)
+
+
+def apply_language(document, lang: str) -> None:
+    """Language of the text (spell check, hyphenation, screen readers): style defaults, styles and settings."""
+    from ..docio import RPR_ORDER
+    from ..ooxml.fields import SETTINGS_ORDER
+
+    styles = document.styles.element
+    defaults = styles.find(qn("w:docDefaults"))
+    if defaults is None:
+        defaults = make("w:docDefaults")
+        styles.insert(0, defaults)
+    rpr_default = defaults.find(qn("w:rPrDefault"))
+    if rpr_default is None:
+        rpr_default = make("w:rPrDefault")
+        defaults.insert(0, rpr_default)
+    rpr = rpr_default.find(qn("w:rPr"))
+    if rpr is None:
+        rpr = make("w:rPr")
+        rpr_default.append(rpr)
+    if rpr.find(qn("w:lang")) is None:
+        insert_in_order(rpr, make("w:lang"), RPR_ORDER)
+    for langue in styles.iter(qn("w:lang")):
+        langue.set(qn("w:val"), lang)
+    settings = document.settings.element
+    theme_lang = settings.find(qn("w:themeFontLang"))
+    if theme_lang is None:
+        theme_lang = insert_in_order(settings, make("w:themeFontLang"), SETTINGS_ORDER)
+    theme_lang.set(qn("w:val"), lang)
+
+
+def document_language(document) -> str | None:
+    """Language of an existing document: its properties, else its style defaults."""
+    if document.core_properties.language:
+        return document.core_properties.language
+    langue = document.styles.element.find(f"{qn('w:docDefaults')}//{qn('w:lang')}")
+    return langue.get(qn("w:val")) if langue is not None else None
 
 
 def apply_theme(document, theme: S.ThemeSpec) -> None:
@@ -421,7 +462,7 @@ def _code(context: BuildContext, block: S.CodeBlock):
         )
     _shade_paragraph(paragraph, MONO_SHADING)
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Listing", align="left")
+        refs.add_caption(context.document, block.caption, label=context.labels["listing"], align="left")
     return paragraph
 
 
@@ -577,7 +618,7 @@ def _table(context: BuildContext, block: S.TableBlock):
         )
 
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Table", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["table"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, context.document.add_paragraph(), block.bookmark)
     return table
@@ -640,7 +681,7 @@ def _image(context: BuildContext, block: S.ImageBlock):
     if block.alt_text:
         _set_alt_text(run, block.alt_text)
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Figure", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, paragraph, block.bookmark)
     return paragraph
@@ -702,7 +743,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         )
 
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Figure", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     return paragraph
 
 

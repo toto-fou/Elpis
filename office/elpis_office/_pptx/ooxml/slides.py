@@ -285,12 +285,6 @@ def set_notes(slide, text: str) -> None:
     slide.notes_slide.notes_text_frame.text = text or ""
 
 
-def get_notes(slide) -> str:
-    if not slide.has_notes_slide:
-        return ""
-    return slide.notes_slide.notes_text_frame.text or ""
-
-
 def set_name(slide, name: str) -> None:
     """Name the slide, which is what the PowerPoint outline and selection pane show."""
     c_sld = slide._element.find(qn("p:cSld"))
@@ -341,12 +335,3 @@ def enable_header_footer(presentation, slide_number: bool = True, footer: bool =
             clr_map.addnext(node)
         else:  # pragma: no cover — every master has a colour map
             element.append(node)
-
-
-def iter_shapes(slide):
-    """Every shape, flattening groups so a reader tool sees real content."""
-    for shape in slide.shapes:
-        yield shape
-        if shape.shape_type is not None and getattr(shape, "shapes", None) is not None:
-            for nested in shape.shapes:
-                yield nested

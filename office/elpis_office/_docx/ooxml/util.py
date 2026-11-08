@@ -7,7 +7,7 @@ import re
 from typing import Any, Iterable, Sequence
 
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
 from docx.shared import Cm, Emu, Pt, RGBColor
@@ -34,23 +34,8 @@ __all__ = [
     "table_alignment",
     "cm_to_emu",
     "next_drawing_id",
-    "srgb_fill",
-    "srgb_line",
     "apply_run_format",
 ]
-
-#: Extra namespaces python-docx does not register but that we emit.
-EXTRA_NS = {
-    "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
-    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
-    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-    "v": "urn:schemas-microsoft-com:vml",
-    "o": "urn:schemas-microsoft-com:office:office",
-    "w10": "urn:schemas-microsoft-com:office:word",
-    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
-}
 
 
 def make(tag: str, **attrs: Any) -> etree._Element:
@@ -290,21 +275,6 @@ def _iter_story_elements(document) -> Iterable[etree._Element]:
 # -- DrawingML fragments ---------------------------------------------------------
 
 
-def srgb_fill(color: str) -> str:
-    """A ``<a:solidFill>`` XML fragment for use inside chart / shape properties."""
-    return (
-        '<a:solidFill xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
-        f'<a:srgbClr val="{parse_color(color)}"/></a:solidFill>'
-    )
-
-
-def srgb_line(color: str, width_pt: float = 1.0) -> str:
-    return (
-        '<a:ln xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-        f'w="{int(width_pt * 12700)}">{srgb_fill(color)}</a:ln>'
-    )
-
-
 # -- runs ------------------------------------------------------------------------
 
 _HIGHLIGHTS = {
@@ -383,11 +353,3 @@ def _set_highlight(run, value: str) -> None:
         return
     rpr = run._element.get_or_add_rPr()
     sub(rpr, "w:highlight", **{"w:val": normalised})
-
-
-def line_spacing_rule(value: float | None):
-    if value is None:
-        return None, None
-    if abs(value - 1.0) < 1e-6:
-        return 1.0, WD_LINE_SPACING.SINGLE
-    return float(value), WD_LINE_SPACING.MULTIPLE

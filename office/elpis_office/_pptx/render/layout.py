@@ -78,12 +78,6 @@ class Frame:
     def h_cm(self) -> float:
         return to_cm(self.h)
 
-    def as_tuple(self) -> tuple[int, int, int, int]:
-        return self.x, self.y, self.w, self.h
-
-    def as_cm(self) -> dict[str, float]:
-        return {"x_cm": to_cm(self.x), "y_cm": to_cm(self.y),
-                "w_cm": to_cm(self.w), "h_cm": to_cm(self.h)}
 
     # -- transforms --------------------------------------------------------------
 
@@ -97,15 +91,10 @@ class Frame:
     def offset(self, dx: int = 0, dy: int = 0) -> "Frame":
         return Frame(self.x + dx, self.y + dy, self.w, self.h)
 
-    def resized(self, w: int | None = None, h: int | None = None) -> "Frame":
-        return Frame(self.x, self.y, self.w if w is None else w, self.h if h is None else h)
 
     def moved(self, x: int | None = None, y: int | None = None) -> "Frame":
         return Frame(self.x if x is None else x, self.y if y is None else y, self.w, self.h)
 
-    def centred_in(self, other: "Frame") -> "Frame":
-        return Frame(other.x + (other.w - self.w) // 2, other.y + (other.h - self.h) // 2,
-                     self.w, self.h)
 
     def top_slice(self, height: int) -> "Frame":
         return Frame(self.x, self.y, self.w, min(height, self.h))
@@ -384,23 +373,6 @@ def fit_font_size(
             return round(size, 1)
         size -= 0.5
     return round(min_pt, 1)
-
-
-def overflows(
-    items: Sequence[tuple[str, int]],
-    frame: Frame,
-    font_pt: float,
-    **kwargs,
-) -> bool:
-    width_cm = max(1.0, frame.w_cm - kwargs.pop("inset_cm", 0.5))
-    return text_height_cm(items, width_cm, font_pt, **kwargs) > frame.h_cm
-
-
-def distribute(count: int, frame: Frame, gap: int, horizontal: bool = True) -> list[Frame]:
-    """Evenly split a frame into ``count`` tiles — the KPI / process / agenda helper."""
-    if count <= 0:
-        return []
-    return frame.columns(count, gap) if horizontal else frame.rows(count, gap)
 
 
 def flow(frames: Iterable[Frame]) -> Frame:

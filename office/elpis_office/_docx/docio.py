@@ -4,11 +4,9 @@
 from __future__ import annotations
 
 import copy
-import io
 import re
 from typing import Any, Iterable
 
-import docx
 from docx.oxml.parser import register_element_cls
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
@@ -202,39 +200,6 @@ def merge_rpr(run, base) -> None:
 # ---------------------------------------------------------------------------
 
 
-def load_bytes(source: str, what: str = "document") -> bytes:
-    """Resolve a path, data URI, base64 payload or allowed URL to bytes.
-
-    The rules live in ``assets``: paths are confined to the workspace and the
-    configured asset directories, and outbound fetches are refused unless an
-    operator turned them on.
-    """
-    from .assets import load_bytes as _load
-
-    return _load(source, what)
-
-
-def open_document(source: str, *, notes: list[str] | None = None):
-    """Open a document, a catalogue template, or anything in between.
-
-    ``source`` may be a catalogue name, a path inside an allowed directory, or a
-    base64 payload. Template *formats* (.dotx, macro-enabled) are normalised on
-    the way in, because refusing the exact file an IT department distributes is
-    not a defensible position for a server that claims to support templates.
-    """
-    from . import templates
-
-    blob, template_notes, catalogue_name = templates.load(source)
-    if notes is not None:
-        if catalogue_name:
-            notes.append(f"Opened the {catalogue_name!r} template from the catalogue.")
-        notes.extend(template_notes)
-    try:
-        return docx.Document(io.BytesIO(blob))
-    except Exception as exc:
-        raise InvalidSpec(f"Could not open the document: {exc}") from exc
-
-
 # ---------------------------------------------------------------------------
 # Reading
 # ---------------------------------------------------------------------------
@@ -330,36 +295,6 @@ def heading_level_for(paragraph, levels: dict[str, int | None], default_id: str 
     return levels.get(default_id or "")
 
 
-def heading_level(paragraph) -> int | None:
-    """Kept for callers holding a single paragraph; prefer the map for a whole
-    document, which is where the cost actually lives."""
-    document = paragraph.part.document
-    levels, default_id = style_levels(document)
-    return heading_level_for(paragraph, levels, default_id)
-
-
-def read_text(document, include_tables: bool = True) -> str:
-    """Flatten the document to plain text, in reading order."""
-    lines: list[str] = []
-    body = document.element.body
-    tables = {id(t._tbl): t for t in body_tables(document) + body_tables(document, callouts=True)}
-    paragraphs = {id(p._p): p for p in body_paragraphs(document)}
-    levels, default_id = style_levels(document)
-
-    for child in body_blocks(body):
-        if child.tag == qn("w:p") and id(child) in paragraphs:
-            paragraph = paragraphs[id(child)]
-            level = heading_level_for(paragraph, levels, default_id)
-            text = paragraph.text.strip()
-            if not text:
-                continue
-            lines.append(f"{'#' * max(1, level or 1)} {text}" if level is not None else text)
-        elif child.tag == qn("w:tbl") and include_tables and id(child) in tables:
-            for row in tables[id(child)].rows:
-                lines.append(" | ".join(cell.text.strip() for cell in row.cells))
-    return "\n".join(lines)
-
-
 def get_outline(document) -> list[dict[str, Any]]:
     outline = []
     levels, default_id = style_levels(document)
@@ -369,41 +304,6 @@ def get_outline(document) -> list[dict[str, Any]]:
         if level is not None and text:
             outline.append({"index": index, "level": level, "text": text})
     return outline
-
-
-def read_tables(document) -> list[dict[str, Any]]:
-    result = []
-    for index, table in enumerate(body_tables(document)):
-        rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
-        result.append(
-            {
-                "index": index,
-                "rows": len(table.rows),
-                "columns": len(table.columns),
-                "style": table.style.name if table.style is not None else None,
-                "data": rows,
-            }
-        )
-    return result
-
-
-def describe(document) -> dict[str, Any]:
-    properties = document.core_properties
-    return {
-        "paragraphs": len(body_paragraphs(document)),
-        "tables": len(body_tables(document)),
-        "sections": len(document.sections),
-        "inline_shapes": len(document.inline_shapes),
-        "headings": len(get_outline(document)),
-        "core_properties": {
-            "title": properties.title or None,
-            "author": properties.author or None,
-            "subject": properties.subject or None,
-            "keywords": properties.keywords or None,
-            "created": properties.created.isoformat() if properties.created else None,
-            "modified": properties.modified.isoformat() if properties.modified else None,
-        },
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -426,10 +326,9 @@ LEFTOVER_PATTERNS: tuple[tuple[str, re.Pattern], ...] = tuple((explanation, re.c
 def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
     """Every paragraph in the document, each with where it actually sits.
 
-    ``read_text`` walks the body only, which makes it the wrong tool for checking
-    a document: the header is exactly where a stale quarter or an unreplaced
-    client name survives a find-and-replace. Everything that verifies uses this
-    instead, so what is written and what is checked are the same surface.
+    The header is exactly where a stale quarter or an unreplaced client name
+    survives a find-and-replace: replace and docx_read both walk this, so what is
+    written and what is checked are the same surface.
 
     ``paragraph_index`` matches ``body_paragraphs`` (the ``p`` of docx_read), and
     callout boxes come apart from the numbered tables.
@@ -506,45 +405,6 @@ def _excerpt(text: str, match: re.Match, window: int = 40) -> str:
     start = max(0, match.start() - window)
     end = min(len(text), match.end() + window)
     return ("…" if start else "") + text[start:end].strip() + ("…" if end < len(text) else "")
-
-
-def set_paragraph_text(document, index: int, text: str) -> str:
-    """Replace a paragraph's text, keeping its style and its first run's formatting."""
-    from .ooxml.util import sanitize_text
-
-    paragraphs = body_paragraphs(document)
-    if not 0 <= index < len(paragraphs):
-        raise InvalidSpec(
-            f"Paragraph index {index} is out of range (the document has {len(paragraphs)}). "
-            "Read the document again (docx_read) for the current paragraph numbers."
-        )
-    paragraph = paragraphs[index]
-    previous = paragraph.text
-    value = sanitize_text(text)
-
-    runs = paragraph.runs
-    if runs:
-        runs[0].text = value
-        for run in runs[1:]:
-            run._r.getparent().remove(run._r)
-    else:
-        paragraph.add_run(value)
-    return previous
-
-
-def read_stories(document) -> dict[str, list[dict[str, Any]]]:
-    """Header and footer text, which ``read_text`` deliberately does not carry."""
-    stories: dict[str, list[dict[str, Any]]] = {"headers": [], "footers": []}
-    for location, paragraph in iter_located_paragraphs(document):
-        where = location["where"]
-        if where in BODY_WHERE:
-            continue
-        text = paragraph.text.strip()
-        if not text:
-            continue
-        bucket = "headers" if "header" in where else "footers"
-        stories[bucket].append({"section": location["section"], "kind": where, "text": text})
-    return stories
 
 
 def iter_all_paragraphs(document) -> Iterable[Any]:
@@ -642,19 +502,6 @@ def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> i
             spans[i] = (cursor, cursor + length)
             cursor += length
     return replaced
-
-
-def delete_paragraph(document, index: int) -> str:
-    paragraphs = body_paragraphs(document)
-    if not 0 <= index < len(paragraphs):
-        raise InvalidSpec(
-            f"Paragraph index {index} is out of range (the document has {len(paragraphs)})."
-        )
-    paragraph = paragraphs[index]
-    text = paragraph.text
-    element = paragraph._p
-    element.getparent().remove(element)
-    return text
 
 
 def set_metadata(document, **values: Any) -> dict[str, Any]:

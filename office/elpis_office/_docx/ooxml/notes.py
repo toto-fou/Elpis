@@ -140,16 +140,3 @@ def add_footnote(document, paragraph, text: str, *, font_size_pt: float = 9.0) -
     )
     part.element.append(note)
     return note_id
-
-
-def count_footnotes(document) -> int:
-    for rel in document.part.rels.values():
-        if rel.reltype == RT.FOOTNOTES and not rel.is_external:
-            part = rel.target_part
-            element = (
-                part.element
-                if isinstance(part, FootnotesPart)
-                else etree.fromstring(part.blob)
-            )
-            return max(0, len(element.findall(qn("w:footnote"))) - 2)
-    return 0

@@ -297,10 +297,6 @@ TOC_NOTE = (
 )
 
 
-def add_page_number(paragraph, kind: str = "PAGE") -> None:
-    add_field(paragraph, kind.upper(), placeholder="1")
-
-
 _FIELD_TOKEN = re.compile(r"\{\s*(PAGE|NUMPAGES|DATE|TIME|FILENAME|AUTHOR|TITLE)\s*\}", re.IGNORECASE)
 
 

@@ -75,9 +75,6 @@ class RunSpec(Base):
     )
 
 
-InlineText = Union[str, RunSpec]
-
-
 class CellSpec(Base):
     text: str | None = None
     runs: list[RunSpec] = Field(default_factory=list)

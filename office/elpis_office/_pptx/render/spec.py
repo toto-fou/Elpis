@@ -713,7 +713,6 @@ DeckSpec.model_rebuild()
 #: pptx_add_slides / pptx_insert_slides call was paying before validating
 #: anything. Roughly three hundred times the cost of the validation itself.
 _SLIDES_ADAPTER = TypeAdapter(list[Slide])
-_ELEMENTS_ADAPTER = TypeAdapter(list[Element])
 
 
 def parse_slides(raw: Any) -> list[Slide]:
@@ -723,25 +722,3 @@ def parse_slides(raw: Any) -> list[Slide]:
     if isinstance(raw, dict):
         raw = [raw]
     return _SLIDES_ADAPTER.validate_python(raw)
-
-
-def parse_elements(raw: Any) -> list[Element]:
-    if raw is None:
-        return []
-    if isinstance(raw, dict):
-        raw = [raw]
-    return _ELEMENTS_ADAPTER.validate_python(raw)
-
-
-def parse_element(raw: Any) -> Element:
-    return parse_elements([raw])[0]
-
-
-SLIDE_LAYOUTS: tuple[str, ...] = (
-    "title", "section", "bullets", "two_content", "image", "chart", "table", "kpi",
-    "comparison", "timeline", "process", "agenda", "quote", "closing", "blank", "template",
-)
-
-ELEMENT_TYPES: tuple[str, ...] = (
-    "text", "image", "chart", "table", "shape", "kpi", "timeline", "process", "placeholder",
-)

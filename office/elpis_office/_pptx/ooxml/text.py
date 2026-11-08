@@ -125,12 +125,6 @@ def set_bullet(
     insert_in_order(ppr, make("a:buChar", char=glyph), PPR_ORDER)
 
 
-def set_indent(paragraph, left_emu: int, hanging_emu: int = 0) -> None:
-    ppr = _ppr(paragraph._p)
-    ppr.set("marL", str(int(left_emu)))
-    ppr.set("indent", str(int(-hanging_emu)))
-
-
 # ---------------------------------------------------------------------------
 # Body properties
 # ---------------------------------------------------------------------------
@@ -169,10 +163,6 @@ def set_columns(text_frame, count: int, spacing_emu: int = 228600) -> None:
     body_pr = _body_pr(text_frame)
     body_pr.set("numCol", str(max(1, int(count))))
     body_pr.set("spcCol", str(int(spacing_emu)))
-
-
-def set_wrap(text_frame, wrap: bool) -> None:
-    _body_pr(text_frame).set("wrap", "square" if wrap else "none")
 
 
 def set_insets(text_frame, left=None, top=None, right=None, bottom=None) -> None:

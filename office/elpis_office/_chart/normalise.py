@@ -113,7 +113,6 @@ ALIAS_OPTIONS: dict[str, dict[str, Any]] = {
 # tranché par la forme des données (voir resolve_ambiguous_kind).
 AMBIGUOUS = {"histogramme": ("bar", "histogram"), "histogrammes": ("bar", "histogram")}
 
-KIND_NAMES = [k for k in KINDS]
 _ALIAS_TO_KIND: dict[str, str] = {}
 for _k, _aliases in KINDS.items():
     for _a in _aliases:

@@ -14,7 +14,7 @@ through :func:`insert_in_order` with the sequence from the relevant CT_* type.
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from lxml import etree
 from pptx.dml.color import RGBColor
@@ -48,9 +48,6 @@ __all__ = [
     "ALIGNMENTS",
     "ANCHORS",
     "cm_to_emu",
-    "emu_to_cm",
-    "srgb_fill",
-    "srgb_line",
     "BODY_PR_ORDER",
     "PPR_ORDER",
     "RPR_ORDER",
@@ -330,10 +327,6 @@ def cm_to_emu(value: float | int | None) -> int | None:
     return None if value is None else int(round(float(value) * EMU_PER_CM))
 
 
-def emu_to_cm(value: int | None) -> float | None:
-    return None if value is None else round(float(value) / EMU_PER_CM, 3)
-
-
 ALIGNMENTS: dict[str, PP_ALIGN] = {
     "left": PP_ALIGN.LEFT,
     "start": PP_ALIGN.LEFT,
@@ -381,33 +374,3 @@ def anchor(value: str | None) -> MSO_ANCHOR | None:
 # ---------------------------------------------------------------------------
 
 A_NS_DECL = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
-
-
-def srgb_fill(color: str, alpha: float | None = None) -> str:
-    """An ``<a:solidFill>`` fragment for use inside shape / chart properties."""
-    body = f'<a:srgbClr val="{parse_color(color)}">'
-    body += f'<a:alpha val="{int(round(max(0.0, min(1.0, alpha)) * 100000))}"/>' if alpha is not None else ""
-    body += "</a:srgbClr>"
-    return f"<a:solidFill {A_NS_DECL}>{body}</a:solidFill>"
-
-
-def srgb_line(color: str, width_pt: float = 1.0, dash: str | None = None) -> str:
-    dash_xml = f'<a:prstDash val="{dash}"/>' if dash else ""
-    return (
-        f'<a:ln {A_NS_DECL} w="{int(width_pt * 12700)}" cap="flat">'
-        f"{srgb_fill(color)}{dash_xml}</a:ln>"
-    )
-
-
-def no_fill() -> str:
-    return f"<a:noFill {A_NS_DECL}/>"
-
-
-def no_line() -> str:
-    return f'<a:ln {A_NS_DECL}><a:noFill/></a:ln>'
-
-
-def iter_shape_elements(container) -> Iterable[etree._Element]:
-    """Every ``p:sp``/``p:pic``/``p:graphicFrame`` element under a shape tree."""
-    for tag in ("p:sp", "p:pic", "p:graphicFrame", "p:grpSp", "p:cxnSp"):
-        yield from container.findall(qn(tag))

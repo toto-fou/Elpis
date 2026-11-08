@@ -129,8 +129,6 @@ class Theme:
         base = color or self.accent
         return mix(base, self.background, amount)
 
-    def hairline(self) -> str:
-        return self.border
 
     def palette(self) -> Sequence[str]:
         return self.chart_palette or DEFAULT_PALETTE
@@ -209,7 +207,3 @@ def resolve_theme(
         scale=scale,
         size_factor=round(max(0.6, min(1.35, slide_height_cm / REFERENCE_HEIGHT_CM)), 3),
     )
-
-
-def preset_names() -> list[str]:
-    return sorted(PRESETS)

@@ -231,20 +231,6 @@ def set_alt_text(shape, text: str) -> None:
     c_nv_pr.set("descr", text)
 
 
-def set_hidden(shape, hidden: bool = True) -> None:
-    c_nv_pr = _c_nv_pr(shape)
-    if c_nv_pr is not None:
-        c_nv_pr.set("hidden", "1" if hidden else "0")
-
-
-def bring_to_front(shape) -> None:
-    element = shape._element
-    parent = element.getparent()
-    if parent is not None:
-        parent.remove(element)
-        parent.append(element)
-
-
 def send_to_back(shape) -> None:
     """Move behind every sibling — but after ``p:nvGrpSpPr``/``p:grpSpPr``,
     which must stay the first two children of a shape tree."""
@@ -263,13 +249,6 @@ def send_to_back(shape) -> None:
         parent.insert(0, element)
     else:
         anchor.addnext(element)
-
-
-def delete_shape(shape) -> None:
-    element = shape._element
-    parent = element.getparent()
-    if parent is not None:
-        parent.remove(element)
 
 
 def set_adjustment(shape, index: int, value: float) -> None:

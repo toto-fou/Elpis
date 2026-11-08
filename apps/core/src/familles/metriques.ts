@@ -252,19 +252,27 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
         acces: "staff",
         traiter: async (req, rep) => {
           const { query } = entrees(req, {
-            query: { scope_hours: py.int().defaut(24), ids: py.optional(py.str()).defaut(null) },
+            query: {
+              scope_hours: py.int().defaut(24),
+              ids: py.optional(py.str()).defaut(null),
+              layout: py.int().defaut(0),
+            },
           });
           const portee = [24, 168, 720].includes(query.scope_hours) ? query.scope_hours : 24;
           void rep.headers(SANS_CACHE);
+          if (query.layout === 1) return { layout: registre.getLayout() };
+          const debut = performance.now();
+          let corps: Dict;
           if (query.ids) {
             const voulus = query.ids
               .split(",")
               .map((s) => stripPy(s))
               .filter((s) => s)
-              .slice(0, 40);
-            return { data: await registre.getWidgetsData(dep.contexte, voulus, portee), partial: true };
-          }
-          return registre.getDashboardConfig(dep.contexte, portee);
+              .slice(0, 100);
+            corps = { data: await registre.getWidgetsData(dep.contexte, voulus, portee), partial: true };
+          } else corps = await registre.getDashboardConfig(dep.contexte, portee);
+          void rep.header("server-timing", `calc;dur=${(performance.now() - debut).toFixed(1)}`);
+          return corps;
         },
       },
       {
@@ -387,6 +395,7 @@ export function creerFamilleMetriques(dep: DependancesMetriques): Famille {
               },
             });
             await walCheckpoint(base).catch(() => undefined);
+            registre.invalider();
           }
           void rep.headers(SANS_CACHE);
           return { dry_run: simulation, counted: comptes, deleted: supprimees };

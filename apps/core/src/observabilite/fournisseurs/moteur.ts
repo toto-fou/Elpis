@@ -28,6 +28,7 @@ import {
   maintenant,
   nomCourt,
   percentileMetric,
+  percentilesMetric,
   scopeHours,
   scopeLabel,
 } from "./base";
@@ -568,6 +569,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_llm_status",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "LLM Server",
       type: "value",
       width: "1/4",
@@ -606,6 +609,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_disk",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "Disque",
       type: "value",
       width: "1/4",
@@ -625,6 +630,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_ram",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "RAM",
       type: "value",
       width: "1/4",
@@ -644,6 +651,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_db_size",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "Base de données",
       type: "value",
       width: "1/4",
@@ -654,6 +663,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_sandbox_storage",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "Stockage sandbox",
       type: "value",
       width: "1/4",
@@ -663,7 +674,7 @@ export function fournisseursMoteur(): Fournisseur[] {
       getData: async (c) => {
         let n: number;
         try {
-          n = c.systeme.tailleDossier(config.SANDBOX_DIR);
+          n = await c.systeme.tailleDossier(config.SANDBOX_DIR);
         } catch {
           n = 0;
         }
@@ -672,6 +683,8 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_uptime",
+      ttlMs: 5_000,
+      sansPeriode: true,
       title: "Uptime application",
       type: "value",
       width: "1/4",
@@ -696,6 +709,7 @@ export function fournisseursMoteur(): Fournisseur[] {
       title: "Charge Système Live — CPU / RAM (10 min)",
       type: "line",
       width: "full",
+      ttlMs: 1000,
       getData: async (c) => {
         const h = [...c.historique()];
         let logiques: number;
@@ -748,6 +762,7 @@ export function fournisseursMoteur(): Fournisseur[] {
       title: "Disque I/O Live (Mo/s)",
       type: "line",
       width: "full",
+      ttlMs: 1000,
       getData: async (c) => {
         const h = [...c.historique()];
         return {
@@ -783,6 +798,7 @@ export function fournisseursMoteur(): Fournisseur[] {
       type: "line",
       width: "full",
       category: "system",
+      ttlMs: 1000,
       getData: async (c) => {
         const h = [...c.historique()];
         return {
@@ -904,8 +920,7 @@ export function fournisseursMoteur(): Fournisseur[] {
       getData: async (c, s) => {
         const h = scopeHours(s);
         const ps = [50, 75, 95, 99];
-        const vals: unknown[] = [];
-        for (const p of ps) vals.push(await percentileMetric(c.base, "llm_latency", h, p));
+        const vals = await percentilesMetric(c.base, "llm_latency", h, ps);
         return {
           labels: ps.map((p) => `P${p}`),
           datasets: [
@@ -1170,17 +1185,17 @@ export function fournisseursMoteur(): Fournisseur[] {
       width: "1/4",
       getData: async (c) => {
         const tailles: [string, number][] = [["Base de données", c.systeme.tailleBase()]];
-        const auMieux = (f: () => number): number => {
+        const auMieux = async (f: () => Promise<number>): Promise<number> => {
           try {
-            return f();
+            return await f();
           } catch {
             return 0;
           }
         };
-        tailles.push(["Sandboxes", auMieux(() => c.systeme.tailleDossier(config.SANDBOX_DIR))]);
+        tailles.push(["Sandboxes", await auMieux(() => c.systeme.tailleDossier(config.SANDBOX_DIR))]);
         tailles.push([
           "Uploads",
-          auMieux(() => {
+          await auMieux(async () => {
             const app = readConfigJsonSur()["app"];
             const cfg = veritePy(app) ? app : {};
             if (!estDict(cfg)) throw new Error("app n'est pas un dict");
@@ -1188,7 +1203,7 @@ export function fournisseursMoteur(): Fournisseur[] {
             return c.systeme.tailleDossier(strPy(dossier));
           }),
         ]);
-        tailles.push(["Logs", auMieux(() => c.systeme.tailleDossier("user_db/logs"))]);
+        tailles.push(["Logs", await auMieux(() => c.systeme.tailleDossier("user_db/logs"))]);
         return {
           labels: tailles.map(([l]) => l),
           datasets: [

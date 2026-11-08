@@ -189,7 +189,7 @@ export class SuiviJournalStaff {
     await suivi.skipToEnd();
     this.curseurPose = true;
     const pause = this.options.pollMs ?? STAFF_LOG_POLL_MS;
-    while (this.bus().aUnStaff && !this.options.arret?.aborted) {
+    while (this.bus().aUnAbonneJournal && !this.options.arret?.aborted) {
       await new Promise((suite) => setTimeout(suite, pause));
       if (!(await suivi.hasNew())) continue;
       const enregistrements = await suivi.readNew().catch((e: unknown) => {

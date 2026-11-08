@@ -3388,7 +3388,56 @@ body.elpis-dark-surface .adm-pill--mod { color: #fcd34d; border-color: rgba(252,
 
 /* Supervision › Métriques : barre = période + « ⋯ ». */
 .adm-dash { display: flex; flex-direction: column; gap: 1.25rem; }
-.adm-dash__bar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.adm-dash__bar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.adm-dash__outils { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+.adm-dash__contenu { display: flex; flex-direction: column; gap: 1.25rem; transition: opacity .15s ease; }
+.adm-dash__contenu.is-attente { opacity: .55; }
+
+/* État d'actualisation d'une page de la Supervision : heure de la dernière mise à jour, auto, Actualiser. */
+.adm-maj { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--text-500); }
+.adm-maj__etat { display: inline-flex; align-items: center; gap: 0.375rem; white-space: nowrap; }
+.adm-maj__etat i { font-size: 0.875rem; }
+.adm-maj.is-error .adm-maj__etat { color: var(--danger-text); }
+.adm-maj__auto {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.1875rem 0.5rem; border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface); font: inherit; color: var(--text-600); white-space: nowrap; cursor: pointer;
+}
+.adm-maj__auto:hover { background: var(--surface-2); color: var(--text-900); }
+.adm-maj__auto:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+.adm-maj__point { width: 0.4375rem; height: 0.4375rem; border-radius: 50%; background: var(--text-500); }
+.adm-maj__auto[aria-pressed="true"] .adm-maj__point { background: var(--ok-text); animation: adm-pulse 2s ease-in-out infinite; }
+
+/* Supervision › Journaux : filtres sous l'en-tête, zone haute, état du flux en direct. */
+.adm-journal__filtres {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+    padding: 0.625rem 1rem; border-bottom: 1px solid var(--border-soft);
+}
+.adm-journal__filtres .set-input { width: auto; min-width: 9rem; }
+.adm-journal__filtres input[type="search"] { width: 14rem; }
+.adm-journal { max-height: calc(100vh - 19rem); min-height: 18rem; overflow-y: auto; }
+.adm-direct { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: var(--text-500); white-space: nowrap; }
+.adm-direct.is-on { color: var(--ok-text); }
+.adm-direct.is-on .adm-maj__point { background: var(--ok-text); animation: adm-pulse 2s ease-in-out infinite; }
+
+/* Barre fine sous l'en-tête pendant chaque requête (présente en permanence : aucun décalage de mise en page). */
+.adm-progression {
+    position: absolute; left: 0; right: 0; bottom: -0.6875rem; height: 2px;
+    border-radius: 1px; overflow: hidden; opacity: 0; transition: opacity .2s ease; pointer-events: none;
+}
+.adm-progression.is-on { opacity: 1; }
+.adm-progression::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%;
+    background: var(--accent); animation: adm-progression 1.1s ease-in-out infinite;
+}
+@keyframes adm-progression { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.adm-skeleton--kpi { display: block; width: 4.5rem; height: 1.25rem; margin: 0.25rem 0; }
+.adm-skeleton--bloc { position: absolute; inset: 1rem; height: auto; }
+@media (prefers-reduced-motion: reduce) {
+    .adm-progression::after, .adm-maj__auto[aria-pressed="true"] .adm-maj__point,
+    .adm-direct.is-on .adm-maj__point { animation: none; }
+    .adm-progression::after { width: 100%; opacity: .6; }
+}
 .adm-dash__menu { width: 20rem; }
 .adm-menu__go { margin-left: auto; font-size: 0.75rem; }
 .adm-pop__back {

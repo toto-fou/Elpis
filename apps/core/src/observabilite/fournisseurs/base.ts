@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/observabilite/fournisseurs/base.ts — contrat d'un widget du tableau de bord et requêtes communes : fenêtre, compteurs, moyennes, percentiles, tailles (shared_infra/observability/metrics/engine.py). */
-import { lstatSync, opendirSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import type { Dirent } from "node:fs";
+import { lstat, opendir, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { arrondiPy, estErreurPython, FlottantPy, intPy, veritePy } from "@elpis/commun";
@@ -24,7 +25,7 @@ export interface SystemeMetriques {
   /** `_db_size_bytes` : base SQLite et ses fichiers -wal/-shm. */
   tailleBase(): number;
   /** `_dir_size_bytes` d'un dossier (chemin relatif au répertoire courant du process). */
-  tailleDossier(chemin: string): number;
+  tailleDossier(chemin: string): Promise<number>;
 }
 
 export interface ContexteMetriques {
@@ -34,6 +35,8 @@ export interface ContexteMetriques {
   readonly historique: () => readonly PointSysteme[];
   /** `get_llm_health_sync` du serveur d'inférence intégré. */
   readonly santeLlm: () => Promise<Dict>;
+  /** Résultats gardés quelques secondes par widget et période (contexte du process ; absent = toujours recalculés). */
+  readonly garderResultats?: boolean;
 }
 
 export interface Fournisseur {
@@ -46,6 +49,10 @@ export interface Fournisseur {
   readonly category: string;
   readonly eventTypes: readonly string[];
   readonly purgeSpec: Dict | null;
+  /** Durée de vie d'un résultat gardé, en ms ; absente = selon la période (20, 30 ou 60 s). */
+  readonly ttlMs?: number;
+  /** Vrai si le résultat ne dépend pas de la période : un seul résultat gardé pour toutes les périodes. */
+  readonly sansPeriode?: boolean;
   getData(ctx: ContexteMetriques, scopeHours?: unknown): Promise<Dict>;
 }
 
@@ -59,6 +66,8 @@ export interface DefinitionFournisseur {
   category?: string;
   eventTypes?: readonly string[];
   purgeSpec?: Dict | null;
+  ttlMs?: number;
+  sansPeriode?: boolean;
   getData(ctx: ContexteMetriques, scopeHours?: unknown): Promise<Dict>;
 }
 
@@ -80,6 +89,8 @@ export function fournisseur(d: DefinitionFournisseur): Fournisseur {
         : eventTypes.length
           ? { target: "metric_events", event_types: [...eventTypes] }
           : null,
+    ...(d.ttlMs !== undefined ? { ttlMs: d.ttlMs } : {}),
+    ...(d.sansPeriode ? { sansPeriode: true } : {}),
     getData: d.getData,
   };
 }
@@ -142,7 +153,46 @@ export async function avgMetric(
   return v === null || v === undefined ? 0 : flt(arrondiPy(Number(v), 1));
 }
 
-/** `_percentile_metric` : valeur de rang `floor(n × p / 100)` des valeurs triées, arrondie à 0,01 ; 0 sans donnée. */
+const BRUT_SQLITE = "CAST((SELECT n FROM c) * ? / 100.0 AS INTEGER)";
+const RANG_SQLITE = `(CASE WHEN ${BRUT_SQLITE} > (SELECT n FROM c) - 1 THEN (SELECT n FROM c) - 1 ELSE ${BRUT_SQLITE} END)`;
+
+/** Valeurs de rang `floor(n × p / 100)` des valeurs triées, arrondies à 0,01 (0 sans donnée) : le tri reste dans la base, seules les lignes visées remontent. */
+export async function percentilesMetric(
+  x: Executeur,
+  eventType: string,
+  hours: number,
+  percentiles: readonly number[],
+  positiveOnly = true,
+): Promise<(number | FlottantPy)[]> {
+  const filtre = "event_type=? AND created_at>?" + (positiveOnly ? " AND value>0" : "");
+  const params = [eventType, maintenant() - hours * 3600];
+  const lignes =
+    x.dialecte === "postgres"
+      ? await x.valeurs(
+          `WITH c AS (SELECT COUNT(*) AS n FROM metric_events WHERE ${filtre}), ` +
+            `r AS (SELECT CASE WHEN FLOOR(c.n * v.p / 100.0) > c.n - 1 THEN c.n - 1 ELSE FLOOR(c.n * v.p / 100.0) END AS k ` +
+            `FROM (${percentiles.map((_, i) => (i === 0 ? "SELECT CAST(? AS INTEGER) AS p" : "SELECT CAST(? AS INTEGER)")).join(" UNION ALL ")}) v CROSS JOIN c) ` +
+            "SELECT t.rn, t.value, c.n FROM (SELECT value, ROW_NUMBER() OVER (ORDER BY value) - 1 AS rn " +
+            `FROM metric_events WHERE ${filtre}) t JOIN r ON t.rn = r.k CROSS JOIN c`,
+          [...params, ...percentiles, ...params],
+        )
+      : await x.valeurs(
+          `WITH c AS (SELECT COUNT(*) AS n FROM metric_events WHERE ${filtre}) ` +
+            "SELECT rn, value, (SELECT n FROM c) FROM (SELECT value, ROW_NUMBER() OVER (ORDER BY value) - 1 AS rn " +
+            `FROM metric_events WHERE ${filtre}) t WHERE rn IN (${percentiles.map(() => RANG_SQLITE).join(",")})`,
+          [...params, ...params, ...percentiles.flatMap((p) => [p, p])],
+        );
+  const n = lignes[0] ? entier(lignes[0][2]) : 0;
+  if (n <= 0) return percentiles.map(() => 0);
+  const rangs = percentiles.map((p) => Math.max(0, Math.min(n - 1, Math.trunc((n * p) / 100))));
+  const parRang = new Map(lignes.map((l) => [Number(l[0]), l[1]]));
+  return rangs.map((r) => {
+    const v = parRang.get(r);
+    return typeof v === "number" ? flt(arrondiPy(v, 2)) : 0;
+  });
+}
+
+/** `_percentile_metric` : un seul percentile (voir `percentilesMetric`). */
 export async function percentileMetric(
   x: Executeur,
   eventType: string,
@@ -150,15 +200,8 @@ export async function percentileMetric(
   percentile: number,
   positiveOnly = true,
 ): Promise<number | FlottantPy> {
-  let q = "SELECT value FROM metric_events WHERE event_type=? AND created_at>?";
-  if (positiveOnly) q += " AND value>0";
-  q += " ORDER BY value";
-  const rows = await x.valeurs(q, [eventType, maintenant() - hours * 3600]);
-  if (!rows.length) return 0;
-  const n = rows.length;
-  const idx = Math.max(0, Math.min(n - 1, Math.trunc((n * percentile) / 100)));
-  const val = rows[idx]?.[0];
-  return typeof val === "number" ? flt(arrondiPy(val, 2)) : 0;
+  const [v] = await percentilesMetric(x, eventType, hours, [percentile], positiveOnly);
+  return v ?? 0;
 }
 
 /** `_distinct_users` : comptes distincts (tag `user`) ayant envoyé un message sur la fenêtre. */
@@ -189,50 +232,59 @@ export function dbSizeBytes(chemin: string): number {
   }
 }
 
-/** `_dir_size_bytes` : parcours comme `os.walk` (ordre du répertoire, liens vers des dossiers ni suivis ni comptés), arrêt après 32 000 fichiers. */
-export function dirSizeBytes(racine: string): number {
+/** `_dir_size_bytes` : parcours comme `os.walk` (liens vers des dossiers ni suivis ni comptés), arrêt dès 32 000 entrées lues (dossiers compris), 4 000 dossiers ouverts ou 1 s de parcours, la valeur partielle est alors rendue ; E/S asynchrones par lots, la boucle n'est jamais gelée. */
+export async function dirSizeBytes(racine: string): Promise<number> {
+  const PLAFOND = 32000;
+  const MAX_DOSSIERS = 4000;
+  const BUDGET_MS = 1000;
+  const limite = performance.now() + BUDGET_MS;
   let total = 0;
   let vus = 0;
-  const parcourir = (dossier: string): boolean => {
+  let ouverts = 0;
+  const parcourir = async (dossier: string): Promise<boolean> => {
     const entrees: Dirent[] = [];
+    let plein = false;
+    if (++ouverts > MAX_DOSSIERS || performance.now() > limite) return false;
     try {
-      const d = opendirSync(dossier);
-      try {
-        for (let e = d.readSync(); e !== null; e = d.readSync()) entrees.push(e);
-      } finally {
-        d.closeSync();
+      for await (const e of await opendir(dossier, { bufferSize: 1024 })) {
+        entrees.push(e);
+        if (++vus >= PLAFOND) {
+          plein = true;
+          break;
+        }
       }
     } catch {
-      return true;
+      // dossier illisible : on garde ce qui a été lu
     }
     const sousDossiers: string[] = [];
     const fichiers: string[] = [];
     for (const e of entrees) {
       const p = path.join(dossier, e.name);
       let estDossier = e.isDirectory();
-      if (!estDossier && e.isSymbolicLink()) {
-        try {
-          estDossier = statSync(p).isDirectory();
-        } catch {
-          estDossier = false;
-        }
-      }
+      if (!estDossier && e.isSymbolicLink())
+        estDossier = await stat(p).then(
+          (x) => x.isDirectory(),
+          () => false,
+        );
       if (!estDossier) fichiers.push(p);
       else if (!e.isSymbolicLink()) sousDossiers.push(p);
     }
-    for (const f of fichiers) {
-      vus += 1;
-      if (vus > 32000) return false;
-      try {
-        total += lstatSync(f).size;
-      } catch {
-        continue;
-      }
+    for (let i = 0; i < fichiers.length; i += 64) {
+      const tailles = await Promise.all(
+        fichiers.slice(i, i + 64).map((f) =>
+          lstat(f).then(
+            (x) => x.size,
+            () => 0,
+          ),
+        ),
+      );
+      for (const t of tailles) total += t;
     }
-    for (const d of sousDossiers) if (!parcourir(d)) return false;
+    if (plein) return false;
+    for (const d of sousDossiers) if (!(await parcourir(d))) return false;
     return true;
   };
-  parcourir(racine);
+  await parcourir(racine);
   return total;
 }
 

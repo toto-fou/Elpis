@@ -72,9 +72,21 @@ async function enParallele<T, R>(
   return sortie;
 }
 
+/** Durée de vie d'un résultat gardé selon la période : les longues fenêtres coûtent cher et bougent peu. */
+const TTL_PAR_PORTEE: Readonly<Record<number, number>> = { 24: 20_000, 168: 30_000, 720: 60_000 };
+
+interface ResultatGarde {
+  epoque: number;
+  jusqua: number;
+  valeur: Dict | null;
+  enVol: Promise<Dict> | null;
+}
+
 export class MetricsRegistry {
   readonly providers: Fournisseur[] = [];
   private index: Map<string, string[]> | null = null;
+  private readonly gardes = new WeakMap<ContexteMetriques, Map<string, ResultatGarde>>();
+  private epoque = 0;
 
   register(p: Fournisseur): void {
     this.providers.push(p);
@@ -103,9 +115,41 @@ export class MetricsRegistry {
     }
   }
 
-  /** Mise en page (catégorie, défaut, purge) et données de tous les widgets, 12 calculs au plus à la fois. */
-  async getDashboardConfig(ctx: ContexteMetriques, scopeHours = 24): Promise<Dict> {
-    const layout = this.providers.map((p) => ({
+  /** Résultat gardé s'il est frais, calcul partagé s'il est en cours ; une erreur n'est jamais gardée. */
+  private calculerGarde(ctx: ContexteMetriques, p: Fournisseur, scopeHours: number): Promise<Dict> {
+    const ttl = p.ttlMs ?? TTL_PAR_PORTEE[scopeHours] ?? 20_000;
+    if (!ctx.garderResultats || ttl <= 0) return this.calculer(ctx, p, scopeHours);
+    let gardes = this.gardes.get(ctx);
+    if (gardes === undefined) this.gardes.set(ctx, (gardes = new Map()));
+    const cle = p.sansPeriode ? p.id : `${p.id}|${scopeHours}`;
+    const epoque = this.epoque;
+    const vu = gardes.get(cle);
+    if (vu !== undefined && vu.epoque === epoque) {
+      if (vu.valeur !== null && vu.jusqua > performance.now()) return Promise.resolve(vu.valeur);
+      if (vu.enVol !== null) return vu.enVol;
+    }
+    const enVol = this.calculer(ctx, p, scopeHours).then((valeur) => {
+      if (gardes.get(cle)?.enVol === enVol)
+        gardes.set(cle, {
+          epoque,
+          jusqua: performance.now() + ttl,
+          valeur: valeur["error"] === undefined ? valeur : null,
+          enVol: null,
+        });
+      return valeur;
+    });
+    gardes.set(cle, { epoque, jusqua: 0, valeur: null, enVol });
+    return enVol;
+  }
+
+  /** Oublie les résultats gardés : après une purge, le tableau repart de la base. */
+  invalider(): void {
+    this.epoque += 1;
+  }
+
+  /** Mise en page seule (catégorie, défaut, purge), sans calcul. */
+  getLayout(): Dict[] {
+    return this.providers.map((p) => ({
       id: p.id,
       title: p.title,
       type: p.type,
@@ -114,8 +158,13 @@ export class MetricsRegistry {
       default: DEFAULT_WIDGETS.has(p.id),
       purge: p.purgeSpec,
     }));
+  }
+
+  /** Mise en page (catégorie, défaut, purge) et données de tous les widgets, 12 calculs au plus à la fois. */
+  async getDashboardConfig(ctx: ContexteMetriques, scopeHours = 24): Promise<Dict> {
+    const layout = this.getLayout();
     const donnees = await enParallele(this.providers, Math.min(this.providers.length, 12), (p) =>
-      this.calculer(ctx, p, scopeHours),
+      this.calculerGarde(ctx, p, scopeHours),
     );
     const data: Dict = {};
     this.providers.forEach((p, i) => (data[p.id] = donnees[i]));
@@ -129,7 +178,7 @@ export class MetricsRegistry {
     const sortie: Dict = {};
     if (!cibles.length) return sortie;
     const donnees = await enParallele(cibles, Math.min(cibles.length, 8), (p) =>
-      this.calculer(ctx, p, scopeHours),
+      this.calculerGarde(ctx, p, scopeHours),
     );
     cibles.forEach((p, i) => (sortie[p.id] = donnees[i]));
     return sortie;
@@ -166,5 +215,6 @@ export function contexteMetriques(base: Executeur, moniteur: MoniteurFond | null
     systeme: systemeDuProcess(),
     historique: () => moniteur?.history ?? [],
     santeLlm: () => getLlmHealthSync(),
+    garderResultats: true,
   };
 }

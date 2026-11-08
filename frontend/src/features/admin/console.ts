@@ -88,7 +88,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     loadAdminStats: metriques.loadAdminStats,
     destroyAllCharts: metriques.destroyAllCharts,
   });
-  const journaux = creerJournaux(b);
+  const { liberer: libererJournaux, ...journaux } = creerJournaux(b);
   lien.loadRecentLogs = journaux.loadRecentLogs;
   const transferts = creerTransferts(b);
   Object.assign(lien, {
@@ -142,6 +142,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
 
   vue.onUnmounted(() => {
     libererMetriques();
+    libererJournaux();
     libererNavigation();
     libererEnregistrement();
     libererPalette();

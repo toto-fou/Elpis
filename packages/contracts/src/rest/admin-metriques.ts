@@ -40,10 +40,11 @@ export const schemaDonneesWidget = z.looseObject({
 });
 export type DonneesWidget = z.infer<typeof schemaDonneesWidget>;
 
-/** Tableau complet (mise en page et données) ou, avec `ids`, les seules données demandées. */
+/** Tableau complet (mise en page et données), avec `ids` les seules données demandées, avec `layout=1` la seule mise en page. */
 export const schemaReponseStatsDynamique = z.union([
   z.object({ layout: z.array(schemaWidgetTableauBord), data: z.record(z.string(), schemaDonneesWidget) }),
   z.object({ data: z.record(z.string(), schemaDonneesWidget), partial: z.literal(true) }),
+  z.object({ layout: z.array(schemaWidgetTableauBord) }),
 ]);
 
 export const schemaReponseJetonScrape = z.object({ configured: z.boolean(), token: z.string().nullable() });

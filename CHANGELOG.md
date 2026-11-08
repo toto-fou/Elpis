@@ -147,6 +147,12 @@ follow [SemVer](https://semver.org/).
   (title, compaction) set none.
 - **MCP and Generation panels: rounded left corners.** Both side panels round their left
   corners like the rail, with their content clipped to the curve.
+- **Admin console: faster dashboard, visible refresh.** Metrics loads its layout without
+  computing any widget, then computes only the visible ones, each result kept a few seconds
+  per period; folder sizes are measured without blocking the process and percentiles are
+  computed in the database. The live log stream runs only while the Logs page is open.
+  Every request shows a progress bar, and the automatic refresh is visible (on or paused,
+  interval, time of the last update).
 
 ### Removed
 

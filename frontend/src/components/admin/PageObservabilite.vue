@@ -2,6 +2,8 @@
 <!-- frontend/src/components/admin/PageObservabilite.vue — pages Appels d'outils et Audit. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import ChoixPeriode from "./ChoixPeriode.vue";
+import EtatActualisation from "./EtatActualisation.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -9,32 +11,13 @@ const adm = domaineAdmin();
 <template>
   <div v-if="['tool-calls', 'audit', 'logs'].includes(adm.adminTab)" class="animate-[fadeIn_0.2s] space-y-3">
     <div v-if="adm.adminTab !== 'logs'" class="flex flex-wrap items-center justify-between gap-2">
-      <div class="adm-seg" role="group" aria-label="Période">
-        <button
-          v-for="s in [
-            { h: 24, l: '24 h' },
-            { h: 168, l: '7 j' },
-            { h: 720, l: '30 j' },
-          ]"
-          :key="'os' + s.h"
-          type="button"
-          :class="['adm-seg__btn', adm.obsScope === s.h ? 'is-active' : '']"
-          :aria-pressed="adm.obsScope === s.h ? 'true' : 'false'"
-          @click="adm.setObsScope(s.h)"
-        >
-          {{ s.l }}
-        </button>
-      </div>
-
-      <button
-        type="button"
-        :disabled="adm.obsLoading"
-        class="adm-btn adm-tool"
-        @click="adm.loadObservability()"
-      >
-        <i class="ph ph-arrow-clockwise" :class="adm.obsLoading ? 'animate-spin' : ''" aria-hidden="true"></i>
-        Recharger
-      </button>
+      <ChoixPeriode :periode="adm.obsScope" @choisir="adm.setObsScope($event)" />
+      <EtatActualisation
+        :chargement="adm.obsLoading"
+        :derniere-maj="adm.obsDerniereMaj"
+        :echec="adm.obsEchec"
+        @actualiser="adm.rechargerPage()"
+      />
     </div>
 
     <div v-if="adm.adminTab === 'tool-calls'" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -288,34 +271,45 @@ const adm = domaineAdmin();
         <i class="ph ph-terminal-window adm-card__icon" aria-hidden="true"></i>
         <div>
           <h3 class="adm-card__title">Journaux</h3>
-          <span class="sr-only">300 dernières entrées, puis flux en direct.</span>
+          <span class="sr-only">300 dernières entrées du journal commun, puis flux en direct.</span>
         </div>
-        <div class="adm-card__actions">
-          <input
-            v-model="adm.logFilters.query"
-            type="search"
-            placeholder="Filtrer…"
-            class="set-input text-sm w-40"
-            aria-label="Filtrer les journaux"
+        <div class="adm-card__actions flex-wrap">
+          <span class="adm-direct" :class="{ 'is-on': adm.fluxOuvert }">
+            <span class="adm-maj__point" aria-hidden="true"></span>
+            {{ adm.fluxOuvert ? "Direct" : "Connexion…" }}
+          </span>
+          <EtatActualisation
+            :chargement="adm.logsLoading"
+            :derniere-maj="adm.logsDerniereMaj"
+            :echec="adm.logsEchec"
+            @actualiser="adm.loadRecentLogs()"
           />
-          <label class="flex items-center gap-1.5 text-xs adm-muted cursor-pointer">
-            <input v-model="adm.logAutoScroll" type="checkbox" /> Suivre
-          </label>
-          <button
-            type="button"
-            class="adm-btn adm-btn--icon"
-            :disabled="adm.logsLoading"
-            title="Recharger les journaux"
-            @click="adm.loadRecentLogs()"
-          >
-            <i
-              class="ph ph-arrow-clockwise"
-              :class="adm.logsLoading ? 'animate-spin' : ''"
-              aria-hidden="true"
-            ></i>
-          </button>
         </div>
       </header>
+      <div class="adm-journal__filtres">
+        <input
+          v-model="adm.logFilters.query"
+          type="search"
+          placeholder="Filtrer le texte…"
+          class="set-input text-sm"
+          aria-label="Filtrer les journaux par texte"
+        />
+        <select v-model="adm.filtreNiveau" class="set-input text-sm" aria-label="Niveau">
+          <option value="">Tous les niveaux</option>
+          <option v-for="n in adm.niveauxDisponibles" :key="n" :value="n">{{ n }}</option>
+        </select>
+        <select v-model="adm.filtreService" class="set-input text-sm" aria-label="Service">
+          <option value="">Tous les services</option>
+          <option v-for="n in adm.servicesDisponibles" :key="n" :value="n">{{ n }}</option>
+        </select>
+        <select v-model="adm.filtreCategorie" class="set-input text-sm" aria-label="Catégorie">
+          <option value="">Toutes les catégories</option>
+          <option v-for="n in adm.categoriesDisponibles" :key="n" :value="n">{{ n }}</option>
+        </select>
+        <label class="flex items-center gap-1.5 text-xs adm-muted cursor-pointer">
+          <input v-model="adm.logAutoScroll" type="checkbox" /> Suivre
+        </label>
+      </div>
       <div
         :ref="
           (el) => {
@@ -324,7 +318,7 @@ const adm = domaineAdmin();
         "
         role="log"
         aria-live="polite"
-        class="max-h-80 overflow-y-auto custom-scrollbar p-3 font-mono text-xs space-y-0.5"
+        class="adm-journal custom-scrollbar p-3 font-mono text-xs space-y-0.5"
       >
         <p v-if="!adm.filteredLogs.length" class="adm-empty">Aucune entrée pour ce filtre.</p>
 

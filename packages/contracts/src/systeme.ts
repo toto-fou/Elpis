@@ -12,6 +12,10 @@ const dict = z.record(z.string(), z.unknown());
 export const schemaSystemeSessionExpiree = z.object({ type: z.literal("session_expired") });
 /** Le worker qui porte le flux s'arrête : se reconnecter sans rien afficher. */
 export const schemaSystemeRecyclage = z.object({ type: z.literal("worker_recycling") });
+/** Journal en direct refusé (plafond d'abonnés atteint) : le flux se ferme juste après. */
+export const schemaSystemeJournalIndisponible = z.object({ type: z.literal("log_unavailable") });
+/** Journal en direct fermé par le serveur au profit d'un flux plus récent du même compte : ne se rouvre qu'au retour de visibilité. */
+export const schemaSystemeJournalRemplace = z.object({ type: z.literal("log_replaced") });
 export const schemaSystemeRedemarrage = z.object({
   type: z.literal("restart"),
   message: z.string(),
@@ -128,6 +132,8 @@ export const schemaEvenementSysteme = z.discriminatedUnion("type", [
   schemaSystemeRedemarrageApp,
   schemaSystemeModeleChange,
   schemaSystemeJournal,
+  schemaSystemeJournalIndisponible,
+  schemaSystemeJournalRemplace,
   schemaSystemeEtatModeles,
   schemaSystemeNotification,
   schemaSystemeJob,
@@ -144,6 +150,8 @@ export const TYPES_EVENEMENTS_SYSTEME: readonly TypeEvenementSysteme[] = [
   "app_restarting",
   "model_changed",
   "log",
+  "log_unavailable",
+  "log_replaced",
   "model_status",
   "notification",
   "chat_job",

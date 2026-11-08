@@ -5,6 +5,7 @@ import type { Ref } from "vue";
 
 import type { HttpLegacy } from "../../platform/http/legacy";
 import type { NavAdmin } from "./registre";
+import type { SourceEvenements } from "../auth/sse-systeme";
 
 export type VueAdmin = Pick<typeof Vue, "computed" | "onUnmounted" | "ref" | "watch">;
 export type FetchAuth = HttpLegacy["fetchAuth"];
@@ -65,6 +66,8 @@ export interface CtxAdmin {
   handleSessionExpired?(): unknown;
   loadPublicConfig(): unknown;
   liveLogs?: Ref<EntreeJournal[]>;
+  /** Fabrique du flux du journal en direct (EventSource par défaut ; remplacée dans les tests). */
+  creerSourceJournal?: (url: string) => SourceEvenements;
   showNewUserModal?: Ref<boolean>;
   mainAppUrl?: Ref<string>;
   systemAlert: Ref<string>;

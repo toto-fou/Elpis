@@ -5,6 +5,7 @@ import type { ExecutionListee } from "@elpis/contracts";
 import { ref } from "vue";
 import type { Ref } from "vue";
 
+import { ecrirePeriode, lirePeriode, periodeValide } from "./periode";
 import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 import type { ClientHttp } from "../../platform/http/client";
 import { fmtTokenCount, tokenBreakdown } from "../../utils/utils-purs";
@@ -27,8 +28,10 @@ interface LigneTokens {
 }
 
 export function setupAdminRuns(http: ClientHttp) {
-  const admRunsScope = ref(24);
+  const admRunsScope = ref(lirePeriode());
   const admRunsLoading = ref(false);
+  const admRunsDerniereMaj: Ref<number | null> = ref(null);
+  const admRunsEchec = ref(false);
   const admRunsAccounts: Ref<CompteExecutions[]> = ref([]);
   const admRunsItems: Ref<ExecutionListee[]> = ref([]);
   const admRunsFilter: Ref<FiltreExecutions> = ref({ userId: null, username: "", kind: "", status: "" });
@@ -46,6 +49,7 @@ export function setupAdminRuns(http: ClientHttp) {
   async function loadAdminRuns(): Promise<void> {
     const moi = ++seq;
     admRunsLoading.value = true;
+    admRunsScope.value = lirePeriode();
     try {
       const [ra, rl] = await Promise.all([
         http.requete(
@@ -58,15 +62,19 @@ export function setupAdminRuns(http: ClientHttp) {
       if (moi !== seq) return;
       if (ra.type === "ok") admRunsAccounts.value = ra.valeur.items;
       if (rl.type === "ok") admRunsItems.value = rl.valeur.items;
-      if (ra.type === "ok" && rl.type === "ok") chargementReussi("loadAdminRuns");
-      else chargementEchoue("loadAdminRuns", "Réponse du serveur inattendue ou en échec.", loadAdminRuns);
+      admRunsEchec.value = !(ra.type === "ok" && rl.type === "ok");
+      if (!admRunsEchec.value) {
+        chargementReussi("loadAdminRuns");
+        admRunsDerniereMaj.value = Date.now();
+      } else chargementEchoue("loadAdminRuns", "Réponse du serveur inattendue ou en échec.", loadAdminRuns);
     } finally {
       if (moi === seq) admRunsLoading.value = false;
     }
   }
 
   function setAdmRunsScope(h: number): void {
-    admRunsScope.value = h === 168 || h === 720 ? h : 24;
+    admRunsScope.value = periodeValide(h);
+    ecrirePeriode(admRunsScope.value);
     void loadAdminRuns();
   }
 
@@ -131,6 +139,8 @@ export function setupAdminRuns(http: ClientHttp) {
 
   return {
     admRunsScope,
+    admRunsDerniereMaj,
+    admRunsEchec,
     admRunsLoading,
     admRunsAccounts,
     admRunsItems,

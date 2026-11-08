@@ -15,6 +15,8 @@ export type ElementSysteme = string | Message | typeof CLIENT_CLOSED;
 export interface AbonneSysteme {
   readonly staff: boolean;
   readonly uid: number | null;
+  /** Abonné au journal en direct (page Journaux de la console ouverte). */
+  readonly journal?: boolean;
 }
 
 export interface EntreeHistorique {
@@ -27,6 +29,8 @@ export type VerifierSession = () => boolean | Promise<boolean>;
 
 export interface OptionsListen {
   isStaff?: boolean;
+  /** Recevoir les lignes du journal en direct (staff seulement). */
+  journal?: boolean;
   userId?: number | null;
   validityCheck?: VerifierSession;
   signal?: AbortSignal;
@@ -55,7 +59,7 @@ export interface OptionsSystemEvents {
   journal?: Journal;
   peutVoirModeles?: (uid: number) => boolean;
   ecrireJournal?: EcrireJournal;
-  surAbonneStaff?: () => void;
+  surAbonneJournal?: () => void;
   attenteMs?: number;
   revalidationMs?: number;
 }
@@ -108,9 +112,23 @@ export class SystemEvents {
     return this.clients.size;
   }
 
-  get aUnStaff(): boolean {
-    for (const meta of this.clients.values()) if (meta.staff) return true;
-    return false;
+  get aUnAbonneJournal(): boolean {
+    return this.nombreAbonnesJournal > 0;
+  }
+
+  get nombreAbonnesJournal(): number {
+    let n = 0;
+    for (const meta of this.clients.values()) if (meta.journal) n += 1;
+    return n;
+  }
+
+  /** Ferme les plus anciens abonnés journal du compte (`log_replaced`) pour qu'il en reste moins de `max`. */
+  libererPlaceJournal(uid: number, max: number): void {
+    const siens = [...this.clients].filter(([, meta]) => meta.journal && meta.uid === uid);
+    for (const [file] of siens.slice(0, Math.max(0, siens.length - max + 1))) {
+      this.clients.delete(file);
+      this.fermerFile(file, { type: "log_replaced" });
+    }
   }
 
   /** Inscription immédiate : itérer jusqu'au bout ou passer `signal`, sinon l'abonné reste ; rend le texte de chaque trame `data`. */
@@ -119,8 +137,9 @@ export class SystemEvents {
     if (this.fermeture !== undefined) {
       this.fermerFile(file, this.fermeture);
     } else if (!options.signal?.aborted) {
-      this.clients.set(file, { staff: Boolean(options.isStaff), uid: options.userId ?? null });
-      if (options.isStaff) this.options.surAbonneStaff?.();
+      const journal = Boolean(options.isStaff && options.journal);
+      this.clients.set(file, { staff: Boolean(options.isStaff), uid: options.userId ?? null, journal });
+      if (journal) this.options.surAbonneJournal?.();
     }
     const desinscrire = (): void => void this.clients.delete(file);
     options.signal?.addEventListener("abort", desinscrire, { once: true });
@@ -257,7 +276,7 @@ export class SystemEvents {
     const acces = new Map<number, boolean>();
     const saturees: FileAttente<ElementSysteme>[] = [];
     for (const [file, meta] of [...this.clients]) {
-      if (estLog && !meta.staff) continue;
+      if (estLog && !meta.journal) continue;
       if (notifUid !== null && meta.uid !== notifUid) continue;
       const uid = meta.uid;
       if (estEtatModeles && uid !== null) {

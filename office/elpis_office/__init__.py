@@ -19,7 +19,9 @@ guidés (``fix`` + ``example``) et garde-fou anti-boucle par conversation.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import threading
 from collections import OrderedDict
 from typing import Any, Callable, Dict, Tuple
 
@@ -436,10 +438,28 @@ def pdf_du_fichier(env: Env, rel: str, ext: str, numeroter: bool = True) -> Tupl
         raise OfficeError("rendering needs LibreOffice, which is not installed on this server",
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
+    cle = (hashlib.sha256(data).hexdigest(), ext, numeroter)
+    with _PDF_VERROU:
+        if cle in _PDF_RECENTS:                     # aperçus successifs du même fichier : un seul rendu
+            _PDF_RECENTS.move_to_end(cle)
+            return _PDF_RECENTS[cle]
     if ext == ".docx" and numeroter:
         from .sommaire_pdf import pdf_numerote
-        return pdf_numerote(data, env.convertir)
-    return env.convertir(data, ext, "pdf"), 0
+        rendu = pdf_numerote(data, env.convertir)
+    else:
+        rendu = env.convertir(data, ext, "pdf"), 0
+    with _PDF_VERROU:
+        _PDF_RECENTS[cle] = rendu
+        while len(_PDF_RECENTS) > PDF_RECENTS_MAX or \
+                sum(len(p) for p, _ in _PDF_RECENTS.values()) > PDF_RECENTS_OCTETS:
+            _PDF_RECENTS.popitem(last=False)
+    return rendu
+
+
+# PDF rendus récemment, par contenu exact du fichier (sha256) : partagés sans risque entre comptes.
+PDF_RECENTS_MAX, PDF_RECENTS_OCTETS = 8, 64 << 20
+_PDF_RECENTS: "OrderedDict[Tuple[str, str, bool], Tuple[bytes, int]]" = OrderedDict()
+_PDF_VERROU = threading.Lock()
 
 
 def _homonymes(env: Env, rel: str) -> list:

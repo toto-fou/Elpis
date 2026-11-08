@@ -104,17 +104,19 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                       if ext != ".pdf" else ""),
     }
     if a.get("save_as"):
-        res["saved"] = _enregistrer(env, str(a["save_as"]), rendus)
+        ecrits = _enregistrer(env, str(a["save_as"]), rendus)
+        res["saved"] = [e["path"] for e in ecrits]
+        res["files_changed"] = [{**e, "change": "modified" if e["old_sha256"] else "created"} for e in ecrits]
     return res
 
 
-def _enregistrer(env: Env, chemin: str, rendus: List[Dict[str, Any]]) -> List[str]:
+def _enregistrer(env: Env, chemin: str, rendus: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Écrit les images dans la sandbox (une page : le nom donné ; plusieurs : -p<n> ajouté)."""
     base = chemin_entree(chemin)
     if base.lower().endswith(".png"):
         base = base[:-4]
-    sortis = []
+    sortis: List[Dict[str, Any]] = []
     for r in rendus:
         cible = f"{base}.png" if len(rendus) == 1 else f"{base}-p{r['page']}.png"
-        sortis.append(ecrire(env, cible, base64.b64decode(r["png"]))["path"])
+        sortis.append(ecrire(env, cible, base64.b64decode(r["png"])))
     return sortis

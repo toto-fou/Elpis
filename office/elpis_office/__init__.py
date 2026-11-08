@@ -175,15 +175,23 @@ TOOLS["docx_create"] = {
 }
 TOOLS["docx_read"] = {
     "description": (
-        "Read a Word document of the sandbox: outline, numbered paragraphs (p), tables, header "
-        "and footer, {{placeholders}} and unfinished marks (TODO, [XXX]…). Use the p and table "
+        "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type "
+        "and, when formatted, md (the text with its bold, italic, links… in Markdown, as set takes "
+        "it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout "
+        "boxes (not counted as tables: change their text with replace), text boxes, header and "
+        "footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and "
+        "unfinished marks (TODO, [XXX]…). A table of contents is one item. Use the p and table "
         "numbers with docx_edit. find = text to locate (case ignored). Long documents come in "
         "pages: call again with start=next_start."),
     "params": OrderedDict([
         ("path", _PATH),
         ("find", {"type": "string", "description": "Text to locate."}),
-        ("start", {"type": "integer", "description": "First paragraph number to list."}),
-        ("limit", {"type": "integer", "description": "Max items listed (default 200)."}),
+        ("start", {"type": "integer", "description": "First paragraph number to list (with table: "
+                                                     "first row, from 0)."}),
+        ("limit", {"type": "integer", "description": "Max items listed (default 200; with table: "
+                                                     "rows, default 100)."}),
+        ("table", {"type": "integer", "description": "Read only the rows of this table (its number "
+                                                     "in docx_read)."}),
     ]),
     "required": ["path"],
 }

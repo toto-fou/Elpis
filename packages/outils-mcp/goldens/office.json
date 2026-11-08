@@ -324,7 +324,7 @@
     {
       "name": "docx_read",
       "title": "Docx Read",
-      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p), tables, header and footer, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
+      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type and, when formatted, md (the text with its bold, italic, links\u2026 in Markdown, as set takes it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout boxes (not counted as tables: change their text with replace), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). A table of contents is one item. Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -339,12 +339,17 @@
           },
           "start": {
             "default": null,
-            "description": "First paragraph number to list.",
+            "description": "First paragraph number to list (with table: first row, from 0).",
             "type": "integer"
           },
           "limit": {
             "default": null,
-            "description": "Max items listed (default 200).",
+            "description": "Max items listed (default 200; with table: rows, default 100).",
+            "type": "integer"
+          },
+          "table": {
+            "default": null,
+            "description": "Read only the rows of this table (its number in docx_read).",
             "type": "integer"
           }
         },

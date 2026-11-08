@@ -93,6 +93,61 @@ def clear_inline(paragraph):
 
 
 # ---------------------------------------------------------------------------
+# Body blocks
+# ---------------------------------------------------------------------------
+
+_P, _TBL, _CUSTOM_XML = qn("w:p"), qn("w:tbl"), qn("w:customXml")
+#: Where a located paragraph sits in the body (the rest are headers and footers).
+BODY_WHERE = frozenset({"body", "table", "callout"})
+
+
+def body_blocks(container) -> Iterable[Any]:
+    """Paragraphs and tables of a body in reading order, including those inside block content controls."""
+    for child in container.iterchildren():
+        if child.tag in (_P, _TBL):
+            yield child
+        elif child.tag == _SDT:
+            content = child.find(_SDT_CONTENT)
+            if content is not None:
+                yield from body_blocks(content)
+        elif child.tag == _CUSTOM_XML:
+            yield from body_blocks(child)
+
+
+def is_callout(table) -> bool:
+    """A boxed note as docx_create draws it: a single cell with a thick left edge."""
+    rows = table.findall(qn("w:tr"))
+    cells = rows[0].findall(qn("w:tc")) if len(rows) == 1 else []
+    if len(cells) != 1:
+        return False
+    borders = cells[0].find(f"{qn('w:tcPr')}/{qn('w:tcBorders')}")
+    if borders is None:
+        return False
+    edge = borders.find(qn("w:left"))
+    if edge is None:
+        edge = borders.find(qn("w:start"))
+    try:
+        return edge is not None and int(edge.get(qn("w:sz")) or 0) >= 12
+    except ValueError:
+        return False
+
+
+def body_paragraphs(document) -> list:
+    """The numbered paragraphs (``p``) of docx_read and docx_edit, content controls included."""
+    from docx.text.paragraph import Paragraph
+
+    return [Paragraph(e, document._body) for e in body_blocks(document.element.body) if e.tag == _P]
+
+
+def body_tables(document, callouts: bool = False) -> list:
+    """The numbered tables of the body; callout boxes are apart (``callouts=True`` lists them instead)."""
+    from docx.table import Table
+
+    return [Table(e, document._body) for e in body_blocks(document.element.body)
+            if e.tag == _TBL and is_callout(e) == callouts]
+
+
+# ---------------------------------------------------------------------------
 # Run properties
 # ---------------------------------------------------------------------------
 
@@ -194,7 +249,7 @@ def style_levels(document) -> tuple[dict[str, int | None], str | None]:
     """
     from docx.styles import BabelFish
 
-    levels: dict[str, int | None] = {}
+    own: dict[str, tuple[int | None, int | None, str | None]] = {}
     default_id: str | None = None
     for style in document.styles.element.style_lst:
         # type 1 is WD_STYLE_TYPE.PARAGRAPH; a character style can never be a heading.
@@ -203,9 +258,37 @@ def style_levels(document) -> tuple[dict[str, int | None], str | None]:
         style_id = style.styleId
         if style_id is None:
             continue
-        levels[style_id] = _level_for_name(BabelFish.internal2ui(style.name_val or ""))
+        outline = style.find(f"{qn('w:pPr')}/{qn('w:outlineLvl')}")
+        try:
+            outline_level = int(outline.get(qn("w:val"), "9")) if outline is not None else None
+        except (TypeError, ValueError):
+            outline_level = 9
+        own[style_id] = (_level_for_name(BabelFish.internal2ui(style.name_val or "")), outline_level,
+                         style.basedOn_val)
         if style.default and default_id is None:
             default_id = style_id
+
+    # A company style ("Titre client") is a heading by its own outline level or by the
+    # heading it is based on: Word's navigation pane and table of contents see it so.
+    levels: dict[str, int | None] = {}
+
+    def level_of(style_id: str, depth: int = 0) -> int | None:
+        if style_id in levels:
+            return levels[style_id]
+        by_name, outline_level, parent = own[style_id]
+        if by_name is not None:
+            level = by_name
+        elif outline_level is not None:
+            level = outline_level + 1 if 0 <= outline_level <= 8 else None
+        elif parent in own and depth < 10:
+            level = level_of(parent, depth + 1)
+        else:
+            level = None
+        levels[style_id] = level
+        return level
+
+    for style_id in own:
+        level_of(style_id)
     return levels, default_id
 
 
@@ -242,11 +325,11 @@ def read_text(document, include_tables: bool = True) -> str:
     """Flatten the document to plain text, in reading order."""
     lines: list[str] = []
     body = document.element.body
-    tables = {id(t._tbl): t for t in document.tables}
-    paragraphs = {id(p._p): p for p in document.paragraphs}
+    tables = {id(t._tbl): t for t in body_tables(document) + body_tables(document, callouts=True)}
+    paragraphs = {id(p._p): p for p in body_paragraphs(document)}
     levels, default_id = style_levels(document)
 
-    for child in body.iterchildren():
+    for child in body_blocks(body):
         if child.tag == qn("w:p") and id(child) in paragraphs:
             paragraph = paragraphs[id(child)]
             level = heading_level_for(paragraph, levels, default_id)
@@ -263,7 +346,7 @@ def read_text(document, include_tables: bool = True) -> str:
 def get_outline(document) -> list[dict[str, Any]]:
     outline = []
     levels, default_id = style_levels(document)
-    for index, paragraph in enumerate(document.paragraphs):
+    for index, paragraph in enumerate(body_paragraphs(document)):
         level = heading_level_for(paragraph, levels, default_id)
         text = paragraph.text.strip()
         if level is not None and text:
@@ -273,7 +356,7 @@ def get_outline(document) -> list[dict[str, Any]]:
 
 def read_tables(document) -> list[dict[str, Any]]:
     result = []
-    for index, table in enumerate(document.tables):
+    for index, table in enumerate(body_tables(document)):
         rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
         result.append(
             {
@@ -290,8 +373,8 @@ def read_tables(document) -> list[dict[str, Any]]:
 def describe(document) -> dict[str, Any]:
     properties = document.core_properties
     return {
-        "paragraphs": len(document.paragraphs),
-        "tables": len(document.tables),
+        "paragraphs": len(body_paragraphs(document)),
+        "tables": len(body_tables(document)),
         "sections": len(document.sections),
         "inline_shapes": len(document.inline_shapes),
         "headings": len(get_outline(document)),
@@ -333,14 +416,16 @@ def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
     client name survives a find-and-replace. Everything that verifies uses this
     instead, so what is written and what is checked are the same surface.
 
-    ``paragraph_index`` matches ``document.paragraphs``, so a match can be handed
-    straight to ``docx_set_paragraph_text`` or ``docx_delete_paragraph``.
+    ``paragraph_index`` matches ``body_paragraphs`` (the ``p`` of docx_read), and
+    callout boxes come apart from the numbered tables.
     """
-    for index, paragraph in enumerate(document.paragraphs):
+    for index, paragraph in enumerate(body_paragraphs(document)):
         yield {"where": "body", "paragraph_index": index}, paragraph
 
-    for table_index, table in enumerate(document.tables):
+    for table_index, table in enumerate(body_tables(document)):
         yield from _iter_table(table, {"where": "table", "table_index": table_index})
+    for callout_index, table in enumerate(body_tables(document, callouts=True)):
+        yield from _iter_table(table, {"where": "callout", "callout_index": callout_index})
 
     for section_index, section in enumerate(document.sections):
         for name, story in _stories(section):
@@ -481,7 +566,7 @@ def check_document(
         where = location["where"]
         if where == "body":
             scanned["paragraphs"] += 1
-        elif where == "table":
+        elif where in ("table", "callout"):
             scanned["table_cells"] += 1
         else:
             scanned["headers_and_footers"] += 1
@@ -534,7 +619,7 @@ def set_paragraph_text(document, index: int, text: str) -> str:
     """Replace a paragraph's text, keeping its style and its first run's formatting."""
     from .ooxml.util import sanitize_text
 
-    paragraphs = document.paragraphs
+    paragraphs = body_paragraphs(document)
     if not 0 <= index < len(paragraphs):
         raise InvalidSpec(
             f"Paragraph index {index} is out of range (the document has {len(paragraphs)}). "
@@ -559,7 +644,7 @@ def read_stories(document) -> dict[str, list[dict[str, Any]]]:
     stories: dict[str, list[dict[str, Any]]] = {"headers": [], "footers": []}
     for location, paragraph in iter_located_paragraphs(document):
         where = location["where"]
-        if where in {"body", "table"}:
+        if where in BODY_WHERE:
             continue
         text = paragraph.text.strip()
         if not text:
@@ -613,7 +698,7 @@ def replace_text(
         paragraphs = (
             paragraph
             for location, paragraph in iter_located_paragraphs(document)
-            if location["where"] in {"body", "table"}
+            if location["where"] in BODY_WHERE
         )
 
     total = 0
@@ -667,7 +752,7 @@ def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> i
 
 
 def delete_paragraph(document, index: int) -> str:
-    paragraphs = document.paragraphs
+    paragraphs = body_paragraphs(document)
     if not 0 <= index < len(paragraphs):
         raise InvalidSpec(
             f"Paragraph index {index} is out of range (the document has {len(paragraphs)})."

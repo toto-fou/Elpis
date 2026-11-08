@@ -585,13 +585,14 @@ def _table(context: BuildContext, block: S.TableBlock):
             except KeyError:
                 pass
 
-    for row_index, row in enumerate(grid):
+    for row_index, (row, table_row) in enumerate(zip(grid, table.rows)):
+        cells = table_row.cells
         for col_index in range(columns):
             value = row[col_index] if col_index < len(row) else None
             is_header = bool(block.header) and row_index == 0
             _fill_cell(
                 context,
-                table.cell(row_index, col_index),
+                cells[col_index],
                 value,
                 header=is_header,
                 block=block,

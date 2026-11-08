@@ -450,20 +450,22 @@ def _title_slide(ctx: E.RenderContext, slide, spec: S.TitleSlide) -> Frame | Non
                    else theme.accent, thickness_cm=0.11)
 
     title_h = int(geometry.height * 0.17)
-    E.add_plain_text(
+    titre = E.add_plain_text(
         ctx, slide, Frame(body.x, block_top, body.w, title_h), spec.title,
         base_size_pt=theme.pt("deck_title"),
         min_size_pt=theme.pt("deck_title") * 0.5,
         color=text_color, font=theme.heading_font, bold=True,
         align=align, valign="top", line_spacing=1.06,
     )
+    shape_ooxml.make_placeholder(titre, "ctrTitle", "Title")
     cursor = block_top + title_h + int(geometry.height * 0.02)
     if spec.subtitle:
-        E.add_plain_text(
+        sous_titre = E.add_plain_text(
             ctx, slide, Frame(body.x, cursor, body.w, int(geometry.height * 0.11)), spec.subtitle,
             size_pt=theme.pt("deck_subtitle"), color=muted_color, align=align, valign="top",
             line_spacing=1.15,
         )
+        shape_ooxml.make_placeholder(sous_titre, "subTitle", "Subtitle")
 
     meta = " · ".join(part for part in (spec.author, spec.date) if part)
     if meta:
@@ -511,12 +513,13 @@ def _section_slide(ctx: E.RenderContext, slide, spec: S.SectionSlide) -> Frame |
         )
 
     title_top = body.y + int(body.h * (0.34 if spec.number else 0.26))
-    E.add_plain_text(
+    titre = E.add_plain_text(
         ctx, slide, Frame(body.x, title_top, body.w, int(geometry.height * 0.22)), spec.title,
         size_pt=theme.pt("section_title"),
         min_size_pt=theme.pt("section_title") * 0.5,
         color=text_color, font=theme.heading_font, bold=True, valign="top", line_spacing=1.05,
     )
+    shape_ooxml.make_placeholder(titre, "title", "Title")
     if spec.subtitle:
         E.add_plain_text(
             ctx, slide,
@@ -876,6 +879,12 @@ def _quote_slide(ctx: E.RenderContext, slide, spec: S.QuoteSlide) -> Frame | Non
         color=theme.text, font=theme.heading_font,
         align="center" if centred else "left", valign="middle", line_spacing=1.26,
     )
+    # Title for the outline and screen readers, off the visible slide (no visible title here).
+    hors_champ = E.add_plain_text(
+        ctx, slide, Frame(body.x, -geometry.height, body.w, cm(1.5)), spec.text,
+        size_pt=theme.pt("small"), color=theme.text, valign="top", autofit=False,
+    )
+    shape_ooxml.make_placeholder(hors_champ, "title", "Title")
     if attribution:
         E.add_plain_text(
             ctx, slide, Frame(block.x, quote_frame.bottom, block.w, attribution_h), attribution,
@@ -890,11 +899,12 @@ def _closing_slide(ctx: E.RenderContext, slide, spec: S.ClosingSlide) -> Frame |
     body = geometry.full().pad(left=int(geometry.width * 0.12), right=int(geometry.width * 0.12))
 
     top = int(geometry.height * 0.34)
-    E.add_plain_text(
+    titre = E.add_plain_text(
         ctx, slide, Frame(body.x, top, body.w, int(geometry.height * 0.18)), spec.title,
         size_pt=theme.pt("deck_title") * 0.92, min_size_pt=theme.pt("section_title") * 0.6,
         color=theme.text, font=theme.heading_font, bold=True, align="center", valign="bottom",
     )
+    shape_ooxml.make_placeholder(titre, "title", "Title")
     E.add_rule(
         ctx, slide,
         Frame(body.cx - cm(1.7), top + int(geometry.height * 0.20), cm(3.4), 0),

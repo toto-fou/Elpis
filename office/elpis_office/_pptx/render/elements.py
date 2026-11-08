@@ -417,7 +417,7 @@ def add_title(ctx: RenderContext, slide, frame: Frame, text: str, *, size_pt: fl
               font: str | None = None, max_lines: int | None = 2):
     """A title, shrunk to fit its band rather than allowed to run into the content."""
     base = size_pt or ctx.theme.pt("slide_title")
-    return add_plain_text(
+    box = add_plain_text(
         ctx, slide, frame, text,
         base_size_pt=base,
         min_size_pt=base * 0.55,
@@ -429,6 +429,8 @@ def add_title(ctx: RenderContext, slide, frame: Frame, text: str, *, size_pt: fl
         line_spacing=1.06,
         max_lines=max_lines,
     )
+    shape_ooxml.make_placeholder(box, "title", "Title")
+    return box
 
 
 def add_kicker(ctx: RenderContext, slide, frame: Frame, text: str, color: str | None = None,

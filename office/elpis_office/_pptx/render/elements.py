@@ -613,7 +613,8 @@ def render_chart_element(ctx: RenderContext, slide, element: S.ChartElement, fra
         chart_type=key,
         categories=list(element.categories),
         series=[
-            chart_ooxml.SeriesData(name=s.name, values=s.values, points=s.points, color=s.color)
+            chart_ooxml.SeriesData(name=s.name, values=s.values, points=s.points, color=s.color,
+                                   trendline=s.trendline)
             for s in element.series
         ],
         title=element.title,
@@ -622,6 +623,7 @@ def render_chart_element(ctx: RenderContext, slide, element: S.ChartElement, fra
         legend=element.legend,
         data_labels=element.data_labels,
         data_label_position=element.data_label_position,
+        data_label_format=element.data_label_format,
         number_format=element.number_format,
         gridlines=element.gridlines,
         y_min=element.y_min,

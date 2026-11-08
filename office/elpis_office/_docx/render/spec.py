@@ -108,6 +108,7 @@ class SeriesSpec(Base):
         None, description="[x, y] pairs for scatter, [x, y, size] for bubble."
     )
     color: str | None = None
+    trendline: bool = False
 
 
 # ---------------------------------------------------------------------------

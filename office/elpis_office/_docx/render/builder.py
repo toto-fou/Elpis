@@ -709,7 +709,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         categories=list(block.categories),
         series=[
             chart_ooxml.SeriesData(
-                name=s.name, values=s.values, points=s.points, color=s.color
+                name=s.name, values=s.values, points=s.points, color=s.color, trendline=s.trendline
             )
             for s in block.series
         ],

@@ -26,15 +26,20 @@ _NOMS = {"fr": "fr-FR", "francais": "fr-FR", "french": "fr-FR", "en": "en-US", "
          "italien": "it-IT", "italian": "it-IT", "italiano": "it-IT"}
 _LIBELLES: Dict[str, Dict[str, str]] = {
     "fr": {"toc": "Sommaire", "table": "Tableau", "figure": "Figure", "listing": "Code",
-           "page": "Page {PAGE} / {NUMPAGES}", "agenda": "Sommaire", "closing": "Merci"},
+           "page": "Page {PAGE} / {NUMPAGES}", "agenda": "Sommaire", "closing": "Merci",
+           "indicator": "Indicateur", "value": "Valeur", "change": "Évolution"},
     "en": {"toc": "Contents", "table": "Table", "figure": "Figure", "listing": "Listing",
-           "page": "Page {PAGE} of {NUMPAGES}", "agenda": "Agenda", "closing": "Thank you"},
+           "page": "Page {PAGE} of {NUMPAGES}", "agenda": "Agenda", "closing": "Thank you",
+           "indicator": "Indicator", "value": "Value", "change": "Change"},
     "de": {"toc": "Inhalt", "table": "Tabelle", "figure": "Abbildung", "listing": "Listing",
-           "page": "Seite {PAGE} von {NUMPAGES}", "agenda": "Agenda", "closing": "Vielen Dank"},
+           "page": "Seite {PAGE} von {NUMPAGES}", "agenda": "Agenda", "closing": "Vielen Dank",
+           "indicator": "Kennzahl", "value": "Wert", "change": "Veränderung"},
     "es": {"toc": "Índice", "table": "Tabla", "figure": "Figura", "listing": "Código",
-           "page": "Página {PAGE} de {NUMPAGES}", "agenda": "Agenda", "closing": "Gracias"},
+           "page": "Página {PAGE} de {NUMPAGES}", "agenda": "Agenda", "closing": "Gracias",
+           "indicator": "Indicador", "value": "Valor", "change": "Variación"},
     "it": {"toc": "Sommario", "table": "Tabella", "figure": "Figura", "listing": "Codice",
-           "page": "Pagina {PAGE} di {NUMPAGES}", "agenda": "Agenda", "closing": "Grazie"},
+           "page": "Pagina {PAGE} di {NUMPAGES}", "agenda": "Agenda", "closing": "Grazie",
+           "indicator": "Indicatore", "value": "Valore", "change": "Variazione"},
 }
 _MOT = re.compile(r"[^\W\d_]+", re.UNICODE)
 

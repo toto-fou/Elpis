@@ -271,6 +271,7 @@ def blocs_graphique(r: G.Rendu) -> List[Any]:
                              series=[S.SeriesSpec(**s) for s in n["series"]],
                              title=n.get("title"), x_title=n.get("x_title"),
                              y_title=n.get("y_title"), number_format=n.get("number_format"),
+                             data_label_format=n.get("data_label_format"),
                              legend=n.get("legend", "auto"), y_max=n.get("y_max"),
                              smooth=n.get("smooth"))]
     if r.mode == "image":
@@ -280,10 +281,11 @@ def blocs_graphique(r: G.Rendu) -> List[Any]:
         lignes = [[t.get("label", ""), t.get("value", ""),
                    " ".join(x for x in (t.get("delta"), t.get("ref")) if x)] for t in r.tuiles]
         avec_delta = any(x[2] for x in lignes)
-        entete = ["Indicateur", "Valeur"] + (["Évolution"] if avec_delta else [])
+        lib = libelles(r.lang)
+        entete = [lib["indicator"], lib["value"]] + ([lib["change"]] if avec_delta else [])
         rows = [x if avec_delta else x[:2] for x in lignes]
         return _table_bloc(entete, rows, r.titre)
-    return _table_bloc(r.colonnes, [[G.cellule(v) for v in ln] for ln in r.lignes], r.titre)
+    return _table_bloc(r.colonnes, G.cellules_tableau(r.lignes, r.lang), r.titre)
 
 
 def _table_bloc(entete: List[str], lignes: List[List[Any]], titre: str) -> List[Any]:
@@ -405,7 +407,7 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     lib = libelles(lang)
     jeton = _avec_lecteur(env)
     try:
-        rendus = G.preparer(env, refs_de(contenu_md))
+        rendus = G.preparer(env, refs_de(contenu_md), lang=lang)
         blocs: List[Any] = []
         couverture = a.get("cover")
         if couverture:
@@ -847,7 +849,7 @@ def docx_edit(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     jeton = _avec_lecteur(env)
     bilan_ops: List[Dict[str, Any]] = []
     try:
-        rendus = G.preparer(env, refs_de(contenus))
+        rendus = G.preparer(env, refs_de(contenus), lang=B.document_language(document) or "en-US")
         for i, (nom, c) in enumerate(ops):
             bilan_ops.append({"op": nom, **_appliquer(i, nom, c, lot, rendus, env)})
     finally:

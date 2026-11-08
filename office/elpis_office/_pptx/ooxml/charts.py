@@ -165,6 +165,7 @@ class SeriesData:
     values: Sequence[float | None] | None = None
     points: Sequence[Sequence[float]] | None = None
     color: str | None = None
+    trendline: bool = False
 
 
 @dataclass
@@ -293,6 +294,7 @@ def style_chart(chart, request: ChartRequest) -> None:
     _base_text(chart, request, text_color)
     _title(chart, request, text_color)
     _series_colors(chart, key, palette)
+    _trendlines(chart, request)
     _series_overrides(chart, key, request)
     _axes(chart, key, request, text_color)
     _legend(chart, key, request, text_color)
@@ -346,6 +348,26 @@ def _series_colors(chart, key: str, palette: Sequence[str]) -> None:
             series.format.fill.solid()
             series.format.fill.fore_color.rgb = rgb(color)
             series.format.line.fill.background()
+
+
+_APRES_TENDANCE = ("errBars", "cat", "val", "xVal", "yVal", "bubbleSize", "bubble3D", "shape", "smooth", "extLst")
+
+
+def _trendlines(chart, request: ChartRequest) -> None:
+    """Linear trend line, dashed, on the series that asked for one (before c:errBars/c:cat… in c:ser)."""
+    for series, data in zip(chart.series, request.series):
+        if not data.trendline:
+            continue
+        ser = series._element
+        ligne = frag(
+            f'<c:trendline {C_NS} {A_NS}><c:spPr><a:ln w="15875" cap="rnd">'
+            f'<a:solidFill><a:srgbClr val="{TEXT_COLOR}"/></a:solidFill><a:prstDash val="dash"/></a:ln>'
+            '</c:spPr><c:trendlineType val="linear"/><c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>')
+        suivant = next((e for e in ser if str(e.tag).rsplit("}", 1)[-1] in _APRES_TENDANCE), None)
+        if suivant is not None:
+            suivant.addprevious(ligne)
+        else:
+            ser.append(ligne)
 
 
 def _series_overrides(chart, key: str, request: ChartRequest) -> None:
@@ -437,10 +459,13 @@ def _legend(chart, key: str, request: ChartRequest, text_color: str) -> None:
         chart.has_legend = False
         return
     if mode == "auto":
-        if key in CIRCULAR_TYPES or len(request.series) <= 1:
+        if key in {"doughnut", "donut", "doughnut_exploded"}:
+            position = XL_LEGEND_POSITION.RIGHT      # the ring's labels show shares only
+        elif key in CIRCULAR_TYPES or len(request.series) <= 1:
             chart.has_legend = False
             return
-        position = XL_LEGEND_POSITION.BOTTOM
+        else:
+            position = XL_LEGEND_POSITION.BOTTOM
     else:
         position = _LEGEND_POSITIONS.get(mode)
         if position is None:
@@ -551,8 +576,9 @@ def _data_labels(chart, key: str, request: ChartRequest, text_color: str) -> Non
 
         if circular:
             # A pie with no legend needs its slices named, and a share reads
-            # better as a percentage than as the raw number.
-            set_label_flags(plot, value=False, category=True, percent=True)
+            # better as a percentage than as the raw number. A doughnut's ring is
+            # too thin for names: shares on the ring, names in the legend.
+            set_label_flags(plot, value=False, category=not inside_ring, percent=True)
         else:
             set_label_flags(plot, value=True, category=False, percent=False)
 

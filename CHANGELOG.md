@@ -20,6 +20,14 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
+  written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
+  reuse one only saw llama.cpp and averaged percentages). The input now reads in three
+  parts everywhere in that area: read from the cache, written to the cache, uncached. "KV
+  cache reuse" becomes "Requests served by the cache", shown by default: the share of
+  engine requests that read part of their input from the cache, on every engine that
+  reports its cache (Anthropic, llama.cpp, vLLM and SGLang with their cache report on).
+  `usage_events` gains `cache_reported_calls` and `cache_hit_calls`, added at startup.
 - **Chat: rendered messages kept across conversations.** Switching conversations no longer
   empties the cache of rendered messages (Markdown, code highlighting, sanitizing): going back
   to a conversation shows it without parsing its messages again.

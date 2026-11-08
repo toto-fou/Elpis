@@ -227,6 +227,8 @@ function usageRunInterrompu(acc: Dict, t0: number, status: string, errorKind = "
       cache_creation_input_tokens: intPy(acc["cache_creation"] || 0),
       tool_input_tokens: intPy(acc["tool_in"] || 0),
     },
+    cacheReportedCalls: intPy(acc["cache_reported"] || 0),
+    cacheHitCalls: intPy(acc["cache_hits"] || 0),
     durationMs: Math.trunc((Date.now() / 1000 - t0) * 1000),
     iterations: intPy(acc["iterations"] || 0),
     status,

@@ -189,6 +189,9 @@ export interface UsageTour {
   errorKind?: string;
   /** `usage_scope` du tour : `title`, `compression`, `image_prompt`… (absent = scope courant). */
   scope?: string;
+  /** Requêtes abouties du tour dont le moteur a rapporté le cache, et celles servies en partie par lui (absentes : appel unique). */
+  cacheReportedCalls?: number;
+  cacheHitCalls?: number;
 }
 
 let registreUsage: ((u: UsageTour) => unknown) | null = null;

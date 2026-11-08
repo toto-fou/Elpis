@@ -82,6 +82,8 @@ export function enregistrerTour(x: Executeur, u: UsageTour): Promise<boolean> {
     outputTokens: u.outputTokens,
     submittedTokens: u.submittedTokens,
     thinkingTokens: u.thinkingTokens,
+    ...(u.cacheReportedCalls === undefined ? {} : { cacheReportedCalls: u.cacheReportedCalls }),
+    ...(u.cacheHitCalls === undefined ? {} : { cacheHitCalls: u.cacheHitCalls }),
   };
   return u.scope ? usageScope(u.scope, {}, () => recordTurnUsage(x, tour)) : recordTurnUsage(x, tour);
 }

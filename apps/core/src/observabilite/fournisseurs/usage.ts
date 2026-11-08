@@ -22,6 +22,7 @@ import { lastHeartbeatAt } from "../echantillonneur";
 import { aggregateSeries, couleur, granularityFor, planBuckets, resolveTz, toChart } from "../series";
 import type { Agregat } from "../series";
 import { tokenBreakdown, usageCacheTotals, usageGroup, usageTotals } from "../usage-registre";
+import type { Decoupe } from "../usage-registre";
 import { entierOu, flt, fournisseur, maintenant } from "./base";
 import type { Fournisseur } from "./base";
 
@@ -129,27 +130,34 @@ function libelleFenetre(h: number): string {
   return h === 24 ? "24h" : h === 168 ? "7j" : "30j";
 }
 
-const POSTES: readonly (readonly [string, "cache" | "input_new" | "thinking" | "response"])[] = [
-  ["Cache", "cache"],
-  ["Entrée utile", "input_new"],
-  ["Réflexion", "thinking"],
-  ["Réponse", "response"],
+/** Parts de l'entrée (lu du cache, écrit en cache, hors cache) : même libellé et même couleur dans chaque graphe. */
+const PARTS_ENTREE: readonly (readonly ["cache" | "cache_write" | "uncached", string, number])[] = [
+  ["cache", "Lu du cache", 0],
+  ["cache_write", "Écrit en cache", 5],
+  ["uncached", "Hors cache", 1],
 ];
 
-/** `_stacked_postes` : barres horizontales empilées des quatre postes disjoints d'une consommation. */
+const POSTES: readonly (readonly [Exclude<keyof Decoupe, "cache_pct">, string, number])[] = [
+  ...PARTS_ENTREE,
+  ["thinking", "Réflexion", 2],
+  ["response", "Réponse", 3],
+];
+
+/** `_stacked_postes` : barres horizontales empilées des cinq postes disjoints d'une consommation. */
 function stackedPostes(labels: unknown[], rows: Dict[]): Dict {
   const parts = rows.map((r) =>
     tokenBreakdown(r["input_tokens"], r["output_tokens"], {
       cacheReadTokens: r["cache_read_tokens"],
+      cacheCreationTokens: r["cache_creation_tokens"],
       thinkingTokens: r["thinking_tokens"],
     }),
   );
   return {
     labels,
-    datasets: POSTES.map(([label, cle], i) => ({
+    datasets: POSTES.map(([cle, label, c]) => ({
       label,
       data: parts.map((p) => p[cle]),
-      backgroundColor: `rgba(${couleur(i)},0.8)`,
+      backgroundColor: `rgba(${couleur(c)},0.8)`,
       borderRadius: 2,
     })),
     meta: { horizontal: true },
@@ -293,8 +301,9 @@ export function fournisseursUsage(): Fournisseur[] {
           return { value: "—", unit: "non utilisé", color: "slate", icon: "ph-database" };
         const total = t.input_total;
         const ratio = total ? arrondiPy((100.0 * lu) / total, 1) : 0.0;
-        let detail = `${fmtTokens(lu)} en cache · ${fmtTokens(Math.max(0, total - lu))} utiles`;
-        if (cree) detail += ` · ${fmtTokens(cree)} mis en cache`;
+        let detail = `${fmtTokens(lu)} lus`;
+        if (cree) detail += ` · ${fmtTokens(cree)} écrits`;
+        detail += ` · ${fmtTokens(Math.max(0, total - lu - cree))} hors cache`;
         return {
           value: `${reprFlottant(ratio)} %`,
           unit: "de l'entrée relue du cache",
@@ -484,7 +493,7 @@ export function fournisseursUsage(): Fournisseur[] {
     }),
     fournisseur({
       id: "usage_input_timeline",
-      title: "Entrée — cache vs utile",
+      title: "Entrée — cache lu, écrit, hors cache",
       type: "bar_stacked",
       width: "1/2",
       icon: "ph-database",
@@ -494,23 +503,30 @@ export function fournisseursUsage(): Fournisseur[] {
       getData: async (c, s) => {
         const h = scope(s);
         const plan = planBuckets(since(h), null, granularityFor(h));
+        const d = c.base.dialecte;
+        const reste = greatest(["input_tokens - cache_read_tokens", "0"], d);
+        const horsCache = greatest(["input_tokens - cache_read_tokens - cache_creation_tokens", "0"], d);
+        const expressions: Readonly<Record<string, string>> = {
+          cache: "COALESCE(SUM(cache_read_tokens),0)",
+          cache_write: `COALESCE(SUM(${reste} - ${horsCache}),0)`,
+          uncached: `COALESCE(SUM(${horsCache}),0)`,
+        };
         const series: Agregat = new Map();
-        for (const [label, expr] of [
-          ["Cache", "COALESCE(SUM(cache_read_tokens),0)"],
-          [
-            "Utile",
-            `COALESCE(SUM(${greatest(["input_tokens - cache_read_tokens", "0"], c.base.dialecte)}),0)`,
-          ],
-        ] as const) {
+        const libelles: Record<string, string> = {};
+        for (const [i, [cle, label]] of PARTS_ENTREE.entries()) {
           const agg = await aggregateSeries(c.base, {
             table: "usage_events",
             tsCol: "ts",
-            valueExpr: expr,
+            valueExpr: expressions[cle] as string,
             plan,
           });
-          series.set(label, serieUnique(agg));
+          series.set(`${i}`, serieUnique(agg));
+          libelles[`${i}`] = label;
         }
-        return toChart(plan, series, { kind: "bar", stacked: true });
+        const graphe = toChart(plan, series, { kind: "bar", stacked: true, labelsMap: libelles });
+        for (const [i, ds] of (graphe["datasets"] as Dict[]).entries())
+          ds["backgroundColor"] = `rgba(${couleur(PARTS_ENTREE[i]?.[2] ?? i)},0.75)`;
+        return graphe;
       },
     }),
     fournisseur({
@@ -554,7 +570,10 @@ export function fournisseursUsage(): Fournisseur[] {
       category: "volume",
       purgeSpec: PURGE_USAGE,
       getData: async (c, s) => {
-        const rows = await usageGroup(c.base, "model", since(scope(s)), null, { limit: 10 });
+        const rows = await usageGroup(c.base, "model", since(scope(s)), null, {
+          limit: 10,
+          cacheEcrit: true,
+        });
         return stackedPostes(
           rows.map((r) =>
             Array.from(strPy(veritePy(r["key"]) ? r["key"] : "inconnu"))
@@ -575,7 +594,10 @@ export function fournisseursUsage(): Fournisseur[] {
       category: "activity",
       purgeSpec: PURGE_USAGE,
       getData: async (c, s) => {
-        const rows = await usageGroup(c.base, "user_id", since(scope(s)), null, { limit: 10 });
+        const rows = await usageGroup(c.base, "user_id", since(scope(s)), null, {
+          limit: 10,
+          cacheEcrit: true,
+        });
         const noms = await usernames(c.base);
         return stackedPostes(
           rows.map((r) =>

@@ -676,6 +676,8 @@ export const TABLES: readonly Table[] = [
       { name: "thinking_tokens", type: "int", null: false, default: 0 },
       { name: "run_id", type: "text", null: false, default: "" },
       { name: "tool_tokens", type: "int", null: false, default: 0 },
+      { name: "cache_reported_calls", type: "int", null: false, default: 0 },
+      { name: "cache_hit_calls", type: "int", null: false, default: 0 },
     ],
     indexes: [{"name": "idx_usage_status_ts", "cols": ["status", "ts DESC"], "where": "status != 'ok'"}, {"name": "idx_usage_model_ts", "cols": ["model", "ts DESC"]}, {"name": "idx_usage_source_ts", "cols": ["source", "ts DESC"]}, {"name": "idx_usage_user_ts", "cols": ["user_id", "ts DESC"]}, {"name": "idx_usage_ts", "cols": ["ts DESC"]}, {"name": "idx_usage_run", "cols": ["run_id"]}],
   },

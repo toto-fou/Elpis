@@ -20,6 +20,7 @@ export const DEFAULT_WIDGETS: ReadonlySet<string> = new Set([
   "usage_turns",
   "usage_failure_rate",
   "usage_cache",
+  "kpi_kv_prefix_reuse",
   "usage_input_timeline",
   "usage_thinking",
   "usage_thinking_timeline",

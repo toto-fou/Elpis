@@ -360,22 +360,25 @@ def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
                 yield from _iter_table(table, {**base, "table_index": table_index})
 
 
+_TR, _TC, _TC_PR, _GRID_SPAN, _V_MERGE, _VAL = (qn(f"w:{tag}") for tag in ("tr", "tc", "tcPr", "gridSpan", "vMerge", "val"))
+
+
 def _iter_table(table, base: dict[str, Any]) -> Iterable[tuple[dict[str, Any], Any]]:
-    # Maps id -> the element itself, and the value is load-bearing: lxml builds a
-    # proxy object per element on access and frees it once the last reference
-    # goes, so a bare set of ids would let CPython recycle an address and make a
-    # distinct cell look like one already seen. That silently dropped table cells
-    # from every find and check, depending on when the collector happened to run.
-    seen: dict[int, Any] = {}
-    for row_index, row in enumerate(table.rows):
-        for column_index, cell in enumerate(row.cells):
-            # A merged cell is reported once, at its first position.
-            element = cell._tc
-            if id(element) in seen:
-                continue
-            seen[id(element)] = element
-            for paragraph in cell.paragraphs:
-                yield {**base, "row": row_index, "column": column_index}, paragraph
+    """Paragraphes de chaque cellule à sa première colonne, comme ``row.cells`` sans un objet par case ; une fusion verticale est lue à son départ."""
+    from docx.table import _Cell
+    from docx.text.paragraph import Paragraph
+
+    for row_index, tr in enumerate(table._tbl.iterchildren(_TR)):
+        column = 0
+        for tc in tr.iterchildren(_TC):
+            properties = tc.find(_TC_PR)
+            span = properties.find(_GRID_SPAN) if properties is not None else None
+            merge = properties.find(_V_MERGE) if properties is not None else None
+            if merge is None or merge.get(_VAL, "continue") != "continue":
+                cell = _Cell(tc, table)
+                for paragraph in tc.iterchildren(_P):
+                    yield {**base, "row": row_index, "column": column}, Paragraph(paragraph, cell)
+            column += int(span.get(_VAL)) if span is not None else 1
 
 
 def _stories(section) -> Iterable[tuple[str, Any]]:

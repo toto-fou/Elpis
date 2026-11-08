@@ -61,6 +61,7 @@ import { CTX } from "../../contexte/config-contexte";
 import { journal } from "../../journal";
 import { LLAMA_TOOL_PARALLELISM } from "../../llm/constantes";
 import { estDict, lire, poser, prefixePy, splitlinesPy } from "../../python";
+import { deposerImages, separerImages } from "./images-outils";
 import type { Dict } from "../../python";
 import { ingestTools } from "../categories";
 import { err } from "../erreur-outil";
@@ -1385,7 +1386,8 @@ export async function executerOutilMcp(
       queueTimeoutS: options.queueTimeoutS ?? TOOL_QUEUE_WAIT_S,
       signal: options.signal,
     });
-    return pyJsonDumps(pickToolPayload(res), { ensureAscii: false });
+    const [sansImages, images] = separerImages(res);
+    return pyJsonDumps(deposerImages(pickToolPayload(sansImages), images), { ensureAscii: false });
   } catch (e) {
     if (estAnnulation(e, options.signal)) throw e;
     if (e instanceof DelaiDepasse) return toolTimeoutJson(toolName, options.timeoutS);

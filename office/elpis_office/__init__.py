@@ -134,7 +134,8 @@ TOOLS["docx_create"] = {
     "description": (
         "Create a Word document (.docx) in the sandbox from Markdown.\n"
         "content supports: # headings, paragraphs, **bold** / *italic*, H~2~O / x^2^, lists, | tables |, "
-        "> quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n"
+        "> quotes, ```code```, ![caption](images/photo.png) from the sandbox (a missing image becomes a "
+        "grey placeholder, reported in warnings), and:\n"
         "  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool "
         "(native editable chart when possible, else an image); chart_table → a real table\n"
         "  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n"

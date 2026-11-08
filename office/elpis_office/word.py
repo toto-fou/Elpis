@@ -403,6 +403,7 @@ def blocs_graphique(r: G.Rendu, attrs: Optional[Dict[str, Any]] = None) -> List[
                              series=[S.SeriesSpec(**s) for s in n["series"]],
                              width_cm=largeur, height_cm=hauteur, caption=legende, bookmark=ident,
                              title=None if legende else n.get("title"), x_title=n.get("x_title"),
+                             x_number_format=n.get("x_number_format"),
                              y_title=n.get("y_title"), number_format=n.get("number_format"),
                              data_label_format=n.get("data_label_format"),
                              legend=n.get("legend", "auto"), y_max=n.get("y_max"),
@@ -421,7 +422,7 @@ def blocs_graphique(r: G.Rendu, attrs: Optional[Dict[str, Any]] = None) -> List[
         entete = [lib["indicator"], lib["value"]] + ([lib["change"]] if avec_delta else [])
         rows = [x if avec_delta else x[:2] for x in lignes]
         return _table_bloc(entete, rows, r.titre, ident)
-    return _table_bloc(r.colonnes, G.cellules_tableau(r.lignes, r.lang), r.titre, ident)
+    return _table_bloc(r.colonnes, G.cellules_tableau(r.lignes, r.lang, r.colonnes), r.titre, ident)
 
 
 def _table_bloc(entete: List[str], lignes: List[List[Any]], titre: str,

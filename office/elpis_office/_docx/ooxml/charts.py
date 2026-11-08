@@ -230,8 +230,8 @@ class SeriesData:
     #: (x, y) or (x, y, size) tuples for scatter / bubble charts
     points: Sequence[Sequence[float]] | None = None
     color: str | None = None
-    #: linear trend line drawn by Word/LibreOffice (editable, follows the data)
-    trendline: bool = False
+    #: name of a linear trend line drawn by Word/LibreOffice (editable, follows the data)
+    trendline: str | None = None
 
 
 @dataclass
@@ -250,6 +250,8 @@ class ChartRequest:
     #: on circular charts where the label shows a share and "0%" is what people mean.
     data_label_format: str | None = None
     number_format: str | None = None
+    #: format of the horizontal value axis of a scatter / bubble chart
+    x_number_format: str | None = None
     gridlines: bool = True
     y_min: float | None = None
     y_max: float | None = None
@@ -449,7 +451,7 @@ def _style_chart(chart_space: etree._Element, key: str, request: ChartRequest) -
 
     _apply_title(chart, request.title)
     _apply_series_colors(key, group, series_elements, request, palette)
-    _apply_trendlines(series_elements, request)
+    _apply_trendlines(key, series_elements, request, palette)
     _apply_group_options(key, group, request)
     _apply_data_labels(key, group, request, len(series_elements))
     _apply_axes(key, plot_area, request)
@@ -548,15 +550,28 @@ def _apply_series_colors(
             _style_marker(marker, color)
 
 
-def _apply_trendlines(series_elements: list[etree._Element], request: ChartRequest) -> None:
-    """Linear trend line, dashed in the axis ink, on the series that asked for one."""
-    for element, series in zip(series_elements, request.series):
+def trendline_allowed(key: str) -> bool:
+    """Chart types whose series accept a trend line (no pie, doughnut, radar or stacked plot)."""
+    return not (key in CIRCULAR_TYPES or key.startswith("radar") or "stacked" in key or "3d" in key)
+
+
+def _apply_trendlines(key: str, series_elements: list[etree._Element], request: ChartRequest,
+                      palette: list[Any]) -> None:
+    """Named linear trend line, dashed in its series colour, on the series that asked for one."""
+    if not trendline_allowed(key):
+        return
+    from xml.sax.saxutils import escape
+
+    for index, (element, series) in enumerate(zip(series_elements, request.series)):
         if not series.trendline:
             continue
+        color = parse_color(series.color) if series.color else None
+        color = color or palette[index % len(palette)]
         _replace(element, "c:trendline", _frag(
-            f'<c:trendline xmlns:c="{C_NS}" xmlns:a="{A_NS}"><c:spPr><a:ln w="15875" cap="rnd">'
-            f'<a:solidFill><a:srgbClr val="{TEXT_COLOR}"/></a:solidFill><a:prstDash val="dash"/></a:ln>'
-            '</c:spPr><c:trendlineType val="linear"/><c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>'))
+            f'<c:trendline xmlns:c="{C_NS}" xmlns:a="{A_NS}"><c:name>{escape(str(series.trendline)[:80])}</c:name>'
+            f'<c:spPr><a:ln w="15875" cap="rnd"><a:solidFill><a:srgbClr val="{color}"/></a:solidFill>'
+            '<a:prstDash val="dash"/></a:ln></c:spPr><c:trendlineType val="linear"/>'
+            '<c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>'))
 
 
 def _count_points(series_element: etree._Element) -> int:
@@ -744,13 +759,13 @@ def _apply_axes(key: str, plot_area: etree._Element, request: ChartRequest) -> N
             ),
         )
 
-        if is_value_axis and not horizontal:
-            if request.number_format:
-                _replace(
-                    axis,
-                    "c:numFmt",
-                    make("c:numFmt", formatCode=request.number_format, sourceLinked="0"),
-                )
+        # The measure axis: vertical, or horizontal for bars; a scatter's horizontal axis has its own format.
+        xy_horizontal = is_value_axis and horizontal and (key in XY_TYPES or key in BUBBLE_TYPES)
+        measure = is_value_axis and not xy_horizontal and (not horizontal or key.startswith("bar"))
+        number_format = request.x_number_format if xy_horizontal else request.number_format if measure else None
+        if number_format:
+            _replace(axis, "c:numFmt", make("c:numFmt", formatCode=number_format, sourceLinked="0"))
+        if measure:
             _apply_scaling(axis, request.y_min, request.y_max)
 
 

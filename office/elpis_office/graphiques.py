@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from .commun import Env, OfficeError
+from .langue import libelles
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -154,14 +155,15 @@ def _axe(o: Any) -> Dict[str, Any]:
 
 
 # Langue d'affichage des nombres (LibreOffice ignore c:lang, pas ce préfixe) ; l'anglais est celui par défaut.
-_LCID = {"fr": "[$-40C]", "de": "[$-407]", "es": "[$-C0A]", "it": "[$-410]"}
+_LCID = {"fr": "[$-40C]", "de": "[$-407]", "es": "[$-C0A]", "it": "[$-410]", "pt": "[$-816]", "nl": "[$-413]"}
 _ESPACE_POURCENT = {"fr", "de", "es"}
 
 
 def _decimales(valeurs: List[Optional[float]]) -> int:
     """Décimales utiles des valeurs (0 à 2) : « 12 000 » et non « 12 000, » (#,##0.## sur un entier)."""
+    finies = [v for v in valeurs if v is not None and math.isfinite(v)]
     for n in (0, 1):
-        if all(v is None or abs(v * 10 ** n - round(v * 10 ** n)) < 1e-9 for v in valeurs):
+        if all(abs(v * 10 ** n - round(v * 10 ** n)) < 1e-9 for v in finies):
             return n
     return 2
 
@@ -171,8 +173,10 @@ def _format(unit: str, valeurs: List[Optional[float]], lang: str) -> Tuple[str, 
     Pas de titre d'axe pour une unité : elle figure déjà sur chaque graduation."""
     prefixe = _LCID.get(lang[:2].lower(), "")
     n = _decimales(valeurs)
-    nombres = [abs(v) for v in valeurs if v is not None]
-    axe = "#,##0" if max(nombres, default=0) >= 10 else "#,##0.0#"
+    nombres = [v for v in valeurs if v is not None and math.isfinite(v)]
+    # Graduations d'après l'écart : 100,21 à 100,28 garde ses décimales (sinon trois « 100 »).
+    ecart = (max(nombres) - min(nombres)) if len(nombres) > 1 else max((abs(v) for v in nombres), default=0)
+    axe = "#,##0" if ecart >= 10 else "#,##0.0" if ecart >= 1 else "#,##0.00"
     etiquette = "#,##0" + ("." + "0" * n if n else "")
     if unit == "%":
         suffixe = '" %"' if lang[:2].lower() in _ESPACE_POURCENT else '"%"'
@@ -244,11 +248,12 @@ def _natif(option: Dict[str, Any], kind: str, env: Env, lang: str = "en-US") -> 
         if not nuages:
             return None
         tendances = [s for s in series if _tendance(s)]
-        if tendances and len(nuages) == 1:
-            nuages[0]["trendline"] = True           # même régression : une droite sur tous les points
+        if tendances and len(nuages) == 1 and kind == "scatter":
+            nuages[0]["trendline"] = libelles(lang)["trend"]   # même régression : une droite sur tous les points
         if len(series) > len(nuages) + (len(tendances) if len(nuages) == 1 else 0):
             env.notes.warn("trend line or markers of the chart are not carried into the file")
         xa, ya = _axe(option.get("xAxis")), _axe(option.get("yAxis"))
+        base["x_number_format"] = _format("", [p[0] for n in nuages for p in n["points"]], lang)[0]
         return {**base, "chart_type": "bubble" if kind == "bubble" else "scatter",
                 "categories": [], "series": nuages,
                 "x_title": xa.get("name") or None, "y_title": ya.get("name") or y_title}
@@ -281,7 +286,7 @@ def _natif(option: Dict[str, Any], kind: str, env: Env, lang: str = "en-US") -> 
             t = "line_stacked"
     ser: List[Dict[str, Any]] = [{"name": str(s.get("name") or f"série {i + 1}"),
             "values": [_val(v) for v in s.get("data") or []],
-            **({"trendline": True} if str(s.get("name") or "") in reprises else {})}
+            **({"trendline": libelles(lang)["trend"]} if str(s.get("name") or "") in reprises else {})}
            for i, s in enumerate(gardees)]
     if horizontal and cat_axis.get("inverse"):
         # ECharts lit la 1re catégorie en haut ; Word/PowerPoint en bas.
@@ -318,7 +323,12 @@ def _libelles_ajustes(option: Dict[str, Any]) -> Dict[str, Any]:
     largeur = libelle.get("width")
     if isinstance(largeur, (int, float)) and largeur <= colonne:
         return option
-    return {**option, "xAxis": {**axe, "axisLabel": {**libelle, "width": max(colonne, 32), "overflow": "break"}}}
+    if colonne >= 60:
+        return {**option, "xAxis": {**axe, "axisLabel": {**libelle, "width": colonne, "overflow": "break"}}}
+    # Colonnes trop étroites pour couper les mots : libellés inclinés, place gardée sous l'axe.
+    bas = float(grille["bottom"]) if isinstance(grille.get("bottom"), (int, float)) else 0.0
+    return {**option, "grid": {**grille, "bottom": max(bas, 72.0)},
+            "xAxis": {**axe, "axisLabel": {**libelle, "rotate": 35, "width": 110, "overflow": "truncate"}}}
 
 
 def _dessiner(env: Env, travaux: List[Tuple[Rendu, Dict[str, Any]]]) -> None:
@@ -394,10 +404,24 @@ def cellule(v: Any, lang: str = "fr-FR", milliers: Optional[bool] = None) -> str
     return brut.replace(",", "\x00").replace(".", dec).replace("\x00", mil)
 
 
-def cellules_tableau(lignes: List[List[Any]], lang: str) -> List[List[str]]:
-    """Cellules d'un tableau de données : milliers séparés, sauf dans une colonne d'années (1900 à 2100)."""
+_SANS_MILLIERS = re.compile(r"(?:^|_)(?:an|annee|annees|year|years|exercice|code|codes|id|ids|n|no|num|numero|ref|"
+                            r"reference|siret|siren|zip|postal|cp|tel|telephone|phone)(?:_|$)")
+
+
+def cellules_tableau(lignes: List[List[Any]], lang: str, entete: Optional[List[Any]] = None) -> List[List[str]]:
+    """Cellules d'un tableau de données : milliers séparés, sauf colonne d'années (1900 à 2100, cellules
+    texte ignorées) ou colonne nommée année, code, n°, réf…"""
+    from ._chart.normalise import fold
+
     largeur = max((len(ln) for ln in lignes), default=0)
-    annees = [all(isinstance(x, int) and not isinstance(x, bool) and 1900 <= x <= 2100
-                  for x in (ln[j] for ln in lignes if j < len(ln)) if x is not None)
-              for j in range(largeur)]
-    return [[cellule(v, lang, milliers=not annees[j]) for j, v in enumerate(ln)] for ln in lignes]
+    noms = [fold(str(h)) for h in (entete or [])]
+
+    def sans(j: int) -> bool:
+        if j < len(noms) and _SANS_MILLIERS.search(noms[j]):
+            return True
+        entiers = [x for x in (ln[j] for ln in lignes if j < len(ln))
+                   if isinstance(x, (int, float)) and not isinstance(x, bool)]
+        return bool(entiers) and all(isinstance(x, int) and 1900 <= x <= 2100 for x in entiers)
+
+    garde = [sans(j) for j in range(largeur)]
+    return [[cellule(v, lang, milliers=not garde[j]) for j, v in enumerate(ln)] for ln in lignes]

@@ -625,6 +625,7 @@ def render_chart_element(ctx: RenderContext, slide, element: S.ChartElement, fra
         data_label_position=element.data_label_position,
         data_label_format=element.data_label_format,
         number_format=element.number_format,
+        x_number_format=element.x_number_format,
         gridlines=element.gridlines,
         y_min=element.y_min,
         y_max=element.y_max,

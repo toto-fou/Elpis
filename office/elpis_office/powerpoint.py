@@ -337,6 +337,7 @@ def _element_graphique(r: G.Rendu) -> Dict[str, Any]:
                 "title": None, "x_title": n.get("x_title"), "y_title": n.get("y_title"),
                 "number_format": n.get("number_format"), "legend": n.get("legend", "auto"),
                 **({"data_label_format": n["data_label_format"]} if n.get("data_label_format") else {}),
+                **({"x_number_format": n["x_number_format"]} if n.get("x_number_format") else {}),
                 **({"y_max": n["y_max"]} if n.get("y_max") is not None else {}),
                 **({"smooth": True} if n.get("smooth") else {})}
     if r.mode == "image":
@@ -348,7 +349,7 @@ def _element_graphique(r: G.Rendu) -> Dict[str, Any]:
                                                "trend": t.get("sign")}, Notes())
                                          for t in r.tuiles]}
     return {"type": "table", "header": r.colonnes,
-            "rows": G.cellules_tableau(r.lignes[:40], r.lang)}
+            "rows": G.cellules_tableau(r.lignes[:40], r.lang, r.colonnes)}
 
 
 def _refs_diapo(d: Dict[str, Any]) -> List[str]:
@@ -608,7 +609,7 @@ def _diapos(env: Env, slides: Any, markdown: str,
     if markdown and not slides:
         diapos = _moteur(markdown_to_slides, markdown)
         rendus = G.preparer(env, G.REF.findall(markdown), titre_image=False, lang=lang)
-        return [_md_refs(s, rendus) for s in diapos], rendus
+        return [_md_refs(s, rendus, env.notes) for s in diapos], rendus
     if not isinstance(slides, list) or not slides:
         raise OfficeError("slides is empty", code="empty_content",
                           fix="slides = a list of slide objects, each with a layout",
@@ -621,19 +622,28 @@ def _diapos(env: Env, slides: Any, markdown: str,
     return [normaliser_diapo(i, s, rendus, env) for i, s in enumerate(slides)], rendus
 
 
-def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu]) -> Dict[str, Any]:
-    """Plan Markdown : une puce « !id » devient le graphique de la diapo."""
-    puces = s.get("bullets") or []
+def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu], notes: Notes) -> Dict[str, Any]:
+    """Plan Markdown : une puce « !id » devient le graphique de la diapo ; les autres puces restent à côté."""
+    puces = list(s.get("bullets") or [])
+    graphiques: List[str] = []
     for p in list(puces):
         # Une puce du plan Markdown porte son texte dans ses fragments (runs).
         txt = p if isinstance(p, str) else (p or {}).get("text") or \
             "".join(str(x.get("text") or "") for x in (p or {}).get("runs") or [] if isinstance(x, dict))
-        r = G.ref_de(txt)
-        if r:
+        m = G.REF_SEULE.match(txt or "")            # le « ! » est exigé : un hash de commit reste une puce
+        if m and m.group(1) in rendus:
             puces.remove(p)
-            s = {**s, "layout": "chart", "chart": _element_graphique(rendus[r])}
-            s.pop("bullets", None) if not puces else None
-            break
+            graphiques.append(m.group(1))
+    if not graphiques:
+        return s
+    if len(graphiques) > 1:
+        notes.warn(f"slide '{s.get('title') or ''}': one chart per slide, "
+                   f"{', '.join('!' + g for g in graphiques[1:])} left out (give each chart its own ## slide)")
+    s = {**s, "layout": "chart", "chart": _element_graphique(rendus[graphiques[0]])}
+    if puces:
+        s["bullets"], s["bullets_position"] = puces, "right"
+    else:
+        s.pop("bullets", None)
     return s
 
 

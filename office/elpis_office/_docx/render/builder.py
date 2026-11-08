@@ -726,6 +726,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         data_label_position=block.data_label_position,
         data_label_format=block.data_label_format,
         number_format=block.number_format,
+        x_number_format=block.x_number_format,
         gridlines=block.gridlines,
         y_min=block.y_min,
         y_max=block.y_max,

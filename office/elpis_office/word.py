@@ -845,7 +845,7 @@ def _ancre(i: int, nom: str, v: Any, lot: _Lot, fin_de_section: bool = False):
     titres = [(k, p, docio.heading_level_for(p, levels, default_id)) for k, p in vivants]
     titres = [(k, p, lv) for k, p, lv in titres if lv is not None]
     exact = next(((k, p, lv) for k, p, lv in titres if fold(p.text) == f), None)
-    if exact is None and not fin_de_section:        # un titre « Fin » n'est pas la fin du document
+    if exact is None:                               # un titre « Fin » n'est pas la fin du document
         if f in ("end", "fin", "bottom", "last"):
             return None
         if f in ("start", "debut", "top", "beginning", "first"):
@@ -875,7 +875,12 @@ def _precedent(element: Any) -> Any:
         if avant is not None and avant.tag not in (qn("w:sdtPr"), qn("w:sdtEndPr")):
             return avant
         parent = element.getparent()
-        element = parent.getparent() if parent is not None and parent.tag == qn("w:sdtContent") else None
+        if parent is not None and parent.tag == qn("w:sdtContent"):
+            element = parent.getparent()
+        elif parent is not None and parent.tag == qn("w:customXml"):
+            element = parent
+        else:
+            element = None
     return "start"
 
 

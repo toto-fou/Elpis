@@ -132,6 +132,7 @@ class SeriesSpec(Base):
         None, description="[x, y] pairs for scatter, [x, y, size] for bubble."
     )
     color: str | None = None
+    trendline: str | None = Field(None, description="Name of a linear trend line drawn on this series.")
 
 
 class TableCellSpec(Base):
@@ -270,7 +271,9 @@ class ChartElement(ElementBase):
     legend: str = Field("auto", description="auto, none, right, left, top, bottom or top_right.")
     data_labels: bool | None = None
     data_label_position: str | None = None
+    data_label_format: str | None = None
     number_format: str | None = Field(None, description="Excel format code, e.g. '#,##0.0' or '0%'.")
+    x_number_format: str | None = Field(None, description="Format of a scatter chart's horizontal axis.")
     gridlines: bool = True
     y_min: float | None = None
     y_max: float | None = None

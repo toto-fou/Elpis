@@ -6374,7 +6374,7 @@
     {
       "name": "chart_kpi",
       "title": "Chart Kpi",
-      "description": "Key figures as tiles, with the change vs a previous value.\nRows: {\"label\":\"Tickets\",\"value\":1284,\"previous\":1190}.\nReturns `ref` (e.g. !a1b2c3d4e5f6): write it alone on its own line where the chart goes. `summary` says what was drawn, `fixes` what was understood for you.",
+      "description": "Key figures as tiles, with the change vs a previous value. A per-row `unit` overrides the chart unit (a score in points or a % changes by points).\nRows: {\"label\":\"Revenue\",\"value\":40030,\"previous\":35400,\"unit\":\"k\u20ac\"}.\nReturns `ref` (e.g. !a1b2c3d4e5f6): write it alone on its own line where the chart goes. `summary` says what was drawn, `fixes` what was understood for you.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

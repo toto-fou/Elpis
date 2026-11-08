@@ -230,6 +230,7 @@ class SeriesData:
     #: (x, y) or (x, y, size) tuples for scatter / bubble charts
     points: Sequence[Sequence[float]] | None = None
     color: str | None = None
+    trendline: str | None = None
 
 
 @dataclass
@@ -248,6 +249,7 @@ class ChartRequest:
     #: on circular charts where the label shows a share and "0%" is what people mean.
     data_label_format: str | None = None
     number_format: str | None = None
+    x_number_format: str | None = None
     gridlines: bool = True
     y_min: float | None = None
     y_max: float | None = None
@@ -447,6 +449,7 @@ def _style_chart(chart_space: etree._Element, key: str, request: ChartRequest) -
 
     _apply_title(chart, request.title)
     _apply_series_colors(key, group, series_elements, request, palette)
+    _apply_trendlines(key, series_elements, request, palette)
     _apply_group_options(key, group, request)
     _apply_data_labels(key, group, request, len(series_elements))
     _apply_axes(key, plot_area, request)
@@ -530,13 +533,42 @@ def _apply_series_colors(
 
     _replace(group, "c:varyColors", make("c:varyColors", val="0"))
     stroke = key in LINE_TYPES
+    points_only = key in XY_TYPES and "lines" not in key and "smooth" not in key
     for index, element in enumerate(series_elements):
         color = parse_color(explicit[index]) if index < len(explicit) and explicit[index] else None
         color = color or palette[index % len(palette)]
-        _replace(element, "c:spPr", _series_shape(color, stroke=stroke))
+        shape = _frag(f'<c:spPr xmlns:c="{C_NS}" xmlns:a="{A_NS}"><a:ln w="19050"><a:noFill/></a:ln></c:spPr>') \
+            if points_only else _series_shape(color, stroke=stroke)
+        _replace(element, "c:spPr", shape)
+        if points_only:
+            _replace(element, "c:marker", make("c:marker"))
         marker = element.find(qn("c:marker"))
         if marker is not None:
             _style_marker(marker, color)
+
+
+def trendline_allowed(key: str) -> bool:
+    """Chart types whose series accept a trend line (no pie, doughnut, radar or stacked plot)."""
+    return not (key in CIRCULAR_TYPES or key.startswith("radar") or "stacked" in key or "3d" in key)
+
+
+def _apply_trendlines(key: str, series_elements: list[etree._Element], request: ChartRequest,
+                      palette: list[Any]) -> None:
+    """Named linear trend line, dashed in its series colour, on the series that asked for one."""
+    if not trendline_allowed(key):
+        return
+    from xml.sax.saxutils import escape
+
+    for index, (element, series) in enumerate(zip(series_elements, request.series)):
+        if not series.trendline:
+            continue
+        color = parse_color(series.color) if series.color else None
+        color = color or palette[index % len(palette)]
+        _replace(element, "c:trendline", _frag(
+            f'<c:trendline xmlns:c="{C_NS}" xmlns:a="{A_NS}"><c:name>{escape(str(series.trendline)[:80])}</c:name>'
+            f'<c:spPr><a:ln w="15875" cap="rnd"><a:solidFill><a:srgbClr val="{color}"/></a:solidFill>'
+            '<a:prstDash val="dash"/></a:ln></c:spPr><c:trendlineType val="linear"/>'
+            '<c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>'))
 
 
 def _count_points(series_element: etree._Element) -> int:
@@ -649,17 +681,18 @@ def _apply_data_labels(key: str, group: etree._Element, request: ChartRequest, s
     if position:
         _insert_ordered(labels, make("c:dLblPos", val=position))
     # Word wants the whole show* family present, not just the ones set to 1.
+    ring = circular and _local(group) == "doughnutChart"
     flags = {
         "c:showLegendKey": "0",
         "c:showVal": "0" if circular else "1",
-        "c:showCatName": "1" if circular else "0",
+        "c:showCatName": "1" if circular and not ring else "0",
         "c:showSerName": "0",
         "c:showPercent": "1" if circular else "0",
         "c:showBubbleSize": "1" if key in BUBBLE_TYPES else "0",
     }
     for tag, value in flags.items():
         _insert_ordered(labels, make(tag, val=value))
-    if circular:
+    if circular and not ring:
         _insert_ordered(labels, make("c:separator", **{}))
         labels.find(qn("c:separator")).text = "\n"
     _replace(group, "c:dLbls", labels)
@@ -722,13 +755,12 @@ def _apply_axes(key: str, plot_area: etree._Element, request: ChartRequest) -> N
             ),
         )
 
-        if is_value_axis and not horizontal:
-            if request.number_format:
-                _replace(
-                    axis,
-                    "c:numFmt",
-                    make("c:numFmt", formatCode=request.number_format, sourceLinked="0"),
-                )
+        xy_horizontal = is_value_axis and horizontal and (key in XY_TYPES or key in BUBBLE_TYPES)
+        measure = is_value_axis and not xy_horizontal and (not horizontal or key.startswith("bar"))
+        number_format = request.x_number_format if xy_horizontal else request.number_format if measure else None
+        if number_format:
+            _replace(axis, "c:numFmt", make("c:numFmt", formatCode=number_format, sourceLinked="0"))
+        if measure:
             _apply_scaling(axis, request.y_min, request.y_max)
 
 
@@ -765,7 +797,9 @@ def _apply_legend(
     if requested == "auto":
         # One series needs no legend — the title already names it. Circular charts
         # carry direct labels instead.
-        if key in CIRCULAR_TYPES or series_count < 2:
+        if key in CIRCULAR_TYPES and _local(_chart_group(plot_area)) == "doughnutChart":
+            requested = "right"
+        elif key in CIRCULAR_TYPES or series_count < 2:
             requested = "none"
         else:
             requested = "bottom"

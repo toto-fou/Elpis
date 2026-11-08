@@ -10,6 +10,7 @@ up the same theme — as everything else.
 from __future__ import annotations
 
 import re
+from contextvars import ContextVar
 from typing import Any
 
 from ..errors import InvalidSpec
@@ -19,6 +20,42 @@ _HEADING_TAG = re.compile(r"^h([1-6])$", re.IGNORECASE)
 #: Pandoc's subscript and superscript, without spaces inside: H~2~O, x^2^ (~~strike~~ is parsed before);
 #: a subscript never after nor around a slash (http://h/~alice/~bob stays a path), a superscript may hold one (x^1/2^).
 _SUB_SUP = re.compile(r"(?<!/)~([^\s~/]+)~|(?<!/)\^([^\s^]+)\^")
+#: Marks set by the Office tools before parsing (private-use characters): footnote n, cross-reference to a bookmark.
+NOTE_MARK, REF_MARK, END_MARK = "\ue000", "\ue002", "\ue001"
+_MARKS = re.compile("([\ue000\ue002])([^\ue001\ue000\ue002]*)\ue001")
+#: Footnote texts by number, for the marks of the content being converted.
+FOOTNOTES: ContextVar[dict[str, str] | None] = ContextVar("footnotes", default=None)
+#: Pandoc attributes after an image or a heading: {#fig:archi width=60%}.
+_ATTRS = re.compile(r"^\{\s*((?:#[\w:.-]+|[A-Za-z]+=[^\s{}]+)(?:\s+(?:#[\w:.-]+|[A-Za-z]+=[^\s{}]+))*)\s*\}$")
+_SIZE = re.compile(r"^(\d+(?:[.,]\d+)?)\s*(%|cm|mm|in)?$")
+
+
+def parse_attributes(text: str) -> dict[str, Any] | None:
+    """« {#fig:archi width=60%} » → {"id": "fig:archi", "width_percent": 60.0} (width_cm, height_cm) ; None otherwise."""
+    m = _ATTRS.match((text or "").strip())
+    if not m:
+        return None
+    out: dict[str, Any] = {}
+    for part in m.group(1).split():
+        if part.startswith("#"):
+            out["id"] = part[1:]
+            continue
+        key, _, value = part.partition("=")
+        size = _SIZE.match(value.strip("\"'"))
+        if not size or key.lower() not in {"width", "height"}:
+            continue
+        number, unit = float(size.group(1).replace(",", ".")), (size.group(2) or "cm")
+        if unit == "%" and key.lower() == "width" and 0 < number <= 100:
+            out["width_percent"] = number
+        elif unit != "%" and number > 0:
+            out[f"{key.lower()}_cm"] = min(number * {"cm": 1.0, "mm": 0.1, "in": 2.54}[unit],
+                                           50.0 if key.lower() == "width" else 25.0)
+    return out
+
+
+def strip_marks(text: str) -> str:
+    """Text without footnote and cross-reference marks (where runs cannot carry them)."""
+    return _MARKS.sub("", text or "")
 
 
 # ---------------------------------------------------------------------------
@@ -67,8 +104,15 @@ def _consume(tokens, index: int, blocks: list, heading_offset: int) -> int:
         level = int(token.tag[1]) + heading_offset
         inline = tokens[index + 1] if index + 1 < len(tokens) else None
         runs = _inline_runs(inline) if inline is not None and inline.type == "inline" else []
+        bookmark = None
+        if runs and runs[-1].text:
+            head, brace, tail = runs[-1].text.rpartition("{")
+            attrs = parse_attributes(brace + tail) if brace else None
+            if attrs and attrs.get("id"):
+                bookmark = attrs["id"]
+                runs[-1] = runs[-1].model_copy(update={"text": head.rstrip()})
         blocks.append(
-            S.HeadingBlock(type="heading", level=max(0, min(9, level)), runs=runs)
+            S.HeadingBlock(type="heading", level=max(0, min(9, level)), runs=runs, bookmark=bookmark)
         )
         return _skip_to(tokens, index, "heading_close")
 
@@ -117,7 +161,7 @@ def _consume(tokens, index: int, blocks: list, heading_offset: int) -> int:
             elif inner.type == "inline":
                 text_parts.append(inner.content)
             cursor += 1
-        blocks.append(S.QuoteBlock(type="quote", text="\n".join(text_parts).strip()))
+        blocks.append(S.QuoteBlock(type="quote", text=strip_marks("\n".join(text_parts)).strip()))
         return cursor + 1
 
     if kind == "table_open":
@@ -233,12 +277,19 @@ def _chemin(source: str) -> str:
 def _lone_image(inline) -> S.ImageBlock | None:
     """An image alone in its paragraph is a figure: its bracket text is the visible caption (as in pandoc) and the alt text."""
     children = [c for c in (inline.children or []) if not (c.type == "text" and not c.content.strip())]
+    attrs: dict[str, Any] | None = {}
+    if len(children) == 2 and children[0].type == "image" and children[1].type == "text":
+        attrs = parse_attributes(children[1].content)
+        children = children[:1] if attrs is not None else children
     if len(children) == 1 and children[0].type == "image":
         token = children[0]
         source = _chemin(token.attrGet("src") or "")
         alt = "".join(child.content for child in (token.children or [])).strip()
+        attrs = attrs or {}
         return S.ImageBlock(
-            type="image", source=source, caption=(token.attrGet("title") or alt or None), alt_text=alt or None
+            type="image", source=source, caption=(token.attrGet("title") or alt or None), alt_text=alt or None,
+            bookmark=attrs.get("id"), width_percent=attrs.get("width_percent"),
+            width_cm=attrs.get("width_cm"), height_cm=attrs.get("height_cm"),
         )
     return None
 
@@ -255,8 +306,18 @@ def _inline_runs(inline) -> list[S.RunSpec]:
     for token in inline.children or []:
         kind = token.type
         if kind == "text":
-            for part, overrides in _sub_sup(token.content):
-                emit(part, **overrides)
+            notes = FOOTNOTES.get() or {}
+            pieces = _MARKS.split(token.content)
+            for k, piece in enumerate(pieces):
+                if k % 3 == 0:
+                    for part, overrides in _sub_sup(piece):
+                        emit(part, **overrides)
+                elif k % 3 == 2:
+                    mark = pieces[k - 1]
+                    if mark == NOTE_MARK and piece in notes:
+                        runs.append(S.RunSpec.model_validate({"footnote": notes[piece]}))
+                    elif mark == REF_MARK:
+                        runs.append(S.RunSpec.model_validate({"ref": piece}))
         elif kind == "text_special":                 # caractère échappé (\~, \^) : littéral
             emit(token.content)
         elif kind == "code_inline":
@@ -282,7 +343,7 @@ def _inline_runs(inline) -> list[S.RunSpec]:
         elif kind == "image":
             alt = "".join(child.content for child in (token.children or []))
             emit(alt or "[image]", italic=True)
-    return [run for run in runs if run.text]
+    return [run for run in runs if run.text or run.footnote or run.ref]
 
 
 # ---------------------------------------------------------------------------

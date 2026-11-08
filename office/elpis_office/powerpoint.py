@@ -336,6 +336,8 @@ def _element_graphique(r: G.Rendu) -> Dict[str, Any]:
                 "categories": n.get("categories") or [], "series": n["series"],
                 "title": None, "x_title": n.get("x_title"), "y_title": n.get("y_title"),
                 "number_format": n.get("number_format"), "legend": n.get("legend", "auto"),
+                **({"data_label_format": n["data_label_format"]} if n.get("data_label_format") else {}),
+                **({"x_number_format": n["x_number_format"]} if n.get("x_number_format") else {}),
                 **({"y_max": n["y_max"]} if n.get("y_max") is not None else {}),
                 **({"smooth": True} if n.get("smooth") else {})}
     if r.mode == "image":
@@ -347,7 +349,7 @@ def _element_graphique(r: G.Rendu) -> Dict[str, Any]:
                                                "trend": t.get("sign")}, Notes())
                                          for t in r.tuiles]}
     return {"type": "table", "header": r.colonnes,
-            "rows": [[G.cellule(c) for c in ln] for ln in r.lignes[:40]]}
+            "rows": G.cellules_tableau(r.lignes[:40], r.lang, r.colonnes)}
 
 
 def _refs_diapo(d: Dict[str, Any]) -> List[str]:
@@ -597,7 +599,8 @@ def langue_du_deck(prs: Any) -> Optional[str]:
     return defaut.get("lang") if defaut is not None else None
 
 
-def _diapos(env: Env, slides: Any, markdown: str) -> Tuple[List[Dict[str, Any]], Dict[str, G.Rendu]]:
+def _diapos(env: Env, slides: Any, markdown: str,
+            lang: str = "en-US") -> Tuple[List[Dict[str, Any]], Dict[str, G.Rendu]]:
     if isinstance(slides, str) and not markdown:
         markdown, slides = slides, None
         env.notes.fix("slides given as text: read as a Markdown outline")
@@ -605,8 +608,8 @@ def _diapos(env: Env, slides: Any, markdown: str) -> Tuple[List[Dict[str, Any]],
         slides = [slides]
     if markdown and not slides:
         diapos = _moteur(markdown_to_slides, markdown)
-        rendus = G.preparer(env, G.REF.findall(markdown), titre_image=False)
-        return [_md_refs(s, rendus) for s in diapos], rendus
+        rendus = G.preparer(env, G.REF.findall(markdown), titre_image=False, lang=lang)
+        return [_md_refs(s, rendus, env.notes) for s in diapos], rendus
     if not isinstance(slides, list) or not slides:
         raise OfficeError("slides is empty", code="empty_content",
                           fix="slides = a list of slide objects, each with a layout",
@@ -615,20 +618,31 @@ def _diapos(env: Env, slides: Any, markdown: str) -> Tuple[List[Dict[str, Any]],
     for s in slides:
         if isinstance(s, dict):
             ids.extend(_refs_diapo(s))
-    rendus = G.preparer(env, ids, titre_image=False)
+    rendus = G.preparer(env, ids, titre_image=False, lang=lang)
     return [normaliser_diapo(i, s, rendus, env) for i, s in enumerate(slides)], rendus
 
 
-def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu]) -> Dict[str, Any]:
-    """Plan Markdown : une puce « !id » devient le graphique de la diapo."""
-    puces = s.get("bullets") or []
+def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu], notes: Notes) -> Dict[str, Any]:
+    """Plan Markdown : une puce « !id » devient le graphique de la diapo ; les autres puces restent à côté."""
+    puces = list(s.get("bullets") or [])
+    graphiques: List[str] = []
     for p in list(puces):
-        r = G.ref_de(p if isinstance(p, str) else (p or {}).get("text"))
-        if r:
+        txt = p if isinstance(p, str) else (p or {}).get("text") or \
+            "".join(str(x.get("text") or "") for x in (p or {}).get("runs") or [] if isinstance(x, dict))
+        m = G.REF_SEULE.match(txt or "")
+        if m and m.group(1) in rendus:
             puces.remove(p)
-            s = {**s, "layout": "chart", "chart": _element_graphique(rendus[r])}
-            s.pop("bullets", None) if not puces else None
-            break
+            graphiques.append(m.group(1))
+    if not graphiques:
+        return s
+    if len(graphiques) > 1:
+        notes.warn(f"slide '{s.get('title') or ''}': one chart per slide, "
+                   f"{', '.join('!' + g for g in graphiques[1:])} left out (give each chart its own ## slide)")
+    s = {**s, "layout": "chart", "chart": _element_graphique(rendus[graphiques[0]])}
+    if puces:
+        s["bullets"], s["bullets_position"] = puces, "right"
+    else:
+        s.pop("bullets", None)
     return s
 
 
@@ -638,9 +652,9 @@ def pptx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     rel = chemin_sortie(a.get("path"), "pptx", env.notes)
     jeton = _lecteur(env)
     try:
-        diapos, rendus = _diapos(env, a.get("slides"), texte(a.get("markdown")))
         lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), texte(a.get("markdown")),
                                               *textes_de(a.get("slides"))], env.notes)
+        diapos, rendus = _diapos(env, a.get("slides"), texte(a.get("markdown")), lang)
         _titres_par_defaut(diapos, libelles(lang))
         pied = a.get("footer")
         spec = _moteur(S.DeckSpec, filename=rel.rsplit("/", 1)[-1],
@@ -922,8 +936,8 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], prs, origine, supprimees,
     if nom == "add_slides":
         slides = c.get("slides")
         md = texte(c.get("markdown"))
-        diapos, _ = _diapos(env, slides, md)
         lang = langue_du_deck(prs)
+        diapos, _ = _diapos(env, slides, md, lang or "en-US")
         _titres_par_defaut(diapos, libelles(lang))
         parsed = _moteur(S.parse_slides, diapos)
         avant = len(prs.slides)

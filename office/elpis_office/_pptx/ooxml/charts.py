@@ -18,6 +18,7 @@ from pptx.enum.chart import (
     XL_CHART_TYPE,
     XL_DATA_LABEL_POSITION,
     XL_LEGEND_POSITION,
+    XL_MARKER_STYLE,
     XL_TICK_LABEL_POSITION,
     XL_TICK_MARK,
 )
@@ -165,6 +166,7 @@ class SeriesData:
     values: Sequence[float | None] | None = None
     points: Sequence[Sequence[float]] | None = None
     color: str | None = None
+    trendline: str | None = None
 
 
 @dataclass
@@ -180,6 +182,7 @@ class ChartRequest:
     data_label_position: str | None = None
     number_format: str | None = None
     data_label_format: str | None = None
+    x_number_format: str | None = None
     gridlines: bool = True
     y_min: float | None = None
     y_max: float | None = None
@@ -237,7 +240,11 @@ def build_chart_data(request: ChartRequest):
                 handle.add_data_point(float(point[0]), float(point[1]))
         return data
 
-    data = CategoryChartData(number_format=request.number_format or "General")
+    # python-pptx writes the format code into the chart XML unescaped: « R&D » would break the part.
+    from xml.sax.saxutils import escape
+
+    number_format = escape(request.number_format) if request.number_format else None
+    data = CategoryChartData(number_format=number_format or "General")
     categories = list(request.categories)
     lengths = {len(series.values or []) for series in request.series}
     if not categories:
@@ -256,7 +263,7 @@ def build_chart_data(request: ChartRequest):
                 f"Series {series.name!r} has {len(values)} value(s) but there are "
                 f"{len(categories)} categories. They must line up."
             )
-        data.add_series(series.name, values, request.number_format or None)
+        data.add_series(series.name, values, number_format)
     return data
 
 
@@ -293,6 +300,7 @@ def style_chart(chart, request: ChartRequest) -> None:
     _base_text(chart, request, text_color)
     _title(chart, request, text_color)
     _series_colors(chart, key, palette)
+    _trendlines(chart, request)
     _series_overrides(chart, key, request)
     _axes(chart, key, request, text_color)
     _legend(chart, key, request, text_color)
@@ -340,12 +348,44 @@ def _series_colors(chart, key: str, palette: Sequence[str]) -> None:
             series.format.line.color.rgb = rgb(color)
             series.format.line.width = Pt(2.25)
             if key in XY_TYPES and "lines" not in key and "smooth" not in key:
-                # A pure scatter has no line; python-pptx would draw one anyway.
                 series.format.line.fill.background()
+                series.marker.style = XL_MARKER_STYLE.CIRCLE
+                series.marker.size = 7
+                series.marker.format.fill.solid()
+                series.marker.format.fill.fore_color.rgb = rgb(color)
+                series.marker.format.line.color.rgb = rgb("FFFFFF")
         else:
             series.format.fill.solid()
             series.format.fill.fore_color.rgb = rgb(color)
             series.format.line.fill.background()
+
+
+_APRES_TENDANCE = ("errBars", "cat", "val", "xVal", "yVal", "bubbleSize", "bubble3D", "shape", "smooth", "extLst")
+
+
+def _trendlines(chart, request: ChartRequest) -> None:
+    """Linear trend line, dashed, on the series that asked for one (before c:errBars/c:cat… in c:ser)."""
+    key = normalise_type(request.chart_type)
+    if key in CIRCULAR_TYPES or key.startswith("radar") or key in STACKED_TYPES or "3d" in key:
+        return
+    from xml.sax.saxutils import escape
+
+    palette = [c for c in (parse_color(x) for x in (request.palette or DEFAULT_PALETTE)) if c] or list(DEFAULT_PALETTE)
+    for index, (series, data) in enumerate(zip(chart.series, request.series)):
+        if not data.trendline:
+            continue
+        ser = series._element
+        color = parse_color(data.color) if data.color else palette[index % len(palette)]
+        ligne = frag(
+            f'<c:trendline {C_NS} {A_NS}><c:name>{escape(str(data.trendline)[:80])}</c:name><c:spPr>'
+            f'<a:ln w="15875" cap="rnd"><a:solidFill><a:srgbClr val="{color}"/></a:solidFill>'
+            '<a:prstDash val="dash"/></a:ln></c:spPr><c:trendlineType val="linear"/>'
+            '<c:dispRSqr val="0"/><c:dispEq val="0"/></c:trendline>')
+        suivant = next((e for e in ser if str(e.tag).rsplit("}", 1)[-1] in _APRES_TENDANCE), None)
+        if suivant is not None:
+            suivant.addprevious(ligne)
+        else:
+            ser.append(ligne)
 
 
 def _series_overrides(chart, key: str, request: ChartRequest) -> None:
@@ -402,6 +442,9 @@ def _axes(chart, key: str, request: ChartRequest, text_color: str) -> None:
     if request.number_format:
         value_axis.tick_labels.number_format = request.number_format
         value_axis.tick_labels.number_format_is_linked = False
+    if request.x_number_format and key in XY_TYPES:
+        category_axis.tick_labels.number_format = request.x_number_format
+        category_axis.tick_labels.number_format_is_linked = False
     if request.y_min is not None:
         value_axis.minimum_scale = float(request.y_min)
     if request.y_max is not None:
@@ -437,10 +480,13 @@ def _legend(chart, key: str, request: ChartRequest, text_color: str) -> None:
         chart.has_legend = False
         return
     if mode == "auto":
-        if key in CIRCULAR_TYPES or len(request.series) <= 1:
+        if key in {"doughnut", "donut", "doughnut_exploded"}:
+            position = XL_LEGEND_POSITION.RIGHT
+        elif key in CIRCULAR_TYPES or len(request.series) <= 1:
             chart.has_legend = False
             return
-        position = XL_LEGEND_POSITION.BOTTOM
+        else:
+            position = XL_LEGEND_POSITION.BOTTOM
     else:
         position = _LEGEND_POSITIONS.get(mode)
         if position is None:
@@ -551,8 +597,7 @@ def _data_labels(chart, key: str, request: ChartRequest, text_color: str) -> Non
 
         if circular:
             # A pie with no legend needs its slices named, and a share reads
-            # better as a percentage than as the raw number.
-            set_label_flags(plot, value=False, category=True, percent=True)
+            set_label_flags(plot, value=False, category=not inside_ring, percent=True)
         else:
             set_label_flags(plot, value=True, category=False, percent=False)
 

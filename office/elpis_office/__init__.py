@@ -142,6 +142,11 @@ TOOLS["docx_create"] = {
         "(native editable chart when possible, else an image); chart_table → a real table\n"
         "  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n"
         "  [TOC]: table of contents · \\newpage: page break\n"
+        "  text[^1] with a line [^1]: note text → a footnote at the page foot\n"
+        "  {#fig:sales width=60%} right after an image or a chart !id (also width=8cm), or after a heading "
+        "({#sec:intro}): numbered caption and size; @fig:sales in the text → « Figure 2 », kept up to date\n"
+        "  ::: landscape … ::: → pages in landscape · ::: columns 2 … ::: → text in 2 columns\n"
+        "A figure too tall for the space left moves to the next page: office_export reports the gap.\n"
         "An existing file at path is replaced (the previous version stays in the file history, "
         "or in a .bak copy above 5 MB). Returns path, outline (headings with paragraph numbers) and "
         "summary."),
@@ -408,6 +413,12 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     cible = _pdf(a.get("save_as") or (rel.rsplit(".", 1)[0] + ".pdf"), env)
     pdf, numerotees = pdf_du_fichier(env, rel, ext)
     res = ecrire(env, cible, pdf)
+    if ext == ".docx":
+        from .apercu import blancs_de_pages
+
+        blancs = blancs_de_pages(pdf)
+        if blancs:
+            env.notes.warn(blancs)
     if numerotees:
         res["toc"] = f"{numerotees} table of contents entries numbered in the PDF (the .docx is unchanged)"
     autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []

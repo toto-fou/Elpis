@@ -10,6 +10,7 @@ placeholder, and set ``w:updateFields`` so the reader recalculates on open.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from .util import frag, insert_in_order, make, qn
 
@@ -327,6 +328,88 @@ def add_text_with_fields(paragraph, template: str, **run_format) -> None:
 def add_seq_field(paragraph, label: str) -> None:
     """A ``SEQ`` field — the counter behind auto-numbered Figure/Table captions."""
     add_field(paragraph, f"SEQ {label} \\* ARABIC", placeholder="1")
+
+
+_SEQ = re.compile(r"^\s*SEQ\s+(\S+)(.*)$", re.IGNORECASE)
+_MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
+_SKIPPED = {_MC_FALLBACK, qn("w:moveFrom")}       # content shown twice (text-box fallback, tracked move)
+
+
+class Field:
+    """One field of the document: its instruction, whether Elpis wrote it (dirty), its result text nodes."""
+
+    __slots__ = ("instruction", "ours", "results")
+
+    def __init__(self, instruction: str, ours: bool) -> None:
+        self.instruction, self.ours = instruction, ours
+        self.results: list[Any] = []
+
+    def set_result(self, text: str) -> None:
+        """The whole result in the first text node, the others emptied (a result can span several runs)."""
+        for index, node in enumerate(self.results):
+            node.text = text if index == 0 else ""
+
+
+def walk_fields(root) -> tuple[list[Field], dict[str, str]]:
+    """Fields in document order and visible text of every bookmark, in one pass that skips duplicated content."""
+    fields: list[Field] = []
+    open_fields: list[tuple[Field, bool]] = []
+    marks: dict[str, list[str]] = {}
+    open_marks: dict[str, str] = {}
+    stack = [iter(root)]
+    while stack:
+        node = next(stack[-1], None)
+        if node is None:
+            stack.pop()
+            continue
+        tag = node.tag
+        if tag in _SKIPPED or not isinstance(tag, str):
+            continue
+        if tag == qn("w:fldChar"):
+            kind = node.get(qn("w:fldCharType"))
+            if kind == "begin":
+                field = Field("", node.get(qn("w:dirty")) in ("true", "1"))
+                fields.append(field)
+                open_fields.append((field, False))
+            elif kind == "separate" and open_fields:
+                open_fields[-1] = (open_fields[-1][0], True)
+            elif kind == "end" and open_fields:
+                open_fields.pop()
+        elif tag == qn("w:instrText") and open_fields and not open_fields[-1][1]:
+            open_fields[-1][0].instruction += node.text or ""
+        elif tag == qn("w:fldSimple"):
+            fields.append(Field(node.get(qn("w:instr")) or "", False))
+        elif tag == qn("w:bookmarkStart"):
+            name = node.get(qn("w:name")) or ""
+            open_marks[node.get(qn("w:id")) or ""] = name
+            marks.setdefault(name, [])
+        elif tag == qn("w:bookmarkEnd"):
+            open_marks.pop(node.get(qn("w:id")) or "", None)
+        elif tag == qn("w:t"):
+            if open_fields and open_fields[-1][1]:
+                open_fields[-1][0].results.append(node)
+            for name in open_marks.values():
+                marks[name].append(node.text or "")
+        if len(node):
+            stack.append(iter(node))
+    return fields, {name: "".join(parts).strip() for name, parts in marks.items()}
+
+
+def renumber_seq(root) -> None:
+    """Cached numbers of the SEQ fields Elpis wrote, counted with every caption of their label (\\s, \\c, \\h, non-arabic: left alone)."""
+    fields = [(f, _SEQ.match(f.instruction)) for f in walk_fields(root)[0]]
+    seq = [(f, m.group(1), m.group(2)) for f, m in fields if m]
+    odd = {label for _, label, switches in seq
+           if re.search(r"\\[sch]\b", switches, re.IGNORECASE)
+           or re.search(r"\\\*\s*(?!ARABIC\b|MERGEFORMAT\b)\w", switches, re.IGNORECASE)}
+    counters: dict[str, int] = {}
+    for field, label, switches in seq:
+        if label in odd:
+            continue
+        restart = re.search(r"\\r\s*(\d+)", switches)
+        counters[label] = int(restart.group(1)) if restart else counters.get(label, 0) + 1
+        if field.ours and field.results:
+            field.set_result(str(counters[label]))
 
 
 def add_cross_reference(paragraph, bookmark: str, placeholder: str = "…") -> None:

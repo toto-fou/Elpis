@@ -7,7 +7,7 @@ import re
 
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
-from .fields import add_field, add_seq_field
+from .fields import add_field, add_seq_field, walk_fields
 from .util import align_paragraph, apply_run_format, make, qn
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -144,11 +144,11 @@ def add_caption(
 
     target.add_run(f"{counter} ")
     add_seq_field(target, counter)
+    if bookmark:
+        add_bookmark(document, target, bookmark)
     if text:
         target.add_run(f"{separator}{text}")
     align_paragraph(target, align)
-    if bookmark:
-        add_bookmark(document, target, bookmark)
     return target
 
 
@@ -158,3 +158,22 @@ def add_cross_reference(
     """Insert a REF field that resolves to the bookmarked text."""
     add_field(paragraph, f"REF {normalise_bookmark(bookmark)} \\h", placeholder=placeholder)
     return paragraph
+
+
+def fill_references(document) -> tuple[list[str], list[str]]:
+    """Cached text of the REF fields Elpis wrote (« Figure 2 »), Word's untouched ; returns (missing, empty) bookmarks."""
+    fields, texts = walk_fields(document.element.body)
+    missing: list[str] = []
+    empty: list[str] = []
+    for field in fields:
+        m = re.match(r"^\s*REF\s+(\S+)((?:\s+\\h)*)\s*$", field.instruction)
+        if not (field.ours and m and field.results):
+            continue
+        text = texts.get(m.group(1))
+        if text is None:
+            missing.append(m.group(1))
+        elif not text:
+            empty.append(m.group(1))
+        else:
+            field.set_result(text)
+    return missing, empty

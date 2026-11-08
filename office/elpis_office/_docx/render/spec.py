@@ -70,6 +70,9 @@ class RunSpec(Base):
     footnote: str | None = Field(
         None, description="Attach a footnote whose text is this value, marked after this run."
     )
+    ref: str | None = Field(
+        None, description="Cross-reference: shows the text of this bookmark (e.g. 'Figure 2'), updated by Word."
+    )
 
 
 InlineText = Union[str, RunSpec]
@@ -108,6 +111,7 @@ class SeriesSpec(Base):
         None, description="[x, y] pairs for scatter, [x, y, size] for bubble."
     )
     color: str | None = None
+    trendline: str | None = Field(None, description="Name of a linear trend line drawn on this series.")
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +191,7 @@ class ImageBlock(Base):
     )
     width_cm: float | None = Field(default=None, gt=0, le=200)
     height_cm: float | None = Field(default=None, gt=0, le=200)
+    width_percent: float | None = Field(default=None, gt=0, le=100, description="Share of the text width.")
     align: str | None = "center"
     caption: str | None = None
     alt_text: str | None = None
@@ -215,11 +220,13 @@ class ChartBlock(Base):
     data_label_position: str | None = None
     data_label_format: str | None = None
     number_format: str | None = Field(None, description="Excel format code, e.g. '#,##0.0' or '0%'.")
+    x_number_format: str | None = Field(None, description="Format of a scatter chart's horizontal axis.")
     gridlines: bool = True
     y_min: float | None = None
     y_max: float | None = None
     width_cm: float = Field(default=16.0, gt=0, le=200)
     height_cm: float = Field(default=9.0, gt=0, le=200)
+    width_percent: float | None = Field(default=None, gt=0, le=100, description="Share of the text width.")
     palette: list[str] | None = None
     gap_width: int | None = None
     overlap: int | None = None

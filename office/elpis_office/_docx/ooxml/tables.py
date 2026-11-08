@@ -75,30 +75,6 @@ def set_cell_borders(cell, *, color: str = "BFBFBF", size: int = 4, style: str =
     insert_in_order(tc_pr, frag(f'<w:tcBorders xmlns:w="{W_NS}">{parts}</w:tcBorders>'), TCPR_ORDER)
 
 
-def set_table_borders(
-    table,
-    *,
-    color: str = "BFBFBF",
-    size: int = 4,
-    style: str = "single",
-    edges: Iterable[str] = BORDER_EDGES,
-) -> None:
-    tbl_pr = table._tbl.tblPr
-    for existing in tbl_pr.findall(qn("w:tblBorders")):
-        tbl_pr.remove(existing)
-    hex_color = parse_color(color) or "BFBFBF"
-    parts = "".join(
-        f'<w:{edge} w:val="{style}" w:sz="{int(size)}" w:space="0" w:color="{hex_color}"/>'
-        for edge in edges
-        if edge in BORDER_EDGES
-    )
-    insert_in_order(tbl_pr, frag(f'<w:tblBorders xmlns:w="{W_NS}">{parts}</w:tblBorders>'), TBLPR_ORDER)
-
-
-def clear_table_borders(table) -> None:
-    set_table_borders(table, style="none", size=0, edges=BORDER_EDGES)
-
-
 def set_column_widths(table, widths_cm: Sequence[float | None]) -> None:
     """Fix column widths.
 
@@ -126,14 +102,6 @@ def repeat_header_row(row) -> None:
     for existing in tr_pr.findall(qn("w:tblHeader")):
         tr_pr.remove(existing)
     insert_in_order(tr_pr, make("w:tblHeader", **{"w:val": "true"}), TRPR_ORDER)
-
-
-def set_row_cant_split(row, value: bool = True) -> None:
-    tr_pr = row._tr.get_or_add_trPr()
-    for existing in tr_pr.findall(qn("w:cantSplit")):
-        tr_pr.remove(existing)
-    if value:
-        insert_in_order(tr_pr, make("w:cantSplit"), TRPR_ORDER)
 
 
 def set_cell_margins(table, *, top: float = 0.1, bottom: float = 0.1,

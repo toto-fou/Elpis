@@ -15,7 +15,7 @@ from typing import Any, Iterable, Sequence
 from pptx import Presentation
 from pptx.util import Emu, Pt
 
-from .. import templates
+from ...paquet import charger, normaliser
 from ..errors import InvalidSpec
 from ..ooxml import shapes as shape_ooxml, slides as slide_ooxml, text as text_ooxml, theme as theme_ooxml
 from ..ooxml.util import anchor, mix, parse_color, rgb
@@ -46,7 +46,7 @@ def build_deck(spec: S.DeckSpec) -> tuple[Any, E.RenderContext]:
     presentation, template_notes = _open_base(spec.template)
     _apply_size(presentation, spec.size, has_template=bool(spec.template))
     if spec.template:
-        template_notes += _strip_template_slides(presentation, spec.template_slides)
+        template_notes += _strip_template_slides(presentation)
 
     geometry = Geometry.from_presentation(presentation)
     theme_spec = _theme_for(spec, presentation)
@@ -57,8 +57,8 @@ def build_deck(spec: S.DeckSpec) -> tuple[Any, E.RenderContext]:
     ctx.notes.extend(template_notes)
 
     _apply_metadata(presentation, spec.meta)
-    if _should_write_master(spec):
-        _apply_theme_to_master(presentation, theme, bool(spec.template))
+    if not spec.template:                  # la palette d'un gabarit d'entreprise n'est jamais réécrite
+        _apply_theme_to_master(presentation, theme)
     if spec.footer:
         slide_ooxml.enable_header_footer(
             presentation, slide_number=spec.footer.slide_numbers, footer=bool(spec.footer.text)
@@ -69,55 +69,32 @@ def build_deck(spec: S.DeckSpec) -> tuple[Any, E.RenderContext]:
 
 
 def _open_base(template: str | None) -> tuple[Any, list[str]]:
-    """Open the deck a build starts from: blank, or a corporate template.
-
-    ``template`` may be a catalogue name — the normal case — or a path or base64
-    payload. Template *formats* (.potx, .ppsx, macro-enabled) are normalised on
-    the way in, because refusing the exact file an IT department distributes is
-    not a defensible position for a server that claims to support templates.
-    """
+    """Présentation de départ : vierge, ou gabarit de la sandbox (.potx, .ppsx, à macros normalisés en .pptx)."""
     if not template:
         return Presentation(), []
 
-    blob, notes, catalogue_name = templates.load(template)
+    blob, notes = normaliser(charger(template, "template"), "pptx", "template")
     try:
         presentation = Presentation(io.BytesIO(blob))
     except Exception as exc:
         raise InvalidSpec(f"Could not open the template: {exc}") from exc
-    if catalogue_name:
-        notes = [f"Built on the {catalogue_name!r} template from the catalogue.", *notes]
     return presentation, notes
 
 
-def _strip_template_slides(presentation, mode: str) -> list[str]:
-    """Drop the slides a corporate template ships with.
-
-    A house template almost always carries example or instruction slides. They
-    are there to be read by whoever builds a deck by hand, and they have no place
-    in the deck the server produces — so they go, unless asked to stay.
-    """
+def _strip_template_slides(presentation) -> list[str]:
+    """Retire les diapos d'exemple ou de consigne livrées avec le gabarit."""
     count = len(presentation.slides)
-    if not count or mode == "keep":
+    if not count:
         return []
     for index in reversed(range(count)):
         slide_ooxml.delete_slide(presentation, index)
-    return [
-        f"Removed {count} slide(s) the template shipped with. Pass "
-        'template_slides="keep" to build on top of them instead.'
-    ]
+    return [f"Removed {count} example slide(s) the template shipped with; only its layouts and theme are used."]
 
 
 def _theme_for(spec: S.DeckSpec, presentation) -> S.ThemeSpec:
-    """Take the design tokens from the template's own theme, unless told otherwise.
-
-    A corporate template *is* the brand definition. Building on it and then
-    painting the slides in this server's default blue is the single most likely
-    way to produce something that looks conformant and is not — so anything the
-    caller did not set explicitly comes from the template.
-    """
+    """Couleurs et polices du thème du gabarit pour tout ce que l'appelant n'a pas fixé (la charte, pas le bleu par défaut)."""
     theme_spec = spec.theme
-    wanted = theme_spec.source or ("template" if spec.template else "preset")
-    if not spec.template or wanted != "template":
+    if not spec.template:
         return theme_spec
 
     brand = theme_ooxml.read_theme(presentation) or {}
@@ -140,18 +117,6 @@ def _theme_for(spec: S.DeckSpec, presentation) -> S.ThemeSpec:
     return theme_spec.model_copy(update=updates) if updates else theme_spec
 
 
-def _should_write_master(spec: S.DeckSpec) -> bool:
-    """Whether to push our palette into the theme part.
-
-    Explicit wins. Otherwise: never for a template — overwriting the accents of
-    the brand you were handed is exactly backwards — and always for a deck built
-    from scratch, so shapes a human adds later inherit the design.
-    """
-    if "write_to_master" in spec.theme.model_fields_set:
-        return spec.theme.write_to_master
-    return not spec.template
-
-
 def _apply_size(presentation, size, has_template: bool = False) -> None:
     if isinstance(size, str):
         size = S.SizeSpec(preset=size)
@@ -172,13 +137,13 @@ def _apply_size(presentation, size, has_template: bool = False) -> None:
 
 def _apply_metadata(presentation, meta: S.MetaSpec) -> None:
     properties = presentation.core_properties
-    for attribute in ("title", "subject", "author", "keywords", "category", "comments"):
+    for attribute in ("title", "author"):
         value = getattr(meta, attribute, None)
         if value:
             setattr(properties, attribute, value)
 
 
-def _apply_theme_to_master(presentation, theme: Theme, has_template: bool) -> None:
+def _apply_theme_to_master(presentation, theme: Theme) -> None:
     """Write the brand into the theme part, so later manual edits inherit it."""
     palette = list(theme.palette())
     theme_ooxml.apply_colors(
@@ -190,10 +155,7 @@ def _apply_theme_to_master(presentation, theme: Theme, has_template: bool) -> No
         followed_hyperlink=mix(theme.accent2, theme.text, 0.4),
         scheme_name=f"pptx-mcp {theme.preset}",
     )
-    if not has_template:
-        # A corporate template's typography is its own; only a from-scratch deck
-        # gets its fonts rewritten.
-        theme_ooxml.apply_fonts(presentation, major=theme.heading_font, minor=theme.body_font)
+    theme_ooxml.apply_fonts(presentation, major=theme.heading_font, minor=theme.body_font)
 
 
 # ---------------------------------------------------------------------------
@@ -210,15 +172,14 @@ def add_slides(ctx: E.RenderContext, slides: Iterable[S.Slide]) -> int:
 
 
 def add_slide(ctx: E.RenderContext, spec: S.Slide):
-    layout = _resolve_layout(ctx, spec)
-    slide = ctx.presentation.slides.add_slide(layout)
-    if spec.layout_name is None:
-        # A blank layout may still ship placeholders; the builders draw their own.
-        for shape in list(slide.shapes):
-            if shape.is_placeholder:
-                shape._element.getparent().remove(shape._element)
+    slide = ctx.presentation.slides.add_slide(slide_ooxml.blank_layout(ctx.presentation))
+    # A blank layout may still ship placeholders; the builders draw their own.
+    for shape in list(slide.shapes):
+        if shape.is_placeholder:
+            shape._element.getparent().remove(shape._element)
 
-    _apply_background(ctx, slide, spec)
+    if ctx.theme.background.upper() != "FFFFFF":
+        slide_ooxml.set_background(slide, color=ctx.theme.background)
 
     handler = _HANDLERS.get(type(spec))
     if handler is None:  # pragma: no cover — the discriminated union prevents this
@@ -234,46 +195,7 @@ def add_slide(ctx: E.RenderContext, spec: S.Slide):
 
     if spec.notes:
         slide_ooxml.set_notes(slide, spec.notes)
-    if spec.transition:
-        slide_ooxml.set_transition(slide, spec.transition)
-    if spec.name:
-        slide_ooxml.set_name(slide, spec.name)
     return slide
-
-
-def _resolve_layout(ctx: E.RenderContext, spec: S.Slide):
-    if spec.layout_name is not None:
-        try:
-            return slide_ooxml.find_layout(ctx.presentation, spec.layout_name)
-        except KeyError as exc:
-            raise InvalidSpec(str(exc)) from exc
-    if isinstance(spec, S.TemplateSlide):
-        raise InvalidSpec(
-            "A 'template' slide needs layout_name — the layout of your corporate template "
-            "to build on (the layout names are shown by pptx_read on a deck made from it)."
-        )
-    return slide_ooxml.blank_layout(ctx.presentation)
-
-
-def _apply_background(ctx: E.RenderContext, slide, spec: S.SlideBase) -> None:
-    theme = ctx.theme
-    if spec.background_image:
-        picture = E.place_image(
-            ctx, slide, ctx.geometry.full(), spec.background_image, fit="cover",
-        )
-        shape_ooxml.send_to_back(picture)
-        if spec.background_image_dim:
-            veil = E.add_card(ctx, slide, ctx.geometry.full(), radius=0, shape="rect")
-            shape_ooxml.solid_fill(veil, "000000", alpha=spec.background_image_dim)
-        return
-    if spec.background_gradient:
-        slide_ooxml.set_background(slide, gradient=[parse_color(c) for c in spec.background_gradient])
-        return
-    if spec.background:
-        slide_ooxml.set_background(slide, color=spec.background)
-        return
-    if theme.background.upper() != "FFFFFF":
-        slide_ooxml.set_background(slide, color=theme.background)
 
 
 # ---------------------------------------------------------------------------
@@ -339,59 +261,24 @@ def _takeaway_band(ctx: E.RenderContext, content: Frame, text: str | None) -> tu
 
 def _apply_footer(ctx: E.RenderContext, slide, spec: S.SlideBase) -> None:
     footer = ctx.footer
-    if footer is None or spec.hide_footer:
-        return
-    layout_name = getattr(spec, "layout", "")
-    if layout_name in CHROMELESS and not footer.show_on_title:
-        return
-    if _has_own_furniture(slide):
-        # The template's own footer placeholders are already on this slide;
-        # drawing ours on top would print the company name twice.
+    if footer is None or getattr(spec, "layout", "") in CHROMELESS:
         return
 
     theme = ctx.theme
     geometry = ctx.geometry
     band = geometry.footer()
-    color = footer.color or theme.muted
+    color = theme.muted
     size = theme.pt("footer")
-
-    if footer.rule:
-        E.add_rule(ctx, slide, Frame(band.x, band.y - int(geometry.gap * 0.4), band.w, 0),
-                   theme.border, thickness_cm=0.03)
-
-    logo_w = 0
-    if footer.logo:
-        logo_h = int(band.h * 0.92)
-        logo_frame = Frame(band.right - cm(3.0), band.y, cm(3.0), logo_h)
-        picture = E.place_image(ctx, slide, logo_frame, footer.logo, fit="contain",
-                                align="right", valign="middle")
-        logo_w = int(picture.width) + geometry.gap
 
     number_w = cm(1.6) if footer.slide_numbers else 0
     if footer.slide_numbers:
-        _slide_number(ctx, slide,
-                      Frame(band.right - logo_w - number_w, band.y, number_w, band.h),
-                      color, size)
+        _slide_number(ctx, slide, Frame(band.right - number_w, band.y, number_w, band.h), color, size)
 
     if footer.text:
         E.add_plain_text(
             ctx, slide, Frame(band.x, band.y, int(band.w * 0.5), band.h), footer.text,
             size_pt=size, color=color, valign="middle", align="left", autofit=False,
         )
-    if footer.confidentiality:
-        E.add_plain_text(
-            ctx, slide, Frame(band.x + int(band.w * 0.25), band.y, int(band.w * 0.5), band.h),
-            footer.confidentiality,
-            size_pt=size, color=color, valign="middle", align="center", autofit=False,
-        )
-
-
-def _has_own_furniture(slide) -> bool:
-    try:
-        placeholders = list(slide.placeholders)
-    except (AttributeError, KeyError):  # pragma: no cover — defensive
-        return False
-    return any(int(p.placeholder_format.type) in {13, 15} for p in placeholders)
 
 
 def _slide_number(ctx: E.RenderContext, slide, frame: Frame, color: str, size_pt: float):
@@ -417,41 +304,12 @@ def _slide_number(ctx: E.RenderContext, slide, frame: Frame, color: str, size_pt
 def _title_slide(ctx: E.RenderContext, slide, spec: S.TitleSlide) -> Frame | None:
     theme = ctx.theme
     geometry = ctx.geometry
-    dark_bg = bool(spec.background or spec.background_gradient or spec.background_image)
-    on_dark = bool(spec.background_image) or (
-        spec.background is not None and theme.on(parse_color(spec.background)) == "FFFFFF"
-    )
-    text_color = "FFFFFF" if on_dark else theme.text
-    muted_color = "E8ECF2" if on_dark else theme.muted
-
-    if spec.variant == "band":
-        panel = Frame(0, 0, int(geometry.width * 0.38), geometry.height)
-        E.add_card(ctx, slide, panel, fill=theme.accent, radius=0, shape="rect")
-        if spec.logo:
-            E.place_image(ctx, slide, panel.pad(left=cm(1.6), right=cm(1.6),
-                                                top=cm(1.4), bottom=int(geometry.height * 0.78)),
-                          spec.logo, fit="contain", align="left")
-        body = Frame(panel.right + geometry.margin_x, 0,
-                     geometry.width - panel.right - 2 * geometry.margin_x, geometry.height)
-        align = "left"
-    elif spec.variant == "centered":
-        body = geometry.full().pad(left=int(geometry.width * 0.12), right=int(geometry.width * 0.12))
-        align = "center"
-    else:
-        body = geometry.full().pad(left=geometry.margin_x, right=int(geometry.width * 0.16))
-        align = "left"
-
-    block_top = int(geometry.height * (0.36 if spec.variant != "centered" else 0.30))
-    if spec.variant != "band" and spec.logo:
-        E.place_image(
-            ctx, slide, Frame(body.x, int(geometry.height * 0.13), cm(4.2), cm(1.7)),
-            spec.logo, fit="contain", align="left" if align == "left" else "center",
-        )
-
+    text_color, muted_color = theme.text, theme.muted
+    body = geometry.full().pad(left=geometry.margin_x, right=int(geometry.width * 0.16))
+    align = "left"
+    block_top = int(geometry.height * 0.36)
     rule_y = block_top - int(geometry.height * 0.045)
-    if align == "left":
-        E.add_rule(ctx, slide, Frame(body.x, rule_y, cm(3.4), 0), theme.accent2 if dark_bg
-                   else theme.accent, thickness_cm=0.11)
+    E.add_rule(ctx, slide, Frame(body.x, rule_y, cm(3.4), 0), theme.accent, thickness_cm=0.11)
 
     title_h = int(geometry.height * 0.17)
     titre = E.add_plain_text(
@@ -486,37 +344,12 @@ def _section_slide(ctx: E.RenderContext, slide, spec: S.SectionSlide) -> Frame |
     theme = ctx.theme
     geometry = ctx.geometry
 
-    if spec.variant == "full":
-        if not (spec.background or spec.background_gradient or spec.background_image):
-            slide_ooxml.set_background(slide, color=theme.accent)
-        text_color = theme.on_accent
-        number_color = mix(theme.on_accent, theme.accent, 0.62)
-        body = geometry.full().pad(left=geometry.margin_x, right=geometry.margin_x)
-    elif spec.variant == "left":
-        panel = Frame(0, 0, int(geometry.width * 0.42), geometry.height)
-        E.add_card(ctx, slide, panel, fill=theme.accent, radius=0, shape="rect")
-        text_color = theme.text
-        number_color = mix(theme.accent, theme.background, 0.72)
-        body = Frame(panel.right + geometry.margin_x, 0,
-                     geometry.width - panel.right - 2 * geometry.margin_x, geometry.height)
-    else:  # band
-        band_h = int(geometry.height * 0.42)
-        band = Frame(0, int(geometry.height * 0.29), geometry.width, band_h)
-        E.add_card(ctx, slide, band, fill=theme.accent, radius=0, shape="rect")
-        text_color = theme.on_accent
-        number_color = mix(theme.on_accent, theme.accent, 0.62)
-        body = band.pad(left=geometry.margin_x, right=geometry.margin_x)
+    band = Frame(0, int(geometry.height * 0.29), geometry.width, int(geometry.height * 0.42))
+    E.add_card(ctx, slide, band, fill=theme.accent, radius=0, shape="rect")
+    text_color = theme.on_accent
+    body = band.pad(left=geometry.margin_x, right=geometry.margin_x)
 
-    if spec.number:
-        E.add_plain_text(
-            ctx, slide,
-            Frame(body.x, body.y + int(body.h * 0.16), body.w, int(geometry.height * 0.13)),
-            spec.number,
-            size_pt=theme.pt("section_title") * 0.62, color=number_color, bold=True,
-            font=theme.heading_font, valign="bottom", autofit=False,
-        )
-
-    title_top = body.y + int(body.h * (0.34 if spec.number else 0.26))
+    title_top = body.y + int(body.h * 0.26)
     titre = E.add_plain_text(
         ctx, slide, Frame(body.x, title_top, body.w, int(geometry.height * 0.22)), spec.title,
         size_pt=theme.pt("section_title"),
@@ -540,14 +373,9 @@ def _bullets_slide(ctx: E.RenderContext, slide, spec: S.BulletsSlide) -> Frame |
     body, takeaway_frame = _takeaway_band(ctx, content, spec.takeaway)
 
     if spec.image:
-        image_w = int(body.w * spec.image_ratio)
-        if spec.image_position == "left":
-            image_frame = Frame(body.x, body.y, image_w, body.h)
-            body = Frame(image_frame.right + ctx.gap, body.y,
-                         body.w - image_w - ctx.gap, body.h)
-        else:
-            image_frame = Frame(body.right - image_w, body.y, image_w, body.h)
-            body = Frame(body.x, body.y, body.w - image_w - ctx.gap, body.h)
+        image_w = int(body.w * 0.42)
+        image_frame = Frame(body.right - image_w, body.y, image_w, body.h)
+        body = Frame(body.x, body.y, body.w - image_w - ctx.gap, body.h)
         E.place_image(ctx, slide, image_frame, spec.image, fit="cover")
 
     bullets = E.normalise_bullets(spec.bullets)
@@ -567,7 +395,6 @@ def _bullets_slide(ctx: E.RenderContext, slide, spec: S.BulletsSlide) -> Frame |
             bullet_kind="none" if spec.numbered else "char",
             numbered=spec.numbered,
             line_spacing=1.18, space_before_pt=size * 0.5,
-            columns=spec.columns,
         )
 
     if takeaway_frame is not None:
@@ -578,7 +405,7 @@ def _bullets_slide(ctx: E.RenderContext, slide, spec: S.BulletsSlide) -> Frame |
 def _two_content_slide(ctx: E.RenderContext, slide, spec: S.TwoContentSlide) -> Frame | None:
     content = _header(ctx, slide, spec.title, spec.kicker)
     body, takeaway_frame = _takeaway_band(ctx, content, spec.takeaway)
-    left, right = body.split_h(spec.ratio, ctx.gap)
+    left, right = body.split_h(0.5, ctx.gap)
     E.render_content(ctx, slide, spec.left, left, title=spec.left_title)
     E.render_content(ctx, slide, spec.right, right, title=spec.right_title)
     if takeaway_frame is not None:
@@ -588,49 +415,7 @@ def _two_content_slide(ctx: E.RenderContext, slide, spec: S.TwoContentSlide) -> 
 
 def _image_slide(ctx: E.RenderContext, slide, spec: S.ImageSlide) -> Frame | None:
     theme = ctx.theme
-    geometry = ctx.geometry
-
-    if spec.variant == "full_bleed":
-        picture = E.place_image(ctx, slide, geometry.full(), spec.image, fit="cover")
-        shape_ooxml.send_to_back(picture)
-        if spec.title or spec.caption:
-            band_h = int(geometry.height * 0.26)
-            band = Frame(0, geometry.height - band_h, geometry.width, band_h)
-            veil = E.add_card(ctx, slide, band, fill="000000", radius=0, shape="rect")
-            shape_ooxml.solid_fill(veil, "000000", alpha=0.55)
-            inner = band.pad(left=geometry.margin_x, right=geometry.margin_x,
-                             top=int(band.h * 0.2), bottom=int(band.h * 0.18))
-            if spec.title:
-                E.add_plain_text(
-                    ctx, slide, inner.top_slice(int(inner.h * 0.62)), spec.title,
-                    size_pt=theme.pt("slide_title") * 0.85, color="FFFFFF",
-                    font=theme.heading_font, bold=True, valign="bottom",
-                )
-            if spec.caption:
-                E.add_plain_text(
-                    ctx, slide, inner.bottom_slice(int(inner.h * 0.4)), spec.caption,
-                    size_pt=theme.pt("small"), color="E8ECF2", valign="top",
-                )
-        return
-
     content = _header(ctx, slide, spec.title, spec.kicker)
-
-    if spec.variant == "split" and spec.text:
-        image_frame, text_frame = content.split_h(0.55, ctx.gap)
-        E.place_image(ctx, slide, image_frame, spec.image, fit=spec.fit)
-        E.add_plain_text(
-            ctx, slide, text_frame, spec.text,
-            base_size_pt=theme.pt("body"), min_size_pt=theme.pt("body") * 0.7,
-            color=theme.text, valign="middle", line_spacing=1.3,
-        )
-        if spec.caption:
-            E.add_plain_text(
-                ctx, slide, Frame(image_frame.x, image_frame.bottom - cm(0.8), image_frame.w, cm(0.8)),
-                spec.caption, size_pt=theme.pt("caption"), color=theme.muted, valign="bottom",
-                autofit=False,
-            )
-        return
-
     caption_h = cm(0.9) if spec.caption else 0
     text_h = 0
     if spec.text:
@@ -704,7 +489,7 @@ def _kpi_slide(ctx: E.RenderContext, slide, spec: S.KpiSlide) -> Frame | None:
 
     E.render_kpi_element(
         ctx, slide,
-        S.KpiElement(type="kpi", items=spec.items, columns=spec.columns, style=spec.style),
+        S.KpiElement(type="kpi", items=spec.items),
         tiles,
     )
 
@@ -767,17 +552,10 @@ def _comparison_slide(ctx: E.RenderContext, slide, spec: S.ComparisonSlide) -> F
 def _timeline_slide(ctx: E.RenderContext, slide, spec: S.TimelineSlide) -> Frame | None:
     content = _header(ctx, slide, spec.title, spec.kicker)
     body, takeaway_frame = _takeaway_band(ctx, content, spec.takeaway)
-    if spec.orientation == "horizontal":
-        # A horizontal timeline is a band, not a block: centre it rather than
-        # letting it float at the top of a tall content area.
-        band_h = min(body.h, cm(6.2))
-        body = Frame(body.x, body.y + (body.h - band_h) // 2, body.w, band_h)
-    E.render_timeline_element(
-        ctx, slide,
-        S.TimelineElement(type="timeline", milestones=spec.milestones,
-                          orientation=spec.orientation),
-        body,
-    )
+    # Frise horizontale : une bande centrée dans la zone, pas un bloc en haut.
+    band_h = min(body.h, cm(6.2))
+    body = Frame(body.x, body.y + (body.h - band_h) // 2, body.w, band_h)
+    E.render_timeline_element(ctx, slide, S.TimelineElement(type="timeline", milestones=spec.milestones), body)
     if takeaway_frame is not None:
         E.add_takeaway(ctx, slide, takeaway_frame, spec.takeaway)
     return body
@@ -786,13 +564,9 @@ def _timeline_slide(ctx: E.RenderContext, slide, spec: S.TimelineSlide) -> Frame
 def _process_slide(ctx: E.RenderContext, slide, spec: S.ProcessSlide) -> Frame | None:
     content = _header(ctx, slide, spec.title, spec.kicker)
     body, takeaway_frame = _takeaway_band(ctx, content, spec.takeaway)
-    band_h = min(body.h, cm(5.4 if spec.style == "numbered" else 4.6))
+    band_h = min(body.h, cm(4.6))
     body = Frame(body.x, body.y + (body.h - band_h) // 2, body.w, band_h)
-    E.render_process_element(
-        ctx, slide,
-        S.ProcessElement(type="process", steps=spec.steps, style=spec.style),
-        body,
-    )
+    E.render_process_element(ctx, slide, S.ProcessElement(type="process", steps=spec.steps), body)
     if takeaway_frame is not None:
         E.add_takeaway(ctx, slide, takeaway_frame, spec.takeaway)
     return body
@@ -821,13 +595,9 @@ def _agenda_slide(ctx: E.RenderContext, slide, spec: S.AgendaSlide) -> Frame | N
         for offset, item in enumerate(chunk):
             row = Frame(column_frame.x, column_frame.y + offset * (row_h + gap),
                         column_frame.w, row_h)
-            active = spec.active is not None and index == spec.active
-            accent = theme.accent if active else theme.muted
-            if active:
-                E.add_card(ctx, slide, row, fill=theme.tinted(theme.accent, 0.9), radius=0.08)
             E.add_plain_text(
                 ctx, slide, Frame(row.x + cm(0.25), row.y, badge_w, row.h), f"{index + 1:02d}",
-                size_pt=theme.pt("body"), color=accent, bold=True, font=theme.heading_font,
+                size_pt=theme.pt("body"), color=theme.muted, bold=True, font=theme.heading_font,
                 valign="middle", autofit=False,
             )
             E.add_textbox(
@@ -837,7 +607,7 @@ def _agenda_slide(ctx: E.RenderContext, slide, spec: S.AgendaSlide) -> Frame | N
                 base_size_pt=theme.pt("body") * 0.95,
                 min_size_pt=theme.pt("small") * 0.85,
                 color=theme.text,
-                bold=active,
+                bold=False,
                 valign="middle",
                 max_lines=2,
             )
@@ -848,11 +618,7 @@ def _agenda_slide(ctx: E.RenderContext, slide, spec: S.AgendaSlide) -> Frame | N
 def _quote_slide(ctx: E.RenderContext, slide, spec: S.QuoteSlide) -> Frame | None:
     theme = ctx.theme
     geometry = ctx.geometry
-    centred = spec.variant == "centered"
-    body = geometry.safe().pad(
-        left=int(geometry.width * (0.10 if centred else 0.04)),
-        right=int(geometry.width * (0.10 if centred else 0.20)),
-    )
+    body = geometry.safe().pad(left=int(geometry.width * 0.10), right=int(geometry.width * 0.10))
 
     mark_h = cm(2.2)
     mark = slide.shapes.add_textbox(Emu(body.x), Emu(body.y), cm(3.0), mark_h)
@@ -863,9 +629,8 @@ def _quote_slide(ctx: E.RenderContext, slide, spec: S.QuoteSlide) -> Frame | Non
     run.font.bold = True
     run.font.color.rgb = rgb(theme.tinted(theme.accent, 0.55))
     text_ooxml.set_typeface(run, theme.heading_font)
-    if centred:
-        paragraph.alignment = E.alignment("center")
-        mark.left = Emu(body.cx - cm(1.5))
+    paragraph.alignment = E.alignment("center")
+    mark.left = Emu(body.cx - cm(1.5))
 
     # The quotation and its attribution are one block, vertically centred: a quote
     # marooned at the top of the slide with the name at the bottom reads as two
@@ -881,7 +646,7 @@ def _quote_slide(ctx: E.RenderContext, slide, spec: S.QuoteSlide) -> Frame | Non
         ctx, slide, quote_frame, spec.text,
         base_size_pt=theme.pt("quote"), min_size_pt=theme.pt("quote") * 0.45,
         color=theme.text, font=theme.heading_font,
-        align="center" if centred else "left", valign="middle", line_spacing=1.26,
+        align="center", valign="middle", line_spacing=1.26,
     )
     # Title for the outline and screen readers, off the visible slide (no visible title here).
     hors_champ = E.add_plain_text(
@@ -893,7 +658,7 @@ def _quote_slide(ctx: E.RenderContext, slide, spec: S.QuoteSlide) -> Frame | Non
         E.add_plain_text(
             ctx, slide, Frame(block.x, quote_frame.bottom, block.w, attribution_h), attribution,
             base_size_pt=theme.pt("small") + 1, color=theme.muted,
-            align="center" if centred else "left", valign="top", max_lines=1,
+            align="center", valign="top", max_lines=1,
         )
 
 
@@ -928,37 +693,12 @@ def _closing_slide(ctx: E.RenderContext, slide, spec: S.ClosingSlide) -> Frame |
             size_pt=theme.pt("small") + 1, color=theme.text, align="center", valign="top",
             line_spacing=1.35, autofit=False,
         )
-    if spec.logo:
-        E.place_image(
-            ctx, slide,
-            Frame(body.cx - cm(2.1), geometry.height - geometry.margin_bottom - cm(2.2),
-                  cm(4.2), cm(1.6)),
-            spec.logo, fit="contain",
-        )
 
 
 def _blank_slide(ctx: E.RenderContext, slide, spec: S.BlankSlide) -> Frame | None:
     if spec.title or spec.kicker:
         return _header(ctx, slide, spec.title, spec.kicker)
     return ctx.geometry.safe()
-
-
-def _template_slide(ctx: E.RenderContext, slide, spec: S.TemplateSlide) -> Frame | None:
-    slide_ooxml.clone_footer_placeholders(slide)
-    for key, value in (spec.placeholders or {}).items():
-        placeholder = None
-        if str(key).strip().isdigit():
-            placeholder = E.find_placeholder(slide, idx=int(key))
-        if placeholder is None:
-            placeholder = E.find_placeholder(slide, name=str(key))
-        if placeholder is None:
-            available = ", ".join(
-                f"{p.placeholder_format.idx}:{p.name!r}" for p in slide.placeholders
-            )
-            raise InvalidSpec(
-                f"This layout has no placeholder {key!r}. Available: {available or '(none)'}."
-            )
-        E.fill_placeholder(ctx, slide, placeholder, value)
 
 
 _HANDLERS = {
@@ -977,5 +717,4 @@ _HANDLERS = {
     S.QuoteSlide: _quote_slide,
     S.ClosingSlide: _closing_slide,
     S.BlankSlide: _blank_slide,
-    S.TemplateSlide: _template_slide,
 }

@@ -140,28 +140,6 @@ def set_header_footer(
     return paragraph
 
 
-def add_page_numbers(
-    section,
-    template: str = "{PAGE} / {NUMPAGES}",
-    *,
-    align: str = "center",
-    variant: str = "default",
-    font_size_pt: float | None = 9,
-    color: str | None = "808080",
-) -> None:
-    """Convenience wrapper: a footer that is just a page-number expression."""
-    paragraph = set_header_footer(
-        section,
-        "footer",
-        variant=variant,
-        text=template,
-        align=align,
-        font_size_pt=font_size_pt,
-        color=color,
-    )
-    align_paragraph(paragraph, align)
-
-
 def add_watermark(
     section,
     text: str,

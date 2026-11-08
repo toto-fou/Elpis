@@ -79,12 +79,6 @@ def set_cell_border(
         ), TC_PR_ORDER)
 
 
-def clear_borders(table) -> None:
-    for row in table.rows:
-        for cell in row.cells:
-            set_cell_border(cell, color=None)
-
-
 def set_cell_fill(cell, color: str | None) -> None:
     if color is None:
         tc_pr = _tc_pr(cell)

@@ -20,6 +20,7 @@ guidés (``fix`` + ``example``) et garde-fou anti-boucle par conversation.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import logging
 import threading
 from collections import OrderedDict
@@ -377,13 +378,16 @@ TOOLS["office_preview"] = {
 }
 
 
+_MODULES = {"docx_create": "word", "docx_read": "word", "docx_edit": "word", "pptx_create": "powerpoint",
+            "pptx_read": "powerpoint", "pptx_edit": "powerpoint", "xlsx_read": "excel", "xlsx_create": "excel",
+            "office_preview": "apercu"}
+
+
 def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
-    from . import apercu, excel, powerpoint, word
-    return {"docx_create": word.docx_create, "docx_read": word.docx_read,
-            "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
-            "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
-            "xlsx_read": excel.xlsx_read, "xlsx_create": excel.xlsx_create,
-            "office_export": office_export, "office_preview": apercu.office_preview}[nom]
+    """La fonction de l'outil : seul son module est importé (premier appel d'un worker plus court)."""
+    if nom == "office_export":
+        return office_export
+    return getattr(importlib.import_module(f".{_MODULES[nom]}", __name__), nom)
 
 
 # Exportables en PDF : formats que LibreOffice ouvre avec un filtre d'import

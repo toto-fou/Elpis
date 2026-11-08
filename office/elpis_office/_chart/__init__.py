@@ -23,51 +23,6 @@ import json
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
-from .compile_echarts import compile_option
-from .spec import SpecError, build_spec
-
-# ── Paramètres exposés (schéma JSON annoncé au modèle) ─────────────────────
-# Les ``enum`` sont imposés par la grammaire de llama.cpp au décodage ; la
-# validation côté serveur reste permissive pour que la lecture tolérante
-# rattrape les connecteurs sans grammaire.
-ROW_SCHEMA: Dict[str, Any] = {
-    "type": "object",
-    "additionalProperties": {"type": ["string", "number", "boolean", "null"]},
-}
-
-PARAM_SCHEMAS: Dict[str, Dict[str, Any]] = {
-    "data": {"type": "array", "items": ROW_SCHEMA, "minItems": 1,
-             "description": "Rows of the table: one object per row, same keys in every row, "
-                            "numbers as numbers."},
-    "title": {"type": "string"},
-    "x": {"type": "string", "description": "Column for categories, labels or dates."},
-    "y": {"type": "array", "items": {"type": "string"},
-          "description": "Numeric column(s) to plot. Default: every numeric column."},
-    "group": {"type": "string", "description": "Column that splits rows into series / colours."},
-    "size": {"type": "string", "description": "Numeric column for the bubble size."},
-    "unit": {"type": "string", "description": "Unit of the values: €, %, h, kg…"},
-    "stack": {"type": "string", "enum": ["none", "stacked", "percent"]},
-    "horizontal": {"type": "boolean"},
-    "sort": {"type": "string", "enum": ["none", "asc", "desc"]},
-    "top": {"type": "integer",
-            "description": "Keep the N largest categories, fold the rest into « Autres »."},
-    "show_values": {"type": "boolean"},
-    "highlight": {"type": "string", "description": "Category to emphasise (others greyed)."},
-    "lines": {"type": "array", "description": "Reference lines (target, threshold).",
-              "items": {"type": "object",
-                        "properties": {"value": {"type": "number"}, "label": {"type": "string"}},
-                        "required": ["value"], "additionalProperties": False}},
-    "trend": {"type": "boolean",
-              "description": "Add a linear trend (moving average for candlestick)."},
-}
-
-# Paramètres facultatifs : valeur par défaut neutre (absente de l'appel).
-PARAM_DEFAULTS: Dict[str, Any] = {
-    "title": "", "x": None, "y": None, "group": None, "size": None, "unit": "",
-    "stack": "none", "horizontal": False, "sort": "none", "top": None, "show_values": False,
-    "highlight": None, "lines": None, "trend": False,
-}
-
 _CART = ["x", "y", "group", "unit", "stack", "horizontal", "sort", "top", "show_values",
          "highlight", "lines", "trend"]
 
@@ -142,13 +97,6 @@ PER_TYPE: "OrderedDict[str, Tuple[str, str, List[str]]]" = OrderedDict([
 ])
 
 
-def tool_description(kind: str) -> str:
-    desc, row, _ = PER_TYPE[kind]
-    return (f"{desc}\nRows: {row}.\n"
-            "Returns `ref` (e.g. !a1b2c3d4e5f6): write it alone on its own line where the "
-            "chart goes. `summary` says what was drawn, `fixes` what was understood for you.")
-
-
 # ── Garde-fou anti-boucle ─────────────────────────────────────────────────
 # Les petits modèles renvoient souvent EXACTEMENT le même appel après un refus
 # (mesuré : ornith-9B, 4 appels identiques de suite). On mémorise, par
@@ -193,6 +141,9 @@ def run_chart(args: Dict[str, Any], session: Optional[str] = None
     Le retour d'échec suit l'enveloppe d'Elpis (``ok/error/message/fix``),
     complétée de ``example`` (lignes attendues) et, en cas de répétition, de
     ``repeated``/``next_action``."""
+    from .compile_echarts import compile_option
+    from .spec import SpecError, build_spec
+
     try:
         spec = build_spec(args)
         option, summary = compile_option(spec)
@@ -211,5 +162,4 @@ def run_chart(args: Dict[str, Any], session: Optional[str] = None
     return result, option, spec.kind
 
 
-__all__ = ["PER_TYPE", "PARAM_SCHEMAS", "PARAM_DEFAULTS", "ROW_SCHEMA", "run_chart",
-           "tool_description", "SpecError"]
+__all__ = ["PER_TYPE", "run_chart"]

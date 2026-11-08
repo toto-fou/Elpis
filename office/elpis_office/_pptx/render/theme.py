@@ -129,8 +129,6 @@ class Theme:
         base = color or self.accent
         return mix(base, self.background, amount)
 
-    def hairline(self) -> str:
-        return self.border
 
     def palette(self) -> Sequence[str]:
         return self.chart_palette or DEFAULT_PALETTE
@@ -163,35 +161,12 @@ def resolve_theme(
     if _clean(getattr(spec, "text_color", None)) is None and background != preset.background:
         text = readable_text_color(background, dark="1A1F26", light="F1F5FA")
 
-    muted = _clean(getattr(spec, "muted_color", None)) or (
-        preset.muted if background == preset.background else mix(text, background, 0.42)
-    )
-    surface = _clean(getattr(spec, "surface", None)) or (
-        preset.surface if background == preset.background
+    muted = preset.muted if background == preset.background else mix(text, background, 0.42)
+    surface = preset.surface if background == preset.background \
         else (tint(background, 0.06) if dark_deck else shade(background, 0.035))
-    )
-    border = _clean(getattr(spec, "border", None)) or (
-        preset.border if background == preset.background else mix(text, background, 0.82)
-    )
-
-    palette = getattr(spec, "chart_palette", None)
-    if palette:
-        resolved_palette = tuple(parse_color(c) for c in palette)
-    else:
-        # Lead the palette with the brand accent so the first series is on-brand,
-        # then continue with the validated set, dropping anything too close to it.
-        rest = tuple(c for c in DEFAULT_PALETTE if c.upper() != accent.upper())
-        resolved_palette = (accent,) + rest
-
-    scale = dict(BASE_SCALE)
-    for role, value in (getattr(spec, "font_sizes", None) or {}).items():
-        if role in scale and value:
-            scale[role] = float(value)
-
-    base_pt = getattr(spec, "base_font_size_pt", None)
-    if base_pt:
-        ratio = float(base_pt) / BASE_SCALE["body"]
-        scale = {role: round(size * ratio, 1) for role, size in scale.items()}
+    border = preset.border if background == preset.background else mix(text, background, 0.82)
+    # L'accent de la charte en tête de palette, puis la palette validée sans lui.
+    resolved_palette = (accent,) + tuple(c for c in DEFAULT_PALETTE if c.upper() != accent.upper())
 
     return Theme(
         preset=name,
@@ -204,12 +179,8 @@ def resolve_theme(
         border=border,
         heading_font=getattr(spec, "heading_font", None) or preset.heading_font,
         body_font=getattr(spec, "body_font", None) or preset.body_font,
-        mono_font=getattr(spec, "mono_font", None) or "Consolas",
+        mono_font="Consolas",
         chart_palette=resolved_palette,
-        scale=scale,
+        scale=dict(BASE_SCALE),
         size_factor=round(max(0.6, min(1.35, slide_height_cm / REFERENCE_HEIGHT_CM)), 3),
     )
-
-
-def preset_names() -> list[str]:
-    return sorted(PRESETS)

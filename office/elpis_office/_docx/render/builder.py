@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
 import docx
+from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Cm, Pt
 
 from ...langue import libelles
@@ -50,6 +51,13 @@ class BuildContext:
     theme: S.ThemeSpec = field(default_factory=S.ThemeSpec)
     notes: list[str] = field(default_factory=list)
     labels: dict[str, str] = field(default_factory=lambda: libelles(None))
+    style_ids: dict[str, str | None] = field(default_factory=dict)
+
+    def set_style(self, paragraph, name: str) -> None:
+        """``paragraph.style = name``, le style cherché une fois par document (python-docx relit tous les styles)."""
+        if name not in self.style_ids:
+            self.style_ids[name] = self.document.part.get_style_id(name, WD_STYLE_TYPE.PARAGRAPH)
+        paragraph._p.style = self.style_ids[name]
 
     def note(self, message: str) -> None:
         if message not in self.notes:
@@ -63,7 +71,7 @@ class BuildContext:
         return layout.content_width_cm(self.section)
 
     def palette(self) -> Sequence[str]:
-        return self.theme.chart_palette or chart_ooxml.DEFAULT_PALETTE
+        return chart_ooxml.DEFAULT_PALETTE
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +128,7 @@ def finalize(document) -> None:
 
 def apply_metadata(document, meta: S.MetaSpec) -> None:
     properties = document.core_properties
-    for attribute in ("title", "subject", "author", "keywords", "category", "comments", "language"):
+    for attribute in ("title", "author", "language"):
         value = getattr(meta, attribute, None)
         if value:
             setattr(properties, attribute, value)
@@ -257,12 +265,8 @@ def apply_page(section, page: S.PageSpec) -> None:
     layout.apply_page_setup(
         section,
         size=page.size,
-        width_cm=page.width_cm,
-        height_cm=page.height_cm,
         orientation=page.orientation,
         margins_cm=page.margins_cm,
-        columns=page.columns,
-        column_spacing_cm=page.column_spacing_cm,
     )
 
 
@@ -374,10 +378,11 @@ def _write_run(context: BuildContext, paragraph, run_spec: S.RunSpec):
 
 def _heading(context: BuildContext, block: S.HeadingBlock):
     document = context.document
-    paragraph = document.add_heading("", level=block.level)
+    paragraph = document.add_paragraph()
+    context.set_style(paragraph, "Title" if block.level == 0 else f"Heading {block.level}")
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             context.note(f"Style {block.style!r} is not in this document; used the heading style.")
     _write_runs(context, paragraph, block.text, block.runs)
@@ -396,7 +401,7 @@ def _paragraph(context: BuildContext, block: S.ParagraphBlock):
     paragraph = context.document.add_paragraph()
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             context.note(f"Style {block.style!r} is not in this document; used Normal.")
     _write_runs(context, paragraph, block.text, block.runs)
@@ -437,7 +442,7 @@ def _list(context: BuildContext, block: S.ListBlock):
         paragraph = context.document.add_paragraph()
         if block.style:
             try:
-                paragraph.style = block.style
+                context.set_style(paragraph, block.style)
             except KeyError:
                 context.note(f"Style {block.style!r} is not in this document; used Normal.")
         _write_runs(context, paragraph, item_spec.text, item_spec.runs)
@@ -485,7 +490,7 @@ def _quote(context: BuildContext, block: S.QuoteBlock):
     paragraph = context.document.add_paragraph()
     if block.style:
         try:
-            paragraph.style = block.style
+            context.set_style(paragraph, block.style)
         except KeyError:
             paragraph.paragraph_format.left_indent = Cm(1.0)
             context.note(f"Style {block.style!r} is not in this document; indented instead.")
@@ -585,13 +590,14 @@ def _table(context: BuildContext, block: S.TableBlock):
             except KeyError:
                 pass
 
-    for row_index, row in enumerate(grid):
+    for row_index, (row, table_row) in enumerate(zip(grid, table.rows)):
+        cells = table_row.cells
         for col_index in range(columns):
             value = row[col_index] if col_index < len(row) else None
             is_header = bool(block.header) and row_index == 0
             _fill_cell(
                 context,
-                table.cell(row_index, col_index),
+                cells[col_index],
                 value,
                 header=is_header,
                 block=block,
@@ -735,7 +741,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         y_max=block.y_max,
         width_cm=width_cm,
         height_cm=height_cm,
-        palette=block.palette or context.theme.chart_palette,
+        palette=block.palette,
         gap_width=block.gap_width,
         overlap=block.overlap,
         hole_size=block.hole_size,

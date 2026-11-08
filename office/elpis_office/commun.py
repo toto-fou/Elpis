@@ -14,12 +14,14 @@
 from __future__ import annotations
 
 import difflib
+import io
 import posixpath
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Tuple
 
 from ._chart.normalise import Notes, fold
+from .paquet import installer_lecteur
 
 # Plafonds (octets) : un fichier Office lu, un fichier produit.
 MAX_LECTURE = 32 * 1024 * 1024
@@ -323,3 +325,83 @@ def resultat_ecrit(e: Ecrit) -> Dict[str, Any]:
     """Champs qui alimentent le suivi des fichiers modifiés d'Elpis (carte, éditeur)."""
     return {"path": e.path, "old_sha256": e.old_sha256, "new_sha256": e.new_sha256,
             "size": e.size, **({"backup": e.backup} if e.backup else {})}
+
+
+def _avec_lecteur(env: Env):
+    """Images et modèles lus dans la sandbox ; une image absente devient un cadre gris signalé, un modèle absent un refus."""
+
+    def lecteur(source: str, quoi: str) -> bytes:
+        rel = chemin_entree(source)
+        try:
+            return lire(env, rel, quoi)
+        except FileNotFoundError:
+            indice = indice_chemin(env, rel)
+            if quoi == "image":
+                env.notes.warn(f"image not found in the sandbox: {env.espace.afficher(rel)}{indice}; a grey "
+                               "placeholder stands in its place: put the real image in once it exists")
+                return _image_absente(rel.rsplit("/", 1)[-1])
+            raise OfficeError(f"{quoi} not found in the sandbox: {env.espace.afficher(rel)}",
+                              code="not_found", fix=f"check the {quoi} path{indice or ' (list the folder first)'}")
+    return installer_lecteur(lecteur)
+
+
+def _image_absente(nom: str) -> bytes:
+    """Cadre gris barré d'une image introuvable, avec le nom du fichier (aucun texte à traduire)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    largeur, hauteur = 960, 540
+    image = Image.new("RGB", (largeur, hauteur), "#F2F2F2")
+    d = ImageDraw.Draw(image)
+    d.rectangle([3, 3, largeur - 4, hauteur - 4], outline="#A6A6A6", width=4)
+    x, y = largeur // 2, hauteur // 2 - 40
+    d.rectangle([x - 90, y - 65, x + 90, y + 65], outline="#8C8C8C", width=6)
+    d.ellipse([x + 25, y - 45, x + 55, y - 15], outline="#8C8C8C", width=5)
+    d.line([(x - 80, y + 55), (x - 25, y - 5), (x + 10, y + 30), (x + 35, y + 10), (x + 80, y + 55)],
+           fill="#8C8C8C", width=6)
+    d.line([(x - 110, y + 85), (x + 110, y - 85)], fill="#C00000", width=6)
+    police = ImageFont.load_default(size=30)
+    texte = nom if len(nom) <= 50 else nom[:49] + "…"
+    d.text(((largeur - d.textlength(texte, font=police)) / 2, y + 115), texte, fill="#595959", font=police)
+    sortie = io.BytesIO()
+    image.save(sortie, "PNG", optimize=True)
+    return sortie.getvalue()
+
+
+def replace_in_runs(runs: List[Any], pattern: "re.Pattern[str]", replacement: str) -> int:
+    """Remplace dans des fragments Word ou PowerPoint : une occurrence à cheval prend la mise en forme du premier fragment touché."""
+    if not runs:
+        return 0
+    full = "".join(run.text or "" for run in runs)
+    if not pattern.search(full):
+        return 0
+
+    spans, cursor = [], 0
+    for run in runs:
+        length = len(run.text or "")
+        spans.append((cursor, cursor + length))
+        cursor += length
+
+    replaced = 0
+    for match in reversed(list(pattern.finditer(full))):
+        start, end = match.span()
+        touched = [i for i, (low, high) in enumerate(spans) if low < end and high > start]
+        if not touched:
+            continue
+        first = touched[0]
+        low, _ = spans[first]
+        head = (runs[first].text or "")[: start - low]
+        tail_run = touched[-1]
+        tail_low, _ = spans[tail_run]
+        tail = (runs[tail_run].text or "")[end - tail_low:]
+
+        runs[first].text = head + match.expand(replacement) + (tail if tail_run == first else "")
+        for position in touched[1:]:
+            runs[position].text = "" if position != tail_run else tail
+        replaced += 1
+
+        cursor = 0
+        for i, run in enumerate(runs):
+            length = len(run.text or "")
+            spans[i] = (cursor, cursor + length)
+            cursor += length
+    return replaced

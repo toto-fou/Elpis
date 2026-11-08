@@ -24,14 +24,20 @@ import math
 import re
 import unicodedata
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any
 
 # ── Pliage de chaînes ─────────────────────────────────────────────────────
 
 
 def fold(s: Any) -> str:
-    """« Polar Area », « polarArea », « polar-area » → « polar_area »."""
+    """« Polar Area », « polarArea », « polar-area » → « polar_area » (cache réservé aux clés courtes)."""
     s = str(s or "")
+    return _fold(s) if len(s) <= 64 else _fold.__wrapped__(s)
+
+
+@lru_cache(maxsize=4096)
+def _fold(s: str) -> str:
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)          # camelCase → snake
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))
@@ -113,7 +119,6 @@ ALIAS_OPTIONS: dict[str, dict[str, Any]] = {
 # tranché par la forme des données (voir resolve_ambiguous_kind).
 AMBIGUOUS = {"histogramme": ("bar", "histogram"), "histogrammes": ("bar", "histogram")}
 
-KIND_NAMES = [k for k in KINDS]
 _ALIAS_TO_KIND: dict[str, str] = {}
 for _k, _aliases in KINDS.items():
     for _a in _aliases:
@@ -157,6 +162,9 @@ def resolve_kind(raw: Any) -> tuple[str | None, dict[str, Any], str | None]:
 _NULLS = {"", "-", "–", "—", "n/a", "na", "nan", "null", "none", "nd", "n.d.", "?", "/"}
 _CURRENCIES = {"€": "€", "eur": "€", "euro": "€", "euros": "€", "$": "$", "usd": "$",
                "£": "£", "gbp": "£", "chf": "CHF", "¥": "¥", "jpy": "¥"}
+_CURRENCIES_LONGEST_FIRST = sorted(_CURRENCIES.items(), key=lambda kv: -len(kv[0]))
+_NUMBER_AND_UNIT = re.compile(r"^([+-]?[\d\s.,']+)\s*([A-Za-zéèûµ°/²³]{1,8})\.?$")
+_DIGITS = re.compile(r"-?[\d.,]+")
 _SCALES = {"k": 1e3, "m": 1e6, "md": 1e9, "mds": 1e9, "mrd": 1e9, "g": 1e9, "b": 1e9,
            "bn": 1e9, "mio": 1e6, "mn": 1e6, "milliers": 1e3, "millions": 1e6,
            "milliards": 1e9, "t": 1e12}
@@ -193,14 +201,14 @@ def to_number(v: Any) -> Num:
         unit, s = "%", s.replace("%", "").strip()
     # Devise et multiplicateur en suffixe / préfixe (« 1,2 M€ », « $3.5k », « 12 k€ »)
     low = s.lower()
-    for sym, u in sorted(_CURRENCIES.items(), key=lambda kv: -len(kv[0])):
+    for sym, u in _CURRENCIES_LONGEST_FIRST:
         if low.endswith(sym) or low.startswith(sym):
             unit = unit or u
             s = s[len(sym):] if low.startswith(sym) else s[: len(s) - len(sym)]
             s, low = s.strip(), s.strip().lower()
             break
     mult = 1.0
-    m = re.match(r"^([+-]?[\d\s.,']+)\s*([A-Za-zéèûµ°/²³]{1,8})\.?$", s)
+    m = _NUMBER_AND_UNIT.match(s)
     if m and m.group(2).lower() in _SCALES:
         mult, s = _SCALES[m.group(2).lower()], m.group(1).strip()
     elif m:                                            # « 3,4 j », « 8 ms », « 2 Go »
@@ -208,7 +216,7 @@ def to_number(v: Any) -> Num:
     s = s.replace(" ", "").replace("'", "")
     if s.startswith("+"):
         s = s[1:]
-    if not re.fullmatch(r"-?[\d.,]+", s or "x"):
+    if not _DIGITS.fullmatch(s or "x"):
         return Num(None)
     if "," in s and "." in s:
         # Le dernier séparateur est le décimal : 1.234,5 (DE/FR) ou 1,234.5 (US)

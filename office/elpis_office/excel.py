@@ -6,6 +6,7 @@ import datetime as dt
 import io
 import posixpath
 import re
+from functools import lru_cache
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from lxml import etree
@@ -103,19 +104,26 @@ def _dimension(feuille: Any) -> str:
         return ""
 
 
-def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None) -> Tuple[List[Dict[str, Any]], Optional[int], int, int]:
-    """Lignes non vides dès ``debut`` (au plus ``nb``), ligne suivante, largeur et formules sans résultat montrées {formula}."""
+def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None, marquer: bool = False, relever: bool = False
+            ) -> Tuple[List[Dict[str, Any]], Optional[int], int, int, List[Dict[str, Any]]]:
+    """Lignes non vides dès ``debut`` (au plus ``nb``), ligne suivante, largeur, formules sans résultat montrées {formula} si ``marquer``, et formules de la page (lignes vides comprises, pas la suivante) si ``relever``."""
     lignes: List[Dict[str, Any]] = []
+    lues: List[Dict[str, Any]] = []
+    attente: List[Dict[str, Any]] = []
     suite, largeur, sans_resultat = None, 0, 0
     textes = formules.iter_rows(min_row=debut, max_col=COLONNES_MAX) if formules is not None else None
     for cellules in feuille.iter_rows(min_row=debut, max_col=COLONNES_MAX):
         valeurs: List[Any] = [_valeur(c) for c in cellules]
+        marquees = 0
         for k, c in enumerate(next(textes, ()) if textes is not None else ()):
+            if not (isinstance(c.value, str) and c.value.startswith("=")):
+                continue
+            if relever and len(lues) + len(attente) < FORMULES_MAX:
+                attente.append({"cell": f"{_colonne(c.column)}{c.row}", "formula": c.value})
             # t="str" sans valeur : résultat vide enregistré (=IF(…;"";…)), pas une formule à calculer.
-            if k < len(valeurs) and valeurs[k] in (None, "") and getattr(cellules[k], "data_type", "") != "str" \
-                    and isinstance(c.value, str) and c.value.startswith("="):
+            if marquer and k < len(valeurs) and valeurs[k] in (None, "") and getattr(cellules[k], "data_type", "") != "str":
                 valeurs[k] = {"formula": c.value}
-                sans_resultat += 1
+                marquees += 1
         while valeurs and valeurs[-1] in (None, ""):
             valeurs.pop()
         if not valeurs:
@@ -125,8 +133,9 @@ def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None) -> Tuple[Li
             suite = numero
             break
         lignes.append({"row": numero, "cells": valeurs})
-        largeur = max(largeur, len(valeurs))
-    return lignes, suite, largeur, sans_resultat
+        largeur, sans_resultat = max(largeur, len(valeurs)), sans_resultat + marquees
+        lues, attente = lues + attente, []
+    return lignes, suite, largeur, sans_resultat, lues
 
 
 def _sans_resultat(archive: Any, titre: str) -> bool:
@@ -178,19 +187,6 @@ def _chercher(classeur: Any, motif: str) -> Tuple[List[Dict[str, Any]], bool]:
     return trouves, False
 
 
-def _formules(brut: bytes, nom: str, debut: int, fin: int) -> Iterator[Dict[str, str]]:
-    from openpyxl import load_workbook
-
-    classeur = load_workbook(io.BytesIO(brut), read_only=True, data_only=False)
-    try:
-        for cellules in classeur[nom].iter_rows(min_row=debut, max_row=fin, max_col=COLONNES_MAX):
-            for c in cellules:
-                if isinstance(c.value, str) and c.value.startswith("="):
-                    yield {"cell": f"{_colonne(c.column)}{c.row}", "formula": c.value}
-    finally:
-        classeur.close()
-
-
 def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     from openpyxl import load_workbook
 
@@ -228,14 +224,13 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         feuille = _feuille(classeur, a.get("sheet"))
         debut = max(1, entier(a.get("start")) or 1)
         nb = min(max(1, entier(a.get("limit")) or LIGNES_DEFAUT), LIGNES_MAX)
-        formules = None
-        if _sans_resultat(archive, feuille.title):
-            textes = load_workbook(io.BytesIO(brut), read_only=True, data_only=False)
-            formules = textes[feuille.title]
+        voulues, marquer = booleen(a.get("formulas")), _sans_resultat(archive, feuille.title)
+        textes = load_workbook(io.BytesIO(brut), read_only=True, data_only=False) if voulues or marquer else None
         try:
-            lignes, suite, largeur, sans_resultat = _lignes(feuille, debut, nb, formules)
+            lignes, suite, largeur, sans_resultat, lues = _lignes(
+                feuille, debut, nb, textes[feuille.title] if textes is not None else None, marquer, voulues)
         finally:
-            if formules is not None:
+            if textes is not None:
                 textes.close()
         res.update({"sheet": feuille.title, "columns": [_colonne(i) for i in range(1, largeur + 1)],
                     "rows": lignes})
@@ -251,8 +246,7 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     finally:
         classeur.close()
     if booleen(a.get("formulas")) and res.get("rows"):
-        fin = res["rows"][-1]["row"]
-        res["formulas"] = list(_formules(brut, res["sheet"], debut, fin))[:FORMULES_MAX]
+        res["formulas"] = lues
     return res
 
 
@@ -419,11 +413,16 @@ def _largeur(v: Any, genre: str, code: Optional[str], formats: _Formats) -> int:
         return len(formats.date)
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return len(str(v))
-    code = formats.code(code or "#,##0.00")
-    decimales = len(code.split(".", 1)[1].split("%")[0].split(" ")[0].split('"')[0]) if "." in code else 0
-    nombre = v * 100 if "%" in code else v
-    litteraux = len(re.sub(r'\[[^\]]*\]|[#0,.]', "", code.replace('"', "")))
+    decimales, litteraux, pourcent = _gabarit(formats.code(code or "#,##0.00"))
+    nombre = v * 100 if pourcent else v
     return len(f"{nombre:,.{decimales}f}") + litteraux
+
+
+@lru_cache(maxsize=256)
+def _gabarit(code: str) -> Tuple[int, int, bool]:
+    """(décimales, caractères littéraux, pourcentage) d'un format numérique, lus une fois par format."""
+    decimales = len(code.split(".", 1)[1].split("%")[0].split(" ")[0].split('"')[0]) if "." in code else 0
+    return decimales, len(re.sub(r'\[[^\]]*\]|[#0,.]', "", code.replace('"', ""))), "%" in code
 
 
 def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], modele: F.Classeur,

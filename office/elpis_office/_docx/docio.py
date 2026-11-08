@@ -4,15 +4,15 @@
 from __future__ import annotations
 
 import copy
-import io
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
-import docx
 from docx.oxml.parser import register_element_cls
 from docx.oxml.text.paragraph import CT_P
+from docx.oxml.text.run import CT_R
 from docx.text.run import Run
 
+from ..commun import replace_in_runs
 from .errors import InvalidSpec
 from .ooxml.util import insert_in_order, qn
 
@@ -59,6 +59,18 @@ class _WordTextParagraph(CT_P):
 
 
 register_element_cls("w:p", _WordTextParagraph)
+
+_RUN_TEXT = frozenset(qn(f"w:{tag}") for tag in ("br", "cr", "noBreakHyphen", "ptab", "t", "tab"))
+
+
+class _FastTextRun(CT_R):
+    """``w:r`` dont ``text`` parcourt ses enfants : python-docx recompile un XPath à chaque lecture."""
+
+    text = property(lambda self: "".join(str(e) for e in self if e.tag in _RUN_TEXT),
+                    CT_R.text.fset)  # type: ignore[attr-defined]
+
+
+register_element_cls("w:r", _FastTextRun)
 
 
 def _inside_link(run, paragraph) -> bool:
@@ -189,39 +201,6 @@ def merge_rpr(run, base) -> None:
 # ---------------------------------------------------------------------------
 
 
-def load_bytes(source: str, what: str = "document") -> bytes:
-    """Resolve a path, data URI, base64 payload or allowed URL to bytes.
-
-    The rules live in ``assets``: paths are confined to the workspace and the
-    configured asset directories, and outbound fetches are refused unless an
-    operator turned them on.
-    """
-    from .assets import load_bytes as _load
-
-    return _load(source, what)
-
-
-def open_document(source: str, *, notes: list[str] | None = None):
-    """Open a document, a catalogue template, or anything in between.
-
-    ``source`` may be a catalogue name, a path inside an allowed directory, or a
-    base64 payload. Template *formats* (.dotx, macro-enabled) are normalised on
-    the way in, because refusing the exact file an IT department distributes is
-    not a defensible position for a server that claims to support templates.
-    """
-    from . import templates
-
-    blob, template_notes, catalogue_name = templates.load(source)
-    if notes is not None:
-        if catalogue_name:
-            notes.append(f"Opened the {catalogue_name!r} template from the catalogue.")
-        notes.extend(template_notes)
-    try:
-        return docx.Document(io.BytesIO(blob))
-    except Exception as exc:
-        raise InvalidSpec(f"Could not open the document: {exc}") from exc
-
-
 # ---------------------------------------------------------------------------
 # Reading
 # ---------------------------------------------------------------------------
@@ -317,36 +296,6 @@ def heading_level_for(paragraph, levels: dict[str, int | None], default_id: str 
     return levels.get(default_id or "")
 
 
-def heading_level(paragraph) -> int | None:
-    """Kept for callers holding a single paragraph; prefer the map for a whole
-    document, which is where the cost actually lives."""
-    document = paragraph.part.document
-    levels, default_id = style_levels(document)
-    return heading_level_for(paragraph, levels, default_id)
-
-
-def read_text(document, include_tables: bool = True) -> str:
-    """Flatten the document to plain text, in reading order."""
-    lines: list[str] = []
-    body = document.element.body
-    tables = {id(t._tbl): t for t in body_tables(document) + body_tables(document, callouts=True)}
-    paragraphs = {id(p._p): p for p in body_paragraphs(document)}
-    levels, default_id = style_levels(document)
-
-    for child in body_blocks(body):
-        if child.tag == qn("w:p") and id(child) in paragraphs:
-            paragraph = paragraphs[id(child)]
-            level = heading_level_for(paragraph, levels, default_id)
-            text = paragraph.text.strip()
-            if not text:
-                continue
-            lines.append(f"{'#' * max(1, level or 1)} {text}" if level is not None else text)
-        elif child.tag == qn("w:tbl") and include_tables and id(child) in tables:
-            for row in tables[id(child)].rows:
-                lines.append(" | ".join(cell.text.strip() for cell in row.cells))
-    return "\n".join(lines)
-
-
 def get_outline(document) -> list[dict[str, Any]]:
     outline = []
     levels, default_id = style_levels(document)
@@ -358,41 +307,6 @@ def get_outline(document) -> list[dict[str, Any]]:
     return outline
 
 
-def read_tables(document) -> list[dict[str, Any]]:
-    result = []
-    for index, table in enumerate(body_tables(document)):
-        rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
-        result.append(
-            {
-                "index": index,
-                "rows": len(table.rows),
-                "columns": len(table.columns),
-                "style": table.style.name if table.style is not None else None,
-                "data": rows,
-            }
-        )
-    return result
-
-
-def describe(document) -> dict[str, Any]:
-    properties = document.core_properties
-    return {
-        "paragraphs": len(body_paragraphs(document)),
-        "tables": len(body_tables(document)),
-        "sections": len(document.sections),
-        "inline_shapes": len(document.inline_shapes),
-        "headings": len(get_outline(document)),
-        "core_properties": {
-            "title": properties.title or None,
-            "author": properties.author or None,
-            "subject": properties.subject or None,
-            "keywords": properties.keywords or None,
-            "created": properties.created.isoformat() if properties.created else None,
-            "modified": properties.modified.isoformat() if properties.modified else None,
-        },
-    }
-
-
 # ---------------------------------------------------------------------------
 # Editing
 # ---------------------------------------------------------------------------
@@ -401,28 +315,17 @@ def describe(document) -> dict[str, Any]:
 #: What an unfinished document leaves behind. Checked by default, because the
 #: failure they cause — a contract that ships saying "[À COMPLÉTER]" — is the one
 #: nobody notices until the recipient does.
-LEFTOVER_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\{\{.*?\}\}", "an unfilled Jinja placeholder"),
-    (r"\{%.*?%\}", "an unrendered Jinja tag"),
+LEFTOVER_PATTERNS: tuple[tuple[str, re.Pattern], ...] = tuple((explanation, re.compile(pattern)) for pattern, explanation in (
     (r"<<[^<>\n]{1,60}>>", "an unfilled <<placeholder>>"),
     (r"\[[A-ZÀ-Þ][A-ZÀ-Þ0-9 _'’-]{2,40}\]", "a bracketed placeholder such as [XXX]"),
     (r"\bTODO\b|\bTBD\b|\bFIXME\b", "a TODO left in the text"),
     (r"(?i)\bà compléter\b|\bto be completed\b", "a 'to be completed' marker"),
     (r"(?i)\blorem ipsum\b", "placeholder Lorem ipsum text"),
-)
+))
 
 
 def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
-    """Every paragraph in the document, each with where it actually sits.
-
-    ``read_text`` walks the body only, which makes it the wrong tool for checking
-    a document: the header is exactly where a stale quarter or an unreplaced
-    client name survives a find-and-replace. Everything that verifies uses this
-    instead, so what is written and what is checked are the same surface.
-
-    ``paragraph_index`` matches ``body_paragraphs`` (the ``p`` of docx_read), and
-    callout boxes come apart from the numbered tables.
-    """
+    """Chaque paragraphe (corps, tableaux, encadrés, en-têtes et pieds) avec sa place, la même surface pour replace et docx_read."""
     for index, paragraph in enumerate(body_paragraphs(document)):
         yield {"where": "body", "paragraph_index": index}, paragraph
 
@@ -449,22 +352,73 @@ def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
                 yield from _iter_table(table, {**base, "table_index": table_index})
 
 
+_TR, _TC, _TC_PR, _GRID_SPAN, _V_MERGE, _VAL = (qn(f"w:{tag}") for tag in ("tr", "tc", "tcPr", "gridSpan", "vMerge", "val"))
+_TR_PR, _GRID_BEFORE = qn("w:trPr"), qn("w:gridBefore")
+_ORPHELINE = object()
+_LARGEUR_MAX = 1024
+
+
+def _val(element, defaut: int) -> int:
+    try:
+        return int(element.get(_VAL)) if element is not None else defaut
+    except (TypeError, ValueError):
+        return defaut
+
+
+def _rangees(table, fin: int | None = None) -> Iterator[tuple[Any, list[tuple[Any, Any, int]]]]:
+    """Par rangée, en une passe : (tr, [(tc, case qui porte son contenu, sa largeur)]) ; une suite de fusion sans départ au-dessus porte le sien."""
+    dessus: dict[int, tuple[Any, int]] = {}
+    for n, tr in enumerate(table._tbl.iterchildren(_TR)):
+        if fin is not None and n >= fin:
+            return
+        proprietes = tr.find(_TR_PR)
+        decalage = max(0, _val(proprietes.find(_GRID_BEFORE) if proprietes is not None else None, 0))
+        ici: dict[int, tuple[Any, int]] = {}
+        cases = []
+        for tc in tr.iterchildren(_TC):
+            proprietes = tc.find(_TC_PR)
+            largeur = min(_LARGEUR_MAX, max(1, _val(proprietes.find(_GRID_SPAN) if proprietes is not None else None, 1)))
+            fusion = proprietes.find(_V_MERGE) if proprietes is not None else None
+            suite = fusion is not None and fusion.get(_VAL, "continue") == "continue"
+            racine = dessus.get(decalage, (_ORPHELINE, largeur)) if suite else (tc, largeur)
+            ici[decalage] = racine
+            cases.append((tc, tc, largeur) if racine[0] is _ORPHELINE else (tc, *racine))
+            decalage += largeur
+        dessus = ici
+        yield tr, cases
+
+
+def table_rows(table, debut: int = 0, fin: int | None = None) -> list[list[Any]]:
+    """``row.cells`` de chaque rangée de ``debut`` à ``fin`` (exclue), en une passe et sans ValueError."""
+    from docx.table import _Cell
+
+    return [[c for _, source, largeur in cases for c in [_Cell(source, table)] * largeur]
+            for n, (_, cases) in enumerate(_rangees(table, fin)) if n >= debut]
+
+
+def row_cells(row) -> list[Any]:
+    """``row.cells`` de python-docx, sans ValueError : une suite de fusion verticale sans départ au-dessus est sa propre case."""
+    from docx.table import _Cell
+
+    for tr, cases in _rangees(row.table):
+        if tr is row._tr:
+            return [c for _, source, largeur in cases for c in [_Cell(source, row.table)] * largeur]
+    return []
+
+
 def _iter_table(table, base: dict[str, Any]) -> Iterable[tuple[dict[str, Any], Any]]:
-    # Maps id -> the element itself, and the value is load-bearing: lxml builds a
-    # proxy object per element on access and frees it once the last reference
-    # goes, so a bare set of ids would let CPython recycle an address and make a
-    # distinct cell look like one already seen. That silently dropped table cells
-    # from every find and check, depending on when the collector happened to run.
-    seen: dict[int, Any] = {}
-    for row_index, row in enumerate(table.rows):
-        for column_index, cell in enumerate(row.cells):
-            # A merged cell is reported once, at its first position.
-            element = cell._tc
-            if id(element) in seen:
-                continue
-            seen[id(element)] = element
-            for paragraph in cell.paragraphs:
-                yield {**base, "row": row_index, "column": column_index}, paragraph
+    """Paragraphes de chaque case qui porte son contenu, à sa première colonne de ``row.cells`` (même passe que la lecture)."""
+    from docx.table import _Cell
+    from docx.text.paragraph import Paragraph
+
+    for row_index, (_, cases) in enumerate(_rangees(table)):
+        column = 0
+        for tc, source, largeur in cases:
+            if source is tc:
+                cell = _Cell(tc, table)
+                for paragraph in tc.iterchildren(_P):
+                    yield {**base, "row": row_index, "column": column}, Paragraph(paragraph, cell)
+            column += largeur
 
 
 def _stories(section) -> Iterable[tuple[str, Any]]:
@@ -480,33 +434,11 @@ def _stories(section) -> Iterable[tuple[str, Any]]:
         yield (name if attribute in {"header", "footer"} else attribute), story
 
 
-def compile_pattern(pattern: str, *, regex: bool, ignore_case: bool) -> re.Pattern:
-    flags = re.IGNORECASE if ignore_case else 0
-    try:
-        return re.compile(pattern if regex else re.escape(pattern), flags)
-    except re.error as exc:
-        raise InvalidSpec(
-            f"{pattern!r} is not a valid regular expression: {exc}. Pass regex=false to "
-            "search for it literally."
-        ) from exc
-
-
-def find_pattern(
-    document,
-    pattern: str,
-    *,
-    regex: bool = False,
-    ignore_case: bool = False,
-    limit: int = 200,
-) -> list[dict[str, Any]]:
-    """Every occurrence of ``pattern``, with where it is and what surrounds it."""
-    compiled = compile_pattern(pattern, regex=regex, ignore_case=ignore_case)
+def find_pattern(located: list[tuple[dict[str, Any], str]], pattern: re.Pattern, limit: int = 200) -> list[dict[str, Any]]:
+    """Chaque occurrence de ``pattern`` dans les textes situés (lieu, texte), avec un extrait autour."""
     found: list[dict[str, Any]] = []
-    for location, paragraph in iter_located_paragraphs(document):
-        text = paragraph.text
-        if not text:
-            continue
-        for match in compiled.finditer(text):
+    for location, text in located:
+        for match in pattern.finditer(text):
             found.append({**location, "match": match.group(0), "excerpt": _excerpt(text, match)})
             if len(found) >= limit:
                 return found
@@ -519,253 +451,16 @@ def _excerpt(text: str, match: re.Match, window: int = 40) -> str:
     return ("…" if start else "") + text[start:end].strip() + ("…" if end < len(text) else "")
 
 
-def check_document(
-    document,
-    *,
-    required: list[str] | None = None,
-    forbidden: list[str] | None = None,
-    regex: bool = False,
-    check_leftovers: bool = True,
-    ignore_case: bool = False,
-) -> dict[str, Any]:
-    """Report what a document is missing and what it should not still contain.
-
-    Reports, never blocks: a document mid-draft is *meant* to be incomplete, and a
-    server that refuses to hand it back would be wrong about that. The caller
-    decides what to do with the findings.
-    """
-    # One traversal, every pattern. This used to walk the whole document once per
-    # required pattern, once per forbidden one, once per leftover pattern, and
-    # once more just to count what it had scanned — a dozen passes over the same
-    # paragraphs, each of them re-reading header and footer parts.
-    #
-    #: (compiled, bucket, cap) — the cap is per pattern, matching what the old
-    #: per-pattern find_pattern(limit=...) calls enforced individually.
-    probes: list[tuple[re.Pattern, list[dict[str, Any]], int]] = []
-    required_hits: list[list[dict[str, Any]]] = []
-    forbidden_hits: list[list[dict[str, Any]]] = []
-    leftover_hits: list[list[dict[str, Any]]] = []
-
-    for pattern in required or []:
-        hits: list[dict[str, Any]] = []
-        required_hits.append(hits)
-        probes.append((compile_pattern(pattern, regex=regex, ignore_case=ignore_case), hits, 1))
-
-    for pattern in forbidden or []:
-        hits = []
-        forbidden_hits.append(hits)
-        probes.append((compile_pattern(pattern, regex=regex, ignore_case=ignore_case), hits, 200))
-
-    if check_leftovers:
-        for pattern, _explanation in LEFTOVER_PATTERNS:
-            hits = []
-            leftover_hits.append(hits)
-            # ignore_case stays False regardless of the caller's flag, as it did
-            # when these went through find_pattern's default: the patterns that
-            # need it carry their own inline (?i).
-            probes.append((compile_pattern(pattern, regex=True, ignore_case=False), hits, 20))
-
-    scanned = {"paragraphs": 0, "headers_and_footers": 0, "table_cells": 0}
-    for location, paragraph in iter_located_paragraphs(document):
-        where = location["where"]
-        if where == "body":
-            scanned["paragraphs"] += 1
-        elif where in ("table", "callout"):
-            scanned["table_cells"] += 1
-        else:
-            scanned["headers_and_footers"] += 1
-
-        text = paragraph.text
-        if not text:
-            continue
-        for compiled, hits, cap in probes:
-            if len(hits) >= cap:
-                continue
-            for match in compiled.finditer(text):
-                hits.append(
-                    {**location, "match": match.group(0), "excerpt": _excerpt(text, match)}
-                )
-                if len(hits) >= cap:
-                    break
-
-    violations: list[dict[str, Any]] = []
-    missing = [
-        pattern for pattern, hits in zip(required or [], required_hits) if not hits
-    ]
-
-    for pattern, hits in zip(forbidden or [], forbidden_hits):
-        if hits:
-            violations.append(
-                {"pattern": pattern, "kind": "forbidden", "count": len(hits), "occurrences": hits}
-            )
-
-    for (pattern, explanation), hits in zip(LEFTOVER_PATTERNS, leftover_hits):
-        if hits:
-            violations.append(
-                {
-                    "pattern": pattern,
-                    "kind": "leftover",
-                    "means": explanation,
-                    "count": len(hits),
-                    "occurrences": hits,
-                }
-            )
-
-    return {
-        "ok": not missing and not violations,
-        "missing": missing,
-        "violations": violations,
-        "scanned": scanned,
-    }
-
-
-def set_paragraph_text(document, index: int, text: str) -> str:
-    """Replace a paragraph's text, keeping its style and its first run's formatting."""
-    from .ooxml.util import sanitize_text
-
-    paragraphs = body_paragraphs(document)
-    if not 0 <= index < len(paragraphs):
-        raise InvalidSpec(
-            f"Paragraph index {index} is out of range (the document has {len(paragraphs)}). "
-            "Read the document again (docx_read) for the current paragraph numbers."
-        )
-    paragraph = paragraphs[index]
-    previous = paragraph.text
-    value = sanitize_text(text)
-
-    runs = paragraph.runs
-    if runs:
-        runs[0].text = value
-        for run in runs[1:]:
-            run._r.getparent().remove(run._r)
-    else:
-        paragraph.add_run(value)
-    return previous
-
-
-def read_stories(document) -> dict[str, list[dict[str, Any]]]:
-    """Header and footer text, which ``read_text`` deliberately does not carry."""
-    stories: dict[str, list[dict[str, Any]]] = {"headers": [], "footers": []}
-    for location, paragraph in iter_located_paragraphs(document):
-        where = location["where"]
-        if where in BODY_WHERE:
-            continue
-        text = paragraph.text.strip()
-        if not text:
-            continue
-        bucket = "headers" if "header" in where else "footers"
-        stories[bucket].append({"section": location["section"], "kind": where, "text": text})
-    return stories
-
-
-def iter_all_paragraphs(document) -> Iterable[Any]:
-    """Body paragraphs plus everything inside tables, headers and footers.
-
-    One traversal, shared with the verification tools. Two traversals that were
-    meant to agree is how a find-and-replace ends up writing somewhere the check
-    never looks.
-    """
-    for _, paragraph in iter_located_paragraphs(document):
-        yield paragraph
-
-
-def replace_text(
-    document,
-    search: str,
-    replacement: str,
-    *,
-    regex: bool = False,
-    ignore_case: bool = False,
-    include_headers: bool = True,
-) -> int:
-    """Search and replace across the document, preserving run formatting.
-
-    Word splits a sentence across runs at arbitrary points (a spell-check pass is
-    enough to do it), so a match routinely spans several runs. Matches inside a
-    single run are edited in place; a match that spans runs collapses onto the
-    first run it touches, which is the only way to keep *some* formatting rather
-    than none.
-
-    ``include_headers=False`` excludes headers and footers — and nothing else.
-    Table cells are part of the document body as far as a reader is concerned, so
-    they are always covered; a replace that quietly skipped every table would be a
-    trap, not an option.
-    """
+def replace_text(document, search: str, replacement: str, *, regex: bool = False,
+                 ignore_case: bool = False) -> int:
+    """Remplacement dans tout le document (en-têtes et tableaux compris) ; une occurrence à cheval sur plusieurs runs prend la mise en forme du premier."""
     from .ooxml.util import sanitize_text
 
     replacement = sanitize_text(replacement)
     flags = re.IGNORECASE if ignore_case else 0
     pattern = re.compile(search if regex else re.escape(search), flags)
-    if include_headers:
-        paragraphs: Iterable[Any] = iter_all_paragraphs(document)
-    else:
-        paragraphs = (
-            paragraph
-            for location, paragraph in iter_located_paragraphs(document)
-            if location["where"] in BODY_WHERE
-        )
-
-    total = 0
-    for paragraph in paragraphs:
-        total += _replace_in_paragraph(paragraph, pattern, replacement)
-    return total
-
-
-def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> int:
-    runs = [Run(run, paragraph) for run in inline_runs(paragraph._p)]
-    if not runs:
-        return 0
-    full = "".join(run.text or "" for run in runs)
-    if not pattern.search(full):
-        return 0
-
-    # Character span covered by each run.
-    spans, cursor = [], 0
-    for run in runs:
-        length = len(run.text or "")
-        spans.append((cursor, cursor + length))
-        cursor += length
-
-    replaced = 0
-    for match in reversed(list(pattern.finditer(full))):
-        start, end = match.span()
-        touched = [i for i, (low, high) in enumerate(spans) if low < end and high > start]
-        if not touched:
-            continue
-        first = touched[0]
-        low, _ = spans[first]
-        text = runs[first].text or ""
-        head = text[: start - low]
-        tail_run = touched[-1]
-        tail_low, _ = spans[tail_run]
-        tail = (runs[tail_run].text or "")[end - tail_low :]
-
-        runs[first].text = head + match.expand(replacement) + (tail if tail_run == first else "")
-        for index in touched[1:]:
-            runs[index].text = "" if index != tail_run else tail
-        replaced += 1
-
-        # Offsets past this match are stale, but we iterate backwards so earlier
-        # matches keep valid spans; recompute the ones we just touched.
-        cursor = 0
-        for i, run in enumerate(runs):
-            length = len(run.text or "")
-            spans[i] = (cursor, cursor + length)
-            cursor += length
-    return replaced
-
-
-def delete_paragraph(document, index: int) -> str:
-    paragraphs = body_paragraphs(document)
-    if not 0 <= index < len(paragraphs):
-        raise InvalidSpec(
-            f"Paragraph index {index} is out of range (the document has {len(paragraphs)})."
-        )
-    paragraph = paragraphs[index]
-    text = paragraph.text
-    element = paragraph._p
-    element.getparent().remove(element)
-    return text
+    return sum(replace_in_runs([Run(run, paragraph) for run in inline_runs(paragraph._p)], pattern, replacement)
+               for _, paragraph in iter_located_paragraphs(document))
 
 
 def set_metadata(document, **values: Any) -> dict[str, Any]:

@@ -48,20 +48,18 @@ from ._docx.render.mdconv import (
 from .commun import (
     Env,
     OfficeError,
+    _avec_lecteur,
     booleen,
     canon,
-    chemin_entree,
     chemin_sortie,
     ecrire,
     entier,
-    indice_chemin,
-    lire,
     lire_fichier,
     texte,
 )
 from .langue import choisir as choisir_langue, libelles
 from .ops import lire_ops, requis
-from .paquet import PaquetInvalide, installer_lecteur, normaliser, retirer_lecteur
+from .paquet import PaquetInvalide, charger, normaliser, retirer_lecteur
 
 # ── Arguments ───────────────────────────────────────────────────────────────
 ALIAS_CREATE = {
@@ -569,46 +567,6 @@ def _enregistrer(env: Env, document: Any, rel: str, attendu: Optional[str] = Non
     return ecrire(env, rel, sortie.getvalue(), attendu)
 
 
-def _avec_lecteur(env: Env):
-    """Images et modèles lus dans la sandbox ; une image absente devient un cadre gris signalé, un modèle absent un refus."""
-
-    def lecteur(source: str, quoi: str) -> bytes:
-        rel = chemin_entree(source)
-        try:
-            return lire(env, rel, quoi)
-        except FileNotFoundError:
-            indice = indice_chemin(env, rel)
-            if quoi == "image":
-                env.notes.warn(f"image not found in the sandbox: {env.espace.afficher(rel)}{indice}; a grey "
-                               "placeholder stands in its place: put the real image in once it exists")
-                return _image_absente(rel.rsplit("/", 1)[-1])
-            raise OfficeError(f"{quoi} not found in the sandbox: {env.espace.afficher(rel)}",
-                              code="not_found", fix=f"check the {quoi} path{indice or ' (list the folder first)'}")
-    return installer_lecteur(lecteur)
-
-
-def _image_absente(nom: str) -> bytes:
-    """Cadre gris barré d'une image introuvable, avec le nom du fichier (aucun texte à traduire)."""
-    from PIL import Image, ImageDraw, ImageFont
-
-    largeur, hauteur = 960, 540
-    image = Image.new("RGB", (largeur, hauteur), "#F2F2F2")
-    d = ImageDraw.Draw(image)
-    d.rectangle([3, 3, largeur - 4, hauteur - 4], outline="#A6A6A6", width=4)
-    x, y = largeur // 2, hauteur // 2 - 40
-    d.rectangle([x - 90, y - 65, x + 90, y + 65], outline="#8C8C8C", width=6)
-    d.ellipse([x + 25, y - 45, x + 55, y - 15], outline="#8C8C8C", width=5)
-    d.line([(x - 80, y + 55), (x - 25, y - 5), (x + 10, y + 30), (x + 35, y + 10), (x + 80, y + 55)],
-           fill="#8C8C8C", width=6)
-    d.line([(x - 110, y + 85), (x + 110, y - 85)], fill="#C00000", width=6)
-    police = ImageFont.load_default(size=30)
-    texte = nom if len(nom) <= 50 else nom[:49] + "…"
-    d.text(((largeur - d.textlength(texte, font=police)) / 2, y + 115), texte, fill="#595959", font=police)
-    sortie = io.BytesIO()
-    image.save(sortie, "PNG", optimize=True)
-    return sortie.getvalue()
-
-
 def _moteur(fn, *a, **k):
     """Erreurs du moteur → refus guidé."""
     try:
@@ -706,8 +664,8 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                        blocks=blocs)
         base = None
         if a.get("template"):
-            from ._docx.templates import load
-            base, notes_m, _ = _moteur(load, str(a["template"]))
+            base, notes_m = _moteur(lambda m: normaliser(charger(m, "template"), "docx", "template"),
+                                    str(a["template"]))
             for n in notes_m:
                 env.notes.fix(n)
             try:
@@ -884,14 +842,15 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                 texte_boite = "\n".join(p.text for p in encadres[boites[el]]._tbl.iter(qn("w:p"))).strip()
                 contenu.append({"callout": boites[el], "after_p": dernier_p, "text": _court(texte_boite, 1000)})
     lieux = list(docio.iter_located_paragraphs(document))
+    situes = [(lieu, p.text) for lieu, p in lieux]          # un seul calcul du texte, pour tous les relevés
+    plan = [{"p": i, "level": n, "text": t.strip()[:120]} for i, (p, (_, t)) in enumerate(zip(paragraphes, situes))
+            if (n := docio.heading_level_for(p, levels, default_id)) is not None and t.strip()]
     res: Dict[str, Any] = {"path": env.espace.afficher(rel),
                            "paragraphs": len(paragraphes), "tables": len(tableaux),
                            **({"callouts": len(encadres)} if encadres else {}),
                            "sections": len(document.sections),
                            "title": document.core_properties.title or None,
-                           "outline": [{"p": x["index"], "level": x["level"], "text": x["text"][:120]}
-                                       for x in docio.get_outline(document)][:80],
-                           "content": contenu}
+                           "outline": plan[:80], "content": contenu}
     if suite is not None:
         res["next_start"] = suite
         res["note"] = f"more content: call docx_read again with start={suite}"
@@ -909,19 +868,16 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                          ("endnotes", notes(document, "endnote", lieux))):
         if valeurs:
             res[cle] = [{**v, "at": _lieu(v["at"]) if v.get("at") else None} for v in valeurs]
-    champs = sorted({m.strip() for _, p in lieux
-                     for m in re.findall(r"\{\{\s*([^{}]{1,60}?)\s*\}\}", p.text)})
+    champs = sorted({m.strip() for _, t in situes
+                     for m in re.findall(r"\{\{\s*([^{}]{1,60}?)\s*\}\}", t)})
     if champs:
         res["placeholders"] = champs
-    verif = docio.check_document(document, check_leftovers=True)
-    restes = [{"means": v.get("means"), "count": v.get("count"),
-               "at": [_lieu(o) for o in (v.get("occurrences") or [])[:5]]}
-              for v in verif.get("violations", [])
-              if v.get("kind") == "leftover" and "Jinja" not in str(v.get("means"))]
+    restes = [{"means": sens, "count": len(occ), "at": [_lieu(o) for o in occ[:5]]}
+              for sens, motif in docio.LEFTOVER_PATTERNS if (occ := docio.find_pattern(situes, motif, 20))]
     if restes:
-        res["issues"] = restes[:20]
+        res["issues"] = restes
     if a.get("find"):
-        trouves = docio.find_pattern(document, str(a["find"]), ignore_case=True, limit=50)
+        trouves = docio.find_pattern(situes, re.compile(re.escape(str(a["find"])), re.IGNORECASE), 50)
         res["matches"] = [_lieu(x) for x in trouves]
         if not trouves:
             res["matches_note"] = f"'{a['find']}' not found (case ignored)"
@@ -941,7 +897,7 @@ def _sommaire(paragraphes: List[Paragraph], debut: int, fin: int, instruction: s
 def _decrire_tableau(t: Any, k: int, apres: int) -> Dict[str, Any]:
     rangees = list(t.rows)
     item: Dict[str, Any] = {"table": k, "after_p": apres, "size": f"{len(rangees)}x{len(t.columns)}",
-                            "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[:LIGNES_LUES]]}
+                            "rows": [[c.text.strip()[:200] for c in cases] for cases in docio.table_rows(t, 0, LIGNES_LUES)]}
     if len(rangees) > LIGNES_LUES:
         item["more_rows"] = (f"rows {LIGNES_LUES} to {len(rangees) - 1}: docx_read with table={k}, "
                              f"start={LIGNES_LUES}")
@@ -960,7 +916,7 @@ def _lire_tableau(env: Env, rel: str, a: Dict[str, Any], tableaux: List[Any]) ->
     nb = min(max(1, entier(a.get("limit")) or 100), 500)
     res: Dict[str, Any] = {"path": env.espace.afficher(rel), "table": k,
                            "size": f"{len(rangees)}x{len(tableaux[k].columns)}", "first_row": debut,
-                           "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[debut:debut + nb]]}
+                           "rows": [[c.text.strip()[:200] for c in cases] for cases in docio.table_rows(tableaux[k], debut, debut + nb)]}
     if debut + nb < len(rangees):
         res["next_start"] = debut + nb
         res["note"] = f"more rows: call docx_read again with table={k}, start={debut + nb}"
@@ -980,7 +936,7 @@ def _decrire_paragraphe(par: Paragraph, i: int, levels, default_id, lecteur: Lec
     if niveau is not None:
         item["h"] = niveau
     else:
-        style = par.style.name if par.style is not None else ""
+        style = lecteur.nom_style(el)
         if style and style not in ("Normal", "Body Text", "Corps de texte", "Default Paragraph Font"):
             item["style"] = style
     if t:
@@ -1286,7 +1242,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         if nom == "set_cell":
             ln, ligne = lot.ligne(i, nom, k, t, c.get("row"))
             col = entier(c.get("col"))
-            cells = ligne.cells
+            cells = docio.row_cells(ligne)
             if col is None or not 0 <= col < len(cells):
                 raise OfficeError(f"ops[{i}] (set_cell): column {c.get('col')!r} does not exist "
                                   f"in table {k} (columns 0 to {len(cells) - 1})",
@@ -1304,13 +1260,15 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
             raise OfficeError(f"ops[{i}] (add_row): table {k} has no row left to copy",
                               code="bad_index")
         if isinstance(vals, dict):
-            entete = [cel.text.strip() for cel in lignes[0].cells]
+            entete = [cel.text.strip() for cel in docio.row_cells(lignes[0])]
             dico = {fold(kk): vv for kk, vv in vals.items()}
             vals = [dico.get(fold(h), "") for h in entete]
         if not isinstance(vals, list):
             vals = [vals]
         import copy
         nouvelle = copy.deepcopy(lignes[-1]._tr)
+        for fusion in nouvelle.iter(qn("w:vMerge")):
+            fusion.getparent().remove(fusion)
         apres = entier(c.get("after"))
         if apres is not None:
             _, ref = lot.ligne(i, nom, k, t, apres)
@@ -1318,11 +1276,11 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         else:
             lignes[-1]._tr.addnext(nouvelle)
         from docx.table import _Row
-        ligne = _Row(nouvelle, t)
-        for j, cel in enumerate(ligne.cells):
+        cases = docio.row_cells(_Row(nouvelle, t))
+        for j, cel in enumerate(cases):
             _ecrire_cellule(document, cel, G.cellule(vals[j]) if j < len(vals) else "")
-        if len(vals) > len(ligne.cells):
-            env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(ligne.cells)} extra value(s) ignored")
+        if len(vals) > len(cases):
+            env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(cases)} extra value(s) ignored")
         return {"table": k, "rows": len(t.rows)}
     if nom == "meta":
         valeurs = {k: c[k] for k in ("title", "author", "subject", "keywords") if c.get(k)}
@@ -1349,6 +1307,10 @@ def _ecrire_paragraphe(document: Any, par: Paragraph, valeur: str) -> None:
 
 def _ecrire_cellule(document: Any, cel, valeur: str) -> None:
     pars = cel.paragraphs
+    if not pars:                                    # case de formulaire : son paragraphe est dans un contrôle de contenu
+        from docx.text.paragraph import Paragraph
+        dans = next((x for sdt in cel._tc.iterchildren(qn("w:sdt")) for x in sdt.iter(qn("w:p"))), None)
+        pars = [Paragraph(dans, cel)] if dans is not None else [cel.add_paragraph()]
     _ecrire_paragraphe(document, pars[0], valeur)
     for p in pars[1:]:
         p._p.getparent().remove(p._p)

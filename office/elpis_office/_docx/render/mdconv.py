@@ -350,8 +350,6 @@ def _inline_runs(inline) -> list[S.RunSpec]:
 # HTML
 # ---------------------------------------------------------------------------
 
-_BLOCK_HANDLERS_DOC = "h1-h6, p, ul, ol, table, pre, blockquote, hr, img, div, section"
-
 
 def html_to_blocks(html: str, heading_offset: int = 0) -> list[S.Block]:
     if not (html or "").strip():

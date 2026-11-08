@@ -184,10 +184,8 @@ class Lecteur:
     def texte_champs(self, p: Any) -> str:
         """Texte d'en-tête ou de pied, numéros de page en {PAGE} / {NUMPAGES} (le résultat enregistré est périmé)."""
         sortie: List[str] = []
-        pile: List[List[Any]] = []                  # [instruction, résultat commencé]
-
-        def masque() -> bool:
-            return any(c[1] and _nom_champ(c[0]) in _CHAMPS_PAGE for c in pile)
+        pile: List[List[Any]] = []                  # [instruction, résultat commencé, résultat masqué]
+        masques = [0]                               # champs de page dont on traverse le résultat périmé
 
         def visiter(element: Any) -> None:
             for enfant in element:
@@ -202,18 +200,21 @@ class Lecteur:
                     if car is not None:
                         genre = car.get(qn("w:fldCharType"))
                         if genre == "begin":
-                            pile.append(["", False])
-                        elif genre == "separate" and pile:
+                            pile.append(["", False, False])
+                        elif genre == "separate" and pile and not pile[-1][1]:
                             pile[-1][1] = True
                             if _nom_champ(pile[-1][0]) in _CHAMPS_PAGE:
                                 sortie.append(_CHAMPS_PAGE[_nom_champ(pile[-1][0])])
+                                pile[-1][2] = True
+                                masques[0] += 1
                         elif genre == "end" and pile:
                             cadre = pile.pop()
+                            masques[0] -= 1 if cadre[2] else 0
                             if not cadre[1] and _nom_champ(cadre[0]) in _CHAMPS_PAGE:
                                 sortie.append(_CHAMPS_PAGE[_nom_champ(cadre[0])])
                     elif instr is not None and pile:
                         pile[-1][0] += instr.text or ""
-                    elif not masque():
+                    elif not masques[0]:
                         sortie.append(enfant.text)
                 elif enfant.tag in _CONTENEURS:
                     visiter(enfant)

@@ -175,7 +175,9 @@ def _find_toc_blocks(paragraphs: list) -> list[tuple[int, int, str]]:
                         break
             if end_index is not None:
                 break
-        if end_index is None or end_index == index:
+        if end_index is None:
+            break  # never closed: it runs to the end, and rescanning from each later paragraph is quadratic
+        if end_index == index:
             index += 1
             continue
         blocks.append((index, end_index, toc))

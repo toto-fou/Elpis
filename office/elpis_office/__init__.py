@@ -400,11 +400,31 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         ext = EXT[_SORTE[ext]]
     pdf = env.convertir(data, ext, "pdf")
     res = ecrire(env, cible, pdf)
-    if res["old_sha256"] and not a.get("save_as"):
-        env.notes.warn(f"{res['path']} already existed and was replaced (its previous version is in the "
-                       "file history); if it was the PDF of another file, export again with save_as")
+    autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []
+    if autres:
+        env.notes.warn(f"{res['path']} already existed and was replaced; it may have been the PDF of "
+                       f"{autres[0]}: export again with save_as to keep both")
     return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
                               f"({len(pdf) // 1024} KB)"}
+
+
+def _homonymes(env: Env, rel: str) -> list:
+    """Autres fichiers exportables du même nom dans le dossier (rapport.pptx à côté de rapport.docx)."""
+    lister = getattr(env.espace, "lister", None)
+    dossier, _, nom = rel.strip("/").rpartition("/")
+    if lister is None:
+        return ["another file of the same name"]    # sans listing : prévenir quand même
+    try:
+        entrees = lister(dossier) or []
+    except (OSError, ValueError, RuntimeError, OfficeError) as e:
+        if getattr(e, "code", "") == "cancelled":
+            raise
+        return []
+    base = nom.rsplit(".", 1)[0].lower()
+    return [env.espace.afficher(f"{dossier}/{e['nom']}" if dossier else str(e["nom"])) for e in entrees
+            if not e.get("dossier") and str(e["nom"]).lower() != nom.lower() and "." in str(e["nom"])
+            and str(e["nom"]).rsplit(".", 1)[0].lower() == base
+            and "." + str(e["nom"]).rsplit(".", 1)[1].lower() in CONVERTIBLES]
 
 
 def _pdf(path: Any, env: Env) -> str:

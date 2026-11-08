@@ -272,6 +272,8 @@ ALIAS_FEUILLE: Dict[str, Iterable[str]] = {
 LIGNES_CREATION_MAX = 50_000
 FORMULES_CONTROLEES_MAX, DEFAUTS_MONTRES = 5_000, 6
 _FORMAT_DATE = {"en": "mm/dd/yyyy", "de": "dd.mm.yyyy"}
+# Langue des formats (LCID) : LibreOffice affiche alors 1 234,50 € ; Excel suit les réglages du poste.
+_LCID = {"fr": "[$-40C]", "de": "[$-407]", "es": "[$-C0A]", "it": "[$-410]"}
 _MONNAIES = {"€": '#,##0.00 "€"', "$": '"$"#,##0.00', "£": '"£"#,##0.00', "CHF": '#,##0.00 "CHF"'}
 _NOM_INTERDIT = re.compile(r"[\\/?*\[\]:]")
 _EPOQUE = dt.datetime(1899, 12, 30)
@@ -365,10 +367,11 @@ class _Feuille:
 
 
 class _Formats:
-    """Formats XlsxWriter partagés, un par style."""
+    """Formats XlsxWriter partagés ; codes de nombre préfixés de la langue du classeur."""
 
     def __init__(self, classeur: Any, lang: str) -> None:
-        self.classeur, self.prefixe, self.date = classeur, "", _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
+        self.classeur, self.prefixe = classeur, _LCID.get(lang[:2], "")
+        self.date = _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
         self._vus: Dict[Tuple[Any, ...], Any] = {}
 
     def __call__(self, code: Optional[str] = None, **style: Any) -> Any:
@@ -515,7 +518,8 @@ def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                           fix="sheets = [{name, data: rows}], one object per sheet",
                           example=[{"name": "Ventes", "data": [{"mois": "janv.", "ventes": 120},
                                                               {"mois": "févr.", "ventes": 135}]}])
-    lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), *textes_de(feuilles)], env.notes)
+    textes = [t for t in textes_de(feuilles) if not t.startswith("=")]       # « E2:E4 » n'est pas de l'italien
+    lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), *textes], env.notes)
     prepas: List[_Feuille] = []
     vus: set = set()
     total = 0

@@ -414,15 +414,13 @@ def describe(document) -> dict[str, Any]:
 #: What an unfinished document leaves behind. Checked by default, because the
 #: failure they cause — a contract that ships saying "[À COMPLÉTER]" — is the one
 #: nobody notices until the recipient does.
-LEFTOVER_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\{\{.*?\}\}", "an unfilled Jinja placeholder"),
-    (r"\{%.*?%\}", "an unrendered Jinja tag"),
+LEFTOVER_PATTERNS: tuple[tuple[str, re.Pattern], ...] = tuple((explanation, re.compile(pattern)) for pattern, explanation in (
     (r"<<[^<>\n]{1,60}>>", "an unfilled <<placeholder>>"),
     (r"\[[A-ZÀ-Þ][A-ZÀ-Þ0-9 _'’-]{2,40}\]", "a bracketed placeholder such as [XXX]"),
     (r"\bTODO\b|\bTBD\b|\bFIXME\b", "a TODO left in the text"),
     (r"(?i)\bà compléter\b|\bto be completed\b", "a 'to be completed' marker"),
     (r"(?i)\blorem ipsum\b", "placeholder Lorem ipsum text"),
-)
+))
 
 
 def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
@@ -493,33 +491,11 @@ def _stories(section) -> Iterable[tuple[str, Any]]:
         yield (name if attribute in {"header", "footer"} else attribute), story
 
 
-def compile_pattern(pattern: str, *, regex: bool, ignore_case: bool) -> re.Pattern:
-    flags = re.IGNORECASE if ignore_case else 0
-    try:
-        return re.compile(pattern if regex else re.escape(pattern), flags)
-    except re.error as exc:
-        raise InvalidSpec(
-            f"{pattern!r} is not a valid regular expression: {exc}. Pass regex=false to "
-            "search for it literally."
-        ) from exc
-
-
-def find_pattern(
-    document,
-    pattern: str,
-    *,
-    regex: bool = False,
-    ignore_case: bool = False,
-    limit: int = 200,
-) -> list[dict[str, Any]]:
-    """Every occurrence of ``pattern``, with where it is and what surrounds it."""
-    compiled = compile_pattern(pattern, regex=regex, ignore_case=ignore_case)
+def find_pattern(located: list[tuple[dict[str, Any], str]], pattern: re.Pattern, limit: int = 200) -> list[dict[str, Any]]:
+    """Chaque occurrence de ``pattern`` dans les textes situés (lieu, texte), avec un extrait autour."""
     found: list[dict[str, Any]] = []
-    for location, paragraph in iter_located_paragraphs(document):
-        text = paragraph.text
-        if not text:
-            continue
-        for match in compiled.finditer(text):
+    for location, text in located:
+        for match in pattern.finditer(text):
             found.append({**location, "match": match.group(0), "excerpt": _excerpt(text, match)})
             if len(found) >= limit:
                 return found
@@ -530,106 +506,6 @@ def _excerpt(text: str, match: re.Match, window: int = 40) -> str:
     start = max(0, match.start() - window)
     end = min(len(text), match.end() + window)
     return ("…" if start else "") + text[start:end].strip() + ("…" if end < len(text) else "")
-
-
-def check_document(
-    document,
-    *,
-    required: list[str] | None = None,
-    forbidden: list[str] | None = None,
-    regex: bool = False,
-    check_leftovers: bool = True,
-    ignore_case: bool = False,
-) -> dict[str, Any]:
-    """Report what a document is missing and what it should not still contain.
-
-    Reports, never blocks: a document mid-draft is *meant* to be incomplete, and a
-    server that refuses to hand it back would be wrong about that. The caller
-    decides what to do with the findings.
-    """
-    # One traversal, every pattern. This used to walk the whole document once per
-    # required pattern, once per forbidden one, once per leftover pattern, and
-    # once more just to count what it had scanned — a dozen passes over the same
-    # paragraphs, each of them re-reading header and footer parts.
-    #
-    #: (compiled, bucket, cap) — the cap is per pattern, matching what the old
-    #: per-pattern find_pattern(limit=...) calls enforced individually.
-    probes: list[tuple[re.Pattern, list[dict[str, Any]], int]] = []
-    required_hits: list[list[dict[str, Any]]] = []
-    forbidden_hits: list[list[dict[str, Any]]] = []
-    leftover_hits: list[list[dict[str, Any]]] = []
-
-    for pattern in required or []:
-        hits: list[dict[str, Any]] = []
-        required_hits.append(hits)
-        probes.append((compile_pattern(pattern, regex=regex, ignore_case=ignore_case), hits, 1))
-
-    for pattern in forbidden or []:
-        hits = []
-        forbidden_hits.append(hits)
-        probes.append((compile_pattern(pattern, regex=regex, ignore_case=ignore_case), hits, 200))
-
-    if check_leftovers:
-        for pattern, _explanation in LEFTOVER_PATTERNS:
-            hits = []
-            leftover_hits.append(hits)
-            # ignore_case stays False regardless of the caller's flag, as it did
-            # when these went through find_pattern's default: the patterns that
-            # need it carry their own inline (?i).
-            probes.append((compile_pattern(pattern, regex=True, ignore_case=False), hits, 20))
-
-    scanned = {"paragraphs": 0, "headers_and_footers": 0, "table_cells": 0}
-    for location, paragraph in iter_located_paragraphs(document):
-        where = location["where"]
-        if where == "body":
-            scanned["paragraphs"] += 1
-        elif where in ("table", "callout"):
-            scanned["table_cells"] += 1
-        else:
-            scanned["headers_and_footers"] += 1
-
-        text = paragraph.text
-        if not text:
-            continue
-        for compiled, hits, cap in probes:
-            if len(hits) >= cap:
-                continue
-            for match in compiled.finditer(text):
-                hits.append(
-                    {**location, "match": match.group(0), "excerpt": _excerpt(text, match)}
-                )
-                if len(hits) >= cap:
-                    break
-
-    violations: list[dict[str, Any]] = []
-    missing = [
-        pattern for pattern, hits in zip(required or [], required_hits) if not hits
-    ]
-
-    for pattern, hits in zip(forbidden or [], forbidden_hits):
-        if hits:
-            violations.append(
-                {"pattern": pattern, "kind": "forbidden", "count": len(hits), "occurrences": hits}
-            )
-
-    for (pattern, explanation), hits in zip(LEFTOVER_PATTERNS, leftover_hits):
-        if hits:
-            violations.append(
-                {
-                    "pattern": pattern,
-                    "kind": "leftover",
-                    "means": explanation,
-                    "count": len(hits),
-                    "occurrences": hits,
-                }
-            )
-
-    return {
-        "ok": not missing and not violations,
-        "missing": missing,
-        "violations": violations,
-        "scanned": scanned,
-    }
 
 
 def set_paragraph_text(document, index: int, text: str) -> str:

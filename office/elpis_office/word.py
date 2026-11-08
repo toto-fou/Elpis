@@ -884,14 +884,15 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                 texte_boite = "\n".join(p.text for p in encadres[boites[el]]._tbl.iter(qn("w:p"))).strip()
                 contenu.append({"callout": boites[el], "after_p": dernier_p, "text": _court(texte_boite, 1000)})
     lieux = list(docio.iter_located_paragraphs(document))
+    situes = [(lieu, p.text) for lieu, p in lieux]          # un seul calcul du texte, pour tous les relevés
+    plan = [{"p": i, "level": n, "text": t.strip()[:120]} for i, (p, (_, t)) in enumerate(zip(paragraphes, situes))
+            if (n := docio.heading_level_for(p, levels, default_id)) is not None and t.strip()]
     res: Dict[str, Any] = {"path": env.espace.afficher(rel),
                            "paragraphs": len(paragraphes), "tables": len(tableaux),
                            **({"callouts": len(encadres)} if encadres else {}),
                            "sections": len(document.sections),
                            "title": document.core_properties.title or None,
-                           "outline": [{"p": x["index"], "level": x["level"], "text": x["text"][:120]}
-                                       for x in docio.get_outline(document)][:80],
-                           "content": contenu}
+                           "outline": plan[:80], "content": contenu}
     if suite is not None:
         res["next_start"] = suite
         res["note"] = f"more content: call docx_read again with start={suite}"
@@ -909,19 +910,16 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                          ("endnotes", notes(document, "endnote", lieux))):
         if valeurs:
             res[cle] = [{**v, "at": _lieu(v["at"]) if v.get("at") else None} for v in valeurs]
-    champs = sorted({m.strip() for _, p in lieux
-                     for m in re.findall(r"\{\{\s*([^{}]{1,60}?)\s*\}\}", p.text)})
+    champs = sorted({m.strip() for _, t in situes
+                     for m in re.findall(r"\{\{\s*([^{}]{1,60}?)\s*\}\}", t)})
     if champs:
         res["placeholders"] = champs
-    verif = docio.check_document(document, check_leftovers=True)
-    restes = [{"means": v.get("means"), "count": v.get("count"),
-               "at": [_lieu(o) for o in (v.get("occurrences") or [])[:5]]}
-              for v in verif.get("violations", [])
-              if v.get("kind") == "leftover" and "Jinja" not in str(v.get("means"))]
+    restes = [{"means": sens, "count": len(occ), "at": [_lieu(o) for o in occ[:5]]}
+              for sens, motif in docio.LEFTOVER_PATTERNS if (occ := docio.find_pattern(situes, motif, 20))]
     if restes:
-        res["issues"] = restes[:20]
+        res["issues"] = restes
     if a.get("find"):
-        trouves = docio.find_pattern(document, str(a["find"]), ignore_case=True, limit=50)
+        trouves = docio.find_pattern(situes, re.compile(re.escape(str(a["find"])), re.IGNORECASE), 50)
         res["matches"] = [_lieu(x) for x in trouves]
         if not trouves:
             res["matches_note"] = f"'{a['find']}' not found (case ignored)"

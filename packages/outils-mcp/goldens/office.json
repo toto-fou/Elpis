@@ -2372,7 +2372,7 @@
     {
       "name": "office_export",
       "title": "Office Export",
-      "description": "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF with LibreOffice. The PDF is written next to it (or to save_as).",
+      "description": "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF with LibreOffice. The PDF is written next to it with the same name, replacing a PDF of that name (save_as = another path, e.g. to keep the PDFs of report.docx and report.pptx).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

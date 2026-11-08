@@ -340,7 +340,8 @@ TOOLS["xlsx_create"] = {
 TOOLS["office_export"] = {
     "description": (
         "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF "
-        "with LibreOffice. The PDF is written next to it (or to save_as)."),
+        "with LibreOffice. The PDF is written next to it with the same name, replacing a PDF of that "
+        "name (save_as = another path, e.g. to keep the PDFs of report.docx and report.pptx)."),
     "params": OrderedDict([
         ("path", _PATH_EXPORT),
         ("to", {"type": "string", "enum": ["pdf"]}),
@@ -399,6 +400,9 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         ext = EXT[_SORTE[ext]]
     pdf = env.convertir(data, ext, "pdf")
     res = ecrire(env, cible, pdf)
+    if res["old_sha256"] and not a.get("save_as"):
+        env.notes.warn(f"{res['path']} already existed and was replaced (its previous version is in the "
+                       "file history); if it was the PDF of another file, export again with save_as")
     return {**res, "summary": f"Exported {env.espace.afficher(rel)} to {res['path']} "
                               f"({len(pdf) // 1024} KB)"}
 

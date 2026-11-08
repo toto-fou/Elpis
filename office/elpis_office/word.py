@@ -980,7 +980,7 @@ def _decrire_paragraphe(par: Paragraph, i: int, levels, default_id, lecteur: Lec
     if niveau is not None:
         item["h"] = niveau
     else:
-        style = par.style.name if par.style is not None else ""
+        style = lecteur.nom_style(el)
         if style and style not in ("Normal", "Body Text", "Corps de texte", "Default Paragraph Font"):
             item["style"] = style
     if t:

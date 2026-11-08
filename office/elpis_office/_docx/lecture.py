@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import parse_xml
+from docx.styles import BabelFish
 
 from .docio import inline_runs
 from .ooxml.util import qn
@@ -52,8 +53,14 @@ class Lecteur:
         self.document, self.part = document, document.part
         car: Dict[str, Tuple[Optional[str], Optional[bool], Optional[bool]]] = {}
         par: Dict[str, Tuple[Optional[str], Optional[Tuple[Optional[str], Optional[str]]]]] = {}
+        self._styles: Dict[str, Any] = {}
+        self._defaut: Any = None
         for style in document.styles.element.iterchildren(qn("w:style")):
             sid, genre = style.get(qn("w:styleId")), style.get(qn("w:type"))
+            if sid:
+                self._styles.setdefault(sid, style)
+            if genre in (None, "paragraph") and style.get(qn("w:default")) in ("1", "true", "on"):
+                self._defaut = style
             base = style.find(qn("w:basedOn"))
             parent = base.get(qn("w:val")) if base is not None else None
             if sid and genre == "character":
@@ -103,6 +110,16 @@ class Lecteur:
                 return num
             sid = parent
         return None
+
+    def nom_style(self, p: Any) -> Optional[str]:
+        """``Paragraph.style.name`` sans relire tous les styles (python-docx cherche le style par défaut à chaque appel)."""
+        ppr = p.find(qn("w:pPr"))
+        pstyle = ppr.find(qn("w:pStyle")) if ppr is not None else None
+        style = self._styles.get(pstyle.get(qn("w:val")) or "") if pstyle is not None else None
+        if style is None or style.get(qn("w:type")) not in (None, "paragraph"):
+            style = self._defaut
+        nom = style.find(qn("w:name")) if style is not None else None
+        return BabelFish.internal2ui(nom.get(qn("w:val"))) if nom is not None else None
 
     def liste(self, p: Any) -> Optional[Tuple[str, int]]:
         """(« bullet » ou « number », niveau à partir de 0) d'un paragraphe de liste, numérotation directe ou du style."""

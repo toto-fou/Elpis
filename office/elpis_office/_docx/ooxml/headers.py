@@ -187,13 +187,3 @@ def add_watermark(
         "</v:shape></w:pict>"
     )
     paragraph.add_run()._r.append(pict)
-
-
-def add_header_image(section, image_path, *, width_cm: float = 3.0, align: str = "right",
-                     variant: str = "default"):
-    """Put a logo in the header."""
-    story = _story(section, "header", variant)
-    paragraph = story.add_paragraph()
-    paragraph.add_run().add_picture(image_path, width=Cm(float(width_cm)))
-    align_paragraph(paragraph, align)
-    return paragraph

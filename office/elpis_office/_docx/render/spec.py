@@ -349,11 +349,7 @@ Block = Annotated[
 
 class MetaSpec(Base):
     title: str | None = None
-    subject: str | None = None
     author: str | None = None
-    keywords: str | None = None
-    category: str | None = None
-    comments: str | None = None
     language: str | None = None
 
 
@@ -363,17 +359,12 @@ class ThemeSpec(Base):
     mono_font: str = "Consolas"
     accent: str | None = Field(None, description="Colour applied to headings and rules.")
     base_font_size_pt: float | None = None
-    chart_palette: list[str] | None = None
 
 
 class PageSpec(Base):
     size: str | None = "A4"
     orientation: Literal["portrait", "landscape"] = "portrait"
-    width_cm: float | None = Field(default=None, gt=0, le=200)
-    height_cm: float | None = Field(default=None, gt=0, le=200)
     margins_cm: dict[str, float] | None = None
-    columns: int | None = None
-    column_spacing_cm: float | None = None
 
 
 class HeaderSpec(Base):
@@ -386,9 +377,6 @@ class HeaderSpec(Base):
     color: str | None = "808080"
     rule: bool = False
     different_first_page: bool = False
-    first_page_text: str | None = None
-    image: str | None = None
-    image_width_cm: float = Field(default=3.0, gt=0, le=50)
 
 
 class FooterSpec(Base):

@@ -71,7 +71,7 @@ class BuildContext:
         return layout.content_width_cm(self.section)
 
     def palette(self) -> Sequence[str]:
-        return self.theme.chart_palette or chart_ooxml.DEFAULT_PALETTE
+        return chart_ooxml.DEFAULT_PALETTE
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ def finalize(document) -> None:
 
 def apply_metadata(document, meta: S.MetaSpec) -> None:
     properties = document.core_properties
-    for attribute in ("title", "subject", "author", "keywords", "category", "comments", "language"):
+    for attribute in ("title", "author", "language"):
         value = getattr(meta, attribute, None)
         if value:
             setattr(properties, attribute, value)
@@ -265,29 +265,22 @@ def apply_page(section, page: S.PageSpec) -> None:
     layout.apply_page_setup(
         section,
         size=page.size,
-        width_cm=page.width_cm,
-        height_cm=page.height_cm,
         orientation=page.orientation,
         margins_cm=page.margins_cm,
-        columns=page.columns,
-        column_spacing_cm=page.column_spacing_cm,
     )
 
 
 def apply_header(section, header: S.HeaderSpec) -> None:
-    if header.image:
-        stream, _ = image_io.resolve_image(header.image)
-        header_ooxml.add_header_image(section, stream, width_cm=header.image_width_cm)
     if any(v is not None for v in (header.text, header.left, header.center, header.right)):
         header_ooxml.set_header_footer(
             section, "header", text=header.text, left=header.left, center=header.center,
             right=header.right, align=header.align, font_size_pt=header.font_size_pt,
-            color=header.color, rule=header.rule, clear=not header.image,
+            color=header.color, rule=header.rule, clear=True,
         )
     if header.different_first_page:
         section.different_first_page_header_footer = True
         header_ooxml.set_header_footer(
-            section, "header", variant="first", text=header.first_page_text or "",
+            section, "header", variant="first", text="",
             font_size_pt=header.font_size_pt, color=header.color,
         )
 
@@ -745,7 +738,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         y_max=block.y_max,
         width_cm=width_cm,
         height_cm=height_cm,
-        palette=block.palette or context.theme.chart_palette,
+        palette=block.palette,
         gap_width=block.gap_width,
         overlap=block.overlap,
         hole_size=block.hole_size,

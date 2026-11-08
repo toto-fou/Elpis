@@ -141,6 +141,61 @@ def apply_theme(document, theme: S.ThemeSpec) -> None:
             _set_style_east_asian(style, theme.heading_font)
         if accent and name not in {"Subtitle"}:
             style.font.color.rgb = rgb(accent)
+    _write_theme_part(document, accent, theme.heading_font, theme.body_font)
+
+
+def _write_theme_part(document, accent: str | None, heading_font: str | None, body_font: str | None) -> None:
+    """Accent and fonts in the theme part too: built-in styles (tables, quotes, captions) and LibreOffice read them there."""
+    if not (accent or heading_font or body_font):
+        return
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from lxml import etree
+
+    try:
+        part = document.part.part_related_by(RT.THEME)
+    except KeyError:
+        return
+    drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    root = etree.fromstring(part.blob)
+    node = root.find(f".//{{{drawing}}}clrScheme/{{{drawing}}}accent1")
+    if accent and node is not None:
+        for child in list(node):
+            node.remove(child)
+        etree.SubElement(node, f"{{{drawing}}}srgbClr", val=accent)
+    for scheme, font in (("majorFont", heading_font), ("minorFont", body_font)):
+        latin = root.find(f".//{{{drawing}}}fontScheme/{{{drawing}}}{scheme}/{{{drawing}}}latin")
+        if font and latin is not None:
+            latin.set("typeface", font)
+    part._blob = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+    if accent:
+        _recolor_accent_refs(document.styles.element, accent)
+
+
+def _recolor_accent_refs(element, accent: str) -> None:
+    """Cached RGB of the styles' accent1 references, recomputed: LibreOffice draws the cached value, not the theme."""
+    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    for node in element.iter():
+        attrs = node.attrib
+        if attrs.get(f"{w}themeColor") == "accent1":
+            target = f"{w}val" if node.tag == f"{w}color" else f"{w}color"
+            attrs[target] = _tinted(accent, attrs.get(f"{w}themeTint"), attrs.get(f"{w}themeShade"))
+        if attrs.get(f"{w}themeFill") == "accent1":
+            attrs[f"{w}fill"] = _tinted(accent, attrs.get(f"{w}themeFillTint"),
+                                        attrs.get(f"{w}themeFillShade"))
+
+
+def _tinted(color: str, tint: str | None, shade: str | None) -> str:
+    """Word's themeTint / themeShade: luminance scaled in HSL, truncated like its cached values."""
+    import colorsys
+
+    if not (tint or shade):
+        return color
+    hue, light, sat = colorsys.rgb_to_hls(*(int(color[i:i + 2], 16) / 255 for i in (0, 2, 4)))
+    if tint:
+        light = light * int(tint, 16) / 255 + 1 - int(tint, 16) / 255
+    if shade:
+        light = light * int(shade, 16) / 255
+    return "".join(f"{int(c * 255 + 1e-6):02X}" for c in colorsys.hls_to_rgb(hue, light, sat))
 
 
 def _set_style_east_asian(style, name: str) -> None:

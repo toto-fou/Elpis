@@ -1467,16 +1467,19 @@ ne donne pas accès aux fonctions d'administration. La session est partagée —
 clic suffit, vous êtes déjà authentifié.
 
 La barre latérale compte six entrées, chacune dépliée en sous-pages. Les
-modérateurs ne voient que *Vue d'ensemble* et *Supervision*.
+modérateurs ne voient que *Vue d'ensemble* et *Supervision*, sans l'onglet
+*Journaux › Sécurité*. Les dates sont en heure locale ; survolez-les pour
+l'heure UTC exacte. Les anciens liens (`#runs`, `#tool-calls`, `#audit`)
+mènent au bon onglet.
 
 | Entrée | Sous-pages |
 |---|---|
 | **Vue d'ensemble** | Page d'arrivée : ce qui demande l'attention (*À traiter*), état des services, dernières 24 h, installation |
-| **Supervision** | **Métriques** (widgets au choix, export CSV, collecte Prometheus), **Rapport** (digest quotidien archivé), **Appels d'outils** (taux d'échec, résumés), **Audit**, **Journaux** (300 dernières entrées, puis flux en direct) |
+| **Supervision** | **Métriques** (widgets au choix, actualisation automatique visible, export CSV, collecte Prometheus), **Rapport** (digest quotidien archivé, aperçu A4 avant impression, graphiques affichés ou retirés), **Activité** (onglets *Exécutions* et *Appels d'outils* : recherche, tri, pagination avec le total, filtres des erreurs, `run_id` cliquable), **Journaux** (onglets *Technique* : historique daté et filtrable puis flux en direct ; *Sécurité* : journal de sécurité, administrateurs seulement) |
 | **Modèles & services** | **Inférence** (moteurs, planification des requêtes), **Compression**, **RAG**, **Vision & machines** (annotation, machines cibles, mémoire d'accessibilité), **Voix**, **Outils MCP**, **Prompts** (prompts système par catégorie, aperçu de l'assemblage) |
 | **Utilisateurs & accès** | **Comptes** (rôle, groupes, serveurs et modèles autorisés, quota et profil réseau de sandbox, machines), **Groupes**, **Droits par défaut** (fonctionnalités, fournisseurs autorisés aux utilisateurs), **Mots de passe & sessions** (politique de mot de passe, cookie, révocation des sessions) |
 | **Sandbox** | **Limites & politique** (mémoire, CPU, processus, durée d'une commande, arrêt d'inactivité), **Réseau** (profils), **Hôtes d'outils**, **Containers** |
-| **Système** | **Instance** (identité, écran d'accueil, page de connexion, exécution), **Apparence** (skins proposés), **Accès HTTPS**, **Données** (sauvegarde locale et distante, base de données, restauration), **Entretien** (entretien périodique, redémarrage, purge des métriques) |
+| **Système** | **Instance** (identité, écran d'accueil, page de connexion, exécution), **Apparence** (skins proposés), **Accès HTTPS**, **Données** (sauvegarde locale et distante, base de données, restauration), **Journalisation** (conservation et gel du journal de sécurité, centralisation par le syslog de l'hôte), **Entretien** (entretien périodique, redémarrage, purge des métriques) |
 
 **Se déplacer.** `Ctrl+K` ouvre la recherche : pages, réglages et actions ;
 flèches pour choisir, `Entrée` pour ouvrir.
@@ -1506,6 +1509,29 @@ Quelques actions notables :
   une vingtaine de couleurs en clair et en sombre et un aperçu en direct.
   *Exporter* un intégré en fait un modèle à retoucher. *Habillages personnels* :
   interrupteur (la section *Mes habillages* des Paramètres disparaît quand il est coupé) et plafond par compte.
+- **Journal de sécurité** (*Supervision › Journaux › Sécurité*) — connexions,
+  comptes, droits, réglages, sauvegardes, exports, commandes : une ligne JSON
+  signée par événement, un fichier par jour UTC. Filtres (période, catégorie,
+  action, compte, résultat, IP, service), *Plus ancien* pour remonter le
+  temps, détail complet d'une ligne. Les marqueurs d'écriture (démarrage,
+  arrêt, battement horaire des services) sont masqués par défaut : une case les
+  affiche. *Exporter* en CSV ou en JSONL (copie brute, vérifiable), 366 jours au
+  plus ; chaque export est lui-même journalisé. *Vérifier l'intégrité* contrôle
+  signatures et continuité sur la période : *intact*, *anomalies* (lignes
+  modifiées, supprimées ou permutées), *non vérifié* (lignes sans signature, par
+  exemple avant la mise en place de la clé) ou *vide*.
+- **Journalisation** (*Système*) — durée de conservation du journal (365 jours par
+  défaut, de 180 à 1 095) et « centralisation attendue » : cochée, la purge
+  quotidienne s'arrête tant que rsyslog ne tourne pas ou que la règle Elpis
+  manque, pour ne rien effacer qui n'ait été envoyé. *Geler la purge* (motif
+  obligatoire, confirmation en tapant `GELER`, levée en tapant `LEVER`) garde tous
+  les fichiers, par exemple pendant une enquête. La page montre l'état de rsyslog
+  (règle, collecteur, transport, file, certificats), le stockage (dossier, droits,
+  signature, disque) et les services qui écrivent ; *Écrire un événement de test*
+  donne un code à retrouver dans le collecteur. Mise en place côté serveur :
+  `sudo ./elpis audit setup`, voir l'[exploitation](../operations.md#security-journal-and-log-forwarding)
+  (en anglais). Les alertes (disque, horloge, clé absente, centralisation, échecs
+  d'écriture, gel) apparaissent dans *Vue d'ensemble › À traiter*.
 - **Changer de base de données** — « Simuler » vérifie la base cible et compte
   ce qui serait copié ; « Migrer et basculer » suspend les écritures, copie et
   vérifie les données, puis redémarre l'application sur la nouvelle base.

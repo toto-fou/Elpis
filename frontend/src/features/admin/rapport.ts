@@ -11,9 +11,117 @@ import {
 import type { RapportQuotidien } from "@elpis/contracts";
 
 import type { ClientHttp } from "../../platform/http/client";
-import { valeurOuNull } from "../../platform/http/resultat";
+import { messageErreur, valeurOuNull } from "../../platform/http/resultat";
+import type { ApiResult } from "../../platform/http/resultat";
 
 export type { RapportQuotidien };
+
+const CLE_GRAPHIQUES = "elpis_rapport_graphiques";
+
+/** Choix mémorisé des graphiques (affichés par défaut) ; stockage en échec : affichés. */
+function lireGraphiques(): boolean {
+  try {
+    return localStorage.getItem(CLE_GRAPHIQUES) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function ecrireGraphiques(on: boolean): void {
+  try {
+    localStorage.setItem(CLE_GRAPHIQUES, on ? "1" : "0");
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
+/** Écoute Échap sur le document ; renvoie la fonction qui retire l'écouteur. */
+export function ecouterEchap(rappel: () => void): () => void {
+  const f = (e: KeyboardEvent): void => {
+    if (e.key === "Escape") rappel();
+  };
+  document.addEventListener("keydown", f);
+  return () => document.removeEventListener("keydown", f);
+}
+
+export interface SerieRapport {
+  id: string;
+  titre: string;
+  type: "line" | "bar";
+  empile: boolean;
+  labels: string[];
+  datasets: { label: string; data: number[] }[];
+}
+
+/** Forme de tracé des 9 graphiques du rapport (`REPORT_SECTIONS`) ; le doughnut des outils devient des barres. */
+const FORMES: Readonly<Record<string, { type: "line" | "bar"; empile: boolean }>> = {
+  usage_timeline: { type: "bar", empile: true },
+  usage_input_timeline: { type: "bar", empile: true },
+  usage_thinking_timeline: { type: "bar", empile: true },
+  usage_by_model: { type: "bar", empile: true },
+  usage_top_users: { type: "bar", empile: true },
+  routine_runs_timeline: { type: "bar", empile: true },
+  latency_percentiles: { type: "bar", empile: false },
+  tools_usage: { type: "bar", empile: false },
+  active_users_day: { type: "line", empile: false },
+};
+
+const MAX_JEUX = 8;
+
+/** Au-delà de `MAX_JEUX` jeux, les derniers sont additionnés dans « Autres ». */
+function regrouperJeux(jeux: { label: string; data: number[] }[]): { label: string; data: number[] }[] {
+  if (jeux.length <= MAX_JEUX) return jeux;
+  const reste = jeux.slice(MAX_JEUX - 1);
+  const somme = (reste[0]?.data ?? []).map((_, i) => reste.reduce((t, j) => t + (j.data[i] ?? 0), 0));
+  return [...jeux.slice(0, MAX_JEUX - 1), { label: "Autres", data: somme }];
+}
+
+export interface TableauRapport {
+  id: string;
+  titre: string;
+  colonnes: { key: string; label: string; align?: string }[];
+  lignes: Record<string, unknown>[];
+}
+
+/** Séries et tableaux de la section « Graphiques » du rapport, tels que le serveur les a stockés (rien n'est inventé). */
+export function elementsGraphiques(r: RapportQuotidien | null): {
+  series: SerieRapport[];
+  tableaux: TableauRapport[];
+} {
+  const series: SerieRapport[] = [];
+  const tableaux: TableauRapport[] = [];
+  const section = r?.sections?.find((s) => s.id === "charts");
+  for (const id of section?.widgets ?? []) {
+    const w = r?.widgets?.[id];
+    if (!w || w.error) continue;
+    const titre = r?.titles?.[id] || id;
+    if (w.labels?.length && w.datasets?.length) {
+      const datasets = regrouperJeux(
+        w.datasets.map((d) => ({
+          label: d.label ?? "",
+          data: (d.data ?? []).map((v) => (Number.isFinite(Number(v)) ? Number(v) : 0)),
+        })),
+      );
+      const forme = FORMES[id] ?? { type: "bar", empile: datasets.length > 1 };
+      series.push({ id, titre, ...forme, labels: w.labels.map(String), datasets });
+    } else if (w.columns?.length && w.rows?.length) {
+      const colonnes = w.columns.map((c) => ({
+        key: c.key,
+        label: c.label,
+        ...(typeof c["align"] === "string" ? { align: c["align"] } : {}),
+      }));
+      tableaux.push({ id, titre, colonnes, lignes: w.rows.slice(0, 20) });
+    }
+  }
+  return { series, tableaux };
+}
+
+/** Raison lisible d'un échec : détail du serveur d'abord, statut HTTP ajouté s'il n'y figure pas déjà. */
+function raisonEchec(r: ApiResult<unknown>): string {
+  const detail = "erreur" in r ? r.erreur.detail : null;
+  const base = detail || messageErreur(r) || "Échec";
+  return "statut" in r && r.statut && !base.includes(String(r.statut)) ? `${base} (HTTP ${r.statut})` : base;
+}
 
 export interface CtxRapportAdmin {
   showToast?(message: string, type?: string): void;
@@ -26,6 +134,11 @@ export function setupAdminRapport(ctx: CtxRapportAdmin | null | undefined, http:
   const dailyReportGenerating = ref(false);
   const reportHistory: Ref<Array<{ date: string; created_at: number }>> = ref([]);
   const dailyDigestAuto = ref(true);
+  const dailyReportError: Ref<string | null> = ref(null);
+  const reportDay = ref("");
+  const reportCharts = ref(lireGraphiques());
+  const reportPreview = ref(false);
+  let seq = 0;
   const json = (corps: unknown): RequestInit => ({
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,11 +146,19 @@ export function setupAdminRapport(ctx: CtxRapportAdmin | null | undefined, http:
   });
 
   async function loadDailyReport(date?: string): Promise<void> {
+    const moi = ++seq;
     dailyReportLoading.value = true;
+    reportDay.value = date ?? "";
+    dailyReportError.value = null;
     try {
       const url = "/api/admin/report/daily" + (date ? "?date=" + encodeURIComponent(date) : "");
-      const rapport = valeurOuNull(await http.requete(url, {}, { schema: schemaRapportQuotidien }));
-      if (rapport) dailyReport.value = rapport;
+      const r = await http.requete(url, {}, { schema: schemaRapportQuotidien });
+      if (moi !== seq) return;
+      if (r.type === "ok") dailyReport.value = r.valeur;
+      else if (r.type !== "perime" && r.type !== "annulation") {
+        dailyReport.value = null;
+        dailyReportError.value = raisonEchec(r);
+      }
       const hist = valeurOuNull(
         await http.requete(
           "/api/admin/report/daily/list?limit=30",
@@ -45,14 +166,23 @@ export function setupAdminRapport(ctx: CtxRapportAdmin | null | undefined, http:
           { schema: schemaReponseHistoriqueRapports },
         ),
       );
+      if (moi !== seq) return;
       if (hist) reportHistory.value = hist.reports;
       const auto = valeurOuNull(
         await http.requete("/api/admin/report/daily/auto", {}, { schema: schemaReponseRapportAuto }),
       );
+      if (moi !== seq) return;
       if (auto) dailyDigestAuto.value = auto.enabled;
     } finally {
-      dailyReportLoading.value = false;
+      if (moi === seq) dailyReportLoading.value = false;
     }
+  }
+
+  const retryDailyReport = (): Promise<void> => loadDailyReport(reportDay.value || undefined);
+
+  function setReportCharts(on: boolean): void {
+    reportCharts.value = on;
+    ecrireGraphiques(on);
   }
 
   async function setDailyDigestAuto(enabled: unknown): Promise<void> {
@@ -98,6 +228,12 @@ export function setupAdminRapport(ctx: CtxRapportAdmin | null | undefined, http:
     }
   }
 
+  const openReportPreview = (): void => {
+    reportPreview.value = true;
+  };
+  const closeReportPreview = (): void => {
+    reportPreview.value = false;
+  };
   const printDailyReport = (): void => window.print();
 
   function reportVal(wid: string): string {
@@ -120,6 +256,14 @@ export function setupAdminRapport(ctx: CtxRapportAdmin | null | undefined, http:
     dailyReportGenerating,
     reportHistory,
     dailyDigestAuto,
+    dailyReportError,
+    reportDay,
+    reportCharts,
+    reportPreview,
+    retryDailyReport,
+    setReportCharts,
+    openReportPreview,
+    closeReportPreview,
     setDailyDigestAuto,
     loadDailyReport,
     generateDailyReport,

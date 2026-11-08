@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/admin/observabilite.ts — console › Supervision › Appels d'outils et Audit : synthèse par outil, dernières erreurs et audit récent filtrable, avec jeton de fraîcheur. */
+/** frontend/src/features/admin/observabilite.ts — console › Activité › Appels d'outils : synthèse par outil et dernières erreurs, avec jeton de fraîcheur. */
 import type { Ref } from "vue";
 
 import { corpsJson, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
+import { PAR_PAGE, pageBornee, parametresTri, trierPar } from "./pagination";
+import type { Tri } from "./pagination";
 import { ecrirePeriode, lirePeriode, periodeValide } from "./periode";
 import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
@@ -31,162 +33,202 @@ export interface ErreurOutil {
   run_id: string | null;
   node_id: string | null;
   tool_name: string;
+  server_name?: string | null;
   status: string;
   duration_ms: number | null;
   error_short: string | null;
   [cle: string]: unknown;
 }
-export interface LigneAudit {
-  ts?: number;
-  iso?: string;
-  action: string;
-  user_id?: number | null;
-  username?: string | null;
-  service?: string;
-  details?: unknown;
-  [cle: string]: unknown;
+export interface FiltreOutils {
+  statut: string;
+  outil: string;
+  serveur: string;
+  q: string;
 }
+const TRI_OUTILS: Tri = { col: "ts", dir: "desc" };
+const DELAI_RECHERCHE_MS = 300;
 
 export function creerObservabilite(b: BaseAdmin) {
-  const { vue, ctx, e } = b;
+  const { vue, ctx } = b;
   const { ref } = vue;
   const obsScope = ref(lirePeriode());
-  const obsAuditPrefix = ref("");
   const obsLoading = ref(false);
   const obsDerniereMaj: Ref<number | null> = ref(null);
   const obsEchec = ref(false);
   const obsSummary: Ref<SyntheseOutils> = ref({ totals: { n: 0 }, per_tool: [] });
   const obsFailures: Ref<ErreurOutil[]> = ref([]);
-  const obsAudit: Ref<LigneAudit[]> = ref([]);
+  const outilsFiltre: Ref<FiltreOutils> = ref({ statut: "", outil: "", serveur: "", q: "" });
+  const outilsTri: Ref<Tri> = ref({ ...TRI_OUTILS });
+  const outilsPage = ref(1);
+  const outilsParPage = PAR_PAGE;
+  const outilsTotal = ref(0);
+  let minuterieOutils: ReturnType<typeof setTimeout> | null = null;
   let sequenceOutils = 0;
-  let sequenceAudit = 0;
-  let enCours = 0;
+  let sequenceSynthese = 0;
+  /** La dernière synthèse par outil a échoué : une page ou un filtre réussis ne le font pas oublier. */
+  let echecSynthese = false;
 
-  function fmtTs(ts: unknown): string {
-    if (!ts) return "";
-    try {
-      return new Date(Number(ts) * 1000).toLocaleString("fr-FR", { hour12: false });
-    } catch {
-      return "";
-    }
-  }
-  /** Recharge la page affichée (Appels d'outils ou Audit) seulement. */
-  function rechargerPage(): void {
-    void (e.adminTab.value === "audit" ? loadAuditRecent() : loadToolCalls());
+  /** Recharge l'onglet Appels d'outils (`frais` : Actualiser, le serveur ignore son cache). */
+  function rechargerPage(frais = false): void {
+    void loadToolCalls(frais);
   }
   function setObsScope(h: number): void {
     obsScope.value = periodeValide(h);
     ecrirePeriode(obsScope.value);
+    outilsPage.value = 1;
     rechargerPage();
   }
-  function setObsAuditPrefix(prefixe: unknown): void {
-    obsAuditPrefix.value = String(prefixe || "");
-    void loadAuditRecent();
-  }
 
-  /** Compte des chargements en vol (indicateur commun), fin d'un chargement réussi ou non. */
   function debut(): void {
-    enCours += 1;
     obsLoading.value = true;
     obsScope.value = lirePeriode();
   }
-  function fin(reussi: boolean, nom: string, relancer: () => Promise<void>, raison: string): void {
+  function fin(reussi: boolean, raison: string): void {
     if (reussi) {
-      chargementReussi(nom);
+      chargementReussi("loadToolCalls");
       obsEchec.value = false;
       obsDerniereMaj.value = Date.now();
     } else {
       obsEchec.value = true;
-      chargementEchoue(nom, raison, relancer);
+      chargementEchoue("loadToolCalls", raison, reessayer);
     }
   }
 
-  /** Appels d'outils : synthèse et dernières erreurs ; seule la dernière demande écrit. */
-  async function loadToolCalls(): Promise<void> {
+  /** Paramètres de la liste des erreurs : période, fenêtre, tri, filtres et recherche. */
+  function requeteErreurs(heures: number): string {
+    const f = outilsFiltre.value;
+    const p = [
+      `hours=${heures}`,
+      `limit=${outilsParPage}`,
+      `offset=${(outilsPage.value - 1) * outilsParPage}`,
+    ];
+    p.push(...parametresTri(outilsTri.value, TRI_OUTILS));
+    if (f.statut) p.push("status=" + encodeURIComponent(f.statut));
+    if (f.outil) p.push("tool=" + encodeURIComponent(f.outil));
+    if (f.serveur) p.push("server=" + encodeURIComponent(f.serveur));
+    if (f.q.trim()) p.push("q=" + encodeURIComponent(f.q.trim()));
+    return p.join("&");
+  }
+
+  /** Charge les erreurs paginées (page purgée entre-temps : retour à la dernière) et la synthèse par outil si demandée ; seule la dernière demande de chaque genre écrit. */
+  async function chargerOutils(avecSynthese: boolean, frais = false): Promise<void> {
     const moi = ++sequenceOutils;
+    const moiSynthese = avecSynthese ? ++sequenceSynthese : 0;
     debut();
     const heures = obsScope.value;
     try {
       const [rSynthese, rErreurs] = await Promise.all([
-        ctx.fetchAuth(`/api/admin/observability/tool-summary?hours=${heures}&limit=50`, {}, true),
-        ctx.fetchAuth(`/api/admin/observability/tool-failures?hours=${heures}&limit=100`, {}, true),
+        avecSynthese
+          ? ctx.fetchAuth(
+              `/api/admin/observability/tool-summary?hours=${heures}&limit=500${frais ? "&fresh=1" : ""}`,
+              {},
+              true,
+            )
+          : Promise.resolve(null),
+        ctx.fetchAuth(`/api/admin/observability/tool-failures?${requeteErreurs(heures)}`, {}, true),
       ]);
-      if (moi !== sequenceOutils) return;
+      let rechargerPageVide = false;
+      if (avecSynthese && moiSynthese === sequenceSynthese) echecSynthese = !rSynthese?.ok;
       if (rSynthese?.ok) {
         const d = objet(await corpsJson(rSynthese));
-        if (moi === sequenceOutils)
+        if (moiSynthese === sequenceSynthese)
           obsSummary.value = {
             ...d,
             totals: { n: 0, ...objet(d["totals"]) },
             per_tool: listeObjets(d["per_tool"]) as SyntheseOutils["per_tool"],
           };
       }
+      if (moi !== sequenceOutils) return;
       if (rErreurs?.ok) {
         const d = objet(await corpsJson(rErreurs));
-        if (moi === sequenceOutils) obsFailures.value = listeObjets(d["items"]) as ErreurOutil[];
+        if (moi === sequenceOutils) {
+          obsFailures.value = listeObjets(d["items"]) as ErreurOutil[];
+          outilsTotal.value = typeof d["total"] === "number" ? d["total"] : obsFailures.value.length;
+          const page = pageBornee(outilsPage.value, outilsTotal.value, outilsParPage);
+          if (page !== outilsPage.value) {
+            outilsPage.value = page;
+            rechargerPageVide = true;
+          }
+        }
       }
       if (moi === sequenceOutils)
-        fin(
-          !!(rSynthese?.ok && rErreurs?.ok),
-          "loadToolCalls",
-          loadToolCalls,
-          "Réponse du serveur inattendue ou en échec.",
-        );
+        fin(!!rErreurs?.ok && !echecSynthese, "Réponse du serveur inattendue ou en échec.");
+      if (rechargerPageVide && moi === sequenceOutils) void loadErreursOutils();
     } catch {
-      if (moi === sequenceOutils) fin(false, "loadToolCalls", loadToolCalls, "Erreur réseau.");
+      if (avecSynthese && moiSynthese === sequenceSynthese) echecSynthese = true;
+      if (moi === sequenceOutils) fin(false, "Erreur réseau.");
     } finally {
-      enCours -= 1;
-      if (enCours <= 0) obsLoading.value = false;
+      if (moi === sequenceOutils) obsLoading.value = false;
     }
   }
 
-  /** Journal de sécurité de la période (admins seulement), filtré par préfixe d'action ; seule la dernière demande écrit. */
-  async function loadAuditRecent(): Promise<void> {
-    const moi = ++sequenceAudit;
-    debut();
-    const depuis = Date.now() / 1000 - obsScope.value * 3600;
-    const jour = (t: number): string => new Date(t * 1000).toISOString().slice(0, 10);
-    try {
-      const qs = new URLSearchParams({ from: jour(depuis), to: jour(Date.now() / 1000), limit: "200" });
-      if (obsAuditPrefix.value) qs.set("action", obsAuditPrefix.value);
-      const r = await ctx.fetchAuth(`/api/admin/audit/events?${qs.toString()}`, {}, true);
-      if (moi !== sequenceAudit) return;
-      if (r?.ok) {
-        const d = objet(await corpsJson(r));
-        // La recherche va par jours UTC : les lignes antérieures à la période choisie sont écartées ici.
-        const lignes = listeObjets(d["events"]).map((ev) => ({ ...ev, iso: ev["time"] }) as LigneAudit);
-        if (moi === sequenceAudit) obsAudit.value = lignes.filter((l) => (l.ts ?? 0) >= depuis);
-      }
-      if (moi === sequenceAudit)
-        fin(!!r?.ok, "loadAuditRecent", loadAuditRecent, "Réponse du serveur inattendue ou en échec.");
-    } catch {
-      if (moi === sequenceAudit) fin(false, "loadAuditRecent", loadAuditRecent, "Erreur réseau.");
-    } finally {
-      enCours -= 1;
-      if (enCours <= 0) obsLoading.value = false;
-    }
+  /** Réessayer relance la synthèse si c'est elle qui a échoué, sinon les erreurs seules. */
+  const reessayer = (): Promise<void> => (echecSynthese ? loadToolCalls() : loadErreursOutils());
+
+  /** Entrée sur l'onglet, période, Actualiser : synthèse par outil et erreurs. */
+  function loadToolCalls(frais = false): Promise<void> {
+    return chargerOutils(true, frais);
   }
 
-  /** Les deux pages à la fois (ancienne surface : un seul chargeur pour Appels d'outils et Audit). */
-  async function loadObservability(): Promise<void> {
-    await Promise.all([loadToolCalls(), loadAuditRecent()]);
+  /** Page, tri, filtre ou recherche : les erreurs seules, sans relancer la synthèse. */
+  function loadErreursOutils(): Promise<void> {
+    return chargerOutils(false);
+  }
+
+  function filtrerOutils(patch: Partial<FiltreOutils>): void {
+    outilsFiltre.value = { ...outilsFiltre.value, ...patch };
+    outilsPage.value = 1;
+    void loadErreursOutils();
+  }
+
+  /** Recherche libre côté serveur, lancée 300 ms après la dernière frappe. */
+  function rechercherOutils(q: string): void {
+    outilsFiltre.value = { ...outilsFiltre.value, q };
+    if (minuterieOutils !== null) clearTimeout(minuterieOutils);
+    minuterieOutils = setTimeout(() => {
+      minuterieOutils = null;
+      outilsPage.value = 1;
+      void loadErreursOutils();
+    }, DELAI_RECHERCHE_MS);
+  }
+
+  function effacerFiltresOutils(): void {
+    if (minuterieOutils !== null) clearTimeout(minuterieOutils);
+    minuterieOutils = null;
+    filtrerOutils({ statut: "", outil: "", serveur: "", q: "" });
+  }
+
+  function trierOutils(col: string): void {
+    outilsTri.value = trierPar(outilsTri.value, col);
+    outilsPage.value = 1;
+    void loadErreursOutils();
+  }
+
+  function setOutilsPage(page: number): void {
+    outilsPage.value = pageBornee(page, outilsTotal.value, outilsParPage);
+    void loadErreursOutils();
   }
 
   return {
     obsScope,
-    obsAuditPrefix,
     obsLoading,
     obsDerniereMaj,
     obsEchec,
     loadToolCalls,
-    loadAuditRecent,
+    loadErreursOutils,
     rechargerPage,
     obsSummary,
     obsFailures,
-    obsAudit,
+    outilsFiltre,
+    outilsTri,
+    outilsPage,
+    outilsParPage,
+    outilsTotal,
+    filtrerOutils,
+    rechercherOutils,
+    effacerFiltresOutils,
+    trierOutils,
+    setOutilsPage,
     setObsScope,
-    setObsAuditPrefix,
-    loadObservability,
-    fmtTs,
   };
 }

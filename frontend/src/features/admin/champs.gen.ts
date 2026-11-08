@@ -13,6 +13,8 @@ export interface ChampAdmin {
 export const CHAMPS_ADMIN: readonly ChampAdmin[] = Object.freeze([
     {"control": "", "hint": "Coupée, la section Mes habillages disparaît des Paramètres ; les habillages déjà créés restent sur les comptes.", "label": "Autoriser les habillages personnels", "page": "appearance", "path": "skins.user_custom", "store": "config"},
     {"control": "", "hint": "0 = aucun habillage par compte.", "label": "Plafond par compte", "page": "appearance", "path": "skins.user_max", "store": "config"},
+    {"control": "Centralisation attendue", "hint": "Si l'agent syslog, la règle Elpis ou le service manque, la purge est suspendue et une alerte s'affiche dans Vue d'ensemble.", "label": "Centralisation attendue", "page": "audit-logging", "path": "forwarding_expected", "store": "audit"},
+    {"control": "", "hint": "Entre 180 et 1 095 jours (6 mois à 3 ans). 365 par défaut.", "label": "Durée de conservation", "page": "audit-logging", "path": "retention_days", "store": "audit"},
     {"control": "", "hint": "Vide = le moteur d'inférence principal s'en charge.", "label": "Adresse", "page": "compression", "path": "endpoint_url", "store": "compression"},
     {"control": "", "hint": "N'active rien : chaque utilisateur reste libre de l'activer (désactivée par défaut).", "label": "Autorisée", "page": "compression", "path": "enabled", "store": "compression"},
     {"control": "", "hint": "Au-delà, le budget de contexte prend le relais. 0 = sans limite.", "label": "Compressions par conversation", "page": "compression", "path": "max_per_chat", "store": "compression"},

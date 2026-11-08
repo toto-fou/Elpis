@@ -47,6 +47,11 @@ follow [SemVer](https://semver.org/).
   state (disk, clock, rsyslog), the alerts and a test event are available to them.
   The process samples and Prometheus gain an event-loop latency gauge (p99 and max over the
   last minute).
+- **Admin console: Logs › Security and System › Logging.** *Logs › Security* searches the
+  security journal (filters, line detail, export, integrity check). *System › Logging*
+  sets the retention, the hold (confirmed by typing a word) and the expected forwarding,
+  shows the state of the forwarding (agent, rule, collector, transport, queue, certificates)
+  and writes a test event to find in the collector.
 
 ### Changed
 
@@ -179,6 +184,10 @@ follow [SemVer](https://semver.org/).
   computed in the database. The live log stream runs only while the Logs page is open.
   Every request shows a progress bar, and the automatic refresh is visible (on or paused,
   interval, time of the last update).
+- **Admin console: Supervision reorganized.** *Activity* groups *Runs* and *Tool calls*
+  (search, sort, pagination with the total); *Report* shows its errors, previews the printed
+  page and lets you remove charts; dates and times share one format, in local time with the
+  UTC time on hover.
 
 ### Removed
 

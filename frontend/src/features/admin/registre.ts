@@ -5,13 +5,25 @@ export type RoleAdmin = "staff" | "admin";
 /** Appel d'un chargeur à l'entrée d'une page : nom de la fonction de la console et arguments explicites. */
 export type Chargeur = readonly [nom: string, ...arguments: unknown[]];
 
+/** Sous-onglet d'une page : ses chargeurs ne partent que lorsqu'il est affiché. */
+export interface OngletPage {
+  readonly id: string;
+  readonly label: string;
+  /** Rôle exigé quand il est plus strict que celui de la page. */
+  readonly role?: RoleAdmin;
+  readonly loaders: readonly Chargeur[];
+}
+
 interface DefinitionPage {
   id: string;
   label: string;
   /** Rôle exigé quand il est plus strict que celui de l'entrée. */
   role?: RoleAdmin;
   wide?: boolean;
+  /** Chargeurs communs, lancés quel que soit l'onglet affiché. */
   loaders?: readonly Chargeur[];
+  /** Sous-onglets (le premier est l'onglet d'arrivée) ; les chargeurs de l'onglet affiché s'ajoutent à ceux de la page. */
+  onglets?: readonly OngletPage[];
   stores?: readonly string[];
   paths?: readonly string[];
 }
@@ -22,6 +34,7 @@ export interface PageAdmin {
   readonly wide: boolean;
   readonly stores: readonly string[];
   readonly loaders: readonly Chargeur[];
+  readonly onglets: readonly OngletPage[];
   readonly paths: readonly string[];
   readonly entry: string;
   readonly entryLabel: string;
@@ -36,11 +49,20 @@ export interface EntreeAdmin {
   readonly pages: readonly DefinitionPage[];
 }
 
+/** Destination d'un lien : une page et, si elle en a, un de ses onglets (« » = onglet d'arrivée). */
+export interface LienAdmin {
+  readonly page: string;
+  readonly onglet: string;
+}
+
 export interface NavAdmin {
   readonly entries: readonly EntreeAdmin[];
   readonly pages: Readonly<Record<string, PageAdmin>>;
   readonly aliases: Readonly<Record<string, string>>;
-  resolve(id: unknown): string;
+  /** Ancre (`logs/security`, ancien identifiant, `#` facultatif) vers page et onglet, ou `null` si elle ne désigne rien. */
+  resolveLien(ancre: unknown): LienAdmin | null;
+  /** Rôle exigé pour ouvrir l'onglet de la page (celui de la page, ou plus strict). */
+  roleDe(page: string, onglet?: string): RoleAdmin;
   pageForPath(chemin: string): string;
 }
 
@@ -62,10 +84,24 @@ const ENTREES: readonly EntreeAdmin[] = [
     pages: [
       { id: "dashboard", label: "Métriques", wide: true, loaders: [["loadAdminStats"]], paths: ["metrics."] },
       { id: "report", label: "Rapport", wide: true, loaders: [["loadDailyReport"]] },
-      { id: "runs", label: "Exécutions", wide: true, loaders: [["loadAdminRuns"]] },
-      { id: "tool-calls", label: "Appels d’outils", wide: true, loaders: [["loadToolCalls"]] },
-      { id: "audit", label: "Audit", role: "admin", wide: true, loaders: [["loadAuditRecent"]] },
-      { id: "logs", label: "Journaux", wide: true, loaders: [["loadRecentLogs"]] },
+      {
+        id: "activity",
+        label: "Activité",
+        wide: true,
+        onglets: [
+          { id: "runs", label: "Exécutions", loaders: [["loadAdminRuns"]] },
+          { id: "tool-calls", label: "Appels d’outils", loaders: [["loadToolCalls"]] },
+        ],
+      },
+      {
+        id: "logs",
+        label: "Journaux",
+        wide: true,
+        onglets: [
+          { id: "technical", label: "Technique", loaders: [["loadRecentLogs"]] },
+          { id: "security", label: "Sécurité", role: "admin", loaders: [["loadJournalSecurite"]] },
+        ],
+      },
     ],
   },
   {
@@ -180,6 +216,14 @@ const ENTREES: readonly EntreeAdmin[] = [
         paths: ["database.", "backup."],
       },
       {
+        id: "audit-logging",
+        label: "Journalisation",
+        role: "admin",
+        stores: ["audit"],
+        loaders: [["loadAuditStatus"]],
+        paths: ["security.audit."],
+      },
+      {
         id: "upkeep",
         label: "Entretien",
         stores: ["config"],
@@ -192,7 +236,10 @@ const ENTREES: readonly EntreeAdmin[] = [
 
 /** Anciens identifiants vers la page qui contient désormais ce qu'ils désignaient. */
 const ALIAS: Readonly<Record<string, string>> = Object.freeze({
-  observability: "tool-calls",
+  runs: "activity/runs",
+  "tool-calls": "activity/tool-calls",
+  observability: "activity/tool-calls",
+  audit: "logs/security",
   general: "instance",
   connections: "inference",
   engines: "inference",
@@ -216,6 +263,7 @@ function construirePages(): Record<string, PageAdmin> {
         wide: p.wide ?? false,
         stores: p.stores ?? [],
         loaders: p.loaders ?? [],
+        onglets: p.onglets ?? [],
         paths: p.paths ?? [],
         entry: e.id,
         entryLabel: e.label,
@@ -226,18 +274,35 @@ function construirePages(): Record<string, PageAdmin> {
   return pages;
 }
 
-export function creerNavAdmin(): NavAdmin {
+/** Chargeurs à lancer pour la page et l'onglet affichés : ceux de la page, puis ceux de l'onglet. */
+export function chargeursDe(page: PageAdmin | undefined, onglet: string): readonly Chargeur[] {
+  if (!page) return [];
+  const o = page.onglets.find((x) => x.id === onglet);
+  return o ? [...page.loaders, ...o.loaders] : page.loaders;
+}
+
+function creerNavAdmin(): NavAdmin {
   const pages = construirePages();
+  const resolveLien = (ancre: unknown): LienAdmin | null => {
+    const [tete = "", queue = ""] = String(ancre || "")
+      .replace(/^#/, "")
+      .split("/", 2);
+    const [page = "", demande = ""] = Object.hasOwn(pages, tete)
+      ? [tete, queue]
+      : (Object.hasOwn(ALIAS, tete) ? (ALIAS[tete] ?? "") : "").split("/", 2);
+    const def = Object.hasOwn(pages, page) ? pages[page] : undefined;
+    return def ? { page, onglet: def.onglets.some((o) => o.id === demande) ? demande : "" } : null;
+  };
   return Object.freeze({
     entries: ENTREES,
     pages: Object.freeze(pages),
     aliases: ALIAS,
-    /** Identifiant actuel ou historique vers l'identifiant de page, ou « » s'il ne désigne rien. */
-    resolve(id: unknown): string {
-      const brut = String(id || "").replace(/^#/, "");
-      if (pages[brut]) return brut;
-      const alias = ALIAS[brut];
-      return alias && pages[alias] ? alias : "";
+    resolveLien,
+    roleDe(page: string, onglet?: string): RoleAdmin {
+      const def = Object.hasOwn(pages, page) ? pages[page] : undefined;
+      if (!def) return "staff";
+      const o = def.onglets.find((x) => x.id === onglet);
+      return def.role === "admin" || o?.role === "admin" ? "admin" : "staff";
     },
     /** Chemin de config.json vers la page qui le règle (préfixe le plus long). */
     pageForPath(chemin: string): string {

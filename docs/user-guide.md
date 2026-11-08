@@ -1461,16 +1461,18 @@ does not give access to administration functions. The session is shared — one
 click is enough, you are already authenticated.
 
 The sidebar has six entries, each expanding into subpages. Moderators
-see only *Overview* and *Monitoring*.
+see only *Overview* and *Monitoring*, without the *Logs › Security* tab. Dates are
+in local time; hover one for the exact UTC time. Old links (`#runs`, `#tool-calls`,
+`#audit`) lead to the right tab.
 
 | Entry | Subpages |
 |---|---|
 | **Overview** | Landing page: what needs attention (*To review*), service status, last 24 hours, installation |
-| **Monitoring** | **Metrics** (widgets of your choice, CSV export, Prometheus collection), **Report** (archived daily digest), **Tool calls** (failure rate, summaries), **Audit**, **Logs** (last 300 entries, then live stream) |
+| **Monitoring** | **Metrics** (widgets of your choice, visible automatic refresh, CSV export, Prometheus collection), **Report** (archived daily digest, A4 preview before printing, charts shown or removed), **Activity** (*Runs* and *Tool calls* tabs: search, sort, pagination with the total, error filters, clickable `run_id`), **Logs** (*Technical* tab: dated, filterable history, then live stream; *Security* tab: the security journal, administrators only) |
 | **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly) |
 | **Users & access** | **Accounts** (role, groups, allowed servers and models, sandbox quota and network profile, machines), **Groups**, **Default permissions** (features, providers allowed to users), **Passwords & sessions** (password policy, cookie, session revocation) |
 | **Sandbox** | **Limits & policy** (memory, CPU, processes, command duration, idle shutdown), **Network** (profiles), **Tool hosts**, **Containers** |
-| **System** | **Instance** (identity, welcome screen, sign-in page, runtime), **Appearance** (skins offered), **HTTPS access**, **Data** (local and remote backup, database, restore), **Maintenance** (periodic maintenance, restart, metrics purge) |
+| **System** | **Instance** (identity, welcome screen, sign-in page, runtime), **Appearance** (skins offered), **HTTPS access**, **Data** (local and remote backup, database, restore), **Logging** (retention and hold of the security journal, forwarding through the host's syslog), **Maintenance** (periodic maintenance, restart, metrics purge) |
 
 **Navigating.** `Ctrl+K` opens search: pages, settings and actions;
 arrows to choose, `Enter` to open.
@@ -1500,6 +1502,26 @@ A few notable actions:
   about twenty colors in light and dark and a live preview.
   *Export* a built-in one turns it into a template to tweak. *Personal skins*:
   switch (the *My skins* section of Settings disappears when it is off) and per-account cap.
+- **Security journal** (*Monitoring › Logs › Security*) — sign-ins, accounts, rights,
+  settings, backups, exports, commands: one signed JSON line per event, one file per
+  UTC day. Filters (period, category, action, account, outcome, IP, service), *Older*
+  to go back in time, full detail of a line. The write markers (start, stop, hourly
+  heartbeat of the services) are hidden by default: a checkbox shows them. *Export* as
+  CSV or JSONL (raw copy, verifiable), 366 days at most; each export is itself
+  logged. *Verify integrity* checks signatures and continuity over the period:
+  *intact*, *anomalies* (lines modified, deleted or reordered), *not verified*
+  (unsigned lines, for example from before the key was set up) or *empty*.
+- **Logging** (*System*) — retention of the journal (365 days by default, 180 to
+  1,095) and "forwarding expected": when ticked, the daily purge stops as long as
+  rsyslog is not running or the Elpis rule is missing, so nothing is erased that was
+  not sent. *Freeze the purge* (reason required, confirmed by typing `GELER`, lifted
+  by typing `LEVER`) keeps every file, for example during an investigation. The page
+  shows the state of rsyslog (rule, collector, transport, queue, certificates), the
+  storage (folder, permissions, signature, disk) and the services that write; *Write
+  a test event* gives a code to find in the collector. Server-side setup:
+  `sudo ./elpis audit setup`; see [Operations](operations.md#security-journal-and-log-forwarding).
+  Alerts (disk, clock, missing key, forwarding, write failures, hold) appear in
+  *Overview › To review*.
 - **Changing database** — "Simulate" checks the target database and counts
   what would be copied; "Migrate and switch" suspends writes, copies and
   verifies the data, then restarts the application on the new database.

@@ -17,7 +17,7 @@ export const ARBRE_DEPLIE: readonly GroupeArbre[] = Object.freeze([
     id: "supervision",
     label: "Supervision",
     icon: "ph-chart-line-up",
-    pages: ["dashboard", "report", "runs", "tool-calls", "audit", "logs"],
+    pages: ["dashboard", "report", "activity", "logs"],
   },
   {
     id: "models",
@@ -51,7 +51,7 @@ export const ARBRE_DEPLIE: readonly GroupeArbre[] = Object.freeze([
     id: "system",
     label: "Système",
     icon: "ph-hard-drives",
-    pages: ["instance", "appearance", "data", "upkeep"],
+    pages: ["instance", "appearance", "data", "audit-logging", "upkeep"],
   },
 ]);
 
@@ -64,9 +64,11 @@ export function groupeDeplie(idPage: string): string {
 
 export interface GroupeAffiche extends GroupeArbre {
   readonly pagesVisibles: readonly PageAdmin[];
+  /** Page vers l'onglet qui a fait trouver la page (libellé d'onglet seul en cause) : l'ouvrir mène à cet onglet. */
+  readonly ongletTrouve: Readonly<Record<string, string>>;
 }
 
-/** Groupes à afficher : pages permises au rôle, filtrées par le libellé de la page ou d'un de ses réglages ; un groupe sans page disparaît. */
+/** Groupes à afficher : pages permises au rôle, filtrées par le libellé de la page, d'un de ses onglets ou d'un de ses réglages ; un groupe sans page disparaît. */
 export function filtrerArbre(
   pages: Readonly<Record<string, PageAdmin>>,
   admin: boolean,
@@ -82,13 +84,21 @@ export function filtrerArbre(
   const sortie: GroupeAffiche[] = [];
   for (const g of ARBRE_DEPLIE) {
     const visibles: PageAdmin[] = [];
+    const ongletTrouve: Record<string, string> = {};
     for (const id of g.pages) {
       const page = pages[id];
       if (!page || (page.role === "admin" && !admin)) continue;
-      if (q && !normaliser(page.label).includes(q) && !(reglagesParPage.get(id) ?? "").includes(q)) continue;
+      if (q) {
+        const parPage = normaliser(page.label).includes(q) || (reglagesParPage.get(id) ?? "").includes(q);
+        const onglet = page.onglets.find(
+          (o) => (o.role !== "admin" || admin) && normaliser(o.label).includes(q),
+        );
+        if (!parPage && !onglet) continue;
+        if (!parPage && onglet) ongletTrouve[id] = onglet.id;
+      }
       visibles.push(page);
     }
-    if (visibles.length) sortie.push({ ...g, pagesVisibles: visibles });
+    if (visibles.length) sortie.push({ ...g, pagesVisibles: visibles, ongletTrouve });
   }
   return sortie;
 }

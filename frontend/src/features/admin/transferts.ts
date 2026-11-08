@@ -10,7 +10,9 @@ import type { Ref } from "vue";
 import { corpsJson, detailErreur, lireSchema, nombre, objet, texte } from "../../utils/lecture-json";
 import { declarerBrouillon } from "./brouillons";
 import type { BaseAdmin } from "./etat";
+import { formateurDate } from "./horodatage";
 
+const jourHeure = formateurDate({ day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const ENTETES_JSON = { "Content-Type": "application/json" };
 
 export interface EtatTransfert {
@@ -71,6 +73,12 @@ const transfertVide = (): EtatTransfert => ({
   waitLabel: "",
   elapsed: 0,
 });
+
+export interface OptionsTelechargement {
+  methode?: "GET" | "POST";
+  /** Message affiché à la place du détail du serveur pour un statut d'erreur donné. */
+  erreurs?: Readonly<Record<number, string>>;
+}
 
 export interface ReponseEnvoi {
   status: number;
@@ -146,19 +154,26 @@ export function creerTransferts(b: BaseAdmin) {
       : "Échec : " + (err instanceof Error ? err.message : String(err));
   }
 
-  /** Téléchargement en flux avec progression (fetch brut : le 401 route vers la fin de session globale). */
+  /** Téléchargement en flux avec progression (fetch brut : le 401 route vers la fin de session globale) ; `options` : méthode POST et messages propres à certains statuts. */
   async function downloadWithModal(
     url: string,
     titre: string,
     repli: string,
     libelleAttente = "Préparation…",
+    options: OptionsTelechargement = {},
   ): Promise<void> {
     ouvrirTransfert("download", titre, repli);
     attendre(libelleAttente);
     const ac = new AbortController();
     annulation = () => ac.abort();
     try {
-      const res = await fetch(url, { credentials: "same-origin", signal: ac.signal });
+      const res = await fetch(url, {
+        credentials: "same-origin",
+        // Les lectures tracées de la console exigent cet en-tête (inoffensif ailleurs, fetch de même origine).
+        headers: { "X-Elpis-Console": "1" },
+        signal: ac.signal,
+        ...(options.methode ? { method: options.methode } : {}),
+      });
       finirAttente();
       if (res.status === 401) {
         transferModal.value.active = false;
@@ -167,7 +182,7 @@ export function creerTransferts(b: BaseAdmin) {
       }
       if (!res.ok) {
         const detail = detailErreur(await res.json().catch(() => null));
-        throw new Error(detail || "HTTP " + res.status);
+        throw new Error(options.erreurs?.[res.status] || detail || "HTTP " + res.status);
       }
       const m = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") || "");
       if (m?.[1]) transferModal.value.filename = m[1];
@@ -347,12 +362,7 @@ export function creerTransferts(b: BaseAdmin) {
   function remoteDateLabel(ts: unknown): string {
     if (!ts) return "";
     try {
-      return new Date(Number(ts) * 1000).toLocaleString("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      return jourHeure(Number(ts) * 1000);
     } catch {
       return "";
     }

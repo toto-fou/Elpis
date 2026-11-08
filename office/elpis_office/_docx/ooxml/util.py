@@ -72,7 +72,9 @@ def sub(parent: etree._Element, tag: str, **attrs: Any) -> etree._Element:
 
 
 def local_name(element: etree._Element) -> str:
-    return etree.QName(element).localname
+    """Nom local ; ``etree.QName`` seulement hors élément (commentaire : même refus), quatre fois plus lent."""
+    tag = element.tag
+    return tag.rpartition("}")[2] if isinstance(tag, str) else etree.QName(element).localname
 
 
 def insert_in_order(

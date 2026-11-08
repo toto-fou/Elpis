@@ -36,7 +36,17 @@ const run = computed(() => m.runDetails?.data?.run ?? null);
             </div>
           </div>
           <div class="flex items-center gap-1 shrink-0">
+            <button
+              v-if="m.runDetails.admin"
+              type="button"
+              title="Exporter en JSON (secrets masqués)"
+              class="h-8 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
+              @click="m.exporterRun(m.runDetails.runId)"
+            >
+              <i class="ph ph-download-simple"></i> Exporter
+            </button>
             <a
+              v-else
               :href="m.runExportHref(m.runDetails.runId)"
               title="Exporter en JSON (secrets masqués)"
               class="h-8 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
@@ -51,6 +61,10 @@ const run = computed(() => m.runDetails?.data?.run ?? null);
               <i class="ph ph-x"></i>
             </button>
           </div>
+        </div>
+
+        <div v-if="m.runDetails.exportError" class="px-5 pt-3 text-xs text-red-600 shrink-0" role="alert">
+          {{ m.runDetails.exportError }}
         </div>
 
         <div v-if="m.runDetails.ids.length > 1" class="px-5 pt-3 flex flex-wrap gap-1 shrink-0">

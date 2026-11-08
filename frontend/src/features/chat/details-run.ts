@@ -4,6 +4,7 @@ import { ref } from "vue";
 
 import { fmtTokenCount, tokenBreakdown } from "../../utils/utils-purs.ts";
 import type { DetailTokens } from "../../utils/utils-purs.ts";
+import { telechargerBlob } from "./export.ts";
 import type { FetchAuth } from "./flux/aides.ts";
 
 export interface EtatDetailsRun {
@@ -14,6 +15,7 @@ export interface EtatDetailsRun {
   error: string;
   data: ChronologieRun | null;
   open: Record<number, boolean>;
+  exportError?: string;
 }
 
 export interface LigneTokens {
@@ -87,6 +89,8 @@ const GENRES: Readonly<Record<string, string>> = {
   image: "Images",
 };
 
+/** En-tête que la console pose sur ses lectures tracées. */
+export const ENTETE_CONSOLE = "X-Elpis-Console";
 const base = (admin: boolean): string => (admin ? "/api/admin/runs/" : "/api/runs/");
 
 export function runDuration(ms: unknown): string {
@@ -236,6 +240,26 @@ export function setupRunDetails(_vue: unknown, ctx: { fetchAuth?: FetchAuth } | 
     return base(!!runDetails.value?.admin) + encodeURIComponent(id) + "/export";
   }
 
+  /** Export côté console : fetch avec l'en-tête de la console (un lien de navigation ne peut pas le porter), puis enregistrement ; le refus s'affiche dans la fenêtre. */
+  async function exporterRun(id: string): Promise<void> {
+    const echec = (exportError: string): void => {
+      const d = courant(id);
+      if (d) runDetails.value = { ...d, exportError };
+    };
+    echec("");
+    try {
+      const r = await lire(runExportHref(id), { headers: { [ENTETE_CONSOLE]: "1" } }, true);
+      if (!r) return echec("Export impossible (réseau ou session).");
+      if (!r.ok) {
+        const corps = (await r.json().catch(() => null)) as { detail?: unknown } | null;
+        return echec(typeof corps?.detail === "string" ? corps.detail : `Export refusé (HTTP ${r.status}).`);
+      }
+      telechargerBlob(await r.blob(), `execution-${id}.json`);
+    } catch {
+      echec("Export impossible (réseau).");
+    }
+  }
+
   return {
     runDetails,
     openRunDetails,
@@ -248,6 +272,7 @@ export function setupRunDetails(_vue: unknown, ctx: { fetchAuth?: FetchAuth } | 
     runEventState,
     runClock,
     runExportHref,
+    exporterRun,
     runInput,
     runOutput,
     runTokensTitle,

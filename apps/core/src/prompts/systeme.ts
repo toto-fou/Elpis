@@ -236,6 +236,10 @@ const FRAGMENTS_CONTENU: readonly [ReadonlySet<string>, string][] = [
   [new Set(["memory"]), "FRAGMENT_MEMORY"],
   [new Set(["rag"]), "FRAGMENT_RAG"],
 ];
+/** Fragments qui exigent TOUTES leurs catégories (consigne qui cite les outils d'une autre famille). */
+const FRAGMENTS_CONJOINTS: readonly [ReadonlySet<string>, string][] = [
+  [new Set(["office", "chart"]), "FRAGMENT_OFFICE_CHART"],
+];
 const CATEGORIES_CONNUES: ReadonlySet<string> = new Set([
   ...CATEGORIES_ACTION,
   ...FRAGMENTS_CONTENU.flatMap(([d]) => [...d]),
@@ -320,6 +324,8 @@ export async function buildCapabilityBlock(
     for (const [declencheur, stem] of FRAGMENTS_ACTION) choisir(declencheur, stem);
   }
   for (const [declencheur, stem] of FRAGMENTS_CONTENU) choisir(declencheur, stem);
+  for (const [toutes, stem] of FRAGMENTS_CONJOINTS)
+    if ([...toutes].every((c) => cats.has(c)) && !stems.includes(stem)) stems.push(stem);
   for (const c of [...cats]
     .filter((x) => declares.has(x) && !CATEGORIES_CONNUES.has(x))
     .sort(comparePointsDeCode)) {

@@ -5,7 +5,7 @@
     {
       "name": "docx_create",
       "title": "Docx Create",
-      "description": "Create a Word document (.docx) in the sandbox from Markdown.\ncontent supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, > quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool (native editable chart when possible, else an image); chart_table \u2192 a real table\n  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n  [TOC]: table of contents \u00b7 \\newpage: page break\nAn existing file at path is replaced (the previous version stays in the file history, up to 5 MB). Returns path, outline (headings with paragraph numbers) and summary.",
+      "description": "Create a Word document (.docx) in the sandbox from Markdown.\ncontent supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, > quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool (native editable chart when possible, else an image); chart_table \u2192 a real table\n  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n  [TOC]: table of contents \u00b7 \\newpage: page break\nAn existing file at path is replaced (the previous version stays in the file history, or in a .bak copy above 5 MB). Returns path, outline (headings with paragraph numbers) and summary.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -861,7 +861,7 @@
     {
       "name": "pptx_create",
       "title": "Pptx Create",
-      "description": "Create a PowerPoint deck (.pptx) in the sandbox. Each slide is {layout, \u2026}:\n  title {title, subtitle, author, date} \u00b7 section {title, subtitle} \u00b7 agenda {items}\n  bullets {title, bullets, takeaway} \u00b7 two_content {title, left, right}\n  kpi {title, items:[{value:'18,4 M\u20ac', label, delta:'+12 %'}]}\n  chart {title, chart:'!id' from a chart_<type> tool, takeaway}\n  table {title, table} \u00b7 comparison {title, left:{title, items}, right:{title, items}}\n  timeline {title, milestones:[{date, title}]} \u00b7 process {title, steps}\n  image {title, image: sandbox path} \u00b7 quote {text, author} \u00b7 closing {title, contact}\nEvery slide accepts notes (speaker notes). Layouts are composed and text is fitted for you. An existing file at path is replaced (previous version kept in the file history, up to 5 MB).",
+      "description": "Create a PowerPoint deck (.pptx) in the sandbox. Each slide is {layout, \u2026}:\n  title {title, subtitle, author, date} \u00b7 section {title, subtitle} \u00b7 agenda {items}\n  bullets {title, bullets, takeaway} \u00b7 two_content {title, left, right}\n  kpi {title, items:[{value:'18,4 M\u20ac', label, delta:'+12 %'}]}\n  chart {title, chart:'!id' from a chart_<type> tool, takeaway}\n  table {title, table} \u00b7 comparison {title, left:{title, items}, right:{title, items}}\n  timeline {title, milestones:[{date, title}]} \u00b7 process {title, steps}\n  image {title, image: sandbox path} \u00b7 quote {text, author} \u00b7 closing {title, contact}\nEvery slide accepts notes (speaker notes). Layouts are composed and text is fitted for you. An existing file at path is replaced (previous version kept in the file history, or in a .bak copy above 5 MB).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

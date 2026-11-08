@@ -61,6 +61,7 @@ class Ecrit:
     new_sha256: str
     size: int
     history_kept: bool = True  # ancienne version gardée dans l'historique de session
+    backup: Optional[str] = None  # trop grosse pour l'historique : copie .bak faite par l'hôte
 
 
 class Espace(Protocol):
@@ -310,12 +311,13 @@ def ecrire(env: Env, rel: str, data: bytes, attendu: Optional[str] = None) -> Di
                                                 "fewer or smaller images")
     e = env.espace.ecrire(rel, data, attendu)
     if e.old_sha256 and not e.history_kept:
-        env.notes.warn("the previous version was replaced and is too large to be kept in the "
-                       "file history")
+        env.notes.warn(f"the previous version is too large for the file history: it was kept as {e.backup}"
+                       if e.backup else "the previous version was replaced and is too large to be kept "
+                                        "in the file history")
     return resultat_ecrit(e)
 
 
 def resultat_ecrit(e: Ecrit) -> Dict[str, Any]:
     """Champs qui alimentent le suivi des fichiers modifiés d'Elpis (carte, éditeur)."""
     return {"path": e.path, "old_sha256": e.old_sha256, "new_sha256": e.new_sha256,
-            "size": e.size}
+            "size": e.size, **({"backup": e.backup} if e.backup else {})}

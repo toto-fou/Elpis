@@ -192,7 +192,8 @@ class EspaceCanal:
     def ecrire(self, rel: str, data: bytes, attendu: Optional[str] = None) -> Ecrit:
         v, _ = self._canal.rappeler(self._aid, "ecrire", {"chemin": rel, "attendu": attendu}, data)
         return Ecrit(path=str(v["path"]), old_sha256=str(v["old_sha256"]), new_sha256=str(v["new_sha256"]),
-                     size=int(v["size"]), history_kept=bool(v["history_kept"]))
+                     size=int(v["size"]), history_kept=bool(v["history_kept"]),
+                     backup=str(v["backup"]) if v.get("backup") else None)
 
 
 def _env(canal: Canal, aid: int, contexte: Dict[str, Any]) -> Env:

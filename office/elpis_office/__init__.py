@@ -138,7 +138,8 @@ TOOLS["docx_create"] = {
         "  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n"
         "  [TOC]: table of contents · \\newpage: page break\n"
         "An existing file at path is replaced (the previous version stays in the file history, "
-        "up to 5 MB). Returns path, outline (headings with paragraph numbers) and summary."),
+        "or in a .bak copy above 5 MB). Returns path, outline (headings with paragraph numbers) and "
+        "summary."),
     "params": OrderedDict([
         ("path", _PATH),
         ("content", {"type": "string", "description": "The document body in Markdown."}),
@@ -224,7 +225,7 @@ TOOLS["pptx_create"] = {
         "  image {title, image: sandbox path} · quote {text, author} · closing {title, contact}\n"
         "Every slide accepts notes (speaker notes). Layouts are composed and text is fitted for "
         "you. An existing file at path is replaced (previous version kept in the file history, "
-        "up to 5 MB)."),
+        "or in a .bak copy above 5 MB)."),
     "params": OrderedDict([
         ("path", _PATH_PPTX),
         ("slides", {"type": "array", "items": _SLIDE_OBJ, "minItems": 1}),

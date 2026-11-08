@@ -131,7 +131,7 @@ TOOLS: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 TOOLS["docx_create"] = {
     "description": (
         "Create a Word document (.docx) in the sandbox from Markdown.\n"
-        "content supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, "
+        "content supports: # headings, paragraphs, **bold** / *italic*, H~2~O / x^2^, lists, | tables |, "
         "> quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n"
         "  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool "
         "(native editable chart when possible, else an image); chart_table → a real table\n"
@@ -196,7 +196,7 @@ TOOLS["docx_edit"] = {
         "(exact case unless match_case:false)\n"
         "  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n"
         "  {op:'set', p, text}                       rewrites one paragraph (style kept); inline "
-        "Markdown: **bold**, *italic*, [link](url), also in set_cell\n"
+        "Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n"
         "  {op:'delete', p} · {op:'delete', p, to} · {op:'delete', table}\n"
         "  {op:'insert', after|before: p or heading text, content: Markdown}\n"
         "  {op:'insert', at_end_of: heading text, content}\n"

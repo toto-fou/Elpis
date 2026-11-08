@@ -97,7 +97,16 @@ export function travailCanonique(ctx: RunContext, rec: RunRecord, entree: readon
   const vue = applyPruneMarks(complet, rec.runPruneKeys) as Dict[];
   const retenus = appelsRepondus(vue);
   const propres = (stripInternalKeys(retenus) as Dict[]).map((m, i) =>
-    isEphemeral(retenus[i]) ? { ...m, _ephemeral: true } : m,
+    isEphemeral(retenus[i]) ? sansImages({ ...m, _ephemeral: true }) : m,
   );
   return structuredClone([...teteBrute(entree), ...sansTeteAssemblee(propres)]);
+}
+
+/** Images d'un message éphémère (captures, aperçus) remplacées par une marque : la reprise ne garde pas leur base64. */
+function sansImages(m: Dict): Dict {
+  if (!Array.isArray(m["content"])) return m;
+  const contenu = (m["content"] as unknown[]).map((b) =>
+    estDict(b) && b["type"] === "image_url" ? { type: "text", text: "[image not kept]" } : b,
+  );
+  return { ...m, content: contenu };
 }

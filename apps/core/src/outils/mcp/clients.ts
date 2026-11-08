@@ -1386,8 +1386,8 @@ export async function executerOutilMcp(
       queueTimeoutS: options.queueTimeoutS ?? TOOL_QUEUE_WAIT_S,
       signal: options.signal,
     });
-    const [sansImages, images] = separerImages(res);
-    return pyJsonDumps(deposerImages(pickToolPayload(sansImages), images), { ensureAscii: false });
+    const [sansImages, images, ecartees] = separerImages(res);
+    return pyJsonDumps(deposerImages(pickToolPayload(sansImages), images, ecartees), { ensureAscii: false });
   } catch (e) {
     if (estAnnulation(e, options.signal)) throw e;
     if (e instanceof DelaiDepasse) return toolTimeoutJson(toolName, options.timeoutS);

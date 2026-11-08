@@ -19,8 +19,12 @@ const OCTETS_IMAGE_MAX = 6 << 20;
 const OCTETS_TOTAL_MAX = 48 << 20;
 const DUREE_MS = 10 * 60_000;
 const CLE = "_images_ref";
+const NOTE = "attached_images";
 
-const enAttente = new Map<string, { images: ImageOutil[]; expire: number; octets: number }>();
+const enAttente = new Map<
+  string,
+  { images: ImageOutil[]; ecartees: number; expire: number; octets: number }
+>();
 let octetsEnAttente = 0;
 
 function purger(maintenant: number): void {
@@ -31,11 +35,12 @@ function purger(maintenant: number): void {
     }
 }
 
-/** Blocs `image` d'un `CallToolResult` (types d'image courants, tailles bornées) et le résultat sans eux ; inchangé sans image. */
-export function separerImages(resultat: unknown): [unknown, ImageOutil[]] {
-  if (!estDict(resultat) || !Array.isArray(resultat["content"])) return [resultat, []];
+/** Blocs `image` d'un `CallToolResult` (types d'image courants, tailles bornées), le résultat sans eux et le nombre d'images écartées (trop nombreuses ou trop lourdes) ; inchangé sans image. */
+export function separerImages(resultat: unknown): [unknown, ImageOutil[], number] {
+  if (!estDict(resultat) || !Array.isArray(resultat["content"])) return [resultat, [], 0];
   const images: ImageOutil[] = [];
   const reste: unknown[] = [];
+  let ecartees = 0;
   for (const bloc of resultat["content"] as unknown[]) {
     const image =
       estDict(bloc) &&
@@ -45,19 +50,24 @@ export function separerImages(resultat: unknown): [unknown, ImageOutil[]] {
     if (!image) reste.push(bloc);
     else if (images.length < IMAGES_MAX && (bloc["data"] as string).length <= OCTETS_IMAGE_MAX)
       images.push({ mime: String(bloc["mimeType"]), data: bloc["data"] as string });
+    else ecartees += 1;
   }
-  if (reste.length === (resultat["content"] as unknown[]).length) return [resultat, []];
-  return [{ ...resultat, content: reste }, images];
+  if (reste.length === (resultat["content"] as unknown[]).length) return [resultat, [], 0];
+  return [{ ...resultat, content: reste }, images, ecartees];
 }
 
 /** Charge utile d'outil + images → la charge qui porte la référence des images déposées. */
-export function deposerImages(charge: unknown, images: readonly ImageOutil[]): unknown {
-  if (!images.length) return charge;
+export function deposerImages(charge: unknown, images: readonly ImageOutil[], ecartees = 0): unknown {
+  if (!images.length) {
+    if (!ecartees) return charge;
+    const note = `${ecartees} image(s) too large to be shown`;
+    return estDict(charge) ? { ...charge, [NOTE]: note } : { result: charge, [NOTE]: note };
+  }
   const maintenant = Date.now();
   purger(maintenant);
   const ref = randomUUID();
   const octets = images.reduce((n, i) => n + i.data.length, 0);
-  enAttente.set(ref, { images: [...images], expire: maintenant + DUREE_MS, octets });
+  enAttente.set(ref, { images: [...images], ecartees, expire: maintenant + DUREE_MS, octets });
   octetsEnAttente += octets;
   return estDict(charge) ? { ...charge, [CLE]: ref } : { result: charge, [CLE]: ref };
 }
@@ -79,10 +89,13 @@ export function reprendreImages(resultat: string, voit: boolean): [string, Image
   }
   const images = entree?.images ?? [];
   const propre: Dict = Object.fromEntries(Object.entries(charge).filter(([k]) => k !== CLE));
+  const ecartees = entree?.ecartees ? ` (${entree.ecartees} more too large to be shown)` : "";
   if (images.length)
-    propre["images"] = voit
-      ? `${images.length} image(s) shown below`
-      : `${images.length} image(s) rendered but not shown: the current model cannot read images`;
+    propre[NOTE] =
+      (voit
+        ? `${images.length} image(s) shown below`
+        : `${images.length} image(s) rendered but not shown: the current model cannot read images`) +
+      ecartees;
   return [pyJsonDumps(propre, { ensureAscii: false }), voit ? images : []];
 }
 

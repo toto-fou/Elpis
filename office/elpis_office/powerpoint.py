@@ -37,6 +37,7 @@ from ._pptx.render.theme import PRESETS, resolve_theme
 from .commun import (
     Env,
     OfficeError,
+    _avec_lecteur,
     booleen,
     canon,
     chemin_sortie,
@@ -575,11 +576,6 @@ def _moteur(fn, *a, **k):
                               "another file")
 
 
-def _lecteur(env: Env):
-    from .word import _avec_lecteur
-    return _avec_lecteur(env)
-
-
 def _titres_par_defaut(diapos: List[Dict[str, Any]], lib: Dict[str, str]) -> None:
     for d in diapos:
         if d.get("layout") in ("agenda", "closing") and not d.get("title"):
@@ -650,7 +646,7 @@ def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu], notes: Notes) -> Dic
 def pptx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     a = canon(args, ALIAS_CREATE, env.notes)
     rel = chemin_sortie(a.get("path"), "pptx", env.notes)
-    jeton = _lecteur(env)
+    jeton = _avec_lecteur(env)
     try:
         lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), texte(a.get("markdown")),
                                               *textes_de(a.get("slides"))], env.notes)
@@ -822,7 +818,7 @@ def pptx_edit(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     origine = list(prs.slides)
     supprimees: set = set()
     bilan: List[Dict[str, Any]] = []
-    jeton = _lecteur(env)
+    jeton = _avec_lecteur(env)
     ctx: Optional[RenderContext] = None
     change = False
     try:

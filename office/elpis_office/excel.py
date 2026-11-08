@@ -375,11 +375,17 @@ class _Formats:
     def __init__(self, classeur: Any, lang: str) -> None:
         self.classeur, self.prefixe = classeur, _LCID.get(lang[:2], "")
         self.date = _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
+        self.espace_pourcent = lang[:2] == "fr"           # 12,5 % en typographie française
         self._vus: Dict[Tuple[Any, ...], Any] = {}
+
+    def code(self, code: str) -> str:
+        if self.espace_pourcent and code.endswith("%") and not code.endswith(" %"):
+            code = code[:-1] + " %"
+        return code
 
     def __call__(self, code: Optional[str] = None, **style: Any) -> Any:
         if code:
-            style["num_format"] = self.prefixe + code
+            style["num_format"] = self.prefixe + self.code(code)
         cle = tuple(sorted(style.items()))
         if cle not in self._vus:
             self._vus[cle] = self.classeur.add_format(style) if style else None
@@ -405,6 +411,21 @@ def _genre_resultat(f: _Feuille, feuilles: Dict[str, _Feuille], formule: str, v:
     return genre, code
 
 
+def _largeur(v: Any, genre: str, code: Optional[str], formats: _Formats) -> int:
+    """Caractères affichés par une cellule une fois formatée (1 234,50 € et non 1234.5) : la colonne s'y ajuste."""
+    if v in (None, ""):
+        return 0
+    if isinstance(v, dt.datetime) or (genre == "date" and isinstance(v, (int, float))):
+        return len(formats.date)
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return len(str(v))
+    code = formats.code(code or "#,##0.00")
+    decimales = len(code.split(".", 1)[1].split("%")[0].split(" ")[0].split('"')[0]) if "." in code else 0
+    nombre = v * 100 if "%" in code else v
+    litteraux = len(re.sub(r'\[[^\]]*\]|[#0,.]', "", code.replace('"', "")))
+    return len(f"{nombre:,.{decimales}f}") + litteraux
+
+
 def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], modele: F.Classeur,
                     formats: _Formats) -> Dict[str, Any]:
     genres = dict(f.genres)
@@ -425,23 +446,19 @@ def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], mo
                 par_formule[k].append((genre, code))
             feuille.write_formula(r - 1, c - 1, v, formats.du_genre(genre, code),
                                   "" if resultat is None else resultat)
-            affiche = "" if resultat is None else resultat
-        elif isinstance(v, dt.datetime):
+            largeurs[c - 1] = max(largeurs[c - 1], _largeur(resultat, genre, code, formats))
+            continue
+        if isinstance(v, dt.datetime):
             feuille.write_datetime(r - 1, c - 1, v, formats.du_genre("date", None))
-            affiche = formats.date
         elif genre in ("percent", "currency", "number"):
             feuille.write_number(r - 1, c - 1, v, formats(code))
-            affiche = f"{v:,.2f}"
         else:
             feuille.write(r - 1, c - 1, v)
-            affiche = v
-        largeurs[c - 1] = max(largeurs[c - 1], len(str(affiche)))
+        largeurs[c - 1] = max(largeurs[c - 1], _largeur(v, genre, code, formats))
     for k, vus in par_formule.items():
         distincts = set(vus)
         genres[k] = distincts.pop() if len(distincts) == 1 else (
             ("number", "#,##0.00") if vus and all(g in _NUMERIQUES for g, _ in vus) else ("text", None))
-    for c, largeur in enumerate(largeurs):
-        feuille.set_column(c, c, min(max(8, largeur + 2), 60))
     n, m = f.n, len(f.entetes)
     totaux = {}
     if f.totaux:
@@ -451,6 +468,9 @@ def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], mo
                          else ("Total" if c == 1 else None))
             if somme:
                 totaux[c] = modele.resultat(f.nom, n + 2, c)
+                largeurs[c - 1] = max(largeurs[c - 1], _largeur(totaux[c], *genres[k], formats) + 1)  # gras
+    for c, largeur in enumerate(largeurs):
+        feuille.set_column(c, c, min(max(8, largeur + 2), 60))
     if f.table:
         colonnes = []
         for c, k in enumerate(f.entetes, 1):

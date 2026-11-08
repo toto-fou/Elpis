@@ -69,12 +69,7 @@ def build_deck(spec: S.DeckSpec) -> tuple[Any, E.RenderContext]:
 
 
 def _open_base(template: str | None) -> tuple[Any, list[str]]:
-    """Open the deck a build starts from: blank, or a corporate template of the sandbox.
-
-    Template *formats* (.potx, .ppsx, macro-enabled) are normalised on the way
-    in, because refusing the exact file an IT department distributes is not a
-    defensible position for a server that claims to support templates.
-    """
+    """Présentation de départ : vierge, ou gabarit de la sandbox (.potx, .ppsx, à macros normalisés en .pptx)."""
     if not template:
         return Presentation(), []
 
@@ -87,31 +82,17 @@ def _open_base(template: str | None) -> tuple[Any, list[str]]:
 
 
 def _strip_template_slides(presentation) -> list[str]:
-    """Drop the slides a corporate template ships with.
-
-    A house template almost always carries example or instruction slides. They
-    are there to be read by whoever builds a deck by hand, and they have no place
-    in the deck the server produces — so they go.
-    """
+    """Retire les diapos d'exemple ou de consigne livrées avec le gabarit."""
     count = len(presentation.slides)
     if not count:
         return []
     for index in reversed(range(count)):
         slide_ooxml.delete_slide(presentation, index)
-    return [
-        f"Removed {count} slide(s) the template shipped with. Pass "
-        'template_slides="keep" to build on top of them instead.'
-    ]
+    return [f"Removed {count} example slide(s) the template shipped with; only its layouts and theme are used."]
 
 
 def _theme_for(spec: S.DeckSpec, presentation) -> S.ThemeSpec:
-    """Take the design tokens from the template's own theme, unless told otherwise.
-
-    A corporate template *is* the brand definition. Building on it and then
-    painting the slides in this server's default blue is the single most likely
-    way to produce something that looks conformant and is not — so anything the
-    caller did not set explicitly comes from the template.
-    """
+    """Couleurs et polices du thème du gabarit pour tout ce que l'appelant n'a pas fixé (la charte, pas le bleu par défaut)."""
     theme_spec = spec.theme
     if not spec.template:
         return theme_spec
@@ -571,8 +552,7 @@ def _comparison_slide(ctx: E.RenderContext, slide, spec: S.ComparisonSlide) -> F
 def _timeline_slide(ctx: E.RenderContext, slide, spec: S.TimelineSlide) -> Frame | None:
     content = _header(ctx, slide, spec.title, spec.kicker)
     body, takeaway_frame = _takeaway_band(ctx, content, spec.takeaway)
-    # A horizontal timeline is a band, not a block: centre it rather than
-    # letting it float at the top of a tall content area.
+    # Frise horizontale : une bande centrée dans la zone, pas un bloc en haut.
     band_h = min(body.h, cm(6.2))
     body = Frame(body.x, body.y + (body.h - band_h) // 2, body.w, band_h)
     E.render_timeline_element(ctx, slide, S.TimelineElement(type="timeline", milestones=spec.milestones), body)

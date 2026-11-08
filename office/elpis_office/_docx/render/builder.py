@@ -271,16 +271,19 @@ def apply_page(section, page: S.PageSpec) -> None:
 
 
 def apply_header(section, header: S.HeaderSpec) -> None:
+    if header.image:
+        stream, _ = image_io.resolve_image(header.image)
+        header_ooxml.add_header_image(section, stream, width_cm=header.image_width_cm)
     if any(v is not None for v in (header.text, header.left, header.center, header.right)):
         header_ooxml.set_header_footer(
             section, "header", text=header.text, left=header.left, center=header.center,
             right=header.right, align=header.align, font_size_pt=header.font_size_pt,
-            color=header.color, rule=header.rule, clear=True,
+            color=header.color, rule=header.rule, clear=not header.image,
         )
     if header.different_first_page:
         section.different_first_page_header_footer = True
         header_ooxml.set_header_footer(
-            section, "header", variant="first", text="",
+            section, "header", variant="first", text=header.first_page_text or "",
             font_size_pt=header.font_size_pt, color=header.color,
         )
 

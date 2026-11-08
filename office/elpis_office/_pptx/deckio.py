@@ -102,13 +102,7 @@ def set_metadata(presentation, **values: Any) -> dict[str, Any]:
 
 def replace_text(presentation, search: str, replacement: str, *, regex: bool = False,
                  ignore_case: bool = False) -> int:
-    """Search and replace across the deck (slides, tables, notes), preserving run formatting.
-
-    PowerPoint splits a sentence across runs at arbitrary points, so a match
-    routinely spans several. Matches inside a single run are edited in place; a
-    match that spans runs collapses onto the first run it touches, which is the
-    only way to keep *some* formatting rather than none.
-    """
+    """Remplacement dans toute la présentation (diapos, tableaux, notes) ; une occurrence à cheval sur plusieurs runs prend la mise en forme du premier."""
     replacement = sanitize_text(replacement)
     flags = re.IGNORECASE if ignore_case else 0
     try:

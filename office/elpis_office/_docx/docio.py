@@ -325,15 +325,7 @@ LEFTOVER_PATTERNS: tuple[tuple[str, re.Pattern], ...] = tuple((explanation, re.c
 
 
 def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
-    """Every paragraph in the document, each with where it actually sits.
-
-    The header is exactly where a stale quarter or an unreplaced client name
-    survives a find-and-replace: replace and docx_read both walk this, so what is
-    written and what is checked are the same surface.
-
-    ``paragraph_index`` matches ``body_paragraphs`` (the ``p`` of docx_read), and
-    callout boxes come apart from the numbered tables.
-    """
+    """Chaque paragraphe (corps, tableaux, encadrés, en-têtes et pieds) avec sa place, la même surface pour replace et docx_read."""
     for index, paragraph in enumerate(body_paragraphs(document)):
         yield {"where": "body", "paragraph_index": index}, paragraph
 
@@ -364,21 +356,25 @@ _TR, _TC, _TC_PR, _GRID_SPAN, _V_MERGE, _VAL = (qn(f"w:{tag}") for tag in ("tr",
 
 
 def _iter_table(table, base: dict[str, Any]) -> Iterable[tuple[dict[str, Any], Any]]:
-    """Paragraphes de chaque cellule à sa première colonne, comme ``row.cells`` sans un objet par case ; une fusion verticale est lue à son départ."""
+    """Paragraphes de chaque cellule à sa première colonne, comme ``row.cells`` sans un objet par case ; une fusion verticale est lue à son départ (une suite sans départ au-dessus est lue comme une case)."""
     from docx.table import _Cell
     from docx.text.paragraph import Paragraph
 
+    dessus: set[int] = set()
     for row_index, tr in enumerate(table._tbl.iterchildren(_TR)):
-        column = 0
+        column, fusions = 0, set()
         for tc in tr.iterchildren(_TC):
             properties = tc.find(_TC_PR)
             span = properties.find(_GRID_SPAN) if properties is not None else None
             merge = properties.find(_V_MERGE) if properties is not None else None
-            if merge is None or merge.get(_VAL, "continue") != "continue":
+            if merge is not None:
+                fusions.add(column)
+            if merge is None or merge.get(_VAL, "continue") != "continue" or column not in dessus:
                 cell = _Cell(tc, table)
                 for paragraph in tc.iterchildren(_P):
                     yield {**base, "row": row_index, "column": column}, Paragraph(paragraph, cell)
             column += int(span.get(_VAL)) if span is not None else 1
+        dessus = fusions
 
 
 def _stories(section) -> Iterable[tuple[str, Any]]:
@@ -413,14 +409,7 @@ def _excerpt(text: str, match: re.Match, window: int = 40) -> str:
 
 def replace_text(document, search: str, replacement: str, *, regex: bool = False,
                  ignore_case: bool = False) -> int:
-    """Search and replace across the document, headers and tables included, preserving run formatting.
-
-    Word splits a sentence across runs at arbitrary points (a spell-check pass is
-    enough to do it), so a match routinely spans several runs. Matches inside a
-    single run are edited in place; a match that spans runs collapses onto the
-    first run it touches, which is the only way to keep *some* formatting rather
-    than none.
-    """
+    """Remplacement dans tout le document (en-têtes et tableaux compris) ; une occurrence à cheval sur plusieurs runs prend la mise en forme du premier."""
     from .ooxml.util import sanitize_text
 
     replacement = sanitize_text(replacement)

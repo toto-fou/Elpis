@@ -165,8 +165,7 @@ def resolve_theme(
     surface = preset.surface if background == preset.background \
         else (tint(background, 0.06) if dark_deck else shade(background, 0.035))
     border = preset.border if background == preset.background else mix(text, background, 0.82)
-    # Lead the palette with the brand accent so the first series is on-brand,
-    # then continue with the validated set, dropping anything too close to it.
+    # L'accent de la charte en tête de palette, puis la palette validée sans lui.
     resolved_palette = (accent,) + tuple(c for c in DEFAULT_PALETTE if c.upper() != accent.upper())
 
     return Theme(

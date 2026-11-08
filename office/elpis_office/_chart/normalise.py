@@ -31,8 +31,9 @@ from typing import Any
 
 
 def fold(s: Any) -> str:
-    """« Polar Area », « polarArea », « polar-area » → « polar_area »."""
-    return _fold(str(s or ""))
+    """« Polar Area », « polarArea », « polar-area » → « polar_area » (cache réservé aux clés courtes)."""
+    s = str(s or "")
+    return _fold(s) if len(s) <= 64 else _fold.__wrapped__(s)
 
 
 @lru_cache(maxsize=4096)

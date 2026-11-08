@@ -104,23 +104,26 @@ def _dimension(feuille: Any) -> str:
         return ""
 
 
-def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None, marquer: bool = False
+def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None, marquer: bool = False, relever: bool = False
             ) -> Tuple[List[Dict[str, Any]], Optional[int], int, int, List[Dict[str, Any]]]:
-    """Lignes non vides dès ``debut`` (au plus ``nb``), ligne suivante, largeur, formules sans résultat montrées {formula} si ``marquer``, et formules lues."""
+    """Lignes non vides dès ``debut`` (au plus ``nb``), ligne suivante, largeur, formules sans résultat montrées {formula} si ``marquer``, et formules de la page (lignes vides comprises, pas la suivante) si ``relever``."""
     lignes: List[Dict[str, Any]] = []
     lues: List[Dict[str, Any]] = []
+    attente: List[Dict[str, Any]] = []
     suite, largeur, sans_resultat = None, 0, 0
     textes = formules.iter_rows(min_row=debut, max_col=COLONNES_MAX) if formules is not None else None
     for cellules in feuille.iter_rows(min_row=debut, max_col=COLONNES_MAX):
         valeurs: List[Any] = [_valeur(c) for c in cellules]
+        marquees = 0
         for k, c in enumerate(next(textes, ()) if textes is not None else ()):
             if not (isinstance(c.value, str) and c.value.startswith("=")):
                 continue
-            lues.append({"row": c.row, "cell": f"{_colonne(c.column)}{c.row}", "formula": c.value})
+            if relever and len(lues) + len(attente) < FORMULES_MAX:
+                attente.append({"cell": f"{_colonne(c.column)}{c.row}", "formula": c.value})
             # t="str" sans valeur : résultat vide enregistré (=IF(…;"";…)), pas une formule à calculer.
             if marquer and k < len(valeurs) and valeurs[k] in (None, "") and getattr(cellules[k], "data_type", "") != "str":
                 valeurs[k] = {"formula": c.value}
-                sans_resultat += 1
+                marquees += 1
         while valeurs and valeurs[-1] in (None, ""):
             valeurs.pop()
         if not valeurs:
@@ -130,7 +133,8 @@ def _lignes(feuille: Any, debut: int, nb: int, formules: Any = None, marquer: bo
             suite = numero
             break
         lignes.append({"row": numero, "cells": valeurs})
-        largeur = max(largeur, len(valeurs))
+        largeur, sans_resultat = max(largeur, len(valeurs)), sans_resultat + marquees
+        lues, attente = lues + attente, []
     return lignes, suite, largeur, sans_resultat, lues
 
 
@@ -224,7 +228,7 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         textes = load_workbook(io.BytesIO(brut), read_only=True, data_only=False) if voulues or marquer else None
         try:
             lignes, suite, largeur, sans_resultat, lues = _lignes(
-                feuille, debut, nb, textes[feuille.title] if textes is not None else None, marquer)
+                feuille, debut, nb, textes[feuille.title] if textes is not None else None, marquer, voulues)
         finally:
             if textes is not None:
                 textes.close()
@@ -242,8 +246,7 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     finally:
         classeur.close()
     if booleen(a.get("formulas")) and res.get("rows"):
-        fin = res["rows"][-1]["row"]
-        res["formulas"] = [{"cell": x["cell"], "formula": x["formula"]} for x in lues if x["row"] <= fin][:FORMULES_MAX]
+        res["formulas"] = lues
     return res
 
 

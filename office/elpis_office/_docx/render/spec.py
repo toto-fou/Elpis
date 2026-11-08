@@ -377,6 +377,9 @@ class HeaderSpec(Base):
     color: str | None = "808080"
     rule: bool = False
     different_first_page: bool = False
+    first_page_text: str | None = None
+    image: str | None = None
+    image_width_cm: float = Field(default=3.0, gt=0, le=50)
 
 
 class FooterSpec(Base):

@@ -449,12 +449,13 @@ def _theme(v: Any, env: Env) -> S.ThemeSpec:
                            "(theme = {\"accent\": \"#1F4E79\", \"font\": \"Calibri\"})")
         return S.ThemeSpec()
     t = canon(v, {"accent": ["color", "colour", "couleur", "primary", "main_color"],
-                  "body_font": ["font", "police", "font_family", "text_font"],
+                  "font": ["body_font", "police", "font_family", "text_font"],
                   "heading_font": ["title_font", "headings_font", "police_titres"],
-                  "base_font_size_pt": ["font_size", "size", "taille", "font_size_pt"]},
+                  "font_size": ["base_font_size_pt", "size", "taille", "font_size_pt"]},
               env.notes, "theme.")
-    garde = {k: t[k] for k in ("accent", "body_font", "heading_font", "base_font_size_pt")
-             if t.get(k) not in (None, "")}
+    moteur = {"accent": "accent", "font": "body_font", "heading_font": "heading_font",
+              "font_size": "base_font_size_pt"}
+    garde = {moteur[k]: t[k] for k in moteur if t.get(k) not in (None, "")}
     return _moteur(S.ThemeSpec, **garde)
 
 

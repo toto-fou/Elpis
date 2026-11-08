@@ -594,7 +594,7 @@ export function compactDesktopElements(contentStr: unknown): unknown {
 }
 
 const VISION_FRAME_PLACEHOLDER =
-  "[previous screenshot elided to save context — call desktop_observe to see the current screen]";
+  "[previous image elided to save context — take a new screenshot or preview if you still need it]";
 
 function porteImage(m: unknown): boolean {
   const c = lire(m, "content");

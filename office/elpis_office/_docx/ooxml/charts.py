@@ -30,8 +30,19 @@ from docx.opc.part import Part
 from lxml import etree
 from pptx.chart.data import BubbleChartData, CategoryChartData, XyChartData
 from pptx.chart.xmlwriter import ChartXmlWriter
-from pptx.enum.chart import XL_CHART_TYPE
 
+from ..._pptx.ooxml.charts import (
+    AXIS_LINE_COLOR,
+    BUBBLE_TYPES,
+    CIRCULAR_TYPES,
+    DEFAULT_PALETTE,
+    GRIDLINE_COLOR,
+    LINE_TYPES,
+    NATIVE_TYPES,
+    TEXT_COLOR,
+    XY_TYPES,
+    native_chart_types,
+)
 from .util import (
     Cm,
     cm_to_emu,
@@ -51,87 +62,8 @@ CT_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-
-
-# ---------------------------------------------------------------------------
-# Palette
-# ---------------------------------------------------------------------------
-
-#: Validated categorical palette (scripts/validate_palette.js, light surface):
-#: lightness band PASS, chroma floor PASS, worst adjacent CVD ΔE 9.1, worst
-#: adjacent normal-vision ΔE 19.6. Assigned in fixed order — never cycled by rank.
-#: (Word's own default palette fails two hard gates: its grey slot has zero
-#: chroma and its yellow sits outside the lightness band.)
-DEFAULT_PALETTE: tuple[str, ...] = (
-    "2A78D6",  # blue
-    "EB6834",  # orange
-    "1BAF7A",  # aqua
-    "EDA100",  # yellow
-    "E87BA4",  # magenta
-    "008300",  # green
-    "4A3AA7",  # violet
-    "E34948",  # red
-)
-
-#: Recessive furniture — grid and axis lines must never compete with the marks.
-GRIDLINE_COLOR = "E4E4E1"
-AXIS_LINE_COLOR = "BFBFBF"
-TEXT_COLOR = "404040"
 DEFAULT_TEXT_PT = 10.0
 DEFAULT_TITLE_PT = 12.0
-
-
-# ---------------------------------------------------------------------------
-# Chart types
-# ---------------------------------------------------------------------------
-
-NATIVE_TYPES: dict[str, XL_CHART_TYPE] = {
-    # column / bar
-    "column": XL_CHART_TYPE.COLUMN_CLUSTERED,
-    "column_clustered": XL_CHART_TYPE.COLUMN_CLUSTERED,
-    "column_stacked": XL_CHART_TYPE.COLUMN_STACKED,
-    "column_stacked_100": XL_CHART_TYPE.COLUMN_STACKED_100,
-    "bar": XL_CHART_TYPE.BAR_CLUSTERED,
-    "bar_clustered": XL_CHART_TYPE.BAR_CLUSTERED,
-    "bar_stacked": XL_CHART_TYPE.BAR_STACKED,
-    "bar_stacked_100": XL_CHART_TYPE.BAR_STACKED_100,
-    # line
-    "line": XL_CHART_TYPE.LINE,
-    "line_markers": XL_CHART_TYPE.LINE_MARKERS,
-    "line_stacked": XL_CHART_TYPE.LINE_STACKED,
-    "line_stacked_100": XL_CHART_TYPE.LINE_STACKED_100,
-    "line_markers_stacked": XL_CHART_TYPE.LINE_MARKERS_STACKED,
-    "line_markers_stacked_100": XL_CHART_TYPE.LINE_MARKERS_STACKED_100,
-    # circular
-    "pie": XL_CHART_TYPE.PIE,
-    "pie_exploded": XL_CHART_TYPE.PIE_EXPLODED,
-    "doughnut": XL_CHART_TYPE.DOUGHNUT,
-    "donut": XL_CHART_TYPE.DOUGHNUT,
-    "doughnut_exploded": XL_CHART_TYPE.DOUGHNUT_EXPLODED,
-    # area
-    "area": XL_CHART_TYPE.AREA,
-    "area_stacked": XL_CHART_TYPE.AREA_STACKED,
-    "area_stacked_100": XL_CHART_TYPE.AREA_STACKED_100,
-    # radar
-    "radar": XL_CHART_TYPE.RADAR,
-    "radar_markers": XL_CHART_TYPE.RADAR_MARKERS,
-    "radar_filled": XL_CHART_TYPE.RADAR_FILLED,
-    # xy
-    "scatter": XL_CHART_TYPE.XY_SCATTER,
-    "xy_scatter": XL_CHART_TYPE.XY_SCATTER,
-    "scatter_lines": XL_CHART_TYPE.XY_SCATTER_LINES,
-    "scatter_lines_no_markers": XL_CHART_TYPE.XY_SCATTER_LINES_NO_MARKERS,
-    "scatter_smooth": XL_CHART_TYPE.XY_SCATTER_SMOOTH,
-    "scatter_smooth_no_markers": XL_CHART_TYPE.XY_SCATTER_SMOOTH_NO_MARKERS,
-    "bubble": XL_CHART_TYPE.BUBBLE,
-    "bubble_3d": XL_CHART_TYPE.BUBBLE_THREE_D_EFFECT,
-}
-
-XY_TYPES = {k for k in NATIVE_TYPES if k.startswith(("scatter", "xy_"))}
-BUBBLE_TYPES = {"bubble", "bubble_3d"}
-CIRCULAR_TYPES = {"pie", "pie_exploded", "doughnut", "donut", "doughnut_exploded"}
-#: Series colour lands on the stroke, not the fill.
-LINE_TYPES = {k for k in NATIVE_TYPES if k.startswith("line")} | XY_TYPES | {"radar", "radar_markers"}
 
 #: Chart-group element local names, in the order the plotArea sequence allows.
 _GROUP_TAGS = (
@@ -139,10 +71,6 @@ _GROUP_TAGS = (
     "scatterChart", "pieChart", "pie3DChart", "doughnutChart", "barChart", "bar3DChart",
     "ofPieChart", "surfaceChart", "surface3DChart", "bubbleChart",
 )
-
-
-def native_chart_types() -> list[str]:
-    return sorted(NATIVE_TYPES)
 
 
 # ---------------------------------------------------------------------------

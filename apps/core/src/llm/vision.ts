@@ -54,9 +54,12 @@ export function entryHasCapabilityMeta(entry: Dict): boolean {
   return estDict(meta) && Object.keys(meta).length > 0;
 }
 
+/** Modèles Claude (tous lisent les images depuis la version 3) : nom qui commence par claude-, ou après un préfixe de fournisseur (anthropic/, us.anthropic.) ; pas une distillation locale « …-Claude-…-Distill ». */
+const CLAUDE = /(?:^|[/.:])claude-/u;
+
 function parNom(nom: string): boolean {
   const l = nom.toLowerCase();
-  return VISION_MODEL_PATTERNS.some((p) => l.includes(p));
+  return VISION_MODEL_PATTERNS.some((p) => l.includes(p)) || CLAUDE.test(l);
 }
 
 /** Vision d'un modèle depuis son entrée déjà téléchargée, sans réseau ; jamais de rétrogradation sans métadonnées. */

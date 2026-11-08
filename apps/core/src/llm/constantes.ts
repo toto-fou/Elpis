@@ -259,7 +259,6 @@ export const TASK_RESULT_PERSIST_CAP = 256 * 1024;
 export const VISION_CAPABILITY_CACHE = new Map<string, boolean>();
 
 export const VISION_MODEL_PATTERNS: readonly string[] = [
-  "claude-",
   "-vl-",
   "vl-instruct",
   "vision",

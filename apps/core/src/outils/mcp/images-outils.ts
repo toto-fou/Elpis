@@ -89,7 +89,9 @@ export function reprendreImages(resultat: string, voit: boolean): [string, Image
   }
   const images = entree?.images ?? [];
   const propre: Dict = Object.fromEntries(Object.entries(charge).filter(([k]) => k !== CLE));
-  const ecartees = entree?.ecartees ? ` (${entree.ecartees} more too large to be shown)` : "";
+  const ecartees = entree?.ecartees
+    ? ` (${entree.ecartees} more not shown: 4 per result at most, or too large)`
+    : "";
   if (images.length)
     propre[NOTE] =
       (voit

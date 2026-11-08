@@ -149,7 +149,8 @@ TOOLS["docx_create"] = {
         ("date", {"type": "string"}),
         ("cover", {"type": "boolean", "description": "Start with a cover page (title, subtitle, "
                                                      "author, date)."}),
-        ("toc", {"type": "boolean", "description": "Add a table of contents after the title."}),
+        ("toc", {"type": ["boolean", "integer"], "description": "Add a table of contents after the title: "
+                                                               "true (headings 1 to 3), or the depth, e.g. 4."}),
         ("template", {"type": "string", "description": "A .dotx/.docx in the sandbox: its styles, "
                                                        "header, footer and page layout are kept "
                                                        "unless you set header/footer/page; its "

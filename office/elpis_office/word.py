@@ -189,7 +189,7 @@ def refs_de(contenu: str) -> List[str]:
 
 
 def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
-                   toc_titre: str = "Sommaire") -> List[Any]:
+                   toc_titre: str = "Sommaire", toc_niveaux: Optional[List[int]] = None) -> List[Any]:
     """Markdown étendu → blocs du moteur Word (graphiques déjà préparés)."""
     blocs: List[Any] = []
     tampon: List[str] = []
@@ -233,7 +233,8 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
             continue
         if _TOC.match(ligne):
             vider()
-            blocs.append(S.TocBlock(type="toc", title=toc_titre, page_break_after=False))
+            blocs.append(S.TocBlock(type="toc", title=toc_titre, page_break_after=False,
+                                    **({"levels": toc_niveaux} if toc_niveaux else {})))
             i += 1
             continue
         if _SAUT.match(ligne):
@@ -393,13 +394,15 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             if a.get("subtitle"):
                 blocs.append(S.ParagraphBlock(type="paragraph", text=str(a["subtitle"]),
                                               style="Subtitle"))
-        if booleen(a.get("toc")) and not _TOC.search(contenu_md or ""):
-            blocs.append(S.TocBlock(type="toc", title=lib["toc"]))
+        profondeur = entier(a.get("toc"))                 # toc: 4 = titres 1 à 4 ; true = 1 à 3
+        niveaux = [1, min(profondeur, 9)] if profondeur and profondeur > 0 else None
+        if (booleen(a.get("toc")) or niveaux) and not _TOC.search(contenu_md or ""):
+            blocs.append(S.TocBlock(type="toc", title=lib["toc"], **({"levels": niveaux} if niveaux else {})))
         if blocs_bruts is not None:
             env.notes.fix("content given as blocks: built as-is (Markdown is simpler)")
             blocs.extend(_moteur(S.parse_blocks, blocs_bruts))
         else:
-            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"]))
+            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"], niveaux))
         # Avec un modèle, sa mise en page et son pied font foi : on ne les
         # remplace que sur demande explicite (sinon A4 portrait et « Page X / Y »
         # par défaut effaceraient la charte).

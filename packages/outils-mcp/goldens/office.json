@@ -41,8 +41,11 @@
           },
           "toc": {
             "default": null,
-            "description": "Add a table of contents after the title.",
-            "type": "boolean"
+            "description": "Add a table of contents after the title: true (headings 1 to 3), or the depth, e.g. 4.",
+            "type": [
+              "boolean",
+              "integer"
+            ]
           },
           "template": {
             "default": null,

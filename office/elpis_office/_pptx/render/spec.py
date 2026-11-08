@@ -538,24 +538,9 @@ class ThemeSpec(Base):
     accent: str | None = Field(None, description="The brand colour. Everything else adapts to it.")
     accent2: str | None = None
     background: str | None = None
-    surface: str | None = Field(None, description="Fill for cards and tiles.")
     text_color: str | None = None
-    muted_color: str | None = None
-    border: str | None = None
     heading_font: str | None = None
     body_font: str | None = None
-    mono_font: str | None = None
-    chart_palette: list[str] | None = None
-    base_font_size_pt: float | None = Field(
-        None, description="Scales the whole type scale, not just body text."
-    )
-    font_sizes: dict[str, float] | None = Field(
-        None,
-        description=(
-            "Override single roles: deck_title, section_title, slide_title, kicker, body, "
-            "small, caption, footer, kpi_value, kpi_label, quote."
-        ),
-    )
 
 
 class SizeSpec(Base):

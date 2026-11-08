@@ -48,7 +48,8 @@ def parse_attributes(text: str) -> dict[str, Any] | None:
         if unit == "%" and key.lower() == "width" and 0 < number <= 100:
             out["width_percent"] = number
         elif unit != "%" and number > 0:
-            out[f"{key.lower()}_cm"] = number * {"cm": 1.0, "mm": 0.1, "in": 2.54}[unit]
+            out[f"{key.lower()}_cm"] = min(number * {"cm": 1.0, "mm": 0.1, "in": 2.54}[unit],
+                                           50.0 if key.lower() == "width" else 25.0)
     return out
 
 
@@ -104,7 +105,7 @@ def _consume(tokens, index: int, blocks: list, heading_offset: int) -> int:
         inline = tokens[index + 1] if index + 1 < len(tokens) else None
         runs = _inline_runs(inline) if inline is not None and inline.type == "inline" else []
         bookmark = None
-        if runs and runs[-1].text:  # « # Synthèse {#sec:synthese} »
+        if runs and runs[-1].text:
             head, brace, tail = runs[-1].text.rpartition("{")
             attrs = parse_attributes(brace + tail) if brace else None
             if attrs and attrs.get("id"):
@@ -278,7 +279,7 @@ def _lone_image(inline) -> S.ImageBlock | None:
     children = [c for c in (inline.children or []) if not (c.type == "text" and not c.content.strip())]
     attrs: dict[str, Any] | None = {}
     if len(children) == 2 and children[0].type == "image" and children[1].type == "text":
-        attrs = parse_attributes(children[1].content)          # ![…](plan.png){#fig:plan width=60%}
+        attrs = parse_attributes(children[1].content)
         children = children[:1] if attrs is not None else children
     if len(children) == 1 and children[0].type == "image":
         token = children[0]

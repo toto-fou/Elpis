@@ -619,7 +619,7 @@ def _table(context: BuildContext, block: S.TableBlock):
             table, merge.row_start, merge.col_start, merge.row_end, merge.col_end
         )
 
-    if block.caption:
+    if block.caption is not None and (block.caption or block.bookmark):
         refs.add_caption(context.document, block.caption, label=context.labels["table"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, context.document.add_paragraph(), block.bookmark)
@@ -674,7 +674,7 @@ def _image(context: BuildContext, block: S.ImageBlock):
         pixel_size, requested, block.height_cm, context.content_width_cm()
     )
     paragraph = context.document.add_paragraph()
-    if block.caption:
+    if block.caption is not None:
         paragraph.paragraph_format.keep_with_next = True  # the caption never starts the next page alone
     run = paragraph.add_run()
     run.add_picture(
@@ -685,7 +685,7 @@ def _image(context: BuildContext, block: S.ImageBlock):
     align_paragraph(paragraph, block.align)
     if block.alt_text:
         _set_alt_text(run, block.alt_text)
-    if block.caption:
+    if block.caption is not None and (block.caption or block.bookmark):
         refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, paragraph, block.bookmark)
@@ -709,6 +709,9 @@ def _chart(context: BuildContext, block: S.ChartBlock):
             f"Unknown chart type {block.chart_type!r}. Native types: "
             f"{', '.join(chart_ooxml.native_chart_types())}."
         )
+    width_cm = (context.content_width_cm() * block.width_percent / 100 if block.width_percent
+                else min(block.width_cm, context.content_width_cm()))
+    height_cm = block.height_cm * width_cm / block.width_cm
     request = chart_ooxml.ChartRequest(
         chart_type=key,
         categories=list(block.categories),
@@ -730,8 +733,8 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         gridlines=block.gridlines,
         y_min=block.y_min,
         y_max=block.y_max,
-        width_cm=min(block.width_cm, context.content_width_cm()),
-        height_cm=block.height_cm,
+        width_cm=width_cm,
+        height_cm=height_cm,
         palette=block.palette or context.theme.chart_palette,
         gap_width=block.gap_width,
         overlap=block.overlap,
@@ -740,7 +743,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
     )
     paragraph = chart_ooxml.add_native_chart(context.document, request)
     align_paragraph(paragraph, "center")
-    if block.caption:
+    if block.caption is not None:
         paragraph.paragraph_format.keep_with_next = True
 
     if len(block.series) > len(context.palette()):
@@ -750,7 +753,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
             "chart into small multiples."
         )
 
-    if block.caption:
+    if block.caption is not None and (block.caption or block.bookmark):
         refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     return paragraph
 
@@ -852,6 +855,8 @@ def _spacer(context: BuildContext, block: S.SpacerBlock):
 
 def _section(context: BuildContext, block: S.SectionBlock):
     section = layout.add_section(context.document, block.start)
+    # A cover's "different first page" must not blank the footer of each later section's first page.
+    section.different_first_page_header_footer = False
     layout.apply_page_setup(
         section,
         size=block.size,

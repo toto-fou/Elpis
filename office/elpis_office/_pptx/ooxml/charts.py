@@ -348,7 +348,6 @@ def _series_colors(chart, key: str, palette: Sequence[str]) -> None:
             series.format.line.color.rgb = rgb(color)
             series.format.line.width = Pt(2.25)
             if key in XY_TYPES and "lines" not in key and "smooth" not in key:
-                # A pure scatter has no line; python-pptx would draw one anyway. Its points must show.
                 series.format.line.fill.background()
                 series.marker.style = XL_MARKER_STYLE.CIRCLE
                 series.marker.size = 7
@@ -443,7 +442,7 @@ def _axes(chart, key: str, request: ChartRequest, text_color: str) -> None:
     if request.number_format:
         value_axis.tick_labels.number_format = request.number_format
         value_axis.tick_labels.number_format_is_linked = False
-    if request.x_number_format and key in XY_TYPES:   # a scatter's horizontal axis is a value axis too
+    if request.x_number_format and key in XY_TYPES:
         category_axis.tick_labels.number_format = request.x_number_format
         category_axis.tick_labels.number_format_is_linked = False
     if request.y_min is not None:
@@ -482,7 +481,7 @@ def _legend(chart, key: str, request: ChartRequest, text_color: str) -> None:
         return
     if mode == "auto":
         if key in {"doughnut", "donut", "doughnut_exploded"}:
-            position = XL_LEGEND_POSITION.RIGHT      # the ring's labels show shares only
+            position = XL_LEGEND_POSITION.RIGHT
         elif key in CIRCULAR_TYPES or len(request.series) <= 1:
             chart.has_legend = False
             return
@@ -598,8 +597,6 @@ def _data_labels(chart, key: str, request: ChartRequest, text_color: str) -> Non
 
         if circular:
             # A pie with no legend needs its slices named, and a share reads
-            # better as a percentage than as the raw number. A doughnut's ring is
-            # too thin for names: shares on the ring, names in the legend.
             set_label_flags(plot, value=False, category=not inside_ring, percent=True)
         else:
             set_label_flags(plot, value=True, category=False, percent=False)

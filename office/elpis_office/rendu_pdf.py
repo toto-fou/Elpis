@@ -14,40 +14,60 @@ PAGES_BLANCS, OBJETS_MAX = 400, 20000
 IMAGE, TRACE, FORME = 3, 2, 5                      # FPDF_PAGEOBJ_*
 
 
-def mesurer(doc, total: int) -> list:
-    """Par page : bas du contenu (points depuis le bas, pied de page exclu) et figure en tête de page."""
-    mesures = []
-    for i in range(min(total, PAGES_BLANCS)):
-        page = doc[i]
-        try:
-            largeur, hauteur = page.get_size()
-            objets = []
-            for n, objet in enumerate(page.get_objects(max_depth=1)):
-                if n >= OBJETS_MAX:
-                    break
-                _, bas, _, haut = objet.get_bounds()
-                if haut > 0.09 * hauteur and bas < 0.93 * hauteur:     # hors pied et en-tête
-                    objets.append((objet.type, bas, haut))
-            if not objets:
-                mesures.append({"h": hauteur, "bas": None, "figure": False, "debut": ""})
-                continue
-            sommet = max(h for _, _, h in objets)
-            tete = [t for t, _, h in objets if h >= sommet - 0.35 * hauteur]
-            textes = page.get_textpage()
+def _objets(doc, i: int) -> tuple:
+    """(largeur, hauteur, objets (type, bas, haut, hauteur utile), texte du haut de page) d'une page."""
+    page = doc[i]
+    try:
+        largeur, hauteur = page.get_size()
+        objets = []
+        for n, objet in enumerate(page.get_objects(max_depth=1)):
+            if n >= OBJETS_MAX:
+                break
             try:
-                debut = textes.get_text_bounded(0, sommet - 0.5 * hauteur, largeur, sommet)[:400]
-            finally:
-                textes.close()
-            # Plus grande bande vide entre deux contenus dans la moitié basse (au-dessus des notes de bas de page).
-            trou, fin = 0.0, None
-            for _, b, h in sorted(objets, key=lambda o: -o[2]):
-                if fin is not None and h < fin and fin <= 0.5 * hauteur:
-                    trou = max(trou, fin - h)
-                fin = b if fin is None else min(fin, b)
-            mesures.append({"h": hauteur, "bas": min(b for _, b, _ in objets), "trou": trou, "debut": debut,
-                            "figure": any(t in (IMAGE, FORME) for t in tete) or tete.count(TRACE) >= 8})
+                gauche, bas, droite, haut = objet.get_bounds()
+            except Exception:                      # noqa: BLE001 — un objet illisible ne compte pas
+                continue
+            objets.append((objet.type, round(gauche), round(bas), round(droite), round(haut)))
+        textes = page.get_textpage()
+        try:
+            debut = textes.get_text_bounded(0, 0.45 * hauteur, largeur, 0.93 * hauteur)[:400]
         finally:
-            page.close()
+            textes.close()
+    finally:
+        page.close()
+    return largeur, hauteur, objets, debut
+
+
+def mesurer(doc, total: int) -> list:
+    """Par page : bas du contenu, plus grand vide au-dessus des notes, figure en tête et sa hauteur (en points)."""
+    pages = [_objets(doc, i) for i in range(min(total, PAGES_BLANCS))]
+    reperes: dict = {}
+    for _, hauteur, objets, _ in pages:
+        for o in set(objets):
+            if o[2] > 0.80 * hauteur or o[4] < 0.15 * hauteur:
+                reperes[o] = reperes.get(o, 0) + 1
+    meubles = {o for o, n in reperes.items() if n >= max(2, len(pages) // 2)}
+    mesures = []
+    for _, hauteur, objets, debut in pages:
+        corps = sorted((o for o in objets if o not in meubles and o[4] > 0.09 * hauteur and o[2] < 0.93 * hauteur),
+                       key=lambda o: -o[4])
+        if not corps:
+            mesures.append({"h": hauteur, "bas": None, "trou": 0, "figure": False, "bloc": 0, "debut": debut})
+            continue
+        trou, fin = 0, None
+        for o in corps:
+            if fin is not None and o[4] < fin and o[4] <= 0.35 * hauteur:
+                trou = max(trou, fin - o[4])
+            fin = o[2] if fin is None else min(fin, o[2])
+        tete = next((o for o in corps if o[0] in (IMAGE, FORME) or (o[0] == TRACE and o[4] - o[2] > 28)), None)
+        figure = tete is not None and tete[4] >= corps[0][4] - 60
+        bloc_haut = bloc_bas = corps[0][4]
+        for _, _, bas, _, haut in corps:
+            if haut < bloc_bas - 24:
+                break
+            bloc_bas = min(bloc_bas, bas)
+        mesures.append({"h": hauteur, "bas": min(o[2] for o in corps), "trou": trou, "figure": figure,
+                        "bloc": bloc_haut - bloc_bas, "debut": debut})
     return mesures
 
 
@@ -61,7 +81,7 @@ def main() -> int:
     doc = pdfium.PdfDocument(pdf)
     try:
         total = len(doc)
-        if demande.get("blancs"):                  # pages qui finissent tôt : figure suivante trop haute
+        if demande.get("blancs"):
             sys.stdout.write(json.dumps({"total": total, "blancs": mesurer(doc, total)}))
             return 0
         if demande.get("signets"):                 # signets du PDF (un par titre) : page exacte de chaque titre

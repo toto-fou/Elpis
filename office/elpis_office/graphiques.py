@@ -52,7 +52,7 @@ class Rendu:
     tuiles: List[Dict[str, Any]] = field(default_factory=list)
     png: bytes = b""
     ratio: float = HAUTEUR_PX / LARGEUR_PX     # hauteur / largeur de l'image
-    lang: str = "en-US"                        # langue du document : séparateurs et en-têtes
+    lang: str = "en-US"
 
 
 def ref_de(valeur: Any) -> Optional[str]:
@@ -87,7 +87,8 @@ def rendu(rendus: Dict[str, "Rendu"], gid: str) -> "Rendu":
     return r
 
 
-def preparer(env: Env, ids: List[str], titre_image: bool = True, lang: str = "en-US") -> Dict[str, Rendu]:
+def preparer(env: Env, ids: List[str], titre_image: bool = True, lang: str = "en-US",
+             sans_titre: Optional[set] = None) -> Dict[str, Rendu]:
     """Charge et convertit tous les graphiques cités (un seul passage Node/LibreOffice).
 
     ``titre_image=False`` : une image n'embarque pas le titre du graphique (la
@@ -119,7 +120,7 @@ def preparer(env: Env, ids: List[str], titre_image: bool = True, lang: str = "en
             if natif:
                 r.mode, r.natif = "natif", natif
         if r.mode == "image":
-            a_dessiner.append((r, option if titre_image else
+            a_dessiner.append((r, option if titre_image and gid not in (sans_titre or ()) else
                                {k: v for k, v in option.items() if k != "title"}))
         rendus[gid] = r
     if a_dessiner:
@@ -169,12 +170,10 @@ def _decimales(valeurs: List[Optional[float]]) -> int:
 
 
 def _format(unit: str, valeurs: List[Optional[float]], lang: str) -> Tuple[str, str]:
-    """(format de l'axe, format des étiquettes) selon l'unité, les valeurs et la langue du document.
-    Pas de titre d'axe pour une unité : elle figure déjà sur chaque graduation."""
+    """(format de l'axe, format des étiquettes) selon l'unité, l'écart des valeurs et la langue du document."""
     prefixe = _LCID.get(lang[:2].lower(), "")
     n = _decimales(valeurs)
     nombres = [v for v in valeurs if v is not None and math.isfinite(v)]
-    # Graduations d'après l'écart : 100,21 à 100,28 garde ses décimales (sinon trois « 100 »).
     ecart = (max(nombres) - min(nombres)) if len(nombres) > 1 else max((abs(v) for v in nombres), default=0)
     axe = "#,##0" if ecart >= 10 else "#,##0.0" if ecart >= 1 else "#,##0.00"
     etiquette = "#,##0" + ("." + "0" * n if n else "")
@@ -249,7 +248,7 @@ def _natif(option: Dict[str, Any], kind: str, env: Env, lang: str = "en-US") -> 
             return None
         tendances = [s for s in series if _tendance(s)]
         if tendances and len(nuages) == 1 and kind == "scatter":
-            nuages[0]["trendline"] = libelles(lang)["trend"]   # même régression : une droite sur tous les points
+            nuages[0]["trendline"] = libelles(lang)["trend"]
         if len(series) > len(nuages) + (len(tendances) if len(nuages) == 1 else 0):
             env.notes.warn("trend line or markers of the chart are not carried into the file")
         xa, ya = _axe(option.get("xAxis")), _axe(option.get("yAxis"))
@@ -309,8 +308,7 @@ def _natif(option: Dict[str, Any], kind: str, env: Env, lang: str = "en-US") -> 
 
 # ── Image : ECharts côté serveur puis PNG ──────────────────────────────────
 def _libelles_ajustes(option: Dict[str, Any]) -> Dict[str, Any]:
-    """Libellés d'un axe de catégories tous affichés : au plus la largeur d'une colonne à 640 px,
-    retour à la ligne au-delà (« Marketing & ventes » ne touche plus « Frais généraux »)."""
+    """Libellés d'un axe de catégories tous affichés : à la largeur d'une colonne (640 px), inclinés si trop étroits."""
     axe = option.get("xAxis")
     if not isinstance(axe, dict) or axe.get("type") != "category" or not isinstance(axe.get("axisLabel"), dict):
         return option
@@ -319,13 +317,12 @@ def _libelles_ajustes(option: Dict[str, Any]) -> Dict[str, Any]:
         return option
     grille: Dict[str, Any] = option["grid"] if isinstance(option.get("grid"), dict) else {}
     marges = sum(float(v) for v in (grille.get("left"), grille.get("right")) if isinstance(v, (int, float)))
-    colonne = int((LARGEUR_PX - marges - 48) / n) - 8          # 48 px : graduations de l'axe des valeurs
+    colonne = int((LARGEUR_PX - marges - 48) / n) - 8
     largeur = libelle.get("width")
     if isinstance(largeur, (int, float)) and largeur <= colonne:
         return option
     if colonne >= 60:
         return {**option, "xAxis": {**axe, "axisLabel": {**libelle, "width": colonne, "overflow": "break"}}}
-    # Colonnes trop étroites pour couper les mots : libellés inclinés, place gardée sous l'axe.
     bas = float(grille["bottom"]) if isinstance(grille.get("bottom"), (int, float)) else 0.0
     return {**option, "grid": {**grille, "bottom": max(bas, 72.0)},
             "xAxis": {**axe, "axisLabel": {**libelle, "rotate": 35, "width": 110, "overflow": "truncate"}}}
@@ -389,8 +386,7 @@ _SEPARATEURS = {"fr": ("\u202f", ","), "en": (",", "."), "de": (".", ","), "es":
 
 
 def cellule(v: Any, lang: str = "fr-FR", milliers: Optional[bool] = None) -> str:
-    """Nombre d'une cellule dans la langue du document (2 décimales au plus) ; un entier n'a de
-    séparateur de milliers que sur demande (une année reste « 2026 »)."""
+    """Nombre d'une cellule dans la langue du document (2 décimales au plus, milliers des entiers sur demande)."""
     if v is None:
         return ""
     if isinstance(v, bool) or not isinstance(v, (int, float)) or (isinstance(v, float) and not math.isfinite(v)):
@@ -409,8 +405,7 @@ _SANS_MILLIERS = re.compile(r"(?:^|_)(?:an|annee|annees|year|years|exercice|code
 
 
 def cellules_tableau(lignes: List[List[Any]], lang: str, entete: Optional[List[Any]] = None) -> List[List[str]]:
-    """Cellules d'un tableau de données : milliers séparés, sauf colonne d'années (1900 à 2100, cellules
-    texte ignorées) ou colonne nommée année, code, n°, réf…"""
+    """Cellules d'un tableau de données : milliers séparés, sauf colonnes d'années (1900-2100) ou de codes, n°, réf."""
     from ._chart.normalise import fold
 
     largeur = max((len(ln) for ln in lignes), default=0)

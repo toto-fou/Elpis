@@ -230,7 +230,6 @@ class SeriesData:
     #: (x, y) or (x, y, size) tuples for scatter / bubble charts
     points: Sequence[Sequence[float]] | None = None
     color: str | None = None
-    #: name of a linear trend line drawn by Word/LibreOffice (editable, follows the data)
     trendline: str | None = None
 
 
@@ -250,7 +249,6 @@ class ChartRequest:
     #: on circular charts where the label shows a share and "0%" is what people mean.
     data_label_format: str | None = None
     number_format: str | None = None
-    #: format of the horizontal value axis of a scatter / bubble chart
     x_number_format: str | None = None
     gridlines: bool = True
     y_min: float | None = None
@@ -535,7 +533,6 @@ def _apply_series_colors(
 
     _replace(group, "c:varyColors", make("c:varyColors", val="0"))
     stroke = key in LINE_TYPES
-    # A pure scatter shows points only: a line between them suggests an order that does not exist.
     points_only = key in XY_TYPES and "lines" not in key and "smooth" not in key
     for index, element in enumerate(series_elements):
         color = parse_color(explicit[index]) if index < len(explicit) and explicit[index] else None
@@ -543,7 +540,7 @@ def _apply_series_colors(
         shape = _frag(f'<c:spPr xmlns:c="{C_NS}" xmlns:a="{A_NS}"><a:ln w="19050"><a:noFill/></a:ln></c:spPr>') \
             if points_only else _series_shape(color, stroke=stroke)
         _replace(element, "c:spPr", shape)
-        if points_only:  # python-pptx writes a markerless series: the points must show
+        if points_only:
             _replace(element, "c:marker", make("c:marker"))
         marker = element.find(qn("c:marker"))
         if marker is not None:
@@ -684,7 +681,6 @@ def _apply_data_labels(key: str, group: etree._Element, request: ChartRequest, s
     if position:
         _insert_ordered(labels, make("c:dLblPos", val=position))
     # Word wants the whole show* family present, not just the ones set to 1.
-    # A doughnut's ring is too thin for names: its labels carry the share, the legend the names.
     ring = circular and _local(group) == "doughnutChart"
     flags = {
         "c:showLegendKey": "0",
@@ -759,7 +755,6 @@ def _apply_axes(key: str, plot_area: etree._Element, request: ChartRequest) -> N
             ),
         )
 
-        # The measure axis: vertical, or horizontal for bars; a scatter's horizontal axis has its own format.
         xy_horizontal = is_value_axis and horizontal and (key in XY_TYPES or key in BUBBLE_TYPES)
         measure = is_value_axis and not xy_horizontal and (not horizontal or key.startswith("bar"))
         number_format = request.x_number_format if xy_horizontal else request.number_format if measure else None
@@ -803,7 +798,7 @@ def _apply_legend(
         # One series needs no legend — the title already names it. Circular charts
         # carry direct labels instead.
         if key in CIRCULAR_TYPES and _local(_chart_group(plot_area)) == "doughnutChart":
-            requested = "right"  # the ring's labels show shares only
+            requested = "right"
         elif key in CIRCULAR_TYPES or series_count < 2:
             requested = "none"
         else:

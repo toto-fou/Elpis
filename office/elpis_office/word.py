@@ -20,7 +20,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 
 import docx
 from docx.text.paragraph import Paragraph
@@ -198,32 +198,75 @@ _DEF_NOTE = re.compile(r"^\[\^([^\]\s]+)\]:[ \t]?(.*)$")
 _APPEL_NOTE = re.compile(r"\[\^([^\]\s]+)\]")
 # Renvoi pandoc-crossref : « voir @fig:archi » (pas une adresse : rien de collé devant).
 _RENVOI = re.compile(r"(?<![\w@/.:])@((?:fig|tbl|tab|sec|chap|eq)[:_-][\w:.-]*\w)")
-_CODE_EN_LIGNE = re.compile(r"(`+)(?:.*?)\1")
-_SECTION = re.compile(r"^\s*:::\s*\{?\s*\.?(paysage|landscape|portrait|colonnes|columns|cols)?\s*(\d)?\s*\}?\s*$",
-                      re.IGNORECASE)
+# Hors marques : image entière, destination d'un lien, lien <…>, adresse web nue.
+_INTOUCHABLE = re.compile(r"!\[(?:[^\[\]\n]|\[[^\[\]\n]*\])*\]\([^)\n]*\)|\]\([^)\n]*\)|<[^<>\n]+>|https?://\S+")
+_IDENTIFIANT = re.compile(r"\{#([\w:.-]+)")
+_MD_NOTE = re.compile(r"(\*\*|__|\*|_|`)(.+?)\1")
+_LISTE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
+_SECTION = re.compile(r"^\s{0,3}:::+\s*(.*?)\s*$")
+_SECTION_GENRE = re.compile(r"^\{?\s*\.?(?:(paysage|landscape|portrait)|(colonnes|columns|cols)\s*(\d)?)\s*\}?$",
+                            re.IGNORECASE)
 
 
 def refs_de(contenu: str) -> List[str]:
     return G.REF.findall(contenu or "")
 
 
+def _legendes_de(contenu: str) -> set:
+    """Graphiques « !id{#fig:x} » : leur légende numérotée porte le titre, l'image ne le répète pas."""
+    return {m.group(1) for ligne in (contenu or "").splitlines() if (m := G.REF_SEULE.match(ligne))
+            and "#" in (m.group(2) or "")}
+
+
+def _spans_code(ligne: str) -> List[Tuple[int, int]]:
+    """Code en ligne (`…`, ``…``) : même nombre d'accents graves à l'ouverture et à la fermeture, en temps linéaire."""
+    spans: List[Tuple[int, int]] = []
+    i, n = 0, len(ligne)
+    while True:
+        i = ligne.find("`", i)
+        if i < 0:
+            return spans
+        j = i
+        while j < n and ligne[j] == "`":
+            j += 1
+        fermeture, k = -1, j
+        while (k := ligne.find("`" * (j - i), k)) >= 0:
+            fin = k + (j - i)
+            if (k == 0 or ligne[k - 1] != "`") and (fin >= n or ligne[fin] != "`"):
+                fermeture = fin
+                break
+            while k < n and ligne[k] == "`":
+                k += 1
+        if fermeture < 0:
+            i = j
+            continue
+        spans.append((i, fermeture))
+        i = fermeture
+
+
 def _hors_code(ligne: str, f) -> str:
-    """Applique ``f`` au texte d'une ligne hors des `code` en ligne."""
+    """Applique ``f`` au texte d'une ligne hors du code en ligne, des images, des liens et des adresses web."""
+    gardes = sorted(_spans_code(ligne) + [m.span() for m in _INTOUCHABLE.finditer(ligne)])
     morceaux, pos = [], 0
-    for m in _CODE_EN_LIGNE.finditer(ligne):
-        morceaux += [f(ligne[pos:m.start()]), m.group(0)]
-        pos = m.end()
+    for debut, fin in gardes:
+        if debut < pos:
+            pos = max(pos, fin)
+            continue
+        morceaux += [f(ligne[pos:debut]), ligne[debut:fin]]
+        pos = fin
     return "".join(morceaux + [f(ligne[pos:])])
 
 
-def _notes_et_renvois(contenu: str, env: Env) -> Tuple[str, Dict[str, str]]:
-    """Notes « [^1] » et renvois « @fig:x » → marques lues par le convertisseur ; les définitions « [^1]: … » sortent du texte."""
+def _notes_et_renvois(contenu: str, env: Env, connus: Iterable[str] = ()) -> Tuple[str, Dict[str, str]]:
+    """Notes « [^1] » et renvois « @fig:x » → marques du convertisseur ; tableaux, citations, code et HTML gardent le texte."""
     lignes = (contenu or "").replace("\ue000", "").replace("\ue001", "").replace("\ue002", "") \
         .replace("\r\n", "\n").split("\n")
     definitions: Dict[str, str] = {}
     gardees: List[str] = []
-    dans_code, courante = False, None
-    for ligne in lignes:
+    dans_code, courante, i = False, None, 0
+    while i < len(lignes):
+        ligne = lignes[i]
+        i += 1
         if _FENCE.match(ligne):
             dans_code, courante = not dans_code, None
         m = None if dans_code else _DEF_NOTE.match(ligne)
@@ -232,71 +275,138 @@ def _notes_et_renvois(contenu: str, env: Env) -> Tuple[str, Dict[str, str]]:
             definitions[courante] = m.group(2).strip()
             continue
         if courante is not None and ligne[:1] in (" ", "\t") and ligne.strip():
-            definitions[courante] += " " + ligne.strip()      # suite indentée de la note
+            definitions[courante] += " " + ligne.strip()
+            continue
+        if courante is not None and not ligne.strip() and i < len(lignes) and lignes[i].startswith(("    ", "\t")) \
+                and lignes[i].strip():
             continue
         courante = None
         gardees.append(ligne)
+    ids = [R.normalise_bookmark(x) for x in _IDENTIFIANT.findall(contenu or "")]
+    doubles = sorted({x for x in ids if ids.count(x) > 1})
+    if doubles:
+        env.notes.warn(f"id(s) {', '.join(doubles)} given twice (or differing only by : _ - .): "
+                       "cross-references point to the last one")
+    cibles = set(ids) | set(connus)
     numeros: Dict[str, str] = {}
     textes: Dict[str, str] = {}
     absentes: List[str] = []
+    inconnus: List[str] = []
+    bruts: List[str] = []
 
     def appel(m: "re.Match[str]") -> str:
         cle = m.group(1)
-        if cle not in definitions:
+        if not definitions.get(cle):
             absentes.append(cle)
             return m.group(0)
         n = numeros.setdefault(cle, str(len(numeros) + 1))
-        textes[n] = definitions[cle]
+        textes[n] = _MD_NOTE.sub(r"\2", definitions[cle])
         return f"{NOTE_MARK}{n}{END_MARK}"
 
     def renvoi(m: "re.Match[str]") -> str:
-        return f"{REF_MARK}{R.normalise_bookmark(m.group(1))}{END_MARK}"
+        nom = R.normalise_bookmark(m.group(1))
+        if nom not in cibles:
+            inconnus.append(m.group(0))
+            return m.group(0)
+        return f"{REF_MARK}{nom}{END_MARK}"
 
-    sortie, dans_code = [], False
+    sortie: List[str] = []
+    numeros_bruts: set = set()
+    dans_code = encadre = prec_code = liste = False
+    prec_vide = True
     for ligne in gardees:
         if _FENCE.match(ligne):
             dans_code = not dans_code
-        sortie.append(ligne if dans_code else
-                      _hors_code(ligne, lambda t: _RENVOI.sub(renvoi, _APPEL_NOTE.sub(appel, t))))
+        nue = ligne.strip()
+        indente = bool(nue) and ligne.startswith(("    ", "\t"))
+        code_indente = indente and (prec_code or (prec_vide and not liste))
+        encadre = bool(_ALERTE.match(ligne)) or (encadre and nue.startswith(">"))
+        brut = (dans_code or code_indente or nue.startswith("|") or (nue.startswith(">") and not encadre)
+                or bool(_ALERTE.match(ligne)) or (nue.startswith("<") and not nue.startswith("<http")))
+        if brut and not dans_code and (_APPEL_NOTE.search(ligne) or _RENVOI.search(ligne)):
+            bruts.append(nue[:40])
+            numeros_bruts.update(_APPEL_NOTE.findall(ligne))
+        sortie.append(ligne if brut else _hors_code(ligne, lambda t: _RENVOI.sub(renvoi, _APPEL_NOTE.sub(appel, t))))
+        prec_code, prec_vide = code_indente, not nue
+        if nue and not indente:
+            liste = bool(_LISTE.match(ligne))
     if absentes:
         env.notes.warn(f"footnote(s) {', '.join(f'[^{x}]' for x in dict.fromkeys(absentes))} have no "
                        "definition line ([^1]: text): left as written")
-    orphelines = [k for k in definitions if k not in numeros]
+    citees = set(numeros) | numeros_bruts | {k for t in definitions.values() for k in _APPEL_NOTE.findall(t)}
+    orphelines = [k for k in definitions if k not in citees]
     if orphelines:
         env.notes.warn(f"footnote definition(s) {', '.join(f'[^{x}]' for x in orphelines)} never cited "
                        "in the text: dropped")
+    if inconnus:
+        env.notes.warn(f"cross-reference(s) {', '.join(dict.fromkeys(inconnus))}: no figure, table or heading "
+                       "has this id ({#fig:name} after it): left as written")
+    if bruts:
+        env.notes.warn("footnotes and cross-references are not supported in tables, quotes, callout titles, "
+                       f"indented code or HTML: left as written ({bruts[0]}…)")
     return "\n".join(sortie), textes
 
 
 def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
                    toc_titre: str = "Sommaire", toc_niveaux: Optional[List[int]] = None,
-                   sections: bool = True) -> List[Any]:
+                   sections: bool = True, orientation: str = "portrait", connus: Iterable[str] = ()) -> List[Any]:
     """Markdown étendu → blocs du moteur Word (graphiques déjà préparés)."""
-    contenu, textes_notes = _notes_et_renvois(contenu, env)
+    contenu, textes_notes = _notes_et_renvois(contenu, env, connus)
     jeton = FOOTNOTES.set(textes_notes)
     try:
-        return _blocs_markdown(contenu, rendus, env, toc_titre, toc_niveaux, sections)
+        return _blocs_markdown(contenu, rendus, env, toc_titre, toc_niveaux, sections, orientation)
     finally:
         FOOTNOTES.reset(jeton)
 
 
-def _section_ouverte(genre: str, n: Optional[str]) -> Tuple[str, Any, Any]:
-    """« ::: paysage » / « ::: colonnes 2 » → (genre, bloc d'ouverture, bloc de fermeture)."""
-    if genre in ("paysage", "landscape", "portrait"):
-        sens: Literal["portrait", "landscape"] = "portrait" if genre == "portrait" else "landscape"
-        retour: Literal["portrait", "landscape"] = "landscape" if sens == "portrait" else "portrait"
-        return (sens, S.SectionBlock(type="section", start="new_page", orientation=sens),
-                S.SectionBlock(type="section", start="new_page", orientation=retour))
-    colonnes = max(2, min(4, int(n or 2)))
-    return ("columns", S.SectionBlock(type="section", start="continuous", columns=colonnes),
-            S.SectionBlock(type="section", start="continuous", columns=1))
+class _Sections:
+    """« ::: paysage » / « ::: colonnes 2 » … « ::: » : une pile d'états (orientation, colonnes) ; la fermeture rend l'état d'avant."""
+
+    def __init__(self, orientation: str) -> None:
+        self.etat: Tuple[str, int] = (orientation, 1)
+        self.pile: List[Optional[Tuple[str, int]]] = []
+
+    def ligne(self, reste: str, blocs: List[Any], env: Env) -> None:
+        m = _SECTION_GENRE.match(reste)
+        if not reste:
+            if not self.pile:
+                env.notes.fix("a ':::' line closes nothing: ignored")
+            elif (avant := self.pile.pop()) is not None:
+                self._vers(avant, blocs)
+        elif m is None:
+            self.pile.append(None)
+            env.notes.fix(f"'::: {reste}' block: its fences are dropped, its content kept")
+        else:
+            self.pile.append(self.etat)
+            sens = fold(m.group(1) or "")
+            if sens:
+                self._vers(("portrait" if sens == "portrait" else "landscape", 1), blocs)
+            else:
+                self._vers((self.etat[0], max(1, min(4, int(m.group(3) or 2)))), blocs)
+
+    def fermer(self, blocs: List[Any], env: Env) -> None:
+        ouverts = [e for e in self.pile if e is not None]
+        if ouverts:
+            env.notes.fix(f"{len(ouverts)} '::: …' section(s) not closed: closed at the end")
+            self._vers(ouverts[0], blocs)
+
+    def _vers(self, etat: Tuple[str, int], blocs: List[Any]) -> None:
+        if etat == self.etat:
+            return
+        nouvelle_page = etat[0] != self.etat[0]
+        if nouvelle_page and blocs and isinstance(blocs[-1], S.PageBreakBlock):
+            blocs.pop()
+        sens: Literal["portrait", "landscape"] = "landscape" if etat[0] == "landscape" else "portrait"
+        blocs.append(S.SectionBlock(type="section", start="new_page" if nouvelle_page else "continuous",
+                                    orientation=sens if nouvelle_page else None, columns=etat[1]))
+        self.etat = etat
 
 
 def _blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env, toc_titre: str,
-                    toc_niveaux: Optional[List[int]], sections: bool) -> List[Any]:
+                    toc_niveaux: Optional[List[int]], sections: bool, orientation: str) -> List[Any]:
     blocs: List[Any] = []
     tampon: List[str] = []
-    fermetures: List[Any] = []
+    pages = _Sections(orientation)
 
     def vider() -> None:
         if tampon:
@@ -330,17 +440,10 @@ def _blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env, toc_titr
         m = _SECTION.match(ligne)
         if m:
             vider()
-            genre = fold(m.group(1) or "")
-            if not sections:
-                env.notes.warn("'::: landscape' / '::: columns' sections are only available in docx_create: ignored")
-            elif genre:
-                _, ouverture, fermeture = _section_ouverte(genre, m.group(2))
-                blocs.append(ouverture)
-                fermetures.append(fermeture)
-            elif fermetures:
-                blocs.append(fermetures.pop())
+            if sections:
+                pages.ligne(m.group(1), blocs, env)
             else:
-                env.notes.fix("a ':::' line closes nothing: ignored")
+                env.notes.warn("'::: landscape' / '::: columns' sections are only available in docx_create: ignored")
             i += 1
             continue
         if G.REF.search(ligne):
@@ -382,9 +485,7 @@ def _blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env, toc_titr
         tampon.append(ligne)
         i += 1
     vider()
-    if fermetures:
-        env.notes.fix(f"{len(fermetures)} '::: …' section(s) not closed: closed at the end")
-        blocs.extend(reversed(fermetures))
+    pages.fermer(blocs, env)
     return blocs
 
 
@@ -394,14 +495,14 @@ def blocs_graphique(r: G.Rendu, attrs: Optional[Dict[str, Any]] = None) -> List[
     ident = attrs.get("id")
     if r.mode == "natif":
         n = r.natif
-        part = (attrs.get("width_percent") or 100) / 100
-        largeur = attrs.get("width_cm") or 16.0 * part
+        largeur = attrs.get("width_cm") or 16.0
         hauteur = attrs.get("height_cm") or largeur * 9 / 16
-        legende = (n.get("title") or r.kind) if ident else None
+        legende = (n.get("title") or "") if ident else None
         return [S.ChartBlock(type="chart", chart_type=n["chart_type"],
                              categories=n.get("categories") or [],
                              series=[S.SeriesSpec(**s) for s in n["series"]],
-                             width_cm=largeur, height_cm=hauteur, caption=legende, bookmark=ident,
+                             width_cm=largeur, height_cm=hauteur, width_percent=attrs.get("width_percent"),
+                             caption=legende, bookmark=ident,
                              title=None if legende else n.get("title"), x_title=n.get("x_title"),
                              x_number_format=n.get("x_number_format"),
                              y_title=n.get("y_title"), number_format=n.get("number_format"),
@@ -412,7 +513,7 @@ def blocs_graphique(r: G.Rendu, attrs: Optional[Dict[str, Any]] = None) -> List[
         return [S.ImageBlock(type="image", source=G.data_uri(r.png),
                              width_cm=attrs.get("width_cm") or (None if attrs.get("width_percent") else 16.0),
                              width_percent=attrs.get("width_percent"), height_cm=attrs.get("height_cm"),
-                             caption=(r.titre or r.kind) if ident else None, bookmark=ident,
+                             caption=(r.titre or "") if ident else None, bookmark=ident,
                              alt_text=r.titre or r.kind)]
     if r.mode == "kpi":
         lignes = [[t.get("label", ""), t.get("value", ""),
@@ -429,7 +530,7 @@ def _table_bloc(entete: List[str], lignes: List[List[Any]], titre: str,
                 ident: Optional[str] = None) -> List[Any]:
     return [S.TableBlock(type="table", header=[str(h) for h in entete],
                          rows=[[str(c) for c in ln] for ln in lignes],
-                         caption=titre or None, bookmark=ident)]
+                         caption=titre or ("" if ident else None), bookmark=ident)]
 
 
 # ── Ouverture / écriture ────────────────────────────────────────────────────
@@ -456,10 +557,13 @@ def _enregistrer(env: Env, document: Any, rel: str, attendu: Optional[str] = Non
                  ) -> Dict[str, Any]:
     B.finalize(document)
     renumber_seq(document.element.body)          # Figure 1, 2, 3… lisibles sans mise à jour des champs
-    manquants = R.fill_references(document)
+    manquants, vides = R.fill_references(document)
     if manquants:
         env.notes.warn(f"cross-reference(s) to {', '.join(dict.fromkeys(manquants))}: no figure, table or "
                        "heading has this id ({#fig:name} after it): shown as « … »")
+    if vides:
+        env.notes.warn(f"cross-reference(s) to {', '.join(dict.fromkeys(vides))}: the target has no caption "
+                       "text to show (give the image a caption: ![Caption](file.png){#fig:name})")
     sortie = io.BytesIO()
     document.save(sortie)
     return ecrire(env, rel, sortie.getvalue(), attendu)
@@ -550,7 +654,7 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     lib = libelles(lang)
     jeton = _avec_lecteur(env)
     try:
-        rendus = G.preparer(env, refs_de(contenu_md), lang=lang)
+        rendus = G.preparer(env, refs_de(contenu_md), lang=lang, sans_titre=_legendes_de(contenu_md))
         blocs: List[Any] = []
         couverture = a.get("cover")
         if couverture:
@@ -570,16 +674,19 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         niveaux = [1, min(profondeur, 9)] if profondeur and profondeur > 0 else None
         if (booleen(a.get("toc")) or niveaux) and not _TOC.search(contenu_md or ""):
             blocs.append(S.TocBlock(type="toc", title=lib["toc"], **({"levels": niveaux} if niveaux else {})))
-        if blocs_bruts is not None:
-            env.notes.fix("content given as blocks: built as-is (Markdown is simpler)")
-            blocs.extend(_moteur(S.parse_blocks, blocs_bruts))
-        else:
-            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"], niveaux))
         # Avec un modèle, sa mise en page et son pied font foi : on ne les
         # remplace que sur demande explicite (sinon A4 portrait et « Page X / Y »
         # par défaut effaceraient la charte).
         modele = bool(a.get("template"))
         page = _page(a.get("page"), env) if (a.get("page") or not modele) else None
+        if blocs_bruts is not None:
+            env.notes.fix("content given as blocks: built as-is (Markdown is simpler)")
+            blocs.extend(_moteur(S.parse_blocks, blocs_bruts))
+        else:
+            sens = page.orientation if page else "portrait"
+            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"], niveaux, True, sens))
+        if page and blocs and isinstance(blocs[0], S.SectionBlock) and blocs[0].orientation:
+            page = page.model_copy(update={"orientation": blocs.pop(0).orientation})
         pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele), lib["page"]) \
             if (a.get("footer") or a.get("page_numbers") is not None or not modele) else None
         entete = _entete(a.get("header"))
@@ -992,7 +1099,8 @@ def docx_edit(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     jeton = _avec_lecteur(env)
     bilan_ops: List[Dict[str, Any]] = []
     try:
-        rendus = G.preparer(env, refs_de(contenus), lang=B.document_language(document) or "en-US")
+        rendus = G.preparer(env, refs_de(contenus), lang=B.document_language(document) or "en-US",
+                            sans_titre=_legendes_de(contenus))
         for i, (nom, c) in enumerate(ops):
             bilan_ops.append({"op": nom, **_appliquer(i, nom, c, lot, rendus, env)})
     finally:
@@ -1159,7 +1267,8 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
     if nom in ("insert", "append"):
         contenu = texte(requis(i, nom, c, "content",
                                EXEMPLE_OPS[3] if nom == "insert" else EXEMPLE_OPS[4]))
-        blocs = _moteur(blocs_markdown, contenu, rendus, env, sections=False)
+        connus = [b.get(qn("w:name")) or "" for b in document.element.body.iter(qn("w:bookmarkStart"))]
+        blocs = _moteur(blocs_markdown, contenu, rendus, env, sections=False, connus=connus)
         if nom == "append" or all(c.get(k) is None for k in ("after", "before", "at_end_of")):
             if nom == "insert":
                 env.notes.fix(f"ops[{i}] insert without 'after'/'before': appended at the end")

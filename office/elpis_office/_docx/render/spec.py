@@ -226,6 +226,7 @@ class ChartBlock(Base):
     y_max: float | None = None
     width_cm: float = Field(default=16.0, gt=0, le=200)
     height_cm: float = Field(default=9.0, gt=0, le=200)
+    width_percent: float | None = Field(default=None, gt=0, le=100, description="Share of the text width.")
     palette: list[str] | None = None
     gap_width: int | None = None
     overlap: int | None = None

@@ -75,10 +75,11 @@ def blancs_de_pages(pdf: bytes) -> Optional[str]:
     alertes = []
     for n, (m, suivante) in enumerate(zip(mesures, mesures[1:]), 1):
         if m["bas"] is None or not suivante["figure"] or suivante["h"] != m["h"]:
-            continue                               # pas de figure en tête, ou changement d'orientation (section)
-        vide = max(m["bas"] - min(min(bas), 0.105 * m["h"]), m.get("trou") or 0) / 72 * 2.54
-        if vide < 0.18 * m["h"] / 72 * 2.54:
             continue
+        vide = max(m["bas"] - min(min(bas), 0.105 * m["h"]), m.get("trou") or 0)
+        if vide < 0.18 * m["h"] or suivante.get("bloc", 0) <= vide - 6:
+            continue
+        vide = vide / 72 * 2.54
         legende = _LEGENDE.search(suivante["debut"] or "")
         quoi = f"the figure or table «{legende.group(0).strip()}»" if legende else "the figure or table"
         alertes.append(f"page {n} ends {vide:.1f} cm early: {quoi} at the top of page {n + 1} did not fit")

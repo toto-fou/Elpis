@@ -151,8 +151,15 @@ def restart_page_numbering(section, start: int = 1, number_format: str | None = 
 
 
 def content_width_cm(section) -> float:
-    """Usable text width, for sizing images and tables to the page."""
+    """Usable text width (one column of it when the section has several), for sizing images and tables."""
     width = section.page_width or Cm(21)
     left = section.left_margin or Cm(2.5)
     right = section.right_margin or Cm(2.5)
-    return max(1.0, (width - left - right) / 360000)
+    total = max(1.0, (width - left - right) / 360000)
+    cols = section._sectPr.find(qn("w:cols"))
+    try:
+        count = max(1, int(cols.get(qn("w:num"), "1"))) if cols is not None else 1
+        space = int(cols.get(qn("w:space"), "720")) / 567 if cols is not None else 0.0
+    except ValueError:
+        count, space = 1, 0.0
+    return max(1.0, (total - (count - 1) * space) / count)

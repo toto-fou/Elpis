@@ -627,10 +627,9 @@ def _md_refs(s: Dict[str, Any], rendus: Dict[str, G.Rendu], notes: Notes) -> Dic
     puces = list(s.get("bullets") or [])
     graphiques: List[str] = []
     for p in list(puces):
-        # Une puce du plan Markdown porte son texte dans ses fragments (runs).
         txt = p if isinstance(p, str) else (p or {}).get("text") or \
             "".join(str(x.get("text") or "") for x in (p or {}).get("runs") or [] if isinstance(x, dict))
-        m = G.REF_SEULE.match(txt or "")            # le « ! » est exigé : un hash de commit reste une puce
+        m = G.REF_SEULE.match(txt or "")
         if m and m.group(1) in rendus:
             puces.remove(p)
             graphiques.append(m.group(1))

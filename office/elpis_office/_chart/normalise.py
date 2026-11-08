@@ -24,6 +24,7 @@ import math
 import re
 import unicodedata
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any
 
 # ── Pliage de chaînes ─────────────────────────────────────────────────────
@@ -31,7 +32,11 @@ from typing import Any
 
 def fold(s: Any) -> str:
     """« Polar Area », « polarArea », « polar-area » → « polar_area »."""
-    s = str(s or "")
+    return _fold(str(s or ""))
+
+
+@lru_cache(maxsize=4096)
+def _fold(s: str) -> str:
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)          # camelCase → snake
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))

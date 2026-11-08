@@ -6,6 +6,7 @@ import datetime as dt
 import io
 import posixpath
 import re
+from functools import lru_cache
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from lxml import etree
@@ -419,11 +420,16 @@ def _largeur(v: Any, genre: str, code: Optional[str], formats: _Formats) -> int:
         return len(formats.date)
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return len(str(v))
-    code = formats.code(code or "#,##0.00")
-    decimales = len(code.split(".", 1)[1].split("%")[0].split(" ")[0].split('"')[0]) if "." in code else 0
-    nombre = v * 100 if "%" in code else v
-    litteraux = len(re.sub(r'\[[^\]]*\]|[#0,.]', "", code.replace('"', "")))
+    decimales, litteraux, pourcent = _gabarit(formats.code(code or "#,##0.00"))
+    nombre = v * 100 if pourcent else v
     return len(f"{nombre:,.{decimales}f}") + litteraux
+
+
+@lru_cache(maxsize=256)
+def _gabarit(code: str) -> Tuple[int, int, bool]:
+    """(décimales, caractères littéraux, pourcentage) d'un format numérique, lus une fois par format."""
+    decimales = len(code.split(".", 1)[1].split("%")[0].split(" ")[0].split('"')[0]) if "." in code else 0
+    return decimales, len(re.sub(r'\[[^\]]*\]|[#0,.]', "", code.replace('"', ""))), "%" in code
 
 
 def _ecrire_feuille(feuille: Any, f: _Feuille, feuilles: Dict[str, _Feuille], modele: F.Classeur,

@@ -85,6 +85,18 @@
       "enabled_by_default": true
     },
     {
+      "id": "alize",
+      "label": "Alizé",
+      "desc": "Une feuille posée sur un fond d'air marin : sans filets, très aéré.",
+      "sw": [
+        "#eaf1f0",
+        "#ffffff",
+        "#00676c"
+      ],
+      "builtin": true,
+      "enabled_by_default": true
+    },
+    {
       "id": "kiki",
       "label": "Kiki",
       "desc": "Crème, costume noir et nœud orange ; le trio anime le mot KIKI à l'accueil.",

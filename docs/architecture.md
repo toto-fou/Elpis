@@ -1172,6 +1172,9 @@ the other colors are semantic (status).
   `css/skins/<id>/skin.css` is linked statically by `index.html` and `admin.html`.
   Slate (empty `id`) is `style.css` with no class. `css/skins/<id>/editeur.css`
   (`ardoise/` for Slate) carries the skin's editor style; its presence is enough.
+  `css/skins/<id>/polices.css` declares the skin's bundled fonts, apart from
+  `skin.css`: an exported `skin.css` re-imports without them, and the browser
+  downloads a font only when the active skin uses it.
 - **Palettes and aliases.** `palettes`: color sets of the same structure, under
   the class `elpis-palette-<id>` (empty id: the base tokens), chosen by the
   `skin_palette` setting, a closed list read from the manifest. Registry `alias`:

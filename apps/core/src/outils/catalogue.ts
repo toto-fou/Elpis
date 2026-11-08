@@ -12,6 +12,7 @@ import { estDict, iterPy, lire } from "../python";
 import type { Dict } from "../python";
 import { categorize, getHiddenCategories, manifestSource } from "./categories";
 import { friendlyMcpError, masquerAdresse, mcpToolToOpenai, poolMcp, resoudreClientMcp } from "./mcp/clients";
+import { retirerGraphiquesOffice } from "./office-sans-graphiques";
 import { toolTraits } from "./traits";
 
 const log = journal("_collect_mcp_tools");
@@ -362,5 +363,6 @@ export async function collectMcpTools(
   }
   if (masquesParPorte > 0)
     log.info(`tool_gating: ${masquesParPorte} outil(s) masqué(s) (hors profil actif ce tour)`);
+  toolsPayload = retirerGraphiquesOffice(toolsPayload);
   return { toolCfgMap, toolsPayload, builtinHandlers, connectedServerNames: connectes };
 }

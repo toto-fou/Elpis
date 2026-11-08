@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from PIL import Image
 
-from ..assets import load_bytes
+from ...paquet import charger
 from ..errors import InvalidSpec
 
 #: What PowerPoint embeds directly.
@@ -39,8 +39,7 @@ def resolve_image(source: str) -> ResolvedImage:
     """Return an open stream plus the image's pixel size."""
     if not source or not str(source).strip():
         raise InvalidSpec("An image needs a non-empty 'source'.")
-    blob = load_bytes(source, "image")
-    return _validate(blob, str(source))
+    return _validate(charger(source, "image"), str(source))
 
 
 def _validate(blob: bytes, source: str) -> ResolvedImage:

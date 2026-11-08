@@ -15,7 +15,7 @@ from typing import Any, Iterable, Sequence
 from pptx import Presentation
 from pptx.util import Emu, Pt
 
-from .. import templates
+from ...paquet import charger, normaliser
 from ..errors import InvalidSpec
 from ..ooxml import shapes as shape_ooxml, slides as slide_ooxml, text as text_ooxml, theme as theme_ooxml
 from ..ooxml.util import anchor, mix, parse_color, rgb
@@ -69,23 +69,20 @@ def build_deck(spec: S.DeckSpec) -> tuple[Any, E.RenderContext]:
 
 
 def _open_base(template: str | None) -> tuple[Any, list[str]]:
-    """Open the deck a build starts from: blank, or a corporate template.
+    """Open the deck a build starts from: blank, or a corporate template of the sandbox.
 
-    ``template`` may be a catalogue name — the normal case — or a path or base64
-    payload. Template *formats* (.potx, .ppsx, macro-enabled) are normalised on
-    the way in, because refusing the exact file an IT department distributes is
-    not a defensible position for a server that claims to support templates.
+    Template *formats* (.potx, .ppsx, macro-enabled) are normalised on the way
+    in, because refusing the exact file an IT department distributes is not a
+    defensible position for a server that claims to support templates.
     """
     if not template:
         return Presentation(), []
 
-    blob, notes, catalogue_name = templates.load(template)
+    blob, notes = normaliser(charger(template, "template"), "pptx", "template")
     try:
         presentation = Presentation(io.BytesIO(blob))
     except Exception as exc:
         raise InvalidSpec(f"Could not open the template: {exc}") from exc
-    if catalogue_name:
-        notes = [f"Built on the {catalogue_name!r} template from the catalogue.", *notes]
     return presentation, notes
 
 

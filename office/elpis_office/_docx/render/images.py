@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Resolving an image ``source`` into bytes python-docx accepts.
 
-The resolution rules — path confinement, base64 forms, and whether an outbound
-fetch is allowed at all — live in ``assets``, so an image, a document and a
-template are all subject to exactly the same policy.
+The resolution rules (sandbox paths, data URIs, base64; never a URL) live in
+``elpis_office.paquet.charger``, the same for an image and a template.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ import io
 
 from PIL import Image
 
-from .. import assets
+from ...paquet import charger
 from ..errors import InvalidSpec
 
 #: What python-docx can embed directly.
@@ -29,11 +28,7 @@ def resolve_image(source: str) -> tuple[io.BytesIO, tuple[int, int]]:
     if not source or not str(source).strip():
         raise InvalidSpec("An image block needs a non-empty 'source'.")
     text = str(source).strip()
-
-    # A small inline PNG is legitimately short, so bare base64 counts from 64
-    # characters here rather than the 512 used for documents and templates.
-    blob = assets.load_bytes(text, "image", bare_base64_min=64)
-    return _validate(blob, text)
+    return _validate(charger(text, "image"), text)
 
 
 def _validate(blob: bytes, source: str) -> tuple[io.BytesIO, tuple[int, int]]:

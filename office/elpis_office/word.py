@@ -59,7 +59,7 @@ from .commun import (
 )
 from .langue import choisir as choisir_langue, libelles
 from .ops import lire_ops, requis
-from .paquet import PaquetInvalide, normaliser, retirer_lecteur
+from .paquet import PaquetInvalide, charger, normaliser, retirer_lecteur
 
 # ── Arguments ───────────────────────────────────────────────────────────────
 ALIAS_CREATE = {
@@ -664,8 +664,8 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                        blocks=blocs)
         base = None
         if a.get("template"):
-            from ._docx.templates import load
-            base, notes_m, _ = _moteur(load, str(a["template"]))
+            base, notes_m = _moteur(lambda m: normaliser(charger(m, "template"), "docx", "template"),
+                                    str(a["template"]))
             for n in notes_m:
                 env.notes.fix(n)
             try:

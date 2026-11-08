@@ -355,6 +355,22 @@ def iter_located_paragraphs(document) -> Iterable[tuple[dict[str, Any], Any]]:
 _TR, _TC, _TC_PR, _GRID_SPAN, _V_MERGE, _VAL = (qn(f"w:{tag}") for tag in ("tr", "tc", "tcPr", "gridSpan", "vMerge", "val"))
 
 
+def row_cells(row) -> list[Any]:
+    """``row.cells`` de python-docx, sans ValueError : une suite de fusion verticale sans départ au-dessus est sa propre case."""
+    from docx.table import _Cell
+
+    cells: list[Any] = []
+    for tc in row._tr.tc_lst:
+        source = tc
+        try:
+            while source.vMerge == "continue":
+                source = source._tc_above
+        except ValueError:
+            source = tc
+        cells += [_Cell(source, row.table)] * source.grid_span
+    return cells
+
+
 def _iter_table(table, base: dict[str, Any]) -> Iterable[tuple[dict[str, Any], Any]]:
     """Paragraphes de chaque cellule à sa première colonne, comme ``row.cells`` sans un objet par case ; une fusion verticale est lue à son départ (une suite sans départ au-dessus est lue comme une case)."""
     from docx.table import _Cell

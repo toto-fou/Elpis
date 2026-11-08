@@ -897,7 +897,7 @@ def _sommaire(paragraphes: List[Paragraph], debut: int, fin: int, instruction: s
 def _decrire_tableau(t: Any, k: int, apres: int) -> Dict[str, Any]:
     rangees = list(t.rows)
     item: Dict[str, Any] = {"table": k, "after_p": apres, "size": f"{len(rangees)}x{len(t.columns)}",
-                            "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[:LIGNES_LUES]]}
+                            "rows": [[c.text.strip()[:200] for c in docio.row_cells(row)] for row in rangees[:LIGNES_LUES]]}
     if len(rangees) > LIGNES_LUES:
         item["more_rows"] = (f"rows {LIGNES_LUES} to {len(rangees) - 1}: docx_read with table={k}, "
                              f"start={LIGNES_LUES}")
@@ -916,7 +916,7 @@ def _lire_tableau(env: Env, rel: str, a: Dict[str, Any], tableaux: List[Any]) ->
     nb = min(max(1, entier(a.get("limit")) or 100), 500)
     res: Dict[str, Any] = {"path": env.espace.afficher(rel), "table": k,
                            "size": f"{len(rangees)}x{len(tableaux[k].columns)}", "first_row": debut,
-                           "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[debut:debut + nb]]}
+                           "rows": [[c.text.strip()[:200] for c in docio.row_cells(row)] for row in rangees[debut:debut + nb]]}
     if debut + nb < len(rangees):
         res["next_start"] = debut + nb
         res["note"] = f"more rows: call docx_read again with table={k}, start={debut + nb}"
@@ -1242,7 +1242,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         if nom == "set_cell":
             ln, ligne = lot.ligne(i, nom, k, t, c.get("row"))
             col = entier(c.get("col"))
-            cells = ligne.cells
+            cells = docio.row_cells(ligne)
             if col is None or not 0 <= col < len(cells):
                 raise OfficeError(f"ops[{i}] (set_cell): column {c.get('col')!r} does not exist "
                                   f"in table {k} (columns 0 to {len(cells) - 1})",
@@ -1260,7 +1260,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
             raise OfficeError(f"ops[{i}] (add_row): table {k} has no row left to copy",
                               code="bad_index")
         if isinstance(vals, dict):
-            entete = [cel.text.strip() for cel in lignes[0].cells]
+            entete = [cel.text.strip() for cel in docio.row_cells(lignes[0])]
             dico = {fold(kk): vv for kk, vv in vals.items()}
             vals = [dico.get(fold(h), "") for h in entete]
         if not isinstance(vals, list):
@@ -1274,11 +1274,11 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         else:
             lignes[-1]._tr.addnext(nouvelle)
         from docx.table import _Row
-        ligne = _Row(nouvelle, t)
-        for j, cel in enumerate(ligne.cells):
+        cases = docio.row_cells(_Row(nouvelle, t))
+        for j, cel in enumerate(cases):
             _ecrire_cellule(document, cel, G.cellule(vals[j]) if j < len(vals) else "")
-        if len(vals) > len(ligne.cells):
-            env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(ligne.cells)} extra value(s) ignored")
+        if len(vals) > len(cases):
+            env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(cases)} extra value(s) ignored")
         return {"table": k, "rows": len(t.rows)}
     if nom == "meta":
         valeurs = {k: c[k] for k in ("title", "author", "subject", "keywords") if c.get(k)}

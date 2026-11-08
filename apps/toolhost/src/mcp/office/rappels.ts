@@ -21,6 +21,8 @@ import { RefusRappel } from "./worker";
 import type { Rappels, ReponseRappel } from "./worker";
 
 const DELAI_RENDU_MS = 60_000;
+/** Entrées d'un dossier montrées au modèle quand un chemin est introuvable. */
+const MAX_LISTE = 200;
 
 /** Extension d'un fichier exporté → famille LibreOffice (filtres d'import et d'export). */
 const KIND_EXPORT: Readonly<Record<string, string>> = {
@@ -194,6 +196,25 @@ export function creerRappels(c: ContexteRappels, d: DepsRappels): Rappels {
     }
   };
 
+  const lister = async (args: Dict): Promise<ReponseRappel> => {
+    const esp = await espace();
+    const rel = relatif(esp, args["chemin"]);
+    try {
+      const liste = await esp.lister(rel, { depth: 1, maxEntries: MAX_LISTE, hidden: false });
+      const prefixe = rel ? `${rel}/` : "";
+      const entrees = liste.entries.map((x) => ({
+        nom: String(x["path"]).slice(prefixe.length),
+        dossier: x["kind"] === "dir",
+      }));
+      return { valeur: { entrees } };
+    } catch (e) {
+      if (estErreurAgent(e) && (e.code === "not_found" || e.code === "missing"))
+        return { valeur: { entrees: null } };
+      if (estErreurAgent(e)) throw erreurLecture(e, rel);
+      throw e;
+    }
+  };
+
   const ecrire = async (args: Dict, corps: Buffer): Promise<ReponseRappel> => {
     const esp = await espace();
     const rel = relatif(esp, args["chemin"]);
@@ -339,6 +360,8 @@ export function creerRappels(c: ContexteRappels, d: DepsRappels): Rappels {
     switch (op) {
       case "lire":
         return lire(args);
+      case "lister":
+        return lister(args);
       case "ecrire":
         return ecrire(args, corps);
       case "graphique":

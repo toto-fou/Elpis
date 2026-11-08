@@ -23,7 +23,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict
 
 from ._chart import _refus
-from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, lire
+from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, indice_chemin, lire
 from .paquet import PaquetInvalide, normaliser
 
 logger = logging.getLogger("uvicorn.error")
@@ -319,7 +319,7 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         data = lire(env, rel, "file")
     except FileNotFoundError:
         raise OfficeError(f"file not found: {env.espace.afficher(rel)}", code="not_found",
-                          fix="check the path (list the folder)")
+                          fix=f"check the path{indice_chemin(env, rel) or ' (list the folder)'}")
     if ext in _SORTE:
         # Modèle ou fichier à macros : converti comme un document ordinaire,
         # macros retirées (LibreOffice ne les voit jamais).

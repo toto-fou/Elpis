@@ -186,6 +186,9 @@ class EspaceCanal:
     def lire(self, rel: str, max_bytes: int) -> bytes:
         return self._canal.rappeler(self._aid, "lire", {"chemin": rel, "max_octets": max_bytes})[1]
 
+    def lister(self, rel: str) -> Optional[List[Dict[str, Any]]]:
+        return self._canal.rappeler(self._aid, "lister", {"chemin": rel})[0].get("entrees")
+
     def ecrire(self, rel: str, data: bytes, attendu: Optional[str] = None) -> Ecrit:
         v, _ = self._canal.rappeler(self._aid, "ecrire", {"chemin": rel, "attendu": attendu}, data)
         return Ecrit(path=str(v["path"]), old_sha256=str(v["old_sha256"]), new_sha256=str(v["new_sha256"]),

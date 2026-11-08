@@ -43,6 +43,7 @@ from .commun import (
     chemin_sortie,
     ecrire,
     entier,
+    indice_chemin,
     lire,
     lire_fichier,
     texte,
@@ -322,7 +323,7 @@ def _avec_lecteur(env: Env):
         except FileNotFoundError:
             raise OfficeError(f"{quoi} not found in the sandbox: {env.espace.afficher(rel)}",
                               code="not_found",
-                              fix=f"check the {quoi} path (list the folder first)")
+                              fix=f"check the {quoi} path{indice_chemin(env, rel) or ' (list the folder first)'}")
     return installer_lecteur(lecteur)
 
 

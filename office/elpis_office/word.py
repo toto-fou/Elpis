@@ -399,11 +399,16 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         page = _page(a.get("page"), env) if (a.get("page") or not modele) else None
         pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele)) \
             if (a.get("footer") or a.get("page_numbers") is not None or not modele) else None
+        entete = _entete(a.get("header"))
+        if couverture:
+            # La page de garde n'a ni en-tête ni pied de page.
+            entete = entete.model_copy(update={"different_first_page": True}) if entete else None
+            pied = pied.model_copy(update={"different_first_page": True}) if pied else None
         spec = _moteur(S.DocumentSpec,
                        filename=rel.rsplit("/", 1)[-1],
                        meta=S.MetaSpec(title=titre or None, author=a.get("author") or None),
                        theme=_theme(a.get("theme"), env), page=page,
-                       header=_entete(a.get("header")),
+                       header=entete,
                        footer=pied,
                        watermark=S.WatermarkSpec(text=str(a["watermark"]))
                        if a.get("watermark") else None,

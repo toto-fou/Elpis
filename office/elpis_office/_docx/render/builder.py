@@ -92,13 +92,16 @@ def build_document(spec: S.DocumentSpec, base: bytes | None = None,
     if spec.footer:
         apply_footer(document.sections[0], spec.footer)
     if spec.watermark:
-        header_ooxml.add_watermark(
-            document.sections[0],
-            spec.watermark.text,
-            color=spec.watermark.color,
-            font=spec.watermark.font,
-            rotation=spec.watermark.rotation,
-        )
+        section = document.sections[0]
+        for variant in ("default", "first") if section.different_first_page_header_footer else ("default",):
+            header_ooxml.add_watermark(
+                section,
+                spec.watermark.text,
+                color=spec.watermark.color,
+                font=spec.watermark.font,
+                rotation=spec.watermark.rotation,
+                variant=variant,
+            )
 
     add_blocks(context, spec.blocks)
     finalize(document)
@@ -254,7 +257,7 @@ def apply_footer(section, footer: S.FooterSpec) -> None:
         color=footer.color, rule=footer.rule,
     )
     if footer.different_first_page:
-        section.different_first_page_header_footer = True
+        header_ooxml.set_header_footer(section, "footer", variant="first", text="")
 
 
 # ---------------------------------------------------------------------------

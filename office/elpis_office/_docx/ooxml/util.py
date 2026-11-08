@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any, Iterable, Sequence
 
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+from docx.oxml.ns import nsdecls, qn as _qn
 from docx.shared import Cm, Emu, Pt, RGBColor
 from lxml import etree
 
@@ -36,6 +37,9 @@ __all__ = [
     "next_drawing_id",
     "apply_run_format",
 ]
+
+#: Noms qualifiés mémorisés : les moteurs en demandent des centaines de milliers par document.
+qn = lru_cache(maxsize=1024)(_qn)
 
 
 def make(tag: str, **attrs: Any) -> etree._Element:

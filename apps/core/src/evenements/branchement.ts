@@ -90,7 +90,7 @@ export function brancherEvenements(options: OptionsMain | OptionsAdmin): Eveneme
     journal,
     peutVoirModeles: options.peutVoirModeles,
     ecrireJournal: options.ecrireJournal,
-    surAbonneStaff: () => suiviJournal?.assurer(),
+    surAbonneJournal: () => suiviJournal?.assurer(),
     attenteMs: options.attenteMs,
     revalidationMs: options.revalidationMs,
   });

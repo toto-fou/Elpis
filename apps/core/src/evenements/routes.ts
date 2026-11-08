@@ -169,8 +169,17 @@ function routesMain(ctx: ContexteRoutes, main: ContexteMain): DefinitionRoute[] 
   ];
 }
 
+const MAX_ABONNES_JOURNAL = 5;
+const MAX_ABONNES_JOURNAL_PAR_COMPTE = 2;
+
 /** Routes du bus ; celles du canal interne n'existent que dans main. */
 export function familleEvenements(ctx: ContexteRoutes): Famille {
+  const optionsSse = {
+    pingMs: ctx.pingMs,
+    journal: ctx.journal,
+    arret: ctx.arret,
+    graceMs: ctx.graceArretMs,
+  };
   const flux: DefinitionRoute = {
     methode: "GET",
     chemin: "/api/system-events",
@@ -179,16 +188,32 @@ export function familleEvenements(ctx: ContexteRoutes): Famille {
     traiter: async (requete, reponse) => {
       const identite = await ctx.identite(requete);
       signalerOuverture(ctx, "/api/system-events");
+      // Journal en direct : 5 abonnés par process (refus explicite), 2 par compte (le plus ancien est remplacé).
+      const demande =
+        identite.staff && (requete.query as Record<string, unknown> | undefined)?.["logs"] === "1";
+      if (demande) ctx.systemEvents.libererPlaceJournal(identite.uid, MAX_ABONNES_JOURNAL_PAR_COMPTE);
+      if (demande && ctx.systemEvents.nombreAbonnesJournal >= MAX_ABONNES_JOURNAL) {
+        await servirFluxSse(
+          reponse,
+          () =>
+            (async function* () {
+              yield '{"type": "log_unavailable"}';
+            })(),
+          optionsSse,
+        );
+        return;
+      }
       await servirFluxSse(
         reponse,
         (signal) =>
           ctx.systemEvents.listen({
             isStaff: identite.staff,
+            journal: demande,
             userId: identite.uid,
             validityCheck: identite.encoreValide,
             signal,
           }),
-        { pingMs: ctx.pingMs, journal: ctx.journal, arret: ctx.arret, graceMs: ctx.graceArretMs },
+        optionsSse,
       );
     },
   };

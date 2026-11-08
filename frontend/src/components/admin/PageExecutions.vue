@@ -2,6 +2,8 @@
 <!-- frontend/src/components/admin/PageExecutions.vue — page Supervision › Exécutions. -->
 <script setup lang="ts">
 import { domaineAdmin } from "../../features/admin/domaine";
+import ChoixPeriode from "./ChoixPeriode.vue";
+import EtatActualisation from "./EtatActualisation.vue";
 
 const adm = domaineAdmin();
 </script>
@@ -9,35 +11,13 @@ const adm = domaineAdmin();
 <template>
   <div v-if="adm.adminTab === 'runs'" class="animate-[fadeIn_0.2s] space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="adm-seg" role="group" aria-label="Période">
-        <button
-          v-for="s in [
-            { h: 24, l: '24 h' },
-            { h: 168, l: '7 j' },
-            { h: 720, l: '30 j' },
-          ]"
-          :key="'rs' + s.h"
-          type="button"
-          :class="['adm-seg__btn', adm.admRunsScope === s.h ? 'is-active' : '']"
-          :aria-pressed="adm.admRunsScope === s.h ? 'true' : 'false'"
-          @click="adm.setAdmRunsScope(s.h)"
-        >
-          {{ s.l }}
-        </button>
-      </div>
-      <button
-        type="button"
-        :disabled="adm.admRunsLoading"
-        class="adm-btn adm-tool"
-        @click="adm.loadAdminRuns()"
-      >
-        <i
-          class="ph ph-arrow-clockwise"
-          :class="adm.admRunsLoading ? 'animate-spin' : ''"
-          aria-hidden="true"
-        ></i>
-        Recharger
-      </button>
+      <ChoixPeriode :periode="adm.admRunsScope" @choisir="adm.setAdmRunsScope($event)" />
+      <EtatActualisation
+        :chargement="adm.admRunsLoading"
+        :derniere-maj="adm.admRunsDerniereMaj"
+        :echec="adm.admRunsEchec"
+        @actualiser="adm.loadAdminRuns()"
+      />
     </div>
 
     <div class="adm-card">

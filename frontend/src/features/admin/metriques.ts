@@ -6,6 +6,7 @@ import type { Ref } from "vue";
 import { ensureVendor } from "../../platform/vendor";
 import { corpsJson, estObjet, listeObjets, objet } from "../../utils/lecture-json";
 import type { BaseAdmin } from "./etat";
+import { ecrirePeriode, lirePeriode, periodeValide } from "./periode";
 import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 
 declare global {
@@ -57,13 +58,13 @@ export interface CategorieKpi {
 const CLE_PRISES_AUTO = "elpis_admin_auto_open";
 const CLE_SONDAGE = "elpis_dashboard_poll_ms";
 const CLE_SONDAGE_LIVE = "elpis_live_poll_ms";
-const PAS_SONDAGE: readonly number[] = [2000, 3000, 5000, 10000, 15000, 30000, 60000];
-const PAS_LIVE: readonly number[] = [500, 1000, 2000, 3000, 5000, 10000];
+const CLE_AUTO = "elpis_dashboard_auto";
+// Le serveur garde un résultat 10 s au moins et échantillonne le système toutes les 2 s : plus vite ne montre rien de neuf.
+const PAS_SONDAGE: readonly number[] = [5000, 10000, 15000, 30000, 60000];
+const PAS_LIVE: readonly number[] = [2000, 3000, 5000, 10000];
 const CLE_PREFS_WIDGETS = "elpis_widget_prefs";
 const CLE_MASQUES = "elpis_hidden_widgets";
-const CLE_PORTEE = "elpis_dashboard_scope_hours";
-const WIDGETS_LIVE: readonly string[] = ["system_load", "disk_io"];
-const PORTEES: readonly number[] = [24, 168, 720];
+const WIDGETS_LIVE: readonly string[] = ["system_load", "disk_io", "proc_live"];
 const ENTETES_JSON = { "Content-Type": "application/json" };
 
 export const KPI_CATEGORIES: readonly CategorieKpi[] = Object.freeze([
@@ -135,13 +136,18 @@ export function creerMetriques(b: BaseAdmin) {
   let sequenceStats = 0;
   /** Chargement du tableau en vol : le sondage attend sa réponse au lieu de l'annuler. */
   const dashboardLoading = ref(false);
+  /** Heure (ms) de la dernière actualisation réussie, échec de la dernière, période en cours de changement. */
+  const derniereMaj: Ref<number | null> = ref(null);
+  const echecMaj = ref(false);
+  const chargementPortee = ref(false);
+  const actualisationAuto = ref(lireStockage(CLE_AUTO) !== "0");
 
   // ── Cadences ─────────────────────────────────────────────────────────────
   const nombreStocke = (cle: string, valides: readonly number[], defaut: number): number => {
     const v = parseInt(lireStockage(cle) ?? "", 10);
     return valides.includes(v) ? v : defaut;
   };
-  const dashboardPollMs = ref(nombreStocke(CLE_SONDAGE, PAS_SONDAGE, 5000));
+  const dashboardPollMs = ref(nombreStocke(CLE_SONDAGE, PAS_SONDAGE, 15000));
   const livePollMs = ref(nombreStocke(CLE_SONDAGE_LIVE, PAS_LIVE, 3000));
 
   const pollLabel = (): string =>
@@ -155,8 +161,9 @@ export function creerMetriques(b: BaseAdmin) {
     dashboardPollMs.value = ms;
     ecrireStockage(CLE_SONDAGE, String(ms));
     if (minuterieSondage) {
-      stopDashboardPolling();
-      startDashboardPolling();
+      clearInterval(minuterieSondage);
+      minuterieSondage = null;
+      armerSondage();
     }
   }
   function setLiveInterval(ms: number): void {
@@ -203,15 +210,12 @@ export function creerMetriques(b: BaseAdmin) {
   }
 
   // ── Portée et visibilité des widgets ─────────────────────────────────────
-  const dashboardScope = ref(
-    PORTEES.includes(parseInt(lireStockage(CLE_PORTEE) || "24", 10))
-      ? parseInt(lireStockage(CLE_PORTEE) || "24", 10)
-      : 24,
-  );
+  const dashboardScope = ref(lirePeriode());
   function setDashboardScope(heures: number): void {
-    if (!PORTEES.includes(heures)) return;
+    if (periodeValide(heures) !== heures) return;
     dashboardScope.value = heures;
-    ecrireStockage(CLE_PORTEE, String(heures));
+    ecrirePeriode(heures);
+    chargementPortee.value = true;
     void loadAdminStats();
   }
 
@@ -243,10 +247,11 @@ export function creerMetriques(b: BaseAdmin) {
         delete instances[id];
       }
     } else {
-      void ctx.nextTick().then(renderDynamicDashboard);
+      void chargerWidgets([id]);
     }
   }
   function resetWidgetPrefs(): void {
+    const avant = new Set(dashboardData.value.layout.filter((w) => isWidgetVisible(w.id)).map((w) => w.id));
     widgetPrefs.value = {};
     try {
       localStorage.removeItem(CLE_PREFS_WIDGETS);
@@ -254,6 +259,10 @@ export function creerMetriques(b: BaseAdmin) {
       /* stockage indisponible */
     }
     destroyAllCharts();
+    const manquants = dashboardData.value.layout
+      .map((w) => w.id)
+      .filter((id) => isWidgetVisible(id) && (!avant.has(id) || !(id in dashboardData.value.data)));
+    if (manquants.length) void chargerWidgets(manquants);
     void ctx.nextTick().then(renderDynamicDashboard);
     showToast("Affichage revenu au set par défaut");
   }
@@ -416,34 +425,100 @@ export function creerMetriques(b: BaseAdmin) {
   }
 
   // ── Chargement et rendu ──────────────────────────────────────────────────
-  /** Une réponse sans `layout` ne doit pas remplacer la forme attendue par tout le fichier : normalisée à la source. */
+  const urlDonnees = (ids: readonly string[]): string =>
+    `/api/admin/stats-dynamic?scope_hours=${dashboardScope.value || 24}&ids=${encodeURIComponent(ids.join(","))}`;
+  const fusionnerDonnees = (json: Record<string, unknown>): void => {
+    const recues = estObjet(json["data"]) ? (json["data"] as Record<string, DonneesWidget>) : {};
+    dashboardData.value = { ...dashboardData.value, data: { ...dashboardData.value.data, ...recues } };
+  };
+  function planifierRendu(): void {
+    if (minuterieRendu) clearTimeout(minuterieRendu);
+    minuterieRendu = setTimeout(() => {
+      minuterieRendu = null;
+      void ctx.nextTick().then(renderDynamicDashboard);
+    }, 150);
+  }
+
+  /** Mise en page demandée une fois, puis les seuls widgets visibles ; après le premier affichage, les graphes live suivent leur propre cadence. */
   async function loadAdminStats(): Promise<void> {
     const maSequence = ++sequenceStats;
+    const echec = (raison: string): void => {
+      echecMaj.value = true;
+      chargementEchoue("loadAdminStats", raison, loadAdminStats);
+    };
     dashboardLoading.value = true;
+    // Période choisie entre-temps sur une autre page de la Supervision.
+    const commune = lirePeriode();
+    if (commune !== dashboardScope.value) {
+      dashboardScope.value = commune;
+      chargementPortee.value = true;
+    }
     try {
-      const res = await fetchAuth("/api/admin/stats-dynamic?scope_hours=" + (dashboardScope.value || 24));
-      if (maSequence !== sequenceStats) return;
-      if (!res?.ok) {
-        chargementEchoue("loadAdminStats", "Réponse du serveur inattendue ou en échec.", loadAdminStats);
-      } else {
-        chargementReussi("loadAdminStats");
+      if (!dashboardData.value.layout.length) {
+        const res = await fetchAuth("/api/admin/stats-dynamic?layout=1");
+        if (maSequence !== sequenceStats) return;
+        if (!res?.ok) return echec("Réponse du serveur inattendue ou en échec.");
         const json = objet(await corpsJson(res));
         if (maSequence !== sequenceStats) return;
-        dashboardData.value = {
-          ...json,
-          layout: listeObjets(json["layout"]) as WidgetMetrique[],
-          data: estObjet(json["data"]) ? (json["data"] as Record<string, DonneesWidget>) : {},
-        };
-        if (minuterieRendu) clearTimeout(minuterieRendu);
-        minuterieRendu = setTimeout(() => {
-          minuterieRendu = null;
-          void ctx.nextTick().then(renderDynamicDashboard);
-        }, 150);
+        dashboardData.value = { layout: listeObjets(json["layout"]) as WidgetMetrique[], data: {} };
+        fusionnerDonnees(json);
+      }
+      const premier = derniereMaj.value === null;
+      const ids = dashboardData.value.layout
+        .map((w) => w.id)
+        .filter((id) => isWidgetVisible(id) && (premier || !minuterieLive || !WIDGETS_LIVE.includes(id)));
+      if (ids.length) {
+        const res = await fetchAuth(urlDonnees(ids));
+        if (maSequence !== sequenceStats) return;
+        if (!res?.ok) return echec("Réponse du serveur inattendue ou en échec.");
+        const json = objet(await corpsJson(res));
+        if (maSequence !== sequenceStats) return;
+        fusionnerDonnees(json);
+      }
+      chargementReussi("loadAdminStats");
+      echecMaj.value = false;
+      derniereMaj.value = Date.now();
+      planifierRendu();
+    } catch {
+      echec("Erreur réseau.");
+    } finally {
+      if (maSequence === sequenceStats) {
+        dashboardLoading.value = false;
+        chargementPortee.value = false;
+      }
+    }
+  }
+
+  /** Données de widgets qu'on vient d'afficher, sans attendre le prochain sondage. */
+  async function chargerWidgets(ids: readonly string[]): Promise<void> {
+    const portee = dashboardScope.value;
+    try {
+      const res = await fetchAuth(urlDonnees(ids));
+      if (res?.ok) {
+        const json = objet(await corpsJson(res));
+        // Période changée pendant l'attente : cette réponse est périmée.
+        if (portee === dashboardScope.value) fusionnerDonnees(json);
       }
     } catch {
-      chargementEchoue("loadAdminStats", "Erreur réseau.", loadAdminStats);
-    } finally {
-      if (maSequence === sequenceStats) dashboardLoading.value = false;
+      /* le prochain sondage réessaiera */
+    }
+    void ctx.nextTick().then(renderDynamicDashboard);
+  }
+
+  /** Actualisation automatique suspendue ou reprise (mémorisée) ; le bouton Actualiser reste toujours disponible. */
+  function basculerActualisationAuto(): void {
+    actualisationAuto.value = !actualisationAuto.value;
+    ecrireStockage(CLE_AUTO, actualisationAuto.value ? "1" : "0");
+    if (!sondageVoulu) return;
+    if (actualisationAuto.value) {
+      startDashboardPolling();
+      void loadAdminStats();
+    } else {
+      if (minuterieSondage) {
+        clearInterval(minuterieSondage);
+        minuterieSondage = null;
+      }
+      stopLivePolling();
     }
   }
 
@@ -582,14 +657,14 @@ export function creerMetriques(b: BaseAdmin) {
   }
 
   async function refreshLiveWidgets(): Promise<void> {
+    const visibles = WIDGETS_LIVE.filter(isWidgetVisible);
+    if (!visibles.length) return;
     try {
-      const res = await fetchAuth(
-        "/api/admin/stats-dynamic?ids=" + encodeURIComponent(WIDGETS_LIVE.join(",")),
-      );
+      const res = await fetchAuth("/api/admin/stats-dynamic?ids=" + encodeURIComponent(visibles.join(",")));
       if (!res || !res.ok) return;
       const json = objet(await corpsJson(res));
       const donnees = objet(json["data"]);
-      for (const wid of WIDGETS_LIVE) {
+      for (const wid of visibles) {
         const neuf = donnees[wid];
         if (!estObjet(neuf) || neuf["error"]) continue;
         dashboardData.value.data[wid] = neuf as DonneesWidget;
@@ -615,11 +690,15 @@ export function creerMetriques(b: BaseAdmin) {
   }
   function startDashboardPolling(): void {
     sondageVoulu = true;
-    if (!minuterieSondage && !document.hidden)
-      minuterieSondage = setInterval(() => {
-        if (!dashboardLoading.value) void loadAdminStats();
-      }, dashboardPollMs.value);
+    if (!actualisationAuto.value) return;
+    armerSondage();
     startLivePolling();
+  }
+  function armerSondage(): void {
+    if (minuterieSondage || document.hidden) return;
+    minuterieSondage = setInterval(() => {
+      if (!dashboardLoading.value) void loadAdminStats();
+    }, dashboardPollMs.value);
   }
   function stopDashboardPolling(): void {
     sondageVoulu = false;
@@ -671,6 +750,11 @@ export function creerMetriques(b: BaseAdmin) {
   return {
     dashboardData,
     dashboardLoading,
+    derniereMaj,
+    echecMaj,
+    chargementPortee,
+    actualisationAuto,
+    basculerActualisationAuto,
     dashboardScope,
     setDashboardScope,
     widgetPrefs,

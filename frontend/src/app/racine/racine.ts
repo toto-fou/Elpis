@@ -895,6 +895,8 @@ export function creerRacine(options: OptionsRacine = {}) {
     else a.stopDashboardPolling();
     if (onglet === "overview") a.startOverviewPolling();
     else a.stopOverviewPolling();
+    // Le journal en direct n'est reçu que pendant que la page Journaux est affichée.
+    a.suivreJournal(onglet === "logs");
     const page = NAV_ADMIN.pages[onglet];
     const sources = [a, m.adminSkins, m.adminRuns] as readonly (object | null)[];
     for (const [nom, ...args] of page?.loaders ?? []) {
@@ -914,6 +916,7 @@ export function creerRacine(options: OptionsRacine = {}) {
     if (!actif) {
       a.stopDashboardPolling();
       a.stopOverviewPolling();
+      a.suivreJournal(false);
       return;
     }
     chargerPageAdmin(a.adminTab.value);

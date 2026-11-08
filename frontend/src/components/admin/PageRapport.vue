@@ -33,6 +33,7 @@ const adm = domaineAdmin();
             <i class="ph ph-printer" aria-hidden="true"></i> Imprimer
           </button>
           <button
+            v-if="adm.user?.role === 'admin'"
             type="button"
             :disabled="adm.dailyReportGenerating"
             class="adm-btn adm-btn--primary"
@@ -47,7 +48,7 @@ const adm = domaineAdmin();
           </button>
         </div>
       </header>
-      <div class="adm-rows">
+      <div v-if="adm.user?.role === 'admin'" class="adm-rows">
         <div class="adm-row">
           <div>
             <span class="adm-row__label" title="Chaque jour, aux administrateurs.">Envoi automatique</span>

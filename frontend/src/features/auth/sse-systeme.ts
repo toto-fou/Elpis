@@ -22,18 +22,8 @@ export interface RefsSse {
   readonly isStreaming?: Ref<boolean>;
 }
 
-export interface EntreeJournal {
-  id: string;
-  ts: unknown;
-  message: string;
-  level: unknown;
-  category?: unknown;
-  service?: unknown;
-}
-
 export interface CtxSse {
   readonly systemAlert: Ref<unknown>;
-  readonly liveLogs: Ref<EntreeJournal[] | null>;
   handleSessionExpired?(): void;
 }
 
@@ -59,7 +49,6 @@ export interface DependancesSse {
 }
 
 const DELAI_MAX = 30000;
-const TAMPON_JOURNAL = 800;
 
 export function setupChatSystemSSE(
   refs: RefsSse,
@@ -79,13 +68,10 @@ export function setupChatSystemSSE(
   let proprio: Proprietaire | null = null;
   let source: SourceEvenements | null = null;
   let annulerReconnexion: (() => void) | null = null;
-  let annulerVidage: (() => void) | null = null;
   let arreterSondage: (() => void) | null = null;
   let tentative = 0;
   let dejaOuvert = false;
   let sondeRedemarrage = false;
-  let numeroLog = 0;
-  let tampon: EntreeJournal[] = [];
 
   const visible = (): boolean => doc.visibilityState === "visible";
 
@@ -97,9 +83,7 @@ export function setupChatSystemSSE(
       if (source) source.close();
       source = null;
       annulerReconnexion = null;
-      annulerVidage = null;
       arreterSondage = null;
-      tampon = [];
       dejaOuvert = false;
     });
     p.ecouter(doc, "visibilitychange", surVisibilite);
@@ -114,14 +98,6 @@ export function setupChatSystemSSE(
       annulerReconnexion = null;
       connectSystemEvents();
     }
-  }
-
-  function viderJournal(): void {
-    annulerVidage = null;
-    if (!tampon.length) return;
-    const suite = (ctx.liveLogs.value ?? []).concat(tampon);
-    tampon = [];
-    ctx.liveLogs.value = suite.length > TAMPON_JOURNAL ? suite.slice(-TAMPON_JOURNAL) : suite;
   }
 
   function demarrerSondageModeles(): void {
@@ -209,20 +185,11 @@ export function setupChatSystemSSE(
         }
         sonderRedemarrage();
         return;
-      case "log": {
-        const id = typeof ev.ts === "number" ? `${ev.ts}-${++numeroLog}` : `${Date.now()}-${++numeroLog}`;
-        const entree: EntreeJournal = {
-          id,
-          ts: ev.ts || Date.now() / 1000,
-          message: ev.message,
-          level: ev.level,
-        };
-        if (ev.category) entree.category = ev.category;
-        if (ev.service) entree.service = ev.service;
-        tampon.push(entree);
-        if (!annulerVidage) annulerVidage = p.minuterie(viderJournal, 200);
+      case "log":
+      case "log_unavailable":
+      case "log_replaced":
+        // Le journal en direct a son propre flux (page Journaux de la console) : rien à faire ici.
         return;
-      }
       case "model_status":
         rappels.onModelStatus?.(ev.data);
         return;
@@ -285,7 +252,6 @@ export function setupChatSystemSSE(
     if (p) p.liberer();
     if (source) source.close();
     source = null;
-    tampon = [];
     dejaOuvert = false;
   }
 

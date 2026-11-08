@@ -186,12 +186,16 @@ def apply_header(section, header: S.HeaderSpec) -> None:
 
 
 def apply_footer(section, footer: S.FooterSpec) -> None:
-    text = footer.text
-    if footer.page_numbers and not any((footer.text, footer.left, footer.center, footer.right)):
-        text = footer.page_number_format
+    text, left, right = footer.text, footer.left, footer.right
+    if footer.page_numbers and not right:
+        if not any((text, left, footer.center)):
+            text = footer.page_number_format
+        else:
+            # Footer text on the left, page numbers on the right.
+            left, text, right = left or text, None, footer.page_number_format
     header_ooxml.set_header_footer(
-        section, "footer", text=text, left=footer.left, center=footer.center,
-        right=footer.right, align=footer.align, font_size_pt=footer.font_size_pt,
+        section, "footer", text=text, left=left, center=footer.center,
+        right=right, align=footer.align, font_size_pt=footer.font_size_pt,
         color=footer.color, rule=footer.rule,
     )
     if footer.different_first_page:

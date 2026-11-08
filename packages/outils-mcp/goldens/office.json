@@ -327,7 +327,7 @@
     {
       "name": "docx_read",
       "title": "Docx Read",
-      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type and, when formatted, md (the text with its bold, italic, links\u2026 in Markdown, as set takes it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout boxes (not counted as tables: change their text with replace), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). A table of contents is one item. Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
+      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type and, when formatted, md (the text with its bold, italic, links\u2026 in Markdown, as set takes it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout boxes (not counted as tables: replace changes their text, {op:'delete', callout} removes one), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). A table of contents is one item. Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -554,7 +554,7 @@
     {
       "name": "docx_edit",
       "title": "Docx Edit",
-      "description": "Edit a Word document of the sandbox with a list of operations, applied together in one save. Paragraph (p), table, row and column numbers start at 0 and refer to the document BEFORE this call, as docx_read shows it:\n  {op:'replace', find, replace}            everywhere, headers and tables included (exact case unless match_case:false)\n  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n  {op:'set', p, text}                       rewrites one paragraph (style kept); inline Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n  {op:'delete', p} \u00b7 {op:'delete', p, to} \u00b7 {op:'delete', table}\n  {op:'insert', after|before: p or heading text, content: Markdown}\n  {op:'insert', at_end_of: heading text, content}\n  {op:'append', content: Markdown}          at the end (charts !id allowed)\n  {op:'set_cell', table, row, col, text} \u00b7 {op:'add_row', table, values} \u00b7 {op:'delete_row', table, row}   (from 0, row 0 = header)\n  {op:'meta', title, author, subject}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "description": "Edit a Word document of the sandbox with a list of operations, applied together in one save. Paragraph (p), table, row and column numbers start at 0 and refer to the document BEFORE this call, as docx_read shows it:\n  {op:'replace', find, replace}            everywhere, headers and tables included (exact case unless match_case:false)\n  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n  {op:'set', p, text}                       rewrites one paragraph (style kept); inline Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n  {op:'delete', p} \u00b7 {op:'delete', p, to} \u00b7 {op:'delete', table} \u00b7 {op:'delete', callout}\n  {op:'insert', after|before: p or heading text, content: Markdown}\n  {op:'insert', at_end_of: heading text, content}\n  {op:'append', content: Markdown}          at the end (charts !id allowed)\n  {op:'set_cell', table, row, col, text} \u00b7 {op:'add_row', table, values} \u00b7 {op:'delete_row', table, row}   (from 0, row 0 = header)\n  {op:'meta', title, author, subject}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -639,6 +639,10 @@
                   "type": "integer"
                 },
                 "col": {
+                  "type": "integer"
+                },
+                "callout": {
+                  "description": "delete: a callout box number from docx_read",
                   "type": "integer"
                 },
                 "title": {

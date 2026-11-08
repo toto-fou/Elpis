@@ -125,7 +125,8 @@ CHAMPS_OPS = {
     "delete": {"p": ["paragraph", "index", "paragraph_index", "para", "n", "i", "paragraphs",
                      "indexes", "indices"],
                "to": ["until", "end", "jusqu_a", "to_p", "last"],
-               "table": ["table_index", "tableau"]},
+               "table": ["table_index", "tableau"],
+               "callout": ["callout_index", "encadre", "box", "note_box"]},
     "insert": {"after": ["apres", "after_p", "after_paragraph", "after_heading", "below",
                          "position", "at", "where"],
                "before": ["avant", "before_p", "before_paragraph", "before_heading", "above"],
@@ -750,6 +751,7 @@ class _Lot:
         self.document = document
         self.paragraphes = docio.body_paragraphs(document)
         self.tables = docio.body_tables(document)
+        self.encadres = docio.body_tables(document, callouts=True)
         self._lignes: Dict[int, List[Any]] = {}
         self.supprimes: set = set()          # éléments lxml (gardés vivants)
 
@@ -779,6 +781,15 @@ class _Lot:
             raise OfficeError(f"ops[{i}] ({nom}): table {k} was deleted by an earlier operation "
                               "of this call", code="bad_index")
         return k, t
+
+    def encadre(self, i: int, nom: str, v: Any):
+        k = entier(v)
+        n = len(self.encadres)
+        if k is None or not 0 <= k < n or self.encadres[k]._tbl in self.supprimes:
+            raise OfficeError(f"ops[{i}] ({nom}): callout {v!r} does not exist (the document has "
+                              f"{n} callout box(es), numbered from 0)", code="bad_index",
+                              fix="take the callout number from docx_read")
+        return k, self.encadres[k]
 
     def lignes(self, k: int, t: Any) -> List[Any]:
         if k not in self._lignes:
@@ -951,6 +962,11 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         _ecrire_paragraphe(document, par, texte(c.get("text")))
         return {"p": entier(c.get("p"))}
     if nom == "delete":
+        if c.get("callout") is not None:
+            k, t = lot.encadre(i, nom, c["callout"])
+            lot.supprimes.add(t._tbl)
+            t._tbl.getparent().remove(t._tbl)
+            return {"callout": k}
         if c.get("table") is not None:
             k, t = lot.table(i, nom, c["table"])
             lot.supprimes.add(t._tbl)

@@ -115,10 +115,13 @@ def body_blocks(container) -> Iterable[Any]:
 
 
 def is_callout(table) -> bool:
-    """A boxed note as docx_create draws it: a single cell with a thick left edge."""
+    """A boxed note as docx_create draws it: a single shaded cell with a thick left edge."""
     rows = table.findall(qn("w:tr"))
     cells = rows[0].findall(qn("w:tc")) if len(rows) == 1 else []
     if len(cells) != 1:
+        return False
+    shading = cells[0].find(f"{qn('w:tcPr')}/{qn('w:shd')}")
+    if shading is None or (shading.get(qn("w:fill")) or "auto").upper() in ("AUTO", "FFFFFF"):
         return False
     borders = cells[0].find(f"{qn('w:tcPr')}/{qn('w:tcBorders')}")
     if borders is None:

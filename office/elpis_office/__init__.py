@@ -92,6 +92,7 @@ _DOCX_OP = {
         "at_end_of": {"type": "string", "description": "insert: at the end of this heading's section"},
         "content": {"type": "string", "description": "insert / append: Markdown"},
         "table": {"type": "integer"}, "row": {"type": "integer"}, "col": {"type": "integer"},
+        "callout": {"type": "integer", "description": "delete: a callout box number from docx_read"},
         "title": {"type": "string"}, "author": {"type": "string"}, "subject": {"type": "string"},
     },
     "required": ["op"],
@@ -179,8 +180,9 @@ TOOLS["docx_read"] = {
         "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type "
         "and, when formatted, md (the text with its bold, italic, links… in Markdown, as set takes "
         "it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout "
-        "boxes (not counted as tables: change their text with replace), text boxes, header and "
-        "footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and "
+        "boxes (not counted as tables: replace changes their text, {op:'delete', callout} removes "
+        "one), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked "
+        "changes, {{placeholders}} and "
         "unfinished marks (TODO, [XXX]…). A table of contents is one item. Use the p and table "
         "numbers with docx_edit. find = text to locate (case ignored). Long documents come in "
         "pages: call again with start=next_start."),
@@ -206,7 +208,7 @@ TOOLS["docx_edit"] = {
         "  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n"
         "  {op:'set', p, text}                       rewrites one paragraph (style kept); inline "
         "Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n"
-        "  {op:'delete', p} · {op:'delete', p, to} · {op:'delete', table}\n"
+        "  {op:'delete', p} · {op:'delete', p, to} · {op:'delete', table} · {op:'delete', callout}\n"
         "  {op:'insert', after|before: p or heading text, content: Markdown}\n"
         "  {op:'insert', at_end_of: heading text, content}\n"
         "  {op:'append', content: Markdown}          at the end (charts !id allowed)\n"

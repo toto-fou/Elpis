@@ -91,7 +91,7 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         if not pdf.startswith(b"%PDF-"):
             raise OfficeError(f"'{rel}' is not a PDF file", code="bad_file", fix="check the file")
     else:
-        pdf, _ = pdf_du_fichier(env, rel, ext)
+        pdf, _ = pdf_du_fichier(env, rel, ext, numeroter=False)     # un seul rendu : l'aperçu reste rapide
     total, rendus = _rendre(pdf, pages)
     res: Dict[str, Any] = {
         "path": env.espace.afficher(rel), "pages": total,
@@ -100,7 +100,8 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         "summary": f"{'Page' if len(rendus) == 1 else 'Pages'} {', '.join(str(r['page']) for r in rendus)} of "
                    f"{total} of {env.espace.afficher(rel)} rendered"
                    + (" by LibreOffice (as office_export: fonts and line breaks can differ slightly from Word "
-                      "or PowerPoint)" if ext != ".pdf" else ""),
+                      "or PowerPoint; a table of contents gets its page numbers in office_export)"
+                      if ext != ".pdf" else ""),
     }
     if a.get("save_as"):
         res["saved"] = _enregistrer(env, str(a["save_as"]), rendus)

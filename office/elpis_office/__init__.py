@@ -416,7 +416,7 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                               f"({len(pdf) // 1024} KB)"}
 
 
-def pdf_du_fichier(env: Env, rel: str, ext: str) -> Tuple[bytes, int]:
+def pdf_du_fichier(env: Env, rel: str, ext: str, numeroter: bool = True) -> Tuple[bytes, int]:
     """PDF d'un fichier de la sandbox rendu par LibreOffice, et les entrées de sommaire numérotées pour lui seul."""
     try:
         data = lire(env, rel, "file")
@@ -436,7 +436,7 @@ def pdf_du_fichier(env: Env, rel: str, ext: str) -> Tuple[bytes, int]:
         raise OfficeError("rendering needs LibreOffice, which is not installed on this server",
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
-    if ext == ".docx":
+    if ext == ".docx" and numeroter:
         from .sommaire_pdf import pdf_numerote
         return pdf_numerote(data, env.convertir)
     return env.convertir(data, ext, "pdf"), 0

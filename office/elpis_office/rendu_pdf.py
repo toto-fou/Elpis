@@ -9,7 +9,7 @@ import resource
 import sys
 
 CPU_S, MEMOIRE = 30, 1 << 30
-TEXTE_MAX, PAGES_LUES_MAX, TEXTE_PAGE_MAX = 1500, 1000, 20_000
+TEXTE_MAX, SIGNETS_MAX = 1500, 5000
 
 
 def main() -> int:
@@ -22,9 +22,15 @@ def main() -> int:
     doc = pdfium.PdfDocument(pdf)
     try:
         total = len(doc)
-        if demande.get("textes"):                  # texte de chaque page, sans rendu (numéros du sommaire)
-            sys.stdout.write(json.dumps({"total": total, "textes": [_texte(doc, n)[:TEXTE_PAGE_MAX]
-                                                                    for n in range(1, min(total, PAGES_LUES_MAX) + 1)]}))
+        if demande.get("signets"):                 # signets du PDF (un par titre) : page exacte de chaque titre
+            signets = []
+            for item in doc.get_toc():
+                cible = item.get_dest()
+                signets.append({"titre": item.get_title()[:500],
+                                "page": cible.get_index() if cible is not None else None})
+                if len(signets) >= SIGNETS_MAX:
+                    break
+            sys.stdout.write(json.dumps({"total": total, "signets": signets}))
             return 0
         pages = [n for n in demande["pages"] if 1 <= n <= total]
         rendus = []
@@ -49,18 +55,6 @@ def main() -> int:
         doc.close()
     sys.stdout.write(json.dumps({"total": total, "pages": rendus}))
     return 0
-
-
-def _texte(doc, n: int) -> str:
-    page = doc[n - 1]
-    try:
-        textes = page.get_textpage()
-        try:
-            return textes.get_text_range().replace("\r\n", "\n")
-        finally:
-            textes.close()
-    finally:
-        page.close()
 
 
 if __name__ == "__main__":

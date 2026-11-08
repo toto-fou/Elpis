@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: MIT
-"""office/elpis_office/sommaire_pdf.py — numéros du sommaire dans le PDF d'un .docx : un premier rendu situe chaque titre, les numéros vont dans une copie, un second rendu les montre ; le fichier n'est jamais modifié."""
+"""office/elpis_office/sommaire_pdf.py — numéros du sommaire dans le PDF d'un .docx : les signets d'un premier rendu donnent la page de chaque titre, les numéros vont dans une copie, un second rendu les montre ; le fichier n'est jamais modifié."""
 from __future__ import annotations
 
 import io
+import itertools
 import re
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ._docx.ooxml.util import make, qn
+from .commun import OfficeError
+from .paquet import PaquetInvalide, controler_zip
 
+ENTREES_MAX = 2_000
 _PAGEREF = re.compile(r"^\s*PAGEREF\s+(\S+)", re.IGNORECASE)
-_POINTILLES = re.compile(r"\.{4,}\s*\d*\s*$")
 _ESPACES = re.compile(r"\s+")
 
 
@@ -20,7 +23,8 @@ def _normal(texte: str) -> str:
 def entrees_sans_numero(document: Any) -> List[Tuple[Any, str]]:
     """(élément fldChar « separate », texte du titre visé) des renvois PAGEREF du corps sans numéro enregistré."""
     signets = {b.get(qn("w:name")): b.getparent() for b in document.element.body.iter(qn("w:bookmarkStart"))}
-    entrees = []
+    entrees: List[Tuple[Any, str]] = []
+    vus: set = set()                                # un paragraphe de zone de texte est aussi dans son parent
     for p in document.element.body.iter(qn("w:p")):
         instruction, separe, vide = None, None, True
         for noeud in p.iter(qn("w:instrText"), qn("w:fldChar"), qn("w:t")):
@@ -31,64 +35,73 @@ def entrees_sans_numero(document: Any) -> List[Tuple[Any, str]]:
                 separe, vide = noeud, True
             elif noeud.tag == qn("w:fldChar") and noeud.get(qn("w:fldCharType")) == "end":
                 cible = signets.get(instruction)
-                if separe is not None and vide and cible is not None and cible.tag == qn("w:p"):
+                if separe is not None and separe not in vus and vide and cible is not None and cible.tag == qn("w:p"):
                     titre = "".join(t.text or "" for t in cible.iter(qn("w:t"))).strip()
                     if titre:
+                        vus.add(separe)
                         entrees.append((separe, titre))
                 instruction, separe = None, None
             elif noeud.tag == qn("w:t") and separe is not None and (noeud.text or "").strip():
                 vide = False
+        if len(entrees) >= ENTREES_MAX:
+            break
     return entrees
 
 
-def situer(titres: List[str], pages: List[str]) -> List[Optional[int]]:
-    """Page (à partir de 1) de chaque titre, dans l'ordre du document, après les pages du sommaire lui-même."""
-    lignes = [[_normal(x) for x in page.split("\n") if x.strip()] for page in pages]
-    sommaire = [i for i, ls in enumerate(lignes) if any(_POINTILLES.search(x) for x in ls)]
-    courant = sommaire[0] + 1 if sommaire else 0
-    while courant in sommaire:                      # les pages du sommaire se suivent
-        courant += 1
+def situer(titres: List[str], signets: List[Dict[str, Any]]) -> List[Optional[int]]:
+    """Page (à partir de 1) de chaque titre : le signet du PDF qui porte ce titre, dans l'ordre du document."""
+    marques = [(_normal(str(s.get("titre") or "")), s.get("page")) for s in signets]
     trouves: List[Optional[int]] = []
+    k = 0
     for titre in titres:
-        cherche = _normal(titre)
-        # Une ligne qui est le titre (numéroté ou non) ; à défaut, le titre coupé sur plusieurs lignes.
-        page = next((i for i in range(courant, len(lignes))
-                     if any(x == cherche or x.endswith(" " + cherche) for x in lignes[i])), None)
-        if page is None:
-            page = next((i for i in range(courant, len(lignes)) if cherche in " ".join(lignes[i])), None)
-        trouves.append(None if page is None else page + 1)
-        if page is not None:
-            courant = page
+        cherche, page = _normal(titre), None
+        # Dans l'ordre (titres répétés) ; un second sommaire repart du début.
+        for j in itertools.chain(range(k, len(marques)), range(0, k)):
+            nom, numero = marques[j]
+            if isinstance(numero, int) and (nom == cherche or nom.endswith(" " + cherche)):
+                page, k = numero + 1, j + 1
+                break
+        trouves.append(page)
     return trouves
+
+
+def _pages_renumerotees(document: Any) -> bool:
+    """Une section qui recommence ou change sa numérotation (i, ii…) : le numéro affiché n'est plus celui de la page."""
+    for types in document.element.body.iter(qn("w:pgNumType")):
+        if types.get(qn("w:start")) is not None or (types.get(qn("w:fmt")) or "decimal") != "decimal":
+            return True
+    return False
 
 
 def pdf_numerote(data: bytes, convertir: Callable[[bytes, str, str], bytes]) -> Tuple[bytes, int]:
     """PDF d'un .docx avec les numéros de son sommaire (nombre d'entrées numérotées ; 0 : un seul rendu)."""
-    import docx
-
-    from .apercu import lire_pdf
-
     pdf = convertir(data, ".docx", "pdf")
     try:
+        archive = controler_zip(data, "document")   # même plafond que les outils Word avant de tout charger
+        if b"PAGEREF" not in archive.read("word/document.xml"):
+            return pdf, 0
+        import docx
+
         document = docx.Document(io.BytesIO(data))
-    except Exception:                               # noqa: BLE001 — LibreOffice l'a lu, pas python-docx
-        return pdf, 0
-    entrees = entrees_sans_numero(document)
-    if not entrees:
-        return pdf, 0
-    pages = situer([t for _, t in entrees], lire_pdf(pdf, {"textes": True})["textes"])
-    numerotees = 0
-    for (separe, _), page in zip(entrees, pages):
-        if page is None:
-            continue
-        execution = make("w:r")
-        texte = make("w:t")
-        texte.text = str(page)
-        execution.append(texte)
-        separe.getparent().addnext(execution)
-        numerotees += 1
-    if not numerotees:
-        return pdf, 0
-    copie = io.BytesIO()
-    document.save(copie)
-    return convertir(copie.getvalue(), ".docx", "pdf"), numerotees
+        entrees = entrees_sans_numero(document)
+        if not entrees or _pages_renumerotees(document):
+            return pdf, 0
+        from .apercu import lire_pdf
+
+        pages = situer([t for _, t in entrees], lire_pdf(pdf, {"signets": True})["signets"])
+        numerotees = 0
+        for (separe, _), page in zip(entrees, pages):
+            if page is None:
+                continue
+            execution, texte = make("w:r"), make("w:t")
+            texte.text = str(page)
+            execution.append(texte)
+            separe.getparent().addnext(execution)
+            numerotees += 1
+        if not numerotees:
+            return pdf, 0
+        copie = io.BytesIO()
+        document.save(copie)
+        return convertir(copie.getvalue(), ".docx", "pdf"), numerotees
+    except (OfficeError, PaquetInvalide, KeyError, ValueError, OSError):
+        return pdf, 0                               # le sommaire reste sans numéros, l'export réussit

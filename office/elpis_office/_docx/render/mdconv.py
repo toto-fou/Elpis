@@ -223,12 +223,19 @@ def _sub_sup(text: str):
     yield text[position:], {}
 
 
+def _chemin(source: str) -> str:
+    """Image source as written: markdown-it percent-encodes it (équipe.png → %C3%A9quipe.png); data URIs untouched."""
+    from urllib.parse import unquote
+
+    return source if source.startswith("data:") else unquote(source)
+
+
 def _lone_image(inline) -> S.ImageBlock | None:
     """A paragraph that is nothing but an image becomes an image block."""
     children = [c for c in (inline.children or []) if not (c.type == "text" and not c.content.strip())]
     if len(children) == 1 and children[0].type == "image":
         token = children[0]
-        source = token.attrGet("src") or ""
+        source = _chemin(token.attrGet("src") or "")
         alt = "".join(child.content for child in (token.children or []))
         return S.ImageBlock(
             type="image", source=source, caption=(token.attrGet("title") or None), alt_text=alt or None
@@ -359,7 +366,7 @@ def _walk_html(element, blocks: list, heading_offset: int) -> None:
         elif tag == "hr":
             blocks.append(S.RuleBlock(type="hr"))
         elif tag == "img":
-            source = child.get("src") or ""
+            source = _chemin(child.get("src") or "")
             if source:
                 blocks.append(
                     S.ImageBlock(type="image", source=source, alt_text=child.get("alt") or None)

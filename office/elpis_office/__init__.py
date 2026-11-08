@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections import OrderedDict
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Tuple
 
 from ._chart import _refus
 from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, indice_chemin, lire
@@ -403,8 +403,10 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
     cible = _pdf(a.get("save_as") or (rel.rsplit(".", 1)[0] + ".pdf"), env)
-    pdf = pdf_du_fichier(env, rel, ext)
+    pdf, numerotees = pdf_du_fichier(env, rel, ext)
     res = ecrire(env, cible, pdf)
+    if numerotees:
+        res["toc"] = f"{numerotees} table of contents entries numbered in the PDF (the .docx is unchanged)"
     autres = _homonymes(env, rel) if res["old_sha256"] and not a.get("save_as") else []
     if autres:
         env.notes.warn(f"{res['path']} already existed and was replaced; it may have been the PDF of "
@@ -413,8 +415,8 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                               f"({len(pdf) // 1024} KB)"}
 
 
-def pdf_du_fichier(env: Env, rel: str, ext: str) -> bytes:
-    """PDF d'un fichier exportable de la sandbox, rendu par LibreOffice (office_export, office_preview)."""
+def pdf_du_fichier(env: Env, rel: str, ext: str) -> Tuple[bytes, int]:
+    """PDF d'un fichier de la sandbox rendu par LibreOffice, et les entrées de sommaire numérotées pour lui seul."""
     try:
         data = lire(env, rel, "file")
     except FileNotFoundError:
@@ -433,7 +435,10 @@ def pdf_du_fichier(env: Env, rel: str, ext: str) -> bytes:
         raise OfficeError("rendering needs LibreOffice, which is not installed on this server",
                           code="unavailable", fix="tell the user; an administrator can install it "
                                                   "(./install.sh --with-office)")
-    return env.convertir(data, ext, "pdf")
+    if ext == ".docx":
+        from .sommaire_pdf import pdf_numerote
+        return pdf_numerote(data, env.convertir)
+    return env.convertir(data, ext, "pdf"), 0
 
 
 def _homonymes(env: Env, rel: str) -> list:

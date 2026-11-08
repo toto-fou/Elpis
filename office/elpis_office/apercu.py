@@ -47,20 +47,23 @@ def _pages(v: Any, notes: Any) -> List[int]:
     return pages[:PAGES_MAX]
 
 
-def _rendre(pdf: bytes, pages: List[int]) -> Tuple[int, List[Dict[str, Any]]]:
-    """Pages rendues par rendu_pdf.py dans un processus à part : un PDF piégé n'y bloque que lui (temps, mémoire)."""
+def lire_pdf(pdf: bytes, demande: Dict[str, Any]) -> Dict[str, Any]:
+    """rendu_pdf.py dans un processus à part : un PDF piégé n'y bloque que lui (temps, mémoire)."""
     script = Path(__file__).with_name("rendu_pdf.py")
-    entree = json.dumps({"pages": pages, "cote": COTE}).encode() + b"\n" + pdf
     try:
-        fini = subprocess.run([sys.executable, "-I", str(script)], input=entree, capture_output=True,
-                              timeout=DELAI_S, check=False)
+        fini = subprocess.run([sys.executable, "-I", str(script)], input=json.dumps(demande).encode() + b"\n" + pdf,
+                              capture_output=True, timeout=DELAI_S, check=False)
     except subprocess.TimeoutExpired:
         raise OfficeError("rendering the page took too long (the PDF is too complex)", code="too_complex",
                           fix="tell the user; export it to PDF with office_export to look at it elsewhere")
     if fini.returncode != 0:
         raise OfficeError("the page could not be rendered (damaged or too heavy PDF)", code="bad_file",
                           fix="check that the file opens (docx_read / pptx_read), or export it to PDF")
-    resultat = json.loads(fini.stdout)
+    return json.loads(fini.stdout)
+
+
+def _rendre(pdf: bytes, pages: List[int]) -> Tuple[int, List[Dict[str, Any]]]:
+    resultat = lire_pdf(pdf, {"pages": pages, "cote": COTE})
     total, rendus = resultat["total"], resultat["pages"]
     hors = [n for n in pages if not 1 <= n <= total]
     if hors:
@@ -88,7 +91,7 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         if not pdf.startswith(b"%PDF-"):
             raise OfficeError(f"'{rel}' is not a PDF file", code="bad_file", fix="check the file")
     else:
-        pdf = pdf_du_fichier(env, rel, ext)
+        pdf, _ = pdf_du_fichier(env, rel, ext)
     total, rendus = _rendre(pdf, pages)
     res: Dict[str, Any] = {
         "path": env.espace.afficher(rel), "pages": total,
@@ -97,7 +100,7 @@ def office_preview(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         "summary": f"{'Page' if len(rendus) == 1 else 'Pages'} {', '.join(str(r['page']) for r in rendus)} of "
                    f"{total} of {env.espace.afficher(rel)} rendered"
                    + (" by LibreOffice (as office_export: fonts and line breaks can differ slightly from Word "
-                      "or PowerPoint; a table of contents has no page numbers)" if ext != ".pdf" else ""),
+                      "or PowerPoint)" if ext != ".pdf" else ""),
     }
     if a.get("save_as"):
         res["saved"] = _enregistrer(env, str(a["save_as"]), rendus)

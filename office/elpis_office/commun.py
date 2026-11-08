@@ -25,12 +25,13 @@ from ._chart.normalise import Notes, fold
 MAX_LECTURE = 32 * 1024 * 1024
 MAX_ECRITURE = 50 * 1024 * 1024
 
-EXT = {"docx": ".docx", "pptx": ".pptx"}
+EXT = {"docx": ".docx", "pptx": ".pptx", "xlsx": ".xlsx"}
 # Extensions qu'on lit comme le format (modèles, macros) ; à l'écriture on
 # produit toujours .docx/.pptx.
 EXT_LUES = {
     "docx": (".docx", ".dotx", ".docm", ".dotm"),
     "pptx": (".pptx", ".potx", ".pptm", ".potm", ".ppsx"),
+    "xlsx": (".xlsx", ".xlsm", ".xltx", ".xltm"),
 }
 # Extensions « voisines » corrigées sans refus (signalé dans fixes) à l'écriture.
 EXT_VOISINES = {

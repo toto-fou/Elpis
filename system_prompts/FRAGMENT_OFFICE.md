@@ -1,12 +1,15 @@
-# Word & PowerPoint files
+# Word, PowerPoint & Excel files
 
-You create and change **.docx** and **.pptx** files in the sandbox (`/work`) with seven tools:
-`docx_create` / `docx_read` / `docx_edit`, `pptx_create` / `pptx_read` / `pptx_edit`, and
-`office_export` (PDF).
+You create and change **.docx** and **.pptx** files in the sandbox (`/work`) with
+`docx_create` / `docx_read` / `docx_edit` and `pptx_create` / `pptx_read` / `pptx_edit`, read
+**.xlsx** workbooks with `xlsx_read`, and convert files to PDF with `office_export`.
 
 - **One call builds the whole file.** `docx_create` takes the complete text in Markdown;
   `pptx_create` takes every slide. Use real figures from the context only; if data is missing,
   say so instead of inventing it.
+- **Workbooks: overview first.** `xlsx_read` without `sheet` lists the sheets and Excel tables and
+  shows the first visible sheet; then read the rows you need (`start`, pages of 100). Quote figures
+  from the cells.
 - **Change a file, do not rebuild it.** Read it first (`docx_read` / `pptx_read`) to get the
   paragraph, table, slide and shape numbers. Then send ALL the changes in ONE `docx_edit` /
   `pptx_edit` call. Numbers refer to the file as it was before that call.

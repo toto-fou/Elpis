@@ -290,6 +290,25 @@ TOOLS["pptx_edit"] = {
     ]),
     "required": ["path", "ops"],
 }
+TOOLS["xlsx_read"] = {
+    "description": (
+        "Read an Excel workbook (.xlsx, .xlsm) of the sandbox: its sheets (size, hidden), its Excel "
+        "tables, then the cells of one sheet as rows (row number + values; dates in ISO, percentages "
+        "as shown). sheet = name or number (default: the first visible sheet). Long sheets come in "
+        "pages: start = first row (from 1), limit = rows listed (default 100, max 500); call again "
+        "with start=next_row. formulas = also list the formulas of the rows shown. find = text to "
+        "locate in every sheet (case ignored)."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "File path in the sandbox, e.g. "
+                                                   "'donnees/ventes-2026.xlsx' (relative to /work)."}),
+        ("sheet", {"type": ["string", "integer"], "description": "Sheet name, or its number from 1."}),
+        ("start", {"type": "integer", "description": "First row to list (from 1)."}),
+        ("limit", {"type": "integer", "description": "Max rows listed (default 100, max 500)."}),
+        ("formulas", {"type": "boolean", "description": "Also list the formulas of the rows shown."}),
+        ("find", {"type": "string", "description": "Text to locate in every sheet."}),
+    ]),
+    "required": ["path"],
+}
 TOOLS["office_export"] = {
     "description": (
         "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF "
@@ -303,11 +322,11 @@ TOOLS["office_export"] = {
 }
 
 def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
-    from . import powerpoint, word
+    from . import excel, powerpoint, word
     return {"docx_create": word.docx_create, "docx_read": word.docx_read,
             "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
             "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
-            "office_export": office_export}[nom]
+            "xlsx_read": excel.xlsx_read, "office_export": office_export}[nom]
 
 
 # Exportables en PDF : formats que LibreOffice ouvre avec un filtre d'import

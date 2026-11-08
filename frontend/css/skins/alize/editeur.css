@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: MIT */
+/* frontend/css/skins/alize/editeur.css — éditeur d'Alizé : eau profonde ou feuille blanche, peu de filets, le lagon réservé à ce qui est ouvert. */
+body.elpis-skin-alize .ed2 {
+  --ed-r: 8px;
+  --ed-r-lg: 12px;
+  --ed-arbre-taille: 13.5px;
+  --ed-arbre-hauteur: 30px;
+}
+body.elpis-skin-alize .ed2--encre {
+  --ed-code-bg: #10262a;
+  --ed-code-fg: #dfeae9;
+  --ed-code-muted: #93a9aa;
+  --ed-code-accent: #5ccbcb;
+  --ed-plan: #10262a;
+  --ed-bande: #0b1d20;
+  --ed-releve: #183236;
+  --ed-champ: #163034;
+  --ed-ink: #dfeae9;
+  --ed-ink-2: #bccdcc;
+  --ed-muted: #93a9aa;
+  --ed-line: rgb(223 234 233 / 0.1);
+  --ed-line-soft: rgb(223 234 233 / 0.055);
+  --ed-hover: rgb(223 234 233 / 0.06);
+  --ed-press: rgb(223 234 233 / 0.11);
+  --ed-select: rgb(92 203 203 / 0.14);
+  --ed-select-ink: #8fdede;
+  --ed-accent: #5ccbcb;
+  --ed-accent-fg: #062326;
+  --ed-ring: #5ccbcb;
+  --ed-ok: #7fd3a8;
+  --ed-warn: #e4bd78;
+  --ed-danger: #f0a39b;
+  --ed-ic-dossier: #5ccbcb;
+  --ed-syn-mot: #7fd0e6;
+  --ed-syn-texte: #9ad9ac;
+  --ed-syn-nombre: #e6c07e;
+  --ed-syn-com: #8ba3a4;
+  --ed-syn-type: #c9b6ef;
+  --ed-syn-var: #dfeae9;
+  --ed-syn-op: #aebfbf;
+}
+body.elpis-skin-alize .ed2--papier {
+  --ed-code-bg: #ffffff;
+  --ed-code-fg: #0e2b2e;
+  --ed-code-muted: #546d70;
+  --ed-code-accent: #00676c;
+  --ed-plan: #ffffff;
+  --ed-bande: #f0f5f4;
+  --ed-releve: #ffffff;
+  --ed-champ: #f3f7f6;
+  --ed-ink: #0e2b2e;
+  --ed-ink-2: #2c4a4d;
+  --ed-muted: #546d70;
+  --ed-line: #dbe5e3;
+  --ed-line-soft: #e9efee;
+  --ed-hover: rgb(14 43 46 / 0.05);
+  --ed-press: rgb(14 43 46 / 0.09);
+  --ed-select: rgb(0 103 108 / 0.1);
+  --ed-select-ink: #00555a;
+  --ed-accent: #00676c;
+  --ed-accent-fg: #ffffff;
+  --ed-ring: #007a80;
+  --ed-ok: #0b6b4f;
+  --ed-warn: #8f5200;
+  --ed-danger: #b3261e;
+  --ed-ic-dossier: #00676c;
+  --ed-syn-mot: #00597a;
+  --ed-syn-texte: #14683f;
+  --ed-syn-nombre: #8a4b00;
+  --ed-syn-com: #587174;
+  --ed-syn-type: #6a3d9a;
+  --ed-syn-var: #0e2b2e;
+  --ed-syn-op: #3f5a5d;
+}

@@ -17,6 +17,10 @@ follow [SemVer](https://semver.org/).
   downloaded only by this skin), night blue and cyan, ruled panels, the selected row in
   reverse video and the prompt bar as a command line across the bottom of the pane. Its
   menus and dialogs open in under 0.11 s.
+- **Alizé skin.** A single white sheet floating on a sea-air background, without rules:
+  the page open in a rail blends into the sheet, one lagoon accent, airy tables and the
+  user's message as a veil on the right. Figtree and Atkinson Hyperlegible Mono (OFL-1.1,
+  downloaded only by this skin).
 
 ### Changed
 

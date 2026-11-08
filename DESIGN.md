@@ -66,7 +66,8 @@ questionnaire headings inherit the theme's font (Penguins keeps its own).
 Bundled themes: **Slate** (no theme class), **Elpis** (default, palettes
 **Gold** and **Clay**), **llama.cpp**, **Emerald** (dark base), **Penguins**,
 **Kiki**, **Veilleuse** (dark first: a plum night, an amber lamp under the prompt
-bar), **Terminal** (all monospace: ruled panels, selection in reverse video).
+bar), **Terminal** (all monospace: ruled panels, selection in reverse video),
+**Alizé** (a single sheet on a sea-air background, bundled fonts).
 The setting is per user: `skin`, `skin_palette`, and the
 System / Light / Dark mode (`dark_mode`, `dark_mode_auto`), in Settings;
 the console's account menu offers the skins and the mode.

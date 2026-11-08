@@ -41,6 +41,15 @@ Latin subsets in WOFF2, unmodified, from the Fontsource packages. Downloaded by 
 |---|---|---|---|---|
 | JetBrains Mono (variable, roman and italic) | `@fontsource-variable/jetbrains-mono` 5.3.0 | OFL-1.1 | `jetbrains-mono-latin-wght-*.woff2` | https://github.com/JetBrains/JetBrainsMono |
 
+### `frontend/css/skins/alize/polices/` (fonts of the Alizé skin)
+
+Latin subsets in WOFF2, unmodified, from the Fontsource packages. Downloaded by the browser only when the skin uses them.
+
+| Component | Version | License | Files | Upstream |
+|---|---|---|---|---|
+| Figtree (variable, roman and italic) | `@fontsource-variable/figtree` 5.3.0 | OFL-1.1 | `figtree-latin-wght-*.woff2` | https://github.com/erikdkennedy/figtree |
+| Atkinson Hyperlegible Mono (variable, roman) | `@fontsource-variable/atkinson-hyperlegible-mono` 5.3.0 | OFL-1.1 | `atkinson-hyperlegible-mono-latin-wght-normal.woff2` | https://github.com/googlefonts/atkinson-hyperlegible-next-mono |
+
 ### `frontend/assets/mascotte/` and `frontend/*.png` (project artwork)
 
 Not third-party code. The pixel-art mascots are drawn by script from the grids

@@ -67,7 +67,8 @@ function masquer(v: unknown, niveau: Niveau): unknown {
 
 /** Texte sans identifiants d'URL : userinfo remplacé par `***` si l'URL se lit, texte entier masqué sinon. */
 function sansIdentifiants(s: string): string {
-  if (!/:\/\/.*@/su.test(s)) return s;
+  const schema = s.indexOf("://");
+  if (schema === -1 || s.indexOf("@", schema + 3) === -1) return s;
   let u: URL;
   try {
     u = new URL(s);

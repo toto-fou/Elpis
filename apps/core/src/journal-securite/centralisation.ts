@@ -5,6 +5,8 @@ import { constants } from "node:fs";
 import { open, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
+import { sansBarresFinales } from "../llm/client-http";
+
 export type AgentSyslog = "rsyslog" | "syslog-ng";
 
 export interface EtatCentralisation {
@@ -338,7 +340,7 @@ function contientRegle(
 
 async function detecter(o: OptionsCentralisation): Promise<EtatCentralisation> {
   const racine = o.racine ?? "";
-  const dossier = o.dossierAudit === undefined ? null : o.dossierAudit.replace(/\/+$/u, "");
+  const dossier = o.dossierAudit === undefined ? null : sansBarresFinales(o.dossierAudit);
   for (const a of AGENTS) {
     const principal = await lireFichierBorne(join(racine, a.fichier));
     if (principal === null) continue;

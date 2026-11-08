@@ -185,8 +185,31 @@ const MOT_DE_PASSE_SQL =
   /\b((?:IDENTIFIED[ \t]+(?:WITH[ \t]+\w+[ \t]+)?BY|PASSWORD)(?:[ \t]*\([ \t]*|[ \t]+))(['"])([^'"\r\n]+)\2/giu;
 /** En-tête d'une clé privée, puis son corps possible (en-têtes PEM, base64, blancs, `\n` échappés d'un JSON) et sa fin. */
 const DEBUT_CLE_PRIVEE = /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/gu;
-const CORPS_CLE_PRIVEE =
-  /(?:(?:Proc-Type|DEK-Info|Version|Comment|Hash|Charset):[^\n\\$`]*|\\+[nrt]|[A-Za-z0-9+/=\s])*/uy;
+const ENTETES_PEM = ["Proc-Type:", "DEK-Info:", "Version:", "Comment:", "Hash:", "Charset:"];
+const CARACTERE_CORPS = /[A-Za-z0-9+/=\s]/u;
+
+/** Fin du corps d'une clé à partir de `i` (en-têtes PEM jusqu'à `\n`, `\`, `$` ou backquote ; `\n` échappés ; base64 et blancs), en un seul passage sans regex à boucles imbriquées. */
+function finCorpsCle(texte: string, i: number): number {
+  while (i < texte.length) {
+    const entete = ENTETES_PEM.find((e) => texte.startsWith(e, i));
+    if (entete) {
+      i += entete.length;
+      while (i < texte.length && !"\n\\$`".includes(texte[i]!)) i++;
+      continue;
+    }
+    if (texte[i] === "\\") {
+      let j = i;
+      while (texte[j] === "\\") j++;
+      const c = texte[j];
+      if (c === undefined || !"nrt".includes(c)) return i;
+      i = j + 1;
+      continue;
+    }
+    if (!CARACTERE_CORPS.test(texte[i]!)) return i;
+    i++;
+  }
+  return i;
+}
 const FIN_CLE_PRIVEE = /-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/uy;
 /** Ligne de base64 d'une vraie clé (64 ou 70 caractères en PEM et OpenSSH). */
 const LIGNE_CLE = /[A-Za-z0-9+/=]{40,}/gu;
@@ -200,12 +223,11 @@ function masquerClesPrivees(texte: string): { texte: string; n: number } {
   for (const m of texte.matchAll(DEBUT_CLE_PRIVEE)) {
     if (m.index < pos || m.index < vu) continue;
     const debut = m.index + m[0].length;
-    CORPS_CLE_PRIVEE.lastIndex = debut;
-    CORPS_CLE_PRIVEE.exec(texte);
-    vu = CORPS_CLE_PRIVEE.lastIndex;
-    FIN_CLE_PRIVEE.lastIndex = CORPS_CLE_PRIVEE.lastIndex;
+    const finCorps = finCorpsCle(texte, debut);
+    vu = finCorps;
+    FIN_CLE_PRIVEE.lastIndex = finCorps;
     const fin = FIN_CLE_PRIVEE.exec(texte);
-    let corps = texte.slice(debut, CORPS_CLE_PRIVEE.lastIndex);
+    let corps = texte.slice(debut, finCorps);
     if (!fin) corps = corps.slice(0, finDerniereLigne(corps));
     if (!corps.replace(/\\+[nrt]/gu, "").trim() || EXEMPLE.test(corps)) continue;
     n++;

@@ -9,6 +9,7 @@ import { racineDepot } from "@elpis/config";
 import type { EtatJournal as EtatJournalContrat } from "@elpis/contracts";
 import { etatEcritureAudit, FICHIER_AUDIT } from "@elpis/securite";
 
+import { sansBarresFinales } from "../llm/client-http";
 import { detecterCentralisation, lireFichierBorne } from "./centralisation";
 import { ouvrirFichierJournal } from "./recherche";
 import type { EtatCentralisation } from "./centralisation";
@@ -339,7 +340,7 @@ async function calculerEtat(o: OptionsEtat, partage: boolean): Promise<EtatJourn
   const limite = jourLimite(t, reglages.retention_days);
   const base: Omit<EtatJournal, "alerts"> = {
     directory: dossier,
-    fallback_directory: dossier.replace(/\/+$/u, "") === join(o.racine ?? racineDepot(), "logs", "audit"),
+    fallback_directory: sansBarresFinales(dossier) === join(o.racine ?? racineDepot(), "logs", "audit"),
     mode: st ? (st.mode & 0o7777).toString(8).padStart(4, "0") : null,
     group_id: st ? st.gid : null,
     world_readable: st ? (st.mode & 0o004) !== 0 : false,

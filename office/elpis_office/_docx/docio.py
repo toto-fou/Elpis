@@ -11,6 +11,7 @@ from typing import Any, Iterable
 import docx
 from docx.oxml.parser import register_element_cls
 from docx.oxml.text.paragraph import CT_P
+from docx.oxml.text.run import CT_R
 from docx.text.run import Run
 
 from .errors import InvalidSpec
@@ -59,6 +60,18 @@ class _WordTextParagraph(CT_P):
 
 
 register_element_cls("w:p", _WordTextParagraph)
+
+_RUN_TEXT = frozenset(qn(f"w:{tag}") for tag in ("br", "cr", "noBreakHyphen", "ptab", "t", "tab"))
+
+
+class _FastTextRun(CT_R):
+    """``w:r`` dont ``text`` parcourt ses enfants : python-docx recompile un XPath à chaque lecture."""
+
+    text = property(lambda self: "".join(str(e) for e in self if e.tag in _RUN_TEXT),
+                    CT_R.text.fset)  # type: ignore[attr-defined]
+
+
+register_element_cls("w:r", _FastTextRun)
 
 
 def _inside_link(run, paragraph) -> bool:

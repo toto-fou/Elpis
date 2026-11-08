@@ -16,6 +16,9 @@ from ..errors import InvalidSpec
 from . import spec as S
 
 _HEADING_TAG = re.compile(r"^h([1-6])$", re.IGNORECASE)
+#: Pandoc's subscript and superscript, without spaces inside: H~2~O, x^2^ (~~strike~~ is parsed before);
+#: not after a slash nor around one, so http://h/~alice/~bob stays a path.
+_SUB_SUP = re.compile(r"(?<!/)~([^\s~/]+)~|(?<!/)\^([^\s^/]+)\^")
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +29,23 @@ _HEADING_TAG = re.compile(r"^h([1-6])$", re.IGNORECASE)
 def _parser():
     from markdown_it import MarkdownIt
 
-    return MarkdownIt("commonmark").enable(["table", "strikethrough"])
+    # Without text_join an escaped \~ stays its own token, out of reach of the subscript rule.
+    return MarkdownIt("commonmark").enable(["table", "strikethrough"]).disable("text_join")
+
+
+def inline_markdown(text: str) -> list[S.RunSpec]:
+    """One paragraph of inline Markdown (bold, italic, code, links); raw HTML stays text, a newline stays a line break."""
+    from markdown_it import MarkdownIt
+
+    parser = MarkdownIt("commonmark", {"html": False}).enable(["strikethrough"]).disable("text_join")
+    runs: list[S.RunSpec] = []
+    for index, line in enumerate((text or "").split("\n")):
+        if index:
+            runs.append(S.RunSpec(text="\n"))
+        tokens = parser.parseInline(line)
+        if tokens:
+            runs.extend(_inline_runs(tokens[0]))
+    return runs
 
 
 def markdown_to_blocks(text: str, heading_offset: int = 0) -> list[S.Block]:
@@ -150,6 +169,7 @@ def _parse_table(tokens, index: int) -> tuple[S.TableBlock | None, int]:
     rows: list[list[Any]] = []
     current: list[Any] | None = None
     in_header = False
+    align: str | None = None
     cursor = index + 1
 
     while cursor < len(tokens):
@@ -167,12 +187,17 @@ def _parse_table(tokens, index: int) -> tuple[S.TableBlock | None, int]:
             if current is not None:
                 (header.extend(current) if in_header and not header else rows.append(current))
             current = None
+        elif token.type in ("th_open", "td_open"):
+            style = str(token.attrGet("style") or "")
+            align = style.split(":", 1)[1].strip() if style.startswith("text-align:") else None
         elif token.type == "inline" and current is not None:
             runs = _inline_runs(token)
-            current.append(
-                S.CellSpec(runs=runs) if len(runs) > 1 or (runs and _is_formatted(runs[0]))
-                else (runs[0].text if runs else "")
-            )
+            if len(runs) > 1 or (runs and _is_formatted(runs[0])):
+                current.append(S.CellSpec(runs=runs, align=align))
+            elif align:
+                current.append(S.CellSpec(text=runs[0].text if runs else "", align=align))
+            else:
+                current.append(runs[0].text if runs else "")
         cursor += 1
 
     if not header and not rows:
@@ -181,7 +206,21 @@ def _parse_table(tokens, index: int) -> tuple[S.TableBlock | None, int]:
 
 
 def _is_formatted(run: S.RunSpec) -> bool:
-    return bool(run.bold or run.italic or run.strike or run.code or run.link or run.color)
+    return bool(run.bold or run.italic or run.strike or run.code or run.link or run.color
+                or run.subscript or run.superscript)
+
+
+def _sub_sup(text: str):
+    """Split a text token on H~2~O and x^2^ marks: (text, run overrides)."""
+    position = 0
+    for match in _SUB_SUP.finditer(text):
+        yield text[position:match.start()], {}
+        if match.group(1) is not None:
+            yield match.group(1), {"subscript": True}
+        else:
+            yield match.group(2), {"superscript": True}
+        position = match.end()
+    yield text[position:], {}
 
 
 def _lone_image(inline) -> S.ImageBlock | None:
@@ -209,6 +248,9 @@ def _inline_runs(inline) -> list[S.RunSpec]:
     for token in inline.children or []:
         kind = token.type
         if kind == "text":
+            for part, overrides in _sub_sup(token.content):
+                emit(part, **overrides)
+        elif kind == "text_special":                 # caractère échappé (\~, \^) : littéral
             emit(token.content)
         elif kind == "code_inline":
             emit(token.content, code=True)

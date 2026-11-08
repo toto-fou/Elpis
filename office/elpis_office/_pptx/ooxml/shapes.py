@@ -207,6 +207,22 @@ def _c_nv_pr(shape):
     return None
 
 
+def make_placeholder(shape, kind: str, name: str) -> None:
+    """A drawn text box becomes a slide placeholder (title, ctrTitle, subTitle): same look, seen by outline and screen readers."""
+    sp = shape._element
+    c_nv_sp_pr = sp.nvSpPr.cNvSpPr
+    c_nv_sp_pr.attrib.pop("txBox", None)
+    if c_nv_sp_pr.find(qn("a:spLocks")) is None:
+        c_nv_sp_pr.insert(0, make("a:spLocks", noGrp="1"))
+    sp.nvSpPr.nvPr.insert(0, make("p:ph", type=kind))
+    sp.nvSpPr.cNvPr.set("name", name)
+    # The master's title style is centred: an unset alignment would no longer mean left.
+    for paragraph in sp.txBody.iterchildren(qn("a:p")):
+        properties = paragraph.get_or_add_pPr()
+        if properties.get("algn") is None:
+            properties.set("algn", "l")
+
+
 def set_alt_text(shape, text: str) -> None:
     """Accessibility description. Corporate decks are routinely audited for this."""
     c_nv_pr = _c_nv_pr(shape)

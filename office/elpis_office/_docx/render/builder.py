@@ -16,6 +16,7 @@ from typing import Any, Iterable, Sequence
 import docx
 from docx.shared import Cm, Pt
 
+from ...langue import libelles
 from ..errors import InvalidSpec
 from ..ooxml import (
     charts as chart_ooxml,
@@ -27,7 +28,7 @@ from ..ooxml import (
     refs,
     tables as table_ooxml,
 )
-from ..ooxml.util import align_paragraph, apply_run_format, make, parse_color, qn, rgb, table_alignment
+from ..ooxml.util import align_paragraph, apply_run_format, insert_in_order, make, parse_color, qn, rgb, table_alignment
 from . import images as image_io, spec as S
 
 MONO_SHADING = "F4F4F2"
@@ -48,6 +49,7 @@ class BuildContext:
     document: Any
     theme: S.ThemeSpec = field(default_factory=S.ThemeSpec)
     notes: list[str] = field(default_factory=list)
+    labels: dict[str, str] = field(default_factory=lambda: libelles(None))
 
     def note(self, message: str) -> None:
         if message not in self.notes:
@@ -81,7 +83,9 @@ def build_document(spec: S.DocumentSpec, base: bytes | None = None,
         for child in list(body):
             if child.tag != qn("w:sectPr"):
                 body.remove(child)
-    context = BuildContext(document=document, theme=spec.theme)
+    context = BuildContext(document=document, theme=spec.theme, labels=libelles(spec.meta.language))
+    if spec.meta.language:
+        apply_language(document, spec.meta.language)
 
     apply_metadata(document, spec.meta)
     apply_theme(document, spec.theme)
@@ -92,13 +96,16 @@ def build_document(spec: S.DocumentSpec, base: bytes | None = None,
     if spec.footer:
         apply_footer(document.sections[0], spec.footer)
     if spec.watermark:
-        header_ooxml.add_watermark(
-            document.sections[0],
-            spec.watermark.text,
-            color=spec.watermark.color,
-            font=spec.watermark.font,
-            rotation=spec.watermark.rotation,
-        )
+        section = document.sections[0]
+        for variant in ("default", "first") if section.different_first_page_header_footer else ("default",):
+            header_ooxml.add_watermark(
+                section,
+                spec.watermark.text,
+                color=spec.watermark.color,
+                font=spec.watermark.font,
+                rotation=spec.watermark.rotation,
+                variant=variant,
+            )
 
     add_blocks(context, spec.blocks)
     finalize(document)
@@ -117,6 +124,43 @@ def apply_metadata(document, meta: S.MetaSpec) -> None:
         value = getattr(meta, attribute, None)
         if value:
             setattr(properties, attribute, value)
+
+
+def apply_language(document, lang: str) -> None:
+    """Language of the text (spell check, hyphenation, screen readers): style defaults, styles and settings."""
+    from ..docio import RPR_ORDER
+    from ..ooxml.fields import SETTINGS_ORDER
+
+    styles = document.styles.element
+    defaults = styles.find(qn("w:docDefaults"))
+    if defaults is None:
+        defaults = make("w:docDefaults")
+        styles.insert(0, defaults)
+    rpr_default = defaults.find(qn("w:rPrDefault"))
+    if rpr_default is None:
+        rpr_default = make("w:rPrDefault")
+        defaults.insert(0, rpr_default)
+    rpr = rpr_default.find(qn("w:rPr"))
+    if rpr is None:
+        rpr = make("w:rPr")
+        rpr_default.append(rpr)
+    if rpr.find(qn("w:lang")) is None:
+        insert_in_order(rpr, make("w:lang"), RPR_ORDER)
+    for langue in styles.iter(qn("w:lang")):
+        langue.set(qn("w:val"), lang)
+    settings = document.settings.element
+    theme_lang = settings.find(qn("w:themeFontLang"))
+    if theme_lang is None:
+        theme_lang = insert_in_order(settings, make("w:themeFontLang"), SETTINGS_ORDER)
+    theme_lang.set(qn("w:val"), lang)
+
+
+def document_language(document) -> str | None:
+    """Language of an existing document: its properties, else its style defaults."""
+    if document.core_properties.language:
+        return document.core_properties.language
+    langue = document.styles.element.find(f"{qn('w:docDefaults')}//{qn('w:lang')}")
+    return langue.get(qn("w:val")) if langue is not None else None
 
 
 def apply_theme(document, theme: S.ThemeSpec) -> None:
@@ -141,6 +185,61 @@ def apply_theme(document, theme: S.ThemeSpec) -> None:
             _set_style_east_asian(style, theme.heading_font)
         if accent and name not in {"Subtitle"}:
             style.font.color.rgb = rgb(accent)
+    _write_theme_part(document, accent, theme.heading_font, theme.body_font)
+
+
+def _write_theme_part(document, accent: str | None, heading_font: str | None, body_font: str | None) -> None:
+    """Accent and fonts in the theme part too: built-in styles (tables, quotes, captions) and LibreOffice read them there."""
+    if not (accent or heading_font or body_font):
+        return
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from lxml import etree
+
+    try:
+        part = document.part.part_related_by(RT.THEME)
+    except KeyError:
+        return
+    drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    root = etree.fromstring(part.blob)
+    node = root.find(f".//{{{drawing}}}clrScheme/{{{drawing}}}accent1")
+    if accent and node is not None:
+        for child in list(node):
+            node.remove(child)
+        etree.SubElement(node, f"{{{drawing}}}srgbClr", val=accent)
+    for scheme, font in (("majorFont", heading_font), ("minorFont", body_font)):
+        latin = root.find(f".//{{{drawing}}}fontScheme/{{{drawing}}}{scheme}/{{{drawing}}}latin")
+        if font and latin is not None:
+            latin.set("typeface", font)
+    part._blob = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+    if accent:
+        _recolor_accent_refs(document.styles.element, accent)
+
+
+def _recolor_accent_refs(element, accent: str) -> None:
+    """Cached RGB of the styles' accent1 references, recomputed: LibreOffice draws the cached value, not the theme."""
+    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    for node in element.iter():
+        attrs = node.attrib
+        if attrs.get(f"{w}themeColor") == "accent1":
+            target = f"{w}val" if node.tag == f"{w}color" else f"{w}color"
+            attrs[target] = _tinted(accent, attrs.get(f"{w}themeTint"), attrs.get(f"{w}themeShade"))
+        if attrs.get(f"{w}themeFill") == "accent1":
+            attrs[f"{w}fill"] = _tinted(accent, attrs.get(f"{w}themeFillTint"),
+                                        attrs.get(f"{w}themeFillShade"))
+
+
+def _tinted(color: str, tint: str | None, shade: str | None) -> str:
+    """Word's themeTint / themeShade: luminance scaled in HSL, truncated like its cached values."""
+    import colorsys
+
+    if not (tint or shade):
+        return color
+    hue, light, sat = colorsys.rgb_to_hls(*(int(color[i:i + 2], 16) / 255 for i in (0, 2, 4)))
+    if tint:
+        light = light * int(tint, 16) / 255 + 1 - int(tint, 16) / 255
+    if shade:
+        light = light * int(shade, 16) / 255
+    return "".join(f"{int(c * 255 + 1e-6):02X}" for c in colorsys.hls_to_rgb(hue, light, sat))
 
 
 def _set_style_east_asian(style, name: str) -> None:
@@ -186,16 +285,20 @@ def apply_header(section, header: S.HeaderSpec) -> None:
 
 
 def apply_footer(section, footer: S.FooterSpec) -> None:
-    text = footer.text
-    if footer.page_numbers and not any((footer.text, footer.left, footer.center, footer.right)):
-        text = footer.page_number_format
+    text, left, right = footer.text, footer.left, footer.right
+    if footer.page_numbers and not right:
+        if not any((text, left, footer.center)):
+            text = footer.page_number_format
+        else:
+            # Footer text on the left, page numbers on the right.
+            left, text, right = left or text, None, footer.page_number_format
     header_ooxml.set_header_footer(
-        section, "footer", text=text, left=footer.left, center=footer.center,
-        right=footer.right, align=footer.align, font_size_pt=footer.font_size_pt,
+        section, "footer", text=text, left=left, center=footer.center,
+        right=right, align=footer.align, font_size_pt=footer.font_size_pt,
         color=footer.color, rule=footer.rule,
     )
     if footer.different_first_page:
-        section.different_first_page_header_footer = True
+        header_ooxml.set_header_footer(section, "footer", variant="first", text="")
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +322,11 @@ def add_block(context: BuildContext, block: S.Block):
 
 
 # -- text ------------------------------------------------------------------------
+
+
+def write_inline(document, paragraph, runs: Sequence[S.RunSpec]) -> None:
+    """Append formatted runs to a paragraph of an existing document (edits)."""
+    _write_runs(BuildContext(document=document), paragraph, None, runs)
 
 
 def _write_runs(context: BuildContext, paragraph, text: str | None, runs: Sequence[S.RunSpec]):
@@ -354,7 +462,7 @@ def _code(context: BuildContext, block: S.CodeBlock):
         )
     _shade_paragraph(paragraph, MONO_SHADING)
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Listing", align="left")
+        refs.add_caption(context.document, block.caption, label=context.labels["listing"], align="left")
     return paragraph
 
 
@@ -423,7 +531,7 @@ def _callout(context: BuildContext, block: S.CalloutBlock):
         paragraph = cell.add_paragraph()
     elif glyph:
         apply_run_format(paragraph.add_run(f"{glyph}  "), {"bold": True, "color": accent})
-    paragraph.add_run(block.text)
+    _write_runs(context, paragraph, block.text, block.runs)
     context.document.add_paragraph()  # breathing room after the box
     return table
 
@@ -510,7 +618,7 @@ def _table(context: BuildContext, block: S.TableBlock):
         )
 
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Table", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["table"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, context.document.add_paragraph(), block.bookmark)
     return table
@@ -573,7 +681,7 @@ def _image(context: BuildContext, block: S.ImageBlock):
     if block.alt_text:
         _set_alt_text(run, block.alt_text)
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Figure", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     elif block.bookmark:
         refs.add_bookmark(context.document, paragraph, block.bookmark)
     return paragraph
@@ -635,7 +743,7 @@ def _chart(context: BuildContext, block: S.ChartBlock):
         )
 
     if block.caption:
-        refs.add_caption(context.document, block.caption, label="Figure", bookmark=block.bookmark)
+        refs.add_caption(context.document, block.caption, label=context.labels["figure"], bookmark=block.bookmark)
     return paragraph
 
 

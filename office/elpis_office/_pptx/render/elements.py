@@ -412,12 +412,16 @@ def add_accent_bar(ctx: RenderContext, slide, frame: Frame, color: str | None = 
     return bar
 
 
+def excerpt(text: str, limit: int = 50) -> str:
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+
+
 def add_title(ctx: RenderContext, slide, frame: Frame, text: str, *, size_pt: float | None = None,
               color: str | None = None, align: str | None = None, valign: str = "bottom",
               font: str | None = None, max_lines: int | None = 2):
     """A title, shrunk to fit its band rather than allowed to run into the content."""
     base = size_pt or ctx.theme.pt("slide_title")
-    return add_plain_text(
+    box = add_plain_text(
         ctx, slide, frame, text,
         base_size_pt=base,
         min_size_pt=base * 0.55,
@@ -429,6 +433,12 @@ def add_title(ctx: RenderContext, slide, frame: Frame, text: str, *, size_pt: fl
         line_spacing=1.06,
         max_lines=max_lines,
     )
+    shape_ooxml.make_placeholder(box, "title", "Title")
+    runs = [r for p in box.text_frame.paragraphs for r in p.runs]
+    if runs and runs[0].font.size is not None and runs[0].font.size.pt < base * 0.8:
+        ctx.note(f"Slide title “{excerpt(text)}” reduced to {runs[0].font.size.pt:g} pt to fit: "
+                 "a title under about 60 characters reads better.")
+    return box
 
 
 def add_kicker(ctx: RenderContext, slide, frame: Frame, text: str, color: str | None = None,

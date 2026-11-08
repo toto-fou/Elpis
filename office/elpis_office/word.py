@@ -31,9 +31,11 @@ from . import graphiques as G
 from ._chart.normalise import fold
 from ._docx import docio
 from ._docx.errors import DocxMcpError
+from ._docx.lecture import Lecteur, bilan_revisions, commentaires, notes, revisions, zones_de_texte
+from ._docx.ooxml.fields import _find_toc_blocks, _levels_from_instruction
 from ._docx.ooxml.util import qn
 from ._docx.render import builder as B, spec as S
-from ._docx.render.mdconv import markdown_to_blocks
+from ._docx.render.mdconv import inline_markdown, markdown_to_blocks
 from .commun import (
     Env,
     OfficeError,
@@ -43,10 +45,12 @@ from .commun import (
     chemin_sortie,
     ecrire,
     entier,
+    indice_chemin,
     lire,
     lire_fichier,
     texte,
 )
+from .langue import choisir as choisir_langue, libelles
 from .ops import lire_ops, requis
 from .paquet import PaquetInvalide, installer_lecteur, normaliser, retirer_lecteur
 
@@ -70,12 +74,14 @@ ALIAS_CREATE = {
     "page_numbers": ["numbering", "page_number", "numeros_de_page", "numerotation",
                      "page_numbering", "numbers"],
     "watermark": ["filigrane"],
+    "lang": ["language", "langue", "locale", "lng"],
 }
 ALIAS_READ = {
     "path": ALIAS_CREATE["path"],
     "find": ["search", "query", "pattern", "chercher", "rechercher", "q", "grep", "text"],
-    "start": ["from", "offset", "from_paragraph", "debut", "start_paragraph", "p"],
-    "limit": ["max", "max_paragraphs", "count", "n", "max_items"],
+    "start": ["from", "offset", "from_paragraph", "debut", "start_paragraph", "p", "start_row", "from_row"],
+    "limit": ["max", "max_paragraphs", "count", "n", "max_items", "max_rows"],
+    "table": ["tableau", "table_index"],
 }
 ALIAS_EDIT = {
     "path": ALIAS_CREATE["path"],
@@ -119,7 +125,8 @@ CHAMPS_OPS = {
     "delete": {"p": ["paragraph", "index", "paragraph_index", "para", "n", "i", "paragraphs",
                      "indexes", "indices"],
                "to": ["until", "end", "jusqu_a", "to_p", "last"],
-               "table": ["table_index", "tableau"]},
+               "table": ["table_index", "tableau"],
+               "callout": ["callout_index", "encadre", "box", "note_box"]},
     "insert": {"after": ["apres", "after_p", "after_paragraph", "after_heading", "below",
                          "position", "at", "where"],
                "before": ["avant", "before_p", "before_paragraph", "before_heading", "above"],
@@ -176,7 +183,6 @@ _VARIANTES = {"note": "note", "info": "info", "tip": "success", "astuce": "succe
               "attention": "warning", "avertissement": "warning", "caution": "danger",
               "danger": "danger", "remarque": "note", "success": "success", "succes": "success",
               "error": "danger", "erreur": "danger"}
-_INLINE_MD = re.compile(r"(\*\*|__|\*|_|`)")
 
 
 def refs_de(contenu: str) -> List[str]:
@@ -184,7 +190,7 @@ def refs_de(contenu: str) -> List[str]:
 
 
 def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
-                   toc_titre: str = "Sommaire") -> List[Any]:
+                   toc_titre: str = "Sommaire", toc_niveaux: Optional[List[int]] = None) -> List[Any]:
     """Markdown étendu → blocs du moteur Word (graphiques déjà préparés)."""
     blocs: List[Any] = []
     tampon: List[str] = []
@@ -228,7 +234,8 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
             continue
         if _TOC.match(ligne):
             vider()
-            blocs.append(S.TocBlock(type="toc", title=toc_titre, page_break_after=False))
+            blocs.append(S.TocBlock(type="toc", title=toc_titre, page_break_after=False,
+                                    **({"levels": toc_niveaux} if toc_niveaux else {})))
             i += 1
             continue
         if _SAUT.match(ligne):
@@ -248,7 +255,7 @@ def blocs_markdown(contenu: str, rendus: Dict[str, G.Rendu], env: Env,
             titre = m.group("t").strip() or None
             txt = " ".join(c for c in corps if c)
             blocs.append(S.CalloutBlock(type="callout", variant=variante, title=titre,
-                                        text=_INLINE_MD.sub("", txt)))
+                                        text=txt, runs=inline_markdown(txt)))
             continue
         tampon.append(ligne)
         i += 1
@@ -323,7 +330,7 @@ def _avec_lecteur(env: Env):
         except FileNotFoundError:
             raise OfficeError(f"{quoi} not found in the sandbox: {env.espace.afficher(rel)}",
                               code="not_found",
-                              fix=f"check the {quoi} path (list the folder first)")
+                              fix=f"check the {quoi} path{indice_chemin(env, rel) or ' (list the folder first)'}")
     return installer_lecteur(lecteur)
 
 
@@ -368,6 +375,8 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                                    "content": "# Summary\n\nRevenue grows by "
                                               "**12%**.\n\n## Details\n\n- Point 1\n- Point 2"})
     titre = str(a.get("title") or "").strip()
+    lang = choisir_langue(a.get("lang"), [titre, str(a.get("subtitle") or ""), contenu_md or ""], env.notes)
+    lib = libelles(lang)
     jeton = _avec_lecteur(env)
     try:
         rendus = G.preparer(env, refs_de(contenu_md))
@@ -386,25 +395,33 @@ def docx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             if a.get("subtitle"):
                 blocs.append(S.ParagraphBlock(type="paragraph", text=str(a["subtitle"]),
                                               style="Subtitle"))
-        if booleen(a.get("toc")) and not _TOC.search(contenu_md or ""):
-            blocs.append(S.TocBlock(type="toc", title="Sommaire"))
+        profondeur = entier(a.get("toc"))                 # toc: 4 = titres 1 à 4 ; true = 1 à 3
+        niveaux = [1, min(profondeur, 9)] if profondeur and profondeur > 0 else None
+        if (booleen(a.get("toc")) or niveaux) and not _TOC.search(contenu_md or ""):
+            blocs.append(S.TocBlock(type="toc", title=lib["toc"], **({"levels": niveaux} if niveaux else {})))
         if blocs_bruts is not None:
             env.notes.fix("content given as blocks: built as-is (Markdown is simpler)")
             blocs.extend(_moteur(S.parse_blocks, blocs_bruts))
         else:
-            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env))
+            blocs.extend(_moteur(blocs_markdown, contenu_md, rendus, env, lib["toc"], niveaux))
         # Avec un modèle, sa mise en page et son pied font foi : on ne les
         # remplace que sur demande explicite (sinon A4 portrait et « Page X / Y »
         # par défaut effaceraient la charte).
         modele = bool(a.get("template"))
         page = _page(a.get("page"), env) if (a.get("page") or not modele) else None
-        pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele)) \
+        pied = _pied(a.get("footer"), booleen(a.get("page_numbers"), not modele), lib["page"]) \
             if (a.get("footer") or a.get("page_numbers") is not None or not modele) else None
+        entete = _entete(a.get("header"))
+        if couverture:
+            # La page de garde n'a ni en-tête ni pied de page.
+            entete = entete.model_copy(update={"different_first_page": True}) if entete else None
+            pied = pied.model_copy(update={"different_first_page": True}) if pied else None
         spec = _moteur(S.DocumentSpec,
                        filename=rel.rsplit("/", 1)[-1],
-                       meta=S.MetaSpec(title=titre or None, author=a.get("author") or None),
+                       meta=S.MetaSpec(title=titre or None, author=a.get("author") or None,
+                                       language=lang),
                        theme=_theme(a.get("theme"), env), page=page,
-                       header=_entete(a.get("header")),
+                       header=entete,
                        footer=pied,
                        watermark=S.WatermarkSpec(text=str(a["watermark"]))
                        if a.get("watermark") else None,
@@ -450,12 +467,13 @@ def _theme(v: Any, env: Env) -> S.ThemeSpec:
                            "(theme = {\"accent\": \"#1F4E79\", \"font\": \"Calibri\"})")
         return S.ThemeSpec()
     t = canon(v, {"accent": ["color", "colour", "couleur", "primary", "main_color"],
-                  "body_font": ["font", "police", "font_family", "text_font"],
+                  "font": ["body_font", "police", "font_family", "text_font"],
                   "heading_font": ["title_font", "headings_font", "police_titres"],
-                  "base_font_size_pt": ["font_size", "size", "taille", "font_size_pt"]},
+                  "font_size": ["base_font_size_pt", "size", "taille", "font_size_pt"]},
               env.notes, "theme.")
-    garde = {k: t[k] for k in ("accent", "body_font", "heading_font", "base_font_size_pt")
-             if t.get(k) not in (None, "")}
+    moteur = {"accent": "accent", "font": "body_font", "heading_font": "heading_font",
+              "font_size": "base_font_size_pt"}
+    garde = {moteur[k]: t[k] for k in moteur if t.get(k) not in (None, "")}
     return _moteur(S.ThemeSpec, **garde)
 
 
@@ -492,22 +510,25 @@ def _entete(v: Any) -> Optional[S.HeaderSpec]:
     return S.HeaderSpec(text=str(v), rule=True)
 
 
-def _pied(v: Any, numeros: bool) -> Optional[S.FooterSpec]:
+def _pied(v: Any, numeros: bool, format_page: str) -> Optional[S.FooterSpec]:
     if isinstance(v, dict):
         d = {k: v.get(k) for k in ("text", "left", "center", "right") if v.get(k)}
-        return S.FooterSpec(**d, page_numbers=numeros, page_number_format="Page {PAGE} / {NUMPAGES}")
+        return S.FooterSpec(**d, page_numbers=numeros, page_number_format=format_page)
     if v:
         return S.FooterSpec(left=str(v), align="left", page_numbers=numeros,
-                            page_number_format="Page {PAGE} / {NUMPAGES}")
+                            page_number_format=format_page)
     if numeros:
-        return S.FooterSpec(page_numbers=True, page_number_format="Page {PAGE} / {NUMPAGES}")
+        return S.FooterSpec(page_numbers=True, page_number_format=format_page)
     return None
 
 
 def _bilan(document: Any, rendus: Optional[Dict[str, G.Rendu]] = None) -> Dict[str, Any]:
     plan = [{"p": x["index"], "level": x["level"], "text": x["text"][:120]}
             for x in docio.get_outline(document)]
-    out: Dict[str, Any] = {"paragraphs": len(document.paragraphs), "tables": len(document.tables),
+    encadres = len(docio.body_tables(document, callouts=True))
+    out: Dict[str, Any] = {"paragraphs": len(docio.body_paragraphs(document)),
+                           "tables": len(docio.body_tables(document)),
+                           **({"callouts": encadres} if encadres else {}),
                            "images": _nb_images(document), "outline": plan[:60]}
     if rendus:
         out["charts"] = [{"ref": f"!{r.id}", "inserted_as": {"natif": "native chart",
@@ -526,6 +547,8 @@ def _phrase(b: Dict[str, Any]) -> str:
     parts = [f"{len(b['outline'])} headings", f"{b['paragraphs']} paragraphs"]
     if b["tables"]:
         parts.append(f"{b['tables']} tables")
+    if b.get("callouts"):
+        parts.append(f"{b['callouts']} callouts")
     if b.get("charts"):
         nat = sum(1 for c in b["charts"] if c["inserted_as"] == "native chart")
         parts.append(f"{len(b['charts'])} charts ({nat} native, editable)")
@@ -535,47 +558,57 @@ def _phrase(b: Dict[str, Any]) -> str:
 
 
 # ── docx_read ───────────────────────────────────────────────────────────────
+LIGNES_LUES = 40
 def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     a = canon(args, ALIAS_READ, env.notes)
     rel, document, _ = _ouvrir(env, a.get("path"))
+    paragraphes, tableaux = docio.body_paragraphs(document), docio.body_tables(document)
+    encadres = docio.body_tables(document, callouts=True)
+    if a.get("table") not in (None, ""):
+        return _lire_tableau(env, rel, a, tableaux)
     start = max(0, entier(a.get("start")) or 0)
     limit = min(max(1, entier(a.get("limit")) or 200), 1000)
     # Clés = éléments lxml eux-mêmes, pas leur id() : un mandataire lxml sans
     # référence est libéré et son id peut être réattribué à un autre élément.
-    para_index = {p._p: i for i, p in enumerate(document.paragraphs)}
-    tables = {t._tbl: (k, t) for k, t in enumerate(document.tables)}
+    para_index = {p._p: i for i, p in enumerate(paragraphes)}
+    tables = {t._tbl: k for k, t in enumerate(tableaux)}
+    boites = {t._tbl: k for k, t in enumerate(encadres)}
+    sommaires = {debut: (fin, instr) for debut, fin, instr in _find_toc_blocks([p._p for p in paragraphes])}
     levels, default_id = docio.style_levels(document)
+    lecteur = Lecteur(document)
     contenu: List[Dict[str, Any]] = []
     # Page = paragraphes [start, suite) + les tableaux qui les SUIVENT (un
     # tableau appartient au paragraphe d'avant ; ceux d'avant le 1er paragraphe,
     # à la page 0). On ne coupe qu'à un paragraphe : un tableau n'est jamais
     # listé deux fois et ``next_start`` avance toujours.
-    dernier_p, suite = -1, None
-    for child in document.element.body.iterchildren():
-        if child.tag == qn("w:p") and child in para_index:
-            i = para_index[child]
+    dernier_p, suite, saut = -1, None, -1
+    for el in docio.body_blocks(document.element.body):
+        if el.tag == qn("w:p") and el in para_index:
+            i = para_index[el]
             dernier_p = i
-            if i < start:
+            if i < start or i <= saut:
                 continue
             if len(contenu) >= limit and i > start:
                 suite = i
                 break
-            par = Paragraph(child, document._body)
-            item = _decrire_paragraphe(par, i, levels, default_id)
+            if i in sommaires:
+                fin, instr = sommaires[i]
+                saut = fin
+                contenu.append(_sommaire(paragraphes, i, fin, instr))
+                continue
+            item = _decrire_paragraphe(paragraphes[i], i, levels, default_id, lecteur)
             if item:
                 contenu.append(item)
-        elif child.tag == qn("w:tbl") and child in tables and \
-                (dernier_p >= start or (start == 0 and dernier_p == -1)):
-            k, t = tables[child]
-            lignes = [[c.text.strip()[:200] for c in row.cells] for row in t.rows]
-            item = {"table": k, "after_p": dernier_p, "size": f"{len(lignes)}x{len(t.columns)}",
-                    "rows": lignes[:40]}
-            if len(lignes) > 40:
-                item["rows_truncated"] = len(lignes) - 40
-            contenu.append(item)
+        elif el.tag == qn("w:tbl") and (dernier_p >= start or (start == 0 and dernier_p == -1)):
+            if el in tables:
+                contenu.append(_decrire_tableau(tableaux[tables[el]], tables[el], dernier_p))
+            elif el in boites:
+                texte_boite = "\n".join(p.text for p in encadres[boites[el]]._tbl.iter(qn("w:p"))).strip()
+                contenu.append({"callout": boites[el], "after_p": dernier_p, "text": _court(texte_boite, 1000)})
+    lieux = list(docio.iter_located_paragraphs(document))
     res: Dict[str, Any] = {"path": env.espace.afficher(rel),
-                           "paragraphs": len(document.paragraphs),
-                           "tables": len(document.tables),
+                           "paragraphs": len(paragraphes), "tables": len(tableaux),
+                           **({"callouts": len(encadres)} if encadres else {}),
                            "sections": len(document.sections),
                            "title": document.core_properties.title or None,
                            "outline": [{"p": x["index"], "level": x["level"], "text": x["text"][:120]}
@@ -584,12 +617,21 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
     if suite is not None:
         res["next_start"] = suite
         res["note"] = f"more content: call docx_read again with start={suite}"
-    entetes = docio.read_stories(document)
-    for cle in ("headers", "footers"):
-        textes = [x.get("text") for x in entetes.get(cle, []) if x.get("text")]
+    for cle in ("header", "footer"):
+        textes = [lecteur.texte_champs(p._p) for lieu, p in lieux
+                  if lieu["where"] not in docio.BODY_WHERE and cle in lieu["where"]]
+        textes = [t for t in textes if t]
         if textes:
-            res[cle[:-1]] = " | ".join(dict.fromkeys(textes))[:400]
-    champs = sorted({m.strip() for _, p in docio.iter_located_paragraphs(document)
+            res[cle] = " | ".join(dict.fromkeys(textes))[:400]
+    revisions = bilan_revisions(document.element.body)
+    if revisions:
+        res["tracked_changes"] = revisions
+    for cle, valeurs in (("comments", commentaires(document, lieux)),
+                         ("footnotes", notes(document, "footnote", lieux)),
+                         ("endnotes", notes(document, "endnote", lieux))):
+        if valeurs:
+            res[cle] = [{**v, "at": _lieu(v["at"]) if v.get("at") else None} for v in valeurs]
+    champs = sorted({m.strip() for _, p in lieux
                      for m in re.findall(r"\{\{\s*([^{}]{1,60}?)\s*\}\}", p.text)})
     if champs:
         res["placeholders"] = champs
@@ -607,13 +649,53 @@ def docx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
             res["matches_note"] = f"'{a['find']}' not found (case ignored)"
     return res
 
+def _court(texte: str, n: int) -> str:
+    return texte if len(texte) <= n else texte[:n] + "…"
 
-def _decrire_paragraphe(par: Paragraph, i: int, levels, default_id) -> Optional[Dict[str, Any]]:
+
+def _sommaire(paragraphes: List[Paragraph], debut: int, fin: int, instruction: str) -> Dict[str, Any]:
+    """Un sommaire en un seul élément : ses entrées sont des copies des titres."""
+    bas, haut = _levels_from_instruction(instruction)
+    entrees = sum(1 for p in paragraphes[debut:fin + 1] if p.text.strip())
+    return {"p": debut, "to": fin, "toc": f"{entrees} entries, heading levels {bas}-{haut}"}
+
+
+def _decrire_tableau(t: Any, k: int, apres: int) -> Dict[str, Any]:
+    rangees = list(t.rows)
+    item: Dict[str, Any] = {"table": k, "after_p": apres, "size": f"{len(rangees)}x{len(t.columns)}",
+                            "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[:LIGNES_LUES]]}
+    if len(rangees) > LIGNES_LUES:
+        item["more_rows"] = (f"rows {LIGNES_LUES} to {len(rangees) - 1}: docx_read with table={k}, "
+                             f"start={LIGNES_LUES}")
+    return item
+
+
+def _lire_tableau(env: Env, rel: str, a: Dict[str, Any], tableaux: List[Any]) -> Dict[str, Any]:
+    """Les lignes d'un seul tableau, par pages (start = première ligne, à partir de 0)."""
+    k = entier(a.get("table"))
+    if k is None or not 0 <= k < len(tableaux):
+        raise OfficeError(f"table {a.get('table')!r} does not exist (the document has {len(tableaux)} "
+                          "table(s), numbered from 0)", code="bad_index",
+                          fix="take the table number from docx_read")
+    rangees = list(tableaux[k].rows)
+    debut = max(0, entier(a.get("start")) or 0)
+    nb = min(max(1, entier(a.get("limit")) or 100), 500)
+    res: Dict[str, Any] = {"path": env.espace.afficher(rel), "table": k,
+                           "size": f"{len(rangees)}x{len(tableaux[k].columns)}", "first_row": debut,
+                           "rows": [[c.text.strip()[:200] for c in row.cells] for row in rangees[debut:debut + nb]]}
+    if debut + nb < len(rangees):
+        res["next_start"] = debut + nb
+        res["note"] = f"more rows: call docx_read again with table={k}, start={debut + nb}"
+    return res
+
+
+def _decrire_paragraphe(par: Paragraph, i: int, levels, default_id, lecteur: Lecteur) -> Optional[Dict[str, Any]]:
     t = par.text.strip()
     el = par._p
-    image = el.find(".//" + qn("w:drawing")) is not None
-    graphique = image and el.find(".//" + qn("c:chart")) is not None
-    if not t and not image:
+    graphique = el.find(".//" + qn("c:chart")) is not None
+    image = graphique or el.find(".//" + qn("pic:pic")) is not None
+    zones, revise = zones_de_texte(el), revisions(el)
+    if not t and not image and not zones and not revise:
         return None
     item: Dict[str, Any] = {"p": i}
     niveau = docio.heading_level_for(par, levels, default_id)
@@ -624,11 +706,22 @@ def _decrire_paragraphe(par: Paragraph, i: int, levels, default_id) -> Optional[
         if style and style not in ("Normal", "Body Text", "Corps de texte", "Default Paragraph Font"):
             item["style"] = style
     if t:
-        item["text"] = t if len(t) <= 2000 else t[:2000] + "…"
-    if niveau is None and el.find(".//" + qn("w:numPr")) is not None:
-        item["list"] = True
+        item["text"] = _court(t, 2000)
+        md = lecteur.markdown(el)
+        if md and md.strip() != t:
+            item["md"] = _court(md.strip(), 3000)
+    if niveau is None:
+        liste = lecteur.liste(el)
+        if liste:
+            item["list"] = liste[0]
+            if liste[1]:
+                item["level"] = liste[1]
     if image:
         item["object"] = "chart" if graphique else "image"
+    if zones:
+        item["textbox"] = zones
+    if revise:
+        item["tracked"] = revise
     return item
 
 
@@ -638,9 +731,12 @@ def _lieu(x: Dict[str, Any]) -> Dict[str, Any]:
         out["p"] = x.get("paragraph_index")
     elif x.get("where") == "table":
         out.update({"table": x.get("table_index"), "row": x.get("row"), "col": x.get("column")})
+    elif x.get("where") == "callout":
+        out["callout"] = x.get("callout_index")
     else:
         out["in"] = x.get("where")
-    out["excerpt"] = x.get("excerpt")
+    if x.get("excerpt") is not None:
+        out["excerpt"] = x.get("excerpt")
     return out
 
 
@@ -653,8 +749,9 @@ class _Lot:
 
     def __init__(self, document: Any) -> None:
         self.document = document
-        self.paragraphes = list(document.paragraphs)
-        self.tables = list(document.tables)
+        self.paragraphes = docio.body_paragraphs(document)
+        self.tables = docio.body_tables(document)
+        self.encadres = docio.body_tables(document, callouts=True)
         self._lignes: Dict[int, List[Any]] = {}
         self.supprimes: set = set()          # éléments lxml (gardés vivants)
 
@@ -684,6 +781,15 @@ class _Lot:
             raise OfficeError(f"ops[{i}] ({nom}): table {k} was deleted by an earlier operation "
                               "of this call", code="bad_index")
         return k, t
+
+    def encadre(self, i: int, nom: str, v: Any):
+        k = entier(v)
+        n = len(self.encadres)
+        if k is None or not 0 <= k < n or self.encadres[k]._tbl in self.supprimes:
+            raise OfficeError(f"ops[{i}] ({nom}): callout {v!r} does not exist (the document has "
+                              f"{n} callout box(es), numbered from 0)", code="bad_index",
+                              fix="take the callout number from docx_read")
+        return k, self.encadres[k]
 
     def lignes(self, k: int, t: Any) -> List[Any]:
         if k not in self._lignes:
@@ -745,16 +851,17 @@ def _ancre(i: int, nom: str, v: Any, lot: _Lot, fin_de_section: bool = False):
     if entier(v) is not None:
         return lot.p(i, nom, v)._p
     f = fold(v)
-    if f in ("end", "fin", "bottom", "last"):
-        return None
-    if f in ("start", "debut", "top", "beginning", "first"):
-        return "start"
     levels, default_id = docio.style_levels(lot.document)
     vivants = [(k, p) for k, p in enumerate(lot.paragraphes) if p._p not in lot.supprimes]
     titres = [(k, p, docio.heading_level_for(p, levels, default_id)) for k, p in vivants]
     titres = [(k, p, lv) for k, p, lv in titres if lv is not None]
-    trouve = next(((k, p, lv) for k, p, lv in titres if fold(p.text) == f), None) or \
-        next(((k, p, lv) for k, p, lv in titres if f and f in fold(p.text)), None)
+    exact = next(((k, p, lv) for k, p, lv in titres if fold(p.text) == f), None)
+    if exact is None:                               # un titre « Fin » n'est pas la fin du document
+        if f in ("end", "fin", "bottom", "last"):
+            return None
+        if f in ("start", "debut", "top", "beginning", "first"):
+            return "start"
+    trouve = exact or next(((k, p, lv) for k, p, lv in titres if f and f in fold(p.text)), None)
     if trouve is None:
         tous = next(((k, p, None) for k, p in vivants if f and f in fold(p.text)), None)
         if tous is None or fin_de_section:
@@ -769,13 +876,29 @@ def _ancre(i: int, nom: str, v: Any, lot: _Lot, fin_de_section: bool = False):
     suivant = next((p2 for k2, p2, lv2 in titres if k2 > k and lv2 <= niveau), None)
     if suivant is None:
         return None
-    return suivant._p.getprevious()
+    return _precedent(suivant._p)
+
+
+def _precedent(element: Any) -> Any:
+    """Élément du corps juste avant ``element``, en sortant des contrôles de contenu ; « start » s'il est premier."""
+    while element is not None:
+        avant = element.getprevious()
+        if avant is not None and avant.tag not in (qn("w:sdtPr"), qn("w:sdtEndPr")):
+            return avant
+        parent = element.getparent()
+        if parent is not None and parent.tag == qn("w:sdtContent"):
+            element = parent.getparent()
+        elif parent is not None and parent.tag == qn("w:customXml"):
+            element = parent
+        else:
+            element = None
+    return "start"
 
 
 def _inserer(document, blocs: List[Any], ancre, avant: bool, env: Env) -> int:
     corps = document.element.body
     existants = set(corps)          # éléments gardés vivants (cf. docx_read)
-    ctx = B.BuildContext(document=document)
+    ctx = B.BuildContext(document=document, labels=libelles(B.document_language(document)))
     _moteur(B.add_blocks, ctx, blocs)
     _notes_moteur(ctx.notes, env)
     crees = [x for x in corps if x not in existants]
@@ -836,9 +959,14 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         return {"filled": total, "changed": bool(total)}
     if nom == "set":
         par = lot.p(i, nom, requis(i, nom, c, "p", EXEMPLE_OPS[2]))
-        _ecrire_paragraphe(par, _INLINE_MD.sub("", texte(c.get("text"))))
+        _ecrire_paragraphe(document, par, texte(c.get("text")))
         return {"p": entier(c.get("p"))}
     if nom == "delete":
+        if c.get("callout") is not None:
+            k, t = lot.encadre(i, nom, c["callout"])
+            lot.supprimes.add(t._tbl)
+            t._tbl.getparent().remove(t._tbl)
+            return {"callout": k}
         if c.get("table") is not None:
             k, t = lot.table(i, nom, c["table"])
             lot.supprimes.add(t._tbl)
@@ -883,7 +1011,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
                 raise OfficeError(f"ops[{i}] (set_cell): column {c.get('col')!r} does not exist "
                                   f"in table {k} (columns 0 to {len(cells) - 1})",
                                   code="bad_index", example=[EXEMPLE_OPS[5]])
-            _ecrire_cellule(cells[col], texte(c.get("text")))
+            _ecrire_cellule(document, cells[col], texte(c.get("text")))
             return {"table": k, "row": ln, "col": col}
         if nom == "delete_row":
             ln, ligne = lot.ligne(i, nom, k, t, c.get("row"))
@@ -912,7 +1040,7 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
         from docx.table import _Row
         ligne = _Row(nouvelle, t)
         for j, cel in enumerate(ligne.cells):
-            _ecrire_cellule(cel, G.cellule(vals[j]) if j < len(vals) else "")
+            _ecrire_cellule(document, cel, G.cellule(vals[j]) if j < len(vals) else "")
         if len(vals) > len(ligne.cells):
             env.notes.warn(f"ops[{i}] add_row: {len(vals) - len(ligne.cells)} extra value(s) ignored")
         return {"table": k, "rows": len(t.rows)}
@@ -926,27 +1054,21 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
     raise OfficeError(f"ops[{i}]: operation '{nom}' not supported", code="unknown_op")
 
 
-def _ecrire_paragraphe(par: Paragraph, valeur: str) -> None:
-    """Remplace le texte d'un paragraphe en gardant son style et la mise en
-    forme de son premier fragment."""
-    runs = par.runs
-    if runs:
-        runs[0].text = valeur
-        for r in runs[1:]:
-            r._r.getparent().remove(r._r)
-    else:
-        par.add_run(valeur)
+def _ecrire_paragraphe(document: Any, par: Paragraph, valeur: str) -> None:
+    """Réécrit un paragraphe (liens, contrôles et révisions compris) en Markdown en ligne, style et mise en forme du premier fragment gardés."""
+    base = docio.base_rpr(par._p)
+    suite = docio.clear_inline(par._p)
+    avant = set(par._p)
+    B.write_inline(document, par, inline_markdown(valeur))
+    for el in [x for x in par._p if x not in avant]:
+        for r in el.iter(qn("w:r")):
+            docio.merge_rpr(r, base)
+        if suite is not None:
+            suite.addprevious(el)
 
 
-def _ecrire_cellule(cel, valeur: str) -> None:
+def _ecrire_cellule(document: Any, cel, valeur: str) -> None:
     pars = cel.paragraphs
-    premier = pars[0]
-    runs = premier.runs
-    if runs:
-        runs[0].text = valeur
-        for r in runs[1:]:
-            r._r.getparent().remove(r._r)
-    else:
-        premier.add_run(valeur)
+    _ecrire_paragraphe(document, pars[0], valeur)
     for p in pars[1:]:
         p._p.getparent().remove(p._p)

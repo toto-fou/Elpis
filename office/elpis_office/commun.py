@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import posixpath
 import re
 from dataclasses import dataclass, field
@@ -60,6 +61,7 @@ class Ecrit:
     new_sha256: str
     size: int
     history_kept: bool = True  # ancienne version gardée dans l'historique de session
+    backup: Optional[str] = None  # trop grosse pour l'historique : copie .bak faite par l'hôte
 
 
 class Espace(Protocol):
@@ -73,6 +75,7 @@ class Espace(Protocol):
     def lire(self, rel: str, max_bytes: int) -> bytes: ...
     def ecrire(self, rel: str, data: bytes, attendu: Optional[str] = None) -> Ecrit: ...
     def afficher(self, rel: str) -> str: ...
+    # Facultatif : lister(dossier) -> [{"nom", "dossier"}] ou None si le dossier n'existe pas.
 
 
 @dataclass
@@ -254,6 +257,31 @@ def lire(env: Env, rel: str, quoi: str = "file", max_bytes: Optional[int] = None
                               f"{max_bytes // (1024 * 1024)} MB")
 
 
+def indice_chemin(env: Env, rel: str) -> str:
+    """Contenu du dossier visé et nom le plus proche : de quoi corriger un chemin sans outil de listing."""
+    lister = getattr(env.espace, "lister", None)
+    if lister is None:
+        return ""
+    dossier, _, nom = rel.strip("/").rpartition("/")
+    try:
+        entrees = lister(dossier)
+        if entrees is None:
+            racine = [str(e["nom"]) + ("/" if e.get("dossier") else "") for e in lister("") or []]
+            return (f"; the folder {env.espace.afficher(dossier)} does not exist"
+                    + (f" (/work holds: {', '.join(racine[:20])})" if racine else ""))
+    except (OSError, ValueError, RuntimeError, OfficeError) as e:
+        if getattr(e, "code", "") == "cancelled":
+            raise
+        return ""
+    fichiers = {str(e["nom"]).lower(): str(e["nom"]) for e in entrees if not e.get("dossier")}
+    proche = difflib.get_close_matches(nom.lower(), list(fichiers), n=1, cutoff=0.5)
+    noms = [str(e["nom"]) + ("/" if e.get("dossier") else "") for e in entrees]
+    texte = (f"; did you mean {env.espace.afficher(posixpath.join(dossier, fichiers[proche[0]]))}?"
+             if proche else "")
+    texte += f"; {env.espace.afficher(dossier)} holds: {', '.join(noms[:20]) or 'nothing'}"
+    return texte + (f" (+{len(noms) - 20} more)" if len(noms) > 20 else "")
+
+
 def lire_fichier(env: Env, path: Any, sorte: str, quoi: str = "file") -> Tuple[str, bytes]:
     """Lit un fichier Office de la sandbox ; ajoute l'extension si on l'a oubliée."""
     rel = chemin_entree(path, sorte)
@@ -268,9 +296,10 @@ def lire_fichier(env: Env, path: Any, sorte: str, quoi: str = "file") -> Tuple[s
         if r != rel:
             env.notes.fix(f"'{rel}' opened as '{r}'")
         return r, data
+    indice = indice_chemin(env, rel)
     raise OfficeError(f"{quoi} not found: {env.espace.afficher(rel)}", code="not_found",
-                      fix="check the path (list the folder), or create the file with "
-                          f"{sorte}_create")
+                      fix=f"check the path{indice or ' (list the folder)'}, or create the file "
+                          f"with {sorte}_create")
 
 
 def ecrire(env: Env, rel: str, data: bytes, attendu: Optional[str] = None) -> Dict[str, Any]:
@@ -282,12 +311,13 @@ def ecrire(env: Env, rel: str, data: bytes, attendu: Optional[str] = None) -> Di
                                                 "fewer or smaller images")
     e = env.espace.ecrire(rel, data, attendu)
     if e.old_sha256 and not e.history_kept:
-        env.notes.warn("the previous version was replaced and is too large to be kept in the "
-                       "file history")
+        env.notes.warn(f"the previous version is too large for the file history: it was kept as {e.backup}"
+                       if e.backup else "the previous version was replaced and is too large to be kept "
+                                        "in the file history")
     return resultat_ecrit(e)
 
 
 def resultat_ecrit(e: Ecrit) -> Dict[str, Any]:
     """Champs qui alimentent le suivi des fichiers modifiés d'Elpis (carte, éditeur)."""
     return {"path": e.path, "old_sha256": e.old_sha256, "new_sha256": e.new_sha256,
-            "size": e.size}
+            "size": e.size, **({"backup": e.backup} if e.backup else {})}

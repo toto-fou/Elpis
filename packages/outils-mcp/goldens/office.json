@@ -5,7 +5,7 @@
     {
       "name": "docx_create",
       "title": "Docx Create",
-      "description": "Create a Word document (.docx) in the sandbox from Markdown.\ncontent supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, > quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool (native editable chart when possible, else an image); chart_table \u2192 a real table\n  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n  [TOC]: table of contents \u00b7 \\newpage: page break\nAn existing file at path is replaced (the previous version stays in the file history, up to 5 MB). Returns path, outline (headings with paragraph numbers) and summary.",
+      "description": "Create a Word document (.docx) in the sandbox from Markdown.\ncontent supports: # headings, paragraphs, **bold** / *italic*, H~2~O / x^2^, lists, | tables |, > quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool (native editable chart when possible, else an image); chart_table \u2192 a real table\n  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n  [TOC]: table of contents \u00b7 \\newpage: page break\nAn existing file at path is replaced (the previous version stays in the file history, or in a .bak copy above 5 MB). Returns path, outline (headings with paragraph numbers) and summary.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -41,8 +41,11 @@
           },
           "toc": {
             "default": null,
-            "description": "Add a table of contents after the title.",
-            "type": "boolean"
+            "description": "Add a table of contents after the title: true (headings 1 to 3), or the depth, e.g. 4.",
+            "type": [
+              "boolean",
+              "integer"
+            ]
           },
           "template": {
             "default": null,
@@ -112,6 +115,11 @@
           "watermark": {
             "default": null,
             "description": "e.g. CONFIDENTIEL, BROUILLON",
+            "type": "string"
+          },
+          "lang": {
+            "default": null,
+            "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.",
             "type": "string"
           }
         },
@@ -319,7 +327,7 @@
     {
       "name": "docx_read",
       "title": "Docx Read",
-      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p), tables, header and footer, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
+      "description": "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type and, when formatted, md (the text with its bold, italic, links\u2026 in Markdown, as set takes it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout boxes (not counted as tables: replace changes their text, {op:'delete', callout} removes one), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked changes, {{placeholders}} and unfinished marks (TODO, [XXX]\u2026). A table of contents is one item. Use the p and table numbers with docx_edit. find = text to locate (case ignored). Long documents come in pages: call again with start=next_start.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -334,12 +342,17 @@
           },
           "start": {
             "default": null,
-            "description": "First paragraph number to list.",
+            "description": "First paragraph number to list (with table: first row, from 0).",
             "type": "integer"
           },
           "limit": {
             "default": null,
-            "description": "Max items listed (default 200).",
+            "description": "Max items listed (default 200; with table: rows, default 100).",
+            "type": "integer"
+          },
+          "table": {
+            "default": null,
+            "description": "Read only the rows of this table (its number in docx_read).",
             "type": "integer"
           }
         },
@@ -541,7 +554,7 @@
     {
       "name": "docx_edit",
       "title": "Docx Edit",
-      "description": "Edit a Word document of the sandbox with a list of operations, applied together in one save. Paragraph (p), table, row and column numbers start at 0 and refer to the document BEFORE this call, as docx_read shows it:\n  {op:'replace', find, replace}            everywhere, headers and tables included (exact case unless match_case:false)\n  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n  {op:'set', p, text}                       rewrites one paragraph (style kept)\n  {op:'delete', p} \u00b7 {op:'delete', p, to} \u00b7 {op:'delete', table}\n  {op:'insert', after|before: p or heading text, content: Markdown}\n  {op:'insert', at_end_of: heading text, content}\n  {op:'append', content: Markdown}          at the end (charts !id allowed)\n  {op:'set_cell', table, row, col, text} \u00b7 {op:'add_row', table, values} \u00b7 {op:'delete_row', table, row}   (from 0, row 0 = header)\n  {op:'meta', title, author, subject}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "description": "Edit a Word document of the sandbox with a list of operations, applied together in one save. Paragraph (p), table, row and column numbers start at 0 and refer to the document BEFORE this call, as docx_read shows it:\n  {op:'replace', find, replace}            everywhere, headers and tables included (exact case unless match_case:false)\n  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n  {op:'set', p, text}                       rewrites one paragraph (style kept); inline Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n  {op:'delete', p} \u00b7 {op:'delete', p, to} \u00b7 {op:'delete', table} \u00b7 {op:'delete', callout}\n  {op:'insert', after|before: p or heading text, content: Markdown}\n  {op:'insert', at_end_of: heading text, content}\n  {op:'append', content: Markdown}          at the end (charts !id allowed)\n  {op:'set_cell', table, row, col, text} \u00b7 {op:'add_row', table, values} \u00b7 {op:'delete_row', table, row}   (from 0, row 0 = header)\n  {op:'meta', title, author, subject}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -626,6 +639,10 @@
                   "type": "integer"
                 },
                 "col": {
+                  "type": "integer"
+                },
+                "callout": {
+                  "description": "delete: a callout box number from docx_read",
                   "type": "integer"
                 },
                 "title": {
@@ -856,7 +873,7 @@
     {
       "name": "pptx_create",
       "title": "Pptx Create",
-      "description": "Create a PowerPoint deck (.pptx) in the sandbox. Each slide is {layout, \u2026}:\n  title {title, subtitle, author, date} \u00b7 section {title, subtitle} \u00b7 agenda {items}\n  bullets {title, bullets, takeaway} \u00b7 two_content {title, left, right}\n  kpi {title, items:[{value:'18,4 M\u20ac', label, delta:'+12 %'}]}\n  chart {title, chart:'!id' from a chart_<type> tool, takeaway}\n  table {title, table} \u00b7 comparison {title, left:{title, items}, right:{title, items}}\n  timeline {title, milestones:[{date, title}]} \u00b7 process {title, steps}\n  image {title, image: sandbox path} \u00b7 quote {text, author} \u00b7 closing {title, contact}\nEvery slide accepts notes (speaker notes). Layouts are composed and text is fitted for you. An existing file at path is replaced (previous version kept in the file history, up to 5 MB).",
+      "description": "Create a PowerPoint deck (.pptx) in the sandbox. Each slide is {layout, \u2026}:\n  title {title, subtitle, author, date} \u00b7 section {title, subtitle} \u00b7 agenda {items}\n  bullets {title, bullets, takeaway} \u00b7 two_content {title, left, right}\n  kpi {title, items:[{value:'18,4 M\u20ac', label, delta:'+12 %'}]}\n  chart {title, chart:'!id' from a chart_<type> tool, takeaway}\n  table {title, table} \u00b7 comparison {title, left:{title, items}, right:{title, items}}\n  timeline {title, milestones:[{date, title}]} \u00b7 process {title, steps}\n  image {title, image: sandbox path} \u00b7 quote {text, author} \u00b7 closing {title, contact}\nEvery slide accepts notes (speaker notes). Layouts are composed and text is fitted for you. An existing file at path is replaced (previous version kept in the file history, or in a .bak copy above 5 MB).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1025,6 +1042,11 @@
           "markdown": {
             "default": null,
             "description": "Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).",
+            "type": "string"
+          },
+          "lang": {
+            "default": null,
+            "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.",
             "type": "string"
           }
         },
@@ -1448,7 +1470,7 @@
     {
       "name": "pptx_edit",
       "title": "Pptx Edit",
-      "description": "Edit a PowerPoint deck of the sandbox with a list of operations, applied together in one save. Slide numbers start at 1 and refer to the deck BEFORE this call; shape numbers come from pptx_read:\n  {op:'replace', find, replace} \u00b7 {op:'fill', values:{client:'ACME'}}\n  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per paragraph\n  {op:'add_slides', slides:[\u2026same objects as pptx_create\u2026], after|before: slide number}\n  {op:'delete_slide', slide} \u00b7 {op:'move_slide', slide, to} \u00b7 {op:'duplicate_slide', slide, to?}   (to = position in the deck at that point)\n  {op:'notes', slide, text} \u00b7 {op:'meta', title, author}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
+      "description": "Edit a PowerPoint deck of the sandbox with a list of operations, applied together in one save. Slide numbers start at 1 and refer to the deck BEFORE this call; shape numbers come from pptx_read:\n  {op:'replace', find, replace} \u00b7 {op:'fill', values:{client:'ACME'}}\n  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per paragraph\n  {op:'add_slides', slides:[\u2026same objects as pptx_create\u2026], after|before: slide number}\n  {op:'delete_slide', slide} \u00b7 {op:'move_slide', slide, after|before} \u00b7 {op:'duplicate_slide', slide, after|before?}\n  {op:'notes', slide, text} \u00b7 {op:'meta', title, author}\nsave_as = write a copy instead of modifying the file. If the file changed since it was read, nothing is written (concurrent_modification): read it again.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1621,18 +1643,18 @@
                   "type": "array"
                 },
                 "after": {
-                  "description": "add_slides: slide number, 'start' or 'end' (default)",
+                  "description": "add_slides / move_slide / duplicate_slide: after this slide; add_slides also 'start' or 'end' (default)",
                   "type": [
                     "integer",
                     "string"
                   ]
                 },
                 "before": {
-                  "description": "add_slides: insert before this slide",
+                  "description": "add_slides / move_slide / duplicate_slide: before this slide",
                   "type": "integer"
                 },
                 "to": {
-                  "description": "move_slide / duplicate_slide: position wanted in the deck at that point (from 1)",
+                  "description": "older form of move_slide / duplicate_slide: position in the deck at that point (from 1)",
                   "type": "integer"
                 },
                 "title": {
@@ -2128,7 +2150,7 @@
         },
         {
           "nom": "toc",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Add a table of contents after the title.', json_schema_extra={'type': 'boolean'})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Add a table of contents after the title: true (headings 1 to 3), or the depth, e.g. 4.', json_schema_extra={'type': ['boolean', 'integer']})]",
           "requis": false,
           "defaut": null
         },
@@ -2173,6 +2195,12 @@
           "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='e.g. CONFIDENTIEL, BROUILLON', json_schema_extra={'type': 'string'})]",
           "requis": false,
           "defaut": null
+        },
+        {
+          "nom": "lang",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.\", json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
         }
       ]
     },
@@ -2192,13 +2220,19 @@
         },
         {
           "nom": "start",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='First paragraph number to list.', json_schema_extra={'type': 'integer'})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='First paragraph number to list (with table: first row, from 0).', json_schema_extra={'type': 'integer'})]",
           "requis": false,
           "defaut": null
         },
         {
           "nom": "limit",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Max items listed (default 200).', json_schema_extra={'type': 'integer'})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Max items listed (default 200; with table: rows, default 100).', json_schema_extra={'type': 'integer'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "table",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Read only the rows of this table (its number in docx_read).', json_schema_extra={'type': 'integer'})]",
           "requis": false,
           "defaut": null
         }
@@ -2214,7 +2248,7 @@
         },
         {
           "nom": "ops",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set', 'delete', 'insert', 'append', 'set_cell', 'add_row', 'delete_row', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean', 'description': 'replace: default true (exact case)'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'p': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'paragraph number(s) from docx_read (from 0)'}, 'to': {'type': 'integer', 'description': 'delete: last paragraph of a range'}, 'text': {'type': 'string'}, 'after': {'type': ['integer', 'string'], 'description': \"insert: paragraph number, heading text, 'start' or 'end'\"}, 'before': {'type': ['integer', 'string']}, 'at_end_of': {'type': 'string', 'description': \"insert: at the end of this heading's section\"}, 'content': {'type': 'string', 'description': 'insert / append: Markdown'}, 'table': {'type': 'integer'}, 'row': {'type': 'integer'}, 'col': {'type': 'integer'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}, 'subject': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set', 'delete', 'insert', 'append', 'set_cell', 'add_row', 'delete_row', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean', 'description': 'replace: default true (exact case)'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'p': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'paragraph number(s) from docx_read (from 0)'}, 'to': {'type': 'integer', 'description': 'delete: last paragraph of a range'}, 'text': {'type': 'string'}, 'after': {'type': ['integer', 'string'], 'description': \"insert: paragraph number, heading text, 'start' or 'end'\"}, 'before': {'type': ['integer', 'string']}, 'at_end_of': {'type': 'string', 'description': \"insert: at the end of this heading's section\"}, 'content': {'type': 'string', 'description': 'insert / append: Markdown'}, 'table': {'type': 'integer'}, 'row': {'type': 'integer'}, 'col': {'type': 'integer'}, 'callout': {'type': 'integer', 'description': 'delete: a callout box number from docx_read'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}, 'subject': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
           "requis": true
         },
         {
@@ -2286,6 +2320,12 @@
           "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Alternative to slides: a Markdown outline (# deck title, ## one slide each, - bullets).', json_schema_extra={'type': 'string'})]",
           "requis": false,
           "defaut": null
+        },
+        {
+          "nom": "lang",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.\", json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
         }
       ]
     },
@@ -2321,7 +2361,7 @@
         },
         {
           "nom": "ops",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set_text', 'add_slides', 'delete_slide', 'move_slide', 'duplicate_slide', 'notes', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'slide': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'slide number(s), from 1'}, 'shape': {'type': 'integer', 'description': 'set_text: shape number from pptx_read'}, 'text': {'type': 'string'}, 'slides': {'type': 'array', 'items': {'type': 'object', 'description': 'One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).', 'properties': {'layout': {'type': 'string', 'enum': ['title', 'section', 'agenda', 'bullets', 'two_content', 'kpi', 'chart', 'table', 'comparison', 'timeline', 'process', 'image', 'quote', 'closing']}, 'title': {'type': 'string'}, 'subtitle': {'type': 'string', 'description': 'title / section / closing slides'}, 'bullets': {'type': 'array', 'items': {'type': 'string'}, 'description': 'bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]'}, 'text': {'type': 'string', 'description': 'prose instead of bullets, or the quote text'}, 'chart': {'type': 'string', 'description': \"chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'\"}, 'items': {'type': 'array', 'description': 'kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]', 'items': {'type': ['object', 'string']}}, 'milestones': {'type': 'array', 'description': 'timeline: [{date, title, text, done}]', 'items': {'type': ['object', 'string']}}, 'steps': {'type': 'array', 'description': 'process: [\"Step 1\", \u2026] or [{title, text}]', 'items': {'type': ['object', 'string']}}, 'table': {'description': \"table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'\"}, 'left': {'description': \"comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'\"}, 'right': {'description': 'same as left'}, 'image': {'type': 'string', 'description': 'image slide: an image file in the sandbox'}, 'takeaway': {'type': 'string', 'description': 'the one line to remember, shown in a band'}, 'notes': {'type': 'string', 'description': 'speaker notes'}, 'author': {'type': 'string'}, 'date': {'type': 'string'}, 'contact': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['layout']}, 'description': 'add_slides: new slides'}, 'after': {'type': ['integer', 'string'], 'description': \"add_slides: slide number, 'start' or 'end' (default)\"}, 'before': {'type': 'integer', 'description': 'add_slides: insert before this slide'}, 'to': {'type': 'integer', 'description': 'move_slide / duplicate_slide: position wanted in the deck at that point (from 1)'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'op': {'type': 'string', 'enum': ['replace', 'fill', 'set_text', 'add_slides', 'delete_slide', 'move_slide', 'duplicate_slide', 'notes', 'meta']}, 'find': {'type': 'string'}, 'replace': {'type': 'string'}, 'match_case': {'type': 'boolean'}, 'values': {'type': 'object', 'description': 'fill: {field: value} for {{field}}'}, 'slide': {'type': ['integer', 'array'], 'items': {'type': 'integer'}, 'description': 'slide number(s), from 1'}, 'shape': {'type': 'integer', 'description': 'set_text: shape number from pptx_read'}, 'text': {'type': 'string'}, 'slides': {'type': 'array', 'items': {'type': 'object', 'description': 'One slide. Fields depend on the layout; fields the layout does not use are ignored (listed in fixes).', 'properties': {'layout': {'type': 'string', 'enum': ['title', 'section', 'agenda', 'bullets', 'two_content', 'kpi', 'chart', 'table', 'comparison', 'timeline', 'process', 'image', 'quote', 'closing']}, 'title': {'type': 'string'}, 'subtitle': {'type': 'string', 'description': 'title / section / closing slides'}, 'bullets': {'type': 'array', 'items': {'type': 'string'}, 'description': 'bullets slide; a sub-point starts with two spaces: [\"Point\", \"  sub-point\"]'}, 'text': {'type': 'string', 'description': 'prose instead of bullets, or the quote text'}, 'chart': {'type': 'string', 'description': \"chart slide: the ref returned by a chart_<type> tool, e.g. '!a1b2c3d4e5f6'\"}, 'items': {'type': 'array', 'description': 'kpi: [{value, label, delta}] \u00b7 agenda: [\"Section 1\", \u2026]', 'items': {'type': ['object', 'string']}}, 'milestones': {'type': 'array', 'description': 'timeline: [{date, title, text, done}]', 'items': {'type': ['object', 'string']}}, 'steps': {'type': 'array', 'description': 'process: [\"Step 1\", \u2026] or [{title, text}]', 'items': {'type': ['object', 'string']}}, 'table': {'description': \"table slide: {header: [...], rows: [[...]]}, a list of row objects, or a chart_table ref '!id'\"}, 'left': {'description': \"comparison: {title, items: [...]} \u00b7 two_content: a list of bullets, a text, or a chart ref '!id'\"}, 'right': {'description': 'same as left'}, 'image': {'type': 'string', 'description': 'image slide: an image file in the sandbox'}, 'takeaway': {'type': 'string', 'description': 'the one line to remember, shown in a band'}, 'notes': {'type': 'string', 'description': 'speaker notes'}, 'author': {'type': 'string'}, 'date': {'type': 'string'}, 'contact': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['layout']}, 'description': 'add_slides: new slides'}, 'after': {'type': ['integer', 'string'], 'description': \"add_slides / move_slide / duplicate_slide: after this slide; add_slides also 'start' or 'end' (default)\"}, 'before': {'type': 'integer', 'description': 'add_slides / move_slide / duplicate_slide: before this slide'}, 'to': {'type': 'integer', 'description': 'older form of move_slide / duplicate_slide: position in the deck at that point (from 1)'}, 'title': {'type': 'string'}, 'author': {'type': 'string'}}, 'required': ['op']}, 'minItems': 1})]",
           "requis": true
         },
         {

@@ -23,7 +23,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict
 
 from ._chart import _refus
-from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, lire
+from .commun import EXT, EXT_LUES, Env, OfficeError, canon, chemin_entree, chemin_sortie, ecrire, indice_chemin, lire
 from .paquet import PaquetInvalide, normaliser
 
 logger = logging.getLogger("uvicorn.error")
@@ -92,6 +92,7 @@ _DOCX_OP = {
         "at_end_of": {"type": "string", "description": "insert: at the end of this heading's section"},
         "content": {"type": "string", "description": "insert / append: Markdown"},
         "table": {"type": "integer"}, "row": {"type": "integer"}, "col": {"type": "integer"},
+        "callout": {"type": "integer", "description": "delete: a callout box number from docx_read"},
         "title": {"type": "string"}, "author": {"type": "string"}, "subject": {"type": "string"},
     },
     "required": ["op"],
@@ -111,28 +112,35 @@ _PPTX_OP = {
         "text": {"type": "string"},
         "slides": {"type": "array", "items": _SLIDE_OBJ, "description": "add_slides: new slides"},
         "after": {"type": ["integer", "string"],
-                  "description": "add_slides: slide number, 'start' or 'end' (default)"},
-        "before": {"type": "integer", "description": "add_slides: insert before this slide"},
-        "to": {"type": "integer", "description": "move_slide / duplicate_slide: position wanted "
-                                                 "in the deck at that point (from 1)"},
+                  "description": "add_slides / move_slide / duplicate_slide: after this slide; "
+                                 "add_slides also 'start' or 'end' (default)"},
+        "before": {"type": "integer",
+                   "description": "add_slides / move_slide / duplicate_slide: before this slide"},
+        "to": {"type": "integer", "description": "older form of move_slide / duplicate_slide: "
+                                                 "position in the deck at that point (from 1)"},
         "title": {"type": "string"}, "author": {"type": "string"},
     },
     "required": ["op"],
 }
+_LANG = {"type": "string",
+         "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, "
+                        "screen readers, generated labels such as the table of contents title); "
+                        "detected from the text when omitted."}
 
 TOOLS: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
 
 TOOLS["docx_create"] = {
     "description": (
         "Create a Word document (.docx) in the sandbox from Markdown.\n"
-        "content supports: # headings, paragraphs, **bold** / *italic*, lists, | tables |, "
+        "content supports: # headings, paragraphs, **bold** / *italic*, H~2~O / x^2^, lists, | tables |, "
         "> quotes, ```code```, ![caption](images/photo.png) from the sandbox, and:\n"
         "  !a1b2c3d4e5f6 alone on a line: a chart made first with a chart_<type> tool "
         "(native editable chart when possible, else an image); chart_table → a real table\n"
         "  > [!NOTE] Title  (TIP, IMPORTANT, WARNING, CAUTION): a callout box\n"
         "  [TOC]: table of contents · \\newpage: page break\n"
         "An existing file at path is replaced (the previous version stays in the file history, "
-        "up to 5 MB). Returns path, outline (headings with paragraph numbers) and summary."),
+        "or in a .bak copy above 5 MB). Returns path, outline (headings with paragraph numbers) and "
+        "summary."),
     "params": OrderedDict([
         ("path", _PATH),
         ("content", {"type": "string", "description": "The document body in Markdown."}),
@@ -142,7 +150,8 @@ TOOLS["docx_create"] = {
         ("date", {"type": "string"}),
         ("cover", {"type": "boolean", "description": "Start with a cover page (title, subtitle, "
                                                      "author, date)."}),
-        ("toc", {"type": "boolean", "description": "Add a table of contents after the title."}),
+        ("toc", {"type": ["boolean", "integer"], "description": "Add a table of contents after the title: "
+                                                               "true (headings 1 to 3), or the depth, e.g. 4."}),
         ("template", {"type": "string", "description": "A .dotx/.docx in the sandbox: its styles, "
                                                        "header, footer and page layout are kept "
                                                        "unless you set header/footer/page; its "
@@ -162,20 +171,30 @@ TOOLS["docx_create"] = {
                                                             "(default true, false with a "
                                                             "template)."}),
         ("watermark", {"type": "string", "description": "e.g. CONFIDENTIEL, BROUILLON"}),
+        ("lang", _LANG),
     ]),
     "required": ["path", "content"],
 }
 TOOLS["docx_read"] = {
     "description": (
-        "Read a Word document of the sandbox: outline, numbered paragraphs (p), tables, header "
-        "and footer, {{placeholders}} and unfinished marks (TODO, [XXX]…). Use the p and table "
+        "Read a Word document of the sandbox: outline, numbered paragraphs (p) with their list type "
+        "and, when formatted, md (the text with its bold, italic, links… in Markdown, as set takes "
+        "it), tables (40 rows; table=n reads one table, start/limit then count its rows), callout "
+        "boxes (not counted as tables: replace changes their text, {op:'delete', callout} removes "
+        "one), text boxes, header and footer ({PAGE} = page number), comments, footnotes, tracked "
+        "changes, {{placeholders}} and "
+        "unfinished marks (TODO, [XXX]…). A table of contents is one item. Use the p and table "
         "numbers with docx_edit. find = text to locate (case ignored). Long documents come in "
         "pages: call again with start=next_start."),
     "params": OrderedDict([
         ("path", _PATH),
         ("find", {"type": "string", "description": "Text to locate."}),
-        ("start", {"type": "integer", "description": "First paragraph number to list."}),
-        ("limit", {"type": "integer", "description": "Max items listed (default 200)."}),
+        ("start", {"type": "integer", "description": "First paragraph number to list (with table: "
+                                                     "first row, from 0)."}),
+        ("limit", {"type": "integer", "description": "Max items listed (default 200; with table: "
+                                                     "rows, default 100)."}),
+        ("table", {"type": "integer", "description": "Read only the rows of this table (its number "
+                                                     "in docx_read)."}),
     ]),
     "required": ["path"],
 }
@@ -187,8 +206,9 @@ TOOLS["docx_edit"] = {
         "  {op:'replace', find, replace}            everywhere, headers and tables included "
         "(exact case unless match_case:false)\n"
         "  {op:'fill', values:{client:'ACME'}}       fills {{client}} placeholders\n"
-        "  {op:'set', p, text}                       rewrites one paragraph (style kept)\n"
-        "  {op:'delete', p} · {op:'delete', p, to} · {op:'delete', table}\n"
+        "  {op:'set', p, text}                       rewrites one paragraph (style kept); inline "
+        "Markdown: **bold**, *italic*, H~2~O, x^2^, [link](url), also in set_cell\n"
+        "  {op:'delete', p} · {op:'delete', p, to} · {op:'delete', table} · {op:'delete', callout}\n"
         "  {op:'insert', after|before: p or heading text, content: Markdown}\n"
         "  {op:'insert', at_end_of: heading text, content}\n"
         "  {op:'append', content: Markdown}          at the end (charts !id allowed)\n"
@@ -216,7 +236,7 @@ TOOLS["pptx_create"] = {
         "  image {title, image: sandbox path} · quote {text, author} · closing {title, contact}\n"
         "Every slide accepts notes (speaker notes). Layouts are composed and text is fitted for "
         "you. An existing file at path is replaced (previous version kept in the file history, "
-        "up to 5 MB)."),
+        "or in a .bak copy above 5 MB)."),
     "params": OrderedDict([
         ("path", _PATH_PPTX),
         ("slides", {"type": "array", "items": _SLIDE_OBJ, "minItems": 1}),
@@ -233,6 +253,7 @@ TOOLS["pptx_create"] = {
         ("markdown", {"type": "string", "description": "Alternative to slides: a Markdown outline "
                                                        "(# deck title, ## one slide each, - "
                                                        "bullets)."}),
+        ("lang", _LANG),
     ]),
     "required": ["path"],
 }
@@ -257,8 +278,8 @@ TOOLS["pptx_edit"] = {
         "  {op:'set_text', slide, shape, text}     shape number from pptx_read; one line per "
         "paragraph\n"
         "  {op:'add_slides', slides:[…same objects as pptx_create…], after|before: slide number}\n"
-        "  {op:'delete_slide', slide} · {op:'move_slide', slide, to} · "
-        "{op:'duplicate_slide', slide, to?}   (to = position in the deck at that point)\n"
+        "  {op:'delete_slide', slide} · {op:'move_slide', slide, after|before} · "
+        "{op:'duplicate_slide', slide, after|before?}\n"
         "  {op:'notes', slide, text} · {op:'meta', title, author}\n"
         "save_as = write a copy instead of modifying the file. If the file changed since it was "
         "read, nothing is written (concurrent_modification): read it again."),
@@ -318,7 +339,7 @@ def office_export(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         data = lire(env, rel, "file")
     except FileNotFoundError:
         raise OfficeError(f"file not found: {env.espace.afficher(rel)}", code="not_found",
-                          fix="check the path (list the folder)")
+                          fix=f"check the path{indice_chemin(env, rel) or ' (list the folder)'}")
     if ext in _SORTE:
         # Modèle ou fichier à macros : converti comme un document ordinaire,
         # macros retirées (LibreOffice ne les voit jamais).

@@ -16,11 +16,13 @@ import type { Journal } from "../../journal";
 import type { convertBytes } from "../../office/apercu";
 import { ErreurOffice, PDF_EXPORT_FILTERS } from "../../office/conversion";
 import type { Espace } from "../espace";
-import { actuel, ecrireGarde, INJOIGNABLE, sha256 } from "../fs/acces";
+import { actuel, ecrireGarde, INJOIGNABLE, sauvegarde, sha256 } from "../fs/acces";
 import { RefusRappel } from "./worker";
 import type { Rappels, ReponseRappel } from "./worker";
 
 const DELAI_RENDU_MS = 60_000;
+/** Entrées d'un dossier montrées au modèle quand un chemin est introuvable. */
+const MAX_LISTE = 200;
 
 /** Extension d'un fichier exporté → famille LibreOffice (filtres d'import et d'export). */
 const KIND_EXPORT: Readonly<Record<string, string>> = {
@@ -194,6 +196,25 @@ export function creerRappels(c: ContexteRappels, d: DepsRappels): Rappels {
     }
   };
 
+  const lister = async (args: Dict): Promise<ReponseRappel> => {
+    const esp = await espace();
+    const rel = relatif(esp, args["chemin"]);
+    try {
+      const liste = await esp.lister(rel, { depth: 1, maxEntries: MAX_LISTE, hidden: false });
+      const prefixe = rel ? `${rel}/` : "";
+      const entrees = liste.entries.map((x) => ({
+        nom: String(x["path"]).slice(prefixe.length),
+        dossier: x["kind"] === "dir",
+      }));
+      return { valeur: { entrees } };
+    } catch (e) {
+      if (estErreurAgent(e) && (e.code === "not_found" || e.code === "missing"))
+        return { valeur: { entrees: null } };
+      if (estErreurAgent(e)) throw erreurLecture(e, rel);
+      throw e;
+    }
+  };
+
   const ecrire = async (args: Dict, corps: Buffer): Promise<ReponseRappel> => {
     const esp = await espace();
     const rel = relatif(esp, args["chemin"]);
@@ -210,20 +231,32 @@ export function creerRappels(c: ContexteRappels, d: DepsRappels): Rappels {
             fix: "read the file again, then redo the changes on the new version",
           },
         );
+      const [eAvant, avant, shaAvant] = etat;
+      // Trop gros pour l'historique de session : l'ancienne version est copiée en .bak, comme backup des outils fichiers.
+      const horsHistorique = avant !== null && intPy(eAvant["size"] || 0) > MAX_FILE;
+      if (horsHistorique && (await sauvegarde(esp, rel)) !== null)
+        throw new RefusRappel(
+          "office",
+          `${toContainer(`${rel}.bak`)} is a folder: the previous version cannot be kept, nothing was written`,
+          {
+            code: "backup_failed",
+            fix: "save under another name with save_as, or ask the user to rename that folder",
+          },
+        );
       const [, refus] = await ecrireGarde(esp, rel, corps, { etat, strict: attendu !== null });
       if (refus !== null)
         throw new RefusRappel("office", String(refus["message"] || refus["error"]), {
           code: String(refus["error"] || "write_failed"),
           fix: String(refus["fix"] || "read the file again, then retry"),
         });
-      const [eAvant, avant, shaAvant] = etat;
       return {
         valeur: {
           path: toContainer(rel),
           old_sha256: avant !== null ? shaAvant : "",
           new_sha256: sha256(corps),
           size: corps.length,
-          history_kept: avant === null || intPy(eAvant["size"] || 0) <= MAX_FILE,
+          history_kept: !horsHistorique,
+          ...(horsHistorique ? { backup: toContainer(`${rel}.bak`) } : {}),
         },
       };
     } catch (e) {
@@ -339,6 +372,8 @@ export function creerRappels(c: ContexteRappels, d: DepsRappels): Rappels {
     switch (op) {
       case "lire":
         return lire(args);
+      case "lister":
+        return lister(args);
       case "ecrire":
         return ecrire(args, corps);
       case "graphique":

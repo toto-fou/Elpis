@@ -756,16 +756,17 @@ def _ancre(i: int, nom: str, v: Any, lot: _Lot, fin_de_section: bool = False):
     if entier(v) is not None:
         return lot.p(i, nom, v)._p
     f = fold(v)
-    if f in ("end", "fin", "bottom", "last"):
-        return None
-    if f in ("start", "debut", "top", "beginning", "first"):
-        return "start"
     levels, default_id = docio.style_levels(lot.document)
     vivants = [(k, p) for k, p in enumerate(lot.paragraphes) if p._p not in lot.supprimes]
     titres = [(k, p, docio.heading_level_for(p, levels, default_id)) for k, p in vivants]
     titres = [(k, p, lv) for k, p, lv in titres if lv is not None]
-    trouve = next(((k, p, lv) for k, p, lv in titres if fold(p.text) == f), None) or \
-        next(((k, p, lv) for k, p, lv in titres if f and f in fold(p.text)), None)
+    exact = next(((k, p, lv) for k, p, lv in titres if fold(p.text) == f), None)
+    if exact is None and not fin_de_section:        # un titre « Fin » n'est pas la fin du document
+        if f in ("end", "fin", "bottom", "last"):
+            return None
+        if f in ("start", "debut", "top", "beginning", "first"):
+            return "start"
+    trouve = exact or next(((k, p, lv) for k, p, lv in titres if f and f in fold(p.text)), None)
     if trouve is None:
         tous = next(((k, p, None) for k, p in vivants if f and f in fold(p.text)), None)
         if tous is None or fin_de_section:

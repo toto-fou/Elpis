@@ -50,6 +50,7 @@ import { avecLLM, etatFile, ordonnanceur } from "../llm/ordonnanceur/process";
 import type { Slot } from "../llm/ordonnanceur";
 import { LLMQueueAborted } from "../llm/ordonnanceur";
 import { LLMFailure, llmErrorKind } from "../llm/reprises";
+import { usageScope } from "../observabilite/usage-contexte";
 import type { OutilIntegre } from "../outils/catalogue";
 import { buildImageBuiltinTool } from "../outils/integres/image";
 import { buildQuestionBuiltinTool } from "../outils/integres/question";
@@ -1023,7 +1024,7 @@ export async function* runTurn(
       model: selectedModel || "",
       engine: engineForTarget(target).key,
     },
-    () => worker(),
+    () => usageScope("chat", { userId: uid, originId: chatId }, () => worker()),
   )
     .catch((e: unknown) => log.debug(`[chat_stream] worker : ${String(e)}`))
     .finally(async () => {

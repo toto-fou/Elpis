@@ -64,6 +64,9 @@ export interface Decoupe {
   cache: number;
   input_new: number;
   cache_creation: number;
+  /** Cache écrit borné à l'entrée hors cache lu, et le reste : lu + écrit + hors cache = entrée. */
+  cache_write: number;
+  uncached: number;
   tools: number;
   output: number;
   thinking: number;
@@ -85,6 +88,7 @@ export function tokenBreakdown(
   const inp = entierPositif(inputTokens);
   const out = entierPositif(outputTokens);
   const cache = minPy(entierPositif(o.cacheReadTokens ?? 0), inp);
+  const ecrit = minPy(entierPositif(o.cacheCreationTokens ?? 0), inp - cache);
   const tools = minPy(entierPositif(o.toolTokens ?? 0), inp);
   const think = minPy(entierPositif(o.thinkingTokens ?? 0), out);
   return {
@@ -92,6 +96,8 @@ export function tokenBreakdown(
     cache,
     input_new: inp - cache,
     cache_creation: entierPositif(o.cacheCreationTokens ?? 0),
+    cache_write: ecrit,
+    uncached: inp - cache - ecrit,
     tools,
     output: out,
     thinking: think,
@@ -121,6 +127,9 @@ export interface LigneUsage {
   errorKind?: unknown;
   ts?: number | null;
   runId?: unknown;
+  /** Requêtes au moteur dont il a rapporté le cache, et celles dont une part de l'entrée en venait. */
+  cacheReportedCalls?: unknown;
+  cacheHitCalls?: unknown;
 }
 
 function texte(v: unknown): string {
@@ -147,8 +156,8 @@ export async function recordUsage(x: Executeur, l: LigneUsage): Promise<boolean>
     await x.run(
       "INSERT INTO usage_events(ts, user_id, source, origin_id, parent_id, model, connector, path, " +
         "input_tokens, output_tokens, submitted_tokens, thinking_tokens, cache_read_tokens, " +
-        "cache_creation_tokens, duration_ms, iterations, status, error_kind, run_id, tool_tokens) " +
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "cache_creation_tokens, duration_ms, iterations, status, error_kind, run_id, tool_tokens, " +
+        "cache_reported_calls, cache_hit_calls) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
         floatPy(l.ts ?? Date.now() / 1000),
         uid,
@@ -170,6 +179,8 @@ export async function recordUsage(x: Executeur, l: LigneUsage): Promise<boolean>
         prefixePy(texte(l.errorKind), 120),
         prefixePy(texte(l.runId), 191),
         minPy(entierPositif(l.toolTokens ?? 0), inT),
+        entierPositif(l.cacheReportedCalls ?? 0),
+        minPy(entierPositif(l.cacheHitCalls ?? 0), entierPositif(l.cacheReportedCalls ?? 0)),
       ],
     );
     return true;
@@ -257,18 +268,19 @@ export async function usageCacheTotals(
   };
 }
 
-/** `usage_group` : top `limit` d'une dimension trié par `metric` décroissant, avec tours et tokens de chaque groupe. */
+/** `usage_group` : top `limit` d'une dimension trié par `metric` décroissant, avec tours et tokens de chaque groupe (cache écrit sur demande). */
 export async function usageGroup(
   x: Executeur,
   dimension: string,
   since: number,
   until: number | null = null,
-  o: { metric?: string; limit?: number; filtres?: FiltresUsage } = {},
+  o: { metric?: string; limit?: number; filtres?: FiltresUsage; cacheEcrit?: boolean } = {},
 ): Promise<Ligne[]> {
   const col = Object.hasOwn(GROUP_COLUMNS, dimension) ? GROUP_COLUMNS[dimension] : undefined;
   const expr = metricExpr(o.metric ?? "tokens", x.dialecte);
   if (!col || !expr) return [];
   const [where, params] = clauseWhere(since, until, o.filtres ?? {});
+  const ecrit = o.cacheEcrit ? "COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens," : "";
   return x.all(
     `SELECT ${col} AS "key",
                    ${expr} AS value,
@@ -276,7 +288,7 @@ export async function usageGroup(
                    COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
                    COALESCE(SUM(input_tokens), 0) AS input_tokens,
                    COALESCE(SUM(output_tokens), 0) AS output_tokens,
-                   COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+                   COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens, ${ecrit}
                    COALESCE(SUM(thinking_tokens), 0) AS thinking_tokens,
                    COALESCE(SUM(duration_ms), 0) AS duration_ms,
                    COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) AS failures

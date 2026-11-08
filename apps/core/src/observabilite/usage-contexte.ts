@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { estDict, estErreurPython, intPy, maxPy, minPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Executeur } from "@elpis/db";
 
+import { cacheRapporte } from "../boucle/usage-requete";
 import { journal } from "../journal";
 import { currentEngine } from "../llm/moteurs";
 import { recordUsage } from "./usage-registre";
@@ -176,6 +177,9 @@ export interface TourUsage {
   outputTokens?: number | null;
   submittedTokens?: number | null;
   thinkingTokens?: number | null;
+  /** Requêtes du tour dont le moteur a rapporté le cache (boucle) ; absentes, un appel unique compte s'il a rendu son entrée et son cache. */
+  cacheReportedCalls?: number | null;
+  cacheHitCalls?: number | null;
 }
 
 /** `record_turn_usage` : UNE ligne de registre par tour, contexte lu à l'appel, écriture hors de la boucle ; jamais d'exception. */
@@ -190,6 +194,8 @@ export function recordTurnUsage(x: Executeur, t: TourUsage): Promise<boolean> {
     let thinkT = explicite(t.thinkingTokens, norm.thinking_tokens);
     if (outT) thinkT = minPy(thinkT, outT);
     const toolT = minPy(norm.tool_tokens, inT);
+    const mesurees = explicite(t.cacheReportedCalls, inT > 0 && cacheRapporte(t.usage) ? 1 : 0);
+    const servies = minPy(explicite(t.cacheHitCalls, norm.cache_read_tokens > 0 ? 1 : 0), mesurees);
     const status = t.status ?? "ok";
     const errorKind = t.errorKind ?? "";
     const run = execution();
@@ -227,6 +233,8 @@ export function recordTurnUsage(x: Executeur, t: TourUsage): Promise<boolean> {
       iterations: t.iterations ?? 0,
       status,
       errorKind,
+      cacheReportedCalls: mesurees,
+      cacheHitCalls: servies,
     };
   } catch (e) {
     log.debug({ err: e }, "[usage] record_turn_usage failed (non-fatal)");

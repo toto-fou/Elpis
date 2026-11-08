@@ -22,6 +22,16 @@ export interface UsageRun extends UsageRequete {
   readonly reflexion: number;
 }
 
+/** Le moteur a rapporté la part de l'entrée servie par le cache, même nulle : clé Anthropic, `prompt_tokens_details` (vLLM, SGLang, OpenAI) ou `timings.cache_n` (llama.cpp). */
+export function cacheRapporte(usage: unknown, timings: unknown = null): boolean {
+  if (
+    estDict(usage) &&
+    (Object.hasOwn(usage, "cache_read_input_tokens") || estDict(usage["prompt_tokens_details"]))
+  )
+    return true;
+  return estDict(timings) && Object.hasOwn(timings, "cache_n");
+}
+
 function entier(d: unknown, k: string): number {
   const v = estDict(d) ? d[k] : undefined;
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0;

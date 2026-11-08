@@ -40,6 +40,7 @@ import type { LlmTarget } from "../llm/cible";
 import { resolveContextWindow } from "../llm/fenetre-contexte";
 import { BUILTIN_KEY, connectorKey, engineForTarget } from "../llm/moteurs";
 import { getCurrentlyLoadedModel } from "../llm/sante";
+import { usageScope } from "../observabilite/usage-contexte";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { manualCompressionActive, manualCompressionBegin, manualCompressionEnd } from "../tour/admission";
 import { isGenerationActive } from "../tour/etat";
@@ -213,18 +214,20 @@ async function compresser(dep: DependancesChatCompression, req: FastifyRequest, 
         "compaction",
         { userId: uid, chatId, model: model || "", engine: engineForTarget(cible).key },
         () =>
-          maybeCompressConversation(vue, {
-            llamaChatFn: resume,
-            onEvent: surEvenement,
-            model,
-            userId: String(uid),
-            logPrefix: "chat_manual",
-            ctxSizeTokens: ctxTok || null,
-            prevState: etat,
-            manual: true,
-            maxRounds: userMax,
-            ftsSessionId: String(chatId),
-          }),
+          usageScope("compression", { userId: uid, originId: String(chatId) }, () =>
+            maybeCompressConversation(vue, {
+              llamaChatFn: resume,
+              onEvent: surEvenement,
+              model,
+              userId: String(uid),
+              logPrefix: "chat_manual",
+              ctxSizeTokens: ctxTok || null,
+              prevState: etat,
+              manual: true,
+              maxRounds: userMax,
+              ftsSessionId: String(chatId),
+            }),
+          ),
       ),
     );
     const compresse = veritePy(stats["compressed"]);

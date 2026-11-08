@@ -386,10 +386,6 @@ export async function callLlm(
       log.info(
         `[run_chat_multi_mcp] pré-remplissage iter ${iteration} : ${total} tokens, ${cache} réutilisés du cache KV`,
       );
-      logMetric("kv_prefix_reuse_pct", Math.trunc((100.0 * cache) / total), {
-        model: modele || "",
-        iteration,
-      });
     }
   };
 
@@ -765,6 +761,7 @@ export async function callLlm(
   rec.cumulOut += nombre(usage["completion_tokens"] ?? 0);
   rec.cumulCacheRead += intPy(usage["cache_read_input_tokens"] || 0);
   rec.cumulCacheCreation += intPy(usage["cache_creation_input_tokens"] || 0);
+  rec.compterRequete(usage, raw["timings"]);
   rec.noteToolInput(compacted, toolsPayload, modele, usage["prompt_tokens"] ?? 0);
   rec.usageNote({ effectiveIter: o.effectiveIter, model: modele });
   const rsn = nativeReasoningTokens(usage);

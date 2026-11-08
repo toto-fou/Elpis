@@ -518,23 +518,30 @@ export function fournisseursMoteur(): Fournisseur[] {
     }),
     fournisseur({
       id: "kpi_kv_prefix_reuse",
-      title: "Réutilisation du cache KV",
+      title: "Requêtes servies par le cache",
       type: "value",
       width: "1/4",
       icon: "ph-recycle",
       color: "emerald",
       category: "performance",
-      eventTypes: ["kv_prefix_reuse_pct"],
+      purgeSpec: null,
       getData: async (c, s) => {
         const h = scopeHours(s);
+        const [row] = await c.base.valeurs(
+          "SELECT COALESCE(SUM(cache_reported_calls), 0), COALESCE(SUM(cache_hit_calls), 0) FROM usage_events WHERE ts > ?",
+          [maintenant() - h * 3600],
+        );
+        const [requetes, servies] = [entier(row?.[0]), entier(row?.[1])];
+        if (!requetes)
+          return valeur("—", "aucune requête mesurée", "slate", "ph-recycle", {
+            detail: `sur ${scopeLabel(h)}`,
+          });
         return valeur(
-          await avgMetric(c.base, "kv_prefix_reuse_pct", h, false),
-          "% du prompt",
+          `${reprFlottant(arrondiPy((100.0 * servies) / requetes, 1))} %`,
+          "des requêtes",
           "emerald",
           "ph-recycle",
-          {
-            detail: `moyenne des pré-remplissages sur ${scopeLabel(h)}`,
-          },
+          { detail: `${servies} sur ${requetes} requêtes mesurées · ${scopeLabel(h)}` },
         );
       },
     }),

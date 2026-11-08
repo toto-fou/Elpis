@@ -18,6 +18,7 @@ import type { OutilIntegre } from "../outils/catalogue";
 import type { LlamaChatFn } from "../contexte/compresseur";
 import type { CompactionThreshold } from "../contexte/porte-compaction";
 import type { OptionsFlux } from "./flux-llm";
+import { cacheRapporte } from "./usage-requete";
 import type { UsageRequete, UsageRun } from "./usage-requete";
 
 const log = journal("boucle.run");
@@ -266,6 +267,9 @@ export class RunRecord {
   cumulCacheRead = 0;
   cumulCacheCreation = 0;
   cumulToolIn = 0;
+  /** Requêtes abouties dont le moteur a rapporté le cache, et celles dont une part de l'entrée en venait. */
+  cumulCacheReported = 0;
+  cumulCacheHits = 0;
   toolDefsTokens: number | null = null;
   cumulReasoning: number | null = null;
   /** Requêtes coupées (échéance, délai, annulation) : usage rapporté par le moteur, hors des cumuls des requêtes abouties. */
@@ -310,6 +314,13 @@ export class RunRecord {
     }
   }
 
+  /** Une requête aboutie : comptée si le moteur a rendu son entrée et rapporté le cache, servie par le cache si une part en vient. */
+  compterRequete(usage: Dict, timings: unknown): void {
+    if (!(Number(usage["prompt_tokens"] ?? 0) > 0) || !cacheRapporte(usage, timings)) return;
+    this.cumulCacheReported += 1;
+    if (intPy(usage["cache_read_input_tokens"] || 0) > 0) this.cumulCacheHits += 1;
+  }
+
   usageNote(o: { effectiveIter: number; model: unknown; recorded?: boolean }): void {
     if (this.usageAcc === null) return;
     Object.assign(this.usageAcc, {
@@ -318,6 +329,8 @@ export class RunRecord {
       cache_read: this.cumulCacheRead,
       cache_creation: this.cumulCacheCreation,
       tool_in: this.cumulToolIn,
+      cache_reported: this.cumulCacheReported,
+      cache_hits: this.cumulCacheHits,
       iterations: o.effectiveIter,
       model: o.model,
       inflight_in: 0,

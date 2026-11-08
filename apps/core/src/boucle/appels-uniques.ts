@@ -22,6 +22,7 @@ import { llamaChatWithToolsStream } from "./flux-llm";
 import type { SurTexte } from "./flux-llm";
 import { fileLlm, recordTurnUsage } from "./ports";
 import { reconcileThinkingContent } from "./reconciliation-raisonnement";
+import { cacheRapporte } from "./usage-requete";
 
 const log = journal("boucle.appels-uniques");
 
@@ -130,6 +131,8 @@ export async function llamaChatStreamTokens(
     submittedTokens: Number(usage["prompt_tokens"] ?? 0),
     thinkingTokens: 0,
     usage,
+    cacheReportedCalls:
+      Number(usage["prompt_tokens"] ?? 0) > 0 && cacheRapporte(usage, reponse["timings"]) ? 1 : 0,
     durationMs: Math.trunc(performance.now() - debut),
     iterations: 1,
     status: partiel ? "aborted" : "ok",

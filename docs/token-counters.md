@@ -54,7 +54,11 @@ front side (`frontend/src/utils/utils-purs.ts`):
 
 Bounds: cache and tools ≤ input, thinking ≤ output (cache and tools overlap: a
 tool result read from the cache counts in both). The **created** cache
-(Anthropic) is part of the useful input and is shown only in the detail.
+(Anthropic) is part of the useful input in the chat and the Usage tab. The
+admin Metrics area splits the input in three instead: **read from the cache**
+(`cache_read_tokens`), **written to the cache** (`cache_creation_tokens`,
+bounded by the input left after the read) and **uncached** (the rest), the
+server-side `tokenBreakdown` fields `cache`, `cache_write` and `uncached`.
 No provider declares tools: `toolPromptTokens`
 (`apps/core/src/contexte/tokens.ts`) estimates them on each call, with no I/O,
 and `RunRecord.noteToolInput` accumulates them over the turn like the input,
@@ -96,6 +100,17 @@ Each row also carries the engine (`connector`: `builtin`, `conn:<id>`,
 routine run, subagent, manual compaction — groups what it consumed (tokens,
 LLM time, tools, files, sandbox peaks), see
 `apps/core/src/executions/registre.ts`.
+
+A row also counts the requests of its turn whose engine **reported** its prompt
+cache, even at zero (`cache_reported_calls`): Anthropic's
+`cache_read_input_tokens`, `prompt_tokens_details` (OpenAI-compatible engines;
+vLLM with `--enable-prompt-tokens-details`, SGLang with `--enable-cache-report`)
+or llama.cpp's `timings.cache_n`. Among them, `cache_hit_calls` counts those
+that read part of their input from the cache. The "Requests served by the
+cache" widget (« Requêtes servies par le cache ») shows
+`cache_hit_calls / cache_reported_calls`: an engine that does not report its
+cache is left out rather than counted as misses. Rows written before these
+columns hold 0.
 
 ## Output reads in two parts: thinking and response
 

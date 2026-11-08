@@ -263,6 +263,8 @@ export async function finishOk(
     submittedTokens: rec.cumulIn,
     thinkingTokens: thinkTok,
     usage: usageCumule(rec),
+    cacheReportedCalls: rec.cumulCacheReported,
+    cacheHitCalls: rec.cumulCacheHits,
     durationMs: Math.trunc((Date.now() / 1000 - startTime) * 1000),
     iterations: o.effectiveIter,
     status: "ok",
@@ -397,6 +399,7 @@ export async function finishOnLimit(
       rec.cumulOut += Number(usage["completion_tokens"] ?? 0);
       rec.cumulCacheRead += intPy(usage["cache_read_input_tokens"] || 0);
       rec.cumulCacheCreation += intPy(usage["cache_creation_input_tokens"] || 0);
+      rec.compterRequete(usage, brut["timings"]);
       rec.noteToolInput(msgs, toolsPayload, modeleDe(ctx), usage["prompt_tokens"] ?? 0);
       rec.usageNote({ effectiveIter: a.effectiveIter, model: modeleDe(ctx) });
       const rsn = nativeReasoningTokens(usage);
@@ -512,6 +515,8 @@ export async function finishOnLimit(
     submittedTokens: rec.cumulIn,
     thinkingTokens: thinkTok,
     usage: usageCumule(rec),
+    cacheReportedCalls: rec.cumulCacheReported,
+    cacheHitCalls: rec.cumulCacheHits,
     durationMs: Math.trunc((Date.now() / 1000 - startTime) * 1000),
     iterations: a.effectiveIter,
     status: "tool_limit",
@@ -598,6 +603,8 @@ export async function finishOnError(
     submittedTokens: rec.cumulIn,
     thinkingTokens: thinkTok,
     usage: usageCumule(rec),
+    cacheReportedCalls: rec.cumulCacheReported,
+    cacheHitCalls: rec.cumulCacheHits,
     durationMs: Math.trunc((Date.now() / 1000 - startTime) * 1000),
     iterations: o.effectiveIter,
     status: "aborted",

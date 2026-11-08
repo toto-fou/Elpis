@@ -59,7 +59,7 @@ class Lecteur:
             sid, genre = style.get(qn("w:styleId")), style.get(qn("w:type"))
             if sid:
                 self._styles.setdefault(sid, style)
-            if genre in (None, "paragraph") and style.get(qn("w:default")) in ("1", "true", "on"):
+            if genre == "paragraph" and style.get(qn("w:default")) in ("1", "true", "on"):
                 self._defaut = style
             base = style.find(qn("w:basedOn"))
             parent = base.get(qn("w:val")) if base is not None else None
@@ -116,7 +116,7 @@ class Lecteur:
         ppr = p.find(qn("w:pPr"))
         pstyle = ppr.find(qn("w:pStyle")) if ppr is not None else None
         style = self._styles.get(pstyle.get(qn("w:val")) or "") if pstyle is not None else None
-        if style is None or style.get(qn("w:type")) not in (None, "paragraph"):
+        if style is None or style.get(qn("w:type")) != "paragraph":
             style = self._defaut
         nom = style.find(qn("w:name")) if style is not None else None
         return BabelFish.internal2ui(nom.get(qn("w:val"))) if nom is not None else None

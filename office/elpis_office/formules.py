@@ -13,8 +13,10 @@ from openpyxl.utils import FORMULAE
 from openpyxl.utils.cell import range_boundaries
 
 LIGNES_MAX, COLONNES_MAX = 1_048_576, 16_384
-VISITES_MAX = 2_000_000                     # cellules lues par tous les calculs d'un classeur
-PROFONDEUR_MAX = 200
+VISITES_MAX = 200_000                       # cellules lues par tous les calculs ; au-delà, cellules seules
+PETITE_PLAGE = 64
+PROFONDEUR_MAX = 30                         # formules imbriquées par tentative (bien sous la récursion de Python)
+PILE_MAX = 5_000
 FRANCAIS = {"SOMME": "SUM", "MOYENNE": "AVERAGE", "SI": "IF", "NB": "COUNT", "NBVAL": "COUNTA",
             "NB.SI": "COUNTIF", "NB.SI.ENS": "COUNTIFS", "SOMME.SI": "SUMIF", "SOMME.SI.ENS": "SUMIFS",
             "MOYENNE.SI": "AVERAGEIF", "RECHERCHEV": "VLOOKUP", "RECHERCHEH": "HLOOKUP",
@@ -28,7 +30,7 @@ COMPTES = frozenset({"COUNT", "COUNTA", "COUNTIF", "COUNTIFS", "COUNTBLANK", "RO
 _AUTRES_CONNUES = frozenset({"ENCODEURL"})
 _FEUILLE = re.compile(r"^(?:'((?:[^']|'')+)'|([^'!\[\]]+))!(.+)$")
 _A1 = re.compile(r"\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?")
-_NOMBRE = re.compile(r"\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*")
+_NOMBRE = re.compile(r"\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*")
 _AGREGATS = frozenset({"SUM", "AVERAGE", "MIN", "MAX", "COUNT", "COUNTA", "PRODUCT"})
 _SOUS_TOTAUX = {1: "AVERAGE", 2: "COUNT", 3: "COUNTA", 4: "MAX", 5: "MIN", 6: "PRODUCT", 9: "SUM"}
 
@@ -38,7 +40,11 @@ class NonCalcule(Exception):
 
 
 class _TropProfond(NonCalcule):
-    """Chaîne de formules trop longue pour la récursion : retentée plus tard, jamais mémorisée."""
+    """Chaîne trop longue pour une tentative : ``cle`` (la cellule non atteinte) est calculée d'abord."""
+
+    def __init__(self, cle: Tuple[str, int, int]) -> None:
+        super().__init__("too deep")
+        self.cle = cle
 
 
 class Erreur:
@@ -69,6 +75,18 @@ def fonction_connue(nom: str) -> bool:
     try:
         return "_xlfn." in Worksheet()._prepare_formula(f"{nom}(1)", True)
     except Exception:                           # noqa: BLE001 — sonde privée : dans le doute, connue
+        return True
+
+
+@lru_cache(maxsize=1024)
+def fonction_future(nom: str) -> bool:
+    """Fonction qu'Excel n'accepte qu'avec le préfixe _xlfn. et qu'XlsxWriter ne pose que sur option."""
+    from xlsxwriter.worksheet import Worksheet
+    try:
+        sonde = Worksheet()
+        return "_xlfn." in sonde._prepare_formula(f"{nom}(1)", True) and \
+            "_xlfn." not in sonde._prepare_formula(f"{nom}(1)", False)
+    except Exception:                               # noqa: BLE001 — sonde privée : dans le doute, oui
         return True
 
 
@@ -128,10 +146,16 @@ def controler(formule: str, feuilles: Iterable[str]) -> List[str]:
     return list(dict.fromkeys(defauts))
 
 
+@lru_cache(maxsize=256)
+def _jetons(formule: str) -> Tuple[Token, ...]:
+    """Jetons d'une formule, gardés le temps de la calculer puis de la typer (le découpage coûte cher)."""
+    return tuple(Tokenizer(formule).items)
+
+
 def premiere_reference(formule: str, feuille: str) -> Tuple[Optional[str], Optional[Tuple[str, int, int]]]:
     """(fonction extérieure, première cellule citée) : de quoi donner au résultat le format de ce qu'il calcule."""
     try:
-        jetons = [t for t in Tokenizer(formule).items if t.type != Token.WSPACE]
+        jetons = [t for t in _jetons(formule) if t.type != Token.WSPACE]
     except TokenizerError:
         return None, None
     exterieure = _sans_prefixe(jetons[0].value[:-1]) if jetons and jetons[0].type == Token.FUNC else None
@@ -177,12 +201,20 @@ class Classeur:
 
     def resultat(self, nom: str, ligne: int, col: int) -> Any:
         """Résultat d'une formule pour le cache : nombre, texte, booléen, code d'erreur ; None si Excel doit le calculer."""
-        try:
-            v = self._cellule(nom.casefold(), ligne, col)
-        except NonCalcule:
-            return None
-        except RecursionError:
-            return None
+        pile = [(nom.casefold(), ligne, col)]       # longue chaîne : les cellules les plus profondes d'abord
+        while True:
+            try:
+                v = self._cellule(*pile[-1])
+            except _TropProfond as e:
+                if len(pile) >= PILE_MAX:
+                    return None
+                pile.append(e.cle)
+                continue
+            except (NonCalcule, RecursionError):
+                return None
+            if len(pile) == 1:
+                break
+            pile.pop()
         if isinstance(v, Erreur):
             return v.code
         if isinstance(v, float):
@@ -191,7 +223,7 @@ class Classeur:
 
     def _payer(self, n: int) -> None:
         self.visites += n
-        if self.visites > VISITES_MAX:
+        if self.visites > VISITES_MAX and n > PETITE_PLAGE:
             raise NonCalcule("too many cells read")
 
     def _cellule(self, f: str, ligne: int, col: int) -> Any:
@@ -208,7 +240,7 @@ class Classeur:
         if cle in self._en_cours:
             raise NonCalcule("circular reference")
         if self.profondeur >= PROFONDEUR_MAX:
-            raise _TropProfond()
+            raise _TropProfond(cle)
         self._en_cours.add(cle)
         self.profondeur += 1
         try:
@@ -224,7 +256,7 @@ class Classeur:
         self._valeurs[cle] = v
         return v
 
-    def cellules(self, p: Plage) -> Iterator[Any]:
+    def cellules(self, p: Plage, sans_sous_totaux: bool = False) -> Iterator[Any]:
         d = self.feuilles[p.feuille]
         aire = (p.l2 - p.l1 + 1) * (p.c2 - p.c1 + 1)
         if aire <= len(d):
@@ -236,6 +268,9 @@ class Classeur:
             coords = sorted(k for k in d if p.l1 <= k[0] <= p.l2 and p.c1 <= k[1] <= p.c2)
         for r, c in coords:
             if (r, c) in d:
+                brut = d[(r, c)]
+                if sans_sous_totaux and isinstance(brut, str) and brut[:10].upper() == "=SUBTOTAL(":
+                    continue                        # SUBTOTAL ignore les sous-totaux de sa plage, comme Excel
                 yield self._cellule(p.feuille, r, c)
 
     def borner(self, f: str, l1: Optional[int], c1: Optional[int], l2: Optional[int],
@@ -345,7 +380,7 @@ class _Calcul:
     def __init__(self, classeur: Classeur, feuille: str, formule: str) -> None:
         self.c, self.f, self.i = classeur, feuille, 0
         try:
-            bruts = Tokenizer(formule).items
+            bruts = _jetons(formule)
         except TokenizerError as e:
             raise NonCalcule(str(e))
         self.jetons: List[Token] = []
@@ -499,7 +534,7 @@ class _Calcul:
             agregat = _SOUS_TOTAUX.get(int(code) % 100)
             if agregat is None:
                 raise NonCalcule("SUBTOTAL function")
-            return self._agreger(agregat, args[1:])
+            return self._agreger(agregat, args[1:], sans_sous_totaux=True)
         if nom in ("ROUND", "ROUNDUP", "ROUNDDOWN") and n == 2:
             return _arrondi(nom, self._scalaire(args[0]), self._scalaire(args[1]))
         if nom == "ABS" and n == 1:
@@ -538,12 +573,12 @@ class _Calcul:
             elif a is not None:
                 yield _booleen(a)
 
-    def _agreger(self, nom: str, args: List[Any]) -> Any:
+    def _agreger(self, nom: str, args: List[Any], sans_sous_totaux: bool = False) -> Any:
         nombres: List[float] = []
         remplies = 0
         for a in args:
             if isinstance(a, Plage):
-                for v in self.c.cellules(a):
+                for v in self.c.cellules(a, sans_sous_totaux):
                     if v is None:
                         continue
                     remplies += 1

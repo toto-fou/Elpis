@@ -278,6 +278,7 @@ _FORMAT_DATE = {"en": "mm/dd/yyyy", "de": "dd.mm.yyyy"}
 _LCID = {"fr": "[$-40C]", "de": "[$-407]", "es": "[$-C0A]", "it": "[$-410]"}
 _MONNAIES = {"€": '#,##0.00 "€"', "$": '"$"#,##0.00', "£": '"£"#,##0.00', "CHF": '#,##0.00 "CHF"'}
 _NOM_INTERDIT = re.compile(r"[\\/?*\[\]:]")
+_FONCTION = re.compile(r"([A-Za-z_][A-Za-z0-9._]*)\s*\(")
 _EPOQUE = dt.datetime(1899, 12, 30)
 _NUMERIQUES = ("number", "currency", "percent", "date")
 
@@ -546,9 +547,12 @@ def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
                 modele.reserver(f.nom, f.n + 2, c)
             modele.etendre(f.nom)
     sortie = io.BytesIO()
+    # Préfixe _xlfn. seulement si une formule en a besoin : l'option coûte ~150 substitutions par formule.
+    futures = any(F.fonction_future(nom.upper()) for nom in
+                  {m for f in prepas for _, formule in f.formules() for m in _FONCTION.findall(formule)})
     classeur = xlsxwriter.Workbook(sortie, {"in_memory": True, "strings_to_numbers": False,
                                             "strings_to_formulas": False, "strings_to_urls": False,
-                                            "use_future_functions": True})
+                                            "use_future_functions": futures})
     classeur.set_properties({"title": texte(a.get("title")) or "", "author": texte(a.get("author")) or ""})
     formats = _Formats(classeur, lang)
     par_nom = {f.nom.casefold(): f for f in prepas}

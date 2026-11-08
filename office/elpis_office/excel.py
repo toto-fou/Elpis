@@ -10,7 +10,9 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from lxml import etree
 
-from .commun import Env, OfficeError, booleen, canon, entier, lire_fichier
+from ._chart.normalise import Notes, to_date, to_number, to_records
+from .commun import Env, OfficeError, booleen, canon, chemin_sortie, ecrire, entier, lire_fichier, texte
+from .langue import choisir as choisir_langue, textes_de
 from .paquet import PaquetInvalide, controler_zip
 
 ALIAS_READ: Dict[str, Iterable[str]] = {
@@ -206,3 +208,175 @@ def xlsx_read(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
         fin = res["rows"][-1]["row"]
         res["formulas"] = list(_formules(brut, res["sheet"], debut, fin))[:FORMULES_MAX]
     return res
+
+
+# ── xlsx_create ─────────────────────────────────────────────────────────────
+ALIAS_CREATE: Dict[str, Iterable[str]] = {
+    "path": ALIAS_READ["path"],
+    "sheets": ["feuilles", "onglets", "tabs", "worksheets"],
+    "data": ["rows", "lignes", "donnees", "table", "content", "contenu"],
+    "title": ["titre"],
+    "author": ["auteur", "by"],
+    "lang": ["language", "langue", "locale"],
+}
+ALIAS_FEUILLE: Dict[str, Iterable[str]] = {
+    "name": ["sheet", "title", "nom", "feuille", "onglet"],
+    "data": ALIAS_CREATE["data"],
+    "table": ["excel_table", "as_table", "tableau"],
+    "totals": ["total", "totaux", "sum_row"],
+}
+LIGNES_CREATION_MAX = 50_000
+_FORMAT_DATE = {"en": "mm/dd/yyyy", "de": "dd.mm.yyyy"}
+_MONNAIES = {"€": '#,##0.00 "€"', "$": '"$"#,##0.00', "£": '"£"#,##0.00', "CHF": '#,##0.00 "CHF"'}
+_NOM_INTERDIT = re.compile(r"[\\/?*\[\]:]")
+
+
+def _lignes_de(donnees: Any, notes: Notes) -> List[Dict[str, Any]]:
+    """Lignes d'une feuille ; une première ligne de textes est l'en-tête, comme dans un tableur."""
+    if isinstance(donnees, list) and len(donnees) > 1 and all(isinstance(r, (list, tuple)) for r in donnees) \
+            and donnees[0] and all(isinstance(x, str) and x.strip() for x in donnees[0]):
+        entete = [str(x).strip() for x in donnees[0]]
+        return [{entete[i]: v for i, v in enumerate(r) if i < len(entete)} for r in donnees[1:]]
+    return to_records(donnees, notes)
+
+
+def _type_colonne(valeurs: List[Any]) -> Tuple[str, Optional[str]]:
+    """(genre, format Excel) d'une colonne : date, pourcentage, monnaie, nombre, sinon texte."""
+    pleines = [v for v in valeurs if v not in (None, "") and not (isinstance(v, str) and v.startswith("="))]
+    if not pleines:
+        return "text", None
+    if all(not isinstance(v, (int, float)) and to_date(v) for v in pleines):
+        return "date", None
+    nombres = [to_number(v) for v in pleines]
+    if any(n.value is None for n in nombres):
+        return "text", None
+    unites = {n.unit for n in nombres}
+    if unites == {"%"}:
+        return "percent", "0.0%"
+    unite = next(iter(unites)) if len(unites) == 1 else None
+    if unite is not None and unite in _MONNAIES:
+        return "currency", _MONNAIES[unite]
+    entiers = all(float(n.value).is_integer() for n in nombres if n.value is not None)
+    return "number", ("#,##0" if entiers else "#,##0.00")
+
+
+def _nom_feuille(brut: Any, i: int, vus: set, notes: Notes) -> str:
+    nom = _NOM_INTERDIT.sub(" ", str(brut or f"Feuille{i + 1}")).strip(" '")[:31] or f"Feuille{i + 1}"
+    base, k = nom, 2
+    while nom.casefold() in vus:
+        nom = f"{base[:28]} ({k})"
+        k += 1
+    if str(brut or "") and nom != str(brut):
+        notes.fix(f"sheet name '{brut}' saved as '{nom}' (31 characters, no []:*?/\\)")
+    vus.add(nom.casefold())
+    return nom
+
+
+def _ecrire_feuille(classeur: Any, feuille: Any, lignes: List[Dict[str, Any]], spec: Dict[str, Any],
+                    format_date: str) -> Dict[str, Any]:
+    entetes = list(dict.fromkeys(k for ligne in lignes for k in ligne))
+    genres = {k: _type_colonne([ligne.get(k) for ligne in lignes]) for k in entetes}
+    formats = {k: classeur.add_format({"num_format": f}) for k, (_, f) in genres.items() if f}
+    fmt_date = classeur.add_format({"num_format": format_date})
+    largeurs = [len(str(k)) for k in entetes]
+    for r, ligne in enumerate(lignes, start=1):
+        for c, k in enumerate(entetes):
+            v = ligne.get(k)
+            genre = genres[k][0]
+            if v in (None, ""):
+                continue
+            if isinstance(v, str) and v.startswith("="):
+                feuille.write_formula(r, c, v, formats.get(k), "")      # résultat inconnu ici : pas de 0 en cache
+            elif genre == "date":
+                feuille.write_datetime(r, c, dt.datetime.fromisoformat(str(to_date(v))), fmt_date)
+            elif genre in ("percent", "currency", "number"):
+                n = to_number(v).value or 0.0
+                feuille.write_number(r, c, n / 100 if genre == "percent" and not isinstance(v, (int, float)) else n,
+                                     formats.get(k))
+            else:
+                feuille.write(r, c, v if isinstance(v, (int, float, bool)) else str(v))
+            largeurs[c] = max(largeurs[c], len(str(v)))
+    for c, largeur in enumerate(largeurs):
+        feuille.set_column(c, c, min(max(8, largeur + 2), 60))
+    n, m = len(lignes), len(entetes)
+    numeriques = [c for c, k in enumerate(entetes) if genres[k][0] in ("number", "currency")]
+    sommes = {c: sum(to_number(ligne.get(entetes[c])).value or 0.0 for ligne in lignes
+                     if not str(ligne.get(entetes[c]) or "").startswith("=")) for c in numeriques}
+    totaux = booleen(spec.get("totals"))
+    if booleen(spec.get("table"), False) and m:
+        colonnes = []
+        for c, k in enumerate(entetes):
+            col: Dict[str, Any] = {"header": str(k), **({"format": formats[k]} if k in formats else {})}
+            if totaux:
+                col.update({"total_function": "sum", "total_value": sommes[c]} if c in numeriques else
+                           ({"total_string": "Total"} if c == 0 else {}))
+            colonnes.append(col)
+        feuille.add_table(0, 0, n + (1 if totaux else 0), m - 1,
+                          {"columns": colonnes, "style": "Table Style Medium 2", "total_row": totaux})
+    else:
+        style_entete = {"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F4E79", "border": 1,
+                        "border_color": "#1F4E79"}
+        entete = classeur.add_format(style_entete)
+        entete_droite = classeur.add_format({**style_entete, "align": "right"})
+        for c, k in enumerate(entetes):
+            feuille.write(0, c, str(k), entete if genres[k][0] == "text" else entete_droite)
+        if n and m:
+            feuille.autofilter(0, 0, n, m - 1)
+        if totaux and n:
+            gras = classeur.add_format({"bold": True, "top": 1})
+            for c in range(m):
+                feuille.write_blank(n + 1, c, None, gras)
+            feuille.write(n + 1, 0, "Total", gras)
+            for c in numeriques:
+                lettre = _colonne(c + 1)
+                feuille.write_formula(n + 1, c, f"=SUBTOTAL(109,{lettre}2:{lettre}{n + 1})",
+                                      classeur.add_format({"bold": True, "top": 1,
+                                                           "num_format": genres[entetes[c]][1] or "General"}),
+                                      sommes[c])
+    feuille.freeze_panes(1, 0)
+    return {"sheet": feuille.get_name(), "rows": n, "columns": m,
+            "types": {str(k): genres[k][0] for k in entetes}}
+
+
+def xlsx_create(args: Dict[str, Any], env: Env) -> Dict[str, Any]:
+    import xlsxwriter
+
+    a = canon(args, ALIAS_CREATE, env.notes)
+    rel = chemin_sortie(a.get("path"), "xlsx", env.notes)
+    feuilles = a.get("sheets")
+    if feuilles in (None, "", []) and a.get("data") is not None:
+        feuilles = [{"name": a.get("title") or "Feuille1", "data": a["data"]}]
+    if isinstance(feuilles, dict):
+        feuilles = [feuilles]
+    if not isinstance(feuilles, list) or not feuilles:
+        raise OfficeError("sheets is empty", code="empty_content",
+                          fix="sheets = [{name, data: rows}], one object per sheet",
+                          example=[{"name": "Ventes", "data": [{"mois": "janv.", "ventes": 120},
+                                                              {"mois": "févr.", "ventes": 135}]}])
+    lang = choisir_langue(a.get("lang"), [str(a.get("title") or ""), *textes_de(feuilles)], env.notes)
+    format_date = _FORMAT_DATE.get(lang[:2], "dd/mm/yyyy")
+    sortie = io.BytesIO()
+    classeur = xlsxwriter.Workbook(sortie, {"in_memory": True, "strings_to_numbers": False,
+                                            "strings_to_formulas": False, "strings_to_urls": False})
+    classeur.set_properties({"title": texte(a.get("title")) or "", "author": texte(a.get("author")) or ""})
+    bilan: List[Dict[str, Any]] = []
+    vus: set = set()
+    total = 0
+    for i, brut in enumerate(feuilles):
+        spec = canon(brut if isinstance(brut, dict) else {"data": brut}, ALIAS_FEUILLE, env.notes,
+                     f"sheets[{i}].")
+        lignes = _lignes_de(spec.get("data"), env.notes)
+        if not lignes:
+            raise OfficeError(f"sheets[{i}]: no rows", code="empty_content",
+                              fix="data = a list of rows: [{column: value}, …] or [[header…], [values…]]")
+        if total + len(lignes) > LIGNES_CREATION_MAX:
+            env.notes.warn(f"sheets[{i}]: rows beyond {LIGNES_CREATION_MAX} in total were left out")
+            lignes = lignes[:max(0, LIGNES_CREATION_MAX - total)]
+        total += len(lignes)
+        feuille = classeur.add_worksheet(_nom_feuille(spec.get("name"), i, vus, env.notes))
+        bilan.append(_ecrire_feuille(classeur, feuille, lignes, spec, format_date))
+    classeur.close()
+    res = ecrire(env, rel, sortie.getvalue())
+    return {**res, "sheets": bilan,
+            "summary": f"{'Replaced' if res['old_sha256'] else 'Created'} {res['path']}: "
+                       + ", ".join(f"{b['sheet']} ({b['rows']} rows × {b['columns']} columns)" for b in bilan)}

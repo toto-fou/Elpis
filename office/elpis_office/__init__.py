@@ -309,6 +309,31 @@ TOOLS["xlsx_read"] = {
     ]),
     "required": ["path"],
 }
+TOOLS["xlsx_create"] = {
+    "description": (
+        "Create an Excel workbook (.xlsx) in the sandbox. sheets = [{name, data, table, totals}]; "
+        "data = the rows, [{column: value}, …] or [[header…], [values…]]. Column types are detected: "
+        "dates, percentages ('12,5 %'), amounts ('1 234,50 €'), numbers; text stays text; a value "
+        "starting with '=' is a formula ('=SUM(B2:B13)'). Every sheet gets a styled header, filters, "
+        "a frozen header row and fitted columns; table = true makes an Excel table, totals = true "
+        "adds a total row. An existing file at path is replaced (previous version kept in the file "
+        "history, or in a .bak copy above 5 MB)."),
+    "params": OrderedDict([
+        ("path", {"type": "string", "description": "File path in the sandbox, e.g. "
+                                                   "'donnees/ventes-2026.xlsx' (relative to /work)."}),
+        ("sheets", {"type": "array", "description": "One object per sheet.", "items": {
+            "type": "object", "properties": {
+                "name": {"type": "string", "description": "Sheet name (31 characters at most)."},
+                "data": {"description": "The rows: [{column: value}, …] or [[header…], [values…]]."},
+                "table": {"type": "boolean", "description": "Make the rows an Excel table."},
+                "totals": {"type": "boolean", "description": "Add a total row (sums)."}}}}),
+        ("data", {"description": "Shortcut for a single sheet: its rows."}),
+        ("title", {"type": "string", "description": "Workbook title (file properties)."}),
+        ("author", {"type": "string"}),
+        ("lang", _LANG),
+    ]),
+    "required": ["path"],
+}
 TOOLS["office_export"] = {
     "description": (
         "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF "
@@ -326,7 +351,8 @@ def _impl(nom: str) -> Callable[[Dict[str, Any], Env], Dict[str, Any]]:
     return {"docx_create": word.docx_create, "docx_read": word.docx_read,
             "docx_edit": word.docx_edit, "pptx_create": powerpoint.pptx_create,
             "pptx_read": powerpoint.pptx_read, "pptx_edit": powerpoint.pptx_edit,
-            "xlsx_read": excel.xlsx_read, "office_export": office_export}[nom]
+            "xlsx_read": excel.xlsx_read, "xlsx_create": excel.xlsx_create,
+            "office_export": office_export}[nom]
 
 
 # Exportables en PDF : formats que LibreOffice ouvre avec un filtre d'import

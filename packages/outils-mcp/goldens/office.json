@@ -2115,6 +2115,261 @@
       }
     },
     {
+      "name": "xlsx_create",
+      "title": "Xlsx Create",
+      "description": "Create an Excel workbook (.xlsx) in the sandbox. sheets = [{name, data, table, totals}]; data = the rows, [{column: value}, \u2026] or [[header\u2026], [values\u2026]]. Column types are detected: dates, percentages ('12,5 %'), amounts ('1 234,50 \u20ac'), numbers; text stays text; a value starting with '=' is a formula ('=SUM(B2:B13)'). Every sheet gets a styled header, filters, a frozen header row and fitted columns; table = true makes an Excel table, totals = true adds a total row. An existing file at path is replaced (previous version kept in the file history, or in a .bak copy above 5 MB).",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path in the sandbox, e.g. 'donnees/ventes-2026.xlsx' (relative to /work)."
+          },
+          "sheets": {
+            "default": null,
+            "type": "array",
+            "description": "One object per sheet.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Sheet name (31 characters at most)."
+                },
+                "data": {
+                  "description": "The rows: [{column: value}, \u2026] or [[header\u2026], [values\u2026]]."
+                },
+                "table": {
+                  "type": "boolean",
+                  "description": "Make the rows an Excel table."
+                },
+                "totals": {
+                  "type": "boolean",
+                  "description": "Add a total row (sums)."
+                }
+              }
+            }
+          },
+          "data": {
+            "default": null,
+            "description": "Shortcut for a single sheet: its rows."
+          },
+          "title": {
+            "default": null,
+            "type": "string",
+            "description": "Workbook title (file properties)."
+          },
+          "author": {
+            "default": null,
+            "type": "string"
+          },
+          "lang": {
+            "default": null,
+            "type": "string",
+            "description": "Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "description": "Result of the ``docx_*`` / ``pptx_*`` / ``office_export`` tools (sandbox files).\n\nA write carries ``path`` + ``old_sha256`` / ``new_sha256`` (feeds the\nchanged-files card); a read carries the document's content (outline,\nnumbered paragraphs or slides) as extra fields.",
+                "properties": {
+                  "ok": {
+                    "const": true,
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The file, as /work/\u2026 ."
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "One line: what was written."
+                  },
+                  "old_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 before the write (empty: new file)."
+                  },
+                  "new_sha256": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "SHA-256 after the write."
+                  },
+                  "fixes": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What was understood for you (no need to redo the call)."
+                  },
+                  "warnings": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "What had to be ignored or chosen."
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "additionalProperties": true,
+                "description": "Typed shape of the error envelope produced by ``_toolkit.err()``.\n\nMirrors the error contract the chat frontend parses :\n  * ``ok`` is the discriminator (False = failure),\n  * ``error`` is a stable machine code (snake_case),\n  * ``message`` is the human-readable text,\n  * ``fix`` is an optional hint how to recover.\n\nTools declare their return type as ``Union[<SuccessModel>,\nErrEnvelope]`` so FastMCP generates a discriminated union schema\nthe LLM can pattern-match on the ``ok`` field. The runtime\nwire format is unchanged \u2014 both branches serialise to the same\nJSON dict the frontend already reads.\n\n``extra='allow'`` because ``err()`` lets each call site attach\ncontext (``cmd``, ``path``, ``expected``, ``actual``, \u2026) \u2014 these\nare kept for the LLM but aren't part of the strict schema.",
+                "properties": {
+                  "ok": {
+                    "const": false,
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "error": {
+                    "description": "Stable machine code (e.g. 'not_found', 'too_large').",
+                    "type": "string"
+                  },
+                  "message": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Human-readable error message."
+                  },
+                  "fix": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Suggested recovery action."
+                  },
+                  "next_action": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Concrete next tool/arg to try."
+                  },
+                  "retryable": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "True iff a retry might succeed (transient error)."
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "x-fastmcp-wrap-result": true
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "category": {
+          "name": "office",
+          "label": "Documents Office",
+          "icon": "ph-file-doc",
+          "color": "sky"
+        },
+        "policy": {
+          "timeout_s": 180,
+          "serial": true,
+          "replay_safe": false
+        },
+        "fastmcp": {
+          "tags": [
+            "office"
+          ]
+        }
+      }
+    },
+    {
       "name": "office_export",
       "title": "Office Export",
       "description": "Convert an office file of the sandbox (.docx, .pptx, .xlsx, .odt, .odp, .ods) to PDF with LibreOffice. The PDF is written next to it (or to save_as).",
@@ -2642,6 +2897,46 @@
         {
           "nom": "find",
           "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Text to locate in every sheet.', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        }
+      ]
+    },
+    "xlsx_create": {
+      "fonction": "xlsx_create",
+      "parametres": [
+        {
+          "nom": "path",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"File path in the sandbox, e.g. 'donnees/ventes-2026.xlsx' (relative to /work).\", json_schema_extra={'type': 'string'})]",
+          "requis": true
+        },
+        {
+          "nom": "sheets",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='One object per sheet.', json_schema_extra={'type': 'array'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "data",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Shortcut for a single sheet: its rows.')]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "title",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Workbook title (file properties).', json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "author",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, json_schema_extra={'type': 'string'})]",
+          "requis": false,
+          "defaut": null
+        },
+        {
+          "nom": "lang",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description=\"Language of the text, e.g. 'fr-FR' or 'en-US' (spell check, hyphenation, screen readers, generated labels such as the table of contents title); detected from the text when omitted.\", json_schema_extra={'type': 'string'})]",
           "requis": false,
           "defaut": null
         }

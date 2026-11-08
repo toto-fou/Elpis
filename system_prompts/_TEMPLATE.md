@@ -30,7 +30,7 @@ Injected automatically, and only when the matching capability is active, by
 | `FRAGMENT_AUTOMATION.md` | action | `desktop` | desktop automation |
 | `FRAGMENT_WEB.md` | action | `browser` | web browsing |
 | `FRAGMENT_CHART.md` | content | `chart` (one tool per type: `chart_bar`, `chart_heatmap`, `chart_gantt`… `chart_table`) | charts & tables rendered by the UI (ECharts) |
-| `FRAGMENT_OFFICE.md` | content | `office` (`docx_create/read/edit`, `pptx_create/read/edit`, `xlsx_read`, `office_export`) | sandbox Word / PowerPoint / Excel files |
+| `FRAGMENT_OFFICE.md` | content | `office` (`docx_create/read/edit`, `pptx_create/read/edit`, `xlsx_read/create`, `office_export`) | sandbox Word / PowerPoint / Excel files |
 | `FRAGMENT_OFFICE_CHART.md` | content | `office` **and** `chart` | charts in Office files through `!id` |
 | `FRAGMENT_MEMORY.md` | content | `memory` (`memory`/`session_search`) | long-term memory: what / where to save |
 | `FRAGMENT_RAG.md` | content | `rag_*` tools (builtins → synthesized `rag` category) | document knowledge base |

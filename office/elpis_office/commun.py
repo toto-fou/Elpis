@@ -37,8 +37,8 @@ EXT_LUES = {
 EXT_VOISINES = {
     "docx": (".doc", ".dotx", ".docm", ".dotm", ".odt", ".rtf", ".txt", ".md", ".pdf"),
     "pptx": (".ppt", ".potx", ".pptm", ".potm", ".ppsx", ".odp", ".key", ".pdf", ".md"),
+    "xlsx": (".xls", ".xltx", ".xlsm", ".xltm", ".ods", ".csv", ".tsv", ".numbers", ".pdf", ".md"),
 }
-_AUTRE = {"docx": "pptx", "pptx": "docx"}
 
 
 class OfficeError(Exception):
@@ -217,9 +217,10 @@ def chemin_sortie(path: Any, sorte: str, notes: Notes) -> str:
     ext = f".{ext.lower()}" if point else ""
     if ext == EXT[sorte]:
         nom_final = propre
-    elif ext == EXT[_AUTRE[sorte]]:
-        raise OfficeError(f"'{propre}' is a {_AUTRE[sorte]} file name: this tool writes {EXT[sorte]}",
-                          fix=f"use the {_AUTRE[sorte]}_* tools for {EXT[_AUTRE[sorte]]} files, "
+    elif ext in {EXT[a]: a for a in EXT if a != sorte}:
+        autre = {EXT[a]: a for a in EXT if a != sorte}[ext]
+        raise OfficeError(f"'{propre}' is a {autre} file name: this tool writes {EXT[sorte]}",
+                          fix=f"use the {autre}_* tools for {ext} files, "
                               f"or name the file '{base}{EXT[sorte]}'", code="wrong_format")
     elif ext in EXT_VOISINES[sorte]:
         nom_final = base + EXT[sorte]

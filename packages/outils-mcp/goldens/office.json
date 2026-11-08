@@ -2912,13 +2912,13 @@
         },
         {
           "nom": "sheets",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='One object per sheet.', json_schema_extra={'type': 'array'})]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='One object per sheet.', json_schema_extra={'type': 'array', 'items': {'type': 'object', 'properties': {'name': {'type': 'string', 'description': 'Sheet name (31 characters at most).'}, 'data': {'description': 'The rows: [{column: value}, \u2026] or [[header\u2026], [values\u2026]].'}, 'table': {'type': 'boolean', 'description': 'Make the rows an Excel table.'}, 'totals': {'type': 'boolean', 'description': 'Add a total row (sums).'}}}})]",
           "requis": false,
           "defaut": null
         },
         {
           "nom": "data",
-          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Shortcut for a single sheet: its rows.')]",
+          "annotation": "Annotated[Any, FieldInfo(annotation=NoneType, required=True, description='Shortcut for a single sheet: its rows.', json_schema_extra={})]",
           "requis": false,
           "defaut": null
         },

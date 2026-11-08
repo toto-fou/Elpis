@@ -926,14 +926,9 @@ def _appliquer(i: int, nom: str, c: Dict[str, Any], lot: _Lot, rendus: Dict[str,
 
 
 def _ecrire_paragraphe(document: Any, par: Paragraph, valeur: str) -> None:
-    """Réécrit un paragraphe en Markdown en ligne, style et mise en forme du premier fragment gardés."""
-    runs = par.runs
-    base = docio.copy_rpr(runs[0]._r) if runs else None
-    suite = runs[0]._r.getnext() if runs else None
-    while suite is not None and suite.tag == qn("w:r"):
-        suite = suite.getnext()
-    for r in runs:
-        r._r.getparent().remove(r._r)
+    """Réécrit un paragraphe (liens, contrôles et révisions compris) en Markdown en ligne, style et mise en forme du premier fragment gardés."""
+    base = docio.base_rpr(par._p)
+    suite = docio.clear_inline(par._p)
     avant = set(par._p)
     B.write_inline(document, par, inline_markdown(valeur))
     for el in [x for x in par._p if x not in avant]:

@@ -9,11 +9,87 @@ import re
 from typing import Any, Iterable
 
 import docx
+from docx.oxml.parser import register_element_cls
+from docx.oxml.text.paragraph import CT_P
+from docx.text.run import Run
 
 from .errors import InvalidSpec
 from .ooxml.util import insert_in_order, qn
 
 _HEADING = re.compile(r"^Heading (\d)$", re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Inline content
+# ---------------------------------------------------------------------------
+
+_R, _SDT, _SDT_CONTENT, _HYPERLINK = qn("w:r"), qn("w:sdt"), qn("w:sdtContent"), qn("w:hyperlink")
+_INLINE_CONTAINERS = frozenset(
+    qn(f"w:{tag}")
+    for tag in ("hyperlink", "ins", "moveTo", "smartTag", "customXml", "fldSimple", "dir", "bdo")
+)
+_KEPT_MARKS = frozenset(
+    qn(f"w:{tag}")
+    for tag in ("pPr", "bookmarkStart", "bookmarkEnd", "commentRangeStart", "commentRangeEnd",
+                "permStart", "permEnd")
+)
+
+
+def inline_runs(element) -> list:
+    """Text runs of a paragraph as Word shows them: links, content controls and insertions in, deletions out."""
+    runs = []
+    for child in element:
+        if child.tag == _R:
+            runs.append(child)
+        elif child.tag in _INLINE_CONTAINERS:
+            runs.extend(inline_runs(child))
+        elif child.tag == _SDT:
+            content = child.find(_SDT_CONTENT)
+            if content is not None:
+                runs.extend(inline_runs(content))
+    return runs
+
+
+class _WordTextParagraph(CT_P):
+    """``w:p`` whose ``text`` is ``inline_runs`` (python-docx reads direct runs and links only)."""
+
+    @property
+    def text(self) -> str:
+        return "".join(run.text for run in inline_runs(self))
+
+
+register_element_cls("w:p", _WordTextParagraph)
+
+
+def _inside_link(run, paragraph) -> bool:
+    parent = run.getparent()
+    while parent is not None and parent is not paragraph:
+        if parent.tag == _HYPERLINK:
+            return True
+        parent = parent.getparent()
+    return False
+
+
+def base_rpr(paragraph):
+    """Properties of the first text outside a link: rewritten text keeps them."""
+    for run in inline_runs(paragraph):
+        if run.text and not _inside_link(run, paragraph):
+            return copy_rpr(run)
+    return None
+
+
+def clear_inline(paragraph):
+    """Remove text, links, controls and revisions; keep properties and anchors. Returns where new text goes."""
+    removed, anchor = False, None
+    for child in list(paragraph):
+        if child.tag in _KEPT_MARKS or (
+                child.tag == _R and child.find(qn("w:commentReference")) is not None):
+            if removed and anchor is None:
+                anchor = child
+            continue
+        paragraph.remove(child)
+        removed = True
+    return anchor
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +623,7 @@ def replace_text(
 
 
 def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> int:
-    runs = paragraph.runs
+    runs = [Run(run, paragraph) for run in inline_runs(paragraph._p)]
     if not runs:
         return 0
     full = "".join(run.text or "" for run in runs)

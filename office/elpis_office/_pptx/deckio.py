@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable
 
+from ..commun import replace_in_runs
 from .errors import InvalidSpec
 from .ooxml.util import sanitize_text
 
@@ -99,17 +100,9 @@ def set_metadata(presentation, **values: Any) -> dict[str, Any]:
     return applied
 
 
-def replace_text(
-    presentation,
-    search: str,
-    replacement: str,
-    *,
-    regex: bool = False,
-    ignore_case: bool = False,
-    include_notes: bool = True,
-    slide_indices: list[int] | None = None,
-) -> int:
-    """Search and replace across the deck, preserving run formatting.
+def replace_text(presentation, search: str, replacement: str, *, regex: bool = False,
+                 ignore_case: bool = False) -> int:
+    """Search and replace across the deck (slides, tables, notes), preserving run formatting.
 
     PowerPoint splits a sentence across runs at arbitrary points, so a match
     routinely spans several. Matches inside a single run are edited in place; a
@@ -124,53 +117,11 @@ def replace_text(
         raise InvalidSpec(f"Invalid regular expression {search!r}: {exc}") from exc
 
     total = 0
-    for index, slide in enumerate(presentation.slides):
-        if slide_indices is not None and index not in slide_indices:
-            continue
+    for slide in presentation.slides:
         for frame in iter_text_frames(slide):
             for paragraph in frame.paragraphs:
-                total += _replace_in_paragraph(paragraph, pattern, replacement)
-        if include_notes and slide.has_notes_slide:
+                total += replace_in_runs(paragraph.runs, pattern, replacement)
+        if slide.has_notes_slide:
             for paragraph in slide.notes_slide.notes_text_frame.paragraphs:
-                total += _replace_in_paragraph(paragraph, pattern, replacement)
+                total += replace_in_runs(paragraph.runs, pattern, replacement)
     return total
-
-
-def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> int:
-    runs = paragraph.runs
-    if not runs:
-        return 0
-    full = "".join(run.text or "" for run in runs)
-    if not pattern.search(full):
-        return 0
-
-    spans, cursor = [], 0
-    for run in runs:
-        length = len(run.text or "")
-        spans.append((cursor, cursor + length))
-        cursor += length
-
-    replaced = 0
-    for match in reversed(list(pattern.finditer(full))):
-        start, end = match.span()
-        touched = [i for i, (low, high) in enumerate(spans) if low < end and high > start]
-        if not touched:
-            continue
-        first = touched[0]
-        low, _ = spans[first]
-        head = (runs[first].text or "")[: start - low]
-        tail_run = touched[-1]
-        tail_low, _ = spans[tail_run]
-        tail = (runs[tail_run].text or "")[end - tail_low:]
-
-        runs[first].text = head + match.expand(replacement) + (tail if tail_run == first else "")
-        for position in touched[1:]:
-            runs[position].text = "" if position != tail_run else tail
-        replaced += 1
-
-        cursor = 0
-        for i, run in enumerate(runs):
-            length = len(run.text or "")
-            spans[i] = (cursor, cursor + length)
-            cursor += length
-    return replaced

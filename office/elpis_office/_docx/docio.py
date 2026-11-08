@@ -12,6 +12,7 @@ from docx.oxml.text.paragraph import CT_P
 from docx.oxml.text.run import CT_R
 from docx.text.run import Run
 
+from ..commun import replace_in_runs
 from .errors import InvalidSpec
 from .ooxml.util import insert_in_order, qn
 
@@ -407,101 +408,23 @@ def _excerpt(text: str, match: re.Match, window: int = 40) -> str:
     return ("…" if start else "") + text[start:end].strip() + ("…" if end < len(text) else "")
 
 
-def iter_all_paragraphs(document) -> Iterable[Any]:
-    """Body paragraphs plus everything inside tables, headers and footers.
-
-    One traversal, shared with the verification tools. Two traversals that were
-    meant to agree is how a find-and-replace ends up writing somewhere the check
-    never looks.
-    """
-    for _, paragraph in iter_located_paragraphs(document):
-        yield paragraph
-
-
-def replace_text(
-    document,
-    search: str,
-    replacement: str,
-    *,
-    regex: bool = False,
-    ignore_case: bool = False,
-    include_headers: bool = True,
-) -> int:
-    """Search and replace across the document, preserving run formatting.
+def replace_text(document, search: str, replacement: str, *, regex: bool = False,
+                 ignore_case: bool = False) -> int:
+    """Search and replace across the document, headers and tables included, preserving run formatting.
 
     Word splits a sentence across runs at arbitrary points (a spell-check pass is
     enough to do it), so a match routinely spans several runs. Matches inside a
     single run are edited in place; a match that spans runs collapses onto the
     first run it touches, which is the only way to keep *some* formatting rather
     than none.
-
-    ``include_headers=False`` excludes headers and footers — and nothing else.
-    Table cells are part of the document body as far as a reader is concerned, so
-    they are always covered; a replace that quietly skipped every table would be a
-    trap, not an option.
     """
     from .ooxml.util import sanitize_text
 
     replacement = sanitize_text(replacement)
     flags = re.IGNORECASE if ignore_case else 0
     pattern = re.compile(search if regex else re.escape(search), flags)
-    if include_headers:
-        paragraphs: Iterable[Any] = iter_all_paragraphs(document)
-    else:
-        paragraphs = (
-            paragraph
-            for location, paragraph in iter_located_paragraphs(document)
-            if location["where"] in BODY_WHERE
-        )
-
-    total = 0
-    for paragraph in paragraphs:
-        total += _replace_in_paragraph(paragraph, pattern, replacement)
-    return total
-
-
-def _replace_in_paragraph(paragraph, pattern: re.Pattern, replacement: str) -> int:
-    runs = [Run(run, paragraph) for run in inline_runs(paragraph._p)]
-    if not runs:
-        return 0
-    full = "".join(run.text or "" for run in runs)
-    if not pattern.search(full):
-        return 0
-
-    # Character span covered by each run.
-    spans, cursor = [], 0
-    for run in runs:
-        length = len(run.text or "")
-        spans.append((cursor, cursor + length))
-        cursor += length
-
-    replaced = 0
-    for match in reversed(list(pattern.finditer(full))):
-        start, end = match.span()
-        touched = [i for i, (low, high) in enumerate(spans) if low < end and high > start]
-        if not touched:
-            continue
-        first = touched[0]
-        low, _ = spans[first]
-        text = runs[first].text or ""
-        head = text[: start - low]
-        tail_run = touched[-1]
-        tail_low, _ = spans[tail_run]
-        tail = (runs[tail_run].text or "")[end - tail_low :]
-
-        runs[first].text = head + match.expand(replacement) + (tail if tail_run == first else "")
-        for index in touched[1:]:
-            runs[index].text = "" if index != tail_run else tail
-        replaced += 1
-
-        # Offsets past this match are stale, but we iterate backwards so earlier
-        # matches keep valid spans; recompute the ones we just touched.
-        cursor = 0
-        for i, run in enumerate(runs):
-            length = len(run.text or "")
-            spans[i] = (cursor, cursor + length)
-            cursor += length
-    return replaced
+    return sum(replace_in_runs([Run(run, paragraph) for run in inline_runs(paragraph._p)], pattern, replacement)
+               for _, paragraph in iter_located_paragraphs(document))
 
 
 def set_metadata(document, **values: Any) -> dict[str, Any]:

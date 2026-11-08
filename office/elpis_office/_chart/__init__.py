@@ -23,9 +23,6 @@ import json
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
-from .compile_echarts import compile_option
-from .spec import SpecError, build_spec
-
 _CART = ["x", "y", "group", "unit", "stack", "horizontal", "sort", "top", "show_values",
          "highlight", "lines", "trend"]
 
@@ -144,6 +141,9 @@ def run_chart(args: Dict[str, Any], session: Optional[str] = None
     Le retour d'échec suit l'enveloppe d'Elpis (``ok/error/message/fix``),
     complétée de ``example`` (lignes attendues) et, en cas de répétition, de
     ``repeated``/``next_action``."""
+    from .compile_echarts import compile_option
+    from .spec import SpecError, build_spec
+
     try:
         spec = build_spec(args)
         option, summary = compile_option(spec)
@@ -162,4 +162,4 @@ def run_chart(args: Dict[str, Any], session: Optional[str] = None
     return result, option, spec.kind
 
 
-__all__ = ["PER_TYPE", "run_chart", "SpecError"]
+__all__ = ["PER_TYPE", "run_chart"]

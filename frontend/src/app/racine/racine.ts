@@ -6,7 +6,7 @@ import type { Ref } from "vue";
 
 import { setupAdmin } from "../../features/admin/console";
 import { setupAdminRuns } from "../../features/admin/executions";
-import { NAV_ADMIN } from "../../features/admin/registre";
+import { suivreChargementConsole } from "../../features/admin/chargeurs-page";
 import { setupAdminSkins } from "../../features/admin/skins";
 import { setupAuth } from "../../features/auth/auth";
 import { GestionnaireSession } from "../../features/auth/session";
@@ -887,46 +887,10 @@ export function creerRacine(options: OptionsRacine = {}) {
   });
 
   // ── Console : chargeurs de la page affichée (registre de la console) ────
-  function chargerPageAdmin(onglet: string): void {
-    const a = m.admin;
-    if (!a) return;
-    // Seuls le tableau de bord et la vue d'ensemble interrogent périodiquement le serveur.
-    if (onglet === "dashboard") a.startDashboardPolling();
-    else a.stopDashboardPolling();
-    if (onglet === "overview") a.startOverviewPolling();
-    else a.stopOverviewPolling();
-    // Le journal en direct n'est reçu que pendant que la page Journaux est affichée.
-    a.suivreJournal(onglet === "logs");
-    const page = NAV_ADMIN.pages[onglet];
-    const sources = [a, m.adminSkins, m.adminRuns] as readonly (object | null)[];
-    for (const [nom, ...args] of page?.loaders ?? []) {
-      for (const src of sources) {
-        const f = src ? (src as Record<string, unknown>)[nom] : undefined;
-        if (typeof f === "function") {
-          void (f as (...a: unknown[]) => unknown)(...args);
-          break;
-        }
-      }
-    }
-  }
-  // Ouverture de la console : chargement de la page courante (lien profond déjà résolu) et bandeau de redémarrage.
-  watch(isAdminView, (actif) => {
-    const a = m.admin;
-    if (!a) return;
-    if (!actif) {
-      a.stopDashboardPolling();
-      a.stopOverviewPolling();
-      a.suivreJournal(false);
-      return;
-    }
-    chargerPageAdmin(a.adminTab.value);
-    void a.loadRestartStatus();
-  });
-  watch(
-    () => m.admin?.adminTab.value,
-    (onglet) => {
-      if (isAdminView.value && onglet) chargerPageAdmin(onglet);
-    },
+  suivreChargementConsole(
+    isAdminView,
+    () => m.admin,
+    () => [m.admin, m.adminSkins, m.adminRuns],
   );
 
   const defilement = creerDefilementChat({

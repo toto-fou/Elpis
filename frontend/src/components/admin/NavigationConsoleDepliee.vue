@@ -12,8 +12,12 @@ const requete = ref("");
 const groupes = computed(() => filtrerArbre(NAV_ADMIN.pages, adm.adminIsAdmin, requete.value));
 
 function ouvrirPremiere(): void {
-  const premiere = groupes.value[0]?.pagesVisibles[0];
-  if (premiere) void adm.goAdminPage(premiere.id).then((ok) => ok && (requete.value = ""));
+  const groupe = groupes.value[0];
+  const premiere = groupe?.pagesVisibles[0];
+  if (premiere)
+    void adm
+      .goAdminPage(premiere.id, groupe.ongletTrouve[premiere.id])
+      .then((ok) => ok && (requete.value = ""));
 }
 </script>
 
@@ -73,7 +77,7 @@ function ouvrirPremiere(): void {
                   type="button"
                   class="adm-nav__sub"
                   :aria-current="adm.adminTab === p.id ? 'page' : undefined"
-                  @click="adm.goAdminPage(p.id)"
+                  @click="adm.goAdminPage(p.id, g.ongletTrouve[p.id])"
                 >
                   <span class="adm-nav__label">{{ p.label }}</span>
                 </button>

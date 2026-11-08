@@ -1,14 +1,19 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- frontend/src/components/admin/CoqueConsole.vue — coque de la console : barre latérale, en-tête, pages, barre d'enregistrement et recherche Ctrl+K. -->
 <script setup lang="ts">
+import { defineAsyncComponent } from "vue";
+
 import { domaineAdmin } from "../../features/admin/domaine";
+import { formateurDate } from "../../features/admin/horodatage";
 import BarreLateraleConsole from "./BarreLateraleConsole.vue";
 import EnteteConsole from "./EnteteConsole.vue";
 import PageApercu from "./PageApercu.vue";
 import PageMetriques from "./PageMetriques.vue";
 import PageRapport from "./PageRapport.vue";
-import PageObservabilite from "./PageObservabilite.vue";
-import PageExecutions from "./PageExecutions.vue";
+import OngletAppelsOutils from "./OngletAppelsOutils.vue";
+import OngletExecutions from "./OngletExecutions.vue";
+import OngletJournalTechnique from "./OngletJournalTechnique.vue";
+import PageOnglets from "./PageOnglets.vue";
 import PageGeneral from "./PageGeneral.vue";
 import PageApparence from "./PageApparence.vue";
 import PageConnexions from "./PageConnexions.vue";
@@ -22,10 +27,23 @@ import PageSousAgents from "./PageSousAgents.vue";
 import PageEntretien from "./PageEntretien.vue";
 import PageDonnees from "./PageDonnees.vue";
 import ModalesConsole from "./ModalesConsole.vue";
+import ErreurChargement from "./ErreurChargement.vue";
 
 const adm = domaineAdmin();
 
-const heure = (ms: number): string => new Date(ms).toLocaleTimeString("fr-FR", { timeStyle: "short" });
+/** Vues réservées aux admins, chargées à la première ouverture : elles ne pèsent pas dans le chunk des pages de chat. */
+const OngletJournalSecurite = defineAsyncComponent({
+  loader: () => import("./OngletJournalSecurite.vue"),
+  errorComponent: ErreurChargement,
+  delay: 200,
+});
+const PageJournalisation = defineAsyncComponent({
+  loader: () => import("./PageJournalisation.vue"),
+  errorComponent: ErreurChargement,
+  delay: 200,
+});
+
+const heure = formateurDate({ timeStyle: "short" });
 </script>
 
 <template>
@@ -92,8 +110,14 @@ const heure = (ms: number): string => new Date(ms).toLocaleTimeString("fr-FR", {
 
         <PageMetriques />
         <PageRapport />
-        <PageObservabilite />
-        <PageExecutions />
+        <PageOnglets v-slot="{ onglet }" page="activity" label="Activité">
+          <OngletExecutions v-if="onglet === 'runs'" />
+          <OngletAppelsOutils v-else-if="onglet === 'tool-calls'" />
+        </PageOnglets>
+        <PageOnglets v-slot="{ onglet }" page="logs" label="Journaux">
+          <OngletJournalTechnique v-if="onglet === 'technical'" />
+          <OngletJournalSecurite v-else-if="onglet === 'security'" />
+        </PageOnglets>
 
         <PageGeneral />
         <PageApparence />
@@ -107,6 +131,7 @@ const heure = (ms: number): string => new Date(ms).toLocaleTimeString("fr-FR", {
         <PageSousAgents />
         <PageEntretien />
         <PageDonnees />
+        <PageJournalisation v-if="adm.adminTab === 'audit-logging'" />
       </div>
     </main>
 

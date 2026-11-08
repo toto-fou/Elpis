@@ -15,6 +15,7 @@ interface ElementPalette {
   meta?: string;
   icon: string;
   page?: string;
+  onglet?: string;
   field?: string;
   keywords: string;
   run?: () => unknown;
@@ -184,6 +185,7 @@ export function creerPalette(b: BaseAdmin, navigation: SurfaceNavigation) {
     const items: ElementPalette[] = [];
     for (const en of navigation.adminNav.value) {
       for (const p of en.pages) {
+        if (!navigation.adminCanOpen(p.id)) continue;
         items.push({
           kind: "page",
           label: p.label,
@@ -192,6 +194,19 @@ export function creerPalette(b: BaseAdmin, navigation: SurfaceNavigation) {
           page: p.id,
           keywords: "",
         });
+        const def = nav.pages[p.id];
+        for (const o of def?.onglets ?? []) {
+          if (!navigation.adminCanOpen(p.id, o.id)) continue;
+          items.push({
+            kind: "page",
+            label: p.label + " › " + o.label,
+            meta: en.label,
+            icon: en.icon,
+            page: p.id,
+            onglet: o.id,
+            keywords: "",
+          });
+        }
       }
     }
     const vus = new Set<string>();
@@ -300,7 +315,7 @@ export function creerPalette(b: BaseAdmin, navigation: SurfaceNavigation) {
       return;
     }
     closePalette(r.kind === "field");
-    if (!(await lien.goAdminPage(r.page ?? ""))) return;
+    if (!(await lien.goAdminPage(r.page ?? "", r.onglet))) return;
     if (r.kind === "field") await revelerChamp(r.field ?? "");
     else navigation.focusAdminTitle();
   }

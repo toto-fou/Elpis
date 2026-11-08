@@ -44,6 +44,7 @@ export type DomaineModalesCommunes = RacineCommune &
     | "runEventState"
     | "runClock"
     | "runExportHref"
+    | "exporterRun"
     | "runInput"
     | "runOutput"
     | "runTokensTitle"
@@ -177,6 +178,7 @@ const CLES_COMMUNES: Readonly<Record<keyof DomaineModalesCommunes, true>> = {
   runEventState: true,
   runClock: true,
   runExportHref: true,
+  exporterRun: true,
   runInput: true,
   runOutput: true,
   runTokensTitle: true,

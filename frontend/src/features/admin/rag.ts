@@ -29,6 +29,7 @@ import { journal } from "../../platform/journal";
 import { messageErreur } from "../../platform/http/resultat";
 import type { ApiResult } from "../../platform/http/resultat";
 import type { BaseAdmin } from "./etat";
+import { courtLocal } from "./horodatage";
 
 const ENTETES_JSON = { "Content-Type": "application/json" };
 const PAGE = 25;
@@ -76,7 +77,7 @@ export function ragAdmOctets(n: unknown): string {
 export function ragAdmDate(ts: unknown): string {
   const v = Number(ts);
   if (!Number.isFinite(v) || v <= 0) return "";
-  return new Date(v * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return courtLocal(v * 1000);
 }
 
 /** Code stable et message d'une réponse en échec (les routes de la console répondent `{detail, code}`). */

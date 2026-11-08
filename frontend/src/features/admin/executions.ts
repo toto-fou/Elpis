@@ -5,6 +5,9 @@ import type { ExecutionListee } from "@elpis/contracts";
 import { ref } from "vue";
 import type { Ref } from "vue";
 
+import { nombre } from "./formats";
+import { PAR_PAGE, pageBornee, parametresTri, trierPar } from "./pagination";
+import type { Tri } from "./pagination";
 import { ecrirePeriode, lirePeriode, periodeValide } from "./periode";
 import { chargementEchoue, chargementReussi } from "./suivi-chargement";
 import type { ClientHttp } from "../../platform/http/client";
@@ -17,7 +20,13 @@ export interface FiltreExecutions {
   username: string;
   kind: string;
   status: string;
+  q: string;
+  /** Exécution précise (arrivée depuis un appel d'outil). */
+  runId: string;
 }
+
+const TRI_DEFAUT: Tri = { col: "started_at", dir: "desc" };
+const DELAI_RECHERCHE_MS = 300;
 
 interface LigneTokens {
   input_tokens?: number | null;
@@ -34,53 +43,166 @@ export function setupAdminRuns(http: ClientHttp) {
   const admRunsEchec = ref(false);
   const admRunsAccounts: Ref<CompteExecutions[]> = ref([]);
   const admRunsItems: Ref<ExecutionListee[]> = ref([]);
-  const admRunsFilter: Ref<FiltreExecutions> = ref({ userId: null, username: "", kind: "", status: "" });
-  let seq = 0;
+  const admRunsFilter: Ref<FiltreExecutions> = ref({
+    userId: null,
+    username: "",
+    kind: "",
+    status: "",
+    q: "",
+    runId: "",
+  });
+  const admRunsTri: Ref<Tri> = ref({ ...TRI_DEFAUT });
+  const admRunsPage = ref(1);
+  const admRunsParPage = PAR_PAGE;
+  const admRunsTotal = ref(0);
+  /** Exécution à mettre en évidence après une arrivée depuis un appel d'outil. */
+  const admRunsSurligne = ref("");
+  let seqComptes = 0;
+  let seqListe = 0;
+  /** Le total affiché ne correspond plus aux filtres tant qu'une réponse `count=1` n'a pas été appliquée. */
+  let totalPerime = false;
+  let actifs = 0;
+  let echecComptes = false;
+  let echecListe = false;
+  let minuterie: ReturnType<typeof setTimeout> | null = null;
 
-  function qs(): string {
+  function qs(avecTotal: boolean): string {
     const f = admRunsFilter.value;
-    const p = ["hours=" + admRunsScope.value];
+    const p = ["hours=" + admRunsScope.value, "limit=" + admRunsParPage];
+    p.push("offset=" + (admRunsPage.value - 1) * admRunsParPage);
+    p.push(...parametresTri(admRunsTri.value, TRI_DEFAUT));
+    if (f.runId) p.push("run_id=" + encodeURIComponent(f.runId));
+    if (f.q.trim()) p.push("q=" + encodeURIComponent(f.q.trim()));
     if (f.userId !== null) p.push("user_id=" + encodeURIComponent(f.userId));
     if (f.kind) p.push("kind=" + encodeURIComponent(f.kind));
     if (f.status) p.push("status=" + encodeURIComponent(f.status));
+    if (!avecTotal) p.push("count=0");
     return p.join("&");
   }
 
-  async function loadAdminRuns(): Promise<void> {
-    const moi = ++seq;
-    admRunsLoading.value = true;
-    admRunsScope.value = lirePeriode();
+  /** Comptes de la période : agrégat lourd, relancé à l'entrée sur l'onglet, au changement de période et sur Actualiser seulement (`frais` : le serveur ignore son cache). */
+  async function chargerComptes(frais: boolean): Promise<void> {
+    const moi = ++seqComptes;
+    debutChargement();
     try {
-      const [ra, rl] = await Promise.all([
-        http.requete(
-          `/api/admin/runs/accounts?hours=${admRunsScope.value}`,
-          {},
-          { schema: schemaReponseExecutionsParCompte },
-        ),
-        http.requete(`/api/admin/runs?${qs()}`, {}, { schema: schemaReponseExecutionsConsole }),
-      ]);
-      if (moi !== seq) return;
+      const ra = await http.requete(
+        `/api/admin/runs/accounts?hours=${admRunsScope.value}${frais ? "&fresh=1" : ""}`,
+        {},
+        { schema: schemaReponseExecutionsParCompte },
+      );
+      if (moi !== seqComptes) return;
       if (ra.type === "ok") admRunsAccounts.value = ra.valeur.items;
-      if (rl.type === "ok") admRunsItems.value = rl.valeur.items;
-      admRunsEchec.value = !(ra.type === "ok" && rl.type === "ok");
-      if (!admRunsEchec.value) {
-        chargementReussi("loadAdminRuns");
-        admRunsDerniereMaj.value = Date.now();
-      } else chargementEchoue("loadAdminRuns", "Réponse du serveur inattendue ou en échec.", loadAdminRuns);
+      echecComptes = ra.type !== "ok";
+      bilan();
     } finally {
-      if (moi === seq) admRunsLoading.value = false;
+      finChargement();
     }
+  }
+
+  /** Liste des exécutions ; le total n'est redemandé (`avecTotal`) que si les filtres ou la période changent. */
+  async function loadListeExecutions(avecTotal = true): Promise<void> {
+    const moi = ++seqListe;
+    debutChargement();
+    admRunsScope.value = lirePeriode();
+    if (avecTotal) totalPerime = true;
+    try {
+      const rl = await http.requete(
+        `/api/admin/runs?${qs(avecTotal)}`,
+        {},
+        { schema: schemaReponseExecutionsConsole },
+      );
+      if (moi !== seqListe) return;
+      if (rl.type === "ok") {
+        admRunsItems.value = rl.valeur.items;
+        if (rl.valeur.total !== null) {
+          admRunsTotal.value = rl.valeur.total;
+          totalPerime = false;
+        }
+        const page = pageBornee(admRunsPage.value, admRunsTotal.value, admRunsParPage);
+        if (rl.valeur.total !== null && page !== admRunsPage.value) {
+          admRunsPage.value = page;
+          void loadListeExecutions();
+        } else if (rl.valeur.total === null && admRunsPage.value > 1 && rl.valeur.items.length === 0) {
+          // Page vidée par une purge : le total est redemandé pour retomber sur une page existante.
+          void loadListeExecutions();
+        }
+      }
+      echecListe = rl.type !== "ok";
+      bilan();
+    } finally {
+      finChargement();
+    }
+  }
+
+  function debutChargement(): void {
+    actifs += 1;
+    admRunsLoading.value = true;
+  }
+  function finChargement(): void {
+    actifs -= 1;
+    if (actifs <= 0) admRunsLoading.value = false;
+  }
+  function bilan(): void {
+    admRunsEchec.value = echecComptes || echecListe;
+    if (!admRunsEchec.value) {
+      chargementReussi("loadAdminRuns");
+      admRunsDerniereMaj.value = Date.now();
+    } else chargementEchoue("loadAdminRuns", "Réponse du serveur inattendue ou en échec.", loadAdminRuns);
+  }
+
+  /** Entrée sur l'onglet, période, Actualiser (`frais`) : comptes et liste. */
+  async function loadAdminRuns(frais = false): Promise<void> {
+    admRunsScope.value = lirePeriode();
+    await Promise.all([chargerComptes(frais), loadListeExecutions()]);
   }
 
   function setAdmRunsScope(h: number): void {
     admRunsScope.value = periodeValide(h);
     ecrirePeriode(admRunsScope.value);
+    admRunsPage.value = 1;
     void loadAdminRuns();
   }
 
   function setAdmRunsFilter(patch?: Partial<FiltreExecutions>): void {
     admRunsFilter.value = { ...admRunsFilter.value, ...patch };
-    void loadAdminRuns();
+    admRunsPage.value = 1;
+    void loadListeExecutions();
+  }
+
+  /** Recherche libre côté serveur, lancée 300 ms après la dernière frappe. */
+  function rechercherExecutions(q: string): void {
+    admRunsFilter.value = { ...admRunsFilter.value, q };
+    if (minuterie !== null) clearTimeout(minuterie);
+    minuterie = setTimeout(() => {
+      minuterie = null;
+      admRunsPage.value = 1;
+      void loadListeExecutions();
+    }, DELAI_RECHERCHE_MS);
+  }
+
+  function effacerFiltresExecutions(): void {
+    if (minuterie !== null) clearTimeout(minuterie);
+    minuterie = null;
+    admRunsSurligne.value = "";
+    setAdmRunsFilter({ userId: null, username: "", kind: "", status: "", q: "", runId: "" });
+  }
+
+  function trierExecutions(col: string): void {
+    admRunsTri.value = trierPar(admRunsTri.value, col);
+    admRunsPage.value = 1;
+    void loadListeExecutions(totalPerime);
+  }
+
+  function setAdmRunsPage(page: number): void {
+    admRunsPage.value = pageBornee(page, admRunsTotal.value, admRunsParPage);
+    void loadListeExecutions(totalPerime);
+  }
+
+  /** Prépare la liste pour montrer une exécution (arrivée depuis un appel d'outil) ; l'onglet affiché la charge. */
+  function montrerExecution(runId: string): void {
+    admRunsFilter.value = { userId: null, username: "", kind: "", status: "", q: "", runId };
+    admRunsPage.value = 1;
+    admRunsSurligne.value = runId;
   }
 
   function toggleAdmRunsAccount(a: CompteExecutions | null): void {
@@ -89,7 +211,6 @@ export function setupAdminRuns(http: ClientHttp) {
     } else setAdmRunsFilter({ userId: null, username: "" });
   }
 
-  const admRunsTokens = (n: unknown): string => fmtTokenCount(n);
   const parts = (r: LigneTokens | null | undefined) =>
     tokenBreakdown(
       r?.input_tokens,
@@ -101,31 +222,30 @@ export function setupAdminRuns(http: ClientHttp) {
 
   function admRunsIn(r: LigneTokens): string {
     const b = parts(r);
-    return admRunsTokens(b.input) + (b.cache ? " · " + b.cache_pct + " % cache" : "");
+    return fmtTokenCount(b.input) + (b.cache ? " · " + b.cache_pct + " % cache" : "");
   }
 
   function admRunsOut(r: LigneTokens): string {
     const b = parts(r);
-    return admRunsTokens(b.output) + (b.thinking ? " · " + admRunsTokens(b.thinking) + " réflexion" : "");
+    return fmtTokenCount(b.output) + (b.thinking ? " · " + fmtTokenCount(b.thinking) + " réflexion" : "");
   }
 
   function admRunsTokensTitle(r: LigneTokens): string {
     const b = parts(r);
-    const n = (x: number): string => x.toLocaleString("fr-FR");
     return (
       "Entrée " +
-      n(b.input) +
+      nombre(b.input) +
       " : cache " +
-      n(b.cache) +
+      nombre(b.cache) +
       " · utile " +
-      n(b.input_new) +
-      (b.tools ? " · outils ≈ " + n(b.tools) : "") +
+      nombre(b.input_new) +
+      (b.tools ? " · outils ≈ " + nombre(b.tools) : "") +
       "\nSortie " +
-      n(b.output) +
+      nombre(b.output) +
       " : réflexion " +
-      n(b.thinking) +
+      nombre(b.thinking) +
       " · réponse " +
-      n(b.response)
+      nombre(b.response)
     );
   }
 
@@ -145,11 +265,21 @@ export function setupAdminRuns(http: ClientHttp) {
     admRunsAccounts,
     admRunsItems,
     admRunsFilter,
+    admRunsTri,
+    admRunsPage,
+    admRunsParPage,
+    admRunsTotal,
+    admRunsSurligne,
     loadAdminRuns,
+    loadListeExecutions,
+    rechercherExecutions,
+    effacerFiltresExecutions,
+    trierExecutions,
+    setAdmRunsPage,
+    montrerExecution,
     setAdmRunsScope,
     setAdmRunsFilter,
     toggleAdmRunsAccount,
-    admRunsTokens,
     admRunsDuration,
     admRunsIn,
     admRunsOut,

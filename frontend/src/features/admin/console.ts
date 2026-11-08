@@ -12,6 +12,8 @@ import { creerEtatAdmin } from "./etat";
 import type { BaseAdmin, LiensAdmin } from "./etat";
 import { setupAdminHotesOutils } from "./hotes-outils";
 import { creerInference } from "./inference";
+import { creerJournalSecurite } from "./journal-securite";
+import { creerJournalisation } from "./journalisation";
 import { creerJournaux } from "./journaux";
 import { creerMetriques } from "./metriques";
 import { creerNavigation } from "./navigation";
@@ -125,6 +127,11 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     loadAgentsConfig: agents.loadAgentsConfig,
     saveAgentsConfig: agents.saveAgentsConfig,
   });
+  const journalisation = creerJournalisation(b);
+  Object.assign(lien, {
+    loadAuditStatus: journalisation.loadAuditStatus,
+    saveAuditSettings: journalisation.saveAuditSettings,
+  });
   const config = creerConfig(b);
   Object.assign(lien, { loadAdminConfig: config.loadAdminConfig, saveConfigStore: config.saveConfigStore });
   const { liberer: libererPalette, ...palette } = creerPalette(b, {
@@ -132,6 +139,7 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...navigation,
   });
   const observabilite = creerObservabilite(b);
+  const journalSecurite = creerJournalSecurite(b);
   const ax = creerAx(b);
 
   const rapport = setupAdminRapport(ctx, http);
@@ -164,8 +172,10 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...prompts,
     ...sandbox,
     ...agents,
+    ...journalisation,
     ...config,
     ...observabilite,
+    ...journalSecurite,
     ...ax,
     ...rapport,
     ...prometheus,

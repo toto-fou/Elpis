@@ -12,9 +12,10 @@ import type {
 import type { Ref } from "vue";
 
 import type { NavAdmin } from "./registre";
+import type { OptionsTelechargement } from "./transferts";
 import type { ConfigAdmin, CtxAdmin, RefsAdmin, VueAdmin } from "./types";
 
-export type IdBloc = "config" | "compression" | "scheduling" | "allowed" | "exec" | "agents";
+export type IdBloc = "config" | "compression" | "scheduling" | "allowed" | "exec" | "agents" | "audit";
 export const IDS_BLOCS: readonly IdBloc[] = [
   "config",
   "compression",
@@ -22,9 +23,16 @@ export const IDS_BLOCS: readonly IdBloc[] = [
   "allowed",
   "exec",
   "agents",
+  "audit",
 ];
 
 export type InstantanesPropres = Record<IdBloc, string | null>;
+
+/** Champs du journal de sécurité enregistrés par la barre de la page Journalisation. */
+export interface FormulaireJournalisation {
+  retention_days: number;
+  forwarding_expected: boolean;
+}
 
 export interface ModeOrdonnancement {
   configured_mode: string;
@@ -79,7 +87,7 @@ export interface PromptSysteme {
 
 /** Fonctions d'une famille appelées par une autre ; renseignées à la composition, lues à l'appel. */
 export interface LiensAdmin {
-  goAdminPage(id: string): Promise<boolean>;
+  goAdminPage(id: string, onglet?: string): Promise<boolean>;
   adminConfirmLeave(): Promise<boolean>;
   adminDirtyCount(): number;
   markAdminStoreClean(id: IdBloc): void;
@@ -105,6 +113,8 @@ export interface LiensAdmin {
   execConfigPayload(): Record<string, unknown>;
   loadAgentsConfig(): Promise<void>;
   saveAgentsConfig(): Promise<boolean>;
+  loadAuditStatus(): Promise<void>;
+  saveAuditSettings(): Promise<boolean>;
   savePrompt(): Promise<boolean | undefined>;
   reloadPrompt(): Promise<void>;
   loadSecurityOverview(): Promise<void>;
@@ -117,7 +127,13 @@ export interface LiensAdmin {
   loadRecentLogs(): Promise<void>;
   onEngineSelect(): void;
   destroyAllCharts(): void;
-  downloadWithModal(url: string, titre: string, repli: string, attente?: string): Promise<void>;
+  downloadWithModal(
+    url: string,
+    titre: string,
+    repli: string,
+    attente?: string,
+    options?: OptionsTelechargement,
+  ): Promise<void>;
 }
 
 /** Hôte commun à toutes les familles de la console. */
@@ -133,6 +149,8 @@ export interface BaseAdmin {
 
 export interface EtatAdmin {
   adminTab: Ref<string>;
+  /** Onglet choisi par page à onglets (absent = onglet d'arrivée). */
+  adminOnglets: Ref<Record<string, string>>;
   adminMeOpen: Ref<boolean>;
   adminChangesOpen: Ref<boolean>;
   dashMenu: Ref<string | null>;
@@ -146,6 +164,8 @@ export interface EtatAdmin {
   execConfig: Ref<ConfigExecEditee>;
   /** Réglages des sous-agents (`/api/admin/agents`) ; défauts du contrat tant que le core n'a pas répondu. */
   agentsConfig: Ref<ReglagesAgents>;
+  /** Conservation du journal de sécurité éditée par la barre (le gel et le test passent hors barre). */
+  auditForm: Ref<FormulaireJournalisation | null>;
   promptsEditorDirty: Ref<boolean>;
   promptsSelected: Ref<string>;
   usersList: Ref<CompteConsole[]>;
@@ -172,6 +192,7 @@ export function creerEtatAdmin(vue: VueAdmin): EtatAdmin {
   const { ref } = vue;
   return {
     adminTab: ref("overview"),
+    adminOnglets: ref<Record<string, string>>({}),
     adminMeOpen: ref(false),
     adminChangesOpen: ref(false),
     dashMenu: ref<string | null>(null),
@@ -185,6 +206,7 @@ export function creerEtatAdmin(vue: VueAdmin): EtatAdmin {
       allowed: null,
       exec: null,
       agents: null,
+      audit: null,
     }),
     compressionCfg: ref<CompressionConfig | null>(null),
     llmScheduling: ref<ModeOrdonnancement | null>(null),
@@ -202,6 +224,7 @@ export function creerEtatAdmin(vue: VueAdmin): EtatAdmin {
       disk: { ...DISQUE_PAR_DEFAUT },
     }),
     agentsConfig: ref<ReglagesAgents>(JSON.parse(JSON.stringify(DEFAUTS_REGLAGES_AGENTS)) as ReglagesAgents),
+    auditForm: ref<FormulaireJournalisation | null>(null),
     promptsEditorDirty: ref(false),
     promptsSelected: ref(""),
     usersList: ref<CompteConsole[]>([]),

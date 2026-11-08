@@ -35,6 +35,7 @@ const estBlocReversible = (c: ModificationPage): boolean =>
   c.store === "scheduling" ||
   c.store === "allowed" ||
   c.store === "agents" ||
+  c.store === "audit" ||
   (c.store === "exec" && !/^network_profiles/.test(c.path));
 
 const RE_CLE_SECRETE = /(^|[_-])(api_?key(_enc)?|encryption_key|token|secret|password|passwd|jeton)$/iu;
@@ -88,6 +89,15 @@ export function creerEnregistrement(b: BaseAdmin) {
       snapshot: () => JSON.stringify(e.agentsConfig.value),
       save: () => lien.saveAgentsConfig(),
       reload: () => lien.loadAgentsConfig(),
+    },
+    audit: {
+      label: "journalisation",
+      snapshot: () => (e.auditForm.value ? JSON.stringify(e.auditForm.value) : null),
+      save: () => lien.saveAuditSettings(),
+      reload: () => {
+        e.adminPristine.value.audit = null;
+        return lien.loadAuditStatus();
+      },
     },
   };
 
@@ -198,6 +208,7 @@ export function creerEnregistrement(b: BaseAdmin) {
       e.admLlmAllowed.value = Array.isArray(c.before) ? [...(c.before as string[])] : [];
     else if (c.store === "exec" && e.execConfig.value) poserChemin(e.execConfig.value, c.path, c.before);
     else if (c.store === "agents") poserChemin(e.agentsConfig.value, c.path, c.before);
+    else if (c.store === "audit" && e.auditForm.value) poserChemin(e.auditForm.value, c.path, c.before);
     void ctx.nextTick().then(() => {
       if (!adminDirtyCount.value) e.adminChangesOpen.value = false;
     });

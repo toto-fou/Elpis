@@ -12,5 +12,5 @@
 
 -r requirements-rag.txt
 
-PyMuPDF==2.0
+PyMuPDF==2.1
 pdf2docx==0.5.13

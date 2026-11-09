@@ -7,7 +7,7 @@ fastapi==0.162.0
 starlette==1.10.0
 pydantic==2.14.2
 uvicorn[standard]==0.54.0
-websockets==17.2              # installés par uvicorn[standard] : versions figées
+websockets==17.4              # installés par uvicorn[standard] : versions figées
 PyYAML==6.0.3
 httpx==0.28.1
 

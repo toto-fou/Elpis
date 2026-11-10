@@ -385,9 +385,10 @@ follow [SemVer](https://semver.org/).
   `attribute_changes` still compare it. Only `type=password` fields are covered: a field shown
   as text by a "show password" toggle is not.
 - **Browser: no HAR or trace with HTTP credentials.** Both store them in clear (the
-  `Authorization` header, the context options), so `pw_session(start)` refuses to combine
-  `record_har` or `trace` with a username and password (`recording_with_credentials`), and
-  saved credentials are not attached to a recorded session. Video recording is unaffected.
+  `Authorization` header, the context options), so the browser service refuses to combine
+  `record_har` or `trace` with a username and password (`recording_with_credentials`); a secure
+  session, the only one that receives an `http-auth` secret, refuses every recording (video
+  included). Video recording of an ordinary session is unaffected.
 
 ## 0.1.2 — 2026-11-01
 

@@ -58,16 +58,15 @@ follow [SemVer](https://semver.org/).
 - **Browser service: the Chromium headless shell and nothing else.** A new installation
   downloads only the Chromium headless shell and ffmpeg (`playwright install --only-shell
   chromium`): about 290 MB on disk instead of 710 MB with the full Chromium. The `navigateur`
-  apt group (`deploy/prerequis-apt.txt`) keeps only what the headless shell loads, 21 lines
-  instead of 32 (no more Xvfb, X server, CUPS, Cairo, Pango, CJK or emoji fonts): on a minimal
-  Debian 12 that is 33 packages and 9 MB to download instead of 112 and 100 MB; on Debian 13,
-  51 packages and 55 MB instead of 114 and 100 MB (its `libgbm1` pulls Mesa and LLVM). The
-  offline package carries the same builds (`browser/`: about 120 MB instead of 305 MB);
-  `browser-service/fetch_offline_deps.sh` without `--no-apt` vendors this group with its
-  dependencies missing from a minimal Debian, and `install_offline.sh` installs only the
-  packages the machine lacks. Pages in Chinese, Japanese, Korean or Thai, and emoji, show as
-  boxes in screenshots unless their fonts are installed by hand. **Existing installations keep
-  their packages and browsers**: nothing is removed.
+  apt group (`deploy/prerequis-apt.txt`) keeps what the headless shell loads and the fonts of
+  Playwright's list (Latin, CJK, Thai, emoji), 28 lines instead of 32 (no more Xvfb, X server,
+  CUPS, Cairo or Pango): on a minimal Debian 12 that is 50 packages and 37 MB to download
+  instead of 112 and 100 MB; on Debian 13, 68 packages and 87 MB instead of 114 and 100 MB
+  (its `libgbm1` pulls Mesa and LLVM). The offline package carries the same builds
+  (`browser/`: about 120 MB instead of 305 MB); `browser-service/fetch_offline_deps.sh`
+  without `--no-apt` vendors this group with its dependencies missing from a minimal Debian,
+  and `install_offline.sh` installs only the packages the machine lacks. **Existing
+  installations keep their packages and browsers**: nothing is removed.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three

@@ -26,7 +26,7 @@ fonts-liberation
 fonts-crosextra-carlito
 fonts-crosextra-caladea
 
-# navigateur — bibliothèques du headless shell de Chromium pour le service navigateur (Debian 12 : noms sans t64)
+# navigateur — bibliothèques et polices du headless shell de Chromium pour le service navigateur (Debian 12 : noms sans t64)
 ## une ligne par bibliothèque que charge chrome-headless-shell (readelf -d : NEEDED), hors libc6 et libgcc-s1, présents sur toute Debian
 ## GLib (glib, gobject, gio), NSS et NSPR (avec les modules de NSS chargés à l'exécution), D-Bus, udev, expat
 libglib2.0-0t64 | libglib2.0-0
@@ -52,6 +52,14 @@ libasound2t64 | libasound2
 ## texte des pages : configuration de fontconfig (/etc/fonts, lue par le fontconfig intégré au headless shell) et une police sans, serif et mono
 fontconfig-config
 fonts-liberation
+## polices de la liste de Playwright pour Chromium (émoji, Unicode, CJK, thaï) : les captures sont lues par le modèle de vision
+fonts-noto-color-emoji
+fonts-unifont
+xfonts-scalable
+fonts-ipafont-gothic
+fonts-wqy-zenhei
+fonts-tlwg-loma-otf
+fonts-freefont-ttf
 
 # https — frontal Caddy (certificat local ou Let's Encrypt)
 caddy

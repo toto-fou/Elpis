@@ -56,12 +56,14 @@ sudo apt install --no-install-recommends \
     libreoffice-writer-nogui libreoffice-calc-nogui libreoffice-impress-nogui \
     fonts-dejavu fonts-liberation fonts-crosextra-carlito \
     fonts-crosextra-caladea
-# navigateur: libraries of the Chromium headless shell for the browser service
+# navigateur: libraries and fonts of the Chromium headless shell for the browser service
 sudo apt install --no-install-recommends libglib2.0-0t64 libnss3 libnspr4 \
     libdbus-1-3 libudev1 libexpat1 libatk1.0-0t64 libatk-bridge2.0-0t64 \
     libatspi2.0-0t64 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
     libxfixes3 libxrandr2 libxkbcommon0 libgbm1 libasound2t64 \
-    fontconfig-config fonts-liberation
+    fontconfig-config fonts-liberation fonts-noto-color-emoji fonts-unifont \
+    xfonts-scalable fonts-ipafont-gothic fonts-wqy-zenhei fonts-tlwg-loma-otf \
+    fonts-freefont-ttf
 # https: Caddy front end (local certificate or Let's Encrypt)
 sudo apt install --no-install-recommends caddy
 # postgresql-local: PostgreSQL server on this machine (--db postgres-local)
@@ -79,13 +81,12 @@ Debian 12, without the `t64` suffix); Caddy comes from main on Debian 12 and
 handle only the base: install the equivalent of the file, then run
 `./install.sh --skip-system`.
 
-The `navigateur` group holds only what the Chromium headless shell loads (the
-browser service runs nothing else): no X server, no Xvfb, and a single font
-family (Liberation). Pages in Chinese, Japanese, Korean or Thai, and emoji,
-show as boxes in screenshots and PDFs unless their fonts are installed by hand
-(`fonts-noto-cjk`, `fonts-noto-color-emoji`…); the page text read by the
-tools is not affected. An installation made before keeps the packages of the
-former, longer list: nothing is removed.
+The `navigateur` group holds what the Chromium headless shell loads (the
+browser service runs nothing else) and the fonts of Playwright's list for
+Chromium (Latin, Chinese, Japanese, Korean, Thai, emoji), so that screenshots
+read by a vision model show every script: no X server, no Xvfb. An
+installation made before keeps the packages of the former, longer list:
+nothing is removed.
 
 `./install.sh --dry-run` prints what the installation would do on this
 machine, without prompts (default answers and command-line options), without

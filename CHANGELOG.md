@@ -10,18 +10,22 @@ follow [SemVer](https://semver.org/).
 
 - **Secrets vault (core).** One store, the `vault_secrets` table, for the secrets an account
   (or the instance, for shared connectors) gives to Elpis: website logins, HTTP authentication,
-  Git, LLM and MCP keys, tokens. Each value is encrypted with AES-256-GCM, bound to its owner,
-  kind and name, and tagged with the `kid` of its key; a value that cannot be decrypted is an
-  error, never an empty string. Values are write-only: `/api/secrets` (account) and
-  `/api/admin/secrets` (instance secrets) return metadata only, and only the tool host obtains a
-  value, through the signed internal resolution, for an origin in the secret's scope. Names are
-  strict slugs; widening a scope or allowing an unverified TLS certificate requires the value
-  again; a new value raises the version. Every change, use and refusal is written to the
-  security journal (`vault.*`, never a value). The key stays out of the database:
-  `sudo ./elpis vault setup` creates `/etc/elpis/vault.key` (0440, never replaced; otherwise a
-  fallback `user_db/.vault.key`, which `./elpis doctor` reports), `./elpis vault status` and
-  `./elpis vault rekey --from <old key>` check and change it, `./elpis secret ls` lists the
-  metadata. **Back the key up separately from the backups** (`docs/operations.md`).
+  Git, LLM and MCP keys, tokens. Each value is encrypted with AES-256-GCM and tagged with the
+  `kid` of its key. It is bound to its owner, kind and name and to the columns that decide its use
+  (scope, policy, state, version, user name), so a row edited directly in the database no longer
+  decrypts. A value that cannot be decrypted is an error, never an empty string. Values are
+  write-only: `/api/secrets` (account) and `/api/admin/secrets` (instance secrets) return metadata
+  only, and only the tool host obtains a value, through the signed internal resolution, for an
+  origin in the secret's scope. Names are strict slugs; widening a scope or allowing an unverified
+  TLS certificate requires the value again; a new value raises the version. Every change, every
+  use and every refused resolution is written to the security journal (`vault.*`, never a value).
+  The key stays out of the database: `sudo ./elpis vault setup` creates `/etc/elpis/vault.key`
+  (0440, never replaced; otherwise a fallback `user_db/.vault.key`, created only while the vault
+  is empty and reported by `./elpis doctor`). Only `main` and `admin` can read it. Prefer this
+  file to `ELPIS_VAULT_KEY` in `.env`. `./elpis vault status` and `./elpis vault rekey --from
+  <old key>` check and change the key, and `./elpis secret ls` lists the metadata. **Back the key
+  up separately from the backups** (`docs/operations.md`). **After updating, run
+  `sudo ./elpis service install`** so that the other units lose access to the key.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and

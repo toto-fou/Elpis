@@ -886,12 +886,26 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
 
 | Variable | Default | Description |
 |---|---|---|
-| `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in base64 (or 64 hexadecimal digits). An invalid value is refused, with no fallback |
+| `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in canonical base64 (44 characters, as printed by `base64`) or 64 hexadecimal digits; a key made of one repeated byte is refused. An invalid value is an error, with no fallback |
 | `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback |
-| — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
+| — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved, and only while the vault is empty. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
 
-A key file that exists but cannot be read (permissions) or does not hold a valid key is an error:
-the vault never falls back to another key, since secrets encrypted with it could not be read later.
+- **Prefer the key file to `ELPIS_VAULT_KEY`.** A value in `.env` sits in a file of the repository
+  that every unit reads. `main` and `admin` remove both variables from their environment as soon as
+  they have read them, so no child process inherits them. The other units (`toolhost`, `browser`,
+  `rag`, `qdrant`) unset them (`UnsetEnvironment=`) and cannot open the key files
+  (`InaccessiblePaths=`), as do the processes started by `./elpis start`. Even so, `.env` still
+  travels with copies of the folder.
+- **A key file that exists but cannot be read** (permissions) or does not hold a valid key is an
+  error. The vault never falls back to another key, since secrets encrypted with it could not be
+  read later.
+- **When secrets exist and no key is found** (the key file was deleted), saving a secret is
+  refused (`secret_key_unavailable`) instead of creating a new fallback key, and `./elpis doctor`
+  says so: restore the key.
+- **`sudo ./elpis vault setup` and the permission check of `./elpis doctor` only handle
+  `/etc/elpis/vault.key`.** With `ELPIS_VAULT_KEY_PATH`, create and protect the file yourself
+  (0440, root and a group holding the service account alone, readable by no other unit). The
+  doctor still reports what the core sees: key source, `kid`, secrets under another key.
 
 #### Local MCP server
 

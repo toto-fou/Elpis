@@ -49,11 +49,14 @@ export {
 } from "./init";
 export type { InfoBase, Migration, NotesMigration, OptionsInfo, RapportInit } from "./init";
 export {
+  avecEffacementSur,
+  cleHeritee,
   cleImagesHeritee,
   genreCleImages,
   installerRangementCoffre,
   NOM_CLE_IMAGES,
   nomCleConnecteur,
+  ouvrirSceauImages,
   POLITIQUE_CLE_MOTEUR,
   proprietaireConnecteur,
   reprendreClesLlm,
@@ -61,4 +64,4 @@ export {
   SCHEMA_ILLISIBLE,
   semerCleImages,
 } from "./coffre-llm-images";
-export type { BilanReprise, RangerSecret, SecretARanger } from "./coffre-llm-images";
+export type { BilanReprise, CleLue, RangerSecret, SecretARanger } from "./coffre-llm-images";

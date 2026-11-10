@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/db/src/coffre-llm-images.ts — migration 0028_vault_llm_images : clés des connecteurs LLM (Fernet ou en clair) et clé du moteur d'images (config.json) rangées dans le coffre par le core ; une clé illisible est gardée et signalée, jamais perdue. */
 import { configView } from "@elpis/config";
-import { CleCoffreIndisponible, decryptStrict, InvalidToken } from "@elpis/securite";
+import { CleCoffreIndisponible, decryptStrict, EncryptionUnavailable, InvalidToken } from "@elpis/securite";
 
 import type { Executeur } from "./base";
 import { MigrationDifferee } from "./migration";
@@ -91,14 +91,39 @@ async function lignesHeritees(x: Executeur): Promise<LigneHeritee[]> {
   );
 }
 
-/** Ancienne clé en clair : jeton Fernet déchiffré, sinon le texte tel quel (schéma `plain`) ; `null` si le jeton est illisible. */
-function clairHerite(l: LigneHeritee): string | null {
-  if (l.key_scheme !== "fernet" && l.key_scheme !== SCHEMA_ILLISIBLE) return l.api_key_enc;
+/** Ancienne clé lue : son texte, ou le motif pour lequel elle ne peut pas l'être (elle est alors gardée et signalée). */
+export type CleLue = { clair: string } | { motif: string };
+
+const MOTIF_ILLISIBLE = "illisible avec la clé de chiffrement actuelle";
+
+/** Jeton Fernet de la clé maître déchiffré ; jeton illisible ou clé maître indisponible : le motif, jamais d'échec de la reprise entière. */
+function ouvrirFernet(enc: string): CleLue {
   try {
-    return decryptStrict(l.api_key_enc);
+    return { clair: decryptStrict(enc) };
   } catch (e) {
-    if (e instanceof InvalidToken) return null;
+    if (e instanceof InvalidToken) return { motif: MOTIF_ILLISIBLE };
+    if (e instanceof EncryptionUnavailable)
+      return { motif: "clé de chiffrement indisponible (APP_ENCRYPTION_KEY, user_db/.encryption_key)" };
     throw e;
+  }
+}
+
+/** Ancienne clé d'un connecteur : jeton Fernet déchiffré, sinon le texte tel quel (schéma `plain`). */
+export function cleHeritee(enc: string, schema: unknown): CleLue {
+  if (schema !== "fernet" && schema !== SCHEMA_ILLISIBLE) return { clair: enc };
+  const r = ouvrirFernet(enc);
+  return "clair" in r && !r.clair.isWellFormed() ? { motif: MOTIF_ILLISIBLE } : r;
+}
+
+/** `f` avec `secure_delete` sur la connexion SQLite (anciennes clés effacées des pages, pas seulement libérées), réglage d'avant remis ensuite ; PostgreSQL : tel quel. */
+export async function avecEffacementSur<T>(x: Executeur, f: () => Promise<T>): Promise<T> {
+  if (x.dialecte !== "sqlite") return f();
+  const avant = Number((await x.get<{ secure_delete: number }>("PRAGMA secure_delete"))?.secure_delete ?? 0);
+  await x.run("PRAGMA secure_delete = 1");
+  try {
+    return await f();
+  } finally {
+    await x.run(`PRAGMA secure_delete = ${[0, 1, 2].includes(avant) ? avant : 0}`);
   }
 }
 
@@ -109,18 +134,19 @@ export async function reprendreClesLlm(x: Executeur, lignes?: LigneHeritee[]): P
   for (const l of lignes ?? (await lignesHeritees(x))) {
     const id = Number(l.id);
     const proprietaire = proprietaireConnecteur(l.scope, l.owner_user_id);
-    const clair = clairHerite(l);
-    if (clair === null || !clair.isWellFormed()) {
+    const lue = cleHeritee(l.api_key_enc, l.key_scheme);
+    if ("motif" in lue) {
       b.restantes += 1;
       if (l.key_scheme !== SCHEMA_ILLISIBLE)
         await x.run("UPDATE llm_connectors SET key_scheme = ? WHERE id = ?", [SCHEMA_ILLISIBLE, id]);
       b.avertissements.push(
         `connecteur LLM #${id} (${l.provider_type ?? "?"}, ${proprietaire === null ? "partagé" : `compte ${proprietaire}`}) : ` +
-          "ancienne clé illisible avec la clé de chiffrement actuelle, gardée et signalée (has_key faux) : " +
+          `ancienne clé ${lue.motif}, gardée et signalée (has_key faux) : ` +
           "la ressaisir, ou rétablir l'ancienne clé de chiffrement puis redémarrer",
       );
       continue;
     }
+    const clair = lue.clair;
     if (!clair) {
       await x.run("UPDATE llm_connectors SET api_key_enc = '', key_scheme = 'plain' WHERE id = ?", [id]);
       continue;
@@ -167,26 +193,22 @@ function origineScellee(o: string): string | null {
   return URL.canParse(adresse) ? new URL(adresse).origin : null;
 }
 
-/** Clé et origine WHATWG du moteur scellées par l'ancienne console ; `null` si le jeton ou son contenu est illisible. */
-export function ouvrirSceauImages(enc: string): { cle: string; origine: string } | null {
-  let texte: string;
-  try {
-    texte = decryptStrict(enc);
-  } catch (e) {
-    if (e instanceof InvalidToken) return null;
-    throw e;
-  }
+/** Clé et origine WHATWG du moteur scellées par l'ancienne console ; jeton ou contenu illisible, clé maître indisponible : le motif. */
+export function ouvrirSceauImages(enc: string): { cle: string; origine: string } | { motif: string } {
+  const lue = ouvrirFernet(enc);
+  if ("motif" in lue) return lue;
+  const illisible = { motif: MOTIF_ILLISIBLE };
   let d: unknown;
   try {
-    d = JSON.parse(texte);
+    d = JSON.parse(lue.clair);
   } catch {
-    return null;
+    return illisible;
   }
-  if (d === null || typeof d !== "object" || Array.isArray(d)) return null;
+  if (d === null || typeof d !== "object" || Array.isArray(d)) return illisible;
   const { k, o } = d as Record<string, unknown>;
-  if (typeof k !== "string" || typeof o !== "string" || !k.isWellFormed()) return null;
+  if (typeof k !== "string" || typeof o !== "string" || !k.isWellFormed()) return illisible;
   const origine = origineScellee(o);
-  return origine === null ? null : { cle: k, origine };
+  return origine === null ? illisible : { cle: k, origine };
 }
 
 /** Genre du secret d'instance `image-engine`, `null` s'il n'existe pas. */
@@ -205,12 +227,12 @@ export async function semerCleImages(x: Executeur, enc = cleImagesHeritee()): Pr
   const genre = await genreCleImages(x);
   if (genre === "token") return b;
   const sceau = genre === null ? ouvrirSceauImages(enc) : null;
-  if (sceau === null) {
+  if (sceau === null || "motif" in sceau) {
     b.restantes = 1;
     b.avertissements.push(
-      genre !== null
-        ? `clé du moteur d'images (config.json › image.api_key_enc) gardée : le nom ${NOM_CLE_IMAGES} est déjà pris dans le coffre par un secret ${genre}`
-        : "clé du moteur d'images (config.json › image.api_key_enc) illisible avec la clé de chiffrement actuelle : laissée en place, à ressaisir (console › Images)",
+      sceau === null
+        ? `clé du moteur d'images (config.json › image.api_key_enc) gardée : le nom ${NOM_CLE_IMAGES} est déjà pris dans le coffre par un secret ${genre ?? "?"}`
+        : `clé du moteur d'images (config.json › image.api_key_enc) ${sceau.motif} : laissée en place, à ressaisir (console › Images)`,
     );
     return b;
   }
@@ -226,7 +248,7 @@ export async function semerCleImages(x: Executeur, enc = cleImagesHeritee()): Pr
   return b;
 }
 
-/** Laissée au core quand ce process n'a pas son rangement (hôte d'outils, assistant) et qu'il y a une clé à ranger ; clé du coffre illisible ou absente devant des secrets (le rangement lève `CleCoffreIndisponible`) : échec bruyant, rien de changé. */
+/** Laissée au core quand ce process n'a pas son rangement (hôte d'outils, assistant) et qu'il y a des clés de connecteurs à ranger (la clé du moteur d'images seule ne la retient pas : main la sème à son démarrage) ; clé du coffre illisible ou absente devant des secrets (le rangement lève `CleCoffreIndisponible`) : échec bruyant, rien de changé. */
 export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
   name: "0028_vault_llm_images",
   async migrer(x) {
@@ -234,15 +256,22 @@ export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
     const image = cleImagesHeritee();
     const aSemer = image !== "" && (await genreCleImages(x)) !== "token";
     if (lignes.length === 0 && !aSemer) return;
-    if (ranger === null)
-      throw new MigrationDifferee("clés à ranger dans le coffre : laissée au core, qui en a la clé");
+    if (ranger === null) {
+      if (lignes.length > 0)
+        throw new MigrationDifferee(
+          "clés de connecteurs à ranger dans le coffre : laissée au core, qui en a la clé",
+        );
+      return { infos: ["clé du moteur d'images (config.json) laissée au prochain démarrage de main"] };
+    }
     try {
-      const llm = await reprendreClesLlm(x, lignes);
-      const img = aSemer ? await semerCleImages(x, image) : bilanVide();
-      return {
-        infos: [...llm.infos, ...img.infos],
-        avertissements: [...llm.avertissements, ...img.avertissements],
-      };
+      return await avecEffacementSur(x, async () => {
+        const llm = await reprendreClesLlm(x, lignes);
+        const img = aSemer ? await semerCleImages(x, image) : bilanVide();
+        return {
+          infos: [...llm.infos, ...img.infos],
+          avertissements: [...llm.avertissements, ...img.avertissements],
+        };
+      });
     } catch (e) {
       if (e instanceof CleCoffreIndisponible)
         throw new Error(

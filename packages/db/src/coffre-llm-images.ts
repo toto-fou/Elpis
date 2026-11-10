@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/db/src/coffre-llm-images.ts — migration 0028_vault_llm_images : clés des connecteurs LLM (Fernet ou en clair) et clé du moteur d'images (config.json) rangées dans le coffre par le core ; une clé illisible est gardée et signalée, jamais perdue. */
 import { configView } from "@elpis/config";
-import { chargerCleCoffre, CleCoffreIndisponible, decryptStrict, InvalidToken } from "@elpis/securite";
+import { CleCoffreIndisponible, decryptStrict, InvalidToken } from "@elpis/securite";
 
 import type { Executeur } from "./base";
 import { MigrationDifferee } from "./migration";
@@ -226,7 +226,7 @@ export async function semerCleImages(x: Executeur, enc = cleImagesHeritee()): Pr
   return b;
 }
 
-/** Laissée au core quand ce process n'a pas son rangement (hôte d'outils, assistant) et qu'il y a une clé à ranger ; clé du coffre illisible : échec bruyant. */
+/** Laissée au core quand ce process n'a pas son rangement (hôte d'outils, assistant) et qu'il y a une clé à ranger ; clé du coffre illisible ou absente devant des secrets (le rangement lève `CleCoffreIndisponible`) : échec bruyant, rien de changé. */
 export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
   name: "0028_vault_llm_images",
   async migrer(x) {
@@ -237,7 +237,12 @@ export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
     if (ranger === null)
       throw new MigrationDifferee("clés à ranger dans le coffre : laissée au core, qui en a la clé");
     try {
-      chargerCleCoffre();
+      const llm = await reprendreClesLlm(x, lignes);
+      const img = aSemer ? await semerCleImages(x, image) : bilanVide();
+      return {
+        infos: [...llm.infos, ...img.infos],
+        avertissements: [...llm.avertissements, ...img.avertissements],
+      };
     } catch (e) {
       if (e instanceof CleCoffreIndisponible)
         throw new Error(
@@ -245,11 +250,5 @@ export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
         );
       throw e;
     }
-    const llm = await reprendreClesLlm(x, lignes);
-    const img = aSemer ? await semerCleImages(x, image) : bilanVide();
-    return {
-      infos: [...llm.infos, ...img.infos],
-      avertissements: [...llm.avertissements, ...img.avertissements],
-    };
   },
 };

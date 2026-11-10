@@ -676,12 +676,19 @@ TLS, disk queues, what can still be lost), follow
 ## Secrets vault key
 
 Secrets saved in Elpis (website logins, HTTP authentication, Git, LLM and MCP keys, tokens) are
-rows of the `vault_secrets` table, each value encrypted with AES-256-GCM and bound to its owner,
-kind and name. The key is never in the database; the services take the first of:
+rows of the `vault_secrets` table. Each value is encrypted with AES-256-GCM and bound to its owner,
+kind, name and to the columns that decide its use (scope, policy, state, version, user name): a
+row changed directly in the database no longer decrypts. The key is never in the database; the
+services take the first of:
 
-1. `ELPIS_VAULT_KEY` (environment, `.env`);
+1. `ELPIS_VAULT_KEY` (environment): avoid it, prefer the key file (see
+   [configuration.md](configuration.md#secrets-vault));
 2. `/etc/elpis/vault.key` (or `ELPIS_VAULT_KEY_PATH`);
-3. `user_db/.vault.key`, a fallback created next to the database when the first secret is saved.
+3. `user_db/.vault.key`, a fallback created next to the database when the first secret is saved,
+   and only while the vault is empty.
+
+Only `main` and `admin` can read the key: the other units neither receive the variables nor see
+the key files.
 
 Each encrypted value carries the `kid` of its key (first 8 hexadecimal digits of the SHA-256 of
 the key), so a key change is detected and repaired with `rekey`. Variables:
@@ -697,8 +704,11 @@ sudo systemctl restart elpis.target    # or ./elpis restart
 It creates `/etc/elpis/vault.key`: 32 random bytes in base64, mode 0440, owned by root and by the
 key group of the security journal (the service account's own primary group, or `elpis-cle`), in
 `/etc/elpis` (0750). The service account is found as for `audit setup`. Safe to run again: an
-existing key is kept, never replaced (an invalid one is refused and left as it is), and its owner
-and mode are applied again. The services read the key when they start.
+existing key is kept, never replaced, and its owner and mode are applied again. The key is checked
+by the core itself, with the rule the services apply (canonical base64 or 64 hexadecimal digits,
+32 bytes, not a single repeated byte): an invalid key is refused and left as it is. The command
+therefore needs the core bundle (`./install.sh`). The services read the key when they start, and
+`sudo ./elpis service install` hides it from the units other than `main` and `admin`.
 
 If secrets were saved before, under the fallback key, re-encrypt them once the services have
 restarted, then delete the fallback:
@@ -743,9 +753,16 @@ warns while it is in use.
    key are refused (`secret_undecryptable`).
 3. `./elpis vault rekey --from /home/<account>/vault.key.old` re-encrypts, one by one, the
    secrets of the old key with the current one. A secret changed meanwhile is left for the next
-   run. Exit code 0 when all were re-encrypted, 1 when one could not be (altered), 2 for a bad
-   command line or a missing key. The command is written to the security journal
-   (`vault.key.rekeyed`).
+   run. The command is written to the security journal (`vault.key.rekeyed`, outcome `failure`
+   for any exit code other than 0). Exit codes:
+
+   | Code | Meaning |
+   |---|---|
+   | 0 | No secret is left under another key than the current one |
+   | 1 | At least one secret of the old key could not be re-encrypted (altered, or a column changed in the database) |
+   | 2 | Bad command line, old key missing or invalid, no current key |
+   | 3 | Nothing altered, but secrets remain under another key: a third key, or secrets changed during the run (run it again, then `./elpis vault status`) |
+
 4. `./elpis vault status` reports no secret under another key: destroy the old copy.
 
 A relative `--from` path is read from the Elpis folder.
@@ -762,12 +779,23 @@ A relative `--from` path is read from the Elpis folder.
 They use the core bundle and the database. Run them as the service account; with `sudo`, they
 switch to it, so that root never creates database files.
 
+### Losing the key
+
+When `/etc/elpis/vault.key` disappears while secrets exist, the services cannot read them (after
+a restart), and saving a secret is refused (`secret_key_unavailable`): no new fallback key is
+created, since secrets encrypted with it would hide the problem. `./elpis doctor` and
+`./elpis vault status` say so. Restore the key from its copy and restart the services. Without a
+copy, run `sudo ./elpis vault setup`, then give each secret its value again (rotation).
+
 ### What `./elpis doctor` checks
 
-- `/etc/elpis/vault.key`: 0440, root, group of the service account alone, readable by it;
+- `/etc/elpis/vault.key`: 0440, root, group of the service account alone, readable by it. Run
+  under the service account, a session opened before the account joined that group cannot read it
+  (the services started from it could not open the vault): the doctor says so, as for the key of
+  the security journal;
 - the key in use, as the core sees it: a warning for the fallback `user_db/.vault.key`, for a key
-  that cannot be read or is invalid, and for secrets encrypted with another key
-  (`./elpis vault rekey`).
+  that cannot be read or is invalid, for secrets encrypted with another key
+  (`./elpis vault rekey`), and for secrets left without any key (restore it).
 
 ## Recovering from an incident
 

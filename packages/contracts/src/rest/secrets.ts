@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/secrets.ts — coffre « Secrets » : genres, portées, politique, vue publique (jamais de valeur), corps des routes du compte et de la console, résolution interne pour l'hôte d'outils. */
+/** packages/contracts/src/rest/secrets.ts — coffre « Secrets » : genres, portées, politique, vue publique (jamais de valeur), corps des routes du compte et de la console, secrets attachés à une conversation, résolution et recherche pour l'hôte d'outils. */
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
@@ -15,6 +15,11 @@ export type EtatSecret = (typeof ETATS_SECRET)[number];
 /** Usages que l'hôte d'outils peut faire résoudre (`POST /api/internal/secrets/resolve`). */
 export const USAGES_RESOLUTION_SECRET = ["web-login", "http-auth"] as const;
 export type UsageResolutionSecret = (typeof USAGES_RESOLUTION_SECRET)[number];
+
+/** Genres qu'une conversation attache (`/secret attach`) : ceux des outils du navigateur. */
+export const GENRES_ATTACHABLES = USAGES_RESOLUTION_SECRET;
+/** Secrets attachés à une conversation, au plus. */
+export const SECRETS_ATTACHES_MAX = 10;
 
 /** Nom d'un secret : slug strict, unique par propriétaire (compte, ou instance). */
 export const RE_NOM_SECRET = /^[a-z0-9][a-z0-9._-]{0,47}$/u;
@@ -154,3 +159,26 @@ export const schemaReponseResolutionSecret = z.object({
   version: entier,
 });
 export type ReponseResolutionSecret = z.infer<typeof schemaReponseResolutionSecret>;
+
+/** Ids des secrets attachés à une conversation : `secrets` du corps d'un tour (remplace l'ensemble, ids invalides écartés) et `PUT /api/chats/:chat_id/secrets`. */
+export const schemaIdsSecretsAttaches = z.array(entier.positive()).max(SECRETS_ATTACHES_MAX);
+/** Remplacement de l'ensemble attaché : secrets du compte, `web-login` ou `http-auth`, vérifiés ; `[]` détache tout. */
+export const schemaCorpsSecretsChat = z.strictObject({ ids: schemaIdsSecretsAttaches });
+export type CorpsSecretsChat = z.infer<typeof schemaCorpsSecretsChat>;
+/** Secrets attachés à la conversation, dans l'ordre d'attachement : métadonnées seules. */
+export const schemaReponseSecretsChat = z.object({ secrets: z.array(schemaSecret) });
+export type ReponseSecretsChat = z.infer<typeof schemaReponseSecretsChat>;
+
+/** Secrets applicables à une origine pour la conversation de l'enveloppe signée (sans valeur) : `pw_session` ouvre une session sécurisée s'il y en a un. */
+export const schemaCorpsSecretsApplicables = z.strictObject({
+  origin: z.string().min(1).max(2048),
+  name: nom.nullable().optional(),
+});
+export const schemaSecretApplicable = z.object({
+  name: z.string(),
+  kind: z.enum(GENRES_ATTACHABLES),
+  username: z.string().nullable(),
+  tls: z.enum(["strict", "insecure"]),
+});
+export type SecretApplicable = z.infer<typeof schemaSecretApplicable>;
+export const schemaReponseSecretsApplicables = z.object({ secrets: z.array(schemaSecretApplicable) });

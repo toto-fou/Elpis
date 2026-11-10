@@ -416,6 +416,14 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   ),
   c("secrets", "POST", "/api/secrets/:secret_id/verify", secrets.schemaReponseSecret),
   c("secrets", "DELETE", "/api/secrets/:secret_id", schemaOk),
+  c("secrets", "GET", "/api/chats/:chat_id/secrets", secrets.schemaReponseSecretsChat),
+  c(
+    "secrets",
+    "PUT",
+    "/api/chats/:chat_id/secrets",
+    secrets.schemaReponseSecretsChat,
+    secrets.schemaCorpsSecretsChat,
+  ),
   c("admin-secrets", "GET", "/api/admin/secrets", secrets.schemaReponseSecrets),
   c(
     "admin-secrets",

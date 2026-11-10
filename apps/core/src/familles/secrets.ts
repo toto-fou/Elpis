@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/secrets.ts — coffre « Secrets » : routes du compte (`/api/secrets*`, main), secrets d'instance de la console (`/api/admin/secrets*`, admin), résolution pour l'hôte d'outils (`/api/internal/secrets/resolve`, jeton de service et enveloppe signée) ; une valeur ne sort que vers l'hôte d'outils. */
+/** apps/core/src/familles/secrets.ts — coffre « Secrets » : routes du compte (`/api/secrets*`, main), secrets attachés à une conversation (`/api/chats/:chat_id/secrets`), secrets d'instance de la console (`/api/admin/secrets*`, admin), résolution et recherche sans valeur pour l'hôte d'outils (`/api/internal/secrets/*`, jeton de service et enveloppe signée) ; une valeur ne sort que vers l'hôte d'outils. */
 import {
   schemaCorpsCreationSecret,
   schemaCorpsMajSecret,
   schemaCorpsResolutionSecret,
   schemaCorpsRotationSecret,
+  schemaCorpsSecretsApplicables,
+  schemaCorpsSecretsChat,
 } from "@elpis/contracts";
 import { HttpError } from "@elpis/commun";
+import type { Identity } from "@elpis/securite";
 import type { Base } from "@elpis/db";
 import { corpsJson } from "@elpis/http";
 import type { FastifyReply, FastifyRequest } from "fastify";
@@ -14,6 +17,7 @@ import type { ZodType } from "zod";
 
 import { ipDeRequete } from "../journal-securite/auditer";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
+import { conversationRacine, remplacerSecretsAttaches, secretsAttaches } from "../secrets/attache";
 import { ErreurSecret, refusDeCle } from "../secrets/erreurs";
 import {
   creerSecret,
@@ -24,7 +28,8 @@ import {
   verifierSecret,
 } from "../secrets/stockage";
 import type { Acteur, Proprietaire } from "../secrets/stockage";
-import { lireSecretPourUsage } from "../secrets/usage";
+import { lireSecretPourUsage, secretsApplicables } from "../secrets/usage";
+import type { ContexteUsage } from "../secrets/usage";
 import { utilisateur } from "./comptes";
 import { compteSigne } from "./interne-toolhost";
 import type { DependancesInterne } from "./interne-toolhost";
@@ -119,12 +124,37 @@ function routesProprietaire(
   ];
 }
 
-/** Conversation de la résolution : celle de l'enveloppe signée ; celle du corps seulement si l'enveloppe n'en porte pas, refusée si elle diffère. */
+/** Conversation d'un appel d'outil : celle de l'enveloppe signée seulement (sans elle, aucune ; le coffre refuse) ; un `chat_id` du corps doit lui être égal. */
 function conversation(signee: string, corps: string | null | undefined): string | null {
-  if (!signee) return corps || null;
   if (corps && corps !== signee)
     throw new ErreurSecret(400, "secret_request_invalid", "chat_id does not match the signed identity.");
-  return signee;
+  return signee || null;
+}
+
+/** Contexte d'un appel de l'hôte d'outils : compte et conversation signés, attachement exigé ; sous-agent par l'enveloppe (le coffre le tire aussi de la conversation `racine#task-…`, et le run de routine de sa clé). */
+function contexteHote(
+  uid: number,
+  username: string,
+  identite: Identity,
+  chatCorps?: string | null,
+  run?: string | null,
+): ContexteUsage {
+  return {
+    proprietaire: uid,
+    acteur: { userId: uid, username, ip: null },
+    exigeAttachement: true,
+    chatId: conversation(identite.chat_id, chatCorps),
+    run: run ?? null,
+    sousAgent: identite.subagent !== undefined && identite.subagent !== null,
+  };
+}
+
+/** Conversation du chemin ; une forme vide ou d'un sous-agent ressemble à une conversation inconnue. */
+function chatDuChemin(req: FastifyRequest): string {
+  const brut = (req.params as Record<string, unknown> | undefined)?.["chat_id"];
+  const id = typeof brut === "string" ? brut : "";
+  if (!id || id.length > 200 || conversationRacine(id) !== id) throw new HttpError(404, "chat not found");
+  return id;
 }
 
 export function creerFamilleSecrets(dep: DependancesSecrets): Famille {
@@ -147,6 +177,21 @@ export function creerFamilleSecrets(dep: DependancesSecrets): Famille {
         const uid = utilisateur(req);
         return { secret: await verifierSecret(base, uid, idSecret(req), acteurDe(req)) };
       }),
+      route("GET", "/api/chats/:chat_id/secrets", "session", async (req) => {
+        const secrets = await secretsAttaches(base, utilisateur(req), chatDuChemin(req));
+        if (secrets === null) throw new HttpError(404, "chat not found");
+        return { secrets };
+      }),
+      route("PUT", "/api/chats/:chat_id/secrets", "session", async (req) => {
+        const uid = utilisateur(req);
+        const chatId = chatDuChemin(req);
+        const { ids } = corpsValide(req, schemaCorpsSecretsChat);
+        const secrets = await remplacerSecretsAttaches(base, uid, chatId, ids, acteurDe(req), {
+          strict: true,
+        });
+        if (secrets === null) throw new HttpError(404, "chat not found");
+        return { secrets };
+      }),
       ...routesProprietaire(base, "/api/admin/secrets", "admin", () => null),
       route("POST", "/api/internal/secrets/resolve", "service", async (req, rep) => {
         const { uid, username, identite } = await compteSigne(dep, req);
@@ -154,16 +199,18 @@ export function creerFamilleSecrets(dep: DependancesSecrets): Famille {
         const r = await lireSecretPourUsage(
           base,
           { usage: corps.usage, cible: corps.origin, nom: corps.name ?? null },
-          {
-            proprietaire: uid,
-            acteur: { userId: uid, username, ip: null },
-            chatId: conversation(identite.chat_id, corps.chat_id),
-            run: corps.run ?? null,
-            sousAgent: identite.subagent !== undefined && identite.subagent !== null,
-          },
+          contexteHote(uid, username, identite, corps.chat_id, corps.run),
         );
         rep.header("cache-control", "no-store");
         return { name: r.name, username: r.username, secret: r.secret, tls: r.tls, version: r.version };
+      }),
+      route("POST", "/api/internal/secrets/match", "service", async (req) => {
+        const { uid, username, identite } = await compteSigne(dep, req);
+        const corps = corpsValide(req, schemaCorpsSecretsApplicables);
+        const nom = corps.name?.trim() || null;
+        return {
+          secrets: await secretsApplicables(base, corps.origin, nom, contexteHote(uid, username, identite)),
+        };
       }),
     ],
   };

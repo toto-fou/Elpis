@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/usage.ts — `lireSecretPourUsage` : secret d'un propriétaire choisi par son nom ou par sa cible (origine, hôte, connecteur, serveur), contrôlé (genre, attachement, état, portée), déchiffré, compté et journalisé. */
-import type { GenreSecret, PolitiqueSecret } from "@elpis/contracts";
+/** apps/core/src/secrets/usage.ts — `lireSecretPourUsage` : secret d'un propriétaire choisi par son nom ou par sa cible (origine, hôte, connecteur, serveur), contrôlé (genre, attachement à la conversation, état, portée), déchiffré, compté et journalisé ; `secretsApplicables` : les mêmes contrôles sans valeur, pour ouvrir une session sécurisée. */
+import type { GenreSecret, PolitiqueSecret, SecretApplicable } from "@elpis/contracts";
 import type { Base, Executeur } from "@elpis/db";
 
+import { contexteDeConversation, genreAttachable, idsAttaches } from "./attache";
 import { ErreurSecret } from "./erreurs";
 import { hoteExact, lirePolitique, origineExacte, origines, parOrigines } from "./portee";
 import { dechiffrerLigne, journaliser, lignesDe, lireLigneParNom, maintenant, porteeDe } from "./stockage";
@@ -20,9 +21,13 @@ export interface DemandeUsage {
 export interface ContexteUsage {
   proprietaire: Proprietaire;
   acteur: Acteur;
+  /** Vrai pour un appel d'outil (hôte d'outils : `/resolve`, `/match`) : la conversation signée doit être du compte et le secret y être attaché ; faux pour les connecteurs du core (git, LLM, MCP, moteur d'images), qui n'ont pas de conversation. */
+  exigeAttachement: boolean;
   chatId?: string | null;
   run?: string | null;
+  /** Sous-agent porté par l'enveloppe ; avec l'attachement, aussi tiré de la conversation (`racine#task-…`). */
   sousAgent?: boolean;
+  /** Run de routine ; avec l'attachement, tiré de la conversation signée (`routine:<id>:run:<n>` du compte, en cours). */
   routine?: boolean;
 }
 
@@ -35,14 +40,30 @@ export interface SecretResolu {
   version: number;
 }
 
-/** CROCHET V4 — attachement du secret à la conversation (`chats.meta_json.secrets`, sous-agents) : vrai tant qu'il n'existe pas. */
+/** Attachement à la conversation de l'appel (`exigeAttachement`) : secret du compte, conversation signée du compte ; un run de routine du compte s'en remet à la politique ; sinon le secret est attaché à la conversation racine (`chats.meta_json.secrets`, héritée par ses sous-agents). Sans exigence (connecteurs du core) : vrai. */
 export async function estAttache(
-  _x: Executeur,
-  _secret: { id: number; name: string },
-  _contexte: ContexteUsage,
+  x: Executeur,
+  secret: { id: number; name: string; user_id: number | null },
+  c: ContexteUsage,
 ): Promise<boolean> {
-  return true;
+  if (!c.exigeAttachement) return true;
+  if (secret.user_id === null || c.proprietaire === null || secret.user_id !== c.proprietaire) return false;
+  const conv = await contexteDeConversation(x, c.proprietaire, c.chatId);
+  if (conv === null) return false;
+  if (conv.routine) return true;
+  return (await idsAttaches(x, c.proprietaire, c.chatId ?? ""))?.includes(secret.id) ?? false;
 }
+
+/** Contexte vérifié d'un usage qui exige l'attachement : marqueurs de sous-agent et de routine tirés de la conversation signée (ajoutés à ceux de l'enveloppe) ; `null` s'il ne se détermine pas. */
+async function contexteVerifie(x: Executeur, c: ContexteUsage): Promise<ContexteUsage | null> {
+  if (!c.exigeAttachement) return c;
+  const conv = await contexteDeConversation(x, c.proprietaire, c.chatId);
+  if (conv === null) return null;
+  return { ...c, sousAgent: c.sousAgent === true || conv.sousAgent, routine: conv.routine };
+}
+
+const HORS_CONVERSATION =
+  "This call comes from no conversation of this account: secrets are only usable in a conversation they are attached to.";
 
 /** Politique du secret envers l'appelant : un sous-agent ou une routine seulement si elle le permet. */
 function permisParPolitique(l: LigneSecret, c: ContexteUsage): boolean {
@@ -51,7 +72,14 @@ function permisParPolitique(l: LigneSecret, c: ContexteUsage): boolean {
 }
 
 async function attache(x: Executeur, l: LigneSecret, c: ContexteUsage): Promise<boolean> {
-  return permisParPolitique(l, c) && (await estAttache(x, { id: Number(l.id), name: l.name }, c));
+  return (
+    permisParPolitique(l, c) &&
+    (await estAttache(
+      x,
+      { id: Number(l.id), name: l.name, user_id: l.user_id === null ? null : Number(l.user_id) },
+      c,
+    ))
+  );
 }
 
 /** Cible normalisée selon l'usage ; illisible : `null`. */
@@ -187,14 +215,17 @@ async function parCible(
   return actifs[0] as LigneSecret;
 }
 
-/** `lireSecretPourUsage` : secret contrôlé puis déchiffré ; `use_count` et `last_used_at` mis à jour, `vault.secret.used` journalisé ; tout refus lève une `ErreurSecret` et journalise `vault.secret.refused`. */
+/** `lireSecretPourUsage` : contexte vérifié (attachement exigé : conversation signée du compte), secret contrôlé puis déchiffré ; `use_count` et `last_used_at` mis à jour, `vault.secret.used` journalisé ; tout refus lève une `ErreurSecret` et journalise `vault.secret.refused`. */
 export async function lireSecretPourUsage(
   base: Base,
   d: DemandeUsage,
-  c: ContexteUsage,
+  contexte: ContexteUsage,
 ): Promise<SecretResolu> {
   const cible = cibleNormalisee(d.usage, d.cible);
   const nom = d.nom?.trim() || null;
+  const c =
+    (await contexteVerifie(base, contexte)) ??
+    refuser(d, contexte, 422, "secret_not_attached", HORS_CONVERSATION);
   if (cible === null && d.usage !== "token")
     refuser(
       d,
@@ -235,4 +266,59 @@ export async function lireSecretPourUsage(
     tls: lirePolitique(l.policy_json).tls,
     version: Number(l.version),
   };
+}
+
+/** Secret applicable vu de l'hôte d'outils : nom, genre, identifiant et TLS, jamais la valeur. */
+function applicable(l: LigneSecret): SecretApplicable {
+  return {
+    name: l.name,
+    kind: l.kind === "http-auth" ? "http-auth" : "web-login",
+    username: l.username ?? null,
+    tls: lirePolitique(l.policy_json).tls,
+  };
+}
+
+/** `secretsApplicables` : par nom, le secret désigné (connu, du navigateur, attaché, vérifié, portée couvrant l'origine) ou son refus codé ; sans nom, tous les secrets attachés et vérifiés qui couvrent l'origine (ni valeur, ni usage compté, ni journal). */
+export async function secretsApplicables(
+  x: Executeur,
+  origine: string,
+  nom: string | null,
+  contexte: ContexteUsage,
+): Promise<SecretApplicable[]> {
+  const c = await contexteVerifie(x, { ...contexte, exigeAttachement: true });
+  if (c === null) throw new ErreurSecret(422, "secret_not_attached", HORS_CONVERSATION);
+  const cible = origineExacte(origine);
+  if (cible === null)
+    throw new ErreurSecret(422, "secret_scope_mismatch", "Secrets apply to http(s) origins only.");
+  if (nom !== null) {
+    const l = await lireLigneParNom(x, c.proprietaire, nom);
+    if (l === null) throw new ErreurSecret(404, "secret_unknown", `No secret named '${nom}'.`);
+    if (!genreAttachable(l.kind))
+      throw new ErreurSecret(
+        422,
+        "secret_type_mismatch",
+        `Secret '${nom}' is a ${l.kind} secret: the browser uses web-login and http-auth secrets only.`,
+      );
+    if (!(await attache(x, l, c)))
+      throw new ErreurSecret(
+        422,
+        "secret_not_attached",
+        `Secret '${nom}' is not attached to this conversation.`,
+      );
+    if (l.state !== "active")
+      throw new ErreurSecret(
+        422,
+        "secret_unverified",
+        `Secret '${nom}' is unverified: its owner must verify it in Settings › Secrets.`,
+      );
+    if (!origines(porteeDe(l)).includes(cible))
+      throw new ErreurSecret(422, "secret_scope_mismatch", `Secret '${nom}' does not apply to ${cible}.`);
+    return [applicable(l)];
+  }
+  const sortie: SecretApplicable[] = [];
+  for (const l of await lignesDe(x, c.proprietaire)) {
+    if (!genreAttachable(l.kind) || l.state !== "active" || !origines(porteeDe(l)).includes(cible)) continue;
+    if (await attache(x, l, c)) sortie.push(applicable(l));
+  }
+  return sortie;
 }

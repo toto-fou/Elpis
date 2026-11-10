@@ -57,6 +57,8 @@ export const schemaChat = z.object({
   wake_disabled: z.boolean().optional(),
   /** RAG du chat (`meta_json.rag`), collections réduites à celles que le compte lit encore ; absent si jamais réglé. */
   rag: schemaReglageRagChat.optional(),
+  /** Ids des secrets attachés à la conversation (`meta_json.secrets`), hérités par ses sous-agents ; absent si jamais réglé. */
+  secrets: z.array(entier).optional(),
 });
 export type Chat = z.infer<typeof schemaChat>;
 

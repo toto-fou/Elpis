@@ -191,6 +191,13 @@ follow [SemVer](https://semver.org/).
 
 ### Removed
 
+- **18 unused browser service routes.** No tool, core or front-end code called them:
+  `/accessibility` (always 500 since Playwright removed `page.accessibility`),
+  `/capture_response`, `/cleanup_screenshots`, `/clipboard`, `/dispatch_event`,
+  `/find_elements`, `/get_colors`, `/handle_next_dialog`, `/inspect`, `/intercept`, `/locate`,
+  `/poll_until`, `/query`, `/select_color`, `/select_date`, `/smart_click`,
+  `/trigger_framework_update` and `/watch_changes`. Several returned field values, response
+  bodies, the clipboard or the result of a caller script. 43 routes remain.
 - **Old concurrency limits.** `llm.max_runs_per_user` (a fourth conversation of an account got
   `429 too_many_runs`), `agents.max_parallel` and `agents.background_max` are gone, as is the
   Parallelism section of the subagents page. Values left in `config.json` are ignored; nothing to

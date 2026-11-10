@@ -2312,6 +2312,12 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
+// Indice joint à un démarrage arrivé sur un 401/407 sans identifiants HTTP posés sur le contexte.
+const indiceAuthDemarrage = (nav, poses) => {
+    const h = poses ? null : authHint(nav.http_status ?? null);
+    return h ? { auth_hint: h } : {};
+};
+
 // Refus (400) d'un démarrage aux options incompatibles avec une session sécurisée, ou d'identifiants du coffre hors d'elle ; null s'il peut se faire.
 function refusOptionsSecurisees(b, secure) {
     const refus = (code, error, fix = null) => ({ statut: 400, corps: { error, code, ...(fix ? { fix } : {}) } });
@@ -2440,6 +2446,7 @@ app.post('/start', async (req, res) => {
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
                         ...nav,
+                        ...indiceAuthDemarrage(nav, Boolean(s.identifiantsLies)),
                         ...avisIdentifiants(identifiantsFournis, identifiants, s.identifiantsLies, nav.http_status, s.page.url()),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
@@ -2578,6 +2585,7 @@ app.post('/start', async (req, res) => {
         await safeRemoveOverlays(page, false);
 
         res.json(purgerValeurs({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+                   ...indiceAuthDemarrage(nav, Boolean(identifiants)),
                    ...avisIdentifiants(identifiantsFournis, identifiants, identifiants, nav.http_status, page.url()),
                    ...(secure ? { secure: true, tls, ...(tls === 'insecure' ? { tls_note: 'Certificates are not verified in this secure session (tls=insecure).' } : {}) } : {}) }, sess));
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -3011,9 +3019,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 }
             }
             const outcome = classifyNavOutcome(targetUrl, prevUrl, landed, navError, { restored });
-            // GUIDAGE MODÈLE : si la page répond 401/407, elle est protégée par
-            // auth HTTP. On joint un hint expliquant que username/password se
-            // passent au pw_session(start) (httpCredentials), pas au goto.
+            // GUIDAGE MODÈLE : une page en 401/407 est protégée par une auth HTTP ; l'indice renvoie au secret attaché (pw_session start), jamais à un mot de passe.
             // Toute réponse rend aussi son statut (un 404 reste un succès), l'adresse finale et un certificat douteux.
             if (outcome.httpStatus === 200) Object.assign(outcome.body, await detailsNavigation(gotoResp, targetUrl, landed));
             const hint = authHint(outcome.body.http_status ?? null);

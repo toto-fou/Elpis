@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception. */
+/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception ; secrets du coffre (résolution, recherche) jamais gardés ni journalisés. */
 import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
 import { creerIdentite, IDENTITY_HEADER, sign } from "@elpis/securite";
+import type { SousAgentHote } from "@elpis/securite";
 import { request } from "undici";
 import type { Dispatcher } from "undici";
 
@@ -373,6 +374,98 @@ export class ClientRappel {
     return d !== null && Array.isArray(d["jobs"]) ? d : null;
   }
 
+  /** Requête signée pour `compte` dont la réponse est rendue avec son statut, corps d'erreur compris (`{detail, code}`) ; `null` : core injoignable ou réponse illisible ; rien du corps n'est journalisé. */
+  private async echanger(
+    chemin: string,
+    corps: Dict,
+    compte: AppelSigne,
+    delaiMs = this.delaiMs,
+  ): Promise<{ statut: number; donnees: Dict } | null> {
+    if (!this.actif) return null;
+    try {
+      const r = await request(new URL(this.appUrl + chemin), {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.jeton}`,
+          [IDENTITY_HEADER]: sign(creerIdentite(compte), this.jeton),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(corps, sansGrandsEntiers),
+        signal: AbortSignal.timeout(delaiMs),
+        ...(this.agent ? { dispatcher: this.agent } : {}),
+      });
+      const texte = await r.body.text();
+      if (r.statusCode !== 200) this.journal.warn(`[toolhost.client] POST ${chemin} → ${r.statusCode}`);
+      let donnees: unknown;
+      try {
+        donnees = JSON.parse(texte);
+      } catch {
+        return null;
+      }
+      return estDict(donnees) ? { statut: r.statusCode, donnees } : null;
+    } catch (e) {
+      this.journal.warn(`[toolhost.client] POST ${chemin} injoignable : ${decrire(e)}`);
+      return null;
+    }
+  }
+
+  /** Réponse d'un rappel du coffre : valeur lue, refus codé du core, ou `null` (core injoignable). */
+  private async rappelCoffre<T>(
+    chemin: string,
+    corps: Dict,
+    compte: AppelSigne,
+    lire: (d: Dict) => T | null,
+  ): Promise<ReponseCoffre<T>> {
+    const r = await this.echanger(chemin, corps, compte);
+    if (r === null) return null;
+    if (r.statut === 200) {
+      const v = lire(r.donnees);
+      return v === null ? null : { ok: true, valeur: v };
+    }
+    const code = r.donnees["code"];
+    const detail = r.donnees["detail"];
+    return {
+      ok: false,
+      statut: r.statut,
+      code: typeof code === "string" && code ? code : "secret_unavailable",
+      message: typeof detail === "string" ? detail : "The vault refused the request.",
+    };
+  }
+
+  /** `POST /api/internal/secrets/resolve` : valeur d'un secret pour la conversation de `appel` (SECRET : jamais journalisée ni gardée). */
+  resoudreSecret(
+    appel: AppelSigne,
+    demande: { usage: "web-login" | "http-auth"; origin: string; name?: string | null },
+  ): Promise<ReponseCoffre<SecretResolu>> {
+    return this.rappelCoffre("/api/internal/secrets/resolve", { ...demande }, appel, (d) => {
+      const { name, username, secret, tls } = d;
+      if (typeof name !== "string" || typeof secret !== "string" || !secret) return null;
+      return {
+        name,
+        username: typeof username === "string" ? username : null,
+        secret,
+        tls: tls === "insecure" ? "insecure" : "strict",
+      };
+    });
+  }
+
+  /** `POST /api/internal/secrets/match` : secrets attachés à la conversation de `appel` qui couvrent `origin` (sans valeur), ou le secret nommé. */
+  secretsApplicables(
+    appel: AppelSigne,
+    demande: { origin: string; name?: string | null },
+  ): Promise<ReponseCoffre<SecretApplicable[]>> {
+    return this.rappelCoffre("/api/internal/secrets/match", { ...demande }, appel, (d) => {
+      const liste = d["secrets"];
+      if (!Array.isArray(liste)) return null;
+      return liste.filter(estDict).map((x) => ({
+        name: strPy(x["name"] ?? ""),
+        kind: x["kind"] === "http-auth" ? ("http-auth" as const) : ("web-login" as const),
+        username: typeof x["username"] === "string" ? x["username"] : null,
+        tls: x["tls"] === "insecure" ? ("insecure" as const) : ("strict" as const),
+      }));
+    });
+  }
+
   /** Ancre épinglée `{auto_id, role, center}` de `compte` pour (cible, requête), `null` sinon ; jamais gardée en cache. */
   async ancre(compte: CompteSigne, cible: string, requete: string): Promise<Dict | null> {
     const d = await this.appeler(
@@ -401,6 +494,34 @@ function sansGrandsEntiers(_cle: string, v: unknown): unknown {
 export interface CompteSigne {
   readonly user_id: number;
   readonly username: string;
+}
+
+/** Enveloppe d'un appel d'outil vers le coffre : compte, conversation (`racine#task-…` pour un sous-agent) et sous-agent de l'appel. */
+export interface AppelSigne extends CompteSigne {
+  readonly chat_id: string;
+  readonly subagent?: SousAgentHote | null;
+}
+
+/** Valeur rendue par le coffre, refus codé (`secret_*`, message en anglais du core), ou `null` : core injoignable. */
+export type ReponseCoffre<T> =
+  | { readonly ok: true; readonly valeur: T }
+  | { readonly ok: false; readonly statut: number; readonly code: string; readonly message: string }
+  | null;
+
+/** Secret résolu pour l'hôte : SECRET, ni journalisé, ni gardé au-delà de l'appel. */
+export interface SecretResolu {
+  readonly name: string;
+  readonly username: string | null;
+  readonly secret: string;
+  readonly tls: "strict" | "insecure";
+}
+
+/** Secret applicable à une origine (sans valeur). */
+export interface SecretApplicable {
+  readonly name: string;
+  readonly kind: "web-login" | "http-auth";
+  readonly username: string | null;
+  readonly tls: "strict" | "insecure";
 }
 
 /** `d[cle]` : une clé absente lève (KeyError). */

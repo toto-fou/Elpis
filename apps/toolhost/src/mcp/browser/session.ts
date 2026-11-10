@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, identifiants de la mémoire AX, propriété posée par l'outil), arrêt, état, liste, nettoyage. */
+/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, session sécurisée quand un secret attaché couvre l'origine, propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import {
-  errPw,
-  getCredentials,
-  pwOwner,
-  recordPwSessionOwner,
-  refusUrl,
-  saveCredentials,
-} from "@elpis/navigateur";
+import { errPw, origineExacte, pwOwner, recordPwSessionOwner, refusUrl } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
-import { EncryptionUnavailable } from "@elpis/securite";
 
-import { headless, minusculesPy, ouvrirAppel } from "./appel";
+import type { SecretApplicable } from "../../rappel";
+import { minusculesPy, ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
+import { applicables, refusSecret, resoudre } from "./secrets";
 
-const SANS_CHIFFREMENT =
-  "The session is open, but this login was not saved: the server has no encryption key and refuses to store a password unencrypted. It may have to be given again next time; an administrator can set APP_ENCRYPTION_KEY.";
+/** Secret qui ouvre la session : désigné (`secret=`), sinon le seul attaché qui couvre l'origine ; `http-auth` résolu pour le contexte du navigateur. */
+interface SecretDeSession {
+  readonly secret: SecretApplicable;
+  readonly origine: string;
+  readonly identifiants: { username: string; password: string } | null;
+}
 
 /** `viewport="LxH"` → `{width, height}`, `null` si illisible. */
 function fenetre(viewport: string): Dict | null {
@@ -31,7 +29,51 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** `start` : url exigée et autorisée, identifiants de la mémoire AX si absents (jamais pour un enfant à session isolée : ni lus ni écrits), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée, identifiants retenus après succès (sans clé de chiffrement : session gardée, refus signalé au modèle). */
+/** Secret de la session à ouvrir sur `url` : `secret=` contrôlé par le core, sinon le seul secret attaché qui couvre l'origine (plusieurs : `secret_ambiguous`) ; `null` : session ordinaire ; un `http-auth` est résolu ici (valeur passée au service, jamais rendue). */
+async function secretDeSession(
+  s: ServicesBrowser,
+  url: string,
+  demande: unknown,
+): Promise<{ refus: Dict } | { choix: SecretDeSession | null; avis?: string }> {
+  const nom = typeof demande === "string" && demande.trim() ? demande.trim() : null;
+  const origine = origineExacte(url);
+  if (!origine)
+    return nom === null
+      ? { choix: null }
+      : { refus: refusSecret("secret_scope_mismatch", "Secrets apply to http(s) origins only.") };
+  const port = s.secrets ?? null;
+  const r = await applicables(port, origine, nom);
+  if (r === null) return { choix: null };
+  if ("refus" in r) {
+    if (nom !== null || r.refus["error"] !== "secret_unavailable") return r;
+    return {
+      choix: null,
+      avis: "The vault did not answer: this is not a secure session, pw_login cannot be used in it.",
+    };
+  }
+  if (r.valeur.length > 1)
+    return {
+      refus: refusSecret(
+        "secret_ambiguous",
+        `Several attached secrets apply to ${origine}: ${r.valeur.map((x) => x.name).join(", ")}.`,
+        `Start again with secret="<name>", one of: ${r.valeur.map((x) => x.name).join(", ")}.`,
+      ),
+    };
+  const choisi = r.valeur[0];
+  if (choisi === undefined) return { choix: null };
+  if (choisi.kind !== "http-auth") return { choix: { secret: choisi, origine, identifiants: null } };
+  const v = await resoudre(port, "http-auth", origine, choisi.name);
+  if ("refus" in v) return v;
+  return {
+    choix: {
+      secret: { ...choisi, tls: v.valeur.tls },
+      origine,
+      identifiants: { username: v.valeur.username ?? "", password: v.valeur.secret },
+    },
+  };
+}
+
+/** `start` : url exigée et autorisée, session sécurisée quand un secret attaché couvre l'origine (`http-auth` appliqué au contexte, TLS de sa politique), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée. */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
@@ -39,7 +81,6 @@ async function demarrer(
 ): Promise<unknown> {
   if (appel.refus !== null) return appel.refus;
   const { client, username, portee } = appel.appel;
-  const ax = portee === "isolee" ? null : appel.appel.ax;
   const url = a["url"] as string;
   if (!stripPy(url || ""))
     return errPw("url_required", "", {
@@ -48,31 +89,21 @@ async function demarrer(
     });
   const bloque = await refusUrl(url);
   if (bloque !== null) return bloque;
-  let identifiant = a["username"];
-  let motDePasse = a["password"];
-  // HAR et trace écriraient les identifiants enregistrés en clair : ils ne sont pas joints à une session enregistrée (vérité JS, comme le service).
-  const enregistre = Boolean(a["record_har"] || a["trace"]);
-  let retenus = false;
-  if (ax !== null && url && (!veritePy(identifiant) || !veritePy(motDePasse))) {
-    const connu = await getCredentials(ax, url, username || "").catch(() => null);
-    if (connu !== null && enregistre) retenus = true;
-    else if (connu !== null) {
-      if (!veritePy(identifiant)) identifiant = connu["username"];
-      if (!veritePy(motDePasse)) motDePasse = connu["password"];
-      s.journal.info(
-        `[ax-creds] auto-injected creds for ${url} (user=${strPy(connu["username"])}, use_count=${strPy(connu["use_count"] ?? 0)})`,
-      );
-    }
-  }
+  const coffre = await secretDeSession(s, url, a["secret"]);
+  if ("refus" in coffre) return coffre.refus;
+  const choix = coffre.choix;
   const corps: Dict = {
     url,
-    username: identifiant,
-    password: motDePasse,
-    headless: headless(),
     load_state_id: a["load_state_id"],
     record_har: a["record_har"],
     owner: client.owner,
   };
+  if (choix !== null) {
+    corps["secure"] = true;
+    corps["tls"] = choix.secret.tls;
+    if (choix.identifiants !== null)
+      Object.assign(corps, { credentials_origin: choix.origine, ...choix.identifiants });
+  }
   if (a["device"]) corps["device"] = a["device"];
   if (a["viewport"]) {
     const f = fenetre(a["viewport"] as string);
@@ -86,24 +117,16 @@ async function demarrer(
   const resultat = await client.req("POST", "/start", { json: corps });
   if (estDict(resultat)) {
     const sid = veritePy(resultat["session_id"]) ? resultat["session_id"] : resultat["sid"];
-    if (veritePy(sid) && username && !veritePy(resultat["error"]))
+    const ouverte = !veritePy(resultat["error"]) && resultat["ok"] !== false;
+    if (veritePy(sid) && username && ouverte)
       await recordPwSessionOwner(strPy(sid), username).catch(() => undefined);
-    if (ax !== null && veritePy(identifiant) && veritePy(motDePasse) && !veritePy(resultat["error"])) {
-      const sansCle = await saveCredentials(
-        ax,
-        url,
-        identifiant as string,
-        motDePasse as string,
-        username || "",
-      ).then(
-        () => false,
-        (e: unknown) => e instanceof EncryptionUnavailable,
-      );
-      if (sansCle) return { ...resultat, credentials_not_saved: SANS_CHIFFREMENT };
+    if (choix !== null && ouverte) {
+      resultat["secret"] = choix.secret.name;
+      if (choix.secret.kind === "web-login")
+        resultat["secret_note"] =
+          `Secure session for secret '${choix.secret.name}': call pw_login(session_id, secret="${choix.secret.name}") on its login page.`;
     }
-    if (retenus && !veritePy(resultat["error"]))
-      resultat["credentials_note"] =
-        "Saved credentials for this origin were not attached: HAR and trace recordings would store them in clear. Start without record_har/trace to use them.";
+    if (coffre.avis && ouverte) resultat["secret_warning"] = coffre.avis;
   }
   return resultat;
 }

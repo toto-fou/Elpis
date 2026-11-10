@@ -83,12 +83,12 @@ export function refusRoute({ classe, route, secure = false, connexionEnCours = f
     if (secure && (!classe || REFUSEES_SESSION_SECURISEE.has(classe))) return { statut: 403, corps: {
         error: `Secure session: ${String(route || '?').replace(/^\//, '')} is refused (${RAISONS[classe] || 'this route has no capability class'}).`,
         code: 'secret_route_refused',
-        fix: 'Use this tool in a normal session (start without secure=true) and never log in with a vault secret there.',
+        fix: 'This tool is not available in a secure session (opened for a vault secret): use it in another session, without logging in there.',
     } };
     if (!secure && classe === 'secret') return { statut: 403, corps: {
         error: 'A login with a vault secret needs a secure session.',
         code: 'secret_route_refused',
-        fix: 'Start a secure session (start with secure=true) on the login page, then log in there.',
+        fix: "Open the login page with pw_session(action='start', url=..., secret='<name>'): a session opened for an attached secret is a secure session; log in there with pw_login.",
     } };
     return null;
 }

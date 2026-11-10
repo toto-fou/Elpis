@@ -16,11 +16,13 @@ import { current, lireSousAgent } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
+import type { PortSecrets } from "./secrets";
 
-/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux) et journal. */
+/** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux), journal, coffre du core (absent : sessions ordinaires seulement). */
 export interface ServicesBrowser {
   readonly ax: () => Base | null;
   readonly journal: Journal;
+  readonly secrets?: PortSecrets | null;
 }
 
 /** Rôle de l'appelant vis-à-vis du navigateur : le chat (session du compte), un sous-agent à session isolée (la sienne seule), un sous-agent sur la session du compte. */
@@ -67,11 +69,6 @@ export async function ouvrirAppel(
       portee,
     },
   };
-}
-
-/** `HEADLESS` (`PLAYWRIGHT_HEADLESS`, vrai par défaut), lu à l'appel. */
-export function headless(): boolean {
-  return lowerPy(process.env["PLAYWRIGHT_HEADLESS"] ?? "true") === "true";
 }
 
 /** Réglage entier de l'environnement lu à l'appel (`int(os.environ.get(nom, défaut))`). */

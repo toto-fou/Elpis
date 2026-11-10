@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/git/famille.ts — famille `git` servie par l'hôte (llm_core/tools/git_tools.py) : 11 outils, définitions figées par le golden Python, compte de l'appel, identifiants et PR par rappel au core. */
+/** apps/toolhost/src/mcp/git/famille.ts — famille `git` servie par l'hôte (llm_core/tools/git_tools.py) : 10 outils, définitions figées par le golden, compte de l'appel, identifiants (lus, jamais reçus) et PR par rappel au core. */
 import type { PortProfilRappel } from "@elpis/bac";
 import { strPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -13,8 +13,8 @@ import { lireSousAgent } from "@elpis/securite";
 import { brancherRappelProfil, Espace } from "../espace";
 import { gitAction } from "./action";
 import type { ArgsActionGit } from "./action";
-import { gitClone, gitSetCredential } from "./clone";
-import type { ArgsClone, EnregistrerIdentifiant } from "./clone";
+import { gitClone } from "./clone";
+import type { ArgsClone } from "./clone";
 import { CompteGit, errGit, strExc } from "./commun";
 import { gitWrite } from "./ecriture";
 import type { ArgsEcritureGit } from "./ecriture";
@@ -27,14 +27,13 @@ import type { PortPr } from "./travail";
 
 type Signature = DefinitionOutil["signature"];
 
-/** Ce que la famille demande au core : identifiants et hôtes des connecteurs, identité, profil réseau, PR, enregistrement d'un identifiant. */
+/** Ce que la famille demande au core : identifiants et hôtes des comptes git, identité, profil réseau, PR. */
 export type RappelGit = SourceGit &
   PortProfilRappel &
   Partial<PortPr> & {
     identityForUsername(
       username: string,
     ): Promise<{ readonly user_id: number; readonly network_profile_id: string } | null>;
-    enregistrerIdentifiantGitDetaille?: EnregistrerIdentifiant;
   };
 
 const SANS_RAPPEL: SourceGit = { gitCredential: async () => null, connectorHosts: async () => [] };
@@ -138,14 +137,6 @@ const CLONE: Signature = {
   url: py.str(),
   into_path: py.str().defaut(""),
   branch: py.str().defaut(""),
-  username: py.str().defaut(""),
-  token: py.str().defaut(""),
-};
-const IDENTIFIANT: Signature = {
-  target: py.str(),
-  token: py.str(),
-  username: py.str().defaut(""),
-  provider_type: py.str().defaut(""),
 };
 
 /** Outils de la famille `git`, dans l'ordre de `register` (git_tools.py), chacun sur le bac du compte de l'appel (panne de l'espace → `unexpected: …`). */
@@ -153,7 +144,6 @@ export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
   const g = goldenGit as Golden;
   const source: CompteGit["source"] = rappel ?? SANS_RAPPEL;
   const pr: PortPr | null = rappel?.ouvrirPr ? { ouvrirPr: rappel.ouvrirPr.bind(rappel) } : null;
-  const enregistrer = rappel?.enregistrerIdentifiantGitDetaille?.bind(rappel) ?? null;
   const surCompte =
     (f: (c: CompteGit, a: Dict, ctx: ContexteAppel) => Promise<Dict>, remoteDAbord = false) =>
     async (v: Dict, ctx: ContexteAppel): Promise<Dict> => {
@@ -209,16 +199,7 @@ export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
     }),
     outilDuGolden(g, "git_clone", {
       signature: CLONE,
-      traiter: surCompte((c, a) => gitClone(c, enregistrer, a as unknown as ArgsClone)),
-    }),
-    outilDuGolden(g, "git_set_credential", {
-      signature: IDENTIFIANT,
-      traiter: (v, ctx) =>
-        gitSetCredential(
-          CompteGit.sansEspace(getUsername(ctx), source),
-          enregistrer,
-          v as unknown as Parameters<typeof gitSetCredential>[2],
-        ),
+      traiter: surCompte((c, a) => gitClone(c, a as unknown as ArgsClone)),
     }),
   ];
 }

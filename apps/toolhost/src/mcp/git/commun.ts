@@ -230,11 +230,6 @@ export class CompteGit {
     this.source = source;
   }
 
-  /** Compte sans bac (`git_set_credential` ne touche jamais la sandbox, comme le Python). */
-  static sansEspace(username: string, source: CompteGit["source"]): CompteGit {
-    return new CompteGit(username, null, source);
-  }
-
   get esp(): Espace {
     if (this.espace === null) throw new Error("espace du compte non ouvert");
     return this.espace;

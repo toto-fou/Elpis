@@ -8,7 +8,6 @@ import { request } from "undici";
 import type { Dispatcher } from "undici";
 
 import type { Journal } from "./journal";
-import type { IdentifiantEnregistre } from "./mcp/git/clone";
 import type { IssuePr } from "./mcp/git/travail";
 import { decrire } from "./decrire";
 
@@ -212,7 +211,7 @@ export class ClientRappel {
     return this.retenir(cle, q);
   }
 
-  /** `save_git_credential` par le core pour `compte` (enveloppe signée) : identifiant saisi au clone de l'éditeur, enregistré pour l'hôte du dépôt (jamais gardé ni journalisé). */
+  /** `save_git_credential` par le core pour `compte` (enveloppe signée) : identifiant saisi par l'humain au clone de l'éditeur, écrit dans le coffre pour l'hôte du dépôt (jamais gardé ni journalisé ici) ; vrai s'il l'a été. */
   async enregistrerIdentifiantGit(
     compte: CompteSigne,
     cible: string,
@@ -220,44 +219,22 @@ export class ClientRappel {
     jeton: string,
     typeFournisseur: string,
   ): Promise<boolean> {
-    const r = await this.enregistrerIdentifiantGitDetaille(
-      compte,
-      cible,
-      utilisateur,
-      jeton,
-      typeFournisseur,
-      "editeur",
-    );
-    return r !== null && r.connector_id !== null;
-  }
-
-  /** Même enregistrement (outils de l'agent par défaut : hôte déjà connu seulement), avec l'id du connecteur (`null` : refusé, `refus` dit pourquoi) et l'hôte ; `null` : core injoignable. */
-  async enregistrerIdentifiantGitDetaille(
-    compte: CompteSigne,
-    cible: string,
-    utilisateur: string,
-    jeton: string,
-    typeFournisseur: string,
-    origine: "agent" | "editeur" = "agent",
-  ): Promise<IdentifiantEnregistre | null> {
-    if (compte.user_id <= 0 || !compte.username || !jeton)
-      return { connector_id: null, host: "", refus: null };
+    if (compte.user_id <= 0 || !compte.username || !jeton) return false;
     const d = await this.appeler(
       "POST",
       "/api/internal/git/credential",
       undefined,
-      { target: cible, username: utilisateur, token: jeton, provider_type: typeFournisseur, origine },
+      {
+        target: cible,
+        username: utilisateur,
+        token: jeton,
+        provider_type: typeFournisseur,
+        origine: "editeur",
+      },
       compte,
     );
-    if (d === null) return null;
-    const id = getPy(d, "connector_id");
-    const hote = getPy(d, "host");
-    const refus = getPy(d, "refus");
-    return {
-      connector_id: veritePy(getPy(d, "saved")) && typeof id === "number" && id > 0 ? id : null,
-      host: typeof hote === "string" ? hote : "",
-      refus: typeof refus === "string" && refus ? refus : null,
-    };
+    const id = d === null ? null : getPy(d, "connector_id");
+    return d !== null && veritePy(getPy(d, "saved")) && typeof id === "number" && id > 0;
   }
 
   /** `import_legacy_git_credentials` par le core pour `compte` (enveloppe signée) : connecteurs créés, `-1` si l'import a échoué, `IMPORT_GARDE` si des hôtes ont été refusés (fichier gardé dans les deux cas). */

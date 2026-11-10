@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/git/clone.ts — `git_clone` et `git_set_credential` (git_tools.py) : clone par le relais authentifiant, identifiant saisi enregistré par le core pour l'hôte du dépôt. */
+/** apps/toolhost/src/mcp/git/clone.ts — `git_clone` (git_tools.py) : clone par le relais authentifiant, avec le jeton du compte git de l'hôte lu par le core (aucun jeton n'est reçu de l'agent). */
 import type { Dict } from "@elpis/commun";
-import { lowerPy, prefixePy, reprPy, stripPy } from "@elpis/commun";
+import { prefixePy, reprPy, stripPy } from "@elpis/commun";
 import { AgentError } from "@elpis/fichiers";
 import { ok } from "@elpis/outils-mcp";
 
@@ -18,41 +18,15 @@ import {
 } from "./commun";
 import type { CompteGit } from "./commun";
 
-/** Identifiant enregistré par le core : id du connecteur (`null` : refusé), hôte, raison d'un refus (`host_not_registered`). */
-export interface IdentifiantEnregistre {
-  readonly connector_id: number | null;
-  readonly host: string;
-  readonly refus: string | null;
-}
-
-/** `save_git_credential` par le core pour le compte (enveloppe signée), origine « agent » ; `null` : core injoignable. */
-export type EnregistrerIdentifiant = (
-  compte: { readonly user_id: number; readonly username: string },
-  cible: string,
-  utilisateur: string,
-  jeton: string,
-  typeFournisseur: string,
-) => Promise<IdentifiantEnregistre | null>;
-
-const HOTE_NON_ENREGISTRE =
-  "No Git Connector exists for this host yet (neither the account's nor an admin's), and a tool cannot create one. " +
-  "Ask the user to add this connector with their token in Settings → Git Connectors; clone / push / pull / git_submit will then use it AUTOMATICALLY (no need to pass the token again).";
-
-const CONNECTEUR_EXISTANT =
-  "A Git Connector entered in Settings (or imported) already exists for this host, and a tool does not modify it. " +
-  "Its token is already used AUTOMATICALLY by clone / push / pull / git_submit; to change it, the user edits it in Settings → Git Connectors.";
-/** Marche à suivre rendue à l'agent pour chaque refus du core. */
-const REFUS: ReadonlyMap<string, string> = new Map([
-  ["host_not_registered", HOTE_NON_ENREGISTRE],
-  ["connector_exists", CONNECTEUR_EXISTANT],
-]);
+/** Marche à suivre rendue à l'agent quand un dépôt exige un identifiant : seul l'utilisateur en saisit, dans ses réglages. */
+export const SANS_COMPTE_GIT =
+  "Private repo? Ask the user to add a Git account for this host in Settings › Git accounts: " +
+  "its token is then used automatically by clone / push / pull / git_submit. A token is never passed to a tool, nor in the URL.";
 
 export interface ArgsClone {
   url: string;
   into_path: string;
   branch: string;
-  username: string;
-  token: string;
 }
 
 /** `PurePosixPath(p)` : absolu ?, parties sans `.` ni vides, `as_posix()`. */
@@ -63,12 +37,8 @@ function cheminPosix(brut: string): { absolu: boolean; parties: string[]; posix:
   return { absolu, parties, posix: (absolu ? "/" : "") + parties.join("/") || "." };
 }
 
-/** `git_clone` : dossier déduit de l'URL, identifiant saisi (prioritaire, enregistré après un clone réussi) ou du connecteur, clone par le relais. */
-export async function gitClone(
-  c: CompteGit,
-  enregistrer: EnregistrerIdentifiant | null,
-  a: ArgsClone,
-): Promise<Dict> {
+/** `git_clone` : dossier déduit de l'URL, jeton du compte git de l'hôte (lu par le core), clone par le relais. */
+export async function gitClone(c: CompteGit, a: ArgsClone): Promise<Dict> {
   try {
     const url = stripPy(a.url || "");
     let dest = a.into_path;
@@ -106,10 +76,8 @@ export async function gitClone(
       );
     }
     const uid = await c.uid();
-    const saisi = Boolean(a.token && stripPy(a.token));
     let cred: readonly [string, string] | null = null;
-    if (saisi) cred = [stripPy(a.username || ""), stripPy(a.token)];
-    else if (uid)
+    if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
         const d = await c.source.gitCredential({ user_id: uid, username: c.username }, url);
@@ -135,8 +103,8 @@ export async function gitClone(
     if (!reussi(cl)) {
       const detail = stripPy(String(cl["stderr"] || cl["stdout"] || cl["fix"] || ""));
       const conseil = avecJeton
-        ? "Check the connector's token, the URL, or the network connectivity."
-        : "Private repo? Register a Git Connector for this host in Settings → Git Connectors: its token will be used AUTOMATICALLY (no need to pass it here, and the URL cannot carry it).";
+        ? "Check the Git account's token (the user updates it in Settings › Git accounts), the URL, or the network connectivity."
+        : SANS_COMPTE_GIT;
       return errGit(
         "clone_failed",
         `git clone failed: ${prefixePy(detail, 400) || "no output"}. ${conseil}`,
@@ -146,16 +114,6 @@ export async function gitClone(
         },
       );
     }
-    let enregistre = false;
-    let refus: string | null = null;
-    if (saisi && uid && enregistrer)
-      try {
-        const r = await enregistrer({ user_id: uid, username: c.username }, url, a.username, a.token, "");
-        enregistre = Boolean(r?.connector_id);
-        refus = r?.refus ?? null;
-      } catch {
-        enregistre = false;
-      }
     let base: string;
     try {
       base = await baseParDefaut(c, rel);
@@ -166,56 +124,12 @@ export async function gitClone(
       path: rel,
       remote: url,
       default_branch: base,
-      credentials_saved: enregistre,
       next_step: `Call git_start_work(repo=${reprPy(rel)}, branch_intent='<describe>') to begin work.`,
     });
     if (jumeau) out["warning"] = jumeau;
-    const note = refus === null ? undefined : REFUS.get(refus);
-    if (note !== undefined) out["credentials_note"] = note;
     return out;
   } catch (e) {
     if (estErreurValeur(e)) return errGit(e.message);
-    return errGit(`unexpected: ${strExc(e)}`);
-  }
-}
-
-/** `git_set_credential` : identifiant d'un hôte enregistré par le core (compte de l'appel, jamais `no_user` sur un hôte distant). */
-export async function gitSetCredential(
-  c: CompteGit,
-  enregistrer: EnregistrerIdentifiant | null,
-  a: { target: string; token: string; username: string; provider_type: string },
-): Promise<Dict> {
-  try {
-    if (!a.target || !stripPy(a.target))
-      return errGit("target_required", "Pass a repo URL or a host (e.g. 'git.example.lan:3000').");
-    if (!a.token || !stripPy(a.token)) return errGit("token_required", "token (PAT/password) required.");
-    const uid = await c.uid();
-    if (!uid) return errGit("no_user", "User not found.");
-    const r = enregistrer
-      ? await enregistrer(
-          { user_id: uid, username: c.username },
-          a.target,
-          a.username,
-          a.token,
-          a.provider_type,
-        )
-      : null;
-    if (r === null)
-      return errGit(
-        "credential_store_unavailable",
-        "The application could not be reached to store the credential; retry in a moment.",
-      );
-    const note = r.refus === null ? undefined : REFUS.get(r.refus);
-    if (r.refus !== null && note !== undefined) return errGit(r.refus, note, { host: lowerPy(r.host) });
-    if (!r.connector_id)
-      return errGit("bad_target", "Cannot deduce the host from 'target': pass a repo URL or 'host:port'.");
-    const h = lowerPy(r.host);
-    return ok({
-      connector_id: r.connector_id,
-      host: h,
-      message: `Git credentials stored for ${reprPy(h)}. clone / push / pull / git_submit on this host will use them AUTOMATICALLY (no need to pass them again).`,
-    });
-  } catch (e) {
     return errGit(`unexpected: ${strExc(e)}`);
   }
 }

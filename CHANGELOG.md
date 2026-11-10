@@ -208,10 +208,11 @@ follow [SemVer](https://semver.org/).
 
 - **Firefox, WebKit and the windowed browser.** The browser service runs only the Chromium
   headless shell: `BROWSER_ENGINE`, `BROWSER_FORCE_HEADLESS` and `FIREFOX_FORCE_HEADLESS` are no
-  longer read, nor `PLAYWRIGHT_HEADLESS` on its side; a `headless` field sent to `/start` is
-  ignored, and `/health` still reports `engine: "chromium"`; the `pw_session` description no
-  longer offers another engine. `fetch_offline_deps.sh` loses `--engine` and `--all`, and the
-  full Chromium is no longer downloaded.
+  longer read, a `headless` field sent to `/start` is ignored, and `/health` still reports
+  `engine: "chromium"`; `./elpis` no longer sets `PLAYWRIGHT_HEADLESS` for the service, which
+  never read it. The `pw_session` description no longer offers another engine.
+  `fetch_offline_deps.sh` loses `--engine` and `--all`, and the full Chromium is no longer
+  downloaded.
 - **18 unused browser service routes.** No tool, core or front-end code called them:
   `/accessibility` (always 500 since Playwright removed `page.accessibility`),
   `/capture_response`, `/cleanup_screenshots`, `/clipboard`, `/dispatch_event`,

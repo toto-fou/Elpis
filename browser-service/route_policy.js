@@ -37,7 +37,6 @@ export const CLASSES_ROUTES = Object.freeze({
     'POST /a11y_audit': 'read_dom',
     'POST /screenshot': 'read_dom',
     'POST /element_screenshot': 'read_dom',
-    'POST /visual': 'read_dom',
     'GET /network': 'read_dom',
     'GET /list_tabs': 'read_dom',
     'GET /frames': 'read_dom',
@@ -50,6 +49,7 @@ export const CLASSES_ROUTES = Object.freeze({
     'POST /mock/remove': 'network_control',
 
     'POST /print_pdf': 'export',
+    'POST /visual': 'export',
     'POST /save_state': 'export',
     'POST /trace_export': 'export',
     'POST /recorder/start': 'export',
@@ -59,7 +59,7 @@ export const CLASSES_ROUTES = Object.freeze({
     'GET /recorder/dump': 'export',
 });
 
-/** Classes refusées pendant toute une session sécurisée : JS fourni, trafic réécrit, exports (état, trace, HAR, PDF, enregistreur). */
+/** Classes refusées pendant toute une session sécurisée : JS fourni, trafic réécrit, exports (état, trace, PDF, références visuelles, enregistreur). */
 export const REFUSEES_SESSION_SECURISEE = Object.freeze(new Set(['exec_js', 'network_control', 'export']));
 
 const RAISONS = {
@@ -90,6 +90,40 @@ export function refusRoute({ classe, route, secure = false, connexionEnCours = f
         code: 'secret_route_refused',
         fix: "Open the login page with pw_session(action='start', url=..., secret='<name>'): a session opened for an attached secret is a secure session; log in there with pw_login.",
     } };
+    return null;
+}
+
+// Clés qui portent un sélecteur (CSS, XPath, moteur Playwright, `selector:` de wait_after), à toute profondeur du corps ou de la requête.
+const CLES_SELECTEUR = new Set(['selector', 'by_css', 'by_xpath', 'filter_has', 'target_selector', 'relative_to', 'wait_after', 'wait_for', 'scope']);
+const CLES_ATTRIBUT = new Set(['attr', 'attribute']);
+const SUR_VALEUR = /\[\s*value\b|@\s*value\b/i;
+
+/** Session sécurisée : refus (400 secret_option_refused) d'un sélecteur ou d'un nom d'attribut qui vise `value` (attribut ou XPath), qui servirait d'oracle sur une valeur de champ ; null sinon. */
+export function refusSelecteurValeur(...sources) {
+    const refus = (ou) => ({ statut: 400, corps: {
+        error: `Secure session: a selector or attribute that reads \`value\` is refused (${ou}).`,
+        code: 'secret_option_refused',
+        fix: 'Target the field by its label, placeholder, role and name, or another attribute.',
+    } });
+    const marche = (v, cle, n) => {
+        if (n > 8 || v === null || v === undefined) return null;
+        if (typeof v === 'string') {
+            if (CLES_SELECTEUR.has(cle) && SUR_VALEUR.test(v)) return refus(cle);
+            if (CLES_ATTRIBUT.has(cle) && v.trim().toLowerCase() === 'value') return refus(cle);
+            if (cle === 'value' && /^\s*attr\s*=\s*value\s*\|/i.test(v)) return refus('attr-equals');
+            return null;
+        }
+        if (typeof v !== 'object') return null;
+        for (const [k, x] of Array.isArray(v) ? v.map((x) => [cle, x]) : Object.entries(v)) {
+            const r = marche(x, k, n + 1);
+            if (r) return r;
+        }
+        return null;
+    };
+    for (const src of sources) {
+        const r = marche(src, '', 0);
+        if (r) return r;
+    }
     return null;
 }
 

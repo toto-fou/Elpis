@@ -2927,30 +2927,45 @@ therefore removes every way to read a typed value back.
 - **Route policy**: one table, `browser-service/route_policy.js`, gives every route a capability
   class (`read_dom`, `exec_js`, `network_control`, `export`, `gesture`, `admin`, `secret`).
   `getSession` applies it to every session route: on a secure session `exec_js` (eval),
-  `network_control` (mocks) and `export` (state, trace, PDF, recorder) answer 403
-  `secret_route_refused`, as does a route missing from the table; `/login` and `/login_precheck`
-  answer the same on an ordinary session. While a login runs, every other route of the session
-  answers 409 `secret_login_busy`. The service logs `[POLICY]` at startup if a route has no class.
+  `network_control` (mocks) and `export` (state, trace, PDF, visual baselines, recorder) answer
+  403 `secret_route_refused`, as does a route missing from the table; `/login` and
+  `/login_precheck` answer the same on an ordinary session. While a login runs, every other route
+  of the session answers 409 `secret_login_busy`. On a secure session, a selector or attribute name
+  that reads `value` (`[value…]` in CSS, `@value` in XPath, `attr`/`attribute` = `value`) answers
+  400 `secret_option_refused`: it would be an oracle on a field's value. The service logs
+  `[POLICY]` at startup if a route has no class.
 - **`/login_precheck`** (no values) and **`/login`** (values): targets are optional. Without them,
   fields are detected on all frames: `autocomplete=current-password`, otherwise the single visible
   `input[type=password]`; username by `autocomplete=username`, then `email`, then the text field
   that precedes the password in its form; several candidates → 400 `secret_target_required`.
   Each target must match one visible, editable, opaque element; a password only goes into a real
-  `type=password`, checked again after typing. The origin is the one of the frame that owns each
-  field (`about:blank`, `srcdoc` and `data:` frames are refused), both fields share it, it must
-  equal `secret_origin`, and the form must POST to it (403 `secret_scope_mismatch`).
-- **During `/login`**: a `context.route` guard lets a request that carries the password (URL,
-  body or headers, under its encoded forms) leave only as a POST to the secret's origin, fetched
-  with `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after
-  submission (navigation, `wait_for` target, field removed; login form shown again, browser
-  validation, nothing changed → 422 `secret_login_failed`, fields cleared, page message returned).
-  Documents that received the secret are then replaced (about:blank, then a GET of the same URL),
-  or their page, or the session, is closed.
-- **Afterwards**: the password stays in the service's memory for the session's lifetime only.
-  Before each request, a tab that shows it (text, field value, frame URL) is blanked and the call
-  answers 409 `secret_in_page`; screenshots are refused while it is visible; every JSON response,
-  console line, dialog message and network-log URL is purged of it and its encoded forms (also
-  when cut at a string boundary); request bodies are not logged.
+  `type=password`, and after typing it must still be one, be the focused element and hold the
+  typed length (checked in the page, the value is never read back), otherwise it is cleared
+  (400). The origin is the one of the frame that owns each field (`about:blank`, `srcdoc` and
+  `data:` frames are refused); every ancestor frame up to the page must share it, both fields
+  share it, it must equal `secret_origin`, and the form, or the default button that Enter
+  triggers, must POST to it (403 `secret_scope_mismatch`).
+- **During `/login`**: a `context.route` guard aborts every request to another origin while the
+  fields are being typed, and every WebSocket of the session (routed through the service) is closed
+  if it sends a message then. After the submission, a request that carries the password (URL, body
+  or headers, under its encoded forms) leaves only as a POST to the secret's origin, fetched with
+  `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after submission
+  (navigation, `wait_for` target, field removed; login form shown again, browser validation,
+  nothing changed → 422 `secret_login_failed`, fields cleared, page message returned). Each tab
+  that received the secret is then replaced by a new tab loaded with a GET of its address (its
+  history, and its `sessionStorage`, are dropped, so Back cannot replay the POST), or closed, or the
+  session is closed.
+- **Afterwards**: the password stays in the service's memory for the session's lifetime only. A
+  page "contains" it when any retained form (raw, encoded, `user:pass` for HTTP credentials)
+  appears in the browser's DOM snapshot (text, attributes, typed values, shadow roots, frames) or in
+  the serialized HTML read outside the page's JavaScript world. Pages are checked when a document
+  of any frame commits or loads, and before and after every request: a page that contains it is
+  blanked, a response produced while one did is withheld (409 `secret_in_page`), and `/login`
+  reports it as `secret_in_page: true`. A page that cannot be read in time counts as containing it.
+  Screenshots run the same check (the after-reply capture takes the session lock). JSON responses,
+  console lines, dialog messages and network-log URLs are purged of whole occurrences only (a part
+  of the secret is never masked, so masking cannot be used as an oracle); request bodies are not
+  logged.
 - **Through the tools**: no `pw_*` tool accepts a username or a password, and only the Elpis
   application (service token, `trusted_meta`) can use secrets; an external MCP client gets
   `secret_not_attached`. `pw_session(action="start", url, secret?)` asks the core which secrets
@@ -2960,17 +2975,18 @@ therefore removes every way to read a typed value back.
   tool host resolves the value (`/api/internal/secrets/resolve`, usage `http-auth`) and passes
   `credentials_origin`, `username` and `password` to `/start`; the answer carries the secret's name
   (`secret`). `pw_login` (`session_id`, optional `secret`, `username_target`, `password_target`,
-  `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin of the frame that
-  holds the fields; only then is the `web-login` secret resolved for that origin (by name, or the
+  `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin
+  of the frame that holds the fields; only then is the `web-login` secret resolved for that origin (by name, or the
   single attached one), and `/login` receives the values with `secret_origin` (HTTP timeout 75 s,
   above the service's 62 s ceiling). The result is the service's purged answer plus the secret's
   name and a lite view of the page (`page_after`), never a value. A page that answers 401 carries an
   `auth_hint` that asks for a secret attached with `/secret attach <name>`.
 - **Limits**: a script on the secret's own origin receives the password, as when a person types
-  it. With strict TLS and an internal CA, the CA must be trusted by Chromium (NSS) and by Node,
-  because the guarded POST is replayed from Node (`route.fetch`): `./elpis` starts the service with
-  `--use-system-ca`, so a CA installed in the system store is enough (`NODE_EXTRA_CA_CERTS` still
-  adds one).
+  it. Text supplied by the agent that equals the whole secret is purged, which tells it the guess
+  was right (one guess per call). With strict TLS and an internal CA, the CA must be trusted by
+  Chromium (NSS) and by Node, because the guarded POST is replayed from Node (`route.fetch`):
+  `./elpis` starts the service with `--use-system-ca`, so a CA installed in the system store is
+  enough (`NODE_EXTRA_CA_CERTS` still adds one).
 
 ### Screen control (`desktop`)
 
@@ -3465,15 +3481,25 @@ vault_secrets
 
 - **Name**: slug `[a-z0-9][a-z0-9._-]{0,47}`, unique per owner. 200 secrets at most per owner.
 - **Policy**: `{"subagents": true, "routines": false, "confirm_first_use": false, "tls": "strict"}` by
-  default; partial updates are merged.
-- **AAD**: `vault|v1|<user_id or 0>|<kind>|<name>`. A ciphertext copied to another row does not
-  decrypt; a rename re-encrypts.
-- **Updates**: absent fields are unchanged, an empty `value` too. A new value raises `version` and
-  sets `rotated_at`. Widening the scope (an origin added, another host, connector or server) or
-  moving to `tls: insecure` requires the value again, so an open session alone cannot send an
-  existing secret elsewhere. The kind never changes.
+  default; partial updates are merged. `confirm_first_use: true` is refused
+  (`secret_meta_invalid`) until the resolution applies it.
+- **AAD**: `vault|v2|<user_id or 0>|<kind>|<name>|<sha256>`, where `<sha256>` is the SHA-256 (hex)
+  of the JSON array `[scope_json, policy_json, state, version, username]`, the column values exactly
+  as stored. The GCM tag therefore covers everything that decides how a secret may be used. A
+  ciphertext moved to another row, an older ciphertext restored after a rotation or a scope change,
+  or any of these columns written outside the module (scope widened, state forced to `active`,
+  `tls` set to `insecure`, user name changed) makes decryption fail: the resolution answers
+  `secret_undecryptable` and writes `vault.secret.refused`. A rollback of the whole row to an
+  earlier copy cannot be detected this way. `meta_json` is not bound: nothing may decide on it.
+- **Updates**: absent fields are unchanged, an empty `value` too. Every module write that changes
+  a bound column re-encrypts the value (the module holds the key): rename, scope, policy, user name,
+  verification, rotation. A change of `meta` alone does not. A new value raises `version` and sets
+  `rotated_at`. Widening the scope (an origin added, another host, connector or server) or moving
+  to `tls: insecure` requires the value again, so an open session alone cannot send an existing
+  secret elsewhere. The kind never changes. An update that needs the current value and cannot
+  decrypt it is refused (`secret_undecryptable`): rotate the secret.
 - **State**: `unverified` (secrets imported from older stores) is never resolved until its owner
-  verifies it (`POST …/verify`).
+  verifies it (`POST …/verify`), which re-encrypts it for its new state.
 
 | Route | Process, access | Role |
 |---|---|---|
@@ -3559,13 +3585,25 @@ Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_inva
 `secret_undecryptable`, `secret_key_unavailable`.
 
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
-`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`,
-created 0600 under a lock the first time a secret is saved and published in one step (hard link of
-a synced temporary file). A key that exists but cannot be read is an error, never a reason to fall
-back. `kid` = first 8 hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from`
-re-encrypts the rows of an old `kid` ([operations.md](operations.md#secrets-vault-key)). The Fernet
-encryption of `packages/securite/src/chiffrement.ts` still holds the existing connector keys until
-they move to the vault.
+`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
+The fallback is created 0600 under a lock the first time a secret is saved, only while
+`vault_secrets` is empty, and published in one step (hard link of a synced temporary file). With
+secrets and no key, saving a secret is refused (`secret_key_unavailable`), never answered with a
+new key. Any file system error while creating it gives the same refusal. A key that exists but
+cannot be read is an error, never a reason to fall back. `chiffrerSecret` never creates a key;
+`chargerCleCoffre()` does, and only the module calls it, after checking that the vault is empty.
+
+One validator (`validerCleCoffre`) decides for the core, for `vault setup` (through
+`exploitation.mjs vault check-key`, the key on standard input) and for the doctor: canonical base64
+(44 characters) or 64 hexadecimal digits, 32 bytes, not a single repeated byte. `kid` = first 8
+hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from` re-encrypts the rows of
+an old `kid` ([operations.md](operations.md#secrets-vault-key)).
+
+`main` and `admin` delete `ELPIS_VAULT_KEY` and `ELPIS_VAULT_KEY_PATH` from their environment
+once read. The other units get `UnsetEnvironment=` for both and `InaccessiblePaths=` for
+`/etc/elpis/vault.key` and the fallback, and `./elpis start` runs them without the variables. The
+Fernet encryption of `packages/securite/src/chiffrement.ts` still holds the existing connector
+keys until they move to the vault.
 
 ---
 

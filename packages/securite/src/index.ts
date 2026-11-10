@@ -30,6 +30,7 @@ export {
   reglagesCoffreDeLEnvironnement,
   REPLI_CLE_COFFRE,
   SecretIndechiffrable,
+  validerCleCoffre,
 } from "./coffre";
 export type { CleCoffre, ReglagesCoffre, SourceCleCoffre } from "./coffre";
 export {

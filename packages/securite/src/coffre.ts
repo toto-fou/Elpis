@@ -76,15 +76,27 @@ export class CleCoffreIndisponible extends Error {
   }
 }
 
-/** 32 octets lus en base64 (standard ou url, remplissage facultatif) ou en 64 chiffres hexadécimaux ; `null` sinon. */
+const ATTENDU = "32 octets en base64 canonique (ou 64 chiffres hexadécimaux) attendus";
+
+/** Validateur unique des clés du coffre (cœur, `vault setup`, doctor) : base64 canonique de 32 octets (44 caractères, comme `base64`) ou 64 chiffres hexadécimaux, blancs ASCII autour ignorés, jamais un seul octet répété ; rend aussi le `kid`. */
+export function validerCleCoffre(texte: string): { octets: Buffer; kid: string } | { motif: string } {
+  const t = texte.replace(/^[\t\n\v\f\r ]+|[\t\n\v\f\r ]+$/gu, "");
+  let octets: Buffer | null = null;
+  if (/^[0-9a-fA-F]{64}$/u.test(t)) octets = Buffer.from(t, "hex");
+  else if (/^[A-Za-z0-9+/]{43}=$/u.test(t)) {
+    const lus = Buffer.from(t, "base64");
+    if (lus.length === TAILLE_CLE && lus.toString("base64") === t) octets = lus;
+  }
+  if (octets === null) return { motif: ATTENDU };
+  const premier = octets[0];
+  if (octets.every((o) => o === premier)) return { motif: "clé dégénérée (un seul octet répété)" };
+  return { octets, kid: identifiantCle(octets) };
+}
+
+/** Octets d'une clé valide (`validerCleCoffre`), `null` sinon. */
 export function octetsCleCoffre(texte: string): Buffer | null {
-  const t = texte.trim();
-  if (/^[0-9a-fA-F]{64}$/u.test(t)) return Buffer.from(t, "hex");
-  if (!/^[A-Za-z0-9+/_-]{43}=?$/u.test(t)) return null;
-  const standard = t.replaceAll("-", "+").replaceAll("_", "/").replace(/=$/u, "");
-  const octets = Buffer.from(standard, "base64");
-  if (octets.length !== TAILLE_CLE || octets.toString("base64").replace(/=$/u, "") !== standard) return null;
-  return octets;
+  const v = validerCleCoffre(texte);
+  return "octets" in v ? v.octets : null;
 }
 
 function cleDe(octets: Buffer, source: SourceCleCoffre, chemin: string | null): CleCoffre {
@@ -96,7 +108,10 @@ function codeErreur(e: unknown): unknown {
 }
 
 type LectureCle =
-  { etat: "absent" } | { etat: "vide" } | { etat: "invalide" } | { etat: "ok"; cle: CleCoffre };
+  | { etat: "absent" }
+  | { etat: "vide" }
+  | { etat: "invalide"; motif: string }
+  | { etat: "ok"; cle: CleCoffre };
 
 /** Fichier de clé : absent (ENOENT, ENOTDIR), vide, invalide ou lu ; illisible (droits) : lève, sans repli. */
 function lireFichier(chemin: string, source: SourceCleCoffre): LectureCle {
@@ -110,8 +125,15 @@ function lireFichier(chemin: string, source: SourceCleCoffre): LectureCle {
   }
   const texte = brut.toString("latin1");
   if (!texte.trim()) return { etat: "vide" };
-  const octets = octetsCleCoffre(texte);
-  return octets === null ? { etat: "invalide" } : { etat: "ok", cle: cleDe(octets, source, chemin) };
+  const v = validerCleCoffre(texte);
+  return "motif" in v
+    ? { etat: "invalide", motif: v.motif }
+    : { etat: "ok", cle: cleDe(v.octets, source, chemin) };
+}
+
+/** Motif lisible d'une lecture qui n'a pas donné de clé. */
+function motifLecture(lue: Exclude<LectureCle, { etat: "ok" }>): string {
+  return lue.etat === "invalide" ? `invalide (${lue.motif})` : lue.etat;
 }
 
 /** Clé d'un fichier donné (`rekey --from`, essais) : absente, vide ou invalide → `CleCoffreIndisponible`. */
@@ -121,7 +143,7 @@ export function lireCleCoffre(chemin: string): CleCoffre {
   throw new CleCoffreIndisponible(
     lue.etat === "absent"
       ? `clé du coffre ${chemin} absente`
-      : `clé du coffre ${chemin} ${lue.etat} : 32 octets en base64 (ou 64 chiffres hexadécimaux) attendus`,
+      : `clé du coffre ${chemin} ${motifLecture(lue)}`,
   );
 }
 
@@ -196,24 +218,33 @@ function creerRepli(chemin: string): CleCoffre {
   }
   const posee = lireFichier(chemin, "repli");
   if (posee.etat === "ok") return posee.cle;
-  throw new CleCoffreIndisponible(`clé de repli ${chemin} ${posee.etat} aussitôt créée`);
+  throw new CleCoffreIndisponible(`clé de repli ${chemin} ${motifLecture(posee)} aussitôt créée`);
 }
 
-/** Repli `<dossier de la base>/.vault.key` : lu, sinon créé sous `.vault.key.lock` si `creer` ; `null` s'il manque et n'est pas à créer. */
+/** Repli `<dossier de la base>/.vault.key` : lu, sinon créé sous `.vault.key.lock` si `creer` ; `null` s'il manque et n'est pas à créer ; toute erreur du système de fichiers (droits, disque plein) devient `CleCoffreIndisponible`. */
 function cleDeRepli(chemin: string, creer: boolean): CleCoffre | null {
   if (!isAbsolute(chemin))
     throw new CleCoffreIndisponible(`chemin de la clé de repli non absolu : ${chemin}`);
   const lue = lireFichier(chemin, "repli");
   if (lue.etat === "ok") return lue.cle;
   if (lue.etat === "absent" && !creer) return null;
-  mkdirSync(dirname(chemin), { recursive: true, mode: 0o700 });
-  return avecVerrouSync(`${chemin}.lock`, {}, () => {
-    const relue = relireSousVerrou(chemin);
-    if (relue.etat === "ok") return relue.cle;
-    if (relue.etat !== "absent")
-      throw new CleCoffreIndisponible(`clé de repli ${chemin} ${relue.etat} : laissée intacte, à vérifier`);
-    return creer ? creerRepli(chemin) : null;
-  });
+  try {
+    mkdirSync(dirname(chemin), { recursive: true, mode: 0o700 });
+    return avecVerrouSync(`${chemin}.lock`, {}, () => {
+      const relue = relireSousVerrou(chemin);
+      if (relue.etat === "ok") return relue.cle;
+      if (relue.etat !== "absent")
+        throw new CleCoffreIndisponible(
+          `clé de repli ${chemin} ${motifLecture(relue)} : laissée intacte, à vérifier`,
+        );
+      return creer ? creerRepli(chemin) : null;
+    });
+  } catch (e) {
+    if (e instanceof CleCoffreIndisponible) throw e;
+    throw new CleCoffreIndisponible(
+      `clé de repli ${chemin} impossible à créer (${String(codeErreur(e) ?? (e instanceof Error ? e.message : e))})`,
+    );
+  }
 }
 
 let reglages: ReglagesCoffre | null = null;
@@ -243,12 +274,9 @@ function reglagesExiges(): ReglagesCoffre {
 function resoudre(r: ReglagesCoffre, creer: boolean): CleCoffre | null {
   const env = r.cleEnv?.trim();
   if (env) {
-    const octets = octetsCleCoffre(env);
-    if (octets === null)
-      throw new CleCoffreIndisponible(
-        "ELPIS_VAULT_KEY invalide : 32 octets en base64 (ou 64 chiffres hexadécimaux) attendus",
-      );
-    return cleDe(octets, "env", null);
+    const v = validerCleCoffre(env);
+    if ("motif" in v) throw new CleCoffreIndisponible(`ELPIS_VAULT_KEY invalide : ${v.motif}`);
+    return cleDe(v.octets, "env", null);
   }
   const explicite = r.fichier?.trim() || null;
   const fichier = explicite ?? r.systeme ?? FICHIER_CLE_COFFRE;
@@ -258,7 +286,7 @@ function resoudre(r: ReglagesCoffre, creer: boolean): CleCoffre | null {
     throw new CleCoffreIndisponible(
       lue.etat === "absent"
         ? `ELPIS_VAULT_KEY_PATH=${fichier} absent`
-        : `clé du coffre ${fichier} ${lue.etat} : 32 octets en base64 (ou 64 chiffres hexadécimaux) attendus`,
+        : `clé du coffre ${fichier} ${motifLecture(lue)}`,
     );
   return cleDeRepli(r.repli, creer);
 }
@@ -280,9 +308,16 @@ export function kidCoffre(): string | null {
   return cleCoffre()?.kid ?? null;
 }
 
-/** Clé courante exigée pour chiffrer : posée en repli s'il le faut. */
+/** Clé courante, ou clé de repli posée faute de toute autre : à n'appeler que sur un coffre vide (sinon ses secrets resteraient illisibles). */
 export function chargerCleCoffre(): CleCoffre {
   const cle = cleCoffre({ creer: true });
+  if (cle === null) throw new CleCoffreIndisponible("aucune clé du coffre");
+  return cle;
+}
+
+/** Clé courante exigée, jamais créée. */
+function cleExistante(): CleCoffre {
+  const cle = cleCoffre();
   if (cle === null) throw new CleCoffreIndisponible("aucune clé du coffre");
   return cle;
 }
@@ -304,8 +339,8 @@ export function etatCleCoffre(r: ReglagesCoffre = reglagesExiges()): {
   }
 }
 
-/** `v1.<kid>.<nonce>.<chiffré‖tag>` : nonce aléatoire de 96 bits, tag de 128 bits, AAD liée au secret. */
-export function chiffrerSecret(clair: string, aad: string, cle: CleCoffre = chargerCleCoffre()): string {
+/** `v1.<kid>.<nonce>.<chiffré‖tag>` : nonce aléatoire de 96 bits, tag de 128 bits, AAD liée au secret ; sans clé donnée, la clé courante (jamais créée ici). */
+export function chiffrerSecret(clair: string, aad: string, cle: CleCoffre = cleExistante()): string {
   if (typeof clair !== "string" || !clair.isWellFormed() || !aad.isWellFormed())
     throw new TypeError("secret du coffre : texte bien formé attendu");
   const nonce = randomBytes(TAILLE_NONCE);

@@ -414,14 +414,15 @@ cmd_start() {
     need_core
     [ -f "$ROOT/deploy/node/relance.sh" ] || die "deploy/node/relance.sh absent (mise à jour incomplète) : ./install.sh, ou ./install.sh --offline <paquet de cette version>"
     migrer_mcp
-    local s started=()
+    local s started=() retirer=()
     for s in "${SERVICES[@]}"; do
         if ! svc_available "$s"; then warn "$s non installé : ignoré."; continue; fi
         if pid_of "$s" >/dev/null; then info "$s tourne déjà (pid $(pid_of "$s"))."; continue; fi
         svc_spec "$s"
         tourner_journal "$LOG_DIR/$s.log"
         info "Démarrage de $s…"
-        ( cd "$SPEC_DIR" && exec env "${SPEC_ENV[@]}" setsid ${SPEC_LANCEUR[@]+"${SPEC_LANCEUR[@]}"} "${SPEC_CMD[@]}" ) \
+        case "$s" in main|admin) retirer=() ;; *) retirer=(-u ELPIS_VAULT_KEY -u ELPIS_VAULT_KEY_PATH) ;; esac
+        ( cd "$SPEC_DIR" && exec env ${retirer[@]+"${retirer[@]}"} "${SPEC_ENV[@]}" setsid ${SPEC_LANCEUR[@]+"${SPEC_LANCEUR[@]}"} "${SPEC_CMD[@]}" ) \
             >>"$LOG_DIR/$s.log" 2>&1 </dev/null &
         echo $! > "$RUN_DIR/$s.pid"
         started+=("$s")
@@ -542,11 +543,12 @@ cmd_logs() {
 # =============================================================================
 # _render_units DOSSIER UTILISATEUR → écrit les unités, remplit UNITS_WANTS
 _render_units() {
-    local unit_dir="$1" run_user="$2" s e w
+    local unit_dir="$1" run_user="$2" s e w repli
     UNITS_WANTS=()
     load_runtime
     need_core
     local db_unit; db_unit="$(_db_local_unit)"
+    repli="$(core_cmd config DB_PATH 2>/dev/null)"; repli="${repli:-$ROOT/user_db/app.db}"; repli="${repli%/*}/.vault.key"
     for s in "${SERVICES[@]}"; do
         svc_available "$s" || { warn "$s non installé : pas d'unité."; continue; }
         svc_spec "$s"
@@ -571,6 +573,12 @@ _render_units() {
             echo "WorkingDirectory=$SPEC_DIR"
             for e in "${SPEC_ENV[@]}"; do printf 'Environment="%s"\n' "$e"; done
             echo "EnvironmentFile=-$ROOT/.env"
+            case "$s" in
+                main|admin) ;;
+                *) echo "UnsetEnvironment=ELPIS_VAULT_KEY ELPIS_VAULT_KEY_PATH"
+                   echo "InaccessiblePaths=-$VAULT_KEY_SYS"
+                   echo "InaccessiblePaths=-$repli" ;;
+            esac
             printf 'ExecStart='; printf '%q ' "${SPEC_CMD[@]}"; echo
             # Navigateur : relancé même après un arrêt « propre » inattendu
             # (un seul processus sert toutes les sessions de tous les comptes).
@@ -796,12 +804,22 @@ doctor_cle() {
     bad=$((bad+1))
 }
 
-# Coffre « Secrets » : clé 0440 root, groupe propre au compte des services, lisible par lui ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
+# Coffre « Secrets » : clé 0440 root, groupe propre au compte des services, lisible par lui (sous ce compte : lecture réelle, une session ouverte avant l'ajout du groupe de la clé ne la lit pas) ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
 doctor_coffre() {
     local compte m g niveau texte dossier="${VAULT_KEY_SYS%/*}"
     compte="$(compte_services)"
     [ -n "$compte" ] || compte="$(id -un)"
     [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" = "$compte" ] && [ -d "$dossier" ] \
+            && { [ ! -x "$dossier" ] || [ -e "$VAULT_KEY_SYS" ]; } && [ ! -r "$VAULT_KEY_SYS" ]; then
+        g="$(stat -c %G -- "$VAULT_KEY_SYS" 2>/dev/null || stat -c %G -- "$dossier")"
+        if ! id -Gn | tr ' ' '\n' | grep -qxF -- "$g" && id -Gn "$compte" | tr ' ' '\n' | grep -qxF -- "$g"; then
+            warn "coffre (Secrets) : clé illisible par ce processus, sans le groupe $g (session ouverte avant son ajout) : les services lancés d'ici n'ouvriraient pas le coffre (nouvelle session, ou sg $g -c './elpis restart')"
+        else
+            warn "coffre (Secrets) : clé $VAULT_KEY_SYS illisible par le compte des services $compte (sudo ./elpis vault setup)"
+        fi
+        bad=$((bad+1)); return 0
+    fi
     if [ -e "$VAULT_KEY_SYS" ] || [ -L "$VAULT_KEY_SYS" ]; then
         m="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
         if [ -L "$VAULT_KEY_SYS" ] || [ ! -f "$VAULT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
@@ -1312,21 +1330,21 @@ audit_setup() {
     return "$echec"
 }
 
-# Clé du coffre : fichier ordinaire, jamais un lien ; 32 octets aléatoires en base64, créée si absente ou vide, jamais remplacée (une clé invalide est refusée) ; 0440 root:GRP_CLE à chaque passage.
+# Clé du coffre : fichier ordinaire, jamais un lien ; 32 octets aléatoires en base64, créée si absente ou vide, jamais remplacée ; validée par le cœur (vault check-key, même règle que les services) ; 0440 root:GRP_CLE à chaque passage.
 cle_coffre() {
-    local cle="$VAULT_KEY_SYS" texte
+    local cle="$VAULT_KEY_SYS" verdict
     if [ -L "$cle" ] || { [ -e "$cle" ] && [ ! -f "$cle" ]; }; then
         warn "$cle : lien symbolique ou fichier spécial : refusé (à vérifier)."; return 1
     fi
     if [ -s "$cle" ]; then
-        texte="$(tr -d ' \t\r\n' < "$cle")" || return 1
-        if ! [[ "$texte" =~ ^([A-Za-z0-9+/_-]{43}=?|[0-9a-fA-F]{64})$ ]]; then
-            warn "$cle : clé invalide (32 octets en base64 attendus) : laissée intacte, à vérifier."; return 1
-        fi
-        info "Clé du coffre déjà en place, gardée : $cle (jamais remplacée)."
+        verdict="$(core_cmd vault check-key < "$cle" 2>&1)" \
+            || { warn "$cle : ${verdict:-clé refusée par le cœur} : laissée intacte, à vérifier."; return 1; }
+        info "Clé du coffre déjà en place, gardée : $cle ($verdict, jamais remplacée)."
     else
         ( umask 0337 && head -c 32 /dev/urandom | base64 > "$cle" ) || return 1
-        info "Clé du coffre créée : $cle (à sauvegarder hors de la machine, à part des sauvegardes d'Elpis)."
+        verdict="$(core_cmd vault check-key < "$cle" 2>&1)" \
+            || { rm -f -- "$cle"; warn "Clé du coffre générée refusée (${verdict:-?}) : relancez sudo ./elpis vault setup."; return 1; }
+        info "Clé du coffre créée : $cle ($verdict ; à sauvegarder hors de la machine, à part des sauvegardes d'Elpis)."
     fi
     if [ "$(id -u)" -eq 0 ]; then chown -h "root:$GRP_CLE" -- "$cle" || return 1; fi
     chmod 0440 -- "$cle"
@@ -1336,6 +1354,8 @@ cle_coffre() {
 vault_setup() {
     local vu attendu
     compte_setup vault
+    NODE="$(node_bin)"
+    need_exploitation
     [ -z "$SYS_PREFIXE" ] || mkdir -p "$SYS_PREFIXE/etc" || die "Arborescence $SYS_PREFIXE/etc impossible à créer."
     groupe_de_cle "$COMPTE_SETUP" || die "Groupe de la clé non préparé (voir ci-dessus)."
     dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE" || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."

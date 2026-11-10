@@ -26,10 +26,10 @@ import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
 import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
-import { classeRoute, refusRoute, ecartsTable } from './route_policy.js';
+import { classeRoute, refusRoute, refusSelecteurValeur, ecartsTable } from './route_policy.js';
 import { origineDe, erreurSecret, formesSecret, retenirSecret, oublierSecrets, purgerValeurs, purgerTexte, requetePorteSecret,
-         viderPagesAvecSecret, garderCaptures, CAPTURE_REFUSEE, choisirVisible, controlerChamp, controlerPoignee,
-         verifierFormulaire, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
+         viderPagesAvecSecret, surveillerPage, garderCaptures, CAPTURE_REFUSEE, choisirVisible, controlerChamp, controlerPoignee,
+         verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -1748,41 +1748,61 @@ async function getSession(req, res, next) {
     next();
 }
 
-// Session sécurisée, avant la route : onglet qui montre un secret vidé (409 secret_in_page), puis réponses purgées des valeurs retenues.
+const SECRET_DANS_PAGE = Object.freeze({
+    error: 'A page contained a vault secret (echoed by the site): it was cleared, and nothing read from it is returned.',
+    code: 'secret_in_page',
+    fix: 'Navigate again to the page you need; never ask the site to display the secret.',
+});
+
+// Session sécurisée : page qui contient un secret vidée avant la route (409), sélecteur sur `value` refusé (400), puis réponse retenue (409) si une page l'a contenu pendant ou après la route, sinon purgée.
 async function preparerSessionSecurisee(req, res, s) {
-    if (req.route?.path !== '/stop' && (await viderPagesAvecSecret(s))) {
-        res.status(409).json({
-            error: 'A page showed a vault secret (echoed by the site): it was cleared before anything could read it.',
-            code: 'secret_in_page',
-            fix: 'Navigate again to the page you need; never ask the site to display the secret.',
-        });
+    const route = req.route?.path;
+    if (route !== '/stop' && (await viderPagesAvecSecret(s))) {
+        res.status(409).json(SECRET_DANS_PAGE);
         return false;
     }
+    const refusSel = refusSelecteurValeur(req.body, req.query);
+    if (refusSel) {
+        res.status(refusSel.statut).json(refusSel.corps);
+        return false;
+    }
+    const epoque = s._blanchiments || 0;
     const json = res.json.bind(res);
     res.json = (corps) => {
-        let sortie = corps;
-        if (res.statusCode >= 500 && sortie && typeof sortie.error === 'string' && sortie.error.includes(CAPTURE_REFUSEE)) {
-            res.status(409);
-            sortie = { ...sortie, code: 'secret_in_page' };
-        }
-        return json(purgerValeurs(sortie, s));
+        const envoyer = (sortie) => json(purgerValeurs(sortie, s));
+        if (route === '/stop' || route === '/login') return envoyer(corps);
+        viderPagesAvecSecret(s).catch(() => true).then((vue) => {
+            if (vue || (s._blanchiments || 0) !== epoque) { res.status(409); return envoyer(SECRET_DANS_PAGE); }
+            if (res.statusCode >= 500 && corps && typeof corps.error === 'string' && corps.error.includes(CAPTURE_REFUSEE)) {
+                res.status(409);
+                return envoyer({ ...corps, code: 'secret_in_page' });
+            }
+            return envoyer(corps);
+        }).catch((e) => console.error('[secure] réponse non envoyée :', e.message));
+        return res;
     };
     return true;
 }
 
-// ── Screenshot write for a specific step number (file I/O only).
+// ── Screenshot write for a specific step number (file I/O only) ; session sécurisée : sous son verrou (aucune connexion ne commence), drapeau revu juste avant.
 async function liveSnapshotForStep(page, sid, n) {
-    if (!page || !sid || !n || sessions.get(sid)?._connexionEnCours) return null;
+    const sv = sessions.get(sid);
+    if (!page || !sid || !n || sv?._connexionEnCours) return null;
     const liveName = `live_${sid}.png`;
     const stepName = `step_${sid}_${n}.png`;
     const livePath = path.join(SCREENSHOT_DIR, liveName);
     const stepPath = path.join(SCREENSHOT_DIR, stepName);
+    let rendre = null;
     try {
+        if (sv?.secure && PW_MUTEX && sv._lock) rendre = await acquireLock(sv._lock, { waitMs: 2000, maxWaiters: LOCK_MAX_W });
+        if (sv?.secure && (sv._connexionEnCours || !sessions.has(sid))) return null;
         await page.screenshot({ path: livePath, fullPage: false, timeout: 3000 });
         try { fs.copyFileSync(livePath, stepPath); } catch (e) {}
         return stepName;
     } catch (e) {
         return null;
+    } finally {
+        if (rendre) rendre();
     }
 }
 
@@ -2117,6 +2137,7 @@ function brancherOnglet(s, page) {
     attachDialogHandler(page, s.dialogState || (s.dialogState = makeDialogState()));
     attachPageLoggers(page, s.consoleLogs, s.networkLog);
     suivreOnglets(s, page);
+    if (s.secure) surveillerPage(s, page);
 }
 
 // Popup ajouté à la session et mis en attente d'annonce.
@@ -2353,7 +2374,7 @@ app.post('/start', async (req, res) => {
         if (!owner) return res.status(400).json({ error: 'owner requis.' });
         // Groupe du quota : le compte d'un sous-agent à session isolée (absent : le propriétaire seul).
         const group = safeOwner(req.body.group) || owner;
-        // Session sécurisée (coffre), pour toute sa vie : jamais reprise ni reprenante, jamais évincée, TLS vérifié sauf tls='insecure', CSP du site, sans service worker, journaux purgés.
+        // Session sécurisée (coffre), pour toute sa vie : jamais reprise ni reprenante, jamais évincée, TLS vérifié sauf tls='insecure', CSP du site, sans service worker, WebSocket fermé s'il émet pendant une saisie, pages surveillées, journaux purgés.
         const secure = req.body.secure === true;
         const refusSecure = refusOptionsSecurisees(req.body, secure);
         if (refusSecure) return res.status(refusSecure.statut).json(refusSecure.corps);
@@ -2500,6 +2521,16 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        const etatWs = { saisie: false };
+        if (secure) await context.routeWebSocket(/.*/, (ws) => {
+            if (etatWs.saisie) return ws.close({ code: 1008, reason: 'Login in progress' });
+            const serveur = ws.connectToServer();
+            ws.onMessage((m) => {
+                if (!etatWs.saisie) return serveur.send(m);
+                ws.close({ code: 1008, reason: 'Login in progress' });
+                serveur.close({ code: 1008, reason: 'Login in progress' });
+            });
+        });
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.
@@ -2569,7 +2600,9 @@ app.post('/start', async (req, res) => {
         const sess = sessions.get(sessionId);
         suivreOnglets(sess, page);
         if (secure) {
+            sess.ws = etatWs;
             garderCaptures(context, page, sess);
+            surveillerPage(sess, page);
             if (identifiants) retenirSecret(sess, identifiants.password, { identifiant: identifiants.username, basic: true });
         }
 
@@ -2666,7 +2699,7 @@ async function preparerLogin(req, { fin = Infinity, valeurs = null } = {}) {
             if (!fr || origineDe(fr.url()) !== p.origine)
                 throw erreurSecret('secret_scope_mismatch', "submit_target is not on the login fields' origin: refused.", 403);
             await verifierFormulaire(p.submit, p.origine);
-        }
+        } else await verifierBoutonParDefaut(p.champs.password || p.champs.username, p.origine);
         p.cw = await candidatsLogin(req, b.wait_for, 'wait_for');
         return p;
     } catch (e) {
@@ -2682,18 +2715,6 @@ function erreurLogin(e) {
     return { statut: 500, corps: { error: 'Login failed: the page could not be driven.', code: 'secret_login_failed' } };
 }
 
-// Identifiants (frame + chargement) des documents d'une page, lus par le protocole du navigateur : une page ne peut pas les falsifier.
-async function idsDocuments(page) {
-    const cdp = await page.context().newCDPSession(page);
-    try {
-        const { frameTree } = await cdp.send('Page.getFrameTree');
-        const ids = new Set();
-        const marche = (n) => { ids.add(`${n.frame.id}:${n.frame.loaderId}`); (n.childFrames || []).forEach(marche); };
-        marche(frameTree);
-        return ids;
-    } finally { await cdp.detach().catch(() => {}); }
-}
-
 // Identifiant (frame + chargement) du document principal : il change à chaque vraie navigation.
 async function idPrincipal(page) {
     const cdp = await page.context().newCDPSession(page);
@@ -2703,38 +2724,27 @@ async function idPrincipal(page) {
     } finally { await cdp.detach().catch(() => {}); }
 }
 
-// Aucun document qui a reçu le secret ne reste : remplacé (about:blank puis GET de la même adresse, jamais un rechargement qui rejouerait un POST), sinon page puis session fermées.
-async function remplacerDocuments(s, saisies, origineSecret, finPost) {
+// Chaque onglet qui a reçu le secret est remplacé par un onglet neuf, chargé en GET sur son adresse si elle ne porte aucun secret, historique vidé (aucun retour ne rejoue le POST) ; sinon fermé, puis la session.
+async function remplacerDocuments(s, saisies, finPost) {
     const bilan = { remplacees: 0, fermees: 0, sessionFermee: false };
-    const borne = () => {
-        const r = finPost - Date.now();
-        if (r < 300) throw Object.assign(new Error('budget'), { name: 'TimeoutError' });
-        return Math.min(r, 4000);
-    };
-    for (const [pg, avant] of saisies) {
-        if (pg.isClosed()) continue;
-        let restants = true;
-        let urlCible = null;
-        try {
-            const courant = await avecDelai(idsDocuments(pg), borne());
-            restants = [...avant].some((id) => courant.has(id));
-            const u = pg.url();
-            if (restants && /^https?:/.test(u) && origineDe(u) === origineSecret && purgerTexte(u, s) === u) urlCible = u;
-        } catch (e) { restants = true; }
-        if (!restants) continue;
-        let ok = false;
-        try {
-            await avecDelai(pg.goto('about:blank', { waitUntil: 'commit' }), borne());
-            const apres = await avecDelai(idsDocuments(pg), borne());
-            ok = ![...avant].some((id) => apres.has(id));
-            if (ok && urlCible) await avecDelai(pg.goto(urlCible, { waitUntil: 'commit' }), borne()).catch(() => {});
-        } catch (e) { ok = false; }
-        if (ok) { bilan.remplacees++; continue; }
-        try {
-            pg.__elpisFermeParService = true;
-            await avecDelai(pg.close(), Math.max(500, Math.min(3000, finPost - Date.now())));
-            bilan.fermees++;
-        } catch (e) { bilan.sessionFermee = true; return bilan; }
+    const borne = () => Math.max(300, Math.min(4000, finPost - Date.now()));
+    for (const vieux of saisies) {
+        if (vieux.isClosed()) continue;
+        let cible = null;
+        try { const u = vieux.url(); if (/^https?:/i.test(u) && purgerTexte(u, s) === u) cible = u; } catch (e) { cible = null; }
+        const neuf = await avecDelai(s.context.newPage(), borne()).catch(() => null);
+        if (neuf) {
+            brancherOnglet(s, neuf);
+            const i = s.tabs.indexOf(vieux);
+            if (i >= 0) s.tabs[i] = neuf; else s.tabs.push(neuf);
+            if (s.page === vieux) s.page = neuf;
+        }
+        vieux.__elpisFermeParService = true;
+        try { await avecDelai(vieux.close(), borne()); } catch (e) { bilan.sessionFermee = true; return bilan; }
+        if (!neuf) { bilan.fermees++; continue; }
+        bilan.remplacees++;
+        if (cible) await avecDelai(neuf.goto(cible, { waitUntil: 'commit' }), borne()).catch(() => {});
+        await avecDelai(s.context.newCDPSession(neuf).then((cdp) => cdp.send('Page.resetNavigationHistory').finally(() => cdp.detach().catch(() => {}))), borne()).catch(() => {});
     }
     if (!s.tabs.some((t) => !t.isClosed())) {
         try {
@@ -2799,13 +2809,18 @@ async function issueConnexion(page, p, ctx) {
     return p.cw ? 'wait_for_missing' : issue;
 }
 
-// Garde réseau de /login : une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
+// Garde réseau de /login : pendant la saisie, toute requête vers une autre origine est coupée ; ensuite, une requête qui porte le mot de passe (adresse, corps, en-têtes) ne part qu'en POST vers son origine, sans suivre un 307/308 ailleurs.
 function gardeReseau(formes, origineSecret, etat) {
     return async (route) => {
         const rq = route.request();
         let porte = '';
         try { porte = [rq.postData() || '', ...Object.values(rq.headers())].join('\n'); } catch (e) { porte = ''; }
-        if (!requetePorteSecret(rq.url(), porte, formes)) return route.fallback().catch(() => {});
+        const avecSecret = requetePorteSecret(rq.url(), porte, formes);
+        if (etat.saisie && origineDe(rq.url()) !== origineSecret) {
+            if (avecSecret) etat.bloquees++; else etat.coupees++;
+            return route.abort('blockedbyclient').catch(() => {});
+        }
+        if (!avecSecret) return route.fallback().catch(() => {});
         const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
         if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
         etat.enVol++;
@@ -2862,12 +2877,13 @@ app.post('/login', getSession, async (req, res) => {
     const fin = req.recuA + BUDGET_LOGIN_MS - 500;
     // Drapeau de session, indépendant du verrou et de la connexion HTTP (un client parti rend le verrou) : levé à la toute fin du post-traitement.
     s._connexionEnCours = true;
-    const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0 };
+    const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
     const garde = gardeReseau(formesSecret(pv), origineSecret, etat);
-    const saisies = new Map();
+    const phaseSaisie = (oui) => { etat.saisie = oui; if (s.ws) s.ws.saisie = oui; };
+    const saisies = new Set();
     const nouvelles = [];
     const surPage = (pg) => { nouvelles.push(pg); };
-    let p = null, avecSecret = false, gardee = false, tape = false, sortie = null, message = '';
+    let p = null, avecSecret = false, gardee = false, tape = false, sortie = null, message = '', secretVu = false;
     let post = { remplacees: 0, fermees: 0, sessionFermee: false };
     s.context.on('page', surPage);
     try {
@@ -2882,10 +2898,7 @@ app.post('/login', getSession, async (req, res) => {
                 throw erreurSecret('secret_scope_mismatch', `The login fields are on ${p.origine}, not on the secret's origin (${origineSecret}): nothing was typed.`, 403);
             avecSecret = Boolean(p.champs.password);
             if (avecSecret) {
-                for (const h of Object.values(p.champs)) {
-                    const pg = (await avecDelai(h.ownerFrame(), 3000)).page();
-                    if (!saisies.has(pg)) saisies.set(pg, await avecDelai(idsDocuments(pg), 3000));
-                }
+                for (const h of Object.values(p.champs)) saisies.add((await avecDelai(h.ownerFrame(), 3000)).page());
                 retenirSecret(s, pv);
                 await s.context.route('**/*', garde);
                 gardee = true;
@@ -2901,11 +2914,14 @@ app.post('/login', getSession, async (req, res) => {
                         throw erreurSecret('secret_scope_mismatch', "The field's frame left the secret's origin: nothing more was typed.", 403);
                     await verifierFormulaire(h, origineSecret);
                     tape = true;
+                    if (avecSecret) phaseSaisie(true);
                     await remplirChamp(h, champ === 'password' ? pv : uv, { champ, timeout: p.timeout, delaiAvant: fin });
                 }
                 const observe = p.champs.password || p.champs.username;
                 const avantId = await avecDelai(idPrincipal(page), 2000).catch(() => '');
                 const t = Math.max(500, Math.min(p.timeout, fin - Date.now()));
+                if (etat.saisie) await page.waitForTimeout(150).catch(() => {});
+                phaseSaisie(false);
                 if (p.submit) await p.submit.click({ timeout: t, noWaitAfter: true });
                 else await observe.press('Enter', { timeout: t, noWaitAfter: true });
                 const issue = await issueConnexion(page, p, { fin, nouvelles, etat, avecSecret, origineSecret });
@@ -2913,6 +2929,7 @@ app.post('/login', getSession, async (req, res) => {
                 const bloquee = issue !== 'wait_for' && (etat.bloquees > 0 || /^chrome-error:/.test(page.url()));
                 sortie = sortieConnexion(issue, { bloquee, docChange: avantId !== '' && apresId !== avantId, p, nouvelles });
             } finally {
+                phaseSaisie(false);
                 page.off('framenavigated', surNav);
             }
         } catch (e) {
@@ -2926,11 +2943,12 @@ app.post('/login', getSession, async (req, res) => {
         }
         await libererLogin(p).catch(() => {});
         if (avecSecret && saisies.size) {
-            try { post = await remplacerDocuments(s, saisies, origineSecret, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS))); }
+            try { post = await remplacerDocuments(s, saisies, Math.max(Date.now() + 4000, Math.min(Date.now() + POST_BUDGET_MS, req.recuA + PLAFOND_LOGIN_MS))); }
             catch (e) { post = { remplacees: 0, fermees: 0, sessionFermee: true }; }
             if (post.sessionFermee) await avecDelai(closeSession(req.sessionId, 'login_echec_ferme', { lockHeld: true }), FERMETURE_MS).catch(() => {});
         }
         if (gardee) await s.context.unroute('**/*', garde).catch(() => {});
+        if (!post.sessionFermee) secretVu = await viderPagesAvecSecret(s).catch(() => true);
     } finally {
         s._connexionEnCours = false;
     }
@@ -2945,6 +2963,7 @@ app.post('/login', getSession, async (req, res) => {
         url: purgerTexte(url, s).substring(0, 300), title: purgerTexte(titre, s).substring(0, 200),
         documents_replaced: post.remplacees,
         ...(post.fermees ? { page_closed: true, warning: 'A document that received the secret could not be replaced: its page was closed for safety.' } : {}),
+        ...(secretVu ? { secret_in_page: true, warning: 'The page after the login contained the secret (echoed by the site): it was cleared.' } : {}),
     };
     res.status(post.sessionFermee ? 422 : sortie.statut).json(corps);
 });
@@ -3730,7 +3749,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             // Chercher dans les suggestions (datalist, autocomplete)
             const suggestions = [
                 `[role="option"]:has-text("${option_text || option_value}")`,
-                `datalist option[value="${option_value || option_text}"]`,
+                ...(req.session.secure ? [] : [`datalist option[value="${option_value || option_text}"]`]),
                 `li:has-text("${option_text || option_value}")`,
                 `.autocomplete-suggestion:has-text("${option_text || option_value}")`,
             ];

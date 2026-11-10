@@ -4,8 +4,8 @@ import type { Base, Executeur } from "@elpis/db";
 import { chiffrerSecret, dechiffrerSecret, kidDe } from "@elpis/securite";
 import type { CleCoffre } from "@elpis/securite";
 
-import { aadSecret, estGenre } from "./portee";
-import { COLONNES_SECRET } from "./stockage";
+import { estGenre } from "./portee";
+import { aadLigne, COLONNES_SECRET } from "./stockage";
 import type { LigneSecret } from "./stockage";
 
 /** Nombre de secrets par `kid`, et combien sont des secrets d'instance. */
@@ -51,7 +51,7 @@ export async function rechiffrerCoffre(
       r.echecs += 1;
       continue;
     }
-    const aad = aadSecret(l.user_id, l.kind, l.name);
+    const aad = aadLigne(l);
     let enc: string;
     try {
       enc = chiffrerSecret(dechiffrerSecret(l.secret_enc, aad, [ancienne]), aad, courante);

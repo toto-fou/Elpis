@@ -774,7 +774,7 @@ automatically to skill search.
 ### Logging in to websites
 
 The assistant can log in to a website for you without ever seeing the password. You keep the
-login in your **vault** (Settings › Secrets): a name such as `intranet-admin`, its type
+login in your **vault** ([Settings › Secrets](#secrets)): a name such as `intranet-admin`, its type
 (`web-login` for a login form, `http-auth` for a browser password prompt), the exact addresses
 where it may be used (for example `https://intranet.example.lan:8443`, plus the address of the
 sign-in page when it lives elsewhere), the user name and the password. The password can be
@@ -786,12 +786,16 @@ A secret is used only in a conversation you attach it to:
 |---|---|
 | `/secret` | Lists the secrets attached to this conversation, then the ones you can attach |
 | `/secret attach <name>…` | Attaches one or more secrets; a chip `secret:<name>` stays above the input |
-| `/secret detach <name>` or `--all` | Detaches them |
+| `/secret detach <name>` or `--all` | Detaches them; the × of a chip detaches that secret |
 
-Only `web-login` and `http-auth` secrets attach, and an imported secret must first be checked
-(**Verify** in Settings › Secrets). The attachment is saved with the conversation before the
-assistant starts working, and the subagents of the conversation inherit it unless the secret's
-policy says otherwise. Routines use a secret only when its policy allows routines.
+The menu completes the sub-commands and the names: `attach` offers your verified `web-login` and
+`http-auth` secrets that are not attached yet, `detach` offers `--all` then the attached ones.
+Only these two types attach, and an imported secret must first be checked (**Verify** in
+Settings › Secrets); a refusal is shown in one line. In an existing conversation the attachment
+is saved at once; in a new conversation the chips wait in the composer and are saved with your
+first message, before the assistant starts working. Opening a conversation shows its chips
+again. The subagents of the conversation inherit the attachment unless the secret's policy says
+otherwise; routines use a secret only when its policy allows routines.
 
 **What the assistant sees.** With your next message it receives a short list, never a value:
 
@@ -1470,6 +1474,7 @@ tools works as is (`{{CURRENT_DATE}}`, `{{USER_NAME}}`, `{{CLIPBOARD}}`…).
 | **Skills** | *Global*: the instance library and its drafts. *Personal*: your own procedures |
 | **Archives** | Your archived conversations: restore or delete |
 | **Sandbox** | Container state, network profile, restart, emptying the working folder |
+| **Secrets** | Your vault: website logins (`web-login`, `http-auth`) and tokens, rotation, verification of imported secrets; see [below](#secrets) |
 | **Git accounts** | Your access to Git hosts |
 
 Tabs with a lot of content are split into parts, in a strip at the top of the content; the modal returns to the last part
@@ -1490,6 +1495,31 @@ already exists, Elpis offers to replace it. In the *My skins* list, **Preview** 
 removes the skin after confirmation. The section disappears if the administrator has turned the feature off (Admin console › Appearance).
 
 Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
+
+### Secrets
+
+Settings › **Secrets** lists the vault of your account in one table: `name`, `type`, `scope`,
+`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user`, `tls` and the
+usage columns move to the tooltip of the name). An imported secret is marked `unverified`;
+`⚠ kid` marks a value encrypted with another key than the current vault key (rotate it, or ask
+the administrator for `./elpis vault rekey`). Values are write-only: no screen and no API returns
+them, and the model never reads them.
+
+- **New** creates a `web-login`, `http-auth` or `token` secret. The name is a slug
+  (`[a-z0-9][a-z0-9._-]{0,47}`, checked as you type); the scope lists exact origins,
+  `scheme://host[:port]`, one per line (a token has none); `tls` is `strict` unless you choose
+  `insecure`; the policy says whether the subagents and the routines may use it.
+- The **⋯** menu of a row offers **Rotation** (a new value, `version` + 1), **Edit** (an empty value
+  keeps the current one; adding an origin or switching to `tls insecure` requires the value
+  again), **Verify** for an imported secret (read its scope, then it becomes `active`) and
+  **Delete**, confirmed by clicking the same button a second time.
+- Secrets of a connector are listed but managed where they are created: `git` and `llm` secrets
+  offer **Rotation** and a link to Git accounts or AI models; `mcp` secrets are read-only here
+  (their value holds the server's authentication, headers and variables) and link to the MCP
+  servers panel.
+
+The secrets of the instance (shared LLM connectors and MCP servers, image engine) are in the
+[admin console](#admin-console), *Models & services › Secrets*.
 
 The personal system prompt is **permanent** (it applies to all your
 conversations); generation settings, on the other hand, apply only to the
@@ -1517,7 +1547,7 @@ in local time; hover one for the exact UTC time. Old links (`#runs`, `#tool-call
 |---|---|
 | **Overview** | Landing page: what needs attention (*To review*), service status, last 24 hours, installation |
 | **Monitoring** | **Metrics** (widgets of your choice, visible automatic refresh, CSV export, Prometheus collection), **Report** (archived daily digest, A4 preview before printing, charts shown or removed), **Activity** (*Runs* and *Tool calls* tabs: search, sort, pagination with the total, error filters, clickable `run_id`), **Logs** (*Technical* tab: dated, filterable history, then live stream; *Security* tab: the security journal, administrators only) |
-| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly) |
+| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly), **Secrets** (secrets of the instance: rotation, except `mcp`, and deletion confirmed in place) |
 | **Users & access** | **Accounts** (role, groups, allowed servers and models, sandbox quota and network profile, machines), **Groups**, **Default permissions** (features, providers allowed to users), **Passwords & sessions** (password policy, cookie, session revocation) |
 | **Sandbox** | **Limits & policy** (memory, CPU, processes, command duration, idle shutdown), **Network** (profiles), **Tool hosts**, **Containers** |
 | **System** | **Instance** (identity, welcome screen, sign-in page, runtime), **Appearance** (skins offered), **HTTPS access**, **Data** (local and remote backup, database, restore), **Logging** (retention and hold of the security journal, forwarding through the host's syslog), **Maintenance** (periodic maintenance, restart, metrics purge) |

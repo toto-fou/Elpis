@@ -8,6 +8,19 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Secrets in the interface.** Settings › Secrets shows the account's vault in one table (`name`,
+  `type`, `scope`, `user`, `tls`, `version`, last use, uses), with `unverified` and `⚠ kid` (value
+  encrypted with another key) visible. **New** creates `web-login`, `http-auth` and `token`
+  secrets (slug checked as you type, exact origins one per line, write-only value, `tls`,
+  subagents and routines policy); the row menu offers **Rotation**, **Edit** (an empty value
+  keeps it; widening the scope or `tls insecure` asks for it again), **Verify** for imported
+  secrets and **Delete** confirmed by the same button. `git` and `llm` secrets offer rotation
+  only and `mcp` secrets are read-only, each with a link to the place that manages it. In the
+  chat, `/secret` lists the attached then the available secrets, `/secret attach <name>…` and
+  `/secret detach <name>|--all` complete the names, and a chip `secret:<name>` with a × stays
+  above the input; a new conversation keeps the selection and sends it with its first message.
+  The console lists the instance secrets (*Models & services › Secrets*) with rotation (not for
+  `mcp`) and deletion.
 - **Secrets in the chat: `/secret` attachment and `pw_login`.** A conversation can now use
   `web-login` and `http-auth` secrets of the vault that the user attaches to it
   (`chats.meta_json.secrets`, inherited by its sub-agents when the secret's policy allows them;

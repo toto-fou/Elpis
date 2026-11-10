@@ -4,7 +4,7 @@ import { reglagesDepuis, reglagesEnJson } from "@elpis/auth";
 import { estDict, intPy, reprPy, strPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base, Executeur, Migration } from "@elpis/db";
-import { idSecretServeur, publicId, repriseHeritee, serveurDePortee } from "@elpis/mcp";
+import { entreeReprise, idSecretServeur, publicId, repriseHeritee, serveurDePortee } from "@elpis/mcp";
 import type { ActeurMcp, RepriseHeritee } from "@elpis/mcp";
 import { EncryptionUnavailable } from "@elpis/securite";
 
@@ -75,13 +75,9 @@ async function migrerEntree(base: Base, uid: number, srv: Dict, bilan: Bilan): P
     }
     bilan.secrets += 1;
   }
-  if (srv["type"] !== r.type) srv["type"] = r.type;
-  if (r.mode !== null) Object.assign(srv, r.mode);
-  for (const k of r.cles) if (!r.gardees.includes(k)) delete srv[k];
-  if (id !== null) srv["secret_id"] = id;
+  entreeReprise(srv, r, id);
   if (r.illisibles.length > 0) {
     bilan.illisibles += 1;
-    srv["secret_error"] = "undecryptable";
     signaler(
       `compte ${uid}`,
       srv,

@@ -208,10 +208,13 @@ export function secretsEnJson(v: SecretsServeur): string {
   return JSON.stringify(o);
 }
 
-/** Paires lues au coffre : liste `{name, value}` ou objet `{nom: valeur}`, revalidées. */
-function pairesLues(brut: unknown, kind: string): Paire[] {
+/** Paires telles qu'enregistrées (liste `{name, value}` ou objet `{nom: valeur}`) : noms vérifiés à la connexion seulement (`pairesEnDict`), comme avant le coffre. */
+function pairesBrutes(brut: unknown): Paire[] {
   const liste = estDict(brut) ? Object.entries(brut).map(([name, value]) => ({ name, value })) : brut;
-  return Array.isArray(liste) ? sanitizePairs(liste, kind) : [];
+  if (!Array.isArray(liste)) return [];
+  return liste
+    .filter((p) => estDict(p) && veritePy(lire(p, "name")))
+    .map((p) => ({ name: texte(lire(p, "name")), value: texte(lire(p, "value")) }));
 }
 
 /** Valeur lue au coffre : un objet JSON (`auth`, `headers`, `env`) ; tout autre texte est le jeton d'authentification. */
@@ -225,8 +228,8 @@ export function secretsDeJson(t: string): SecretsServeur {
   if (!estDict(o)) return { auth: stripPy(t), headers: [], env: [] };
   return {
     auth: typeof o["auth"] === "string" ? o["auth"] : "",
-    headers: pairesLues(o["headers"], "headers"),
-    env: pairesLues(o["env"], "env"),
+    headers: pairesBrutes(o["headers"]),
+    env: pairesBrutes(o["env"]),
   };
 }
 
@@ -377,10 +380,7 @@ function pairesChiffrees(enc: unknown, scheme: unknown): Paire[] | null {
   } catch {
     return null;
   }
-  if (!Array.isArray(data)) return null;
-  return data
-    .filter((p) => estDict(p) && veritePy(lire(p, "name")))
-    .map((p) => ({ name: texte(lire(p, "name")), value: texte(lire(p, "value")) }));
+  return Array.isArray(data) ? pairesBrutes(data) : null;
 }
 
 function pairesEnClair(brut: unknown, kind: string): Paire[] {
@@ -463,6 +463,15 @@ export function repriseHeritee(src: Dict): RepriseHeritee | null {
   };
 }
 
+/** Entrée perso telle que la migration la laisse : type et mode repris, champs hérités retirés sauf les chiffrés illisibles (signalés), `secret_id` posé. */
+export function entreeReprise(srv: Dict, r: RepriseHeritee, secretId: number | null): void {
+  if (srv["type"] !== r.type) poser(srv, "type", r.type);
+  if (r.mode !== null) for (const [k, v] of Object.entries(r.mode)) poser(srv, k, v);
+  for (const k of r.cles) if (!r.gardees.includes(k)) delete srv[k];
+  if (secretId !== null) poser(srv, "secret_id", secretId);
+  if (r.illisibles.length > 0) poser(srv, "secret_error", "undecryptable");
+}
+
 // ── Fusion « vide = inchangé » ───────────────────────────────────────────────
 
 interface Saisie {
@@ -480,6 +489,8 @@ interface Fusion {
   valeur: SecretsServeur | null;
   changee: boolean;
   illisibles: PartieSecrete[];
+  /** Utilisateur d'un ancien `basic_auth` dont le mot de passe est repris. */
+  utilisateur: string | null;
 }
 
 function completer(a: SecretsServeur, b: SecretsServeur | undefined): SecretsServeur {
@@ -502,7 +513,7 @@ function fusionnerSecrets(s: Saisie, etat: EtatSecrets, herite: Heritage | null)
   );
   const illisibles = saisie ? [] : utiles;
   if (!saisie && (etat.erreur === "undecryptable" || etat.erreur === "key_unavailable"))
-    return { valeur: null, changee: false, illisibles };
+    return { valeur: null, changee: false, illisibles, utilisateur: null };
   const avant = completer(etat.valeur, herite?.valeur);
   const valeur: SecretsServeur = {
     auth: !s.mode ? "" : secret || avant.auth,
@@ -514,10 +525,12 @@ function fusionnerSecrets(s: Saisie, etat: EtatSecrets, herite: Heritage | null)
     env: !stdio ? [] : s.env === undefined ? avant.env : mergePairs(avant.env, s.env, "env"),
   };
   const heriteLisible = herite !== null && !estVide(herite.valeur);
+  const authHeritee = valeur.auth !== "" && !secret && !etat.valeur.auth;
   return {
     valeur,
     changee: etat.erreur !== null || heriteLisible || secretsEnJson(valeur) !== secretsEnJson(etat.valeur),
     illisibles,
+    utilisateur: authHeritee && herite?.mode?.auth_mode === "basic" ? herite.mode.auth_user : null,
   };
 }
 
@@ -968,6 +981,8 @@ export async function mergePersonalMcp(
       if (sid !== null) poser(entry, "secret_id", sid);
       garderIllisibles(entry, ancien, fusion.illisibles);
     }
+    if (fusion.utilisateur !== null && entry["auth_mode"] === "basic" && !stripPy(texte(entry["auth_user"])))
+      poser(entry, "auth_user", fusion.utilisateur);
     out.push({ entree: entry, valeur: fusion.valeur, changee: fusion.changee });
   }
   return out;

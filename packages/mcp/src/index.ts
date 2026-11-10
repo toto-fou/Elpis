@@ -58,6 +58,7 @@ export {
   DEFAULT_HEADER_NAME,
   deleteShared,
   drapeauSecret,
+  entreeReprise,
   etatSansSecret,
   getShared,
   headerNameOk,

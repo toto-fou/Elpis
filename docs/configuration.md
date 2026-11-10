@@ -1300,7 +1300,9 @@ the non-empty parts:
 
 `headers` and `env` are also read as objects (`{"X-API-Key": "…"}`), and a value that is not a
 JSON object is the `auth` part: a rotation from Settings › Secrets can be the bare token, but it
-then replaces the headers and variables. The value holds 16,384 characters at most.
+then replaces the headers and variables. Header and variable names are checked when the server
+connects: an invalid or reserved name (`Host`, `PYTHONPATH`…) is skipped, with a warning in the
+core log. The value holds 16,384 characters at most.
 
 - **Forms.** The secret fields stay write-only: an empty field keeps the value, the auth mode
   "None" removes the token, and removing a header or a variable removes it. `has_auth` and

@@ -5,20 +5,17 @@ import { dirname, join } from "node:path";
 
 import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
+import { MIGRATIONS_TS, MigrationReportee } from "./migrations";
+import type { Migration } from "./migrations";
 import { createAll, hasTable, isFresh } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
+
+export { MIGRATIONS_TS, MigrationReportee } from "./migrations";
+export type { Migration } from "./migrations";
 
 export class ErreurBaseNonAJour extends ErreurBase {
   override name = "ErreurBaseNonAJour";
 }
-
-export interface Migration {
-  name: string;
-  migrer(x: Executeur): Promise<void>;
-}
-
-/** Migrations propres au TS, numérotées à la suite des migrations Python (aucune à ce jour). */
-export const MIGRATIONS_TS: readonly Migration[] = [];
 
 export interface RapportInit {
   neuve: boolean;
@@ -124,7 +121,8 @@ export async function initialiserBase(base: Base): Promise<RapportInit> {
         });
         rapport.appliquees.push(m.name);
       } catch (e) {
-        rapport.echec = { name: m.name, message: e instanceof Error ? e.message : String(e) };
+        if (!(e instanceof MigrationReportee))
+          rapport.echec = { name: m.name, message: e instanceof Error ? e.message : String(e) };
         break;
       }
     }

@@ -197,12 +197,15 @@ export function aadLigne(l: LigneSecret): string {
   return aadSecret(l.user_id, genreDe(l), l.name, l);
 }
 
-/** Clé pour chiffrer : la courante ; à défaut, la clé de repli n'est posée que sur un coffre vide, sinon ses secrets resteraient illisibles (refus 503). */
-async function cleDeChiffrement(x: Executeur): Promise<CleCoffre> {
+/** Clé pour chiffrer : la courante ; à défaut, la clé de repli n'est posée que sur un coffre vide (secrets de webhook des routines compris), sinon ses secrets resteraient illisibles (refus 503). */
+export async function cleDeChiffrement(x: Executeur): Promise<CleCoffre> {
   try {
     const cle = cleCoffre();
     if (cle !== null) return cle;
-    const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
+    const n = await x.get<{ n: number }>(
+      "SELECT (SELECT COUNT(*) FROM vault_secrets) + " +
+        "(SELECT COUNT(*) FROM editor_routines WHERE webhook_secret_enc IS NOT NULL) AS n",
+    );
     if (Number(n?.n ?? 0) > 0)
       throw new ErreurSecret(
         503,

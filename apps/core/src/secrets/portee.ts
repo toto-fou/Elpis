@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/secrets/portee.ts — règles d'un secret : nom (slug), portée selon le genre (origines exactes, hôte, connecteur, serveur), politique, identifiant, valeur, métadonnées, AAD liée aux colonnes qui décident de son usage. */
-import { createHash } from "node:crypto";
-
 import {
   GENRES_SECRET,
   ORIGINES_SECRET_MAX,
@@ -10,6 +8,8 @@ import {
   VALEUR_SECRET_MAX,
 } from "@elpis/contracts";
 import type { GenreSecret, PolitiqueSecret, PorteeSecret } from "@elpis/contracts";
+import { aadCoffre } from "@elpis/securite";
+import type { ColonnesLieesCoffre } from "@elpis/securite";
 
 import { ErreurSecret } from "./erreurs";
 
@@ -204,13 +204,7 @@ export function lirePolitique(texte: unknown): PolitiqueSecret {
 }
 
 /** Colonnes liées au chiffré, telles qu'enregistrées : les changer sans la clé rend le secret indéchiffrable. */
-export interface ColonnesLiees {
-  scope_json: string;
-  policy_json: string;
-  state: string;
-  version: number;
-  username: string | null;
-}
+export type ColonnesLiees = ColonnesLieesCoffre;
 
 /** AAD d'un secret : propriétaire (0 = instance), genre, nom et SHA-256 du JSON des colonnes liées (portée, politique, état, version, identifiant) ; toute écriture de l'une d'elles rechiffre. */
 export function aadSecret(
@@ -219,13 +213,5 @@ export function aadSecret(
   nom: string,
   liees: ColonnesLiees,
 ): string {
-  const colonnes = [
-    liees.scope_json,
-    liees.policy_json,
-    liees.state,
-    Number(liees.version),
-    liees.username ?? null,
-  ];
-  const empreinte = createHash("sha256").update(JSON.stringify(colonnes), "utf8").digest("hex");
-  return `vault|v2|${proprietaire ?? 0}|${genre}|${nom}|${empreinte}`;
+  return aadCoffre(proprietaire, genre, nom, liees);
 }

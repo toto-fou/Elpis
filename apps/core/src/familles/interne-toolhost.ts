@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, hôtes des connecteurs (toolhost/routes_internal.py) ; identifiant git, notification, ancres du bureau, ouverture de PR et identifiant git saisi pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
+/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, hôtes des connecteurs (toolhost/routes_internal.py) ; identifiant git lu dans le coffre, notification, ancres du bureau, ouverture de PR et identifiant git saisi dans l'éditeur pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
 import { getUser, getUserSettings, ligneUtilisateur, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
@@ -13,9 +13,10 @@ import type { FastifyRequest } from "fastify";
 
 import { ancresDeLaBase, obsKey } from "../bureau";
 import { hoteEnregistre, listConnectorHosts, resolveGitCredential } from "../git/connecteurs";
+import type { ContexteGit } from "../git/connecteurs";
 import { detectProvider, normalizeHost } from "../git/detection";
 import { ouvrirPrPourHote } from "../git/pr";
-import { importLegacyGitCredentials, saveGitCredential, saveGitCredentialAgent } from "../git/resolveur";
+import { importLegacyGitCredentials, saveGitCredential } from "../git/resolveur";
 import type { Journal } from "../journal";
 import { createNotification } from "../notifications/stockage";
 import { resolveNetworkProfileId } from "../relais/identite";
@@ -95,6 +96,15 @@ export async function compteSigne(
   return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 
+/** Lecture d'un jeton git pour le compte signé : journal du coffre avec la conversation et le sous-agent de l'enveloppe. */
+function contexteSigne(uid: number, username: string, identite: Identity): ContexteGit {
+  return {
+    acteur: { userId: uid, username, ip: null },
+    chatId: identite.chat_id || null,
+    sousAgent: identite.subagent !== undefined && identite.subagent !== null,
+  };
+}
+
 /** Corps JSON d'une route interne : objet attendu, sinon `{}`. */
 function corpsObjet(req: Parameters<typeof corpsJson>[0]): Record<string, unknown> {
   let corps: unknown;
@@ -118,7 +128,7 @@ function texteDe(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-/** Hôte d'un identifiant enregistré, comme le rend `git_set_credential` : détecté, sinon saisi nu, en minuscules ; `""` s'il ne se lit pas. */
+/** Hôte d'un identifiant enregistré au clone de l'éditeur : détecté, sinon saisi nu, en minuscules ; `""` s'il ne se lit pas. */
 function hoteSaisi(cible: string): string {
   try {
     return lowerPy(detectProvider(cible)?.host || normalizeHost(cible) || "");
@@ -174,12 +184,12 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req, rep) => {
-          const { uid } = await compteSigne(dep, req);
+          const { uid, username, identite } = await compteSigne(dep, req);
           const { remote_url } = entrees(req, { query: { remote_url: py.str().defaut("") } }).query;
           if (!remote_url) throw new HttpError(400, "remote_url requis");
           let cred: Awaited<ReturnType<typeof resolveGitCredential>> = null;
           try {
-            cred = await resolveGitCredential(base, uid, remote_url);
+            cred = await resolveGitCredential(base, uid, remote_url, contexteSigne(uid, username, identite));
           } catch (e) {
             const nom = e instanceof Error ? e.name : typeof e;
             dep.journal.warn(`[internal] résolution d'identifiant git impossible : ${nom}`);
@@ -219,9 +229,10 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { uid } = await compteSigne(dep, req);
+          const { uid, username, identite } = await compteSigne(dep, req);
           const d = entrees(req, { body: DEMANDE_PR }).body;
           const result = await ouvrirPrPourHote(base, uid, d, {
+            contexte: contexteSigne(uid, username, identite),
             signaler: (e) =>
               dep.journal.warn(
                 `[internal] résolution d'identifiant git impossible : ${e instanceof Error ? e.name : typeof e}`,
@@ -300,22 +311,23 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { uid } = await compteSigne(dep, req);
+          const { uid, username } = await compteSigne(dep, req);
           const c = corpsObjet(req);
+          // Seul le clone de l'éditeur (origine posée par l'hôte, saisie de l'humain) enregistre : aucun outil de l'agent ne reçoit de jeton.
+          if (c["origine"] !== "editeur")
+            return { ok: true, saved: false, connector_id: null, host: "", refus: "editor_only" };
           let id: number | null = null;
-          let refus: string | null = null;
           const cible = texteDe(c["target"]);
-          const args = [
-            uid,
-            cible,
-            stripPy(texteDe(c["username"])),
-            texteDe(c["token"]),
-            stripPy(texteDe(c["provider_type"])),
-          ] as const;
           try {
-            // Hors clone de l'éditeur (origine posée par l'hôte, jamais par l'agent), fermé par défaut.
-            if (c["origine"] === "editeur") id = await saveGitCredential(base, ...args);
-            else ({ id, refus } = await base.ecriture((x) => saveGitCredentialAgent(x, ...args)));
+            id = await saveGitCredential(
+              base,
+              uid,
+              cible,
+              stripPy(texteDe(c["username"])),
+              texteDe(c["token"]),
+              stripPy(texteDe(c["provider_type"])),
+              { userId: uid, username, ip: null },
+            );
           } catch (e) {
             const nom = e instanceof Error ? e.name : typeof e;
             dep.journal.warn(`[internal] identifiant git non enregistré : ${nom}`);
@@ -324,8 +336,7 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
             ok: true,
             saved: id !== null,
             connector_id: id,
-            host: id === null && refus === null ? "" : hoteSaisi(cible),
-            ...(refus === null ? {} : { refus }),
+            host: id === null ? "" : hoteSaisi(cible),
           };
         },
       },
@@ -335,17 +346,23 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { uid } = await compteSigne(dep, req);
+          const { uid, username } = await compteSigne(dep, req);
           const c = corpsObjet(req);
           const donnees = typeof c["data_b64"] === "string" ? base64Strict(c["data_b64"]) : null;
           if (donnees === null) throw new HttpError(400, "data_b64 requis");
           let refuses = 0;
-          // Fichier du bac, modifiable par l'agent : même règle que ses outils (hôte déjà enregistré par le compte ou un admin).
-          const n = await base.ecriture((x) =>
-            importLegacyGitCredentials(x, uid, donnees, {
-              admis: (hote) => hoteEnregistre(x, uid, hote),
-              refus: () => void (refuses += 1),
-            }),
+          // Fichier du bac, modifiable par l'agent : seulement pour un hôte déjà enregistré par le compte ou un admin.
+          const n = await base.ecriture(() =>
+            importLegacyGitCredentials(
+              base,
+              uid,
+              donnees,
+              { userId: uid, username, ip: null },
+              {
+                admis: (hote) => hoteEnregistre(base, uid, hote),
+                refus: () => void (refuses += 1),
+              },
+            ),
           );
           if (n > 0)
             dep.journal.info(

@@ -174,6 +174,7 @@ export async function demarrerBase(o: OptionsDemarrage = {}): Promise<{ base: Ba
       await verrou?.rendre();
     }
     for (const avertissement of rapport.avertissements) log.warn(avertissement);
+    if (rapport.appliquees.length) log.info(`migrations appliquées : ${rapport.appliquees.join(", ")}`);
     if (rapport.echec) log.error(`migration ${rapport.echec.name} en échec : ${rapport.echec.message}`);
     await o.apres?.(nouvelle);
     return { base: nouvelle, rapport };

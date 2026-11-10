@@ -2908,6 +2908,50 @@ by attribute) never runs. The fallback itself is capped at 5 s.
 session (`pw_dialog`). Do not set a `page.on('dialog', … accept())` again on
 a new page — that is what made it impossible to dismiss a confirm.
 
+#### Secure session and vault login
+
+A secret from the vault is never typed through a gesture: it goes into a **secure session**
+(`POST /start` with `secure: true`), and only through `POST /login`. The adversary is not only a
+hostile page but also the agent itself, which drives a programmable browser; a secure session
+therefore removes every way to read a typed value back.
+
+- **Fixed at start, for the session's lifetime**: Chromium only; TLS verified (`tls: "strict"`,
+  default) unless the vault entry allows `"insecure"`; the site's CSP stays in force; service
+  workers blocked; HAR, trace, video and saved state refused (`secret_option_refused`). A secure
+  session is never reused by an ordinary start and never reuses one; at the quota it is never
+  evicted and never evicts (`browser_quota`). HTTP credentials sent with `credentials_origin` are
+  bound to that exact origin (the start URL must be on it).
+- **Route policy**: one table, `browser-service/route_policy.js`, gives every route a capability
+  class (`read_dom`, `exec_js`, `network_control`, `export`, `gesture`, `admin`, `secret`).
+  `getSession` applies it to every session route: on a secure session `exec_js` (eval),
+  `network_control` (mocks) and `export` (state, trace, PDF, recorder) answer 403
+  `secret_route_refused`, as does a route missing from the table; `/login` and `/login_precheck`
+  answer the same on an ordinary session. While a login runs, every other route of the session
+  answers 409 `secret_login_busy`. The service logs `[POLICY]` at startup if a route has no class.
+- **`/login_precheck`** (no values) and **`/login`** (values): targets are optional. Without them,
+  fields are detected on all frames: `autocomplete=current-password`, otherwise the single visible
+  `input[type=password]`; username by `autocomplete=username`, then `email`, then the text field
+  that precedes the password in its form; several candidates → 400 `secret_target_required`.
+  Each target must match one visible, editable, opaque element; a password only goes into a real
+  `type=password`, checked again after typing. The origin is the one of the frame that owns each
+  field (`about:blank`, `srcdoc` and `data:` frames are refused), both fields share it, it must
+  equal `secret_origin`, and the form must POST to it (403 `secret_scope_mismatch`).
+- **During `/login`**: a `context.route` guard lets a request that carries the password (URL,
+  body or headers, under its encoded forms) leave only as a POST to the secret's origin, fetched
+  with `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after
+  submission (navigation, `wait_for` target, field removed; login form shown again, browser
+  validation, nothing changed → 422 `secret_login_failed`, fields cleared, page message returned).
+  Documents that received the secret are then replaced (about:blank, then a GET of the same URL),
+  or their page, or the session, is closed.
+- **Afterwards**: the password stays in the service's memory for the session's lifetime only.
+  Before each request, a tab that shows it (text, field value, frame URL) is blanked and the call
+  answers 409 `secret_in_page`; screenshots are refused while it is visible; every JSON response,
+  console line, dialog message and network-log URL is purged of it and its encoded forms (also
+  when cut at a string boundary); request bodies are not logged.
+- **Limits**: a script on the secret's own origin receives the password, as when a person types
+  it. With strict TLS and an internal CA, the CA must be trusted by Chromium (NSS) and by Node
+  (`NODE_EXTRA_CA_CERTS`), because the guarded POST is replayed from Node (`route.fetch`).
+
 ### Screen control (`desktop`)
 
 Drives a `desktop-agent` installed on a VM (Windows pywinauto / Linux

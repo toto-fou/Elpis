@@ -8,6 +8,7 @@ import goldenBrowser from "@elpis/outils-mcp/goldens/browser.json" with { type: 
 import { baseHote } from "../../base-hote";
 import type { Journal } from "../../journal";
 import type { ServicesBrowser } from "./appel";
+import { conseilSecret } from "./secrets";
 import type { PortSecrets } from "./secrets";
 import { pwAct, pwChain, pwFind } from "./elements";
 import { pwA11y, pwMock, pwObserve, pwRecorder, pwVisual } from "./essais";
@@ -22,7 +23,7 @@ const GOLDEN = goldenBrowser as unknown as Golden;
 
 type Traitement = (args: Dict, ctx: ContexteAppel, brut: Dict) => Promise<unknown>;
 
-/** Les 15 outils dans l'ordre d'enregistrement (`firefox_tools.register`, puis `pw_login` après `pw_chain`). */
+/** Les 15 outils dans l'ordre d'enregistrement (`firefox_tools.register`, puis `pw_login` après `pw_chain`) ; refus `secret_*` d'une session sécurisée réécrits pour le modèle. */
 export function outilsBrowser(s: ServicesBrowser): DefinitionOutil[] {
   const traitements: [string, (s: ServicesBrowser) => Traitement][] = [
     ["pw_session", pwSession],
@@ -41,9 +42,13 @@ export function outilsBrowser(s: ServicesBrowser): DefinitionOutil[] {
     ["pw_visual", pwVisual],
     ["pw_memory", pwMemory],
   ];
-  return traitements.map(([nom, fabrique]) =>
-    outilDuGolden(GOLDEN, nom, { signature: signatureDuGolden(GOLDEN, nom), traiter: fabrique(s) }),
-  );
+  return traitements.map(([nom, fabrique]) => {
+    const traiter = fabrique(s);
+    return outilDuGolden(GOLDEN, nom, {
+      signature: signatureDuGolden(GOLDEN, nom),
+      traiter: async (a, ctx, brut) => conseilSecret(await traiter(a, ctx, brut)),
+    });
+  });
 }
 
 /** Famille `browser` de l'hôte (forme de `FabriqueNative`) : mémoire AX dans la base ouverte au démarrage (`baseHote`), coffre par les rappels du core (`rappel`). */

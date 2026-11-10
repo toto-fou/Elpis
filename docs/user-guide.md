@@ -806,8 +806,10 @@ Secrets the user attached to this conversation and its sub-agents, from this mes
 When it opens a page on one of these addresses, the browser starts a **secure session** (verified
 certificates, no scripts or recordings from the assistant); an `http-auth` secret is applied at
 once. For a login form it calls `pw_login`: the browser service checks the form, types the user name
-and password, submits, then reloads the page so that the password is no longer in it. The
-assistant only learns whether the login worked. If a page asks for a login that is not attached,
+and password, submits, then reopens the page in a new tab so that the password is no longer in it.
+The assistant only learns whether the login worked. If a site shows the password back on a page,
+that page is blanked and the assistant is told to go elsewhere; a form placed inside another
+site's frame is refused. If a page asks for a login that is not attached,
 the assistant asks you to attach one with `/secret attach <name>`: never give it a password in the
 chat. Each use is written to the security journal.
 

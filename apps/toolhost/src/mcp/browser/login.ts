@@ -7,7 +7,7 @@ import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
-import { refusSecret, resoudre } from "./secrets";
+import { AVIS_SECRET_DANS_PAGE, conseilSecret, refusSecret, resoudre } from "./secrets";
 
 /** Clés de cible que le service accepte pour une connexion (jamais xpath). */
 const CLES_CIBLE = [
@@ -39,16 +39,16 @@ function cible(dsl: string): Dict | null {
     : null;
 }
 
-/** Refus d'une session ordinaire ramené aux outils : la session sécurisée s'ouvre par `pw_session` avec le secret. */
+/** Refus du service ramené aux outils : session ordinaire (la session sécurisée s'ouvre par `pw_session` avec le secret), champs, origine, échec. */
 function avecConseilOutil(r: unknown): unknown {
-  if (!estDict(r) || r["error"] !== "secret_route_refused") return r;
+  if (!estDict(r) || r["error"] !== "secret_route_refused") return conseilSecret(r, true);
   return {
     ...r,
     fix: 'Open the login page with pw_session(action="start", url=..., secret="<name>"): a session started for an attached secret is a secure session; call pw_login there.',
   };
 }
 
-/** `pw_login` : le modèle ne reprend la main qu'après le remplacement des documents qui ont reçu le secret ; la valeur n'est jamais rendue. */
+/** `pw_login` : pré-contrôle sans valeur, résolution sur l'origine du frame des champs, puis connexion ; le modèle ne reprend la main qu'après le remplacement des onglets qui ont reçu le secret (page qui le montrait : avertissement), la valeur n'est jamais rendue. */
 export function pwLogin(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const sid = typeof a["session_id"] === "string" ? a["session_id"].trim() : "";
@@ -74,17 +74,14 @@ export function pwLogin(s: ServicesBrowser) {
         );
       charge[k] = c;
     }
-    // 1. Pré-contrôle SANS valeur : session sécurisée, champs visibles uniques, formulaire, origine du frame.
     const pre = await client.req("POST", "/login_precheck", { json: charge });
     if (!estDict(pre) || pre["ok"] !== true || typeof pre["frame_origin"] !== "string")
       return estDict(pre)
         ? avecConseilOutil(pre)
         : errPw("secret_login_failed", "", { message: "The login fields could not be checked." });
     const champs = Array.isArray(pre["fields"]) ? pre["fields"] : [];
-    // 2. Résolution par le core, seulement si tout passe, sur l'origine du frame qui porte les champs.
     const r = await resoudre(s.secrets ?? null, "web-login", pre["frame_origin"], nom);
     if ("refus" in r) return r.refus;
-    // 3. Saisie, soumission, issue et remplacement des documents : une seule requête au service, valeurs jamais rendues.
     const brut = await client.req("POST", "/login", {
       json: {
         ...charge,
@@ -94,7 +91,10 @@ export function pwLogin(s: ServicesBrowser) {
       },
       timeout: DELAI_LOGIN_S,
     });
-    const resultat = estDict(brut) ? { ...brut, secret: r.valeur.name } : brut;
+    const conseil = avecConseilOutil(brut);
+    if (!estDict(conseil)) return conseil;
+    const resultat: Dict = { ...conseil, secret: r.valeur.name };
+    if (resultat["secret_in_page"] === true) resultat["warning"] = AVIS_SECRET_DANS_PAGE;
     return client.finishAct(resultat, sid, true, 25);
   };
 }

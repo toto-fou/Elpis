@@ -2976,11 +2976,18 @@ therefore removes every way to read a typed value back.
   `credentials_origin`, `username` and `password` to `/start`; the answer carries the secret's name
   (`secret`). `pw_login` (`session_id`, optional `secret`, `username_target`, `password_target`,
   `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin
-  of the frame that holds the fields; only then is the `web-login` secret resolved for that origin (by name, or the
-  single attached one), and `/login` receives the values with `secret_origin` (HTTP timeout 75 s,
-  above the service's 62 s ceiling). The result is the service's purged answer plus the secret's
-  name and a lite view of the page (`page_after`), never a value. A page that answers 401 carries an
-  `auth_hint` that asks for a secret attached with `/secret attach <name>`.
+  of the frame that holds the fields; only then is the `web-login` secret resolved for that origin
+  (by name, or the single attached one), and `/login` receives the values with `secret_origin`
+  (HTTP timeout 75 s, above the service's 62 s ceiling). The result is the service's purged answer
+  plus the secret's name and a lite view of the page (`page_after`), never a value; with
+  `secret_in_page: true` its `warning` tells the model to navigate elsewhere. A page that answers
+  401 carries an `auth_hint` that asks for a secret attached with `/secret attach <name>`. The tool
+  host rewrites the `secret_*` refusals for the model, in the tools' vocabulary: `secret_in_page`
+  (the page showed the secret and was blanked: navigate elsewhere) and `secret_option_refused`
+  (never target a field through its value) for every `pw_*` tool; `secret_scope_mismatch`,
+  `secret_target_required` and `secret_login_failed` for `pw_login`; and the vault's codes
+  (`secret_unknown`, `secret_unverified`, `secret_type_mismatch`, `secret_scope_mismatch`,
+  `secret_ambiguous`, `secret_undecryptable`, `secret_key_unavailable`) each with its own `fix`.
 - **Limits**: a script on the secret's own origin receives the password, as when a person types
   it. Text supplied by the agent that equals the whole secret is purged, which tells it the guess
   was right (one guess per call). With strict TLS and an internal CA, the CA must be trusted by

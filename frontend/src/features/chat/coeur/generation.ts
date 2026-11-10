@@ -400,6 +400,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     skills: string[],
     imageGen: Objet | null,
     mcp: boolean,
+    secrets: readonly number[] | null,
   ): string {
     const budget = l.thinkingBudget();
     return JSON.stringify({
@@ -417,6 +418,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
       pinned_skills: skills,
       sampling_override: l.cleanSamplingOverride(),
       ...(imageGen ? { image_gen: imageGen } : {}),
+      ...(secrets && secrets.length ? { secrets } : {}),
     });
   }
 
@@ -521,6 +523,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     continuation: boolean,
     runMsgs: MessageChat[],
     skills: string[],
+    secrets: readonly number[] | null,
   ): Promise<void> {
     let essais = 0;
     let imageGen: Objet | null = null;
@@ -539,13 +542,16 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         imageGen = continuation ? null : l.imageGenFor(payload);
         imageAcceptee = false;
         run.posted = true;
+        // Un tour d'image n'est pas préparé par le serveur : la sélection attend le prochain tour.
+        const scelles = imageGen ? null : secrets;
         const rep = await fetch("/api/chat-saved-stream3", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: corpsEnvoi(run, payload, prefill, continuation, skills, imageGen, mcp),
+          body: corpsEnvoi(run, payload, prefill, continuation, skills, imageGen, mcp, scelles),
           signal: ctl.signal,
           credentials: "same-origin",
         });
+        if (rep.ok && scelles && run.chatId && !run.chatId.startsWith("__")) l.secretsEnvoyes(run.chatId);
         if (run.detached) {
           if (rep.ok) l.markRunActive(run.chatId);
           try {
@@ -600,6 +606,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
     try {
       const skills = l.pinnedSkillNames();
       l.clearPinnedSkills();
+      const secrets = continuation ? null : l.secretsEnAttente();
       l.resetAskUser();
       if (e.abortController.value) {
         try {
@@ -648,7 +655,7 @@ export function creerGeneration(c: CoeurChat, session: GestionnaireSession) {
         f.streamToolPhase = false;
         l.resetDeltaStatus();
       }
-      await bouclePost(run, mien, continuation, runMsgs, skills);
+      await bouclePost(run, mien, continuation, runMsgs, skills, secrets);
       epilogue(run, mien);
       if (f.pendingReattach && mien === f.activeGen) {
         const rid = f.pendingReattach;

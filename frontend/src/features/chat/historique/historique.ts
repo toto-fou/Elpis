@@ -78,6 +78,8 @@ export interface DepsHistorique {
   resetSlash?: Rappel;
   applyChatPlanMode?: (actif: unknown) => void;
   applyChatRag?: (rag: unknown) => void;
+  /** Secrets attachés de la conversation chargée (`secrets` : ids), ou aucun pour un chat neuf. */
+  applyChatSecrets?: (ids: unknown, chatId: string) => void;
   applyChatCtxUsage?: (usage: unknown, id: string) => void;
   clearPinnedSkills?: Rappel;
   resetAskUser?: Rappel;
@@ -381,6 +383,7 @@ export function creerHistoriqueChat(
     deps.applyChatTools?.(typeof deps.defaultToolKeys === "function" ? deps.defaultToolKeys() : []);
     deps.applyChatPlanMode?.(false);
     deps.applyChatRag?.(null);
+    deps.applyChatSecrets?.(null, "");
     isUserScrolling.value = false;
     try {
       ctx.clearSavedSession?.();
@@ -438,6 +441,7 @@ export function creerHistoriqueChat(
         deps.applyChatTools?.(d.tools);
         deps.applyChatPlanMode?.(d.plan_mode);
         deps.applyChatRag?.(d.rag);
+        deps.applyChatSecrets?.(d.secrets, d.id as string);
         const bruts = (Array.isArray(d.messages) ? d.messages : []).filter(
           (m): m is Message => enregistrement(m) && m.role !== "system",
         );

@@ -4602,6 +4602,23 @@ mark.elpis-search-hit {
 .elpis-rag-chip__retirer:hover { color: var(--accent-text-strong); background: var(--accent-surface-2); }
 .elpis-rag-chip__retirer:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
 
+/* Secret attaché à la conversation (`secret:<name>`), au-dessus de la saisie : neutre, l'identifiant prime. */
+.elpis-secret-chip {
+    display: inline-flex; align-items: center; gap: 0.375rem; max-width: 280px;
+    padding: 0.25rem 0.25rem 0.25rem 0.5rem; border-radius: var(--radius-lg);
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text-700); font-size: 0.6875rem; line-height: 1rem;
+}
+.elpis-secret-chip__icone { font-size: 0.75rem; color: var(--text-500); flex: none; }
+.elpis-secret-chip__nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elpis-secret-chip__retirer {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 1.125rem; height: 1.125rem; border-radius: var(--radius-sm);
+    color: var(--text-500); font-size: 0.6875rem; background: transparent;
+}
+.elpis-secret-chip__retirer:hover { color: var(--text-900); background: var(--surface-3); }
+.elpis-secret-chip__retirer:focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 1px; }
+
 /* Ligne de la demande, sous la bulle utilisateur. */
 .elpis-img-reqline {
     margin-top: 0.375rem; display: flex; align-items: center; gap: 0.35rem;

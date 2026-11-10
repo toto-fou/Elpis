@@ -18,6 +18,7 @@ import { purificateur } from "../../features/chat/rendu/instance";
 import { creerImportSandbox } from "../../features/editor/import-sandbox";
 import { creerApiImages } from "../../features/images/api";
 import { creerImages } from "../../features/images/images";
+import { creerApiSecrets } from "../../features/secrets/api";
 import { setupEchantillonnage } from "../../features/reglages/echantillonnage";
 import { setupReglages } from "../../features/reglages/reglages";
 import { creerVoix } from "../../features/voix/voix";
@@ -777,6 +778,7 @@ export function creerRacine(options: OptionsRacine = {}) {
       echantillonnage: (r, c) => setupEchantillonnage(Vue, r, c),
       voix: (r, c) => creerVoix(r, c),
       images: (r, c) => creerImages(creerApiImages(http), r, c),
+      secrets: () => creerApiSecrets(http),
     }),
   );
   m.editeur =

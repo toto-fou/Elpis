@@ -184,6 +184,8 @@ export function refusEcritureCle(e: unknown): { statut: number; message: string 
     secret_key_unavailable: MOTIFS_CLE.vault_unavailable,
     secret_undecryptable: MOTIFS_CLE.undecryptable,
     secret_limit: "trop de secrets dans le coffre pour ce propriétaire (200 au plus).",
+    secret_name_taken:
+      "nom déjà pris dans le coffre par un autre secret : le renommer ou le supprimer (Secrets).",
     secret_value_invalid: "clé trop longue ou mal formée.",
     secret_value_required: "clé vide.",
   };

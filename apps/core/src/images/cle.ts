@@ -61,7 +61,7 @@ export async function etatCleImages(
   return { has_key: cle !== "", stale: cle === "" && (present || Boolean(cfg["api_key_enc"])) };
 }
 
-/** Clé rangée pour l'origine exacte de `url` (création, ou nouvelle valeur et portée, journalisées) ; vide : secret supprimé. */
+/** Clé rangée pour l'origine exacte de `url` (création, ou nouvelle valeur et portée, journalisées) ; vide : secret supprimé ; nom pris par un autre genre : refus 409, rien de touché. */
 export async function enregistrerCleImages(
   base: Base,
   cle: string,
@@ -71,8 +71,16 @@ export async function enregistrerCleImages(
   const origine = origineExacte(url);
   await base.ecriture(async () => {
     const l = await lireLigneParNom(base, null, NOM_CLE_IMAGES);
+    if (l !== null && l.kind !== "token") {
+      if (!cle) return;
+      throw new ErreurSecret(
+        409,
+        "secret_name_taken",
+        `The instance secret '${NOM_CLE_IMAGES}' already exists with another kind.`,
+      );
+    }
     if (!cle) {
-      if (l !== null && l.kind === "token") await supprimerSecret(base, null, Number(l.id), acteur);
+      if (l !== null) await supprimerSecret(base, null, Number(l.id), acteur);
       return;
     }
     const portee = { origins: [origine] };

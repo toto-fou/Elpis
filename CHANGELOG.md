@@ -22,6 +22,18 @@ follow [SemVer](https://semver.org/).
   fallback `user_db/.vault.key`, which `./elpis doctor` reports), `./elpis vault status` and
   `./elpis vault rekey --from <old key>` check and change it, `./elpis secret ls` lists the
   metadata. **Back the key up separately from the backups** (`docs/operations.md`).
+- **Browser: secure session and vault login.** `POST /start` with `secure: true` opens a locked
+  session for vault secrets: TLS verified unless `tls: "insecure"`, the site's CSP kept, service
+  workers blocked, no HAR, trace, video or saved state, never reused or evicted, HTTP credentials
+  bound to `credentials_origin`. A single route table (`browser-service/route_policy.js`) gives
+  every route a capability class; on a secure session eval, mocks and exports are refused. New
+  `POST /login_precheck` and `POST /login` type a username and password into fields that are
+  targeted or detected (`autocomplete`, the single visible password field), checked against the
+  secret's origin, with a network guard during the login, an outcome check, and the documents
+  that received the secret replaced afterwards; pages that show it are blanked, screenshots
+  refused and responses purged. Stable error codes: `secret_route_refused`, `secret_login_busy`,
+  `secret_in_page`, `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
+  `secret_option_refused`.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono
   (OFL-1.1, downloaded only by this skin). Menus and dialogs open with a soft motion, and

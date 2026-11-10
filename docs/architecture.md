@@ -3403,15 +3403,25 @@ vault_secrets
 
 - **Name**: slug `[a-z0-9][a-z0-9._-]{0,47}`, unique per owner. 200 secrets at most per owner.
 - **Policy**: `{"subagents": true, "routines": false, "confirm_first_use": false, "tls": "strict"}` by
-  default; partial updates are merged.
-- **AAD**: `vault|v1|<user_id or 0>|<kind>|<name>`. A ciphertext copied to another row does not
-  decrypt; a rename re-encrypts.
-- **Updates**: absent fields are unchanged, an empty `value` too. A new value raises `version` and
-  sets `rotated_at`. Widening the scope (an origin added, another host, connector or server) or
-  moving to `tls: insecure` requires the value again, so an open session alone cannot send an
-  existing secret elsewhere. The kind never changes.
+  default; partial updates are merged. `confirm_first_use: true` is refused
+  (`secret_meta_invalid`) until the resolution applies it.
+- **AAD**: `vault|v2|<user_id or 0>|<kind>|<name>|<sha256>`, where `<sha256>` is the SHA-256 (hex)
+  of the JSON array `[scope_json, policy_json, state, version, username]`, the column values exactly
+  as stored. The GCM tag therefore covers everything that decides how a secret may be used. A
+  ciphertext moved to another row, an older ciphertext restored after a rotation or a scope change,
+  or any of these columns written outside the module (scope widened, state forced to `active`,
+  `tls` set to `insecure`, user name changed) makes decryption fail: the resolution answers
+  `secret_undecryptable` and writes `vault.secret.refused`. A rollback of the whole row to an
+  earlier copy cannot be detected this way. `meta_json` is not bound: nothing may decide on it.
+- **Updates**: absent fields are unchanged, an empty `value` too. Every module write that changes
+  a bound column re-encrypts the value (the module holds the key): rename, scope, policy, user name,
+  verification, rotation. A change of `meta` alone does not. A new value raises `version` and sets
+  `rotated_at`. Widening the scope (an origin added, another host, connector or server) or moving
+  to `tls: insecure` requires the value again, so an open session alone cannot send an existing
+  secret elsewhere. The kind never changes. An update that needs the current value and cannot
+  decrypt it is refused (`secret_undecryptable`): rotate the secret.
 - **State**: `unverified` (secrets imported from older stores) is never resolved until its owner
-  verifies it (`POST …/verify`).
+  verifies it (`POST …/verify`), which re-encrypts it for its new state.
 
 | Route | Process, access | Role |
 |---|---|---|
@@ -3444,13 +3454,25 @@ Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_inva
 `secret_undecryptable`, `secret_key_unavailable`.
 
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
-`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`,
-created 0600 under a lock the first time a secret is saved and published in one step (hard link of
-a synced temporary file). A key that exists but cannot be read is an error, never a reason to fall
-back. `kid` = first 8 hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from`
-re-encrypts the rows of an old `kid` ([operations.md](operations.md#secrets-vault-key)). The Fernet
-encryption of `packages/securite/src/chiffrement.ts` still holds the existing connector keys until
-they move to the vault.
+`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.
+The fallback is created 0600 under a lock the first time a secret is saved, only while
+`vault_secrets` is empty, and published in one step (hard link of a synced temporary file). With
+secrets and no key, saving a secret is refused (`secret_key_unavailable`), never answered with a
+new key. Any file system error while creating it gives the same refusal. A key that exists but
+cannot be read is an error, never a reason to fall back. `chiffrerSecret` never creates a key;
+`chargerCleCoffre()` does, and only the module calls it, after checking that the vault is empty.
+
+One validator (`validerCleCoffre`) decides for the core, for `vault setup` (through
+`exploitation.mjs vault check-key`, the key on standard input) and for the doctor: canonical base64
+(44 characters) or 64 hexadecimal digits, 32 bytes, not a single repeated byte. `kid` = first 8
+hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from` re-encrypts the rows of
+an old `kid` ([operations.md](operations.md#secrets-vault-key)).
+
+`main` and `admin` delete `ELPIS_VAULT_KEY` and `ELPIS_VAULT_KEY_PATH` from their environment
+once read. The other units get `UnsetEnvironment=` for both and `InaccessiblePaths=` for
+`/etc/elpis/vault.key` and the fallback, and `./elpis start` runs them without the variables. The
+Fernet encryption of `packages/securite/src/chiffrement.ts` still holds the existing connector
+keys until they move to the vault.
 
 ---
 

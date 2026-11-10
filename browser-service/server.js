@@ -662,7 +662,7 @@ async function shadowDOMQuery(page, selector) {
                                 x: Math.round(rect.left + rect.width / 2),
                                 y: Math.round(rect.top + rect.height / 2),
                                 w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || el.value || '').trim().substring(0, 100),
+                                text: (el.textContent || (el.type === 'password' ? '' : el.value) || '').trim().substring(0, 100),
                                 tag: el.tagName.toLowerCase(),
                             };
                         }
@@ -4248,7 +4248,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                         if (t && t.length <= 120) return t.substring(0, 80);
                     }
                     return ((el.getAttribute('placeholder') || el.getAttribute('title')
-                             || el.getAttribute('alt') || el.value || '') + '').trim().substring(0, 80);
+                             || el.getAttribute('alt') || (el.type === 'password' ? '' : el.value) || '') + '').trim().substring(0, 80);
                 } catch (e) { return ''; }
             }
 
@@ -4407,7 +4407,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                 if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') { omitted.hidden++; continue; }
                 const tag = el.tagName.toLowerCase();
                 const role = el.getAttribute('role');
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 100);
 
                 let elemType = tag;
                 if (tag === 'input') elemType = `input:${el.getAttribute('type') || 'text'}`;
@@ -4461,7 +4461,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     item.center = { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
                     item.disabled = el.disabled || el.getAttribute('aria-disabled') === 'true';
                     if (el.type === 'checkbox' || el.type === 'radio') item.checked = el.checked;
-                    if (el.value) item.value = el.value.substring(0, 100);
+                    if (el.value && el.type !== 'password') item.value = el.value.substring(0, 100);
                     if (el.getAttribute('placeholder')) item.placeholder = el.getAttribute('placeholder');
                     if (tag === 'a') item.href = el.getAttribute('href');
                 }
@@ -4509,7 +4509,7 @@ app.get('/smart_inspect', getSession, autoSnapshot, async (req, res) => {
                     tag: f.tagName.toLowerCase(), name: f.getAttribute('name'),
                     type: f.getAttribute('type') || 'text', id: f.id || null,
                     placeholder: f.getAttribute('placeholder'), required: f.required,
-                    value: f.value?.substring(0, 100), label: (() => {
+                    value: f.type === 'password' ? undefined : f.value?.substring(0, 100), label: (() => {
                         if (f.id) { const lb = document.querySelector(`label[for="${f.id}"]`); if (lb) return lb.textContent.trim().substring(0, 60); }
                         const wrapper = f.closest('label'); if (wrapper) return wrapper.textContent.trim().substring(0, 60);
                         return null;
@@ -4892,7 +4892,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
                     document.body.appendChild(border);
                     map.push({
                         idx, tag: el.tagName.toLowerCase(), role: el.getAttribute('role'),
-                        text: (el.textContent || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
+                        text: (el.textContent || (el.type === 'password' ? '' : el.value) || el.placeholder || el.getAttribute('aria-label') || '').trim().substring(0, 80),
                         rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
                         center: { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) },
                         disabled: el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -5160,11 +5160,12 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
                 tag: el.tagName.toLowerCase(), id: el.id,
                 classes: el.className?.toString() || '',
                 text: el.textContent?.trim().substring(0, 300),
-                value: el.value, href: el.href, src: el.src,
+                // Valeur d'un champ mot de passe jamais rendue, ni par la propriété ni par l'attribut.
+                value: el.type === 'password' ? undefined : el.value, href: el.href, src: el.src,
                 visible: style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0',
                 enabled: !el.disabled, checked: el.checked, readOnly: el.readOnly,
                 contentEditable: el.contentEditable === 'true',
-                attributes: Object.fromEntries(Array.from(el.attributes).map(a => [a.name, a.value.substring(0, 200)])),
+                attributes: Object.fromEntries(Array.from(el.attributes).filter(a => !(el.type === 'password' && a.name === 'value')).map(a => [a.name, a.value.substring(0, 200)])),
                 rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
                 center: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) },
                 in_viewport: rect.top >= 0 && rect.top < window.innerHeight,
@@ -5722,11 +5723,16 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
         const label = selector || describeLocator(params, { first: false }) || '?';
 
         let polled = null;
+        let attrReel = null;
         const probe = async () => {
             const count = await loc.count().catch(() => 0);
-            if (!count) return { count: 0, text: null, attr: null, visible: false };
+            if (!count) { attrReel = null; return { count: 0, text: null, attr: null, visible: false }; }
             const text = ((await first.textContent({ timeout: 800 }).catch(() => null)) || '').replace(/\s+/g, ' ').trim().substring(0, 500);
-            const attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            let attr = attribute ? await first.getAttribute(attribute, { timeout: 800 }).catch(() => null) : null;
+            attrReel = attr;
+            // Attribut value d'un champ mot de passe : jamais rendu (masqué aussi si le contrôle échoue).
+            if (attr !== null && String(attribute).toLowerCase() === 'value'
+                && await first.evaluate(el => el.type === 'password', undefined, { timeout: 800 }).catch(() => true)) attr = '[password value hidden]';
             const visible = await first.isVisible().catch(() => false);
             return { count, text, attr, visible };
         };
@@ -5767,7 +5773,7 @@ app.post('/wait_for_dynamic', getSession, autoSnapshot, async (req, res) => {
             if (condition === 'count_decreases' && cur.count < (initial.count || 0))
                 return done('changed', { from: initial.count || 0, to: cur.count });
             if (condition === 'attribute_changes' && attribute && cur.count) {
-                if (expected_value && cur.attr === expected_value) return done('matched', { attribute, value: cur.attr });
+                if (expected_value && attrReel === expected_value) return done('matched', { attribute, value: cur.attr });
                 if (!expected_value && initial.attr !== null && cur.attr !== initial.attr) return done('changed', { attribute, from: initial.attr, to: cur.attr });
             }
             await page.waitForTimeout(poll_interval);
@@ -6475,7 +6481,7 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                                             { first: !COUNTING.includes(assertion) });
         if (!loc) return res.status(400).json({ error: 'Could not resolve target. Check params.' });
 
-        let pass = false, actual = null, expected = value;
+        let pass = false, actual = null, expected = value, champSecret = false;
         try {
             // Most assertions tolerate a brief wait. We use a manual loop because
             // Playwright's `expect` API isn't loaded server-side.
@@ -6518,7 +6524,11 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         return actual.includes(value);
                     }
                     case 'value-equals': {
-                        actual = await loc.inputValue({ timeout: POLL }).catch(() => '');
+                        // Valeur et nature du champ lues ensemble : le masque ne dépend pas d'une seconde lecture.
+                        const lu = await loc.evaluate(el => ({ v: el.value ?? '', pw: el.type === 'password' }), undefined, { timeout: POLL })
+                            .catch(() => ({ v: '', pw: false }));
+                        champSecret = lu.pw;
+                        actual = lu.v;
                         return actual === value;
                     }
                     case 'count-eq': {
@@ -6541,6 +6551,10 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
                         }
                         if (!attrName) return false;
                         const got = await loc.getAttribute(attrName, { timeout: POLL }).catch(() => null);
+                        // Attribut value d'un champ mot de passe (recopié par React) : masqué, et masqué aussi si le contrôle échoue.
+                        if (String(attrName).toLowerCase() === 'value' && got !== null) {
+                            champSecret = await loc.evaluate(el => el.type === 'password', undefined, { timeout: POLL }).catch(() => true);
+                        }
                         actual = got;
                         return got === attrVal;
                     }
@@ -6557,6 +6571,8 @@ app.post('/expect', getSession, autoSnapshot, async (req, res) => {
             return res.status(400).json({ error: e.message, assertion, duration_ms: Date.now() - startMs });
         }
 
+        // Valeur d'un champ mot de passe : comparée, jamais renvoyée.
+        if (champSecret && actual) actual = '[password value hidden]';
         const out = { pass, assertion, expected, actual, duration_ms: Date.now() - startMs };
         if (!pass) {
             // Always attach a screenshot on failed assertion — invaluable for debugging.
@@ -6705,7 +6721,7 @@ app.get('/observe', getSession, autoSnapshot, async (req, res) => {
                 let type = tag;
                 if (tag === 'input') type = `input:${el.getAttribute('type') || 'text'}`;
                 else if (el.getAttribute('role')) type = `role:${el.getAttribute('role')}`;
-                const text = (el.textContent || el.value || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
+                const text = (el.textContent || (el.type === 'password' ? '' : el.value) || el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').substring(0, 80);
                 const sel = unique(el, buildSel(el), buildSel);
                 const it = {
                     i: i++, type, text, selector: sel,

@@ -301,6 +301,14 @@ follow [SemVer](https://semver.org/).
   neutralized against spreadsheet formulas, the console answers 503 instead of an empty list
   when the database fails, and secrets are masked in the shell commands that are logged.
 
+### Security
+
+- **Browser: password values never returned.** `pw_page` info, inspect, observe, annotated
+  screenshots, `pw_expect` and `pw_wait` no longer return the value of a password field,
+  whether read from the field or from its `value` attribute; `value-equals`, `attr-equals` and
+  `attribute_changes` still compare it. Only `type=password` fields are covered: a field shown
+  as text by a "show password" toggle is not.
+
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

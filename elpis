@@ -217,7 +217,8 @@ svc_spec() {
             SPEC_DIR="$ROOT/browser-service"
             SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT"
                        "BROWSER_SERVICE_TOKEN_FILE=${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}")
-            SPEC_CMD=("$NODE" server.js) ;;
+            # Magasin de CA du système : le POST de connexion rejoué par Node (route.fetch) fait confiance à une CA interne en TLS strict.
+            SPEC_CMD=("$NODE" --use-system-ca server.js) ;;
         *) die "service inconnu : $1" ;;
     esac
     env_journaux "$1"

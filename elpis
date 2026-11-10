@@ -29,6 +29,14 @@
 #                                cible, copie vers une base vide, choix du
 #                                moteur (« ./elpis db use sqlite » = porte de
 #                                sortie si le serveur de base est tombé)
+#  sudo ./elpis vault setup      clé du coffre « Secrets » /etc/elpis/vault.key
+#                                (0440, groupe de la clé du journal), jamais
+#                                remplacée
+#  ./elpis vault status          clé du coffre (source, kid) et secrets
+#                                chiffrés par une autre clé
+#  ./elpis vault rekey --from FICHIER   rechiffre avec la clé courante les
+#                                secrets de l'ancienne clé FICHIER
+#  ./elpis secret ls [--user COMPTE]   secrets du coffre : métadonnées seules
 #  ./elpis audit verify [--from AAAA-MM-JJ] [--to AAAA-MM-JJ] [--key CHEMIN]
 #                                vérifie le journal de sécurité : signatures,
 #                                lignes manquantes, arrêts propres (0 = intègre)
@@ -56,6 +64,8 @@ UNIT_PREFIX="elpis"
 SYS_PREFIXE="${ELPIS_PREFIXE_SYSTEME:-}"
 AUDIT_DIR_SYS="$SYS_PREFIXE/var/lib/elpis/audit"
 AUDIT_KEY_SYS="$SYS_PREFIXE/etc/elpis/audit.key"
+# Clé du coffre « Secrets » (sudo ./elpis vault setup), lue par le core (ELPIS_VAULT_KEY_PATH à défaut).
+VAULT_KEY_SYS="$SYS_PREFIXE/etc/elpis/vault.key"
 APPLOG_DIR_SYS="$SYS_PREFIXE/var/log/elpis"
 GROUPE_JOURNAL="${ELPIS_GROUPE_JOURNAL:-elpis-journal}"
 # Groupe de la clé de signature quand le groupe primaire du compte des services n'est pas le sien seul.
@@ -785,6 +795,40 @@ doctor_cle() {
     bad=$((bad+1))
 }
 
+# Coffre « Secrets » : clé 0440 root, groupe propre au compte des services, lisible par lui ; repli, clé illisible ou invalide et secrets d'une autre clé vus par le core (compteur bad).
+doctor_coffre() {
+    local compte m g niveau texte dossier="${VAULT_KEY_SYS%/*}"
+    compte="$(compte_services)"
+    [ -n "$compte" ] || compte="$(id -un)"
+    [ "$compte" != root ] || compte="$(stat -c %U "$ROOT")"
+    if [ -e "$VAULT_KEY_SYS" ] || [ -L "$VAULT_KEY_SYS" ]; then
+        m="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)"; g="${m##* }"
+        if [ -L "$VAULT_KEY_SYS" ] || [ ! -f "$VAULT_KEY_SYS" ] || [ "$m" != "440 root $g" ]; then
+            warn "coffre (Secrets) : clé $VAULT_KEY_SYS en ${m:-?} (attendu 440 root, groupe du seul compte $compte : sudo ./elpis vault setup)"; bad=$((bad+1))
+        elif ! groupe_propre "$g" "$compte"; then
+            warn "coffre (Secrets) : clé lisible par le groupe $g, qui n'est pas propre au compte $compte (sudo ./elpis vault setup)"; bad=$((bad+1))
+        elif ! compte_lit "$compte" "$VAULT_KEY_SYS"; then
+            warn "coffre (Secrets) : clé $VAULT_KEY_SYS illisible par le compte des services $compte (sudo ./elpis vault setup)"; bad=$((bad+1))
+        fi
+        if [ "$(id -u)" -ne 0 ] && [ ! -r "$VAULT_KEY_SYS" ]; then
+            info "coffre (Secrets) : clé non lisible par ce compte, secrets non vérifiés (doctor sous le compte des services $compte, ou avec sudo)"; return 0
+        fi
+    elif [ "$(id -u)" -ne 0 ] && [ -d "$dossier" ] && [ ! -x "$dossier" ]; then
+        info "coffre (Secrets) : clé non vérifiable par ce compte ($dossier réservé au compte des services $compte : doctor sous ce compte ou avec sudo)"; return 0
+    fi
+    if [ ! -f "$CORE_DIST/exploitation.mjs" ] || [ ! -f "$ROOT/config.json" ]; then
+        info "coffre (Secrets) : non vérifié (core non construit ou config.json absent)"; return 0
+    fi
+    while IFS=$'\t' read -r niveau texte; do
+        case "$niveau" in
+            ok) ok "$texte" ;;
+            warn) warn "$texte"; bad=$((bad+1)) ;;
+            info) info "$texte" ;;
+            *) [ -n "$niveau$texte" ] && { warn "coffre (Secrets) : NON ($niveau $texte)"; bad=$((bad+1)); } ;;
+        esac
+    done < <(vault_core vault doctor 2>&1)
+}
+
 # Pilotes cités par les règles rsyslog d'Elpis, lignes commentées exclues (gtls : rsyslog-gnutls, omrelp : rsyslog-relp) : rsyslogd -N1 ne signale pas leur absence.
 doctor_paquets_rsyslog() {
     local texte p paquet
@@ -961,6 +1005,7 @@ cmd_doctor() {
         info "RAG : non vérifié (core non construit ou config.json absent)"
     fi
     doctor_journaux
+    doctor_coffre
     sonde_du_core
     echo
     cmd_status
@@ -986,32 +1031,78 @@ cmd_db() {
     core_cmd db "$@"
 }
 
+# Compte des services pour « audit setup » et « vault setup » (COMPTE_SETUP) : User= des unités, sinon ELPIS_USER, sinon SUDO_USER ; jamais root ; root exigé hors arborescence factice.
+compte_setup() {
+    local quoi="$1" unite
+    unite="$(compte_services)"
+    if [ -n "$unite" ] && [ -n "${ELPIS_USER:-}" ] && [ "$ELPIS_USER" != "$unite" ]; then
+        die "Les services tournent sous $unite (User= des unités systemd), pas sous ELPIS_USER=$ELPIS_USER : sudo ELPIS_USER=$ELPIS_USER ./elpis service install pour changer de compte."
+    fi
+    COMPTE_SETUP="${unite:-${ELPIS_USER:-${SUDO_USER:-}}}"
+    if [ -z "$SYS_PREFIXE" ]; then
+        [ "$(id -u)" -eq 0 ] || die "Lancez avec sudo : sudo ./elpis $quoi setup"
+    else
+        COMPTE_SETUP="${COMPTE_SETUP:-$(id -un)}"
+    fi
+    [ -n "$COMPTE_SETUP" ] && [ "$COMPTE_SETUP" != root ] \
+        || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
+    id -u "$COMPTE_SETUP" >/dev/null 2>&1 || die "Compte de service $COMPTE_SETUP inexistant (ELPIS_USER=nom)."
+    if [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
+}
+
 # Journal de sécurité : mise en place (setup, root) ou vérification des signatures et de la continuité (verify).
 cmd_audit() {
     if [ "${1:-}" = "setup" ]; then
-        local compte unite
-        unite="$(compte_services)"
-        if [ -n "$unite" ] && [ -n "${ELPIS_USER:-}" ] && [ "$ELPIS_USER" != "$unite" ]; then
-            die "Les services tournent sous $unite (User= des unités systemd), pas sous ELPIS_USER=$ELPIS_USER : sudo ELPIS_USER=$ELPIS_USER ./elpis service install pour changer de compte."
-        fi
-        compte="${unite:-${ELPIS_USER:-${SUDO_USER:-}}}"
-        if [ -z "$SYS_PREFIXE" ]; then
-            [ "$(id -u)" -eq 0 ] || die "Lancez avec sudo : sudo ./elpis audit setup"
-        else
-            compte="${compte:-$(id -un)}"
-        fi
-        [ -n "$compte" ] && [ "$compte" != root ] \
-            || die "Utilisateur de service inconnu : lancez via sudo depuis votre compte, ou ELPIS_USER=nom."
-        id -u "$compte" >/dev/null 2>&1 || die "Compte de service $compte inexistant (ELPIS_USER=nom)."
-        if [ -n "$unite" ] && [ "$unite" != "${SUDO_USER:-}" ]; then info "Compte des services : $unite (unités systemd installées)."; fi
-        audit_setup "$compte" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
-        ok "Journal de sécurité en place (compte $compte)."
+        compte_setup audit
+        audit_setup "$COMPTE_SETUP" "" 1 || die "Journal de sécurité incomplet : voir ci-dessus, puis relancez sudo ./elpis audit setup."
+        ok "Journal de sécurité en place (compte $COMPTE_SETUP)."
         return 0
     fi
     charger_env
     charger_instance
     need_exploitation
     core_cmd audit "$@"
+}
+
+# Coffre « Secrets » : clé (setup en root ; status ; rekey, ancienne clé relative au dossier d'Elpis, rendue absolue) ; doctor sert ./elpis doctor.
+cmd_vault() {
+    local f
+    case "${1:-}" in
+        setup)
+            [ $# -eq 1 ] || die "Usage : sudo ./elpis vault setup"
+            vault_setup ;;
+        status|rekey|doctor)
+            charger_env
+            charger_instance
+            need_exploitation
+            if [ "$1" = rekey ] && [ "${2:-}" = --from ] && [ -n "${3:-}" ]; then
+                f="$3"; case "$f" in /*) ;; *) f="$ROOT/$f" ;; esac
+                set -- rekey --from "$f" "${@:4}"
+            fi
+            vault_core vault "$@" ;;
+        *) die "Usage : sudo ./elpis vault setup | ./elpis vault status | ./elpis vault rekey --from FICHIER" ;;
+    esac
+}
+
+# Secrets du coffre : métadonnées seules (jamais de valeur).
+cmd_secret() {
+    [ "${1:-}" = ls ] || die "Usage : ./elpis secret ls [--user COMPTE]"
+    charger_env
+    charger_instance
+    need_exploitation
+    vault_core secret "$@"
+}
+
+# Commande du coffre par le core : sous le compte des services quand root la lance (runuser, ses groupes compris : clé lisible, fichiers de la base jamais créés par root), telle quelle sinon.
+vault_core() {
+    local compte
+    if [ "$(id -u)" -ne 0 ]; then core_cmd "$@"; return; fi
+    compte="$(compte_services)"
+    compte="${compte:-${ELPIS_USER:-${SUDO_USER:-}}}"
+    [ -n "$compte" ] && [ "$compte" != root ] \
+        || die "Compte des services inconnu : relancez sans sudo sous ce compte, ou ELPIS_USER=nom."
+    (cd / && runuser -u "$compte" -- env "ELPIS_RACINE=$ROOT" ${SANDBOX_DIR:+"APP_SANDBOX_DIR=$SANDBOX_DIR"} \
+        "$NODE" "$CORE_DIST/exploitation.mjs" "$@")
 }
 
 # Compte des services d'après les unités installées (User= de main, admin ou toolhost) ; vide sans unité.
@@ -1220,6 +1311,45 @@ audit_setup() {
     return "$echec"
 }
 
+# Clé du coffre : fichier ordinaire, jamais un lien ; 32 octets aléatoires en base64, créée si absente ou vide, jamais remplacée (une clé invalide est refusée) ; 0440 root:GRP_CLE à chaque passage.
+cle_coffre() {
+    local cle="$VAULT_KEY_SYS" texte
+    if [ -L "$cle" ] || { [ -e "$cle" ] && [ ! -f "$cle" ]; }; then
+        warn "$cle : lien symbolique ou fichier spécial : refusé (à vérifier)."; return 1
+    fi
+    if [ -s "$cle" ]; then
+        texte="$(tr -d ' \t\r\n' < "$cle")" || return 1
+        if ! [[ "$texte" =~ ^([A-Za-z0-9+/_-]{43}=?|[0-9a-fA-F]{64})$ ]]; then
+            warn "$cle : clé invalide (32 octets en base64 attendus) : laissée intacte, à vérifier."; return 1
+        fi
+        info "Clé du coffre déjà en place, gardée : $cle (jamais remplacée)."
+    else
+        ( umask 0337 && head -c 32 /dev/urandom | base64 > "$cle" ) || return 1
+        info "Clé du coffre créée : $cle (à sauvegarder hors de la machine, à part des sauvegardes d'Elpis)."
+    fi
+    if [ "$(id -u)" -eq 0 ]; then chown -h "root:$GRP_CLE" -- "$cle" || return 1; fi
+    chmod 0440 -- "$cle"
+}
+
+# Clé du coffre hors de la base (vault setup) : groupe de la clé, dossier /etc/elpis 0750, clé 0440 ; contrôle final, conseils pour la clé de repli.
+vault_setup() {
+    local vu attendu
+    compte_setup vault
+    [ -z "$SYS_PREFIXE" ] || mkdir -p "$SYS_PREFIXE/etc" || die "Arborescence $SYS_PREFIXE/etc impossible à créer."
+    groupe_de_cle "$COMPTE_SETUP" || die "Groupe de la clé non préparé (voir ci-dessus)."
+    dossier_sur "$SYS_PREFIXE/etc/elpis" 0750 root "$GRP_CLE" || die "Dossier $SYS_PREFIXE/etc/elpis refusé (voir ci-dessus)."
+    cle_coffre || die "Clé du coffre non posée : voir ci-dessus, puis relancez sudo ./elpis vault setup."
+    attendu="440 root $GRP_CLE"
+    vu="$(stat -c '%a %U %G' -- "$VAULT_KEY_SYS" 2>/dev/null)" || vu="absent"
+    if [ "$(id -u)" -ne 0 ]; then attendu="${attendu%% *}"; vu="${vu%% *}"; fi
+    [ "$vu" = "$attendu" ] || die "$VAULT_KEY_SYS : $vu (attendu $attendu)."
+    ok "Clé du coffre en place : $VAULT_KEY_SYS (compte $COMPTE_SETUP, groupe $GRP_CLE)."
+    info "Les services la lisent au démarrage : sudo systemctl restart ${UNIT_PREFIX}.target (ou ./elpis restart)."
+    if [ -e "$ROOT/user_db/.vault.key" ]; then
+        info "Clé de repli trouvée (user_db/.vault.key) : après le redémarrage, ./elpis vault rekey --from user_db/.vault.key, puis supprimez-la."
+    fi
+}
+
 # Image de la sandbox attendue par le code : présente, sinon chargée depuis
 # son archive (deploy/docker/sandbox/elpis-sandbox-<version>.tar.gz), sinon
 # construite (réseau requis). Sans elle, les conteneurs existants gardent
@@ -1333,6 +1463,8 @@ case "${1:-}" in
     upgrade)   shift; cmd_upgrade "$@" ;;
     db)        shift; cmd_db "$@" ;;
     audit)     shift; cmd_audit "$@" ;;
+    vault)     shift; cmd_vault "$@" ;;
+    secret)    shift; cmd_secret "$@" ;;
     -h|--help|help|"") usage ;;
     *) usage; exit 2 ;;
 esac

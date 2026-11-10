@@ -8,6 +8,7 @@ import { config } from "@elpis/config";
 import { corpsJson, entrees, premierEntete, py } from "@elpis/http";
 import { toolhostEntry } from "@elpis/mcp";
 import { IDENTITY_HEADER, verify } from "@elpis/securite";
+import type { Identity } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { ancresDeLaBase, obsKey } from "../bureau";
@@ -81,17 +82,17 @@ const ANCRE = py.model({
   center: py.optional(py.list(py.any(), { max_length: 4 })).defaut(null),
 });
 
-/** Compte de l'enveloppe `X-Elpis-Identity` signée au jeton de service, relu en base : jamais du corps ni de la requête. */
+/** Compte de l'enveloppe `X-Elpis-Identity` signée au jeton de service, relu en base : jamais du corps ni de la requête ; l'enveloppe vérifiée suit (conversation, sous-agent). */
 export async function compteSigne(
   dep: Pick<DependancesInterne, "auth">,
   req: FastifyRequest,
-): Promise<{ uid: number; username: string }> {
+): Promise<{ uid: number; username: string; identite: Identity }> {
   const ident = verify(premierEntete(req, IDENTITY_HEADER), jetonServiceDuManifeste());
   if (ident === null || ident.user_id <= 0)
     throw new HttpError(401, "enveloppe d'identité absente ou invalide");
   const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
   if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "compte inconnu");
-  return { uid: ident.user_id, username: ident.username };
+  return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 
 /** Corps JSON d'une route interne : objet attendu, sinon `{}`. */

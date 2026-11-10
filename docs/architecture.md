@@ -87,6 +87,7 @@ and by the application's help modal, *Developer* tab).
 - [Studio and desktop agent](#studio-and-desktop-agent)
 - [Built-in RAG: collections, indexing, extractor](#built-in-rag-collections-indexing-extractor)
 - [Periodic maintenance](#periodic-maintenance)
+- [Secrets vault](#secrets-vault)
 - [Cross-cutting security](#cross-cutting-security)
 
 ### Appendices
@@ -389,6 +390,7 @@ erDiagram
 | **Studio** | `editor_action_cache` (memory of live-targeting anchors) — automation scripts are sandbox files (`automations/`), not database rows |
 | **Remote code** | `code_sessions`, `code_messages`, `code_parts`, `code_clients`, `code_commands`, `code_notes`, `code_permissions`, `code_questions`, `code_meta`, `code_remote_tokens`, `code_pairings` |
 | **Connectors** | `git_connectors`, `llm_connectors`, `llm_engine_policies`, `mcp_shared_servers` |
+| **Secrets** | `vault_secrets` (one row per secret of an account, or of the instance when `user_id` is `NULL`; value encrypted, see [Secrets vault](#secrets-vault)) |
 | **RAG** | `rag_collections` (owner, visibility, embedding model, counters), `rag_grants` (groups of a publication), `rag_documents`, `rag_jobs` (indexing queue), `rag_hidden` ("Hide from my list"); active collections of a chat in `chats.meta_json.rag` |
 | **Images** | `generated_images` (one row per image: account, conversation, model, relative path of the file and its thumbnail, duration measurements) |
 | **Misc** | `notifications`, `terminal_sessions`, `sandbox_placements`, `ax_nodes` / `ax_selectors` / `ax_transitions` / `ax_credentials` |
@@ -3370,6 +3372,88 @@ independent of the state of the Routines feature.
 
 ---
 
+## Secrets vault
+
+One store for the secrets that an account, or the instance for shared connectors, hands to Elpis:
+website logins, HTTP authentication, Git tokens, LLM and MCP keys, plain tokens. A value is
+write-only: no route returns it, except the internal resolution for the tool host.
+
+| Part | Where | Role |
+|---|---|---|
+| Encryption | `packages/securite/src/coffre.ts` | `chiffrerSecret(clair, aad)` → `v1.<kid>.<nonce>.<ciphertext+tag>` (AES-256-GCM, random 96-bit nonce, 128-bit tag, base64url); `dechiffrerSecret(enc, aad)` throws `SecretIndechiffrable` (format, unknown `kid`, altered data or another AAD) and never returns `""`; `chargerCleCoffre()`, `cleCoffre()`, `kidCoffre()`, `etatCleCoffre()` |
+| Store | `apps/core/src/secrets/` | `creerSecret`, `modifierSecret`, `rotation`, `verifierSecret`, `supprimerSecret`, `listerSecrets` (metadata only), `lireSecretPourUsage`; `rechiffrerCoffre` for `rekey` |
+| Routes | `apps/core/src/familles/secrets.ts` | Account, console and internal routes below; contracts in `packages/contracts/src/rest/secrets.ts` |
+| Commands | `apps/core/src/exploitation/coffre.ts` | `./elpis vault status\|rekey`, `./elpis secret ls`, the vault lines of `./elpis doctor`; `vault setup` is done by the launcher (root) |
+
+```
+vault_secrets
+  id, user_id (NULL = instance), kind, name (unique per owner: index on (COALESCE(user_id, 0), name)),
+  scope_json, username, secret_enc ("v1.<kid>.<nonce>.<ct+tag>"), kid, version (+1 per new value),
+  state (active | unverified), policy_json, meta_json, created_at, updated_at, rotated_at,
+  last_used_at, use_count
+```
+
+| `kind` | `scope` |
+|---|---|
+| `web-login`, `http-auth` | `{"origins": [...]}`: 1 to 10 exact origins `scheme://host[:port]`, normalised as WHATWG does (lower case, punycode, default port dropped); no user, path, query or fragment |
+| `git` | `{"host": "git.example.lan"}`, optional port |
+| `llm` | `{"connector_id": 3}` |
+| `mcp` | `{"server": "shared-2"}` |
+| `token` | `{}` (designated by its name only) |
+
+- **Name**: slug `[a-z0-9][a-z0-9._-]{0,47}`, unique per owner. 200 secrets at most per owner.
+- **Policy**: `{"subagents": true, "routines": false, "confirm_first_use": false, "tls": "strict"}` by
+  default; partial updates are merged.
+- **AAD**: `vault|v1|<user_id or 0>|<kind>|<name>`. A ciphertext copied to another row does not
+  decrypt; a rename re-encrypts.
+- **Updates**: absent fields are unchanged, an empty `value` too. A new value raises `version` and
+  sets `rotated_at`. Widening the scope (an origin added, another host, connector or server) or
+  moving to `tls: insecure` requires the value again, so an open session alone cannot send an
+  existing secret elsewhere. The kind never changes.
+- **State**: `unverified` (secrets imported from older stores) is never resolved until its owner
+  verifies it (`POST …/verify`).
+
+| Route | Process, access | Role |
+|---|---|---|
+| `GET /api/secrets` · `POST /api/secrets` · `PUT /api/secrets/:secret_id` · `POST /api/secrets/:secret_id/rotate` · `POST /api/secrets/:secret_id/verify` · `DELETE /api/secrets/:secret_id` | main, session | The account's secrets |
+| `GET /api/admin/secrets` · `POST /api/admin/secrets/:secret_id/rotate` · `DELETE /api/admin/secrets/:secret_id` | admin, admin | Instance secrets (created by the connector forms) |
+| `POST /api/internal/secrets/resolve` | main, service token and signed identity (`X-Elpis-Identity`) | Value for the tool host |
+
+Responses carry metadata only (`schemaSecret`: scope, user name, state, version, policy, uses,
+`key_current` when the ciphertext uses the current key), never the value or its ciphertext.
+Errors are `{detail, code}`, `detail` in English.
+
+**Resolution.** Body `{usage: "web-login" | "http-auth", name?, origin, chat_id?, run?}`. The
+account and the conversation come from the signed identity; a `chat_id` in the body must match it.
+By name, the secret must exist (`secret_unknown`), be attached to the conversation
+(`secret_not_attached`; a sub-agent only when the policy allows it), be of the kind asked
+(`secret_type_mismatch`), be verified (`secret_unverified`) and cover the origin
+(`secret_scope_mismatch`). Without a name, the single attached and verified secret of that kind
+whose scope covers the origin is used (`secret_ambiguous` when there are several). The answer is
+`{name, username, secret, tls, version}` with `Cache-Control: no-store`; `use_count` and
+`last_used_at` are updated and `vault.secret.used` is written, a refusal writes
+`vault.secret.refused` ([audit-events.md](audit-events.md#secrets-vault)). A ciphertext of another
+key gives `secret_undecryptable`, a missing key `secret_key_unavailable`. Attachment to a
+conversation is a hook (`estAttache` in `apps/core/src/secrets/usage.ts`) that accepts every secret
+until conversations can attach them.
+
+Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
+`secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
+`secret_meta_invalid`, `secret_limit`, `secret_unknown`, `secret_type_mismatch`,
+`secret_unverified`, `secret_scope_mismatch`, `secret_not_attached`, `secret_ambiguous`,
+`secret_undecryptable`, `secret_key_unavailable`.
+
+**Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
+`sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`,
+created 0600 under a lock the first time a secret is saved and published in one step (hard link of
+a synced temporary file). A key that exists but cannot be read is an error, never a reason to fall
+back. `kid` = first 8 hexadecimal digits of the SHA-256 of the key; `./elpis vault rekey --from`
+re-encrypts the rows of an old `kid` ([operations.md](operations.md#secrets-vault-key)). The Fernet
+encryption of `packages/securite/src/chiffrement.ts` still holds the existing connector keys until
+they move to the vault.
+
+---
+
 ## Cross-cutting security
 
 | Mechanism | Module | Note |
@@ -3381,6 +3465,7 @@ independent of the state of the Routines feature.
 | **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session cleared before the account is associated |
 | **Audit** | `packages/securite/src/audit.ts` | Every login attempt (success/failure, real IP behind trusted proxies, reason) |
 | **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys, shared MCP secrets and the site passwords of the AX memory (format also read by the remaining Python) |
+| **Secrets vault** | `packages/securite/src/coffre.ts`, `apps/core/src/secrets/` | AES-256-GCM, AAD per secret, key outside the database (`/etc/elpis/vault.key`); a value reaches the tool host only, by the signed internal resolution; see [Secrets vault](#secrets-vault) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
 | **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |
 | **Anti-SSRF** | `packages/securite/src/ssrf.ts`, `apps/core/src/git/garde.ts` | Remote Git URLs, AX diagnostics |

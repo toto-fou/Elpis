@@ -15,6 +15,24 @@ export {
 } from "./chiffrement";
 export type { SourceCle } from "./chiffrement";
 export {
+  chargerCleCoffre,
+  chiffrerSecret,
+  cleCoffre,
+  CleCoffreIndisponible,
+  configurerCoffre,
+  dechiffrerSecret,
+  etatCleCoffre,
+  FICHIER_CLE_COFFRE,
+  kidCoffre,
+  kidDe,
+  lireCleCoffre,
+  octetsCleCoffre,
+  reglagesCoffreDeLEnvironnement,
+  REPLI_CLE_COFFRE,
+  SecretIndechiffrable,
+} from "./coffre";
+export type { CleCoffre, ReglagesCoffre, SourceCleCoffre } from "./coffre";
+export {
   avecIdentite,
   creerIdentite,
   current,

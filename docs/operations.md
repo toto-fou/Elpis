@@ -497,7 +497,8 @@ therefore needs the core bundle, which `./install.sh` builds before configuring.
 | Admin console › System › Data › Restore | full archive or by scope |
 
 The full archive contains the database (SQLite snapshot, whatever the engine),
-`user_db/` (including the encryption key and the session secret: protect them
+`user_db/` (including the encryption key, the session secret and, while no vault
+key is set up, the fallback key of the secrets vault: protect them
 accordingly, and the RAG store `user_db/rag`: uploaded documents and extracted
 texts), the sandboxes, the MCP servers, the skins, the personal skills
 store and the security journal (`audit/`, see
@@ -505,6 +506,8 @@ store and the security journal (`audit/`, see
 listed in `backup-warnings.txt`.
 
 Not included, to be backed up separately: `config.json`, `.env`, `mcp.json`,
+the key of the secrets vault (`/etc/elpis/vault.key`, see
+[Secrets vault key](#secrets-vault-key)),
 the browser's saved states (`browser-service/cookies/`), a RAG store placed
 outside `user_db/` (`rag.store_dir`); what is specific to the machine
 (`.db_password`, state of a database switch); logs, PID files and the
@@ -530,7 +533,7 @@ disappeared, and can be deleted with services stopped (like the
 | Command | Role |
 |---|---|
 | `./elpis status` | services and ports |
-| `./elpis doctor` | full diagnostic (dependencies, the core's Node.js, built bundle, up to date with the sources and native module loaded, database as seen by the core, certificate authorities, Docker, sandbox image, bubblewrap, HTTPS, LLM engine probed with its key, recommended launch flags for vLLM and SGLang, the core's last engine probe if `main` is running, RAG: extractor and its isolation, shared store and token, Qdrant, embeddings, OCR, browser states to attach); optional items are reported without counting as a problem |
+| `./elpis doctor` | full diagnostic (dependencies, the core's Node.js, built bundle, up to date with the sources and native module loaded, database as seen by the core, certificate authorities, Docker, sandbox image, bubblewrap, HTTPS, LLM engine probed with its key, recommended launch flags for vLLM and SGLang, the core's last engine probe if `main` is running, RAG: extractor and its isolation, shared store and token, Qdrant, embeddings, OCR, browser states to attach, security journal, key of the secrets vault); optional items are reported without counting as a problem |
 | `./elpis logs [service] [-f]` | logs (`qdrant`, `rag`, `toolhost`, `main`, `admin`, `browser`) |
 | `GET /api/admin/metrics/prometheus` | Prometheus metrics (admin process, :8002): admin session or collection token |
 
@@ -669,6 +672,86 @@ rsyslog account: that is what `audit setup` does.
 For sending the security journal, the access log and the services' output to a collector (mutual
 TLS, disk queues, what can still be lost), follow
 [deploy/rsyslog/README.md](../deploy/rsyslog/README.md).
+
+## Secrets vault key
+
+Secrets saved in Elpis (website logins, HTTP authentication, Git, LLM and MCP keys, tokens) are
+rows of the `vault_secrets` table, each value encrypted with AES-256-GCM and bound to its owner,
+kind and name. The key is never in the database; the services take the first of:
+
+1. `ELPIS_VAULT_KEY` (environment, `.env`);
+2. `/etc/elpis/vault.key` (or `ELPIS_VAULT_KEY_PATH`);
+3. `user_db/.vault.key`, a fallback created next to the database when the first secret is saved.
+
+Each encrypted value carries the `kid` of its key (first 8 hexadecimal digits of the SHA-256 of
+the key), so a key change is detected and repaired with `rekey`. Variables:
+[configuration.md](configuration.md#secrets-vault).
+
+### Setting up the key
+
+```bash
+sudo ./elpis vault setup
+sudo systemctl restart elpis.target    # or ./elpis restart
+```
+
+It creates `/etc/elpis/vault.key`: 32 random bytes in base64, mode 0440, owned by root and by the
+key group of the security journal (the service account's own primary group, or `elpis-cle`), in
+`/etc/elpis` (0750). The service account is found as for `audit setup`. Safe to run again: an
+existing key is kept, never replaced (an invalid one is refused and left as it is), and its owner
+and mode are applied again. The services read the key when they start.
+
+If secrets were saved before, under the fallback key, re-encrypt them once the services have
+restarted, then delete the fallback:
+
+```bash
+./elpis vault rekey --from user_db/.vault.key
+./elpis vault status          # exit code 0: every secret uses the current key
+rm user_db/.vault.key
+```
+
+### Backing up the key
+
+Backups (`./elpis backup`, the console) contain the database, so the encrypted secrets, but not
+`/etc/elpis/vault.key`. **Back the key up separately, off the machine** (offline medium,
+administrators' password manager): without it, the secrets cannot be decrypted and must be
+entered again. Keep it away from the backups: whoever holds a backup and the key can read every
+secret. The fallback `user_db/.vault.key` is inside the backups, which is why `./elpis doctor`
+warns while it is in use.
+
+### Changing the key
+
+1. Keep a copy of the old key, readable by the service account (`rekey` runs under it), for
+   example `sudo install -m 0400 -o <account> /etc/elpis/vault.key /home/<account>/vault.key.old`.
+2. Remove `/etc/elpis/vault.key` (`setup` never replaces it), run `sudo ./elpis vault setup`
+   (or set `ELPIS_VAULT_KEY`) and restart the services. Until the next step, the secrets of the old
+   key are refused (`secret_undecryptable`).
+3. `./elpis vault rekey --from /home/<account>/vault.key.old` re-encrypts, one by one, the
+   secrets of the old key with the current one. A secret changed meanwhile is left for the next
+   run. Exit code 0 when all were re-encrypted, 1 when one could not be (altered), 2 for a bad
+   command line or a missing key. The command is written to the security journal
+   (`vault.key.rekeyed`).
+4. `./elpis vault status` reports no secret under another key: destroy the old copy.
+
+A relative `--from` path is read from the Elpis folder.
+
+### Commands
+
+| Command | Role |
+|---|---|
+| `sudo ./elpis vault setup` | Creates the key (above) |
+| `./elpis vault status` | Source and `kid` of the key, number of secrets (accounts, instance), secrets under another key. Exit code 0 when the key is readable and every secret uses it, 1 otherwise |
+| `./elpis vault rekey --from FILE` | Re-encrypts the secrets of an old key with the current one |
+| `./elpis secret ls [--user ACCOUNT]` | Metadata of the secrets: owner, name, kind, scope, user name, state, version, uses, last use, key. Never a value |
+
+They use the core bundle and the database. Run them as the service account; with `sudo`, they
+switch to it, so that root never creates database files.
+
+### What `./elpis doctor` checks
+
+- `/etc/elpis/vault.key`: 0440, root, group of the service account alone, readable by it;
+- the key in use, as the core sees it: a warning for the fallback `user_db/.vault.key`, for a key
+  that cannot be read or is invalid, and for secrets encrypted with another key
+  (`./elpis vault rekey`).
 
 ## Recovering from an incident
 

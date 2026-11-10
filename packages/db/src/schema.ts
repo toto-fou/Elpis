@@ -95,8 +95,10 @@ export function createTableSql(t: Table, d: Dialecte): string {
   return `CREATE TABLE IF NOT EXISTS ${q(t.name)} (\n  ${lignes.join(",\n  ")}\n)`;
 }
 
+/** Une partie entre parenthèses est une expression (`(COALESCE(user_id, 0))`), rendue telle quelle. */
 export function createIndexSql(t: Table, ix: Index, _d: Dialecte): string {
   const cols = ix.cols.map((part) => {
+    if (part.startsWith("(")) return part;
     const [nom, ...reste] = part.split(/\s+/u);
     return [q(nom ?? ""), ...reste].join(" ");
   });

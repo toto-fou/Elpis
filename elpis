@@ -205,7 +205,7 @@ svc_spec() {
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         browser)
             SPEC_DIR="$ROOT/browser-service"
-            SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT"
+            SPEC_ENV+=("FIREFOX_SERVICE_PORT=$BROWSER_PORT"
                        "BROWSER_SERVICE_TOKEN_FILE=${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}")
             SPEC_CMD=("$NODE" server.js) ;;
         *) die "service inconnu : $1" ;;

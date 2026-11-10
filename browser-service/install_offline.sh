@@ -11,8 +11,9 @@
 #    1. extrait node_modules.tar.gz            → ./node_modules
 #    2. extrait ms-playwright.tar.gz            → $HOME/.cache/ms-playwright
 #                                                 (ou --browsers-path DIR)
-#    3. installe les libs système offline/apt/*.deb (dpkg -i, best-effort, sudo)
-#    4. smoke-test : le navigateur démarre VRAIMENT (headless, --no-sandbox)
+#    3. installe les libs système offline/apt/*.deb ABSENTES (dpkg -i, sudo) :
+#       un paquet déjà installé reste tel quel, quelle que soit sa version
+#    4. smoke-test : le headless shell de Chromium démarre VRAIMENT (--no-sandbox)
 #
 #  Usage :
 #    ./install_offline.sh                        # install complète
@@ -40,7 +41,7 @@ while [ $# -gt 0 ]; do
     --skip-smoke) SKIP_SMOKE=1; shift;;
     --browsers-path) BROWSERS_PATH="${2:?chemin requis}"; shift 2;;
     --browsers-path=*) BROWSERS_PATH="${1#*=}"; shift;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0;;
     *) die "Option inconnue : $1 (voir --help)";;
   esac
 done
@@ -74,15 +75,24 @@ if [ "$BROWSERS_PATH" != "$DEFAULT_CACHE" ]; then
   warn "navigateurs hors du cache par défaut → lance le service avec PLAYWRIGHT_BROWSERS_PATH=$BROWSERS_PATH"
 fi
 
-# ── 3. libs système (.deb) — best-effort ────────────────────────────────────
+# ── 3. libs système (.deb) absentes de la cible ─────────────────────────────
 if [ "$WITH_APT" -eq 1 ] && [ -d "$OFFLINE/apt" ] && ls "$OFFLINE/apt"/*.deb >/dev/null 2>&1; then
   SUDO=""; [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
   if command -v dpkg >/dev/null 2>&1; then
-    info "Installation des libs système (dpkg -i offline/apt/*.deb)…"
-    if $SUDO dpkg -i "$OFFLINE"/apt/*.deb 2>/dev/null; then
-      ok "libs système installées."
+    A_POSER=()
+    for deb in "$OFFLINE"/apt/*.deb; do
+      paquet="$(dpkg-deb -f "$deb" Package)"
+      [ "$(dpkg-query -W -f='${db:Status-Status}' "$paquet" 2>/dev/null)" = installed ] || A_POSER+=("$deb")
+    done
+    if [ ${#A_POSER[@]} -eq 0 ]; then
+      ok "libs système déjà présentes."
     else
-      warn "dpkg a signalé des soucis (deps déjà présentes/plus récentes ?) — le smoke-test tranchera."
+      info "Installation de ${#A_POSER[@]} paquet(s) absent(s) (dpkg -i)…"
+      if $SUDO dpkg -i "${A_POSER[@]}"; then
+        ok "libs système installées."
+      else
+        warn "dpkg a signalé des soucis (paquet d'une autre version de Debian ?) — le smoke-test tranchera."
+      fi
     fi
   else
     warn "dpkg absent — étape libs système sautée."
@@ -95,24 +105,18 @@ fi
 if [ "$SKIP_SMOKE" -eq 1 ]; then
   warn "--skip-smoke : smoke-test sauté."
 else
-  # quel moteur tester ? celui dont le build a été extrait (chromium prioritaire).
-  ENGINE="chromium"
-  if   ls -d "$BROWSERS_PATH"/chromium-* >/dev/null 2>&1; then ENGINE="chromium"
-  elif ls -d "$BROWSERS_PATH"/firefox-*  >/dev/null 2>&1; then ENGINE="firefox"
-  elif ls -d "$BROWSERS_PATH"/webkit-*   >/dev/null 2>&1; then ENGINE="webkit"
-  fi
-  info "Smoke-test : lancement headless de $ENGINE…"
+  info "Smoke-test : lancement du headless shell de Chromium…"
   PLAYWRIGHT_BROWSERS_PATH="$BROWSERS_PATH" node -e "
 const pw = require('./node_modules/playwright');
 (async () => {
-  const b = await pw['$ENGINE'].launch({ headless: true, args: ['--no-sandbox','--disable-setuid-sandbox'] });
+  const b = await pw.chromium.launch({ headless: true, args: ['--no-sandbox','--disable-setuid-sandbox'] });
   const p = await b.newPage();
   await p.goto('about:blank');
   await b.close();
   console.log('SMOKE_OK');
 })().catch(e => { console.error('SMOKE_FAIL', e.message); process.exit(1); });
-" || die "Smoke-test KO — libs système manquantes ? (réessaie sans --no-apt, ou installe les libs $ENGINE)."
-  ok "Smoke-test réussi — $ENGINE opérationnel."
+" || die "Smoke-test KO — libs système manquantes ? (réessaie sans --no-apt, ou installe le groupe « navigateur » de deploy/prerequis-apt.txt)."
+  ok "Smoke-test réussi — headless shell de Chromium opérationnel."
 fi
 
 cat <<EOF
@@ -120,6 +124,6 @@ cat <<EOF
 ${C_G}✔ Installation offline terminée.${C_0}
 
 DÉMARRER LE SERVICE :
-  cd "$(pwd)" && ${EXPORT_HINT}BROWSER_ENGINE=chromium node server.js
+  cd "$(pwd)" && ${EXPORT_HINT}node server.js
   # le backend Python parle au service via PLAYWRIGHT_API_URL (défaut http://localhost:3000)
 EOF

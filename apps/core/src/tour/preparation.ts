@@ -271,7 +271,7 @@ export function suffixeDeQuestion(...blocs: (string | null | undefined)[]): stri
   return blocs.filter((s): s is string => typeof s === "string" && s !== "").join("\n\n");
 }
 
-/** Secrets du tour : l'ensemble envoyé par le composeur (`secrets`) remplace celui de la conversation AVANT le flux (outils et sous-agents du tour le lisent ; chat neuf créé vierge), puis le bloc `<secrets>` s'il change ; une panne n'empêche pas le tour. */
+/** Secrets du tour : l'ensemble envoyé par le composeur (`secrets`) remplace celui de la conversation AVANT le flux (outils et sous-agents du tour le lisent ; chat neuf créé vierge), puis le bloc `<secrets>` s'il change ou si la compaction l'a résumé ; une panne n'empêche pas le tour. */
 async function secretsDuTour(
   base: Base,
   data: Dict,
@@ -300,7 +300,6 @@ async function secretsDuTour(
     const attaches = remplaces ?? (await secretsAttaches(base, o.uid, o.chatId)) ?? [];
     const rang = o.messages.filter((m) => m["role"] === "user").length - 1;
     const derniere = derniereAnnonceSecrets(o.messages, o.suffixes, rang);
-    // Annonce résumée par la compaction : le modèle ne la voit plus, elle est refaite.
     return annonceSecretsDuTour(
       attaches,
       derniere !== null && !annonceVisibleSecrets(o.msgsForLlm, derniere) ? null : derniere,

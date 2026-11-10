@@ -712,10 +712,10 @@ export function noteCoupeEmission(outil: string, omis: number): string {
   return `\n…[result truncated by the harness to fit the model's context: ${omis} chars omitted; ${suite}]`;
 }
 
-/** Balises que seul le harnais écrit (jalons, brief, règles et messages du parent d'un enfant, annonces, tâches ouvertes, événements de job, bloc `<task>`) rendues inertes dans un texte tiers. */
+/** Balises que seul le harnais écrit (jalons, brief, règles et messages du parent d'un enfant, annonces, tâches ouvertes, événements de job, bloc `<task>`, notes de sites) rendues inertes dans un texte tiers. */
 export function neutraliserBalisesHarnais(texte: string): string {
   return texte.replace(
-    /<(\/?\s*(?:harness_status|task_context|interrupted_subagents|todo_status|job_event|subagent_rules|parent_instruction|task(?:_meta|_result)?))(?=[\s>/]|$)/giu,
+    /<(\/?\s*(?:harness_status|task_context|interrupted_subagents|todo_status|job_event|subagent_rules|parent_instruction|ax_site_notes|task(?:_meta|_result)?))(?=[\s>/]|$)/giu,
     "&lt;$1",
   );
 }

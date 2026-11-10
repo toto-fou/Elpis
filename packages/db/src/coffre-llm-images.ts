@@ -247,6 +247,7 @@ export const MIGRATION_COFFRE_LLM_IMAGES: Migration = {
       if (e instanceof CleCoffreIndisponible)
         throw new Error(
           `clé du coffre indisponible, clés des connecteurs LLM et du moteur d'images non migrées (./elpis doctor) : ${e.message}`,
+          { cause: e },
         );
       throw e;
     }

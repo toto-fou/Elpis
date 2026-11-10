@@ -205,7 +205,8 @@ svc_spec() {
             SPEC_CMD=("$NODE" --enable-source-maps --use-system-ca "$CORE_DIST/main.mjs") ;;
         browser)
             SPEC_DIR="$ROOT/browser-service"
-            SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT")
+            SPEC_ENV+=(PLAYWRIGHT_HEADLESS=true "FIREFOX_SERVICE_PORT=$BROWSER_PORT"
+                       "BROWSER_SERVICE_TOKEN_FILE=${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}")
             SPEC_CMD=("$NODE" server.js) ;;
         *) die "service inconnu : $1" ;;
     esac
@@ -808,7 +809,12 @@ cmd_doctor() {
     check_out() { local lib="$1" conseil="$2"; shift 2; if sortie="$("$@" 2>&1)"; then ok "$lib : $sortie"; else warn "$lib : NON (${sortie:+$sortie ; }$conseil)"; bad=$((bad+1)); fi; }
     doctor_runtime() { [ "$(runtime_empreinte "$NODE_DIR")" = "$1" ]; }
     doctor_office() { (cd "$ROOT/office" && "$PY" -c 'import elpis_office.word, elpis_office.powerpoint, markdown_it'); }
-    doctor_navigateur() { curl --noproxy '*' -fsS -m 3 "http://127.0.0.1:$BROWSER_PORT/health" | grep -q '"ok":true'; }
+    # Jeton du service navigateur (variable, sinon fichier) passé par l'entrée standard, jamais sur la ligne de commande.
+    jeton_navigateur() { local f="${BROWSER_SERVICE_TOKEN_FILE:-$ROOT/user_db/.browser_service_token}"; if [ -n "${BROWSER_SERVICE_TOKEN:-}" ]; then printf '%s' "$BROWSER_SERVICE_TOKEN"; elif [ -s "$f" ]; then head -n1 "$f"; fi; }
+    curl_navigateur() { local j; j="$(jeton_navigateur)"; if [ -n "$j" ]; then printf 'Authorization: Bearer %s\n' "$j" | curl --noproxy '*' -fsS -m 3 -H @- "$@"; else curl --noproxy '*' -fsS -m 3 "$@"; fi; }
+    doctor_navigateur() { curl_navigateur "http://127.0.0.1:$BROWSER_PORT/health" | grep -q '"ok":true'; }
+    # Jeton en place : un appel local sans lui doit être refusé (401), sinon le service tourne ouvert sans le dire.
+    doctor_navigateur_garde() { [ -z "$(jeton_navigateur)" ] && return 0; [ "$(curl --noproxy '*' -s -o /dev/null -m 3 -w '%{http_code}' "http://127.0.0.1:$BROWSER_PORT/health")" = 401 ]; }
     doctor_hote_empreinte() { ELPIS_RACINE="$ROOT" "$NODE" "$HOTE_DIST/main.mjs" --empreinte; }
     doctor_llm() { ELPIS_CFG_LLM_API_KEY="$4" "$1" "$ROOT/deploy/configure.py" --check-llm --engine "${2:-llamacpp}" --llm-url "$3"; }
     # Paquets apt d'un groupe : manquants = problème si le groupe sert ici, sinon simple information.
@@ -868,6 +874,7 @@ cmd_doctor() {
     check "mcp.json" "./elpis configure" test -f "$ROOT/mcp.json"
     check "jeton MCP" "./elpis configure" test -s "$ROOT/user_db/.local_mcp_token"
     check "jeton du service RAG" "./elpis configure" test -s "$ROOT/user_db/.rag_service_token"
+    check "jeton du service navigateur" "./elpis configure" test -s "$ROOT/user_db/.browser_service_token"
     local th_host="${LOCAL_MCP_HOST:-127.0.0.1}"; [ "$th_host" = 0.0.0.0 ] && th_host=127.0.0.1
     check "hôte d'outils ($th_host:$MCP_PORT)" "./elpis logs toolhost" curl --noproxy '*' -fsS -m 3 -o /dev/null "http://$th_host:$MCP_PORT/health"
     if [ -f "$HOTE_DIST/main.mjs" ]; then
@@ -888,9 +895,11 @@ cmd_doctor() {
     check "Qdrant" "./install.sh" test -x "$ROOT/rag_app/qdrant/qdrant"
     check "service navigateur" "./install.sh" test -d "$ROOT/browser-service/node_modules"
     # En marche : son /health doit répondre et dire le navigateur utilisable.
-    if curl --noproxy '*' -fsS -m 3 -o /dev/null "http://127.0.0.1:$BROWSER_PORT/health" 2>/dev/null; then
+    if port_open "$BROWSER_PORT"; then
         check "service navigateur (/health)" \
             "./elpis logs browser" doctor_navigateur
+        check "service navigateur : jeton exigé" \
+            "fichier du jeton lisible par le compte du service ? ./elpis logs browser" doctor_navigateur_garde
     fi
     # Contrôles faits par le core (exploitation.mjs) : signalés non vérifiés s'il n'est pas construit.
     local distants core_ok=0
@@ -1233,6 +1242,16 @@ ensure_sandbox_image() {
     return 1
 }
 
+# Jeton du service navigateur créé s'il manque (comme ./elpis configure), en 0600 pour le compte qui lance.
+jeton_navigateur_manquant() {
+    local f="$ROOT/user_db/.browser_service_token"
+    [ -s "$f" ] && return 0
+    mkdir -p "$ROOT/user_db"
+    (umask 077 && "$NODE" -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url") + "\n")' > "$f") \
+        && ok "Jeton du service navigateur généré (user_db/.browser_service_token)." \
+        || warn "Jeton du service navigateur non généré : lancez ./elpis configure."
+}
+
 cmd_upgrade() {
     local backup=1 req="$ROOT/requirements-rag.txt"
     case "${1:-}" in --no-backup) backup=0 ;; "") ;; *) die "Usage : ./elpis upgrade [--no-backup]" ;; esac
@@ -1270,6 +1289,7 @@ cmd_upgrade() {
         NODE="$(node_bin)"
     fi
     node_ok || die "Node.js du core absent ou trop ancien (24.x, $NODE_MIN au moins) : voir ELPIS_NODE."
+    jeton_navigateur_manquant
     ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" bundles \
         || die "Construction du core ou de l'hôte d'outils échouée : l'ancien bundle reste en place ; relancez ./elpis upgrade --no-backup une fois corrigé."
     ELPIS_NODE_CACHE="$CACHE_NODE" "$ROOT/deploy/node/installer.sh" web \

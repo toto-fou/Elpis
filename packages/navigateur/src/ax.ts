@@ -23,7 +23,7 @@ import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
 import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
-import { urlServiceNavigateur } from "./client";
+import { enTetesServiceNavigateur, urlServiceNavigateur } from "./client";
 import { pwOwner } from "./session";
 
 export const log = (): ReturnType<typeof journalDe> => journalDe("ax");
@@ -528,6 +528,7 @@ export async function detectSessionUrl(
     const delai = AbortSignal.timeout(2000);
     const r = await fetch(`${base}/smart_inspect?${qs.toString()}`, {
       method: "GET",
+      headers: enTetesServiceNavigateur(),
       signal: signal ? AbortSignal.any([signal, delai]) : delai,
     });
     if (!r.ok) return null;

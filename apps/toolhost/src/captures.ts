@@ -2,7 +2,7 @@
 /** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : PNG du service navigateur, à son seul propriétaire. */
 import { HttpError, lowerPy } from "@elpis/commun";
 import { entrees, py } from "@elpis/http";
-import { getPwSessionOwner } from "@elpis/navigateur";
+import { enTetesServiceNavigateur, getPwSessionOwner } from "@elpis/navigateur";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { request } from "undici";
 
@@ -40,7 +40,12 @@ function messageTransport(e: unknown): string {
 }
 
 function supprimerApres(url: string): void {
-  const t = request(url, { method: "DELETE", headersTimeout: 2000, bodyTimeout: 2000 })
+  const t = request(url, {
+    method: "DELETE",
+    headers: enTetesServiceNavigateur(),
+    headersTimeout: 2000,
+    bodyTimeout: 2000,
+  })
     .then((r) => r.body.dump())
     .catch(() => undefined)
     .finally(() => suppressions.delete(t));
@@ -82,7 +87,11 @@ async function servirCapture(
   const attendre = ctx.attendre ?? ((ms: number) => new Promise<void>((fin) => setTimeout(fin, ms)));
   try {
     for (let essai = 0; essai < ESSAIS; essai++) {
-      const r = await request(url, { headersTimeout: 5000, bodyTimeout: 5000 });
+      const r = await request(url, {
+        headers: enTetesServiceNavigateur(),
+        headersTimeout: 5000,
+        bodyTimeout: 5000,
+      });
       if (r.statusCode === 200) {
         const octets = Buffer.from(await r.body.arrayBuffer());
         supprimerApres(url);

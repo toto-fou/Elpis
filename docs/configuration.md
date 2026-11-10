@@ -228,7 +228,7 @@ the connection to the selected database.
 
 Generated secrets (0600 files): `app.session_secret`,
 `user_db/.local_mcp_token` (tool host, referenced by `mcp.json`),
-`user_db/.rag_service_token`. Each answer can be given as an option
+`user_db/.rag_service_token`, `user_db/.browser_service_token` (browser service). Each answer can be given as an option
 (`./elpis configure --help`) or an `ELPIS_CFG_*` variable (`ELPIS_CFG_ENGINE`,
 `ELPIS_CFG_LLM_URL`, `ELPIS_CFG_LLM_API_KEY`, `ELPIS_CFG_CLOUD_API_KEY`,
 `ELPIS_CFG_ADMIN_PASSWORD`…); `--yes` asks no questions. Secrets
@@ -1194,6 +1194,7 @@ must then be removed before recreating an account with the same name.
 |---|---|---|
 | `PLAYWRIGHT_API_URL` | `http://localhost:3000` | Browser service (app side) |
 | `FIREFOX_SERVICE_PORT` | `3000` | Browser service listening port |
+| `BROWSER_SERVICE_TOKEN` | — | Browser service token (Bearer). Without it, `BROWSER_SERVICE_TOKEN_FILE`, then `user_db/.browser_service_token` (written by `./elpis configure`, read by the service, the core and the tool host). Without any token, the service only accepts direct local calls; an unreadable token file makes it refuse every call (503). A remote tool host passes the token in this variable |
 | `PW_STATE_MAX_AGE_D` | `30` | Days to keep a saved browser state (`save_state`) after it is saved or attached, even if it is in use; `0` = never deleted. Read at browser service startup (`.env`). States from before 0.0.1, with no account, are never purged: see [operations.md](operations.md#upgrading) |
 | `PW_ARTIFACT_MAX_AGE_H` | `24` | Hours to keep browser downloads, HAR files, videos and traces; `0` = never deleted |
 | `PLAYWRIGHT_HEADLESS` / `PLAYWRIGHT_TIMEOUT` / `PLAYWRIGHT_VISION` | `true` / `10` (s) / `false` | Playwright options |

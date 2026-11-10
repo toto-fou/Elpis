@@ -2,7 +2,7 @@
 /** apps/core/src/outils/integres/task/controles.ts — appels du harnais de `task` à l'hôte d'outils du compte, hors boucle : santé du navigateur avant un agent `web`, navigateur privé de l'enfant fermé en fin de run (et au démarrage, ceux du process précédent, en un appel), rapport complet sauvé dans le bac, branche relue en fin de run. */
 import { estDict, jsonLoads, prefixePy, strPy } from "@elpis/commun";
 import { BUILTIN_SENTINEL } from "@elpis/mcp";
-import { urlServiceNavigateur } from "@elpis/navigateur";
+import { enTetesServiceNavigateur, urlServiceNavigateur } from "@elpis/navigateur";
 import { sousAgentEnDict } from "@elpis/securite";
 import type { SousAgent } from "@elpis/securite";
 
@@ -145,7 +145,7 @@ async function posterNettoyageEnfants(corps: Dict): Promise<unknown> {
   try {
     const r = await fetch(`${base}/cleanup_children`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: enTetesServiceNavigateur({ "content-type": "application/json" }),
       body: JSON.stringify(corps),
       signal: AbortSignal.timeout(5000),
     });

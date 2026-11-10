@@ -25,6 +25,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
 import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot } from './recorder_util.js';
+import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
 
 // ── Mutex par session (AUDIT 2026-06) ───────────────────────────────
 // Sérialise les requêtes qui opèrent sur la même page Playwright (non
@@ -35,6 +36,8 @@ const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     /
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
 const app = express();
+// Jeton d'appel vérifié avant tout, statiques compris : sans jeton configuré, appels locaux directs seuls.
+app.use(gardeJeton);
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
@@ -43,9 +46,9 @@ app.use((req, _res, next) => { req.body ??= {}; next(); });
 //  SÉCURITÉ — bind interface
 // ════════════════════════════════════════════════════════════════════
 //
-//  Le service n'a pas d'authentification propre : il écoute sur
-//  ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) et ne doit JAMAIS être
-//  exposé publiquement — quiconque atteint le port pilote le navigateur.
+//  Authentification : jeton Bearer (BROWSER_SERVICE_TOKEN ou user_db/.browser_service_token,
+//  écrit par ./elpis configure) ; sans jeton, seuls les appels locaux directs passent.
+//  Il écoute sur ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) : ne jamais l'exposer publiquement.
 
 // (2026-09-30) Un seul ``/health``, détaillé, plus bas : celui-ci, déclaré
 // en premier, masquait l'autre (Express sert la première route qui correspond).
@@ -7085,5 +7088,6 @@ app.get('/recorder/dump', getSession, async (req, res) => {
 const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
 const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
 app.listen(LISTEN_PORT, LISTEN_HOST, () => {
+    journaliserMode(jetonAttendu());
     console.log(`🌐 Browser AGENT Server (Playwright, multi-engine) running on ${LISTEN_HOST}:${LISTEN_PORT} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
 });

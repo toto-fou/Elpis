@@ -2,7 +2,7 @@
 /** apps/core/src/llm/ports.ts — dépendances du moteur pas encore portées (connecteurs, exécutions, disjoncteur, accès, diffusion, images) : interfaces et pose. */
 import type { EngineRef } from "./moteurs";
 
-/** Ligne `_with_key` d'un connecteur (clé déchiffrée) : jamais sérialisée vers HTTP. */
+/** Ligne `_with_key` d'un connecteur (clé déchiffrée du coffre) : jamais sérialisée vers HTTP ; `key_error` : clé inutilisable. */
 export interface ConnecteurSecret {
   enabled?: boolean | number | null;
   scope?: string | null;
@@ -10,6 +10,7 @@ export interface ConnecteurSecret {
   wire?: string | null;
   base_url?: string | null;
   api_key?: string | null;
+  key_error?: string | null;
   default_model?: string | null;
 }
 

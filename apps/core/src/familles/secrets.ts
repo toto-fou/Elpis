@@ -62,7 +62,8 @@ function idSecret(req: FastifyRequest): number {
   return id;
 }
 
-function acteurDe(req: FastifyRequest): Acteur {
+/** Acteur journalisé d'une requête : compte de la session et adresse du client. */
+export function acteurDe(req: FastifyRequest): Acteur {
   return {
     userId: req.utilisateur?.id ?? null,
     username: req.utilisateur?.username ?? null,

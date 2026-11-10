@@ -12,6 +12,7 @@ import type { Base, RapportInit } from "@elpis/db";
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
+import { installerRepriseCoffre, reprendreAuDemarrage } from "./secrets/reprise";
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -38,13 +39,15 @@ export function nettoyerAuDemarrage(b: Base): Promise<boolean> {
   return nettoyerSousVerrou(b, nettoyer, journal);
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage par main seulement. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (clés rangées dans le coffre par ce process, rapport journalisé), puis nettoyage et reprise des anciennes clés par main seulement. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
+  installerRepriseCoffre();
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
     ...(mode === "main" ? { apres: nettoyerAuDemarrage } : {}),
     journal,
   });
   courante = nouvelle;
+  if (mode === "main") await reprendreAuDemarrage(nouvelle, rapport, journal("coffre"));
   return rapport;
 }

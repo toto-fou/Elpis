@@ -42,8 +42,23 @@ export {
   ErreurBaseNonAJour,
   infoBase,
   initialiserBase,
+  MigrationDifferee,
   MIGRATIONS_TS,
   registreMigrations,
   walCheckpoint,
 } from "./init";
-export type { InfoBase, Migration, OptionsInfo, RapportInit } from "./init";
+export type { InfoBase, Migration, NotesMigration, OptionsInfo, RapportInit } from "./init";
+export {
+  cleImagesHeritee,
+  genreCleImages,
+  installerRangementCoffre,
+  NOM_CLE_IMAGES,
+  nomCleConnecteur,
+  POLITIQUE_CLE_MOTEUR,
+  proprietaireConnecteur,
+  reprendreClesLlm,
+  SCHEMA_COFFRE,
+  SCHEMA_ILLISIBLE,
+  semerCleImages,
+} from "./coffre-llm-images";
+export type { BilanReprise, RangerSecret, SecretARanger } from "./coffre-llm-images";

@@ -4,27 +4,32 @@ import { chmodSync, closeSync, existsSync, mkdirSync, openSync, realpathSync, st
 import { dirname, join } from "node:path";
 
 import type { Base, Executeur, StatsPool } from "./base";
+import { MIGRATION_COFFRE_LLM_IMAGES } from "./coffre-llm-images";
 import { ErreurBase } from "./erreurs";
+import { MigrationDifferee } from "./migration";
+import type { Migration, NotesMigration } from "./migration";
 import { createAll, hasTable, isFresh } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
+
+export { MigrationDifferee } from "./migration";
+export type { Migration, NotesMigration } from "./migration";
 
 export class ErreurBaseNonAJour extends ErreurBase {
   override name = "ErreurBaseNonAJour";
 }
 
-export interface Migration {
-  name: string;
-  migrer(x: Executeur): Promise<void>;
-}
-
-/** Migrations propres au TS, numérotées à la suite des migrations Python (aucune à ce jour). */
-export const MIGRATIONS_TS: readonly Migration[] = [];
+/** Migrations propres au TS, numérotées à la suite des migrations Python. */
+export const MIGRATIONS_TS: readonly Migration[] = [MIGRATION_COFFRE_LLM_IMAGES];
 
 export interface RapportInit {
   neuve: boolean;
   tamponnees: number;
   appliquees: string[];
   echec: { name: string; message: string } | null;
+  /** Laissées à un process qui en a les moyens (`MigrationDifferee`) : ni appliquées ni tamponnées. */
+  differees: { name: string; message: string }[];
+  /** Notes des migrations appliquées, à journaliser par l'appelant. */
+  infos: string[];
   fts: boolean;
   unaccent: boolean;
   /** À journaliser par l'appelant (plein texte dégradé, colonnes impossibles à ajouter). */
@@ -102,6 +107,8 @@ export async function initialiserBase(base: Base): Promise<RapportInit> {
       tamponnees: neuve ? BASELINE_COVERS.filter((n) => !avant.has(n)).length : 0,
       appliquees: [],
       echec: null,
+      differees: [],
+      infos: [],
       fts: schema.fts,
       unaccent: schema.unaccent,
       avertissements: [
@@ -117,16 +124,22 @@ export async function initialiserBase(base: Base): Promise<RapportInit> {
     registreMigrations();
     for (const m of MIGRATIONS_TS) {
       if (faites.has(m.name)) continue;
+      let notes: void | NotesMigration;
       try {
-        await base.transaction(async (y) => {
-          await m.migrer(y);
+        notes = await base.transaction(async (y) => {
+          const n = await m.migrer(y);
           await tamponner(y, m.name);
+          return n;
         });
-        rapport.appliquees.push(m.name);
       } catch (e) {
-        rapport.echec = { name: m.name, message: e instanceof Error ? e.message : String(e) };
+        const message = e instanceof Error ? e.message : String(e);
+        if (e instanceof MigrationDifferee) rapport.differees.push({ name: m.name, message });
+        else rapport.echec = { name: m.name, message };
         break;
       }
+      rapport.appliquees.push(m.name);
+      rapport.infos.push(...(notes?.infos ?? []).map((n) => `migration ${m.name} : ${n}`));
+      rapport.avertissements.push(...(notes?.avertissements ?? []).map((n) => `migration ${m.name} : ${n}`));
     }
     return rapport;
   });

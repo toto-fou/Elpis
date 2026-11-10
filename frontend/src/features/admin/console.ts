@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/admin/console.ts — composition de la console d'administration (`setupAdmin`) : familles de pages, liens entre elles et surface plate lue par la racine. */
+import { reactive } from "vue";
+
 import type { ClientHttp } from "../../platform/http/client";
+import { creerApiSecrets } from "../secrets/api";
+import { creerGestionSecrets } from "../secrets/gestion";
 import { creerAgentsAdmin } from "./agents";
 import { creerApercu } from "./apercu";
 import { creerAx } from "./ax";
@@ -147,6 +151,12 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
   const outilsMcp = setupAdminMcp(ctx, http);
   const hotes = setupAdminHotesOutils(ctx, http);
   const rag = setupAdminRag(b, http);
+  const secrets = creerGestionSecrets({
+    api: creerApiSecrets(http),
+    portee: "instance",
+    toast: ctx.showToast,
+    ouvrir: (cible) => navigation.goAdminPage(cible),
+  });
 
   vue.onUnmounted(() => {
     libererMetriques();
@@ -182,6 +192,8 @@ export function setupAdmin(vue: VueAdmin, refs: RefsAdmin, ctxHote: CtxAdmin, ht
     ...outilsMcp,
     ...hotes,
     ...rag,
+    secretsInstance: reactive(secrets),
+    loadInstanceSecrets: secrets.charger,
     adminTab: e.adminTab,
     adminMeOpen: e.adminMeOpen,
     adminChangesOpen: e.adminChangesOpen,

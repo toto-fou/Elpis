@@ -161,6 +161,7 @@ export function creerClavier(s: EtatClavier) {
       return true;
     }
     // Table des secrets (menu ⋯, confirmation, panneau, création) : fermée avant sa fenêtre ou sa page.
+    if (a?.adminTab.value === "secrets" && a.secretsInstance.fermerCouche()) return true;
     if (r?.showSettingsModal.value && r.settingsTab.value === "secrets" && r.secretsCompte.fermerCouche())
       return true;
     if (a?.engineDrawer.value) {

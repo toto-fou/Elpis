@@ -3399,7 +3399,7 @@ vault_secrets
 | `git` | `{"host": "git.example.lan"}`, optional port |
 | `llm` | `{"connector_id": 3}` |
 | `mcp` | `{"server": "shared-2"}` |
-| `token` | `{}` (designated by its name only), or `{"origins": [...]}` to reserve it to exact origins (image engine) |
+| `token` | `{}` (designated by its name only); only the instance secret `image-engine` (image engine key) takes `{"origins": [...]}`, refused on any other token |
 
 - **Name**: slug `[a-z0-9][a-z0-9._-]{0,47}`, unique per owner. 200 secrets at most per owner.
 - **Policy**: `{"subagents": true, "routines": false, "confirm_first_use": false, "tls": "strict"}` by
@@ -3501,12 +3501,27 @@ until they move to the vault.
   key.
 - **Migration.** `0028_vault_llm_images` runs in `main` or `admin`, which install the inserter
   (`installerRepriseCoffre`) before opening the database; a process without it (tool host,
-  installer, commands) that finds keys to move leaves the migration pending (`MigrationDifferee`,
-  logged as info). An unavailable vault key makes it fail loudly (error in the log, retried at the
+  installer, commands) that finds connector keys to move leaves the migration pending
+  (`MigrationDifferee`, logged as info), while the image engine key alone never holds it back:
+  the migration is recorded and `main` seeds that key at its next start. An unavailable vault key makes it fail loudly (error in the log, retried at the
   next start); a key that cannot be decrypted is kept and reported, never dropped. After the
   migration, `main` retries the kept keys at each start, seeds the image key if the vault has none,
-  and removes `image.api_key_enc` from `config.json` once the vault holds it. Security journal
-  lines are not written there: the journal opens after the database.
+  and removes `image.api_key_enc` from `config.json` and `config.json.bak` once the vault holds
+  it. A Fernet key that cannot be read (wrong key, or no Fernet key at all) only holds back its
+  own row; clear keys and the other rows move. The secrets created there are reported in the
+  startup log, not in the security journal, which opens after the database. On SQLite the
+  rewrite and the startup retry run with `PRAGMA secure_delete` on, so the old values are
+  overwritten in the database pages (older backups still hold them: rotate the provider keys).
+- **Downgrades are not supported.** If an older version writes a key again (Fernet
+  `api_key_enc` on a connector that has a `secret_id`, `image.api_key_enc` back in
+  `config.json`), the next start of `main` compares it with the vault, keeps the vault value,
+  clears the old one and logs a warning when they differ. A connector whose secret has gone
+  takes the old key back into the vault, as at the migration.
+- **Vault rules that apply to connector keys.** Each key is one secret: the limit of 200 secrets
+  per owner counts an account's connectors, and the instance's 200 are shared by the shared
+  connectors, `image-engine` and the instance secrets of the console. The `subagents`,
+  `routines` and `tls` policy of these secrets is not used: the engine reads the key of the
+  connector it calls, whatever the caller, with the connector's own TLS settings.
 
 ---
 

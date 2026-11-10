@@ -81,12 +81,20 @@ follow [SemVer](https://semver.org/).
   deleting the secret applies at the next turn. At the first start after the update, migration
   `0028_vault_llm_images` moves the Fernet (or clear) keys of `llm_connectors` and
   `config.json › image.api_key_enc` into the vault, then `image.api_key_enc` is removed from
-  `config.json`; a key that cannot be decrypted is kept and reported, never dropped. A connector
-  whose key cannot be used now says so (`key_error`, "clé à ressaisir" in the console) and is
-  refused instead of being called without a key. These keys now depend on the vault key:
+  `config.json` and `config.json.bak`; a key that cannot be decrypted (or any Fernet key when no
+  Fernet key is configured) is kept and reported, never dropped, and does not hold back the
+  others. The secrets it creates are reported in the startup log, not in the security journal. A
+  connector whose key cannot be used now says so (`key_error`, "clé à ressaisir" in the console)
+  and is refused instead of being called without a key. These keys now depend on the vault key:
   run `sudo ./elpis vault setup` first (otherwise the fallback `user_db/.vault.key` is created for
   them) and back it up apart from the backups (`docs/operations.md`). An unreadable vault key makes
-  the migration fail and wait for the next start, without losing anything.
+  the migration fail and wait for the next start, without losing anything. **Rotate the provider
+  keys after the update**: older backups still hold them, encrypted with the old Fernet key.
+  Downgrading is not supported: a key written again by an older version is compared with the
+  vault at the next start, which keeps the vault value. Only the instance secret `image-engine`
+  takes an origins scope among tokens; `./elpis configure` refuses to store a key when run as
+  root. Each connector key counts toward the vault's 200 secrets per owner (the instance's are
+  shared); the policy fields of these secrets are not used.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three

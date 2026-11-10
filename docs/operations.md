@@ -733,7 +733,16 @@ Set the key up **before** that restart (`sudo ./elpis vault setup`), so that the
   console shows "clé à ressaisir" on the connector: enter the key again, or restore the former
   `APP_ENCRYPTION_KEY` / `user_db/.encryption_key` and restart;
 - if the vault key cannot be read, the migration fails (error in the log, `./elpis doctor`
-  lists it as pending) and nothing changes until a restart with a readable key.
+  lists it as pending) and nothing changes until a restart with a readable key;
+- the secrets it creates are reported in that startup log, not in the security journal;
+- **rotate the provider keys afterwards** (in the provider's console, then in Administration ›
+  Connexions and Images): the backups taken before the update still hold the old keys, encrypted
+  with the Fernet key, which they or the machine may also hold. The update removes them from the
+  database pages (`secure_delete` on SQLite), from `config.json` and from `config.json.bak`.
+
+Going back to an earlier version is not supported. A key that an earlier version writes again is
+compared with the vault at the next start of `main`: the vault value is kept, the other removed,
+and a warning is logged when they differ.
 
 ### Backing up the key
 

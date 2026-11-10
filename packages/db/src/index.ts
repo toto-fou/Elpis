@@ -37,12 +37,14 @@ export {
 export type { Col, Fk, Index, RapportFts, RapportSchema, Table, TypeCol } from "./schema";
 export { BASELINE_COVERS, MIGRATIONS_PYTHON, TABLES } from "./schema.gen";
 export {
+  brancherMigrations,
   decrireEmplacement,
   durcirDroits,
   ErreurBaseNonAJour,
   infoBase,
   initialiserBase,
   MIGRATIONS_TS,
+  migrationsTs,
   registreMigrations,
   walCheckpoint,
 } from "./init";

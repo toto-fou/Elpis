@@ -14,11 +14,24 @@ export class ErreurBaseNonAJour extends ErreurBase {
 
 export interface Migration {
   name: string;
-  migrer(x: Executeur): Promise<void>;
+  /** `x` : la transaction de la migration ; `base` : pour les écritures imbriquées (points de sauvegarde). */
+  migrer(x: Executeur, base: Base): Promise<void>;
 }
 
 /** Migrations propres au TS, numérotées à la suite des migrations Python (aucune à ce jour). */
 export const MIGRATIONS_TS: readonly Migration[] = [];
+
+const branchees: Migration[] = [];
+
+/** Migrations d'une application qui ont besoin de ses clés (le core : secrets repris au coffre), ajoutées au registre de ce process ; un nom déjà branché est ignoré. */
+export function brancherMigrations(ms: readonly Migration[]): void {
+  for (const m of ms) if (!branchees.some((b) => b.name === m.name)) branchees.push(m);
+}
+
+/** Migrations TS de ce process : celles du paquet puis celles branchées, dans l'ordre des noms. */
+export function migrationsTs(): Migration[] {
+  return [...MIGRATIONS_TS, ...branchees].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
 
 export interface RapportInit {
   neuve: boolean;
@@ -34,7 +47,7 @@ export interface RapportInit {
 }
 
 /** Ordre du registre : migrations Python (vides), puis migrations TS numérotées à la suite, noms uniques. */
-export function registreMigrations(ts: readonly Migration[] = MIGRATIONS_TS): string[] {
+export function registreMigrations(ts: readonly Migration[] = migrationsTs()): string[] {
   const noms = [...MIGRATIONS_PYTHON, ...ts.map((m) => m.name)];
   const derniere = MIGRATIONS_PYTHON[MIGRATIONS_PYTHON.length - 1] ?? "";
   for (const m of ts) {
@@ -114,12 +127,13 @@ export async function initialiserBase(base: Base): Promise<RapportInit> {
       colonnesImpossibles: schema.impossibles,
     };
     const faites = await appliquees(x);
-    registreMigrations();
-    for (const m of MIGRATIONS_TS) {
+    const ts = migrationsTs();
+    registreMigrations(ts);
+    for (const m of ts) {
       if (faites.has(m.name)) continue;
       try {
         await base.transaction(async (y) => {
-          await m.migrer(y);
+          await m.migrer(y, base);
           await tamponner(y, m.name);
         });
         rapport.appliquees.push(m.name);

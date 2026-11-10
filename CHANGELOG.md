@@ -16,9 +16,10 @@ follow [SemVer](https://semver.org/).
   `POST /login_precheck` and `POST /login` type a username and password into fields that are
   targeted or detected (`autocomplete`, the single visible password field), checked against the
   secret's origin, with a network guard during the login, an outcome check, and the documents
-  that received the secret replaced afterwards; pages that show it are blanked, screenshots
-  refused and responses purged. Stable error codes: `secret_route_refused`, `secret_login_busy`,
-  `secret_in_page`, `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
+  that received the secret replaced by new tabs afterwards; pages that contain it are blanked and
+  answers read from them withheld, selectors on `value` refused, screenshots refused and responses
+  purged. Stable error codes: `secret_route_refused`, `secret_login_busy`, `secret_in_page`,
+  `secret_scope_mismatch`, `secret_target_required`, `secret_login_failed`,
   `secret_option_refused`.
 - **Veilleuse skin.** Dark first: a plum night, ivory text and a single amber lamp under
   the prompt bar that brightens while you type, with Instrument Sans and Red Hat Mono

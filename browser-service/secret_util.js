@@ -2,9 +2,7 @@
 // browser-service/secret_util.js — session sécurisée : valeurs retenues (purge des réponses, scan des pages, captures gardées), contrôle et détection des champs de connexion, saisie d'un secret du coffre.
 
 const LONGUEUR_MIN_PURGE = 3;
-const PARTIEL_MIN = 4;
 const MASQUE = '[secret]';
-const ELLIPSES = ['…', '...'];
 const TYPES_IDENTIFIANT = new Set(['text', 'email', 'tel', 'url', 'search', 'number']);
 
 /** `scheme://host[:port]` d'une adresse http(s) (WHATWG), `null` sinon (about:, data:, srcdoc, origine opaque). */
@@ -26,7 +24,7 @@ export function erreurSecret(code, message, statut = 403, details = null) {
 
 // ── Valeurs retenues et purge ───────────────────────────────────────────
 
-/** Formes sous lesquelles une valeur peut revenir (brute, URL, formulaire, HTML, JSON, base64 standard, sans bourrage et URL, hexadécimal). */
+/** Formes sous lesquelles une valeur peut revenir : brute, URL, formulaire, HTML (entités, texte et attribut sérialisés), JSON, base64 (trois variantes), hexadécimal. */
 export function formesSecret(v) {
     if (typeof v !== 'string' || v.length < LONGUEUR_MIN_PURGE) return [];
     const octets = Buffer.from(v, 'utf8');
@@ -40,17 +38,17 @@ export function formesSecret(v) {
         out.add(encodeURI(v));
     } catch {}
     out.add(v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'));
+    out.add(v.replaceAll('&', '&amp;').replaceAll('\u00a0', '&nbsp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'));
+    out.add(v.replaceAll('&', '&amp;').replaceAll('\u00a0', '&nbsp;').replaceAll('"', '&quot;'));
     out.add(JSON.stringify(v).slice(1, -1));
     return [...out].filter((x) => x.length >= LONGUEUR_MIN_PURGE).sort((a, b) => b.length - a.length);
 }
 
-/** Retient un secret pour la vie de la session : ses formes (purge, garde réseau) et sa valeur brute (scan des pages) ; `basic` ajoute `identifiant:secret`. */
+/** Retient un secret pour la vie de la session, sous toutes ses formes (purge, contrôle des pages) ; `basic` ajoute `identifiant:secret`. */
 export function retenirSecret(session, secret, { identifiant = '', basic = false } = {}) {
     if (typeof secret !== 'string' || secret.length < LONGUEUR_MIN_PURGE) return;
     session._valeursSecretes ??= new Set();
-    session._motsDePasse ??= new Set();
     for (const f of formesSecret(secret)) session._valeursSecretes.add(f);
-    session._motsDePasse.add(secret);
     if (basic && identifiant) for (const f of formesSecret(`${identifiant}:${secret}`)) session._valeursSecretes.add(f);
 }
 
@@ -58,7 +56,6 @@ export function retenirSecret(session, secret, { identifiant = '', basic = false
 export function oublierSecrets(session) {
     if (!session) return;
     session._valeursSecretes?.clear();
-    session._motsDePasse?.clear();
 }
 
 function formesRetenues(session) {
@@ -66,20 +63,10 @@ function formesRetenues(session) {
         ? [...session._valeursSecretes].sort((a, b) => b.length - a.length) : [];
 }
 
-// Chaîne purgée : occurrences entières, puis début ou fin d'une forme coupée au bord (texte tronqué avant la purge).
+// Chaîne purgée des seules occurrences ENTIÈRES d'une forme : un morceau n'est jamais masqué (le masquage partiel ferait un oracle sur un texte fourni).
 function purgerChaine(s, formes) {
     let t = s;
     for (const f of formes) if (t.includes(f)) t = t.split(f).join(MASQUE);
-    for (const f of formes) {
-        if (f.length <= PARTIEL_MIN) continue;
-        let corps = t;
-        let fin = '';
-        for (const e of ELLIPSES) if (corps.endsWith(e)) { corps = corps.slice(0, -e.length); fin = e; break; }
-        for (let k = Math.min(f.length - 1, corps.length); k >= PARTIEL_MIN; k--)
-            if (corps.endsWith(f.slice(0, k))) { t = corps.slice(0, -k) + MASQUE + fin; break; }
-        for (let k = Math.min(f.length - 1, t.length); k >= PARTIEL_MIN; k--)
-            if (t.startsWith(f.slice(-k))) { t = MASQUE + t.slice(k); break; }
-    }
     return t;
 }
 
@@ -113,46 +100,87 @@ export function requetePorteSecret(url, corps, formes) {
 
 // ── Pages qui montrent un secret retenu ─────────────────────────────────
 
-// Texte rendu du document, valeurs des champs et texte des racines d'ombre ouvertes (lu dans la page, comparé côté Node).
-const LECTURE_PAGE = () => {
-    const out = [document.documentElement ? document.documentElement.innerText : ''];
-    const visiter = (racine, n) => {
-        for (const el of racine.querySelectorAll('input, textarea')) out.push(el.value);
-        if (n > 4) return;
-        for (const h of racine.querySelectorAll('*')) if (h.shadowRoot) { out.push(h.shadowRoot.textContent || ''); visiter(h.shadowRoot, n + 1); }
-    };
-    visiter(document, 0);
-    return out;
-};
-
-/** Une page montre-t-elle un secret retenu (adresse d'un frame, texte, valeur d'un champ) ? Frame illisible à temps = oui ; le secret n'entre jamais dans la page. */
-export async function pageMontreSecret(page, session, delaiMs = 5000) {
-    const bruts = session && session._motsDePasse ? [...session._motsDePasse] : [];
-    if (!bruts.length || page.isClosed()) return false;
-    const formes = formesRetenues(session);
-    for (const f of page.frames()) {
-        let u = '';
-        try { u = f.url(); } catch { u = ''; }
-        if (formes.some((x) => u.includes(x))) return true;
+// Lecture d'une page qui peut naviguer : nouvel essai jusqu'à `fin` (course avec une navigation), puis erreur ; null si la page est fermée.
+async function lireBorne(page, lecture, fin) {
+    for (;;) {
         let minuteur;
-        const lus = await Promise.race([
-            f.evaluate(LECTURE_PAGE).catch(() => []),
-            new Promise((r) => { minuteur = setTimeout(() => r(null), delaiMs); }),
-        ]).finally(() => clearTimeout(minuteur));
-        if (lus === null || lus.some((t) => typeof t === 'string' && bruts.some((m) => t.includes(m)))) return true;
+        try {
+            const reste = fin - Date.now();
+            if (reste <= 0) throw new Error('délai');
+            return await Promise.race([lecture(), new Promise((_, rej) => { minuteur = setTimeout(() => rej(new Error('délai')), reste); })]);
+        } catch (e) {
+            if (page.isClosed()) return null;
+            if (Date.now() > fin - 200) throw e;
+            await new Promise((r) => setTimeout(r, 150));
+        } finally { clearTimeout(minuteur); }
     }
+}
+
+// Chaînes de l'instantané DOM du navigateur (texte, attributs, valeurs saisies, racines d'ombre, frames du même processus), sans passer par la page ; null pour un frame sans session à lui (déjà dans l'instantané de sa page).
+async function chainesInstantane(context, cible, frame = false) {
+    let cdp;
+    try { cdp = await context.newCDPSession(cible); } catch (e) { if (frame) return null; throw e; }
+    try { return (await cdp.send('DOMSnapshot.captureSnapshot', { computedStyles: [] })).strings || []; }
+    finally { await cdp.detach().catch(() => {}); }
+}
+
+/** La page contient-elle une forme retenue (instantané DOM du navigateur et de chaque frame hors processus, HTML sérialisé hors monde de la page, adresses) ? Lecture impossible à temps = oui. */
+export async function pageMontreSecret(page, session, delaiMs = 5000) {
+    const formes = formesRetenues(session);
+    if (!formes.length || page.isClosed()) return false;
+    const contient = (t) => typeof t === 'string' && formes.some((f) => t.includes(f));
+    const fin = Date.now() + delaiMs;
+    try {
+        const ctx = page.context();
+        if ((await lireBorne(page, () => chainesInstantane(ctx, page), fin) || []).some(contient)) return true;
+        for (const f of page.frames()) {
+            if (f.isDetached()) continue;
+            if (contient(f.url())) return true;
+            if (f !== page.mainFrame() && (await lireBorne(page, () => chainesInstantane(ctx, f, true), fin) || []).some(contient)) return true;
+            if (contient(await lireBorne(page, () => (f.isDetached() ? '' : f.content()), fin))) return true;
+        }
+    } catch (e) { return !page.isClosed(); }
     return false;
 }
 
-/** Vide (about:blank, sinon fermeture) chaque onglet qui montre un secret retenu ; vrai s'il y en avait un. */
+/** Vide une page (about:blank, sinon fermeture) et le note sur la session : une réponse en cours pendant ce temps est retenue. */
+export async function viderPage(pg, session) {
+    session._blanchiments = (session._blanchiments || 0) + 1;
+    await pg.goto('about:blank', { timeout: 5000 }).catch(() => { pg.__elpisFermeParService = true; return pg.close().catch(() => {}); });
+}
+
+/** Vide chaque onglet qui contient un secret retenu ; vrai s'il y en avait un. */
 export async function viderPagesAvecSecret(session) {
     let vu = false;
     for (const pg of [...(session.tabs || [])]) {
         if (!(await pageMontreSecret(pg, session))) continue;
         vu = true;
-        await pg.goto('about:blank', { timeout: 5000 }).catch(() => { pg.__elpisFermeParService = true; return pg.close().catch(() => {}); });
+        await viderPage(pg, session);
     }
     return vu;
+}
+
+/** Contrôle d'une page à chaque document engagé, puis chargé (page et chaque frame), hors connexion en cours : une page qui contient un secret retenu est vidée aussitôt. */
+export function surveillerPage(session, page) {
+    if (!page || page.__elpisSurveillee) return;
+    page.__elpisSurveillee = true;
+    let prevu = false;
+    let file = Promise.resolve();
+    const planifier = () => {
+        if (prevu || page.isClosed()) return;
+        prevu = true;
+        file = file.then(() => new Promise((r) => setTimeout(r, 50))).then(async () => {
+            prevu = false;
+            if (session._connexionEnCours || page.isClosed() || !session._valeursSecretes?.size) return;
+            if (await pageMontreSecret(page, session)) await viderPage(page, session);
+        }).catch(() => {});
+    };
+    page.on('framenavigated', (frame) => {
+        planifier();
+        if (frame !== page.mainFrame()) frame.waitForLoadState('load', { timeout: 15000 }).then(planifier, () => {});
+    });
+    page.on('domcontentloaded', planifier);
+    page.on('load', planifier);
 }
 
 const contextesSecurises = new WeakMap();
@@ -197,11 +225,14 @@ export async function choisirVisible(candidats, { timeout, nth = null, quoi = 't
     return h;
 }
 
-/** Contrôle d'un champ avant tout secret, sans valeur : origine http(s) de son frame, type réel, éditable, opaque. Rend l'origine. */
+/** Contrôle d'un champ avant tout secret, sans valeur : origine http(s) de son frame, partagée par chaque frame parent jusqu'à la page, type réel, éditable, opaque. Rend l'origine. */
 export async function controlerPoignee(h, champ) {
     const frame = await h.ownerFrame();
     const origine = frame ? origineDe(frame.url()) : null;
     if (!origine) throw erreurSecret('secret_scope_mismatch', "The field's frame has no http(s) origin (about:blank, srcdoc, data:…): input refused.", 403);
+    for (let f = frame.parentFrame(); f; f = f.parentFrame())
+        if (origineDe(f.url()) !== origine)
+            throw erreurSecret('secret_scope_mismatch', `The field's frame is embedded in a page of another origin (${origineDe(f.url()) || 'not http(s)'}): input refused.`, 403);
     const info = await h.evaluate((el) => {
         let opacite = 1;
         for (let n = el; n && n.nodeType === 1; n = n.parentElement || (n.getRootNode() && n.getRootNode().host) || null)
@@ -252,16 +283,43 @@ export async function verifierFormulaire(h, origine) {
         throw erreurSecret('secret_scope_mismatch', `The form posts to another origin (${f.action || 'unreadable'}) than the field's (${origine}): refused.`, 403);
 }
 
-/** Saisit la valeur (`fill`) puis revérifie le type : changé, le champ est vidé et la saisie refusée ; aucune saisie passé `delaiAvant`. */
+/** Saisit la valeur (`fill`) puis, pour le mot de passe, revérifie dans la page sans rien en rendre : type, champ actif, longueur saisie ; sinon champ vidé et refus. */
 export async function remplirChamp(h, valeur, { champ, timeout, delaiAvant = Infinity }) {
     const reste = delaiAvant - Date.now();
     if (reste < 300) throw erreurSecret('secret_login_failed', 'Login deadline reached before input: nothing was typed.', 408);
     await h.fill(valeur, { timeout: Math.min(timeout, reste) });
-    const type = await h.evaluate((el) => (el instanceof HTMLInputElement ? el.type : 'other'));
-    if (champ === 'password' && type !== 'password') {
-        await viderChamp(h);
-        throw erreurSecret('secret_target_required', 'The field changed type during input: value cleared, login refused.', 400);
-    }
+    if (champ !== 'password') return;
+    const etat = await h.evaluate((el, n) => ({
+        type: el instanceof HTMLInputElement ? el.type : 'other',
+        actif: el.getRootNode().activeElement === el,
+        longueur: typeof el.value === 'string' && el.value.length === n,
+    }), valeur.length).catch(() => ({ type: 'other' }));
+    if (etat.type === 'password' && etat.actif && etat.longueur) return;
+    await viderChamp(h);
+    throw erreurSecret('secret_target_required', etat.type !== 'password'
+        ? 'The field changed type during input: value cleared, login refused.'
+        : 'The password field lost focus or did not keep the typed value (length limit, script): value cleared, login refused.', 400);
+}
+
+/** Bouton par défaut du formulaire du champ (celui qu'Entrée déclenche sans submit_target) : ni formmethod autre que POST, ni formaction d'une autre origine. */
+export async function verifierBoutonParDefaut(h, origine) {
+    const b = await h.evaluate((el) => {
+        const attr = (n, a) => Element.prototype.getAttribute.call(n, a);
+        const form = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement ? el.form : null;
+        if (!form) return null;
+        const els = Array.from(Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements').get.call(form));
+        const bouton = els.find((e) => (e instanceof HTMLButtonElement && e.type === 'submit') || (e instanceof HTMLInputElement && ['submit', 'image'].includes(e.type)));
+        if (!bouton) return null;
+        const fa = attr(bouton, 'formaction');
+        let action = null;
+        try { action = fa ? new URL(fa, document.baseURI).origin : null; } catch { action = 'unreadable'; }
+        return { methode: String(attr(bouton, 'formmethod') || '').toLowerCase(), action };
+    });
+    if (!b) return;
+    if (b.methode && b.methode !== 'post')
+        throw erreurSecret('secret_scope_mismatch', "The form's default button would not submit with POST: the secret would end up in an address.", 403);
+    if (b.action && b.action !== origine)
+        throw erreurSecret('secret_scope_mismatch', `The form's default button posts to another origin (${b.action}) than the field's (${origine}): refused.`, 403);
 }
 
 /** Vide un champ (échec de connexion) ; sans erreur s'il a disparu. */

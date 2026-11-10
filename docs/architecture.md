@@ -2924,33 +2924,50 @@ therefore removes every way to read a typed value back.
 - **Route policy**: one table, `browser-service/route_policy.js`, gives every route a capability
   class (`read_dom`, `exec_js`, `network_control`, `export`, `gesture`, `admin`, `secret`).
   `getSession` applies it to every session route: on a secure session `exec_js` (eval),
-  `network_control` (mocks) and `export` (state, trace, PDF, recorder) answer 403
-  `secret_route_refused`, as does a route missing from the table; `/login` and `/login_precheck`
-  answer the same on an ordinary session. While a login runs, every other route of the session
-  answers 409 `secret_login_busy`. The service logs `[POLICY]` at startup if a route has no class.
+  `network_control` (mocks) and `export` (state, trace, PDF, visual baselines, recorder) answer
+  403 `secret_route_refused`, as does a route missing from the table; `/login` and
+  `/login_precheck` answer the same on an ordinary session. While a login runs, every other route
+  of the session answers 409 `secret_login_busy`. On a secure session, a selector or attribute name
+  that reads `value` (`[value…]` in CSS, `@value` in XPath, `attr`/`attribute` = `value`) answers
+  400 `secret_option_refused`: it would be an oracle on a field's value. The service logs
+  `[POLICY]` at startup if a route has no class.
 - **`/login_precheck`** (no values) and **`/login`** (values): targets are optional. Without them,
   fields are detected on all frames: `autocomplete=current-password`, otherwise the single visible
   `input[type=password]`; username by `autocomplete=username`, then `email`, then the text field
   that precedes the password in its form; several candidates → 400 `secret_target_required`.
   Each target must match one visible, editable, opaque element; a password only goes into a real
-  `type=password`, checked again after typing. The origin is the one of the frame that owns each
-  field (`about:blank`, `srcdoc` and `data:` frames are refused), both fields share it, it must
-  equal `secret_origin`, and the form must POST to it (403 `secret_scope_mismatch`).
-- **During `/login`**: a `context.route` guard lets a request that carries the password (URL,
-  body or headers, under its encoded forms) leave only as a POST to the secret's origin, fetched
-  with `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after
-  submission (navigation, `wait_for` target, field removed; login form shown again, browser
-  validation, nothing changed → 422 `secret_login_failed`, fields cleared, page message returned).
-  Documents that received the secret are then replaced (about:blank, then a GET of the same URL),
-  or their page, or the session, is closed.
-- **Afterwards**: the password stays in the service's memory for the session's lifetime only.
-  Before each request, a tab that shows it (text, field value, frame URL) is blanked and the call
-  answers 409 `secret_in_page`; screenshots are refused while it is visible; every JSON response,
-  console line, dialog message and network-log URL is purged of it and its encoded forms (also
-  when cut at a string boundary); request bodies are not logged.
+  `type=password`, and after typing it must still be one, be the focused element and hold the
+  typed length (checked in the page, the value is never read back), otherwise it is cleared
+  (400). The origin is the one of the frame that owns each field (`about:blank`, `srcdoc` and
+  `data:` frames are refused); every ancestor frame up to the page must share it, both fields
+  share it, it must equal `secret_origin`, and the form, or the default button that Enter
+  triggers, must POST to it (403 `secret_scope_mismatch`).
+- **During `/login`**: a `context.route` guard aborts every request to another origin while the
+  fields are being typed, and every WebSocket of the session (routed through the service) is closed
+  if it sends a message then. After the submission, a request that carries the password (URL, body
+  or headers, under its encoded forms) leaves only as a POST to the secret's origin, fetched with
+  `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged after submission
+  (navigation, `wait_for` target, field removed; login form shown again, browser validation,
+  nothing changed → 422 `secret_login_failed`, fields cleared, page message returned). Each tab
+  that received the secret is then replaced by a new tab loaded with a GET of its address (its
+  history, and its `sessionStorage`, are dropped, so Back cannot replay the POST), or closed, or the
+  session is closed.
+- **Afterwards**: the password stays in the service's memory for the session's lifetime only. A
+  page "contains" it when any retained form (raw, encoded, `user:pass` for HTTP credentials)
+  appears in the browser's DOM snapshot (text, attributes, typed values, shadow roots, frames) or in
+  the serialized HTML read outside the page's JavaScript world. Pages are checked when a document
+  of any frame commits or loads, and before and after every request: a page that contains it is
+  blanked, a response produced while one did is withheld (409 `secret_in_page`), and `/login`
+  reports it as `secret_in_page: true`. A page that cannot be read in time counts as containing it.
+  Screenshots run the same check (the after-reply capture takes the session lock). JSON responses,
+  console lines, dialog messages and network-log URLs are purged of whole occurrences only (a part
+  of the secret is never masked, so masking cannot be used as an oracle); request bodies are not
+  logged.
 - **Limits**: a script on the secret's own origin receives the password, as when a person types
-  it. With strict TLS and an internal CA, the CA must be trusted by Chromium (NSS) and by Node
-  (`NODE_EXTRA_CA_CERTS`), because the guarded POST is replayed from Node (`route.fetch`).
+  it. Text supplied by the agent that equals the whole secret is purged, which tells it the guess
+  was right (one guess per call). With strict TLS and an internal CA, the CA must be trusted by
+  Chromium (NSS) and by Node (`NODE_EXTRA_CA_CERTS`), because the guarded POST is replayed from
+  Node (`route.fetch`).
 
 ### Screen control (`desktop`)
 

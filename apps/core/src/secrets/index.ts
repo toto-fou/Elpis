@@ -2,7 +2,9 @@
 /** apps/core/src/secrets/index.ts — API du coffre « Secrets » pour le reste du core (connecteurs, outils, commandes). */
 export { ErreurSecret, refusDeCle } from "./erreurs";
 export { aadSecret, hoteExact, normaliserPortee, origineExacte, validerNom } from "./portee";
+export type { ColonnesLiees } from "./portee";
 export {
+  aadLigne,
   creerSecret,
   listerSecrets,
   modifierSecret,

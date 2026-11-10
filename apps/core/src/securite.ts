@@ -14,9 +14,11 @@ import { brancherJournal as brancherJournalVerrous } from "@elpis/verrous";
 
 import { journal } from "./journal";
 
-/** Source de la clé du coffre : `ELPIS_VAULT_KEY`, `ELPIS_VAULT_KEY_PATH` ou /etc/elpis/vault.key, sinon `.vault.key` du dossier de la base. */
+/** Source de la clé du coffre (`ELPIS_VAULT_KEY`, `ELPIS_VAULT_KEY_PATH` ou /etc/elpis/vault.key, sinon `.vault.key` du dossier de la base), retirée de l'environnement aussitôt lue : aucun processus enfant n'en hérite. */
 export function configurerCoffreDuCore(env: NodeJS.ProcessEnv = process.env): void {
   configurerCoffre(reglagesCoffreDeLEnvironnement(env, dirname(config.DB_PATH)));
+  delete env["ELPIS_VAULT_KEY"];
+  delete env["ELPIS_VAULT_KEY_PATH"];
 }
 
 /** À appeler au démarrage de main et d'admin, avant toute lecture de secret en base. */

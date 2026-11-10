@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/src/client.ts — client du service navigateur (port des fonctions de llm_core/tools/firefox_tools.py) : propriétaire imposé à chaque requête, enveloppes d'erreur, rognage des résultats, DSL des cibles. */
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { request } from "undici";
 
 import {
@@ -19,6 +22,7 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
+import { config } from "@elpis/config";
 import { clipText, err } from "@elpis/outils-mcp";
 
 import { getPwSessionOwner, pwVerbOf } from "./session";
@@ -258,6 +262,32 @@ export function encoderParams(params: Dict | null): string {
   return paires.join("&");
 }
 
+let jetonLu = { t: 0, jeton: "" };
+
+/** Jeton du service navigateur : `BROWSER_SERVICE_TOKEN`, sinon `BROWSER_SERVICE_TOKEN_FILE` ou `user_db/.browser_service_token` (relu au plus toutes les 5 s). */
+export function jetonServiceNavigateur(maintenant = Date.now()): string {
+  const direct = (process.env["BROWSER_SERVICE_TOKEN"] ?? "").trim();
+  if (direct) return direct;
+  if (maintenant - jetonLu.t < 5000) return jetonLu.jeton;
+  const fichier =
+    (process.env["BROWSER_SERVICE_TOKEN_FILE"] ?? "").trim() ||
+    path.join(config.PROJECT_ROOT, "user_db", ".browser_service_token");
+  let jeton: string;
+  try {
+    jeton = (readFileSync(fichier, "utf8").split("\n")[0] ?? "").trim();
+  } catch {
+    jeton = "";
+  }
+  jetonLu = { t: maintenant, jeton };
+  return jeton;
+}
+
+/** En-têtes d'appel du service navigateur : `authorization` quand un jeton est configuré. */
+export function enTetesServiceNavigateur(autres: Record<string, string> = {}): Record<string, string> {
+  const jeton = jetonServiceNavigateur();
+  return jeton ? { ...autres, authorization: `Bearer ${jeton}` } : { ...autres };
+}
+
 /** Adresse du service navigateur : `PLAYWRIGHT_API_URL`, `http://localhost:3000` par défaut (client, AX et nettoyage du core). */
 export function urlServiceNavigateur(): string {
   return process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000";
@@ -339,7 +369,7 @@ export class ClientNavigateur {
     try {
       const r = await request(url, {
         method: methode === "GET" ? "GET" : "POST",
-        headers: charge === undefined ? {} : { "content-type": "application/json" },
+        headers: enTetesServiceNavigateur(charge === undefined ? {} : { "content-type": "application/json" }),
         body: charge,
         headersTimeout: t * 1000,
         bodyTimeout: t * 1000,

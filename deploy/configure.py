@@ -989,7 +989,8 @@ def step_secrets(cfg: Dict[str, Any], force: bool) -> None:
         ok("Secret de session généré.")
     USER_DB.mkdir(exist_ok=True)
     for name, label in ((".local_mcp_token", "de l'hôte d'outils MCP"),
-                        (".rag_service_token", "du service RAG")):
+                        (".rag_service_token", "du service RAG"),
+                        (".browser_service_token", "du service navigateur")):
         f = USER_DB / name
         if force or not f.is_file() or not f.read_text(encoding="utf-8").strip():
             write_private(f, secrets.token_urlsafe(32) + "\n")

@@ -539,7 +539,11 @@ export function creerFamilleComptes(dep: DependancesComptes): Famille {
         processus: ["main", "admin"],
         acces: "session",
         traiter: async (req) => {
-          await ecrireReglages(base, utilisateur(req), corpsJsonValeurs(req), dep.mode, dep.journal);
+          await ecrireReglages(base, utilisateur(req), corpsJsonValeurs(req), dep.mode, dep.journal, {
+            userId: req.utilisateur?.id ?? null,
+            username: req.utilisateur?.username ?? null,
+            ip: adresseClient(req, dep),
+          });
           return { ok: true };
         },
       },

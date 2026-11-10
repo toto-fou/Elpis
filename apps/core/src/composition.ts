@@ -144,6 +144,7 @@ import { brancherIndexationRag } from "./rag/service";
 import { installerMeneur, Meneur, meneur } from "./routines/meneur";
 import { installerPlanificateur, Planificateur } from "./routines/planificateur";
 import type { Famille, Gardes } from "./routes";
+import { brancherCoffreMcpDuCore } from "./secrets/mcp";
 import { installerComptesSkills } from "./skills/ports";
 import { CLIENT_VOIX } from "./voix/client";
 import { installerClientVoix } from "./voix/ports";
@@ -383,6 +384,7 @@ export async function composer(
 ): Promise<Composition> {
   configurerAuditDuCore(mode, journal);
   brancherGardeUrl((url, schemas) => blockRemoteUrlReason(url, { allowSchemes: schemas }));
+  brancherCoffreMcpDuCore();
   await convertirJetonsAuDemarrage(base, journal);
   installerPortsMemoire(base);
   installerPortsSkills(base);

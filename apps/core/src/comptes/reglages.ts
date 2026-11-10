@@ -25,14 +25,18 @@ import { PREFIXE_PERSO } from "@elpis/contracts";
 import { config, configView, pyJoin, realpathPy, safeSandboxName } from "@elpis/config";
 import type { Base } from "@elpis/db";
 import {
+  appliquerSecretsPerso,
   FAMILY_NAMES,
   ID_PREFIX,
   invaliderMcp,
   mergePersonalMcp,
   personalPublic,
+  personalToConfig,
+  secretsPerso,
   sharedId,
   StdioNotAllowed,
 } from "@elpis/mcp";
+import type { ActeurMcp, EtatSecrets, FusionPerso } from "@elpis/mcp";
 import { EncryptionUnavailable } from "@elpis/securite";
 
 import { resolveSkinCompte } from "../apparence/comptes-perso";
@@ -51,6 +55,7 @@ import type { Journal } from "../journal";
 import type { ModeApp } from "../mode";
 import { sanitizeStoredOverride } from "../llm/parametres";
 import { validateCustomAgents } from "../outils/integres/task/roster";
+import { refusMcpEnHttp } from "../secrets/mcp";
 
 export const USER_SETTINGS_ALLOWED: ReadonlySet<string> = new Set([
   "mcp_servers",
@@ -164,6 +169,8 @@ const MUTABLES_MCP = new Set([
   "env",
   "env_enc",
   "extra_scheme",
+  "secret_id",
+  "secret_error",
 ]);
 const REFUS_MODIFICATION = "Modification de serveur MCP réservée aux administrateurs.";
 /** Anciennes clés de l'apparence de l'assistant (icône Phosphor, image chargée) : plus écrites ni relues. */
@@ -290,12 +297,11 @@ export async function lireReglages(base: Base, uid: number, journal: Journal, mo
   poserCle(saved, "image_available", pret && enabledIn(saved));
   poserCle(saved, "image_prefs", cleanPrefs(getOu(saved, "image_prefs", null), cfg));
   const serveurs = saved["mcp_servers"];
-  if (Array.isArray(serveurs))
-    poserCle(
-      saved,
-      "mcp_servers",
-      serveurs.filter((s) => estDict(s)).map((s) => personalPublic(s)),
-    );
+  if (Array.isArray(serveurs)) {
+    const vues: Dict[] = [];
+    for (const s of serveurs) if (estDict(s)) vues.push(personalPublic(s, await secretsPerso(base, uid, s)));
+    poserCle(saved, "mcp_servers", vues);
+  }
   return saved;
 }
 
@@ -327,26 +333,60 @@ function parIdentifiant(liste: unknown): Map<unknown, Dict> {
 }
 
 /** Entrées enregistrées ramenées à la forme que la fusion donne à un enregistrement neuf (type, mode et utilisateur d'authentification, clés anciennes retirées) : la comparaison d'un non-admin se fait entre formes normalisées, jamais contre une entrée d'avant ces champs (le Python répond 403 à chaque PUT). */
-async function anciennesNormalisees(anciens: unknown): Promise<unknown> {
+async function anciennesNormalisees(
+  anciens: unknown,
+  secrets: ReadonlyMap<string, EtatSecrets>,
+): Promise<unknown> {
   if (!Array.isArray(anciens)) return anciens;
   const sansPaires = anciens.map((s: unknown) =>
     estDict(s) ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== "headers" && k !== "env")) : s,
   );
   try {
-    return await mergePersonalMcp(anciens, sansPaires, { allowStdio: true });
+    return (await mergePersonalMcp(anciens, sansPaires, { allowStdio: true, secrets })).map((f) => f.entree);
   } catch {
     return anciens;
   }
 }
 
-/** Bloc `mcp_servers` du PUT : ids partagés renommés, droits d'un non-admin, fusion des secrets, invalidation ciblée du pool. */
+/** Secrets des entrées enregistrées, lus au coffre, par id. */
+async function secretsDesEntrees(
+  base: Base,
+  uid: number,
+  liste: readonly unknown[],
+): Promise<Map<string, EtatSecrets>> {
+  const out = new Map<string, EtatSecrets>();
+  for (const s of liste)
+    if (estDict(s) && veritePy(getOu(s, "id", null)))
+      out.set(strPy(s["id"]), await secretsPerso(base, uid, s));
+  return out;
+}
+
+/** Configs de confiance (secrets compris) pour l'invalidation ciblée du pool. */
+async function configsPerso(
+  liste: readonly unknown[],
+  valeur: (s: Dict) => EtatSecrets["valeur"] | null,
+): Promise<Dict[]> {
+  const out: Dict[] = [];
+  for (const s of liste)
+    if (estDict(s)) out.push(await personalToConfig(s, { allowStdio: true, secrets: valeur(s) }));
+  return out;
+}
+
+/** Bloc `mcp_servers` prêt à écrire : fusion faite, droits vérifiés ; les secrets restent à écrire au coffre. */
+interface PlanMcp {
+  anciens: unknown[];
+  fusion: FusionPerso[];
+  secrets: Map<string, EtatSecrets>;
+}
+
+/** Bloc `mcp_servers` du PUT : ids partagés renommés, droits d'un non-admin, fusion « vide = inchangé » sur les secrets lus au coffre ; écriture laissée à `appliquerMcp`. */
 async function serveursMcp(
   base: Base,
   uid: number,
   data: Dict,
   current: Dict,
   journal: Journal,
-): Promise<void> {
+): Promise<PlanMcp> {
   iterExige(ouPy(getOu(data, "mcp_servers", null), [])).forEach((s, i) => {
     if (estDict(s) && strPy(ouPy(getOu(s, "id", null), "")).startsWith(ID_PREFIX)) {
       poserCle(s, "id", `server_local_${i}_${strPy(s["id"]).replaceAll(":", "_")}`);
@@ -366,22 +406,22 @@ async function serveursMcp(
       if (estDict(s) && idsAnciens.has(strPy(getOu(s, "id", null))) && porteUneValeur(s))
         throw new HttpError(403, REFUS_MODIFICATION);
   }
-  let nouvelle: Dict[];
+  const secrets = await secretsDesEntrees(base, uid, ancienneListe);
+  let fusion: FusionPerso[];
   try {
-    nouvelle = await mergePersonalMcp(anciens, recus, { allowStdio: admin });
+    fusion = await mergePersonalMcp(anciens, recus, { allowStdio: admin, secrets });
   } catch (e) {
     if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
     if (e instanceof EncryptionUnavailable)
       throw new HttpError(
         503,
-        "Chiffrement indisponible : impossible d'enregistrer un secret MCP. Configurez app.encryption_key.",
+        "Chiffrement indisponible : impossible de relire un ancien secret MCP. Configurez app.encryption_key.",
       );
     throw e;
   }
-  poserCle(data, "mcp_servers", nouvelle);
   if (!admin) {
-    const avant = parIdentifiant(await anciennesNormalisees(anciens));
-    const apres = parIdentifiant(nouvelle);
+    const avant = parIdentifiant(await anciennesNormalisees(anciens, secrets));
+    const apres = parIdentifiant(fusion.map((f) => f.entree));
     for (const sid of avant.keys())
       if (!apres.has(sid))
         throw new HttpError(403, "Suppression de serveur MCP réservée aux administrateurs.");
@@ -393,17 +433,42 @@ async function serveursMcp(
           throw new HttpError(403, REFUS_MODIFICATION);
     }
   }
-  if (pyJsonDumps(anciens, { sortKeys: true }) !== pyJsonDumps(nouvelle, { sortKeys: true }))
-    await invaliderMcp({ type: "reglages", avant: ancienneListe, apres: nouvelle });
+  return { anciens: ancienneListe, fusion, secrets };
 }
 
-/** `PUT /api/settings` : clés autorisées seulement, valeurs coercées ou ramenées au jeu fermé, puis fusion atomique. */
+/** Secrets écrits au coffre (dans la transaction du PUT) et liste à enregistrer ; rend l'invalidation ciblée du pool, à lancer une fois l'écriture validée. */
+async function appliquerMcp(
+  base: Base,
+  uid: number,
+  plan: PlanMcp,
+  data: Dict,
+  acteur: ActeurMcp,
+): Promise<() => Promise<void>> {
+  const valeurAvant = (s: Dict): EtatSecrets["valeur"] | null =>
+    plan.secrets.get(strPy(getOu(s, "id", null)))?.valeur ?? null;
+  const avant = await configsPerso(plan.anciens, valeurAvant);
+  const valeurs = new Map(plan.fusion.map((f) => [f.entree, f.valeur]));
+  let nouvelle: Dict[];
+  try {
+    nouvelle = await appliquerSecretsPerso(base, uid, plan.anciens, plan.fusion, acteur);
+  } catch (e) {
+    throw refusMcpEnHttp(e) ?? e;
+  }
+  poserCle(data, "mcp_servers", nouvelle);
+  const apres = await configsPerso(nouvelle, (s) => valeurs.get(s) ?? valeurAvant(s));
+  if (pyJsonDumps(avant, { sortKeys: true }) === pyJsonDumps(apres, { sortKeys: true }))
+    return () => Promise.resolve();
+  return () => invaliderMcp({ type: "reglages", avant, apres });
+}
+
+/** `PUT /api/settings` : clés autorisées seulement, valeurs coercées ou ramenées au jeu fermé, puis fusion atomique (secrets MCP au coffre dans la même transaction). */
 export async function ecrireReglages(
   base: Base,
   uid: number,
   brut: unknown,
   mode: ModeApp,
   journal: Journal,
+  acteur: ActeurMcp = { userId: uid, username: null },
 ): Promise<void> {
   if (!estDict(brut)) throw new HttpError(400, "Le payload doit être un objet JSON.");
   const data: Dict = {};
@@ -490,8 +555,13 @@ export async function ecrireReglages(
     }
     poserCle(data, "shared_mcp_visible", vus);
   }
-  if (a("mcp_servers")) await serveursMcp(base, uid, data, current, journal);
-  await mergeUserSettings(base, uid, (s) => {
-    for (const k of clesOrdonnees(data)) poserCle(s, k, data[k]);
+  const plan = a("mcp_servers") ? await serveursMcp(base, uid, data, current, journal) : null;
+  const invalider = await base.ecriture(async () => {
+    const apres = plan === null ? null : await appliquerMcp(base, uid, plan, data, acteur);
+    await mergeUserSettings(base, uid, (s) => {
+      for (const k of clesOrdonnees(data)) poserCle(s, k, data[k]);
+    });
+    return apres;
   });
+  await invalider?.();
 }

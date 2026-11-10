@@ -169,10 +169,12 @@ async function stdioAllowedFor(base: Base, uid: number): Promise<boolean> {
   }
 }
 
-/** Serveurs MCP qu'un agent personnalisé peut référencer par id (même règle que les routines). */
+/** Serveurs MCP qu'un agent personnalisé peut référencer par id (même règle que les routines), secrets lus au coffre si leur politique les permet aux sous-agents. */
 export async function agentMcpConfigs(base: Base, settings: Dict, uid: number | null): Promise<Dict[]> {
   return resolveForAgents(base, settings, {
     allowStdio: uid !== null ? await stdioAllowedFor(base, uid) : false,
+    proprietaire: uid,
+    contexte: { sousAgent: true },
   });
 }
 
@@ -208,7 +210,7 @@ const egal0 = (v: unknown): boolean =>
 const nombre = (v: unknown): number | null =>
   typeof v === "number" ? v : v instanceof FlottantPy ? v.valeur : null;
 
-/** Serveurs MCP actifs résolus CÔTÉ SERVEUR (jamais repris du client), catégories demandées gardées. */
+/** Serveurs MCP actifs résolus CÔTÉ SERVEUR (jamais repris du client), secrets lus au coffre à chaque tour, catégories demandées gardées. */
 async function resoudreServeurs(base: Base, uid: number, settings: Dict, actifs: unknown[]): Promise<Dict[]> {
   const stdioOk = await stdioAllowedFor(base, uid);
   const visibles = new Set(
@@ -238,7 +240,7 @@ async function resoudreServeurs(base: Base, uid: number, settings: Dict, actifs:
     if (rid !== null) {
       if (!visibles.has(strPy(srv["id"]))) continue;
       cfg = await resolveConfig(base, rid);
-    } else cfg = await resolvePersonal(settings, srv["id"], { allowStdio: stdioOk });
+    } else cfg = await resolvePersonal(base, uid, settings, srv["id"], { allowStdio: stdioOk });
     if (cfg) resolus.push(avecCats(cfg));
   }
   return resolus;

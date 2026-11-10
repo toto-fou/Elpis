@@ -2,6 +2,7 @@
 /** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage. */
 import { config } from "@elpis/config";
 import {
+  brancherMigrations,
   creerGardeGeneration,
   demarrerBase as demarrerBaseCommune,
   nettoyerSousVerrou,
@@ -12,6 +13,10 @@ import type { Base, RapportInit } from "@elpis/db";
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
+import { MIGRATION_MCP } from "./secrets/migration-mcp";
+
+// Migrations du core, qui ont besoin de ses clés (coffre, Fernet) : connues de tout process qui ouvre cette base.
+brancherMigrations([MIGRATION_MCP]);
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 

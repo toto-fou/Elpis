@@ -28,7 +28,16 @@ import {
 import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
 import type { Base } from "@elpis/db";
-import { clientBuiltinRef, personalToConfig, resolveConfig, resolveExternalCfg, sharedId } from "@elpis/mcp";
+import {
+  clientBuiltinRef,
+  drapeauSecret,
+  personalToConfig,
+  resolveConfig,
+  resolveExternalCfg,
+  secretsPerso,
+  sharedId,
+  signalerServeurIgnore,
+} from "@elpis/mcp";
 import { neutraliserMarqueursTour } from "@elpis/securite";
 
 import { extractThinking } from "../boucle/chat-commun";
@@ -206,12 +215,13 @@ export function deniedForRoutine(): Set<string> {
   }
 }
 
-/** Secrets MCP re-fusionnés depuis les serveurs du compte : partagé résolu par id, outils locaux reconstruits, manifeste par nom, perso par id puis url puis nom ; le reste est jeté. */
+/** Secrets MCP relus au coffre pour le compte `proprietaire` (si leur politique les permet aux routines) : partagé résolu par id, outils locaux reconstruits, manifeste par nom, perso par id puis url puis nom ; le reste est jeté. */
 export async function rehydrateMcpSecrets(
   base: Base,
   snapshot: unknown,
   reglages: unknown,
   allowStdio = false,
+  proprietaire: number | null = null,
 ): Promise<Dict[]> {
   const r = ouPy(reglages, {});
   const serveurs = iterExige(ouPy(lire(r, "mcp_servers"), []));
@@ -232,7 +242,7 @@ export async function rehydrateMcpSecrets(
     const rid = sharedId(cfg["id"]);
     if (rid !== null) {
       if (!visibles.has(strPy(cfg["id"]))) continue;
-      const resolu = await resolveConfig(base, rid);
+      const resolu = await resolveConfig(base, rid, { routine: true });
       if (resolu) out.push(resolu);
       continue;
     }
@@ -256,7 +266,13 @@ export async function rehydrateMcpSecrets(
     else if (veritePy(cfg["name"]) && parNom.has(cleHashPy(cfg["name"])))
       match = parNom.get(cleHashPy(cfg["name"]));
     if (match !== undefined) {
-      const complete = await personalToConfig(match, { allowStdio });
+      const etat = await secretsPerso(base, proprietaire, match, { routine: true });
+      const motif = etat.erreur ?? drapeauSecret(match);
+      if (motif !== null) {
+        signalerServeurIgnore(match["name"] ?? match["id"], motif);
+        continue;
+      }
+      const complete = await personalToConfig(match, { allowStdio, secrets: etat.valeur });
       if (veritePy(complete)) out.push(complete);
     } else {
       const nom = strPy(ouPy(cfg["name"], ouPy(cfg["id"], "?")));
@@ -661,6 +677,7 @@ export class Planificateur {
         routine["mcp_snapshot"] ?? [],
         reglages,
         stdioOk,
+        compte,
       );
       verifier();
       const connId = veritePy(routine["connector_id"]) ? routine["connector_id"] : null;

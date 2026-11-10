@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/portee.ts — règles d'un secret : nom (slug), portée selon le genre (origines exactes, hôte, connecteur, serveur), politique, identifiant, valeur, métadonnées, AAD. */
+/** apps/core/src/secrets/portee.ts — règles d'un secret : nom (slug), portée selon le genre (origines exactes, hôte, connecteur, serveur), politique, identifiant, valeur, métadonnées, AAD liée aux colonnes qui décident de son usage. */
+import { createHash } from "node:crypto";
+
 import {
   GENRES_SECRET,
   ORIGINES_SECRET_MAX,
@@ -140,6 +142,12 @@ export function fusionnerPolitique(
   return { ...POLITIQUE_SECRET_DEFAUT, ...base, ...(partielle ?? {}) };
 }
 
+/** `confirm_first_use` n'est pas encore appliqué à la résolution : le demander est refusé tant qu'il ne l'est pas. */
+export function exigerPolitiqueApplicable(partielle: Partial<PolitiqueSecret> | undefined): void {
+  if (partielle?.confirm_first_use === true)
+    throw new ErreurSecret(422, "secret_meta_invalid", "confirm_first_use is not supported yet.");
+}
+
 /** Identifiant (non secret) : blancs retirés, vide = aucun ; 256 caractères au plus, sans caractère de contrôle. */
 export function validerIdentifiant(brut: unknown): string | null {
   if (brut === null || brut === undefined) return null;
@@ -195,7 +203,29 @@ export function lirePolitique(texte: unknown): PolitiqueSecret {
   };
 }
 
-/** AAD d'un secret : propriétaire (0 = instance), genre et nom ; un renommage rechiffre. */
-export function aadSecret(proprietaire: number | null, genre: GenreSecret, nom: string): string {
-  return `vault|v1|${proprietaire ?? 0}|${genre}|${nom}`;
+/** Colonnes liées au chiffré, telles qu'enregistrées : les changer sans la clé rend le secret indéchiffrable. */
+export interface ColonnesLiees {
+  scope_json: string;
+  policy_json: string;
+  state: string;
+  version: number;
+  username: string | null;
+}
+
+/** AAD d'un secret : propriétaire (0 = instance), genre, nom et SHA-256 du JSON des colonnes liées (portée, politique, état, version, identifiant) ; toute écriture de l'une d'elles rechiffre. */
+export function aadSecret(
+  proprietaire: number | null,
+  genre: GenreSecret,
+  nom: string,
+  liees: ColonnesLiees,
+): string {
+  const colonnes = [
+    liees.scope_json,
+    liees.policy_json,
+    liees.state,
+    Number(liees.version),
+    liees.username ?? null,
+  ];
+  const empreinte = createHash("sha256").update(JSON.stringify(colonnes), "utf8").digest("hex");
+  return `vault|v2|${proprietaire ?? 0}|${genre}|${nom}|${empreinte}`;
 }

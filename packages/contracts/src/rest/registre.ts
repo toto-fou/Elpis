@@ -44,6 +44,7 @@ import * as notifications from "./notifications";
 import * as prompts from "./prompts";
 import * as reglages from "./reglages";
 import * as runs from "./runs";
+import * as secrets from "./secrets";
 import * as session from "./session";
 import * as skills from "./skills";
 import * as usage from "./usage";
@@ -403,6 +404,27 @@ export const CONTRATS_REST: readonly ContratRoute[] = [
   ),
   c("skills", "POST", "/api/skills/import", skills.schemaReponseImportSkills),
   c("skills", "POST", "/api/skills/import-folder", skills.schemaReponseImportSkills),
+  c("secrets", "GET", "/api/secrets", secrets.schemaReponseSecrets),
+  c("secrets", "POST", "/api/secrets", secrets.schemaReponseSecret, secrets.schemaCorpsCreationSecret),
+  c("secrets", "PUT", "/api/secrets/:secret_id", secrets.schemaReponseSecret, secrets.schemaCorpsMajSecret),
+  c(
+    "secrets",
+    "POST",
+    "/api/secrets/:secret_id/rotate",
+    secrets.schemaReponseSecret,
+    secrets.schemaCorpsRotationSecret,
+  ),
+  c("secrets", "POST", "/api/secrets/:secret_id/verify", secrets.schemaReponseSecret),
+  c("secrets", "DELETE", "/api/secrets/:secret_id", schemaOk),
+  c("admin-secrets", "GET", "/api/admin/secrets", secrets.schemaReponseSecrets),
+  c(
+    "admin-secrets",
+    "POST",
+    "/api/admin/secrets/:secret_id/rotate",
+    secrets.schemaReponseSecret,
+    secrets.schemaCorpsRotationSecret,
+  ),
+  c("admin-secrets", "DELETE", "/api/admin/secrets/:secret_id", schemaOk),
   c("jetons", "GET", "/api/tokens", jetons.schemaReponseJetons),
   c("jetons", "POST", "/api/tokens", jetons.schemaReponseJetonCree, jetons.schemaCorpsCreationJeton),
   c("jetons", "POST", "/api/tokens/:token_id/regenerate", jetons.schemaReponseJetonCree),

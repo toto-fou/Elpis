@@ -54,6 +54,7 @@ export * from "./rest/bac-instantanes";
 export * from "./rest/bac-office";
 export * from "./rest/bac-terminal";
 export * from "./rest/runs";
+export * from "./rest/secrets";
 export * from "./rest/session";
 export * from "./rest/skills";
 export * from "./rest/usage";

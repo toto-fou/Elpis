@@ -46,9 +46,13 @@ async function demarrer(
   if (bloque !== null) return bloque;
   let identifiant = a["username"];
   let motDePasse = a["password"];
+  // HAR et trace écriraient les identifiants enregistrés en clair : ils ne sont pas joints à une session enregistrée (vérité JS, comme le service).
+  const enregistre = Boolean(a["record_har"] || a["trace"]);
+  let retenus = false;
   if (ax !== null && url && (!veritePy(identifiant) || !veritePy(motDePasse))) {
     const connu = await getCredentials(ax, url, username || "").catch(() => null);
-    if (connu !== null) {
+    if (connu !== null && enregistre) retenus = true;
+    else if (connu !== null) {
       if (!veritePy(identifiant)) identifiant = connu["username"];
       if (!veritePy(motDePasse)) motDePasse = connu["password"];
       s.journal.info(
@@ -84,6 +88,9 @@ async function demarrer(
       await saveCredentials(ax, url, identifiant as string, motDePasse as string, username || "").catch(
         () => false,
       );
+    if (retenus && !veritePy(resultat["error"]))
+      resultat["credentials_note"] =
+        "Saved credentials for this origin were not attached: HAR and trace recordings would store them in clear. Start without record_har/trace to use them.";
   }
   return resultat;
 }

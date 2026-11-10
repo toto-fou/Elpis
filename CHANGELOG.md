@@ -301,6 +301,13 @@ follow [SemVer](https://semver.org/).
   neutralized against spreadsheet formulas, the console answers 503 instead of an empty list
   when the database fails, and secrets are masked in the shell commands that are logged.
 
+### Security
+
+- **Browser: no HAR or trace with HTTP credentials.** Both store them in clear (the
+  `Authorization` header, the context options), so `pw_session(start)` refuses to combine
+  `record_har` or `trace` with a username and password (`recording_with_credentials`), and
+  saved credentials are not attached to a recorded session. Video recording is unaffected.
+
 ## 0.1.2 — 2026-11-01
 
 ### Fixed

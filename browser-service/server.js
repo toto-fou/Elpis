@@ -2306,6 +2306,14 @@ app.post('/start', async (req, res) => {
         }
         const identifiantsFournis = Boolean(username && password);
         const identifiants = identifiantsPourOrigine(url, username, password);
+        // HAR et trace écrivent les identifiants HTTP en clair (en-tête Authorization, options du contexte) : refusés ensemble.
+        if (identifiantsFournis && (record_har || trace)) {
+            return res.status(400).json({
+                error: 'HAR and trace recordings store HTTP credentials in clear: they cannot be combined with username/password.',
+                code: 'recording_with_credentials',
+                fix: 'Start the session without record_har/trace, or without credentials.',
+            });
+        }
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
         // resolveStateFile). Résolu avant la réutilisation d'une session : un

@@ -315,6 +315,10 @@ follow [SemVer](https://semver.org/).
   whether read from the field or from its `value` attribute; `value-equals`, `attr-equals` and
   `attribute_changes` still compare it. Only `type=password` fields are covered: a field shown
   as text by a "show password" toggle is not.
+- **Browser: no HAR or trace with HTTP credentials.** Both store them in clear (the
+  `Authorization` header, the context options), so `pw_session(start)` refuses to combine
+  `record_har` or `trace` with a username and password (`recording_with_credentials`), and
+  saved credentials are not attached to a recorded session. Video recording is unaffected.
 
 ## 0.1.2 — 2026-11-01
 

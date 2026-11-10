@@ -218,7 +218,7 @@ the connection to the selected database.
 | Step | Questions | Written to |
 |---|---|---|
 | 1. LLM | type (llama.cpp, vLLM, SGLang, other OpenAI-compatible); address, whose port follows the type until an address is entered (8080, 8000, 30000); optional API key (the server's `--api-key`, masked input); probe `GET /v1/models` with the key as Bearer (401: "key rejected"), never `/props?model=`, which would load a model; model chosen from the announced list; recommended launch flags for vLLM and SGLang | `config.json › llama`: `engine`, `url` (server base), `api_key`, `model`; only changed values are rewritten |
-| 2. Cloud | provider (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), masked API key, model | **shared** connector in the database, key encrypted (Fernet) |
+| 2. Cloud | provider (Anthropic, OpenAI, Mistral, Groq, OpenRouter, DeepSeek, Moonshot), masked API key, model | **shared** connector in the database, its key in the [secrets vault](#secrets-vault) as an instance secret (`llm-<provider>-<id>`); an unavailable vault key stops this step with its cause |
 | 3. Access | HTTPS: no / local certificate (`install_caddy.sh`) / public domain with Let's Encrypt (`Caddyfile.acme.template`); without HTTPS, listening (`--listen local\|lan`: this server only or local network, see [Listening](#listening-securitylisten)); access host name; ports already in use are flagged | `security.https`, `security.listen`, `.env` (`MAIN_PUBLIC_URL`, `ADMIN_PUBLIC_URL`) |
 | 4. RAG | activation, embeddings server (probed) and model, reranker, vision OCR | `config.json › rag` (`embed`, `reranker`, `ocr`), see [RAG](#rag-rag) |
 | 5. Sandbox | Docker image (presence checked), memory per sandbox | `executors` |
@@ -468,7 +468,7 @@ Sections:
 | `welcome` / `app_info` / `login_page` | Branding (edited from the admin console); `app_info.name` is the name of the application and of the assistant, `app_info.logo_b64` is its logo and the assistant's avatar, for all accounts |
 | `skins` | `dir` (folder of imported or created skins, default `user_skins`, overridable with `APP_SKINS_DIR`, read at startup), `enabled` (`{id: boolean}`, re-read live: a built-in that is absent takes its value from `frontend/css/skins/skins.json`, Kiki disabled; an imported skin that is absent is disabled; Ardoise and the default skin stay active), `default` (default `elpis`: skin of accounts with no choice or whose skin was disabled). Set from Admin console › System › Appearance; the folder is included in full backups |
 | `voice` | Voice engine — `enabled`, then two independent sub-blocks: `stt.*` (address, `format` among `whisper.cpp`/`openai`/`llama-audio`, language, vocabulary, `logprob_min`, caps) and `tts.*` (address, `format`, voice, speed, caps). Coercion and bounds in `apps/core/src/voix/config.ts`, re-read on EVERY call |
-| `image` | Image generation — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. ⚠ `api_key_enc` belongs to `PUT /api/admin/image/key`: the raw editor does not write it. See [Image generation](#image-generation) |
+| `image` | Image generation — `enabled`, `provider` (`sdcpp` \| `openai`), `url`, `model`, `verify`, `ca_pem`, `timeout_sec`, `max_concurrent`, `max_n`, `max_side`, `default_side`, `size_policy` (`free` \| `fixed`) + `sizes`, `edit_mode` (`init` \| `ref`), `keep_per_user`, `groups`, `tool_max_calls`, `enhance_enabled`. The API key is in the secrets vault, not here: a former `api_key_enc` is moved there at startup, then removed. See [Image generation](#image-generation) |
 
 ### Publication by subagents
 
@@ -717,6 +717,18 @@ matching advice (log and console), once per engine. Testing a
 "SGLang (local)") use the same profile as the default engine; their
 address is the server base followed by `/v1`.
 
+**Connector keys.** The API key of a connector, personal (Settings › AI models) or shared
+(Admin console › Connections, `./elpis configure`), is kept in the
+[secrets vault](#secrets-vault): a secret of kind `llm` named `llm-<provider>-<id>`, owned by
+the account or, for a shared connector, by the instance, scoped to its connector. The form keeps
+its key field, write-only: an empty field leaves the key as it is, and deleting the connector
+deletes its secret. The key can also be rotated or deleted from the secrets lists. It is read
+from the vault each time a conversation, a routine or a test resolves the connector, so a
+rotation applies to the next turn. A connector whose key cannot be used shows "clé à ressaisir"
+in the console (`has_key: false` and `key_error` in the API: vault key unavailable,
+undecryptable, deleted from the vault, or an old key that could not be moved); using it fails
+with "Le serveur sélectionné est illisible (clé)." instead of calling the provider without a key.
+
 ### Cloud providers for accounts (`llm.allowed_provider_types`)
 
 An account connects a cloud provider with its own key in Settings › AI
@@ -892,6 +904,16 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
 
 A key file that exists but cannot be read (permissions) or does not hold a valid key is an error:
 the vault never falls back to another key, since secrets encrypted with it could not be read later.
+
+**Upgrade (migration `0028_vault_llm_images`).** At the first start of `main` or `admin`, the
+keys of the LLM connectors (encrypted with the Fernet key `APP_ENCRYPTION_KEY` /
+`user_db/.encryption_key`, or stored in clear by old versions) and the image engine's key of
+`config.json` move into the vault; the startup log lists them. The tool host and the installer
+leave this migration to the core, which holds the vault key. If the vault key is unavailable,
+the migration fails, is logged as an error and is retried at the next start (`./elpis doctor`
+lists it as pending); nothing is lost meanwhile. A key that the current Fernet key cannot
+decrypt is kept and reported, never dropped: enter it again, or restore the former encryption
+key and restart, and `main` moves it at startup.
 
 #### Local MCP server
 
@@ -1286,11 +1308,14 @@ A single engine, set in Admin console › Models & services › Images
   `max_concurrent` applies only to an OpenAI service.
 - **TLS**: system certificate store, plus the authority pasted into
   `ca_pem` (internal PKI). `verify: false` is for testing only.
-- **API key**: encrypted (Fernet) in `api_key_enc`, written by
-  `PUT /api/admin/image/key`, never sent back. It is tied to the engine's
-  address (scheme, host and port): after changing the address to
-  another machine, enter it again (the console says so). A test against
-  another address uses only the key entered in the form.
+- **API key**: in the [secrets vault](#secrets-vault), as the instance secret `image-engine`
+  (kind `token`), written by `PUT /api/admin/image/key` and never sent back. Its scope is the
+  exact origin of the engine (scheme, host and port): the key is used only while `url` keeps
+  that origin, so after moving the engine to another machine, enter it again (the console says
+  so, `stale`). A test against another address uses only the key entered in the form. A key
+  written by an earlier version in `config.json › image.api_key_enc` is moved to the vault at
+  startup, then removed from `config.json`; if it cannot be decrypted it stays there, reported
+  as `stale` and in the log, until it is entered again.
 - **Access**: `enabled` and an address; `groups` (ids, empty = everyone,
   administrators always allowed) is checked on every turn and on every
   call of the `generate_image` tool. Each account can then turn off

@@ -69,6 +69,20 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
+  or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
+  (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's
+  key the instance secret `image-engine`, reserved to the engine's exact origin by its scope. The
+  forms keep their write-only key field; deleting a connector deletes its secret; rotating or
+  deleting the secret applies at the next turn. At the first start after the update, migration
+  `0028_vault_llm_images` moves the Fernet (or clear) keys of `llm_connectors` and
+  `config.json › image.api_key_enc` into the vault, then `image.api_key_enc` is removed from
+  `config.json`; a key that cannot be decrypted is kept and reported, never dropped. A connector
+  whose key cannot be used now says so (`key_error`, "clé à ressaisir" in the console) and is
+  refused instead of being called without a key. These keys now depend on the vault key:
+  run `sudo ./elpis vault setup` first (otherwise the fallback `user_db/.vault.key` is created for
+  them) and back it up apart from the backups (`docs/operations.md`). An unreadable vault key makes
+  the migration fail and wait for the next start, without losing anything.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three

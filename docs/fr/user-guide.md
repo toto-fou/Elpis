@@ -505,8 +505,8 @@ web ; sous chaque groupe de l'onglet Droits, une ligne dit ce que fait l'option 
 **Publier une branche.** `git_submit` (pousser la branche et ouvrir la demande de
 fusion) est visible hors de votre machine : aucun agent ne l'appelle. L'agent `pr`
 prépare la branche et le commit, puis rend l'appel exact ; c'est l'assistant qui le
-lance, dans le chat, où vous le voyez. De même, aucun agent n'enregistre d'identifiant
-Git (`git_set_credential`) : il est rangé avec votre compte, hors du bac.
+lance, dans le chat, où vous le voyez. Aucun agent, ni l'assistant, ne reçoit jamais de
+jeton Git : vous l'ajoutez vous-même dans Paramètres → Comptes Git.
 
 **Plusieurs agents à la fois.** Les agents qu'un même message lance partent ensemble,
 dans la limite réglée par l'administrateur. Le harnais ne les ordonne pas : c'est
@@ -1334,12 +1334,15 @@ GitLab, Bitbucket cloud ou serveur, Gitea, ou un service générique).
 
 - Collez simplement l'URL d'un dépôt : le service et l'hôte sont détectés.
 - **Tester** valide le jeton et liste les dépôts accessibles.
-- Le jeton est stocké **côté serveur uniquement** — jamais écrit dans votre
-  sandbox, jamais renvoyé à votre navigateur.
+- Le jeton est stocké **chiffré dans le coffre de secrets du serveur** — jamais
+  écrit dans votre sandbox, jamais renvoyé à votre navigateur, jamais montré à
+  l'assistant. Laissez le champ vide en modifiant un connecteur pour garder le
+  jeton actuel ; changer l'hôte ou l'adresse de l'API le redemande.
 
 Ces connecteurs alimentent le panneau Git de l'éditeur et les outils Git de
 l'assistant : un `git clone` sur une forge privée fonctionne sans que vous
-tapiez d'identifiants.
+tapiez d'identifiants. L'assistant ne peut pas recevoir de jeton dans le chat :
+quand un dépôt en demande un, il vous invite à ajouter le connecteur ici.
 
 [↑ Sommaire](#sommaire)
 

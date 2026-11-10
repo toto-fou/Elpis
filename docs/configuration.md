@@ -907,6 +907,13 @@ wins; setup, backup and key change are in [operations.md](operations.md#secrets-
   (0440, root and a group holding the service account alone, readable by no other unit). The
   doctor still reports what the core sees: key source, `kid`, secrets under another key.
 
+The tokens of Git accounts and the secrets of routine webhooks are encrypted with this key. The
+first start after the update moves the existing ones out of their plain columns (migration
+`0027_vault_git`); if no usable key is available (a key file that cannot be read, or no key while
+secrets already exist), the migration is not applied (error in the `main` log, nothing is lost),
+Git accounts show no token and webhooks are ignored until the key is fixed and the services
+restarted.
+
 #### Local MCP server
 
 **`mcp.json` manifest.** The default tool servers are
@@ -1130,21 +1137,21 @@ Native ``skill_run`` family: the account's skills are read from its protected st
 host); an old store left on a remote host by the Python core takes precedence over the
 mirror: delete it.
 Native ``git`` family: the network (clone, fetch, pull, push) goes through the authenticating
-relay, and a Git connector's token is given only to the repository's exact host;
-``git_submit`` pushes the agent branch then asks the core for the PR
-(``POST /api/internal/git/pr``, account of the signed envelope), which resolves the
+relay, and a Git account's token is given only to the repository's exact host. The host asks the
+core for it (``GET /api/internal/git/credential``) with the signed identity of the call: the core
+reads the account from that envelope, never from the query, takes the token out of the secrets
+vault and writes ``vault.secret.used``. ``git_submit`` pushes the agent branch then asks the core
+for the PR (``POST /api/internal/git/pr``, account of the signed envelope), which resolves the
 connector, keeps its ``api_base`` and calls the PR API: this API's token
 never leaves the core. Core unreachable after the push: error
-``pr_service_unavailable`` (branch pushed, PR to reopen); ``git_set_credential``
-and the token entered at clone time are stored by the core
-(``credential_store_unavailable`` if it does not answer). With this native family,
-an agent tool creates a connector only for a host (port included) already
-registered by the account or by an administrator: otherwise ``host_not_registered``,
-and the connector is added in Settings → Git accounts; it updates only the
-connectors it created (``auto``), never a connector entered in Settings or
-imported (``connector_exists``); an old
-``.git-credentials.json`` in the sandbox follows the same rule (kept if a host is refused);
-the editor's clone has no such limit.
+``pr_service_unavailable`` (branch pushed, PR to reopen). No agent tool takes a token
+(``git_clone`` has no ``username``/``token`` and ``git_set_credential`` no longer exists): when a
+repository needs credentials, the tool's error tells the model to ask the user to add a Git
+account in Settings › Git accounts. Only the editor's clone saves the credentials typed by the
+user (``POST /api/internal/git/credential``, origin ``editeur``), into the vault; push and pull
+use typed credentials without saving them. An old ``.git-credentials.json`` in the sandbox is
+imported into the vault only for a host (port included) already registered by the account or by
+an administrator (kept if a host is refused).
 ``TOOLHOST_APP_URL`` points to the local core (``http://127.0.0.1:8001``, set by
 ``./elpis`` unless a value is already in the environment): without the core URL, the
 ``/api/internal/*`` callbacks are inactive (``shell_job`` answers ``not_available_here``,

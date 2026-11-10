@@ -503,8 +503,8 @@ tools; under each group of the Permissions tab, a line says what the selected op
 **Publishing a branch.** `git_submit` (push the branch and open the merge
 request) is visible outside your machine: no agent calls it. The `pr` agent
 prepares the branch and the commit, then hands back the exact call; the assistant
-runs it, in the chat, where you see it. Likewise, no agent saves a Git
-credential (`git_set_credential`): it is stored with your account, outside the sandbox.
+runs it, in the chat, where you see it. No agent, and not the assistant either, ever
+receives a Git token: you add it yourself in Settings → Git accounts.
 
 **Several agents at once.** The agents that a single message launches start together,
 within the limit set by the administrator. The harness does not order them: the
@@ -1328,12 +1328,17 @@ GitLab, Bitbucket cloud or server, Gitea, or a generic service).
 
 - Just paste a repository URL: the service and host are detected.
 - **Test connection** validates the token and lists the accessible repositories.
-- The token is stored **on the server side only** — never written to your
-  sandbox, never sent back to your browser.
+- The token is stored **encrypted in the server's secrets vault** — never written
+  to your sandbox, never sent back to your browser, never shown to the assistant.
+  Leave the field empty when editing an account to keep the current token;
+  changing the host or the API address asks for the token again.
+- An account whose token can no longer be read (for example after a change of
+  the server's key) shows no token: enter it again.
 
 These accounts feed the editor's Git panel and the assistant's Git tools:
 a `git clone` on a private host works without you
-typing credentials.
+typing credentials. The assistant cannot receive a token in the chat: when a
+repository needs credentials, it asks you to add a Git account here.
 
 [↑ Contents](#contents)
 

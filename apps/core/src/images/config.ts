@@ -1,23 +1,20 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/images/config.ts — bloc `image` de config.json relu à chaque appel (défauts, bornes), clé API scellée avec l'origine du moteur. */
+/** apps/core/src/images/config.ts — bloc `image` de config.json relu à chaque appel (défauts, bornes) ; la clé API est dans le coffre (`images/cle.ts`), l'ancienne `api_key_enc` n'est plus que lue puis retirée. */
 import {
   arrondiEntierPy,
   ErreurPython,
   floatPy,
   hostname,
   port,
-  pyJsonDumps,
-  pyJsonLoads,
   stripPy,
   strPy,
   urlsplit,
   veritePy,
 } from "@elpis/commun";
 import { configView, mettreAJourConfigJson } from "@elpis/config";
-import { decrypt } from "@elpis/securite";
 
 import { SkinError } from "../apparence/skins";
-import { entierPy, estDict, lire, longueurPy, lowerPy, poser } from "../python";
+import { entierPy, estDict, lire, longueurPy, lowerPy } from "../python";
 import type { Dict } from "../python";
 
 export const PROVIDERS = ["sdcpp", "openai"] as const;
@@ -69,7 +66,7 @@ const FIXED_SIZES_DEFAUT = ["1024x1024", "1536x1024", "1024x1536"];
 const DALLE3 = /^dall-e-3/iu;
 const CA_MAX = 64 * 1024;
 
-/** Configuration coercée ; `api_key_enc` reste chiffrée (seul `apiKey` la déchiffre). */
+/** Configuration coercée ; `api_key_enc` : ancienne clé chiffrée de config.json, jamais lue comme clé (seulement signalée, puis rangée dans le coffre au démarrage). */
 export type ConfigImage = {
   enabled: boolean;
   provider: string;
@@ -243,36 +240,6 @@ export function engineOrigin(url: unknown): string {
   return `${scheme}://${host}:${p}`;
 }
 
-/** Contenu à chiffrer : la clé et l'origine du moteur auquel elle est destinée. */
-export function sealApiKey(key: string, url: string): string {
-  return pyJsonDumps({ k: key, o: engineOrigin(url) }, { ensureAscii: false });
-}
-
-function scellee(cfg: Readonly<Dict>): { k: string; o: string } | null {
-  const enc = chaine(cfg["api_key_enc"]);
-  if (!enc) return null;
-  let data: unknown;
-  try {
-    data = pyJsonLoads(decrypt(enc) || "null");
-  } catch {
-    return null;
-  }
-  if (!estDict(data) || typeof data["k"] !== "string" || typeof data["o"] !== "string") return null;
-  return { k: data["k"], o: data["o"] };
-}
-
-/** Clé API en clair (côté hôte seulement) pour l'adresse de `cfg` ; `""` si absente, illisible ou scellée pour une autre origine. */
-export function apiKey(cfg: Readonly<Dict>): string {
-  const s = scellee(cfg);
-  if (!s || !s.o || s.o !== engineOrigin(cfg["url"])) return "";
-  return s.k;
-}
-
-export function keyState(cfg: Readonly<Dict>): { has_key: boolean; stale: boolean } {
-  const usable = Boolean(apiKey(cfg));
-  return { has_key: usable, stale: Boolean(cfg["api_key_enc"]) && !usable };
-}
-
 /** Moteur activé ET adresse renseignée ; sans configuration donnée, celle du disque. */
 export function imageReady(cfg?: Readonly<Dict> | ConfigImage | null): boolean {
   const c = (veritePy(cfg) ? cfg : getImageConfig()) as Readonly<Dict>;
@@ -328,16 +295,12 @@ export function publicStatus(cfg: ConfigImage): Dict {
   };
 }
 
-/** Écrit `image.api_key_enc` sous le verrou de config.json, relu sur disque ; un fichier illisible est refusé, jamais écrasé (Python : remplacé par `{}`). */
-export async function writeApiKey(enc: string): Promise<void> {
+/** Retire l'ancienne `image.api_key_enc` de config.json, sous son verrou et relu sur disque, une fois la clé dans le coffre ; un fichier illisible est refusé, jamais écrasé. */
+export async function retirerCleHeritee(): Promise<void> {
   await mettreAJourConfigJson(
     (cfg) => {
-      let section = lire(cfg, "image");
-      if (!estDict(section)) {
-        section = {};
-        poser(cfg, "image", section);
-      }
-      poser(section as Dict, "api_key_enc", enc);
+      const section = lire(cfg, "image");
+      if (estDict(section)) delete section["api_key_enc"];
     },
     (message) => new SkinError(message),
   );

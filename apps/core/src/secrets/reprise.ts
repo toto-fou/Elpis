@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/reprise.ts — reprise des anciennes clés dans le coffre : insertion des secrets repris par la migration 0028 (sans journal de sécurité, pas encore ouvert au démarrage), puis suite au démarrage de main (clés illisibles réessayées). */
+/** apps/core/src/secrets/reprise.ts — reprise des anciennes clés dans le coffre : insertion des secrets repris par la migration 0028 (sans journal de sécurité, pas encore ouvert au démarrage), puis suite au démarrage de main (clés illisibles réessayées, clé du moteur d'images semée et retirée de config.json). */
 import { POLITIQUE_SECRET_DEFAUT } from "@elpis/contracts";
-import { installerRangementCoffre, POLITIQUE_CLE_MOTEUR, reprendreClesLlm } from "@elpis/db";
+import {
+  cleImagesHeritee,
+  genreCleImages,
+  installerRangementCoffre,
+  POLITIQUE_CLE_MOTEUR,
+  reprendreClesLlm,
+  semerCleImages,
+} from "@elpis/db";
 import type { Base, Executeur, RapportInit, SecretARanger } from "@elpis/db";
 import { chiffrerSecret, kidDe } from "@elpis/securite";
 
+import { retirerCleHeritee } from "../images/config";
 import type { Journal } from "../journal";
 import { aadSecret, fusionnerPolitique, normaliserPortee, validerNom } from "./portee";
 import { maintenant } from "./stockage";
@@ -40,14 +48,21 @@ export function installerRepriseCoffre(): void {
   installerRangementCoffre(insererSecretRepris);
 }
 
-/** Suite au démarrage de main, migration déjà faite : clés illisibles réessayées (clé de chiffrement rétablie) ; jamais d'échec du démarrage. */
+/** Suite au démarrage de main, migration déjà faite : clés illisibles réessayées (clé de chiffrement rétablie), clé du moteur d'images semée, puis retirée de config.json une fois dans le coffre ; jamais d'échec du démarrage. */
 export async function reprendreAuDemarrage(base: Base, rapport: RapportInit, log: Journal): Promise<void> {
   try {
     if (!(await base.get("SELECT 1 AS un FROM schema_migrations WHERE name = ?", [MIGRATION]))) return;
-    if (rapport.appliquees.includes(MIGRATION)) return;
-    const b = await base.ecriture((x) => reprendreClesLlm(x));
-    for (const i of b.infos) log.info(`coffre : ${i}`);
-    for (const a of b.avertissements) log.warn(`coffre : ${a}`);
+    if (!rapport.appliquees.includes(MIGRATION)) {
+      const bilans = await base.ecriture(async (x) => [await reprendreClesLlm(x), await semerCleImages(x)]);
+      for (const b of bilans) {
+        for (const i of b.infos) log.info(`coffre : ${i}`);
+        for (const a of b.avertissements) log.warn(`coffre : ${a}`);
+      }
+    }
+    if (cleImagesHeritee() !== "" && (await genreCleImages(base)) === "token") {
+      await retirerCleHeritee();
+      log.info("coffre : ancienne clé du moteur d'images retirée de config.json (image.api_key_enc)");
+    }
   } catch (e) {
     log.warn(
       `coffre : reprise des anciennes clés reportée au prochain démarrage (${e instanceof Error ? e.message : String(e)})`,

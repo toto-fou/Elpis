@@ -14,7 +14,8 @@ export class ErreurBaseNonAJour extends ErreurBase {
 
 export interface Migration {
   name: string;
-  migrer(x: Executeur): Promise<void>;
+  /** `x` : la transaction de la migration ; `base` : la même base, dont les transactions imbriquées deviennent des points de sauvegarde. */
+  migrer(x: Executeur, base: Base): Promise<void>;
 }
 
 /** Migrations propres au TS, numérotées à la suite des migrations Python (aucune à ce jour). */
@@ -73,8 +74,8 @@ async function tamponner(x: Executeur, name: string): Promise<void> {
   ]);
 }
 
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié. */
-export async function initialiserBase(base: Base): Promise<RapportInit> {
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; `propres` : migrations numérotées d'un seul process (le core), jouées avec celles du TS dans l'ordre des noms. */
+export async function initialiserBase(base: Base, propres: readonly Migration[] = []): Promise<RapportInit> {
   return base.ecriture(async (x) => {
     const neuve = await isFresh(x);
     if (!neuve) {
@@ -114,12 +115,13 @@ export async function initialiserBase(base: Base): Promise<RapportInit> {
       colonnesImpossibles: schema.impossibles,
     };
     const faites = await appliquees(x);
-    registreMigrations();
-    for (const m of MIGRATIONS_TS) {
+    const migrations = [...MIGRATIONS_TS, ...propres].sort((a, b) => (a.name < b.name ? -1 : 1));
+    registreMigrations(migrations);
+    for (const m of migrations) {
       if (faites.has(m.name)) continue;
       try {
         await base.transaction(async (y) => {
-          await m.migrer(y);
+          await m.migrer(y, base);
           await tamponner(y, m.name);
         });
         rapport.appliquees.push(m.name);

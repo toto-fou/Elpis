@@ -11,7 +11,7 @@ import { VerrouFichier, VerrouOccupe } from "@elpis/verrous";
 import type { Base } from "./base";
 import { ErreurOperation } from "./erreurs";
 import { durcirDroits, initialiserBase } from "./init";
-import type { RapportInit } from "./init";
+import type { Migration, RapportInit } from "./init";
 import { ouvrirBase } from "./ouvrir";
 import type { ReglagesBase } from "./ouvrir";
 
@@ -153,6 +153,8 @@ export interface OptionsDemarrage {
   /** Après le schéma, avant de rendre la base (nettoyage au démarrage) ; une erreur ferme la base. */
   readonly apres?: (b: Base) => Promise<unknown>;
   readonly journal?: FabriqueJournal;
+  /** Migrations propres au process (celles du core, jamais jouées par l'hôte d'outils sur sa base). */
+  readonly migrations?: readonly Migration[];
 }
 
 /** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis `apres`. */
@@ -169,7 +171,7 @@ export async function demarrerBase(o: OptionsDemarrage = {}): Promise<{ base: Ba
     const verrou = await prendreVerrouSchema(journal);
     let rapport: RapportInit;
     try {
-      rapport = await initialiserBase(nouvelle);
+      rapport = await initialiserBase(nouvelle, o.migrations ?? []);
     } finally {
       await verrou?.rendre();
     }

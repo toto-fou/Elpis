@@ -3552,10 +3552,10 @@ when its policy allows routines. Two ways to change the set, both from the compo
 - the body of a chat turn (`POST /api/chat-saved-stream3`) carries `secrets: [ids]`, which replaces
   the set at turn **preparation**, before any tool runs (a new chat is created blank first); ids that
   are not the account's attachable secrets are dropped;
-- `PUT /api/chats/:chat_id/secrets` `{ids}` replaces it at once and refuses an id that is unknown or of
-  another account (404 `secret_unknown`), of another kind (`secret_type_mismatch`) or unverified
-  (`secret_unverified`); `GET` returns `{secrets: [Secret]}` (metadata, attachment order), as `PUT`
-  does; an unknown chat gives 404.
+- `PUT /api/chats/:chat_id/secrets` `{ids}` (order kept, duplicates ignored) replaces it at once
+  and refuses an id that is unknown or of another account (404 `secret_unknown`), of another kind
+  (`secret_type_mismatch`) or unverified (`secret_unverified`); `GET` returns `{secrets: [Secret]}`
+  (metadata, attachment order), as `PUT` does; an unknown chat gives 404.
 
 Each change writes `vault.secret.attached` or `vault.secret.detached`. The model learns the set from a
 `<secrets selection="…">` block joined to the question of the turn (never to the system prompt),

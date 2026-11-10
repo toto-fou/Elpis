@@ -144,7 +144,7 @@ export interface OptionsRemplacement {
   readonly creer?: boolean;
 }
 
-/** Remplace l'ensemble attaché à la conversation racine du compte, écrit seulement s'il change ; journalise chaque secret attaché ou détaché ; `null` : conversation absente. */
+/** Remplace l'ensemble attaché à la conversation racine du compte (ids en double ignorés), écrit seulement s'il change ; journalise chaque secret attaché ou détaché ; `null` : conversation absente. */
 export async function remplacerSecretsAttaches(
   base: Base,
   uid: number,
@@ -163,10 +163,11 @@ export async function remplacerSecretsAttaches(
       "secret_request_invalid",
       `${SECRETS_ATTACHES_MAX} secrets at most per conversation.`,
     );
-  const lignes = await lignesParIds(base, uid, demandes);
+  const uniques = [...new Set(demandes)];
+  const lignes = await lignesParIds(base, uid, uniques);
   const parId = new Map(lignes.map((l) => [Number(l.id), l] as const));
   const gardees: LigneSecret[] = [];
-  for (const id of demandes) {
+  for (const id of uniques) {
     const l = parId.get(id);
     const refus = refusAttache(id, l);
     if (refus !== null && o.strict) throw refus;

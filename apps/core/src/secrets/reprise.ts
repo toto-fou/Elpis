@@ -36,7 +36,7 @@ export async function clePourChiffrer(x: Executeur): Promise<CleCoffre> {
 /** Secret repris inséré comme `creerSecret` le crée (actif, version 1, AAD liée aux colonnes enregistrées : à garder identique), politique des clés du moteur ; rend son id. */
 export async function insererSecretRepris(x: Executeur, s: SecretARanger): Promise<number> {
   const nom = validerNom(s.nom);
-  const portee = normaliserPortee(s.genre, s.portee);
+  const portee = normaliserPortee(s.genre, s.portee, { proprietaire: s.proprietaire, nom });
   const politique = fusionnerPolitique(POLITIQUE_SECRET_DEFAUT, POLITIQUE_CLE_MOTEUR);
   const liees: ColonnesLiees = {
     scope_json: JSON.stringify(portee),

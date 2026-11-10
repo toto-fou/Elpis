@@ -10,6 +10,7 @@ import {
   VALEUR_SECRET_MAX,
 } from "@elpis/contracts";
 import type { GenreSecret, PolitiqueSecret, PorteeSecret } from "@elpis/contracts";
+import { NOM_CLE_IMAGES } from "@elpis/db";
 
 import { ErreurSecret } from "./erreurs";
 
@@ -73,14 +74,25 @@ function refusPortee(message: string): ErreurSecret {
   return new ErreurSecret(422, "secret_scope_invalid", message);
 }
 
-/** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, ou les origines exactes auxquelles il est réservé (moteur d'images). */
-export function normaliserPortee(genre: GenreSecret, brut: unknown): PorteeSecret {
+/** Propriétaire et nom d'un secret, dont dépend la portée d'un jeton. */
+export interface Titulaire {
+  proprietaire: number | null;
+  nom: string;
+}
+
+/** Seul jeton à portée : la clé du moteur d'images (secret d'instance `image-engine`), réservée à l'origine exacte du moteur. */
+function jetonAOrigines(t: Titulaire | undefined): boolean {
+  return t !== undefined && t.proprietaire === null && t.nom === NOM_CLE_IMAGES;
+}
+
+/** Portée validée et normalisée selon le genre ; un jeton n'a pas de portée, sauf la clé du moteur d'images (origines exactes). */
+export function normaliserPortee(genre: GenreSecret, brut: unknown, titulaire?: Titulaire): PorteeSecret {
   const objet: unknown = brut === undefined && genre === "token" ? {} : brut;
   if (typeof objet !== "object" || objet === null || Array.isArray(objet))
     throw refusPortee("Invalid scope: an object is expected.");
   const p = objet as Record<string, unknown>;
   const cles = Object.keys(p);
-  if (parOrigines(genre) || (genre === "token" && cles.length > 0)) {
+  if (parOrigines(genre) || (genre === "token" && cles.length > 0 && jetonAOrigines(titulaire))) {
     const brutes = p["origins"];
     if (cles.length !== 1 || !Array.isArray(brutes) || brutes.length === 0)
       throw refusPortee(
@@ -116,6 +128,7 @@ export function normaliserPortee(genre: GenreSecret, brut: unknown): PorteeSecre
       throw refusPortee("Invalid scope: 'server' is the id of an MCP server.");
     return { server: serveur };
   }
+  if (cles.length !== 0) throw refusPortee("Invalid scope: a token has no scope ({}).");
   return {};
 }
 

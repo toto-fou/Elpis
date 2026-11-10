@@ -110,7 +110,10 @@ function genreDe(l: LigneSecret): GenreSecret {
 /** Portée enregistrée relue selon le genre ; illisible : `{}`. */
 export function porteeDe(l: LigneSecret): PorteeSecret {
   try {
-    return normaliserPortee(genreDe(l), objetJson(l.scope_json));
+    return normaliserPortee(genreDe(l), objetJson(l.scope_json), {
+      proprietaire: nombreOuNul(l.user_id),
+      nom: l.name,
+    });
   } catch {
     return {};
   }
@@ -290,7 +293,7 @@ export async function creerSecret(
   if (!estGenre(d.kind)) throw new ErreurSecret(422, "secret_request_invalid", "Invalid secret kind.");
   const genre = d.kind;
   const nom = validerNom(d.name);
-  const portee = normaliserPortee(genre, d.scope);
+  const portee = normaliserPortee(genre, d.scope, { proprietaire: p, nom });
   const identifiant = validerIdentifiant(d.username);
   const valeur = validerValeur(d.value);
   exigerPolitiqueApplicable(d.policy);
@@ -372,7 +375,10 @@ export async function modifierSecret(
     const l = await lireLigne(x, p, id);
     if (l === null) throw introuvable();
     const genre = genreDe(l);
-    const portee = m.scope === undefined ? porteeDe(l) : normaliserPortee(genre, m.scope);
+    const portee =
+      m.scope === undefined
+        ? porteeDe(l)
+        : normaliserPortee(genre, m.scope, { proprietaire: p, nom: nom ?? l.name });
     const avant = lirePolitique(l.policy_json);
     const politique = fusionnerPolitique(avant, m.policy);
     const insecure = politique.tls === "insecure" && avant.tls !== "insecure";

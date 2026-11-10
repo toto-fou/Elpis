@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/stockage.ts — table `vault_secrets` : création, modification (« vide = inchangé »), rotation, vérification, suppression et liste, valeur chiffrée jamais relue par l'API ; chaque écriture au journal de sécurité, sans valeur. */
+/** apps/core/src/secrets/stockage.ts — table `vault_secrets` : création, modification (« vide = inchangé »), rotation, vérification, suppression et liste, valeur chiffrée jamais relue par l'API et liée aux colonnes qui décident de son usage ; chaque écriture au journal de sécurité, sans valeur. */
 import { POLITIQUE_SECRET_DEFAUT, SECRETS_PAR_PROPRIETAIRE_MAX } from "@elpis/contracts";
 import type { EtatSecret, GenreSecret, PolitiqueSecret, PorteeSecret, Secret } from "@elpis/contracts";
 import { ErreurIntegrite } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
-import { auditEvent, chiffrerSecret, dechiffrerSecret, kidCoffre, kidDe } from "@elpis/securite";
-import type { IssueAudit } from "@elpis/securite";
+import {
+  auditEvent,
+  chargerCleCoffre,
+  chiffrerSecret,
+  cleCoffre,
+  dechiffrerSecret,
+  kidCoffre,
+  kidDe,
+} from "@elpis/securite";
+import type { CleCoffre, IssueAudit } from "@elpis/securite";
 
 import { ErreurSecret, refusDeCle } from "./erreurs";
 import {
   aadSecret,
   elargit,
   estGenre,
+  exigerPolitiqueApplicable,
   fusionnerPolitique,
   lirePolitique,
   normaliserPortee,
@@ -21,6 +30,7 @@ import {
   validerNom,
   validerValeur,
 } from "./portee";
+import type { ColonnesLiees } from "./portee";
 
 /** Propriétaire d'un secret : un compte, ou `null` pour un secret d'instance (connecteurs partagés, moteur d'images). */
 export type Proprietaire = number | null;
@@ -182,19 +192,50 @@ function nomPris(nom: string): ErreurSecret {
 
 const proprio = (p: Proprietaire): "user" | "instance" => (p === null ? "instance" : "user");
 
-/** Chiffrement d'une valeur liée à son propriétaire, son genre et son nom ; clé indisponible : refus 503. */
-function chiffrer(valeur: string, p: Proprietaire, genre: GenreSecret, nom: string): string {
+/** AAD d'une ligne telle qu'enregistrée : propriétaire, genre, nom et colonnes liées. */
+export function aadLigne(l: LigneSecret): string {
+  return aadSecret(l.user_id, genreDe(l), l.name, l);
+}
+
+/** Clé pour chiffrer : la courante ; à défaut, la clé de repli n'est posée que sur un coffre vide, sinon ses secrets resteraient illisibles (refus 503). */
+async function cleDeChiffrement(x: Executeur): Promise<CleCoffre> {
   try {
-    return chiffrerSecret(valeur, aadSecret(p, genre, nom));
+    const cle = cleCoffre();
+    if (cle !== null) return cle;
+    const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
+    if (Number(n?.n ?? 0) > 0)
+      throw new ErreurSecret(
+        503,
+        "secret_key_unavailable",
+        "The vault key is missing while secrets exist: restore /etc/elpis/vault.key, " +
+          "or run sudo ./elpis vault setup and enter the secrets again.",
+      );
+    return chargerCleCoffre();
+  } catch (e) {
+    throw refusDeCle(e) ?? e;
+  }
+}
+
+/** Chiffrement d'une valeur liée à son propriétaire, son genre, son nom et ses colonnes liées. */
+function chiffrer(
+  valeur: string,
+  cle: CleCoffre,
+  p: Proprietaire,
+  genre: GenreSecret,
+  nom: string,
+  liees: ColonnesLiees,
+): string {
+  try {
+    return chiffrerSecret(valeur, aadSecret(p, genre, nom, liees), cle);
   } catch (e) {
     throw refusDeCle(e, nom) ?? e;
   }
 }
 
-/** Valeur claire d'une ligne (rechiffrement d'un renommage, résolution) ; refus `secret_undecryptable` ou `secret_key_unavailable`. */
+/** Valeur claire d'une ligne (rechiffrement, résolution) ; une colonne liée changée hors du module, un autre chiffré ou une autre clé : refus `secret_undecryptable` ; sans clé : `secret_key_unavailable`. */
 export function dechiffrerLigne(l: LigneSecret): string {
   try {
-    return dechiffrerSecret(l.secret_enc, aadSecret(l.user_id, genreDe(l), l.name));
+    return dechiffrerSecret(l.secret_enc, aadLigne(l));
   } catch (e) {
     throw refusDeCle(e, l.name) ?? e;
   }
@@ -239,7 +280,7 @@ async function ecrire<T>(base: Base, nom: string, f: (x: Executeur) => Promise<T
   }
 }
 
-/** `creerSecret` : nom libre, portée normalisée, politique complétée par les défauts, valeur chiffrée ; 200 secrets au plus par propriétaire. */
+/** `creerSecret` : nom libre, portée normalisée, politique complétée par les défauts, valeur chiffrée (clé de repli posée seulement sur un coffre vide) ; 200 secrets au plus par propriétaire. */
 export async function creerSecret(
   base: Base,
   p: Proprietaire,
@@ -252,10 +293,17 @@ export async function creerSecret(
   const portee = normaliserPortee(genre, d.scope);
   const identifiant = validerIdentifiant(d.username);
   const valeur = validerValeur(d.value);
+  exigerPolitiqueApplicable(d.policy);
   const politique = fusionnerPolitique(POLITIQUE_SECRET_DEFAUT, d.policy);
   const meta = validerMeta(d.meta);
   const etat: EtatSecret = d.state === "unverified" ? "unverified" : "active";
-  const enc = chiffrer(valeur, p, genre, nom);
+  const liees: ColonnesLiees = {
+    scope_json: JSON.stringify(portee),
+    policy_json: JSON.stringify(politique),
+    state: etat,
+    version: 1,
+    username: identifiant,
+  };
   const t = maintenant();
   const ligne = await ecrire(base, nom, async (x) => {
     const c = clauseProprietaire(p);
@@ -263,19 +311,21 @@ export async function creerSecret(
     if (Number(n?.n ?? 0) >= SECRETS_PAR_PROPRIETAIRE_MAX)
       throw new ErreurSecret(409, "secret_limit", `${SECRETS_PAR_PROPRIETAIRE_MAX} secrets at most.`);
     await exigerNomLibre(x, p, nom);
+    const enc = chiffrer(valeur, await cleDeChiffrement(x), p, genre, nom, liees);
     const id = await x.insertId(
       "INSERT INTO vault_secrets (user_id, kind, name, scope_json, username, secret_enc, kid, version, state, " +
-        "policy_json, meta_json, created_at, updated_at, use_count) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 0)",
+        "policy_json, meta_json, created_at, updated_at, use_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
       [
         p,
         genre,
         nom,
-        JSON.stringify(portee),
+        liees.scope_json,
         identifiant,
         enc,
         kidDe(enc) ?? "",
+        liees.version,
         etat,
-        JSON.stringify(politique),
+        liees.policy_json,
         JSON.stringify(meta),
         t,
         t,
@@ -304,7 +354,7 @@ export interface ModifSecret {
   meta?: unknown;
 }
 
-/** `modifierSecret` : champs absents inchangés, valeur vide inchangée ; élargir la portée ou passer en TLS non vérifié exige la valeur ; un renommage rechiffre ; une nouvelle valeur fait passer `version` à n+1. */
+/** `modifierSecret` : champs absents inchangés, valeur vide inchangée ; élargir la portée ou passer en TLS non vérifié exige la valeur ; une colonne liée changée (nom, portée, politique, identifiant) rechiffre ; une nouvelle valeur fait passer `version` à n+1. */
 export async function modifierSecret(
   base: Base,
   p: Proprietaire,
@@ -316,6 +366,7 @@ export async function modifierSecret(
   const identifiant = m.username === undefined ? undefined : validerIdentifiant(m.username);
   const valeur = m.value === undefined || m.value === "" ? null : validerValeur(m.value);
   const meta = m.meta === undefined ? null : validerMeta(m.meta);
+  exigerPolitiqueApplicable(m.policy);
   const t = maintenant();
   const r = await ecrire(base, nom ?? "", async (x) => {
     const l = await lireLigne(x, p, id);
@@ -333,6 +384,15 @@ export async function modifierSecret(
       );
     const nouveauNom = nom ?? l.name;
     if (nouveauNom !== l.name) await exigerNomLibre(x, p, nouveauNom, id);
+    const liees: ColonnesLiees = {
+      scope_json:
+        JSON.stringify(portee) === JSON.stringify(porteeDe(l)) ? l.scope_json : JSON.stringify(portee),
+      policy_json:
+        JSON.stringify(politique) === JSON.stringify(avant) ? l.policy_json : JSON.stringify(politique),
+      state: l.state,
+      version: Number(l.version) + (valeur === null ? 0 : 1),
+      username: identifiant === undefined ? (l.username ?? null) : identifiant,
+    };
     const champs: string[] = [];
     const sets: string[] = [];
     const params: Valeur[] = [];
@@ -342,23 +402,27 @@ export async function modifierSecret(
       params.push(v);
     };
     if (nouveauNom !== l.name) poser("name", "name", nouveauNom);
-    if (JSON.stringify(portee) !== JSON.stringify(porteeDe(l)))
-      poser("scope", "scope_json", JSON.stringify(portee));
-    if (identifiant !== undefined && identifiant !== (l.username ?? null))
-      poser("username", "username", identifiant);
-    if (JSON.stringify(politique) !== JSON.stringify(avant))
-      poser("policy", "policy_json", JSON.stringify(politique));
+    if (liees.scope_json !== l.scope_json) poser("scope", "scope_json", liees.scope_json);
+    if (liees.username !== (l.username ?? null)) poser("username", "username", liees.username);
+    if (liees.policy_json !== l.policy_json) poser("policy", "policy_json", liees.policy_json);
     if (meta !== null && JSON.stringify(meta) !== JSON.stringify(objetJson(l.meta_json)))
       poser("meta", "meta_json", JSON.stringify(meta));
-    if (valeur !== null || nouveauNom !== l.name) {
-      const enc = chiffrer(valeur ?? dechiffrerLigne(l), p, genre, nouveauNom);
-      sets.push("secret_enc = ?", "kid = ?");
-      params.push(enc, kidDe(enc) ?? "");
-    }
     if (valeur !== null) {
       champs.push("value");
-      sets.push("version = version + 1", "rotated_at = ?");
-      params.push(t);
+      sets.push("version = ?", "rotated_at = ?");
+      params.push(liees.version, t);
+    }
+    if (champs.some((c) => c !== "meta")) {
+      const enc = chiffrer(
+        valeur ?? dechiffrerLigne(l),
+        await cleDeChiffrement(x),
+        p,
+        genre,
+        nouveauNom,
+        liees,
+      );
+      sets.push("secret_enc = ?", "kid = ?");
+      params.push(enc, kidDe(enc) ?? "");
     }
     if (champs.length === 0) return { ligne: l, champs };
     await x.run(`UPDATE vault_secrets SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`, [
@@ -395,10 +459,11 @@ export async function rotation(
   const ligne = await base.ecriture(async (x) => {
     const l = await lireLigne(x, p, id);
     if (l === null) throw introuvable();
-    const enc = chiffrer(v, p, genreDe(l), l.name);
+    const version = Number(l.version) + 1;
+    const enc = chiffrer(v, await cleDeChiffrement(x), p, genreDe(l), l.name, { ...l, version });
     await x.run(
-      "UPDATE vault_secrets SET secret_enc = ?, kid = ?, version = version + 1, rotated_at = ?, updated_at = ? WHERE id = ?",
-      [enc, kidDe(enc) ?? "", t, t, id],
+      "UPDATE vault_secrets SET secret_enc = ?, kid = ?, version = ?, rotated_at = ?, updated_at = ? WHERE id = ?",
+      [enc, kidDe(enc) ?? "", version, t, t, id],
     );
     return (await lireLigne(x, p, id)) as LigneSecret;
   });
@@ -412,7 +477,7 @@ export async function rotation(
   return vueSecret(ligne);
 }
 
-/** `verifierSecret` : un secret importé (`unverified`) devient utilisable (`active`) ; déjà actif, rien ne change. */
+/** `verifierSecret` : un secret importé (`unverified`) devient utilisable (`active`), rechiffré pour son nouvel état ; déjà actif, rien ne change ; illisible : `secret_undecryptable` (le tourner). */
 export async function verifierSecret(
   base: Base,
   p: Proprietaire,
@@ -423,7 +488,12 @@ export async function verifierSecret(
     const l = await lireLigne(x, p, id);
     if (l === null) throw introuvable();
     if (l.state === "active") return { ligne: l, change: false };
-    await x.run("UPDATE vault_secrets SET state = 'active', updated_at = ? WHERE id = ?", [maintenant(), id]);
+    const clair = dechiffrerLigne(l);
+    const enc = chiffrer(clair, await cleDeChiffrement(x), p, genreDe(l), l.name, { ...l, state: "active" });
+    await x.run(
+      "UPDATE vault_secrets SET state = 'active', secret_enc = ?, kid = ?, updated_at = ? WHERE id = ?",
+      [enc, kidDe(enc) ?? "", maintenant(), id],
+    );
     return { ligne: (await lireLigne(x, p, id)) as LigneSecret, change: true };
   });
   if (r.change)

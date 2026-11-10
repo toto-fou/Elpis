@@ -64,9 +64,12 @@ follow [SemVer](https://semver.org/).
   instead of 112 and 100 MB; on Debian 13, 68 packages and 87 MB instead of 114 and 100 MB
   (its `libgbm1` pulls Mesa and LLVM). The offline package carries the same builds
   (`browser/`: about 120 MB instead of 305 MB); `browser-service/fetch_offline_deps.sh`
-  without `--no-apt` vendors this group with its dependencies missing from a minimal Debian,
-  and `install_offline.sh` installs only the packages the machine lacks. **Existing
-  installations keep their packages and browsers**: nothing is removed.
+  without `--no-apt` vendors this group with its dependencies missing from a minimal Debian;
+  `install_offline.sh` installs the packages the machine lacks and those they pin to an exact
+  version, stops before changing anything if that would downgrade or break an installed
+  package, and fails if `dpkg --audit` finds a package left unconfigured (bundle built on
+  another point release). **Existing installations keep their packages and browsers**: nothing
+  is removed.
 - **Metrics: prompt-cache hits you can read.** The admin Metrics area mixed the cache
   written by Claude into the "useful" input, and its two cache indicators disagreed (the KV
   reuse one only saw llama.cpp and averaged percentages). The input now reads in three

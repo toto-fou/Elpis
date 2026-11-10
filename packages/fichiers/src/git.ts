@@ -63,9 +63,15 @@ export class GitResult {
   }
 }
 
-/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base. */
+/** Compte d'un rappel signé au core (enveloppe d'identité) : id et nom. */
+export interface CompteRappel {
+  readonly user_id: number;
+  readonly username: string;
+}
+
+/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base ; l'identifiant git, pour le compte de l'enveloppe signée seulement. */
 export interface SourceGit {
-  gitCredential(uid: number, remoteUrl: string): Promise<Dict | null>;
+  gitCredential(compte: CompteRappel, remoteUrl: string): Promise<Dict | null>;
   connectorHosts(uid: number): Promise<string[]>;
 }
 
@@ -149,11 +155,18 @@ function hoteJoint(url: string): string {
   return amont(url)[0].replace(/^https?:\/\//u, "");
 }
 
-/** `_credential` : (identifiant, jeton) du connecteur de l'hôte EXACT du dépôt (rendu par le core), sinon `["", ""]` ; un identifiant d'un autre hôte est écarté. */
-export async function credential(source: SourceGit, uid: number, url: string): Promise<[string, string]> {
+/** `_credential` : (identifiant, jeton) du compte git de l'hôte EXACT du dépôt (rendu par le core au compte signé), sinon `["", ""]` ; un identifiant d'un autre hôte est écarté. */
+export async function credential(
+  source: SourceGit,
+  compte: CompteRappel,
+  url: string,
+): Promise<[string, string]> {
   let cred: Dict | null;
   try {
-    cred = uid ? await source.gitCredential(Math.trunc(uid), url) : null;
+    cred =
+      compte.user_id && compte.username
+        ? await source.gitCredential({ user_id: Math.trunc(compte.user_id), username: compte.username }, url)
+        : null;
   } catch {
     journalDe("git").warn(`[git] connecteur non résolu pour ${url}`);
     cred = null;
@@ -291,7 +304,7 @@ export async function remoteUrl(
 
 export interface OptionsReseau {
   readonly uid: number;
-  /** Nom du compte (enveloppe signée de l'import des anciens identifiants) ; absent : fichier gardé. */
+  /** Nom du compte (enveloppe signée des rappels : identifiant git du compte, import des anciens identifiants) ; absent : ni l'un ni l'autre. */
   readonly username?: string;
   readonly url: string;
   readonly source: SourceGit;
@@ -320,7 +333,7 @@ export async function runNetwork(
   const saisis = Boolean(o.auth && o.auth[1]);
   const [user, token] = saisis
     ? (o.auth as readonly [string, string])
-    : await credential(o.source, o.uid, o.url);
+    : await credential(o.source, { user_id: o.uid, username: o.username ?? "" }, o.url);
   const service = o.pushRefs === undefined ? UPLOAD : RECEIVE;
   let d: ResultatGitAgent | null = null;
   let refus: string[] = [];

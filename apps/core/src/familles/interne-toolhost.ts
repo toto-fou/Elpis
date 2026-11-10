@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, identifiant git, hôtes des connecteurs (toolhost/routes_internal.py) ; notification, ancres du bureau, ouverture de PR et identifiant git saisi pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
+/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, hôtes des connecteurs (toolhost/routes_internal.py) ; identifiant git, notification, ancres du bureau, ouverture de PR et identifiant git saisi pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
 import { getUser, getUserSettings, ligneUtilisateur, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
@@ -173,18 +173,18 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         chemin: "/api/internal/git/credential",
         processus: ["main"],
         acces: "service",
-        traiter: async (req) => {
-          const q = entrees(req, {
-            query: { user_id: py.int().defaut(0), remote_url: py.str().defaut("") },
-          }).query;
-          if (!q.user_id || !q.remote_url) throw new HttpError(400, "user_id et remote_url requis");
+        traiter: async (req, rep) => {
+          const { uid } = await compteSigne(dep, req);
+          const { remote_url } = entrees(req, { query: { remote_url: py.str().defaut("") } }).query;
+          if (!remote_url) throw new HttpError(400, "remote_url requis");
           let cred: Awaited<ReturnType<typeof resolveGitCredential>> = null;
           try {
-            cred = await resolveGitCredential(base, q.user_id, q.remote_url);
+            cred = await resolveGitCredential(base, uid, remote_url);
           } catch (e) {
             const nom = e instanceof Error ? e.name : typeof e;
             dep.journal.warn(`[internal] résolution d'identifiant git impossible : ${nom}`);
           }
+          rep.header("cache-control", "no-store");
           if (!cred) return { ok: true, credential: null };
           return {
             ok: true,

@@ -161,16 +161,20 @@ export class ClientRappel {
     );
   }
 
-  /** `{username, token, host}` : SECRET, jamais journalisé ni gardé au-delà du TTL court. */
-  async gitCredential(uid: number, remoteUrl: string): Promise<Dict | null> {
-    if (!uid || !remoteUrl) return null;
-    const cle = `git:${Math.trunc(uid)}:${remoteUrl}`;
+  /** `{username, token, host}` du compte de l'enveloppe signée (le core ne lit le compte nulle part ailleurs) : SECRET, jamais journalisé ni gardé au-delà du TTL court, retenu par compte signé. */
+  async gitCredential(compte: CompteSigne, remoteUrl: string): Promise<Dict | null> {
+    if (compte.user_id <= 0 || !compte.username || !remoteUrl) return null;
+    const signe = { user_id: Math.trunc(compte.user_id), username: compte.username };
+    const cle = `git:${JSON.stringify([signe.user_id, signe.username, remoteUrl])}`;
     const c = this.lu(cle);
     if (c.trouve) return c.valeur as Dict | null;
-    const d = await this.appeler("GET", "/api/internal/git/credential", {
-      user_id: Math.trunc(uid),
-      remote_url: remoteUrl,
-    });
+    const d = await this.appeler(
+      "GET",
+      "/api/internal/git/credential",
+      { remote_url: remoteUrl },
+      undefined,
+      signe,
+    );
     const cred = d === null ? null : getPy(d, "credential");
     return this.retenir(cle, estDict(cred) && veritePy(cred) ? { ...cred } : null);
   }

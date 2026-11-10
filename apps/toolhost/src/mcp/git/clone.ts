@@ -112,7 +112,7 @@ export async function gitClone(
     else if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
-        const d = await c.source.gitCredential(uid, url);
+        const d = await c.source.gitCredential({ user_id: uid, username: c.username }, url);
         if (d && d["token"]) cred = [String(d["username"] ?? ""), String(d["token"])];
       } catch {
         cred = null;

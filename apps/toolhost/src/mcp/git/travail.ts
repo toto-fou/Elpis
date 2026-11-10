@@ -403,7 +403,9 @@ export function gitSubmit(
     if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
-        jeton = Boolean((await c.source.gitCredential(uid, remote))?.["token"]);
+        jeton = Boolean(
+          (await c.source.gitCredential({ user_id: uid, username: c.username }, remote))?.["token"],
+        );
       } catch {
         jeton = false;
       }

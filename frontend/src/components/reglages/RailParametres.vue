@@ -28,6 +28,7 @@ function choisir(id: string): void {
     ai_models: () => rg.loadLlmConnectors(),
     usage: () => rg.loadUsageData(),
     connexions: () => rg.loadConnexions(),
+    secrets: () => rg.loadSecrets(),
     memory: () => rg.loadUserMemory(),
     prompts: () => {
       void rg.loadSavedPrompts();

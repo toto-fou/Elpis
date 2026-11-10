@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/reglages/reglages.ts — composition des Paramètres du compte (`setupSettings`) : persistance, apparence, MCP, prompts, archives, aide, sandbox, préférences, agents et familles dédiées, sous la surface plate lue par la racine. */
+/** frontend/src/features/reglages/reglages.ts — composition des Paramètres du compte (`setupSettings`) : persistance, apparence, MCP, prompts, archives, aide, sandbox, préférences, agents, secrets et familles dédiées, sous la surface plate lue par la racine. */
+import { reactive } from "vue";
+
 import type { ClientHttp } from "../../platform/http/client";
+import { creerApiSecrets } from "../secrets/api";
+import { creerGestionSecrets } from "../secrets/gestion";
 import { creerAgents } from "./agents";
 import { creerAide } from "./aide";
 import { creerApparence } from "./apparence";
@@ -50,6 +54,13 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
   const git = setupGitConnecteurs(ctx, http);
   const llm = setupLlmConnecteurs(ctx, http);
   const utilisation = setupUtilisation(http);
+  const secrets = creerGestionSecrets({
+    api: creerApiSecrets(http),
+    portee: "compte",
+    toast: ctx.showToast,
+    ouvrir: (cible) => ouvrirGestionnaireSecret(cible),
+    notifier: () => window.dispatchEvent(new CustomEvent("secrets:changed")),
+  });
   const memoire = setupMemoire(
     ctx,
     {
@@ -75,6 +86,7 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     loadSandboxState: sandbox.loadSandboxState,
     loadGitConnectors: git.loadGitConnectors,
     loadConnexions: connexions.loadConnexions,
+    loadSecrets: secrets.charger,
     cnxReset: connexions.cnxReset,
     cancelMemoryEdit: memoire.cancelMemoryEdit,
     startNewTemplate: () => prompts.startNewTemplate(),
@@ -82,13 +94,27 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     reinitialisations: [
       razArchives,
       razPrompts,
+      secrets.reinitialiserVue,
       () => {
         mcp.mcpSearch.value = "";
       },
     ],
-    etatsSales: [persistance.settingsDirty, memoire.memoryDirty, prompts.templateDirty],
+    etatsSales: [persistance.settingsDirty, memoire.memoryDirty, prompts.templateDirty, secrets.sale],
   });
   liens.closeSettings = (sauter) => modale.closeSettings(sauter);
+
+  /** Secret de connecteur : son onglet (Comptes Git, Modèles IA), ou le gestionnaire MCP à la place des Paramètres. */
+  function ouvrirGestionnaireSecret(cible: string): void {
+    if (cible === "mcp") {
+      void modale.closeSettings().then(() => {
+        if (!showSettingsModal.value) mcp.openMcpManager();
+      });
+      return;
+    }
+    modale.settingsTab.value = cible;
+    if (cible === "connectors") void git.loadGitConnectors();
+    if (cible === "ai_models") void llm.loadLlmConnectors();
+  }
 
   return {
     ...llm,
@@ -106,6 +132,8 @@ export function setupReglages(vue: VueReglages, refs: RefsReglages, ctx: CtxRegl
     ...agents,
     ...modale,
     showSettingsModal,
+    secretsCompte: reactive(secrets),
+    loadSecrets: secrets.charger,
     settingsSaving: persistance.settingsSaving,
     passwordSaving: persistance.passwordSaving,
     settingsDirty: persistance.settingsDirty,

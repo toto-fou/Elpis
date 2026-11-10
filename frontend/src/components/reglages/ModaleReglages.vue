@@ -16,6 +16,7 @@ import OngletModelesIA from "./onglets/OngletModelesIA.vue";
 import OngletProfil from "./onglets/OngletProfil.vue";
 import OngletPrompts from "./onglets/OngletPrompts.vue";
 import OngletSandbox from "./onglets/OngletSandbox.vue";
+import OngletSecrets from "./onglets/OngletSecrets.vue";
 import OngletUtilisation from "./onglets/OngletUtilisation.vue";
 import RailParametres from "./RailParametres.vue";
 import SousMenuReglages from "./SousMenuReglages.vue";
@@ -92,6 +93,8 @@ const rg = domaineReglages();
               <OngletMemoire v-if="rg.settingsTab === 'memory'" />
 
               <OngletConnexions v-if="rg.settingsTab === 'connexions'" />
+
+              <OngletSecrets v-if="rg.settingsTab === 'secrets'" />
 
               <OngletConnecteurs v-if="rg.settingsTab === 'connectors'" />
 

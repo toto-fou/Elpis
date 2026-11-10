@@ -158,6 +158,12 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
     titre: "Accès",
     entrees: [
       {
+        id: "secrets",
+        libelle: "Secrets",
+        icone: "ph-vault",
+        mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login",
+      },
+      {
         id: "connexions",
         libelle: "Jetons d'accès",
         icone: "ph-key",

@@ -28,6 +28,7 @@ export interface DependancesModale {
   loadSandboxState(): Promise<void>;
   loadGitConnectors(): Promise<void>;
   loadConnexions(): Promise<void>;
+  loadSecrets(): Promise<void>;
   cnxReset(): void;
   cancelMemoryEdit(): void;
   startNewTemplate(): void;
@@ -135,6 +136,7 @@ export function creerModale(
       sandbox: () => dep.loadSandboxState(),
       connectors: () => dep.loadGitConnectors(),
       connexions: () => dep.loadConnexions(),
+      secrets: () => dep.loadSecrets(),
       skills: () => ctx.openSkillsTab?.(),
     };
   }

@@ -3,17 +3,28 @@
 import {
   arrondiEntierPy,
   ErreurPython,
+  estErreurValeur,
+  existePy,
   floatPy,
   hostname,
+  lireTextePy,
   port,
+  pyJsonDumps,
+  pyJsonLoads,
   stripPy,
   strPy,
   urlsplit,
   veritePy,
 } from "@elpis/commun";
-import { configView, mettreAJourConfigJson } from "@elpis/config";
+import {
+  cheminCopieConfigJson,
+  config,
+  configView,
+  sousVerrouConfigJson,
+  writeConfigJson,
+  writeTextAtomic,
+} from "@elpis/config";
 
-import { SkinError } from "../apparence/skins";
 import { entierPy, estDict, lire, longueurPy, lowerPy } from "../python";
 import type { Dict } from "../python";
 
@@ -295,13 +306,27 @@ export function publicStatus(cfg: ConfigImage): Dict {
   };
 }
 
-/** Retire l'ancienne `image.api_key_enc` de config.json, sous son verrou et relu sur disque, une fois la clé dans le coffre ; un fichier illisible est refusé, jamais écrasé. */
-export async function retirerCleHeritee(): Promise<void> {
-  await mettreAJourConfigJson(
-    (cfg) => {
-      const section = lire(cfg, "image");
-      if (estDict(section)) delete section["api_key_enc"];
-    },
-    (message) => new SkinError(message),
+/** Retire l'ancienne `image.api_key_enc` de config.json et de sa copie config.json.bak (console, assistant), sous le verrou de config.json, une fois la clé dans le coffre ; rend les fichiers réécrits. */
+export async function retirerCleHeritee(): Promise<string[]> {
+  return sousVerrouConfigJson(() =>
+    [config.CONFIG_JSON_PATH, cheminCopieConfigJson()].filter((chemin) => retirerDe(chemin)),
   );
+}
+
+/** `image.api_key_enc` retirée d'un fichier de configuration relu sur disque (réécriture atomique, mode gardé) ; vrai s'il la portait ; illisible : laissé tel quel. */
+function retirerDe(chemin: string): boolean {
+  if (!existePy(chemin)) return false;
+  let d: unknown;
+  try {
+    d = pyJsonLoads(lireTextePy(chemin) || "{}");
+  } catch (e) {
+    if (estErreurValeur(e)) return false;
+    throw e;
+  }
+  const section = estDict(d) ? lire(d, "image") : null;
+  if (!estDict(d) || !estDict(section) || !Object.hasOwn(section, "api_key_enc")) return false;
+  delete section["api_key_enc"];
+  if (chemin === config.CONFIG_JSON_PATH) writeConfigJson(d);
+  else writeTextAtomic(chemin, pyJsonDumps(d, { ensureAscii: false, indent: 2 }));
+  return true;
 }

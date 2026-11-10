@@ -19,8 +19,6 @@ import {
   veritePy,
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { configView } from "@elpis/config";
-import { cleImagesHeritee } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import type { FastifyRequest } from "fastify";
 
@@ -156,9 +154,8 @@ async function modeles(data: Dict, base: Base): Promise<Dict> {
   }
 }
 
-/** Ancienne clé de config.json retirée une fois la nouvelle rangée, au mieux (le démarrage de main réessaie). */
+/** Ancienne clé retirée de config.json et de config.json.bak une fois la nouvelle rangée, au mieux (le démarrage de main réessaie). */
 async function retirerAncienne(): Promise<void> {
-  if (!cleImagesHeritee(configView())) return;
   try {
     await retirerCleHeritee();
   } catch (e) {

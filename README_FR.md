@@ -149,9 +149,9 @@ l'application :
   `npm ci` puis `npm run build` avec le npm de l'archive, retiré ensuite ;
 - `venv/` : l'environnement Python du RAG, du moteur Office et de la
   configuration (`requirements-rag.txt`) ;
-- le service navigateur (`browser-service/`, `npm ci` et Chromium par
-  Playwright), Qdrant (binaire officiel, somme vérifiée), l'image Docker de la
-  sandbox, puis la base de données et la configuration.
+- le service navigateur (`browser-service/`, `npm ci` et le headless shell de
+  Chromium par Playwright), Qdrant (binaire officiel, somme vérifiée),
+  l'image Docker de la sandbox, puis la base de données et la configuration.
 
 Une installation **en ligne** a besoin d'accéder à : nodejs.org (Node.js), au
 registre npm (dépendances du core, de l'interface et du navigateur), à PyPI

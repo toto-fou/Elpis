@@ -153,9 +153,10 @@ account:
   `npm ci` then `npm run build` using the archive's npm, removed afterwards;
 - `venv/`: the Python environment for the RAG, the Office engine and the
   configuration (`requirements-rag.txt`);
-- the browser service (`browser-service/`, `npm ci` and Chromium through
-  Playwright), Qdrant (official binary, checksum verified), the sandbox
-  Docker image, then the database and the configuration.
+- the browser service (`browser-service/`, `npm ci` and the Chromium
+  headless shell through Playwright), Qdrant (official binary, checksum
+  verified), the sandbox Docker image, then the database and the
+  configuration.
 
 An **online** installation needs access to: nodejs.org (Node.js), the npm
 registry (dependencies of the core, the interface and the browser), PyPI

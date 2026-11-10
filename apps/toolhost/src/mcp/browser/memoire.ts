@@ -17,7 +17,6 @@ import {
   searchNodes,
   selecteurInerte,
 } from "@elpis/navigateur";
-import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import { borne } from "./appel";
@@ -54,15 +53,11 @@ async function elementsDePage(ax: Base, site: string, chemin: string, limit: unk
 }
 
 /** Requête `op` sur la mémoire AX ; arguments manquants refusés avec leur message Python. */
-async function interroger(ax: Base, op: string, a: Dict, username: string): Promise<unknown> {
+async function interroger(ax: Base, op: string, a: Dict): Promise<unknown> {
   const site = a["site"] as string;
   if (op === "sites") {
-    // Sites et noms de connexion viennent des pages visitées : rendus inertes et bornés.
-    const sites = (await listSitesWithStats(ax, username || "")).map((r) => ({
-      ...r,
-      site: cheminInerte(r["site"]),
-      cred_username: r["cred_username"] === null ? null : nomInerte(r["cred_username"]),
-    }));
+    // Sites venus des pages visitées : rendus inertes et bornés ; les identifiants sont au coffre (bloc `<secrets>`), jamais ici.
+    const sites = (await listSitesWithStats(ax)).map((r) => ({ ...r, site: cheminInerte(r["site"]) }));
     return { op: "sites", count: sites.length, sites };
   }
   if (op === "path") {
@@ -112,8 +107,7 @@ async function interroger(ax: Base, op: string, a: Dict, username: string): Prom
 
 /** `pw_memory` : sans session ni service navigateur ; mémoire AX éteinte (base de l'hôte absente) = refus. */
 export function pwMemory(s: ServicesBrowser) {
-  return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
-    const username = getUsername(ctx);
+  return async (a: Dict, _ctx: ContexteAppel): Promise<unknown> => {
     const op = first(a["action"], a["op"]);
     if (!op)
       return errPw("action_required", "", {
@@ -127,7 +121,7 @@ export function pwMemory(s: ServicesBrowser) {
         "backend.ax_memory failed to import in this process — check server logs for [ax] lines",
       );
     try {
-      return await interroger(ax, op, a, username);
+      return await interroger(ax, op, a);
     } catch (e) {
       return errPw(`ax memory query failed: ${messageErreur(e)}`);
     }

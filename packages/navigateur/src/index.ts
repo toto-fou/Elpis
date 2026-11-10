@@ -34,6 +34,7 @@ export {
   markSiteStale,
   nomInerte,
   normalizeUrl,
+  origineExacte,
   renderFocusedDomForPrompt,
   renderFullDomForPrompt,
   renderSelector,
@@ -44,17 +45,15 @@ export {
   verrouAx,
   wipeAll,
 } from "./ax";
-export type { NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
+export type { IdentifiantSite, IdentifiantsDesSites, NoeudDom, PageDom, Selecteur, Suppressions } from "./ax";
 export {
   extractSelectorsFromKwargs,
   findPath,
-  getCredentials,
   inferRegion,
   isActionSuccess,
   nodeKey,
   recordAction,
   recordInspection,
-  saveCredentials,
   searchNodes,
 } from "./ax-actions";
 export type { Action } from "./ax-actions";

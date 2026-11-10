@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/secrets.ts — coffre « Secrets » : routes du compte (`/api/secrets*`, main), secrets attachés à une conversation (`/api/chats/:chat_id/secrets`), secrets d'instance de la console (`/api/admin/secrets*`, admin), résolution et recherche sans valeur pour l'hôte d'outils (`/api/internal/secrets/*`, jeton de service et enveloppe signée) ; une valeur ne sort que vers l'hôte d'outils. */
+/** apps/core/src/familles/secrets.ts — coffre « Secrets » : routes du compte (`/api/secrets*`, main), secrets attachés à une conversation (`/api/chats/:chat_id/secrets`), secrets d'instance de la console (`/api/admin/secrets*`, admin), résolution, recherche sans valeur et reprise des anciens identifiants AX pour l'hôte d'outils (`/api/internal/secrets/*`, jeton de service et enveloppe signée) ; une valeur ne sort que vers l'hôte d'outils. */
 import {
   schemaCorpsCreationSecret,
+  schemaCorpsImportAx,
   schemaCorpsMajSecret,
   schemaCorpsResolutionSecret,
   schemaCorpsRotationSecret,
@@ -19,6 +20,7 @@ import { ipDeRequete } from "../journal-securite/auditer";
 import type { DefinitionRoute, Famille, Traitement } from "../routes";
 import { conversationRacine, remplacerSecretsAttaches, secretsAttaches } from "../secrets/attache";
 import { ErreurSecret, refusDeCle } from "../secrets/erreurs";
+import { importerLignesAx } from "../secrets/import-ax";
 import {
   creerSecret,
   listerSecrets,
@@ -211,6 +213,18 @@ export function creerFamilleSecrets(dep: DependancesSecrets): Famille {
         return {
           secrets: await secretsApplicables(base, corps.origin, nom, contexteHote(uid, username, identite)),
         };
+      }),
+      route("POST", "/api/internal/secrets/import-ax", "service", async (req) => {
+        const { uid, username } = await compteSigne(dep, req);
+        const { rows } = corpsValide(req, schemaCorpsImportAx);
+        const results = await importerLignesAx(
+          base,
+          uid,
+          rows,
+          { userId: uid, username, ip: null },
+          "toolhost",
+        );
+        return { ok: true, results };
       }),
     ],
   };

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/contracts/src/rest/secrets.ts — coffre « Secrets » : genres, portées, politique, vue publique (jamais de valeur), corps des routes du compte et de la console, secrets attachés à une conversation, résolution et recherche pour l'hôte d'outils. */
+/** packages/contracts/src/rest/secrets.ts — coffre « Secrets » : genres, portées, politique, vue publique (jamais de valeur), corps des routes du compte et de la console, secrets attachés à une conversation, résolution, recherche et reprise des anciens identifiants AX pour l'hôte d'outils. */
 import { z } from "zod";
 
 import { dictionnaire, entier, horodatage } from "./commun";
@@ -182,3 +182,31 @@ export const schemaSecretApplicable = z.object({
 });
 export type SecretApplicable = z.infer<typeof schemaSecretApplicable>;
 export const schemaReponseSecretsApplicables = z.object({ secrets: z.array(schemaSecretApplicable) });
+
+/** Lignes d'`ax_credentials` reprises en un appel, au plus. */
+export const IMPORT_AX_MAX = 500;
+/** Ligne d'`ax_credentials` remise par l'hôte d'outils pour le compte de l'enveloppe, mot de passe déchiffré (jamais rendu). */
+export const schemaLigneAx = z.strictObject({
+  site: z.string().min(1).max(2048),
+  username: z.string().max(256),
+  password: z.string().max(VALEUR_SECRET_MAX),
+  last_ok: z.number().nullable().optional(),
+  use_count: entier.min(0).optional(),
+});
+export type LigneAx = z.infer<typeof schemaLigneAx>;
+export const schemaCorpsImportAx = z.strictObject({ rows: z.array(schemaLigneAx).max(IMPORT_AX_MAX) });
+/** `imported` : secret `http-auth` créé (`unverified`) ; `exists` : même origine et même identifiant déjà au coffre ; `skipped` : jamais importable (clé sans origine, valeur vide) ; `failed` : à reprendre plus tard (limite du compte). */
+export const ISSUES_IMPORT_AX = ["imported", "exists", "skipped", "failed"] as const;
+export type IssueImportAx = (typeof ISSUES_IMPORT_AX)[number];
+export const schemaResultatImportAx = z.object({
+  site: z.string(),
+  status: z.enum(ISSUES_IMPORT_AX),
+  reason: z.string().optional(),
+  name: z.string().optional(),
+});
+export type ResultatImportAx = z.infer<typeof schemaResultatImportAx>;
+/** Une issue par ligne reçue, dans le même ordre. */
+export const schemaReponseImportAx = z.object({
+  ok: z.literal(true),
+  results: z.array(schemaResultatImportAx),
+});

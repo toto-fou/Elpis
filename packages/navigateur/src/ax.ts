@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques et purges (port de shared_infra/memory/ax/). */
+/** packages/navigateur/src/ax.ts — mémoire AX des sites vue par les routes : URL normalisées, arbre DOM, rendu ASCII, statistiques (identifiants fournis par l'appelant, depuis le coffre) et purges, anciens identifiants `ax_credentials` compris (port de shared_infra/memory/ax/). */
 import {
   BLANC_PY,
   comparePointsDeCode,
@@ -145,24 +145,16 @@ const cleAvecOrigine = (cle: unknown): boolean => String(cle).includes("://");
 const siteDeCle = (cle: unknown): string =>
   cleAvecOrigine(cle) ? normalizeUrl(String(cle))[0] : String(cle);
 
-/** Lignes d'un compte rattachées à un site AX : origines exactes d'abord, puis les plus récentes. */
-async function identifiantsDuSite(
-  x: Executeur,
-  site: string,
-  proprietaire: string,
-): Promise<Record<string, unknown>[]> {
-  const lignes = await x.all(
-    "SELECT site, username, use_count, last_ok FROM ax_credentials WHERE owner = ?",
-    [proprietaire],
-  );
-  return lignes
-    .filter((r) => siteDeCle(r["site"]) === site)
-    .sort(
-      (a, b) =>
-        Number(cleAvecOrigine(b["site"])) - Number(cleAvecOrigine(a["site"])) ||
-        Number(b["last_ok"] ?? 0) - Number(a["last_ok"] ?? 0),
-    );
+/** Identifiant d'un site montré par la console : nom de connexion, origine exacte, usages ; jamais de valeur. */
+export interface IdentifiantSite {
+  readonly username: string | null;
+  readonly origin: string;
+  readonly use_count: number;
+  readonly last_ok: number | null;
 }
+
+/** Identifiant connu d'un site AX (secret du coffre du compte qui consulte), `undefined` sinon. */
+export type IdentifiantsDesSites = (site: string) => IdentifiantSite | undefined;
 
 /** Identifiants rattachés à un site AX retirés (d'un compte, ou de tous) ; nombre de lignes retirées. */
 async function retirerIdentifiantsDuSite(
@@ -431,30 +423,12 @@ function rendreSousArbre(noeud: NoeudDom, lignes: string[], dernier: boolean, pr
   });
 }
 
-/** `_render_credentials_hint` : nom de connexion du propriétaire et origine où il sera rempli, jamais le mot de passe ; rien sans propriétaire ni pour une ancienne clé. */
-async function indiceIdentifiants(x: Executeur, site: string, proprietaire: string): Promise<string | null> {
-  if (!site || !proprietaire) return null;
-  try {
-    const lignes = (await identifiantsDuSite(x, site, proprietaire)).filter((r) => cleAvecOrigine(r["site"]));
-    if (lignes.length === 0) return null;
-    return lignes
-      .slice(0, 3)
-      .map(
-        (r) =>
-          `CREDENTIALS KNOWN: user=${nomInerte(r["username"])} on ${cheminInerte(r["site"])} (used ${String(r["use_count"])}x, auto-injected by pw_session on that exact origin only)`,
-      )
-      .join("\n");
-  } catch {
-    return null;
-  }
-}
-
-/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars`. */
+/** `render_full_dom_for_prompt` : arbre DOM de toutes les pages connues (non périmées), tronqué à `maxChars` ; plus d'indice d'identifiants (le coffre les annonce par le bloc `<secrets>`). */
 export async function renderFullDomForPrompt(
   x: Executeur,
   site: string,
   maxChars = 6000,
-  proprietaire = "",
+  _proprietaire = "",
 ): Promise<string> {
   if (!site) return "";
   const dom = await loadDomTree(x, site);
@@ -465,10 +439,8 @@ export async function renderFullDomForPrompt(
   const lignes = [
     `KNOWN UI: ${cheminInerte(site)}`,
     `(${elements} elements across ${dom.size} paths, full DOM hierarchy)`,
+    "",
   ];
-  const indice = await indiceIdentifiants(x, site, proprietaire);
-  if (indice) lignes.push(indice);
-  lignes.push("");
   for (const chemin of cheminsTries(dom.keys())) {
     const racines = dom.get(chemin)?.roots ?? [];
     if (racines.length === 0) continue;
@@ -585,10 +557,8 @@ export async function renderFocusedDomForPrompt(
   const lignes = [
     `KNOWN UI: ${cheminInerte(site)}`,
     `FOCUSED ON: [${cheminInerte(currentPath)}] ${libelleElement(courant)}`,
+    "",
   ];
-  const indice = await indiceIdentifiants(x, site, options.owner ?? "");
-  if (indice) lignes.push(indice);
-  lignes.push("");
   const ancetres: NoeudDom[] = [];
   for (let n = courant; ancetres.length < 2;) {
     const parent = n.parent_id === null ? undefined : byId.get(n.parent_id);
@@ -661,10 +631,10 @@ function reel(v: unknown): FlottantPy | null {
   return v === null || v === undefined ? null : new FlottantPy(Number(v));
 }
 
-/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants du seul propriétaire, aucun sans propriétaire. */
+/** `list_sites_with_stats` : sites connus et leurs compteurs ; identifiants donnés par l'appelant (coffre du compte qui consulte), aucun sans lui. */
 export async function listSitesWithStats(
   x: Executeur,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown>[]> {
   try {
     const lignes = await x.all(
@@ -681,7 +651,7 @@ export async function listSitesWithStats(
     for (const r of lignes) {
       const site = r["site"] as string;
       const trans = await x.get("SELECT COUNT(*) AS n FROM ax_transitions WHERE site = ?", [site]);
-      const cred = proprietaire ? (await identifiantsDuSite(x, site, proprietaire))[0] : undefined;
+      const cred = identifiants?.(site);
       out.push({
         site,
         elements: r["elements"] || 0,
@@ -689,9 +659,9 @@ export async function listSitesWithStats(
         paths: r["paths"] || 0,
         transitions: trans ? trans["n"] : 0,
         has_credentials: cred !== undefined,
-        cred_username: cred ? cred["username"] : null,
-        cred_origin: cred && cleAvecOrigine(cred["site"]) ? cred["site"] : null,
-        cred_use_count: cred ? cred["use_count"] : 0,
+        cred_username: cred ? cred.username : null,
+        cred_origin: cred ? cred.origin : null,
+        cred_use_count: cred ? cred.use_count : 0,
         last_activity: reel(r["last_activity"]),
       });
     }
@@ -702,11 +672,11 @@ export async function listSitesWithStats(
   }
 }
 
-/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants du seul propriétaire. */
+/** `get_site_stats` : compteurs détaillés d'un site, `null` s'il n'a aucun nœud ; identifiants donnés par l'appelant (coffre du compte qui consulte). */
 export async function getSiteStats(
   x: Executeur,
   site: string,
-  proprietaire = "",
+  identifiants: IdentifiantsDesSites | null = null,
 ): Promise<Record<string, unknown> | null> {
   if (!site) return null;
   try {
@@ -730,7 +700,7 @@ export async function getSiteStats(
       "SELECT COUNT(*) AS n FROM ax_selectors s JOIN ax_nodes n ON s.node_id = n.id WHERE n.site = ?",
       [site],
     );
-    const cred = proprietaire ? (await identifiantsDuSite(x, site, proprietaire))[0] : undefined;
+    const cred = identifiants?.(site);
     return {
       site,
       elements_ok: agg["elements_ok"] || 0,
@@ -742,10 +712,10 @@ export async function getSiteStats(
       first_activity: reel(agg["first_activity"]),
       last_activity: reel(agg["last_activity"]),
       has_credentials: cred !== undefined,
-      cred_username: cred ? cred["username"] : null,
-      cred_origin: cred && cleAvecOrigine(cred["site"]) ? cred["site"] : null,
-      cred_use_count: cred ? cred["use_count"] : 0,
-      cred_last_ok: cred ? reel(cred["last_ok"]) : null,
+      cred_username: cred ? cred.username : null,
+      cred_origin: cred ? cred.origin : null,
+      cred_use_count: cred ? cred.use_count : 0,
+      cred_last_ok: cred ? reel(cred.last_ok) : null,
     };
   } catch (e) {
     log().warn(`[ax] get_site_stats failed: ${texte(e)}`);

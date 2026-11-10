@@ -19,6 +19,7 @@ import type { Famille } from "./app";
 import { BAC_DU_COMPTE, creerFamilleApercuFichiers } from "./apercu-fichiers";
 import type { BacDuCompte } from "./apercu-fichiers";
 import { creerFamilleBac } from "./bac/famille";
+import { baseHote } from "./base-hote";
 import { installerInvalidationUsage } from "./bac/instantanes";
 import { creerFamilleCaptures } from "./captures";
 import { creerFamilleTrames } from "./trames";
@@ -31,6 +32,7 @@ import { boucleBalayage } from "./fichiers/entretien";
 import { installerMetrique } from "./fichiers/ecriture";
 import { creerFamilleFichiers } from "./fichiers/famille";
 import { metriqueHote } from "./fichiers/metrique";
+import { boucleRepriseAx } from "./import-ax";
 import type { Journal } from "./journal";
 import { creerFamilleMandataireApercu } from "./mandataire-apercu";
 import type { CommandeStdio } from "./manifeste";
@@ -153,6 +155,11 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     cycle.auDemarrage("balayage des envois abandonnés", () => boucleBalayage(o.journal, cycle.signalArret), {
       arrierePlan: true,
     });
+    cycle.auDemarrage(
+      "reprise des anciens identifiants AX dans le coffre",
+      () => boucleRepriseAx(baseHote, rappel, o.journal, cycle.signalArret),
+      { arrierePlan: true },
+    );
     cycle.alArret("threads de calcul (remplacements, .docx)", arreterFilsCalcul);
     cycle.alArret("conversions Office", arreterOffice);
     cycle.alArret("worker Office", arreterWorkerOffice);

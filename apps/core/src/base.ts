@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage. */
+/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage (migrations du core comprises). */
 import { config } from "@elpis/config";
 import {
   creerGardeGeneration,
@@ -12,6 +12,10 @@ import type { Base, RapportInit } from "@elpis/db";
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
+import { compacterApresReprise, MIGRATION_AX, migrationAxCredentials } from "./secrets/import-ax";
+
+/** Migrations numérotées propres au core (jamais jouées par l'hôte d'outils sur sa base). */
+export const MIGRATIONS_CORE = [migrationAxCredentials] as const;
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -38,13 +42,18 @@ export function nettoyerAuDemarrage(b: Base): Promise<boolean> {
   return nettoyerSousVerrou(b, nettoyer, journal);
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage par main seulement. */
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage par main seulement ; après la reprise des anciens identifiants AX, le fichier est compacté. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
     ...(mode === "main" ? { apres: nettoyerAuDemarrage } : {}),
     journal,
+    migrations: MIGRATIONS_CORE,
   });
   courante = nouvelle;
+  if (rapport.appliquees.includes(MIGRATION_AX))
+    await compacterApresReprise(nouvelle).catch((e: unknown) =>
+      journal("db").warn(`VACUUM après la reprise des identifiants AX impossible : ${String(e)}`),
+    );
   return rapport;
 }

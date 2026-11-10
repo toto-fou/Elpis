@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception ; secrets du coffre (résolution, recherche) jamais gardés ni journalisés. */
+/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception ; secrets du coffre (résolution, recherche, reprise AX) jamais gardés ni journalisés. */
 import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
@@ -18,6 +18,8 @@ export const TTL_NEGATIF_MS = 5_000;
 export const DELAI_MS = 4_000;
 /** Ouverture d'une PR par le core : deux appels à l'API du fournisseur (existante, création). */
 const DELAI_PR_MS = 60_000;
+/** Reprise des anciens identifiants AX : un compte par appel, chiffrement de chaque ligne au core. */
+const DELAI_IMPORT_MS = 30_000;
 const CACHE_MAX = 1024;
 
 export interface JetonIntrospecte {
@@ -466,6 +468,50 @@ export class ClientRappel {
     });
   }
 
+  /** `POST /api/internal/secrets/import-ax` pour `compte` : une issue par ligne (`imported`, `exists`, `skipped`, `failed`) ; `null` : non acquitté. */
+  async importerAx(compte: CompteSigne, lignes: readonly LigneAxRemise[]): Promise<IssueAx[] | null> {
+    const r = await this.echanger(
+      "/api/internal/secrets/import-ax",
+      { rows: lignes.map((l) => ({ ...l })) },
+      { ...compte, chat_id: "" },
+      DELAI_IMPORT_MS,
+    );
+    const res = r?.statut === 200 ? r.donnees["results"] : null;
+    if (!Array.isArray(res) || res.length !== lignes.length) return null;
+    return res.map((x) => {
+      const d = estDict(x) ? x : {};
+      return {
+        status: strPy(d["status"] ?? "failed"),
+        reason: strPy(d["reason"] ?? ""),
+        name: strPy(d["name"] ?? ""),
+      };
+    });
+  }
+
+  /** Compte d'un nom (`/api/internal/identity`) : connu, inconnu du core, ou core injoignable ; jamais gardé en cache. */
+  async compteParNom(
+    username: string,
+  ): Promise<{ etat: "connu"; compte: CompteSigne } | { etat: "inconnu" } | { etat: "injoignable" }> {
+    const statut = { code: 0 };
+    const d = await this.appeler(
+      "GET",
+      "/api/internal/identity",
+      { username },
+      undefined,
+      undefined,
+      this.delaiMs,
+      statut,
+      false,
+    );
+    if (d === null) return statut.code === 400 ? { etat: "inconnu" } : { etat: "injoignable" };
+    if (!veritePy(getPy(d, "ok"))) return { etat: "inconnu" };
+    const id = getPy(d, "user_id");
+    const nom = getPy(d, "username");
+    return typeof id === "number" && id > 0 && typeof nom === "string" && nom
+      ? { etat: "connu", compte: { user_id: id, username: nom } }
+      : { etat: "injoignable" };
+  }
+
   /** Ancre épinglée `{auto_id, role, center}` de `compte` pour (cible, requête), `null` sinon ; jamais gardée en cache. */
   async ancre(compte: CompteSigne, cible: string, requete: string): Promise<Dict | null> {
     const d = await this.appeler(
@@ -522,6 +568,20 @@ export interface SecretApplicable {
   readonly kind: "web-login" | "http-auth";
   readonly username: string | null;
   readonly tls: "strict" | "insecure";
+}
+
+/** Ligne d'`ax_credentials` remise au core, mot de passe déchiffré. */
+export interface LigneAxRemise {
+  readonly site: string;
+  readonly username: string;
+  readonly password: string;
+}
+
+/** Issue d'une ligne reprise par le core. */
+export interface IssueAx {
+  readonly status: string;
+  readonly reason: string;
+  readonly name: string;
 }
 
 /** `d[cle]` : une clé absente lève (KeyError). */

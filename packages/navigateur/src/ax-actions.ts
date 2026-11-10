@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/ax-actions.ts — mémoire AX écrite par les outils pw_* (port de shared_infra/memory/ax/actions.py, selectors.py, credentials.py, tree.search_nodes, transitions.find_path). */
-import { BLANC_PY, estDict, intPy, lowerPy, prefixePy, stripPy, strPy, veritePy } from "@elpis/commun";
+/** packages/navigateur/src/ax-actions.ts — mémoire AX écrite par les outils pw_* (port de shared_infra/memory/ax/actions.py, selectors.py, tree.search_nodes, transitions.find_path) ; plus aucun identifiant de site (coffre « Secrets »). */
+import { BLANC_PY, estDict, intPy, lowerPy, prefixePy, stripPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { ciLike } from "@elpis/db";
 import type { Base, Executeur } from "@elpis/db";
-import { decrypt, encrypt, EncryptionUnavailable, estJetonFernet } from "@elpis/securite";
 
-import { log, normalizeUrl, origineExacte, texte, topSelecteurs, verrouAx } from "./ax";
+import { log, normalizeUrl, texte, topSelecteurs, verrouAx } from "./ax";
 import type { Selecteur } from "./ax";
 import { echapperDsl } from "./client";
 
@@ -274,60 +273,6 @@ export async function recordInspection(
   } catch (e) {
     log().warn(`[ax] record_inspection failed: ${texte(e)}`);
     return rien;
-  }
-}
-
-/** `save_credentials` : couple du compte pour l'origine exacte de l'URL (un seul, remplacé), mot de passe chiffré ; propriétaire vide ou adresse sans origine http(s) : refus ; `EncryptionUnavailable` propagée : jamais de stockage en clair. */
-export async function saveCredentials(
-  b: Base,
-  url: string,
-  username: string,
-  password: string,
-  owner: string,
-): Promise<boolean> {
-  if (!url || !username || !password || !owner) return false;
-  const site = origineExacte(url);
-  if (!site) return false;
-  try {
-    const chiffre = encrypt(password);
-    await verrouAx.avec(() =>
-      b.run(
-        "INSERT INTO ax_credentials (owner, site, username, password, last_ok, use_count) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(owner, site) DO UPDATE SET username = excluded.username, password = excluded.password, last_ok = excluded.last_ok, use_count = ax_credentials.use_count + 1",
-        [owner, site, username, chiffre, Date.now() / 1000],
-      ),
-    );
-    log().info(`[ax] creds saved for owner=${owner} site=${site} user=${username}`);
-    return true;
-  } catch (e) {
-    log().warn(`[ax] save_credentials failed: ${texte(e)}`);
-    if (e instanceof EncryptionUnavailable) throw e;
-    return false;
-  }
-}
-
-/** `get_credentials` : couple de CE compte pour l'origine exacte de l'URL, mot de passe déchiffré (une ligne en clair d'avant le chiffrement passe telle quelle), `null` sinon (jamais celui d'un autre, ni une ancienne clé sans origine, ni un jeton indéchiffrable). */
-export async function getCredentials(x: Executeur, url: string, owner: string): Promise<Dict | null> {
-  if (!url || !owner) return null;
-  const site = origineExacte(url);
-  if (!site) return null;
-  try {
-    const r = await x.get(
-      "SELECT username, password, use_count, last_ok FROM ax_credentials WHERE site = ? AND owner = ?",
-      [site, owner],
-    );
-    if (!r) return null;
-    const stocke = strPy(r["password"]);
-    const password = estJetonFernet(stocke) ? decrypt(stocke) : stocke;
-    if (!password) {
-      log().warn(
-        `[ax] saved password unusable for owner=${owner} site=${site}: encryption key changed or missing`,
-      );
-      return null;
-    }
-    return { username: r["username"], password, use_count: r["use_count"], last_ok: r["last_ok"] };
-  } catch (e) {
-    log().warn(`[ax] get_credentials failed: ${texte(e)}`);
-    return null;
   }
 }
 

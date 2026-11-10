@@ -310,6 +310,11 @@ follow [SemVer](https://semver.org/).
   service only accepts direct local calls, remote ones included in the refusal; a token file it
   cannot read makes it refuse every call (503) instead of opening up. `./elpis doctor` reports a
   missing token and a service that answers without it.
+- **Browser: password values never returned.** `pw_page` info, inspect, observe, annotated
+  screenshots, `pw_expect` and `pw_wait` no longer return the value of a password field,
+  whether read from the field or from its `value` attribute; `value-equals`, `attr-equals` and
+  `attribute_changes` still compare it. Only `type=password` fields are covered: a field shown
+  as text by a "show password" toggle is not.
 
 ## 0.1.2 — 2026-11-01
 

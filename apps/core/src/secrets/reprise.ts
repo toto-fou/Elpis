@@ -21,8 +21,8 @@ import { maintenant } from "./stockage";
 
 const MIGRATION = "0028_vault_llm_images";
 
-/** Clé pour chiffrer, comme `creerSecret` : la courante ; à défaut, la clé de repli posée seulement sur un coffre vide, sinon `CleCoffreIndisponible`. */
-async function cleDeReprise(x: Executeur): Promise<CleCoffre> {
+/** Clé pour chiffrer hors de `creerSecret` (reprise, assistant), même règle : la courante ; à défaut, la clé de repli posée seulement sur un coffre vide, sinon `CleCoffreIndisponible` avec sa cause. */
+export async function clePourChiffrer(x: Executeur): Promise<CleCoffre> {
   const cle = cleCoffre();
   if (cle !== null) return cle;
   const n = await x.get<{ n: number }>("SELECT COUNT(*) AS n FROM vault_secrets");
@@ -45,7 +45,11 @@ export async function insererSecretRepris(x: Executeur, s: SecretARanger): Promi
     version: 1,
     username: null,
   };
-  const enc = chiffrerSecret(s.valeur, aadSecret(s.proprietaire, s.genre, nom, liees), await cleDeReprise(x));
+  const enc = chiffrerSecret(
+    s.valeur,
+    aadSecret(s.proprietaire, s.genre, nom, liees),
+    await clePourChiffrer(x),
+  );
   const t = maintenant();
   return x.insertId(
     "INSERT INTO vault_secrets (user_id, kind, name, scope_json, username, secret_enc, kid, version, state, " +

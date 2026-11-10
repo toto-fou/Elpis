@@ -878,6 +878,21 @@ Variables read by the services and by `./elpis audit`; the units set the first t
 | `ELPIS_GROUPE_CLE` | `elpis-cle` | Group of the signing key when the service account's primary group is not its own (`audit setup`) |
 | `ELPIS_USER` | — | Service account for `audit setup`, `service install` and `./install.sh` run as root; see [Production mode](#production-mode-systemd) |
 
+#### Secrets vault
+
+Key of the secrets vault (AES-256-GCM), read by `main`, `admin` and `./elpis vault` the first time
+a secret is encrypted or decrypted; restart the services after changing it. The first source found
+wins; setup, backup and key change are in [operations.md](operations.md#secrets-vault-key).
+
+| Variable | Default | Description |
+|---|---|---|
+| `ELPIS_VAULT_KEY` | — | The key itself: 32 bytes in base64 (or 64 hexadecimal digits). An invalid value is refused, with no fallback |
+| `ELPIS_VAULT_KEY_PATH` | `/etc/elpis/vault.key` | Key file, same format, created by `sudo ./elpis vault setup` (0440, root and the key group of the security journal). A path set here must exist: no fallback |
+| — | `user_db/.vault.key` | Fallback when neither is set and `/etc/elpis/vault.key` does not exist: created 0600 next to the database when the first secret is saved. It travels with the backups of `user_db/`, so `./elpis doctor` warns while it is in use |
+
+A key file that exists but cannot be read (permissions) or does not hold a valid key is an error:
+the vault never falls back to another key, since secrets encrypted with it could not be read later.
+
 #### Local MCP server
 
 **`mcp.json` manifest.** The default tool servers are

@@ -449,11 +449,12 @@ NULL = built-in), `system_prompt`, `task_prompt`, `mcp_snapshot`,
   shares, sandbox, container, connectors, routines, notifications, memory,
   generated images (rows and files).
 - **Secrets encrypted at rest** (Fernet, `@elpis/securite`) for the
-  API keys of LLM connectors and of the image engine, for shared MCP auth secrets and for the site
-  passwords of the AX memory (`ax_credentials`, encrypted and decrypted by the tool host only, when
-  `pw_session` starts). The functions
+  API keys of LLM connectors and of the image engine and for shared MCP auth secrets. The functions
   exposed to routes never return the secret — only `has_key` /
-  `has_auth`. Only the host-side resolvers read the decrypted value.
+  `has_auth`. Only the host-side resolvers read the decrypted value. Website logins and HTTP
+  authentication live in the [secrets vault](#secrets-vault); the former site passwords of the AX
+  memory (`ax_credentials`) are imported into it as unverified secrets and the table is emptied
+  ([Imported AX credentials](#imported-ax-credentials)).
 
 ---
 
@@ -2771,7 +2772,7 @@ sent to the engine stay as it emitted them.
 | `fs` (tool host) | `fs` | `read_file`, `write_file`, `edit_file`, `list_files`, `manage_files`, `code` |
 | `shell` (tool host) | `shell` | `execute_shell` |
 | `git` (tool host) | `git` | `git_query`, `git_write`, `git_action`, `git_rf`, `git_inspect`, `git_start_work`, `git_commit`, `git_submit`, `git_abandon`, `git_clone`, `git_set_credential` |
-| `browser` (tool host) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
+| `browser` (tool host) | `browser` | `pw_session`, `pw_find`, `pw_act`, `pw_page`, `pw_wait`, `pw_expect`, `pw_chain`, `pw_login`, `pw_mock`, `pw_recorder`, `pw_observe`, `pw_a11y`, `pw_visual`, `pw_memory` |
 | `desktop` (tool host) | `desktop` | `desktop_session`, `desktop_observe`, `desktop_read`, `desktop_clipboard`, `desktop_act`, `desktop_wait`, `desktop_launch`, `desktop_shell`, `desktop_windows`, `desktop_focus` (+ `desktop_screenshot`/`_inspect` opt-in) |
 | `chart` (main) | `chart` | one tool per type: `chart_bar`, `chart_line`, `chart_heatmap`, `chart_sankey`, `chart_gantt`… `chart_table` (30) |
 | `office` (Python worker) | `office` | `docx_create`, `docx_read`, `docx_edit`, `pptx_create`, `pptx_read`, `pptx_edit`, `office_export` |
@@ -2950,9 +2951,26 @@ therefore removes every way to read a typed value back.
   answers 409 `secret_in_page`; screenshots are refused while it is visible; every JSON response,
   console line, dialog message and network-log URL is purged of it and its encoded forms (also
   when cut at a string boundary); request bodies are not logged.
+- **Through the tools**: no `pw_*` tool accepts a username or a password, and only the Elpis
+  application (service token, `trusted_meta`) can use secrets; an external MCP client gets
+  `secret_not_attached`. `pw_session(action="start", url, secret?)` asks the core which secrets
+  attached to the conversation cover the URL's origin (`POST /api/internal/secrets/match`, no value):
+  none gives an ordinary session; one, or the one named by `secret=`, a secure session with the
+  secret's `tls`; several without `secret=` give `secret_ambiguous`. For an `http-auth` secret the
+  tool host resolves the value (`/api/internal/secrets/resolve`, usage `http-auth`) and passes
+  `credentials_origin`, `username` and `password` to `/start`; the answer carries the secret's name
+  (`secret`). `pw_login` (`session_id`, optional `secret`, `username_target`, `password_target`,
+  `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin of the frame that
+  holds the fields; only then is the `web-login` secret resolved for that origin (by name, or the
+  single attached one), and `/login` receives the values with `secret_origin` (HTTP timeout 75 s,
+  above the service's 62 s ceiling). The result is the service's purged answer plus the secret's
+  name and a lite view of the page (`page_after`), never a value. A page that answers 401 carries an
+  `auth_hint` that asks for a secret attached with `/secret attach <name>`.
 - **Limits**: a script on the secret's own origin receives the password, as when a person types
-  it. With strict TLS and an internal CA, the CA must be trusted by Chromium (NSS) and by Node
-  (`NODE_EXTRA_CA_CERTS`), because the guarded POST is replayed from Node (`route.fetch`).
+  it. With strict TLS and an internal CA, the CA must be trusted by Chromium (NSS) and by Node,
+  because the guarded POST is replayed from Node (`route.fetch`): `./elpis` starts the service with
+  `--use-system-ca`, so a CA installed in the system store is enough (`NODE_EXTRA_CA_CERTS` still
+  adds one).
 
 ### Screen control (`desktop`)
 
@@ -3461,25 +3479,78 @@ vault_secrets
 |---|---|---|
 | `GET /api/secrets` · `POST /api/secrets` · `PUT /api/secrets/:secret_id` · `POST /api/secrets/:secret_id/rotate` · `POST /api/secrets/:secret_id/verify` · `DELETE /api/secrets/:secret_id` | main, session | The account's secrets |
 | `GET /api/admin/secrets` · `POST /api/admin/secrets/:secret_id/rotate` · `DELETE /api/admin/secrets/:secret_id` | admin, admin | Instance secrets (created by the connector forms) |
+| `GET /api/chats/:chat_id/secrets` · `PUT /api/chats/:chat_id/secrets` | main, session | Secrets attached to a conversation (below) |
 | `POST /api/internal/secrets/resolve` | main, service token and signed identity (`X-Elpis-Identity`) | Value for the tool host |
+| `POST /api/internal/secrets/match` | main, service token and signed identity | Attached secrets that cover an origin, without value (`pw_session`) |
+| `POST /api/internal/secrets/import-ax` | main, service token and signed identity | The tool host's former AX credentials of one account |
 
 Responses carry metadata only (`schemaSecret`: scope, user name, state, version, policy, uses,
 `key_current` when the ciphertext uses the current key), never the value or its ciphertext.
 Errors are `{detail, code}`, `detail` in English.
 
 **Resolution.** Body `{usage: "web-login" | "http-auth", name?, origin, chat_id?, run?}`. The
-account and the conversation come from the signed identity; a `chat_id` in the body must match it.
-By name, the secret must exist (`secret_unknown`), be attached to the conversation
-(`secret_not_attached`; a sub-agent only when the policy allows it), be of the kind asked
-(`secret_type_mismatch`), be verified (`secret_unverified`) and cover the origin
+account, the conversation and the sub-agent come from the signed identity only: the tool host signs
+the `chat_id` of the tool call (`root#task-<id>` for a sub-agent) and its `subagent`; a `chat_id` in
+the body is optional and must equal the signed one (`secret_request_invalid`). The conversation must
+be a chat of that account, or a running routine run of it (`routine:<id>:run:<n>`, table
+`editor_routine_runs`), with an optional `#task-<id>` suffix; otherwise, or without a signed
+conversation, every secret is refused (`secret_not_attached`). The sub-agent marker is the
+envelope's `subagent` or the `#task-` suffix; the routine marker comes from the run key. By name, the
+secret must exist (`secret_unknown`), be attached to the conversation (`secret_not_attached`; a
+sub-agent only when `policy.subagents`, a routine run only when `policy.routines`), be of the kind
+asked (`secret_type_mismatch`), be verified (`secret_unverified`) and cover the origin
 (`secret_scope_mismatch`). Without a name, the single attached and verified secret of that kind
 whose scope covers the origin is used (`secret_ambiguous` when there are several). The answer is
 `{name, username, secret, tls, version}` with `Cache-Control: no-store`; `use_count` and
 `last_used_at` are updated and `vault.secret.used` is written, a refusal writes
 `vault.secret.refused` ([audit-events.md](audit-events.md#secrets-vault)). A ciphertext of another
-key gives `secret_undecryptable`, a missing key `secret_key_unavailable`. Attachment to a
-conversation is a hook (`estAttache` in `apps/core/src/secrets/usage.ts`) that accepts every secret
-until conversations can attach them.
+key gives `secret_undecryptable`, a missing key `secret_key_unavailable`. `lireSecretPourUsage`
+takes an explicit `exigeAttachement`: `true` for the tool host's calls, `false` for the core's own
+connector readers (Git, LLM, MCP, image engine), which have no conversation.
+`POST /api/internal/secrets/match` (`{origin, name?}` → `{secrets: [{name, kind, username, tls}]}`)
+applies the same checks without a value, a use count or a journal line.
+
+**Attachment to a conversation.** The user attaches `web-login` and `http-auth` secrets to a
+conversation (`/secret attach <name>`); the ids are stored on the root conversation,
+`chats.meta_json.secrets` (10 at most), and every sub-agent of it (`root#task-…`) inherits them when
+the secret's policy allows sub-agents. A routine run has no conversation: there a secret applies only
+when its policy allows routines. Two ways to change the set, both from the composer:
+
+- the body of a chat turn (`POST /api/chat-saved-stream3`) carries `secrets: [ids]`, which replaces
+  the set at turn **preparation**, before any tool runs (a new chat is created blank first); ids that
+  are not the account's attachable secrets are dropped;
+- `PUT /api/chats/:chat_id/secrets` `{ids}` replaces it at once and refuses an id that is unknown or of
+  another account (404 `secret_unknown`), of another kind (`secret_type_mismatch`) or unverified
+  (`secret_unverified`); `GET` returns `{secrets: [Secret]}` (metadata, attachment order), as `PUT`
+  does; an unknown chat gives 404.
+
+Each change writes `vault.secret.attached` or `vault.secret.detached`. The model learns the set from a
+`<secrets selection="…">` block joined to the question of the turn (never to the system prompt),
+like the RAG announcement (`apps/core/src/secrets/annonce.ts`): one line per secret
+(`- <name>  <kind>  <origins>  user=<username>`, `(not for sub-agents)` when the policy says so),
+"Values are never shown to you", and how to use them (`pw_session` on a matching origin, then
+`pw_login(secret=…)`). It is sent only when what the model sees changes (fingerprint of the lines),
+redone when compaction summarised it, stored in `llm_user_suffixes` and replayed as is; emptying the
+set sends a `selection="none"` block once. The system head and the history stay byte-identical.
+
+<a id="imported-ax-credentials"></a>
+**Imported AX credentials.** `pw_session` no longer remembers or injects HTTP credentials. Rows of
+the former `ax_credentials` table become `http-auth` secrets in state `unverified`, scope
+`{origins: [site]}`, named after the host (`intranet.lan-8443`, `-2`… when taken), user name kept,
+`meta {source: "ax_credentials"}`; a row whose key has no scheme (an old site key, origin unknown)
+is skipped and listed, a row that matches an `http-auth` secret of the same origin and user name is
+`exists`. The core imports the rows of its own database in the numbered migration
+`0030_vault_ax_credentials` (owner found by user name, or by its canonical form; Fernet rows
+decrypted with the core's key, kept while the key is missing; rows of a deleted account or that no
+longer decrypt are removed and listed), then runs `VACUUM`. The tool host (local or remote) imports
+the rows of its own database at startup: it decrypts them with its Fernet key, sends them account by
+account to `POST /api/internal/secrets/import-ax` (signed identity of that account,
+`{rows: [{site, username, password}]}` → one `{site, status: imported | exists | skipped | failed,
+reason?, name?}` per row), deletes every acknowledged row that did not fail, runs `VACUUM`, and
+retries while the core does not answer. `vault.secret.created` is written for each secret and a
+summary `vault.ax.imported` for each account. The console's AX pages (`/api/ax/sites`) show
+`has_credentials`, `cred_username`, `cred_origin`, `cred_use_count` and `cred_last_ok` from the
+session account's own vault secrets.
 
 Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_invalid`,
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
@@ -3508,7 +3579,7 @@ they move to the vault.
 | **Revocation** | `revoked_sessions` + `security.session.global_min_ts` | Logout really revokes server-side |
 | **Anti-fixation** | `apps/core/src/familles/comptes.ts` | Session cleared before the account is associated |
 | **Audit** | `packages/securite/src/audit.ts` | Every login attempt (success/failure, real IP behind trusted proxies, reason) |
-| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys, shared MCP secrets and the site passwords of the AX memory (format also read by the remaining Python) |
+| **Encryption at rest** | `packages/securite/src/chiffrement.ts` | Fernet for LLM API keys and shared MCP secrets (format also read by the remaining Python); still read once to import the former site passwords of the AX memory into the vault |
 | **Secrets vault** | `packages/securite/src/coffre.ts`, `apps/core/src/secrets/` | AES-256-GCM, AAD per secret, key outside the database (`/etc/elpis/vault.key`); a value reaches the tool host only, by the signed internal resolution; see [Secrets vault](#secrets-vault) |
 | **Security headers** | `packages/http/src/entetes.ts` | `nosniff`, `Referrer-Policy`, `frame-ancestors` set if absent, errors included |
 | **Page CSP** | `apps/core/src/interface/pages.ts` › `POLITIQUE_CSP`, `POLITIQUE_APERCU_CODE`; set by `apps/core/src/familles/interface.ts` | Chat and console: `script-src 'self'`, no inline script nor `eval`, per `security.csp` (`enforce` by default). HTML preview of code blocks (`/apercu-code`): its own policy, always set (`allow-scripts` sandbox, inline content scripts, no network access) |

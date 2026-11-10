@@ -35,6 +35,7 @@
   - [Dictating and listening to replies](#dictating-and-listening-to-replies)
   - [`@file` mentions](#file-mentions)
   - [Slash commands (`/`)](#slash-commands-)
+  - [Logging in to websites](#logging-in-to-websites)
   - [Attachments and images](#attachments-and-images)
   - [Generating images](#generating-images)
   - [Streaming, stop, resume, regenerate](#streaming-stop-resume-regenerate)
@@ -765,9 +766,54 @@ Type `/` at the start of the input:
 | `/image [16:9] [x2] description` | Generate an image directly, without opening Images mode |
 | `/routine [goal]` | Open the routine creation assistant (scoping, then an interview in the chat) |
 | `/rag …` | The chat's document collections: see [In the chat](#in-the-chat) |
+| `/secret …` | Logins the assistant may use in this conversation: see [Logging in to websites](#logging-in-to-websites) |
 
 If your input matches no command, the menu switches
 automatically to skill search.
+
+### Logging in to websites
+
+The assistant can log in to a website for you without ever seeing the password. You keep the
+login in your **vault** (Settings › Secrets): a name such as `intranet-admin`, its type
+(`web-login` for a login form, `http-auth` for a browser password prompt), the exact addresses
+where it may be used (for example `https://intranet.example.lan:8443`, plus the address of the
+sign-in page when it lives elsewhere), the user name and the password. The password can be
+written, never read back.
+
+A secret is used only in a conversation you attach it to:
+
+| Command | Effect |
+|---|---|
+| `/secret` | Lists the secrets attached to this conversation, then the ones you can attach |
+| `/secret attach <name>…` | Attaches one or more secrets; a chip `secret:<name>` stays above the input |
+| `/secret detach <name>` or `--all` | Detaches them |
+
+Only `web-login` and `http-auth` secrets attach, and an imported secret must first be checked
+(**Verify** in Settings › Secrets). The attachment is saved with the conversation before the
+assistant starts working, and the subagents of the conversation inherit it unless the secret's
+policy says otherwise. Routines use a secret only when its policy allows routines.
+
+**What the assistant sees.** With your next message it receives a short list, never a value:
+
+```
+<secrets selection="…">
+Secrets the user attached to this conversation and its sub-agents, from this message on. Values are never shown to you: never ask the user for a password.
+- intranet-admin  web-login  https://intranet.example.lan:8443  user=admin
+…
+</secrets>
+```
+
+When it opens a page on one of these addresses, the browser starts a **secure session** (verified
+certificates, no scripts or recordings from the assistant); an `http-auth` secret is applied at
+once. For a login form it calls `pw_login`: the browser service checks the form, types the user name
+and password, submits, then reloads the page so that the password is no longer in it. The
+assistant only learns whether the login worked. If a page asks for a login that is not attached,
+the assistant asks you to attach one with `/secret attach <name>`: never give it a password in the
+chat. Each use is written to the security journal.
+
+Logins that the browser used to remember by itself (before the vault) are moved into it at the
+update, as **unverified** secrets named after their site: check them in Settings › Secrets before
+attaching them.
 
 ### Attachments and images
 

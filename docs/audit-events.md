@@ -436,7 +436,13 @@ secret was asked for, never the page's path or query.
 | `vault.secret.deleted`  | success | Secret deleted.                                                                                                                   | `secret_id`, `name`, `kind`, `owner`                                                                                                                                             |
 | `vault.secret.used`     | success | The tool host received the value (`POST /api/internal/secrets/resolve`). Account: the one of the signed identity; `ip` is `null`. | `secret_id`, `name`, `kind`, `owner`, `usage`, `target`, `version`, `chat_id`, `run`, `subagent`                                                                                 |
 | `vault.secret.refused`  | failure | A resolution was refused.                                                                                                         | `code` (a `secret_*` code, see [architecture.md](architecture.md#secrets-vault)), `usage`, `target`, `name`, `chat_id`, `run`, `subagent`                                        |
+| `vault.secret.attached` | success | A secret was attached to a conversation (send payload `secrets`, or `PUT /api/chats/:chat_id/secrets`).                           | `secret_id`, `name`, `kind`, `chat_id`                                                                                                                                           |
+| `vault.secret.detached` | success | A secret was detached from a conversation (same ways).                                                                            | `secret_id`, `name` and `kind` (`null` once the secret is deleted), `chat_id`                                                                                                    |
+| `vault.ax.imported`     | success | Former AX credentials imported, once per account: migration 0030 (`source` `core`) or the tool host (`toolhost`).                 | `source`, `imported`, `existing`, `skipped`, `failed`, `skipped_sites` (up to 10 `{site, reason}`), `undecryptable` (core)                                                       |
 | `vault.key.rekeyed`     | success | `./elpis vault rekey --from FILE` (service `cli`, `user_id` `null`); `failure` when a secret could not be re-encrypted.           | `from_kid`, `to_kid`, `rekeyed`, `failed`, `remaining`, `os_user`                                                                                                                |
+
+Each secret the import creates also writes `vault.secret.created` (`state` `unverified`). The `reason`
+of a skipped site is `no_origin`, `empty_value`, `invalid_username`, `invalid_value` or `owner_unknown`.
 
 ### Command line (`./elpis`)
 

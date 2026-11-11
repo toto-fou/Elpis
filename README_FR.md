@@ -65,8 +65,7 @@ flowchart LR
     main --> toolhost["toolhost :8765<br/>outils MCP"]
     main --> rag["rag_app :8000<br/>extracteur du RAG"]
     main --> qdrant[("Qdrant")]
-    toolhost --> sandbox["sandbox Docker<br/>par utilisateur"]
-    toolhost --> browser["browser-service :3000"]
+    toolhost --> sandbox["sandbox Docker<br/>par utilisateur<br/>(+ browser-service)"]
     main --> db[("SQLite<br/>ou PostgreSQL")]
     admin --> db
 ```
@@ -150,7 +149,7 @@ l'application :
 - `venv/` : l'environnement Python du RAG, du moteur Office et de la
   configuration (`requirements-rag.txt`) ;
 - le service navigateur (`browser-service/`, `npm ci` et le headless shell de
-  Chromium par Playwright), Qdrant (binaire officiel, somme vérifiée),
+  Chromium par Playwright), qui tourne dans chaque sandbox, Qdrant (binaire officiel, somme vérifiée),
   l'image Docker de la sandbox, puis la base de données et la configuration.
 
 Une installation **en ligne** a besoin d'accéder à : nodejs.org (Node.js), au

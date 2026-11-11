@@ -811,12 +811,13 @@ When it opens a page on one of these addresses, the browser opens a session for 
 the certificate check of the secret (verified unless you allowed otherwise); an `http-auth` secret is
 applied at once, and that session cannot be recorded (HAR or trace). Otherwise the session is an
 ordinary one: the assistant keeps all its testing tools there (scripts, mocks, recorder, exports).
-For a login form it calls `pw_login`, the only protected step: the browser service reloads the
-login page, sets the assistant's mocks and other tabs aside, checks the form, types the user name
-and password, submits, then reopens the page in a new tab so that the password is no longer in it.
-The assistant only learns whether the login worked; the password stays out of its view, of
-recordings and of the network log. A form placed inside another site's frame is refused, and so is
-a login while the session records a HAR or a trace. If the site itself shows the password back on a
+For a login form it calls `pw_login`, the only protected step: the browser, in your sandbox,
+reloads the login page, sets the assistant's mocks aside, checks the form, types the user name and
+a one-time placeholder, submits, then reopens the page in a new tab. Elpis replaces the placeholder
+with the password only on its way to the secret's own site, outside your sandbox. The assistant
+only learns whether the login worked; the password never enters your sandbox and stays out of the
+assistant's view, of recordings and of the network log. A form placed inside another site's frame
+is refused. If the site itself shows the password back on a
 page after the login, that page is the site's content: the assistant can read it like any other. A
 session serves one secret: the assistant goes back to it for that secret instead of opening new
 ones. If a page asks for a login that is not attached, the assistant asks you to attach one with

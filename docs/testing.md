@@ -67,10 +67,14 @@ cd browser-service
 node --test 'test/**/*.test.js'
 ```
 
-The `*.integration.test.js` files drive the Chromium headless shell
-(`npx playwright install chromium-headless-shell`, or
-`PLAYWRIGHT_BROWSERS_PATH`). Three cases that reach public test sites run only
-with `BROWSER_SERVICE_LIVE=1`.
+The `*.integration.test.js` files start the real service on a Unix socket in
+a temporary folder, with a token, as the tool host does in a sandbox, and
+drive the Chromium headless shell (`npx playwright install
+chromium-headless-shell`, or `PLAYWRIGHT_BROWSERS_PATH`). Three cases that reach public test sites run only
+with `BROWSER_SERVICE_LIVE=1`. The end-to-end run of the browser in a real
+sandbox (`apps/toolhost/test/browser-bac-e2e.test.ts`: container, service, secret
+relay, core) runs only with `ELPIS_TEST_SANDBOX_BROWSER=1` (Docker, image
+`elpis/sandbox:1.8.0`, headless shell).
 
 ## Python
 

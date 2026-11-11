@@ -111,7 +111,7 @@ Multi-process application:
 | **admin** | 8002 | Only `/api/admin/*` and the console. Same core, one process, **same unprivileged account** as main (never root) |
 | **toolhost** | 8765 | Host for the local MCP tools (`apps/toolhost`, Node bundle): streamable HTTP `/mcp[/<family>]` and SSE, sandbox and terminal API; Office family through a Python worker (`office/`) |
 | **llama-server** | 8080 | Local inference engine, standalone |
-| **browser-service** | 3000 | Node + Playwright (`pw_*` tools) — optional |
+| **browser-service** | — (Unix socket in each sandbox) | Node + Playwright (`pw_*` tools), started by the tool host inside each account's sandbox — optional |
 | **rag_app** | 8000 (loopback) | RAG extractor (Python, FastAPI, stateless): structured text, rendered pages, localization, OCR through a vision model; called by the core only |
 | **qdrant** | 6333 (loopback) | RAG vector database (official binary) |
 | **Caddy** | 443/8443/80 | Local TLS front end — optional |
@@ -144,7 +144,7 @@ the tool host), the sandbox agent (**`sandbox-agent/`**), the configuration assi
 | Charts | Apache ECharts (chat), Chart.js (admin dashboard) — npm packages, loaded on demand |
 | Markdown | Marked + Highlight.js, sanitized by DOMPurify |
 | Icons | Phosphor |
-| Browser | Node (the core's runtime), Playwright, Chromium headless shell (`browser-service`) |
+| Browser | Node (the core's runtime), Playwright, Chromium headless shell (`browser-service`), mounted read-only into each sandbox |
 | Screen control | `desktop-agent` (pywinauto / AT-SPI) |
 | RAG | TS core (collections, permissions, chunking, BM25, embeddings, Qdrant, search, chat tools); Python extractor (pdfplumber, pypdfium2, LibreOffice, OCR through a vision model) in a bubblewrap jail |
 | TLS front end | Caddy + local openssl PKI (10 years) |
@@ -177,7 +177,7 @@ flowchart TB
     end
 
     subgraph Exec["Execution"]
-        Docker["1 Docker container / user<br/>/work mounted · network profile"]
+        Docker["1 Docker container / user<br/>/work mounted · network profile<br/>browser-service (pw_*)"]
     end
 
     subgraph LLM["Inference"]
@@ -186,7 +186,6 @@ flowchart TB
     end
 
     subgraph Optional["Optional services"]
-        Browser["browser-service :3000"]
         RAG["rag_app extractor :8000 + Qdrant :6333"]
         Desk["desktop-agent (VM)"]
     end
@@ -201,7 +200,7 @@ flowchart TB
     Main -- "OpenAI-compat (stream)" --> Llama
     Main -- "wire openai/anthropic" --> Ext
     Admin -- "load/unload · caps" --> Llama
-    MCP -- "pw_*" --> Browser
+    MCP -- "pw_* (socket · secret relay)" --> Docker
     MCP -- "desktop_*" --> Desk
     Main -- "extraction · vectors" --> RAG
 ```
@@ -213,8 +212,9 @@ Four distinct roles coexist:
    and/or external connectors resolved per request.
 3. **Execution** — one Docker container per user; it is the security
    boundary of the shell.
-4. **Satellite services** — browser, RAG extractor and Qdrant, screen
-   control: decoupled over HTTP (RAG stays off without an embeddings server).
+4. **Satellite services** — RAG extractor and Qdrant, screen control:
+   decoupled over HTTP (RAG stays off without an embeddings server). The
+   browser is not one of them: it runs inside each account's sandbox.
 
 ---
 
@@ -228,16 +228,14 @@ flowchart LR
         m["main :8001"]
         a["admin :8002"]
         s["toolhost :8765<br/>(apps/toolhost, Node)<br/>+ Office worker (Python)"]
-        b["browser-service :3000"]
         r["rag_app extractor :8000"]
         q[("Qdrant :6333")]
         d[["user_db/ (incl. rag/) · user_sandboxes/<br/>user_skills/ · mcp_custom_servers/ · cli_dist/"]]
-        dk[["dockerd — elpis-sb-&lt;user&gt;"]]
+        dk[["dockerd — elpis-sb-&lt;user&gt;<br/>(browser-service inside)"]]
         c --> m & a
         m --- d
         a --- d
         m --> s --> dk
-        s --> b
         m --> r & q
         r -. "read" .- d
     end
@@ -286,7 +284,7 @@ elpis/
 ├── office/          # Office engine (Python, elpis_office/): tool host worker
 ├── sandbox-agent/   # agent run inside each sandbox container (Python, standard library)
 ├── frontend/        # interface (@elpis/web, Vite): src/ (TS, SFC), css/, assets/, index.html and admin.html shells
-├── browser-service/ # Node + Playwright (:3000)
+├── browser-service/ # Node + Playwright, mounted into each sandbox
 ├── desktop-agent/   # screen control agent (Windows/Linux)
 ├── rag_app/         # RAG extractor (Python): text, pages, localization, OCR
 ├── system_prompts/  # base, FRAGMENT_*, AGENT_TASK_*…
@@ -1438,19 +1436,19 @@ now knows `task` only through its own bound (`bornesDuLot`) and the refusal of a
   `custom_agents` entry, `AgentSpec.userBrowser`) gives it the account's signed-in session, unless
   the administrator forbids it (Admin console › Subagents › Browser, `agents.user_browser_session_allowed`);
   read at launch, kept on resume, prohibition reread at each launch. Isolation is
-  enforced by the tool host: it talks to the browser service under a **derived owner**
+  enforced by the tool host: it talks to the browser service of the account's sandbox under a **derived owner**
   (`pwOwnerEnfant`, prefix `s_`, `proprietaireDe` in `apps/toolhost/src/mcp/browser/appel.ts`);
-  `pwOwner` reserves this namespace (`[sur]_` + 32 hex is itself hashed into `r_…`). Quotas:
+  `pwOwner` reserves this namespace (`[sur]_` + 32 hex is itself hashed into `r_…`). Quotas, per sandbox service:
   `BROWSER_MAX_SESSIONS_PER_OWNER` (3) per owner, `BROWSER_MAX_SESSIONS_PER_GROUP` (4) for the
-  account and its children, one place of which stays with the account (`placesEnfants`), `BROWSER_MAX_CHILD_SESSIONS`
-  (6) for the children of all accounts, separate from `BROWSER_MAX_SESSIONS` (10); at the cap, the requester's
+  account and its children, one place of which stays with the account (`placesEnfants`); at the cap, the requester's
   oldest idle session gives way (isolated first; never a busy one or one opened for a secret, `sessionCessible`),
-  reported in `evicted_sessions`, otherwise `browser_quota` (with `protected_sessions`) or `browser_saturated` with a `fix`;
+  reported in `evicted_sessions`, otherwise `browser_quota` (with `protected_sessions`) with a `fix`;
   `/sessions` gives `max_per_owner`, `max_per_group` and `effective_max`. The
   harness refuses an isolated `web` when the group is full (`task_unavailable`, `child_slots_left` of
   `/health`, `santeNavigateur`) and closes the private session at the end of the run (`cleanup_own`, whatever the
-  state; 20 s at most); at startup, main closes orphaned child sessions in one call
-  (`/cleanup_children`, `older_than_ms`; `BROWSER_CHILD_CLEANUP=0` turns it off). With the account's session,
+  state; 20 s at most); at startup, main asks the browser service of every sandbox that has a service token to
+  close the child sessions opened before it (`/cleanup_children`, `older_than_ms`, over each sandbox socket;
+  a stopped service counts 0; `BROWSER_CHILD_CLEANUP=0` turns it off). With the account's session,
   `stop`, `cleanup` and `cleanup_own` are refused to the child (`user_session_protected`). Only the last
   run of a key (`DERNIER`) closes the browser and writes the resume.
 - **Stable child head**: the `system` message carries only what is fixed for (type, account):
@@ -2888,8 +2886,9 @@ commands have their own budget (120 s).
 
 ### Browser (`browser`)
 
-Playwright via `browser-service` (Node, port 3000), with a single browser: the
-Chromium headless shell, always without a window. A `headless` field sent to
+Playwright via `browser-service` (Node), started inside each account's sandbox (see
+"Browser in the sandbox"), with a single browser: the Chromium headless shell, always without a
+window. A `headless` field sent to
 `/start` is ignored; `/health` still reports `engine: "chromium"`.
 
 **Unified targeting DSL** — a single `target` parameter instead of dozens of
@@ -2951,12 +2950,14 @@ Gotchas:
 - `pw_page(action="extract")` only extracts **tables** (`target=` to
   pick which one). For running text, use `action="text"`.
 
-#### Browser in the sandbox (`browser.mode = "sandbox"`)
+#### Browser in the sandbox
 
-With `browser.mode` set to `"sandbox"` in `config.json` (optionally limited to the accounts named
-in `browser.sandbox_users`), each account gets its own browser service **inside its sandbox
-container**; the central service on port 3000 keeps serving the other accounts, and setting the
-mode back to `"central"` is the runtime rollback (read live, no restart).
+Each account gets its own browser service **inside its sandbox container**; there is no browser
+service on the host. Without Docker, the sandbox image or the browser files, the `pw_*` tools
+answer `browser_sandbox_unavailable` with the cause and its fix (Docker not installed or not
+running, image missing, browser not installed, or the start error); `./elpis doctor` checks the
+same prerequisites. `browser.mode` and `browser.sandbox_users`, from earlier versions, are
+ignored (one info line from the tool host at start).
 
 - **Container.** The image `elpis/sandbox:1.8.0` is 1.7.0 plus `certutil`
   (`deploy/docker/sandbox-browser/`). Nothing of Elpis is copied into it: the host mounts
@@ -2966,34 +2967,31 @@ mode back to `"central"` is the runtime rollback (read live, no restart).
   installation's Node runtime at `/opt/elpis/node` and the Playwright cache at
   `/opt/elpis/ms-playwright` (`packages/bac/src/navigateur.ts`). The `elpis.browser` label (hash of
   the mounts and of their sources' inodes) recreates a container whose mounts changed or whose
-  code files were replaced by an update; central-mode containers keep their run arguments. The
-  mounted files must be readable by the sandbox UID (10001): `./elpis doctor` checks it.
-- **Central data out of the code.** The central service keeps its data (saved states, HAR,
-  traces, screenshots, downloads, videos, baselines) in `BROWSER_DATA_DIR`, which `./elpis` sets
-  to `user_db/browser` (created 0700); at start it moves there the data folders an earlier
-  installation left in `browser-service/` (merged without overwriting). In sandbox mode,
-  `./elpis doctor` fails while a data folder remains in the code folder.
+  code files were replaced by an update (a container created before the browser was installed is
+  recreated once). The mounted files must be readable by the sandbox UID (10001): `./elpis
+  doctor` checks it.
 - **Start and stop.** The first `pw_*` call of the account (`serviceDuCompte`,
   `apps/toolhost/src/mcp/browser/bac.ts`) makes sure the container runs, opens the account's
   secret relay, copies the relay CA certificate to `/run/elpis/browser-ca.crt`, then starts
   `server.js` detached as `exec_user` (`docker exec -d`, environment passed through a 0600 file
   of the host, never on a command line). The start script imports the CA into the NSS database of
-  the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service listens on
+  the service's own profile (`/work/.elpis-browser/home/.pki/nssdb`). The service only listens on
   `/run/elpis/browser.sock` (`FIREFOX_SERVICE_SOCKET`), requires the sandbox token
-  (`<P>/.browser-service.token`, host only), and stops after `browser.sandbox_idle_minutes`
-  (15) without a call; the next tool starts it again. Tool calls count as sandbox activity.
-  A stopped or recreated container takes the service with it; the relay forgets the secrets
-  bound to sessions of a service that restarted.
+  (`BROWSER_SERVICE_TOKEN`, from `<P>/.browser-service.token`, host only; it refuses to start
+  without either), and stops after `browser.sandbox_idle_minutes` (15) without a call; the next
+  tool starts it again (`browser_service_unreachable` when it stops answering in between). Tool
+  calls count as sandbox activity. A stopped or recreated container takes the service with it;
+  the relay forgets the secrets bound to sessions of a service that restarted.
 - **Data.** Screenshots, saved states, HAR, traces, videos and the service log live in
-  `/work/.elpis-browser/`; downloads land in `/work/downloads/<owner>/`, recorder dumps are also
-  written to `/work/recordings/`, and returned paths are the real `/work` paths. Uploads still
-  read `/work` through the sandbox agent.
+  `/work/.elpis-browser/` (the service's working folder); downloads land in
+  `/work/downloads/<owner>/`, recorder dumps are also written to `/work/recordings/`, and returned
+  paths are the real `/work` paths. Uploads still read `/work` through the sandbox agent.
 - **Routing.** `serviceNavigateur(username)` (`packages/navigateur/src/mode.ts`) is the only
-  resolver: the central URL and token, or the account's socket and sandbox token. The `pw_*`
-  tools, the screenshot route (chat images and vision models) and the AX session URL of the core
-  use it; the socket is opened without following links (`O_PATH|O_NOFOLLOW`, checked to be a
-  socket). The core's startup cleanup of orphaned sub-agent sessions only reaches the central
-  service; sandbox services end such sessions with their 15-minute session TTL or idle stop.
+  resolver: the account's socket and sandbox token. The `pw_*` tools, the screenshot route (chat
+  images and vision models) and the AX session URL of the core use it; the socket is opened
+  without following links (`O_PATH|O_NOFOLLOW`, checked to be a socket). At startup, main sends
+  `/cleanup_children` to the service of every sandbox that has a service token (orphaned
+  sub-agent sessions, see "Web session").
 - **Network.** Inside the sandbox, the service's filtering proxy (`proxy_guard.js`) reaches the
   sandbox loopback directly (`localhost`, `127.0.0.0/8`, `::1`: sites served in `/work`), and
   sends everything else to the **secret relay** of the host over `/run/elpis/browser-relay.sock`
@@ -3002,12 +3000,14 @@ mode back to `"central"` is the runtime rollback (read live, no restart).
   destination: the account's network profile first (no network: only the sandbox loopback,
   with a clear `url_blocked` before navigation; IP allowlist: its addresses, domains and ports),
   then the browser policy (never the Elpis host, its container networks, loopback or link-local;
-  `browser.url_allowlist` for the local network). Egress therefore leaves from the host.
+  `browser.url_allowlist` for the local network). Egress therefore leaves from the host. The
+  service itself only checks the form of an address before a navigation (http, https, ws, wss,
+  `about:blank`).
 
 **Secret relay.** A session opened for a vault secret binds the secret's origins to the relay.
 For those origins only, the relay terminates TLS with a leaf certificate signed by the
 **instance CA** (ECDSA P-256, `user_db/browser-relay-ca/`, key 0600, built with `node:crypto`
-only, created when the tool host starts in sandbox mode, valid 365 days and renewed when less
+only, created when the tool host starts, valid 365 days and renewed when less
 than 30 remain; a relay signed by the previous CA is recreated and the sandbox service
 restarted) and verifies the upstream according to the secret's `tls` policy (strict unless every
 exact binding of the origin relaxes it, WebSocket upgrades included); every other `CONNECT` is a
@@ -3045,7 +3045,7 @@ handler catches its promise (an aborted body cannot stop the tool host). A reque
 memory only when it must be inspected (a possible substitution, or the retry of a 401 with a small
 known body), up to 1 MiB (413 beyond, connection closed) within an 8 MiB budget per relay (503);
 any other body is streamed. Responses of a sandbox service are read up to 64 MiB. Verdicts are
-cached per name and profile like the central guard (10 s, refusals 5 s, one resolution shared by
+cached per name and profile (10 s, refusals 5 s, one resolution shared by
 concurrent connections), and upstream connections try the judged addresses with Happy Eyeballs
 (next address after 250 ms or on failure, 10 s in all). `./elpis logs browser <account>` strips
 control characters from the sandbox-written log.
@@ -3063,7 +3063,7 @@ give it back once the binding is gone (session closed or expired): the relay no 
 value then. Sites sharing a covered origin's address and port (CDN) are intercepted too while the
 binding lives, with strict upstream TLS. Chromium shares the sandbox's CPU quota: at the default
 one CPU, step screenshots of heavy pages miss their 3 s delay on about 5 % of actions (none with
-two CPUs or on the central service); `./elpis doctor` warns below 200 %. The instance CA cannot
+two CPUs); `./elpis doctor` warns below 200 %. The instance CA cannot
 carry name constraints (the
 intercepted origins are those of the secrets in use): rotation is by expiry (365 days, renewed 30
 days before) or by deleting `user_db/browser-relay-ca/` and restarting the tool host.
@@ -3105,10 +3105,9 @@ text in the chat history. HTTP authentication only comes from an `http-auth` sec
   `"insecure"` when the vault entry allows it) verifies certificates accordingly for the session's
   lifetime; plain `http://` origins work as usual. Such a session always gets a new context, is never
   reused by another start and never reuses one; it counts against the quota like any other session.
-  HTTP credentials sent with `credentials_origin` (an `http-auth` secret) are bound to that exact
-  origin (the start URL must be on it) and are only sent when that origin answers 401; HAR and trace
-  are refused for the whole session (`recording_with_credentials`), since the HAR keeps the
-  `Authorization` header and the trace copies the context options. No route returns request headers
+  An `http-auth` secret never reaches the service: `/start` only gets its `relay_binding` (see
+  "Secret relay"), and HAR and trace are refused for such a session (`recording_with_credentials`),
+  since they would keep the binding key. No route returns request headers
   (the network log keeps method, URL and body only), and a mock matches on URL and method and keeps
   nothing from the request, so the `Authorization` header cannot be read back through one.
 - **`/login_precheck`** (no values) and **`/login`** (values): targets are optional. Without them,
@@ -3121,48 +3120,47 @@ text in the chat history. HTTP authentication only comes from an `http-auth` sec
   (400). The origin is the one of the frame that owns each field (`about:blank`, `srcdoc` and
   `data:` frames are refused); every ancestor frame up to the page must share it, both fields
   share it, it must equal `secret_origin`, and the form, or the default button that Enter
-  triggers, must POST to it (403 `secret_scope_mismatch`). Both routes answer 409
-  `secret_recording_active` while the session records a HAR (for its lifetime) or a trace (until
-  `/trace_export`): either would keep the typed value.
+  triggers, must POST to it (403 `secret_scope_mismatch`). The password the service types is the
+  relay's one-time placeholder, never the value.
 - **The login step** (with a password): while it runs, every other route of the session answers 409
   `secret_login_busy`. In order, the service: keeps no request body in the network log, drops the
   request that carries the password (and its response) and purges console lines and dialog messages;
-  suspends the session's mocks; installs a `context.route` guard; routes the session's WebSockets
-  through the service (from the first login on) so that one that sends while the fields are typed is
-  closed; disables script execution in every other tab of the session (a script there could reach
-  the login page through a window reference); removes the service workers of the secret's origin
+  suspends the session's mocks; installs a `context.route` guard; removes the service workers of the secret's origin
   (`Storage.clearDataForOrigin`) and aborts any service worker script fetched until the end; then
   reloads the login page from the network (the cache is off while a route is installed) and checks
   that a new document was loaded, so that nothing the agent ran in the old document receives the
   value. Only then are the fields checked and filled. The guard aborts every request to another
-  origin while the fields are typed; after the submission, a request that carries the password
-  (URL, body or headers, under its encoded forms) leaves only as a POST to the secret's origin,
-  fetched with `maxRedirects: 0`; a 307/308 to another origin is aborted. The outcome is judged
+  origin while the fields are typed; after the submission, a request that carries the placeholder
+  (URL, body or headers, under its encoded forms) leaves only as a POST to the secret's origin, on
+  the browser's own path to the relay, which alone replaces it with the value. The outcome is judged
   after submission (navigation, `wait_for` target, field removed; login form shown again, browser
   validation, nothing changed → 422 `secret_login_failed`, fields cleared, page message returned).
   Each tab that received the password is then replaced by a new tab loaded with a GET of its
   address (its history, and its `sessionStorage`, are dropped, so Back cannot replay the POST), or
-  closed, or the session is closed. Last, everything is restored: other tabs run again, mocks are
-  active again, the guard is removed. The answer's URL, title and page message are purged of the
-  password's forms (whole occurrences only); the service keeps no copy of the value afterwards.
+  closed, or the session is closed. Last, mocks are active again and the guard is removed. The
+  answer's URL, title and page message are purged of the placeholder's forms (whole occurrences
+  only); the value itself never enters the sandbox.
 - **Through the tools**: no `pw_*` tool accepts a username or a password, and only the Elpis
   application (service token, `trusted_meta`) can use secrets; an external MCP client gets
   `secret_not_attached`. `pw_session(action="start", url, secret?)` asks the core which secrets
   attached to the conversation cover the URL's origin (`POST /api/internal/secrets/match`, no value):
   none gives an ordinary session without a TLS policy; one, or the one named by `secret=`, a session
-  opened for it with the secret's `tls`; several without `secret=` give `secret_ambiguous`. For an
-  `http-auth` secret the tool host refuses `record_har` and `trace` before any resolution, then
-  resolves the value (`/api/internal/secrets/resolve`, usage `http-auth`) and passes
-  `credentials_origin`, `username` and `password` to `/start`; the answer carries the secret's name
-  (`secret`). `pw_login` (`session_id`, optional `secret`, `username_target`, `password_target`,
-  `submit_target`, `wait_for`) runs in a fixed order: `/login_precheck` (no value) gives the origin
-  of the frame that holds the fields; only then is the `web-login` secret resolved for that origin
-  (by name, or the single attached one), and `/login` receives the values with `secret_origin`
-  (HTTP timeout 75 s, above the service's 62 s ceiling). The result is the service's answer plus the
+  opened for it with the secret's `tls`; several without `secret=` give `secret_ambiguous`. The tool
+  host binds the secret to the account's relay; the value is resolved from the core
+  (`/api/internal/secrets/resolve`) only when the relay needs it. For an `http-auth` secret it
+  refuses `record_har` and `trace` first, then passes a random `relay_binding` key to `/start`; the
+  answer carries the secret's name (`secret`). `pw_login` (`session_id`, optional `secret`,
+  `username_target`, `password_target`, `submit_target`, `wait_for`) runs in a fixed order:
+  `/login_precheck` (no value) gives the origin of the frame that holds the fields; only then is
+  the `web-login` secret chosen for that origin (by name, or the single attached one, without its
+  value), a one-time placeholder bound to the relay and the login window armed, and `/login`
+  receives the user name and the placeholder with `secret_origin` (HTTP timeout 75 s, above the
+  service's 62 s ceiling). A password field whose value never reached the secret's origin gives
+  `secret_not_substituted`. The result is the service's answer plus the
   secret's name and a lite view of the page (`page_after`), never a value. A page that answers 401
   carries an `auth_hint` that asks for a secret attached with `/secret attach <name>`. The tool host
   gives `pw_login` refusals a fix in the tools' vocabulary (`secret_scope_mismatch`,
-  `secret_target_required`, `secret_login_failed`, `secret_recording_active`), and the vault's
+  `secret_target_required`, `secret_login_failed`), and the vault's
   codes (`secret_unknown`, `secret_unverified`, `secret_type_mismatch`, `secret_scope_mismatch`,
   `secret_ambiguous`, `secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`)
   each their own `fix`; other service errors reach the model unchanged. The tool host binds every
@@ -3179,10 +3177,9 @@ text in the chat history. HTTP authentication only comes from an `http-auth` sec
   (in a page, a field, a URL) shows it to whoever reads that page, the model included, like any
   other content of the site; a script of the secret's own origin, including a stored XSS on the site
   or a script that trusts data the agent wrote earlier in the origin's storage, receives the
-  password as when a person types it. With strict TLS and an internal CA, the CA must be trusted by
-  Chromium (NSS) and by Node, because the guarded POST is replayed from Node (`route.fetch`):
-  `./elpis` starts the service with `--use-system-ca`, so a CA installed in the system store is
-  enough (`NODE_EXTRA_CA_CERTS` still adds one).
+  password as when a person types it. With strict TLS and an internal CA, the relay verifies the
+  upstream in the tool host with Node's and the system's CAs (`./elpis` starts it with
+  `--use-system-ca`), so a CA installed in the system store is enough.
 
 ### Screen control (`desktop`)
 

@@ -169,13 +169,7 @@ export function creerFamilleConfig(dep: DependancesConfig): Famille {
           const chemin = cheminConfigCompte(dep.racine, uid);
           if (!(await existe(chemin))) ecrireJsonAtomique(chemin, defaut);
           const fichier = await lireJsonFichier(chemin);
-          let cfgCompte: Dict = {};
-          if (estDict(fichier)) {
-            cfgCompte = sectionsCompte(fichier);
-            // Les copies d'avant la liste autorisée quittent aussi le disque.
-            if (Object.keys(fichier).length !== Object.keys(cfgCompte).length)
-              ecrireJsonAtomique(chemin, cfgCompte);
-          }
+          let cfgCompte: Dict = estDict(fichier) ? sectionsCompte(fichier) : {};
           if (!veritePy(cfgCompte)) cfgCompte = defaut;
           return reponseJsonPy(
             rep,
@@ -210,7 +204,7 @@ export function creerFamilleConfig(dep: DependancesConfig): Famille {
           if (longueurPy(pyJsonDumps(cfg, { ensureAscii: false })) > TAILLE_MAX_CONFIG)
             throw new HttpError(413, "config too large");
           const chemin = cheminConfigCompte(dep.racine, uid);
-          ecrireJsonAtomique(chemin, cfg);
+          ecrireJsonAtomique(chemin, sectionsCompte(cfg));
           return { ok: true, path: chemin };
         },
       },

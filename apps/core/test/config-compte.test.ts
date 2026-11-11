@@ -38,11 +38,14 @@ const V = JSON.parse(TEXTE) as {
 };
 const ETAPE_NAN = 13;
 const ETAPE_LECTURE_DE_BOB = 3;
-/** Écart voulu : les vecteurs n'ont aucune section publique, `config` reste vide ; le NaN de l'étape 13 (500 en Python) n'est donc plus rendu. */
+const ETAPE_SURROGATE = 17;
+const ETAPE_PUT_VIDE = 18;
+/** Écarts voulus : seules les sections publiques sont écrites et rendues, donc ni le NaN (étape 13) ni la demi-paire (étape 17) n'atteignent le fichier. */
 function reponseAttendue(
   i: number,
 ): { statut: number; corps: string; cache: string | null } | null | undefined {
-  const a = V.reponses[i === ETAPE_NAN ? ETAPE_LECTURE_DE_BOB : i];
+  const j = i === ETAPE_NAN ? ETAPE_LECTURE_DE_BOB : i === ETAPE_SURROGATE ? ETAPE_PUT_VIDE : i;
+  const a = V.reponses[j];
   return a && { ...a, corps: a.corps.replace(/"config":\{.*\}\}$/su, '"config":{}}') };
 }
 
@@ -130,7 +133,7 @@ describe.each(MOTEURS)("/api/config (%s)", (moteur) => {
     expect(fichiers).toEqual(Object.fromEntries(Object.keys(V.fichiers).map((f) => [f, "{}"])));
   });
 
-  it("metrics.scrape_token n'est ni recopié dans le fichier du compte ni rendu, même déjà présent dans ce fichier", async () => {
+  it("metrics.scrape_token n'est ni recopié dans le fichier du compte ni rendu, même présent dans un ancien fichier", async () => {
     const instance = join(dossier, "config.json");
     const uid = Object.values(V.ids)[0] ?? 0;
     const fichier = join(dossier, "user_db", "configs", `${uid}.json`);
@@ -147,7 +150,6 @@ describe.each(MOTEURS)("/api/config (%s)", (moteur) => {
       const corps = await lire();
       expect(corps).not.toContain("jeton-prometheus");
       expect(pyJsonLoads(corps)).toMatchObject({ config: {} });
-      expect(readFileSync(fichier, "utf-8")).toBe("{}");
     } finally {
       writeFileSync(instance, sauvegarde);
       if (avant === null) rmSync(fichier, { force: true });

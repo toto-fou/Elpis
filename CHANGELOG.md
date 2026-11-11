@@ -618,7 +618,7 @@ follow [SemVer](https://semver.org/).
   (desktop agent addresses and tokens, internal URLs, a future secret key) reached every session.
   The account view and its file `user_db/configs/{user_id}.json` now hold only the sections that
   `/api/public-config` already serves (`welcome`, `app_info`, `login_page`); any other key is
-  dropped from the file when it is read.
+  neither returned nor written by `PUT /api/config`.
 - **Secrets resolve only for a signed conversation.** `POST /api/internal/secrets/resolve`
   ignores a conversation that the tool host did not sign: the conversation must be a chat of the
   account, or one of its running routine runs, and the secret must be attached to it; sub-agents

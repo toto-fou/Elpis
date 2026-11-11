@@ -112,25 +112,22 @@ describe("GET /api/config : sections d'instance rendues à un compte", () => {
     expect(await configRendue(bob)).toEqual(PUBLIC);
   });
 
-  it("copie écrite par une version antérieure : ni rendue ni gardée sur le disque", async () => {
-    const attendu = { ...PUBLIC, app_info: { name: "Perso" } };
+  it("copie écrite par une version antérieure : seules les sections publiques sont rendues", async () => {
     writeFileSync(fichierDe(bob), JSON.stringify({ ...INSTANCE, app_info: { name: "Perso" } }));
-    expect(await configRendue(bob)).toEqual(attendu);
-    const copie = readFileSync(fichierDe(bob), "utf-8");
-    verifierSansSecret(copie);
-    expect(JSON.parse(copie)).toEqual(attendu);
+    const rendue = await configRendue(bob);
+    expect(rendue).toEqual({ ...PUBLIC, app_info: { name: "Perso" } });
+    verifierSansSecret(JSON.stringify(rendue));
   });
 
-  it("copie sans aucune section publique : nettoyée, puis repli sur l'instance", async () => {
+  it("copie sans aucune section publique : repli sur l'instance", async () => {
     writeFileSync(fichierDe(bob), JSON.stringify({ desktop: INSTANCE.desktop }));
     expect(await configRendue(bob)).toEqual(PUBLIC);
-    expect(JSON.parse(readFileSync(fichierDe(bob), "utf-8"))).toEqual({});
   });
 
-  it("section écrite par PUT hors liste : ni rendue, ni gardée à la lecture suivante", async () => {
+  it("section envoyée par PUT hors liste : ni écrite, ni rendue", async () => {
     await appeler(bob, "PUT", { config: { desktop: INSTANCE.desktop, welcome: { type: "image" } } });
-    expect(await configRendue(bob)).toEqual({ welcome: { type: "image" } });
     expect(JSON.parse(readFileSync(fichierDe(bob), "utf-8"))).toEqual({ welcome: { type: "image" } });
+    expect(await configRendue(bob)).toEqual({ welcome: { type: "image" } });
   });
 
   it("config.json absent : aucune section, réponse conforme", async () => {

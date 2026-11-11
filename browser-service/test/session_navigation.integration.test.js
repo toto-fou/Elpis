@@ -4,7 +4,7 @@
 //     node --test test/session_navigation.integration.test.js
 //
 // Sans les dépendances du service (npm ci) ou sans navigateur installé, tout est ignoré. Aucun accès réseau :
-// les pages sont servies sur 127.0.0.1, que la garde d'adresse laisse passer pour ces essais seulement (test/aides).
+// les pages sont servies sur 127.0.0.1, boucle locale jointe directement comme dans le bac.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

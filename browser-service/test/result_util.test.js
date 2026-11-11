@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hostOf, compactConsole, summarizeNetwork, describeLocator, selectOptionArg,
-         sansAnsi, codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur,
+         sansAnsi, codeErreur, nettoyerSortie, normaliserErreur,
          noeudsAria, ressemblance, classerSuggestions, echapperDsl, echapperCss, litteralXPath,
          longueurJsonPy, couperTexte, bornerValeur } from '../result_util.js';
 
@@ -72,21 +72,19 @@ test('codeErreur : codes fixes sans donnée, code propre gardé, browser_error s
         assert.match(codeErreur(m), /^[a-z][a-z0-9_]{0,24}$/);
 });
 
-test('sansAnsi et nettoyerSortie : séquences ANSI retirées, chemins du serveur masqués à toute profondeur', () => {
+test('sansAnsi et nettoyerSortie : séquences ANSI retirées des messages et des chemins à toute profondeur, chemins rendus tels quels', () => {
     assert.equal(sansAnsi('\x1b[2m- waiting for getByRole\x1b[22m'), '- waiting for getByRole');
-    const racines = racinesMasquees({ base: '/home/dev/Elpis/browser-service', home: '/home/dev' });
     const r = nettoyerSortie({
         error: 'boom \x1b[31mrouge\x1b[39m',
-        screenshot_path: '/home/dev/Elpis/browser-service/screenshots/fail_ab_1.png',
-        results: [{ path: '/home/dev/.cache/ms-playwright/x', note: 'cwd /home/dev/Elpis/browser-service' }],
-        autre: '/home/devx/garde', n: 3, ok: true, rien: null,
-    }, racines);
-    assert.deepEqual(r, {
-        error: 'boom rouge', screenshot_path: 'screenshots/fail_ab_1.png',
-        results: [{ path: '~/.cache/ms-playwright/x', note: 'cwd .' }],
-        autre: '/home/devx/garde', n: 3, ok: true, rien: null,
+        screenshot_path: '/work/.elpis-browser/screenshots/fail_ab_1.png',
+        results: [{ path: '/work/downloads/x', note: 'cwd \x1b[1m/work\x1b[22m' }],
+        n: 3, ok: true, rien: null,
     });
-    assert.ok(!JSON.stringify(r).includes('/home/dev/'));
+    assert.deepEqual(r, {
+        error: 'boom rouge', screenshot_path: '/work/.elpis-browser/screenshots/fail_ab_1.png',
+        results: [{ path: '/work/downloads/x', note: 'cwd /work' }],
+        n: 3, ok: true, rien: null,
+    });
 });
 
 test("normaliserErreur : code ajouté aux erreurs qui n'en ont pas, sauf enveloppes de session 404/410", () => {
@@ -126,24 +124,20 @@ test('classerSuggestions : noms proches d\'abord, sinon les éléments du rôle 
 });
 
 test('nettoyerSortie : seuls les messages et les chemins du service changent ; contenu de la page, Date et URL rendus tels quels', () => {
-    const racines = racinesMasquees({ base: '/home/dev/Elpis/browser-service', home: '/home/dev' });
     const quand = new Date(86400000);
     const corps = {
-        text: 'Voir /home/dev/notes.txt ; dépôt http://git.lan/home/dev ; fin', url: 'http://git.lan/home/dev',
-        tabs: [{ index: 0, url: 'http://git.lan/root/home/dev', title: '/home/dev/notes' }],
-        result: { error: 'cwd /home/dev/x', quand, ou: new URL('http://a.lan/x') },
+        text: 'Voir \x1b[1mgras\x1b[22m', url: 'http://git.lan/home/dev',
+        tabs: [{ index: 0, url: 'http://git.lan/root/home/dev', title: '\x1b[1mtitre' }],
+        result: { error: 'cwd \x1b[1mx', quand, ou: new URL('http://a.lan/x') },
         results: [{ frame: 'about:blank', result: [new Date(0)] }],
-        dialog: { last: { message: 'fichier /home/dev/notes.txt' } },
-        error: 'Navigation to http://git.lan/home/dev failed: /home/dev/.cache/x introuvable',
-        fix: 'voir /home/dev/Elpis/browser-service/screenshots/a.png', screenshot_path: '/home/dev/Elpis/browser-service/screenshots/a.png',
+        dialog: { last: { message: 'fichier \x1b[1mx' } },
+        error: 'Navigation \x1b[31mfailed\x1b[39m', fix: 'voir /work/.elpis-browser/screenshots/a.png',
     };
-    assert.deepEqual(JSON.parse(JSON.stringify(nettoyerSortie(corps, racines))), {
-        ...JSON.parse(JSON.stringify(corps)),
-        error: 'Navigation to http://git.lan/home/dev failed: ~/.cache/x introuvable',
-        fix: 'voir screenshots/a.png', screenshot_path: 'screenshots/a.png',
+    assert.deepEqual(JSON.parse(JSON.stringify(nettoyerSortie(corps))), {
+        ...JSON.parse(JSON.stringify(corps)), error: 'Navigation failed',
     });
-    assert.equal(JSON.stringify(nettoyerSortie({ result: new Date(0) }, racines)), '{"result":"1970-01-01T00:00:00.000Z"}');
-    assert.equal(JSON.stringify(nettoyerSortie({ quand: new Date(0), ou: new URL('http://a.lan/') }, racines)),
+    assert.equal(JSON.stringify(nettoyerSortie({ result: new Date(0) })), '{"result":"1970-01-01T00:00:00.000Z"}');
+    assert.equal(JSON.stringify(nettoyerSortie({ quand: new Date(0), ou: new URL('http://a.lan/') })),
         '{"quand":"1970-01-01T00:00:00.000Z","ou":"http://a.lan/"}');
 });
 

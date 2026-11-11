@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/outils_annexes.integration.test.js — vrai server.js + Chromium, hors ligne (pages servies par les réponses simulées du service sous une adresse publique, garde d'URL intacte) : sélecteurs uniques, gestes qui naviguent, recorder sans secret, zones d'un diff visuel.
+// browser-service/test/outils_annexes.integration.test.js — vrai server.js + Chromium, hors ligne (pages servies par les réponses simulées du service sous une adresse publique) : sélecteurs uniques, gestes qui naviguent, recorder sans secret, zones d'un diff visuel.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
-import net from 'node:net';
-import os from 'node:os';
-import path from 'node:path';
-import { NEUTRE_PS, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.js';
 
-const SERVICE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SAUT = await raisonDeSauter();
 
 const SITE = 'http://93.184.216.34';
@@ -36,31 +29,17 @@ const PAGES = {
         <div id="b" style="position:absolute;left:300px;top:200px;width:40px;height:40px;background:#0f0"></div></body></html>`,
 };
 
-let child = null;
-let dossier = null;
-let base = '';
-let journal = '';
+let svc = null;
 let sid = '';
 
-async function portLibre() {
-    const srv = net.createServer();
-    await new Promise(r => srv.listen(0, '127.0.0.1', r));
-    const { port } = srv.address();
-    await new Promise(r => srv.close(r));
-    return port;
-}
-
 async function api(route, corps = {}) {
-    const r = await fetch(`${base}${route}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: OWNER, session_id: sid, ...corps }),
-    });
-    return { status: r.status, corps: await r.json() };
+    const r = await svc.post(route, { owner: OWNER, session_id: sid, ...corps });
+    return { status: r.statut, corps: r.corps };
 }
 
 async function lire(route, params = {}) {
     const q = new URLSearchParams({ owner: OWNER, session_id: sid, ...params });
-    return (await fetch(`${base}${route}?${q}`)).json();
+    return (await svc.get(`${route}?${q}`)).corps;
 }
 
 // Nombre d'éléments que Playwright trouve pour ce sélecteur (cachés compris).
@@ -71,22 +50,7 @@ async function nombre(selecteur) {
 
 before(async () => {
     if (SAUT) return;
-    dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-outils-annexes-'));
-    const port = await portLibre();
-    base = `http://127.0.0.1:${port}`;
-    child = spawn(process.execPath, ['--import', NEUTRE_PS, path.join(SERVICE, 'server.js')], {
-        cwd: dossier,
-        stdio: ['ignore', 'ignore', 'pipe'],
-        env: { ...process.env, FIREFOX_SERVICE_PORT: String(port), FIREFOX_SERVICE_HOST: '127.0.0.1',
-               APP_CONFIG_PATH: path.join(dossier, 'absent.json'), BROWSER_URL_ALLOWLIST: '' },
-    });
-    child.stderr.on('data', (d) => { journal += d; });
-    const limite = Date.now() + 20000;
-    while (Date.now() < limite) {
-        if (child.exitCode !== null) throw new Error(`service arrêté (${child.exitCode}) : ${journal}`);
-        try { if ((await (await fetch(`${base}/health`)).json()).ok) break; } catch (_) {}
-        await new Promise(r => setTimeout(r, 200));
-    }
+    svc = await demarrerService();
     const { status, corps } = await api('/start', { url: 'about:blank', isolated: true });
     assert.equal(status, 200, JSON.stringify(corps));
     sid = corps.session_id;
@@ -97,12 +61,7 @@ before(async () => {
 });
 
 after(async () => {
-    if (child) {
-        child.kill('SIGTERM');
-        await new Promise(r => { const t = setTimeout(r, 5000); child.on('exit', () => { clearTimeout(t); r(); }); });
-        try { child.kill('SIGKILL'); } catch (_) {}
-    }
-    if (dossier) fs.rmSync(dossier, { recursive: true, force: true });
+    if (svc) await svc.arreter();
 });
 
 test('/observe : les 4 liens « edit » ont 4 sélecteurs distincts, chacun trouve UN élément', { skip: SAUT, timeout: 60000 }, async () => {
@@ -270,8 +229,6 @@ test('routes sans appelant retirées : 404', { skip: SAUT, timeout: 60000 }, asy
     for (const route of ['/accessibility', '/capture_response', '/cleanup_screenshots', '/clipboard', '/dispatch_event',
         '/find_elements', '/get_colors', '/handle_next_dialog', '/inspect', '/intercept', '/locate', '/poll_until', '/query',
         '/select_color', '/select_date', '/smart_click', '/trigger_framework_update', '/watch_changes']) {
-        const r = await fetch(`${base}${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner: OWNER, session_id: sid }) });
-        assert.equal(r.status, 404, route);
-        await r.text();
+        assert.equal((await api(route)).status, 404, route);
     }
 });

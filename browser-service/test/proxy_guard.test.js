@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Relais filtrant du navigateur (proxy_guard.js) : requêtes http, tunnels
 // CONNECT, refus avec page explicite, connexion à l'adresse JUGÉE (et non à
-// une nouvelle résolution), vérificateur de service.
+// une nouvelle résolution).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'http';
 import net from 'net';
-import { demarrerRelais, verifierDepuisPolitique, entetesReponse } from '../proxy_guard.js';
+import { demarrerRelais, entetesReponse } from '../proxy_guard.js';
 
 function serveurCible() {
     return new Promise((resolve) => {
@@ -88,18 +88,6 @@ test('tunnel CONNECT : permis → établi et fonctionnel ; refusé → 403', asy
     } finally { await relais.close(); cible.close(); }
 });
 
-test('vérificateur de service : toutes les adresses résolues sont jugées', async () => {
-    const table = { 'public.example': ['93.184.216.34'], 'piege.example': ['93.184.216.34', '127.0.0.1'] };
-    const v = verifierDepuisPolitique({
-        resoudre: async (n) => { if (!(n in table)) throw new Error('ENOTFOUND'); return table[n]; },
-        motifIp: (ip) => (ip.startsWith('127.') ? 'boucle locale' : null),
-    });
-    assert.deepEqual(await v('public.example', 443), { ok: true, adresse: '93.184.216.34' });
-    assert.deepEqual(await v('piege.example', 443), { ok: false, motif: 'boucle locale' });
-    assert.equal((await v('127.0.0.1', 80)).ok, false);                 // adresse littérale
-    assert.equal((await v('introuvable.example', 80)).ok, false);
-});
-
 test('un client qui coupe (RST) pendant le jugement ne fait pas tomber le service', async () => {
     let libere;
     const attente = new Promise(r => { libere = r; });
@@ -132,25 +120,6 @@ test('un client qui coupe (RST) pendant le jugement ne fait pas tomber le servic
         process.removeListener('uncaughtException', capter);
         await relais.close();
     }
-});
-
-test('vérificateur de service : verdicts gardés brièvement, négatifs compris', async () => {
-    let t = 0, appels = 0;
-    const v = verifierDepuisPolitique({
-        resoudre: async (nom) => { appels++; if (nom === 'absent.test') throw new Error('ENOTFOUND'); return ['93.184.216.34']; },
-        motifIp: () => null, cacheMs: 1000, cacheNegatifMs: 500, maintenant: () => t,
-    });
-    assert.equal((await v('ok.test', 443)).ok, true);
-    assert.equal((await v('ok.test', 443)).ok, true);
-    assert.equal((await v('absent.test', 443)).ok, false);
-    assert.equal((await v('absent.test', 443)).ok, false);
-    assert.equal(appels, 2);
-    t = 600;                                   // négatif expiré, positif encore valable
-    await v('absent.test', 443); await v('ok.test', 443);
-    assert.equal(appels, 3);
-    t = 1200;
-    await v('ok.test', 443);
-    assert.equal(appels, 4);
 });
 
 // ── Authentification HTTP à travers le relais ───────────────────────────────

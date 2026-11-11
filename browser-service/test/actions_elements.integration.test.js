@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/actions_elements.integration.test.js — vrai server.js + Chromium (PLAYWRIGHT_BROWSERS_PATH) sur des pages d'essai d'une adresse publique fixe, servies par les simulations de la session (/mock/add) : aucun réseau, garde d'URL intacte.
+// browser-service/test/actions_elements.integration.test.js — vrai server.js + Chromium (PLAYWRIGHT_BROWSERS_PATH) sur des pages d'essai d'une adresse publique fixe, servies par les simulations de la session (/mock/add) : aucun réseau.
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
-import net from 'node:net';
-import os from 'node:os';
-import path from 'node:path';
-import { NEUTRE_PS, raisonDeSauter } from './aides/service.js';
+import { demarrerService, raisonDeSauter } from './aides/service.js';
 
-const SERVICE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SAUT = await raisonDeSauter();
 
 const SITE = 'http://93.184.216.34';
@@ -47,31 +40,17 @@ const PAGES = {
     '/apostrophe': `<button>it's</button>`,
 };
 
-let child = null;
-let dossier = null;
-let base = '';
-let journal = '';
+let svc = null;
 let sid = '';
 
-async function portLibre() {
-    const srv = net.createServer();
-    await new Promise(r => srv.listen(0, '127.0.0.1', r));
-    const { port } = srv.address();
-    await new Promise(r => srv.close(r));
-    return port;
-}
-
 async function api(route, corps = {}) {
-    const r = await fetch(`${base}${route}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: OWNER, session_id: sid, ...corps }),
-    });
-    return { status: r.status, corps: await r.json() };
+    const r = await svc.post(route, { owner: OWNER, session_id: sid, ...corps });
+    return { status: r.statut, corps: r.corps };
 }
 
 async function lire(route) {
-    const r = await fetch(`${base}${route}${route.includes('?') ? '&' : '?'}owner=${OWNER}&session_id=${sid}`);
-    return { status: r.status, corps: await r.json() };
+    const r = await svc.get(`${route}${route.includes('?') ? '&' : '?'}owner=${OWNER}&session_id=${sid}`);
+    return { status: r.statut, corps: r.corps };
 }
 
 // Page d'essai ouverte par un vrai goto ; le DOM est neuf à chaque appel.
@@ -88,24 +67,7 @@ async function evaluer(script) {
 
 before(async () => {
     if (SAUT) return;
-    dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-actions-'));
-    const port = await portLibre();
-    base = `http://127.0.0.1:${port}`;
-    child = spawn(process.execPath, ['--import', NEUTRE_PS, path.join(SERVICE, 'server.js')], {
-        cwd: dossier,
-        stdio: ['ignore', 'ignore', 'pipe'],
-        env: { ...process.env, FIREFOX_SERVICE_PORT: String(port), FIREFOX_SERVICE_HOST: '127.0.0.1', FORCE_COLOR: '1',
-               APP_CONFIG_PATH: path.join(dossier, 'absent-config.json') },
-    });
-    child.stderr.on('data', (d) => { journal += d; });
-    const limite = Date.now() + 20000;
-    let pret = false;
-    while (Date.now() < limite && !pret) {
-        if (child.exitCode !== null) throw new Error(`service arrêté (${child.exitCode}) : ${journal}`);
-        try { pret = (await (await fetch(`${base}/health`)).json()).ok === true; } catch (_) {}
-        if (!pret) await new Promise(r => setTimeout(r, 200));
-    }
-    if (!pret) throw new Error(`service muet après 20 s : ${journal}`);
+    svc = await demarrerService({ env: { FORCE_COLOR: '1' } });
     const r = await api('/start', { url: 'about:blank', isolated: true });
     assert.equal(r.status, 200, JSON.stringify(r.corps));
     sid = r.corps.session_id;
@@ -121,13 +83,10 @@ before(async () => {
 });
 
 after(async () => {
-    if (child) {
+    if (svc) {
         if (sid) await api('/stop', {}).catch(() => {});
-        child.kill('SIGTERM');
-        await new Promise(r => { const t = setTimeout(r, 5000); child.on('exit', () => { clearTimeout(t); r(); }); });
-        try { child.kill('SIGKILL'); } catch (_) {}
+        await svc.arreter();
     }
-    if (dossier) fs.rmSync(dossier, { recursive: true, force: true });
 });
 
 const T = { skip: SAUT, timeout: 60000 };
@@ -160,12 +119,10 @@ test('locator : rôle ARIA effectif, état coché, jamais la valeur « on » com
     assert.deepEqual(css.corps.matches.map(m => m.role), ['checkbox', 'checkbox', 'checkbox']);
 });
 
-// Aucune séquence ANSI ni chemin du serveur (dossier du service, dossier personnel) dans une réponse.
+// Aucune séquence ANSI dans une réponse.
 function propre(corps) {
     const texte = JSON.stringify(corps);
     assert.ok(!texte.includes('\\u001b') && !texte.includes('\x1b'), texte);
-    assert.ok(!texte.includes(dossier) && !texte.includes(fs.realpathSync(dossier)), texte);
-    assert.ok(!texte.includes(`${os.homedir()}/`), texte);
 }
 
 test('erreurs : codes fixes sans donnée, liste des options, aucun ANSI', T, async () => {
@@ -182,19 +139,19 @@ test('erreurs : codes fixes sans donnée, liste des options, aucun ANSI', T, asy
     propre(t.corps);
 });
 
-test('chemins du serveur masqués : échec de pw_chain avec capture, pdf', T, async () => {
+test('échec de pw_chain avec capture, pdf : chemins réels du dossier du service (/work dans le bac), sans ANSI', T, async () => {
     await ouvrir('/boutons');
     const c = await api('/chain', { actions: [{ type: 'press', key: 'NoSuchKey' }], screenshot_on_fail: true });
     assert.equal(c.status, 200, JSON.stringify(c.corps));
     const echec = c.corps.results[0];
     assert.equal(echec.success, false);
     assert.match(echec.screenshot_file, /^fail_/);
-    assert.match(echec.screenshot_path, /^screenshots\/fail_/);
+    assert.equal(echec.screenshot_path, `${svc.dossier}/screenshots/${echec.screenshot_file}`);
     assert.match(echec.code, /^[a-z][a-z0-9_]*$/);
     propre(c.corps);
     const p = await api('/print_pdf', {});
     assert.equal(p.status, 200, JSON.stringify(p.corps));
-    assert.match(p.corps.path, /^downloads\/essai\/page_.+\.pdf$/);
+    assert.ok(p.corps.path.startsWith(`${svc.dossier}/downloads/essai/page_`) && p.corps.path.endsWith('.pdf'), p.corps.path);
     propre(p.corps);
 });
 

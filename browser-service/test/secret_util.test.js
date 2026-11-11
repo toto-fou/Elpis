@@ -79,6 +79,6 @@ test('garde réseau : adresse, corps ou en-têtes qui portent une forme du mot d
 
 test('quota : une session ouverte pour un secret ne cède jamais sa place, la plus ancienne des autres cède', () => {
     const sess = new Map([['s1', { owner: 'o', lastActivity: 1, tls: 'strict' }], ['n1', { owner: 'o', lastActivity: 2 }]]);
-    assert.deepEqual(planSessionSlot(sess, 'o', { maxTotal: 10, maxPerOwner: 2 }), { evict: 'n1', refuse: false, limit: 'owner' });
-    assert.deepEqual(planSessionSlot(sess, 'o', { maxTotal: 10, maxPerOwner: 3 }), { evict: null, refuse: false });
+    assert.deepEqual(planSessionSlot(sess, 'o', { maxPerOwner: 2, maxPerGroup: 4 }), { evict: 'n1', refuse: false, limit: 'owner' });
+    assert.deepEqual(planSessionSlot(sess, 'o', { maxPerOwner: 3, maxPerGroup: 4 }), { evict: null, refuse: false });
 });

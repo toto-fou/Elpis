@@ -343,7 +343,7 @@ test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un
 
     const liste = (await service.get(`/sessions?owner=${o}`)).corps;
     assert.deepEqual(liste.sessions.map(x => x.session_id).sort(), [principale, secret, s5].sort());
-    assert.deepEqual([liste.max, liste.max_per_owner, liste.max_per_group, liste.effective_max], [10, 3, 4, 3]);
+    assert.deepEqual([liste.max, liste.max_per_owner, liste.max_per_group, liste.effective_max], [undefined, 3, 4, 3]);
     assert.equal(liste.sessions.find(x => x.session_id === secret).secret, true);
     for (const x of liste.sessions) await service.post('/stop', { owner: o, session_id: x.session_id });
 });
@@ -359,7 +359,7 @@ test('petits manques : <select multiple>, téléchargement rapporté, clic à un
 
     r = await api('/action', { type: 'click', by_css: '#dl' });
     assert.equal(r.statut, 200, r.texte);
-    assert.deepEqual(r.corps.downloads, [{ file: 'b.txt', path: `downloads/${OWNER}/b.txt`, size: 3 }]);
+    assert.deepEqual(r.corps.downloads, [{ file: 'b.txt', path: `${service.dossier}/downloads/${OWNER}/b.txt`, size: 3 }]);
 
     r = await api('/action', { type: 'click', by_css: '#toile', position: { x: 20, y: 80 } });
     assert.equal(r.statut, 200, r.texte);

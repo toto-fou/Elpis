@@ -1,28 +1,35 @@
 // SPDX-License-Identifier: MIT
-// test/securite-enregistrement-identifiants.integration.test.js — HAR et trace refusés avec des identifiants HTTP (ils les écrivent en clair) ; vidéo admise.
+// test/securite-enregistrement-identifiants.integration.test.js — HAR et trace refusés pour une session liée à l'authentification HTTP du relais (ils garderaient sa clé) ; vidéo admise, liaison mal formée refusée.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { demarrerService, raisonDeSauter } from './aides/service.js';
+
+const LIAISON = { key: 'ab'.repeat(16), origins: ['http://127.0.0.1:9'] };
 
 let svc = null;
 let saut = false;
 before(async () => { saut = await raisonDeSauter(); if (!saut) svc = await demarrerService(); });
 after(async () => { if (svc) await svc.arreter(); });
 
-test('record_har ou trace avec username/password : 400 recording_with_credentials, rien démarré', async (t) => {
+test('record_har ou trace avec une liaison du relais : 400 recording_with_credentials, rien démarré', async (t) => {
     if (saut) return t.skip(saut);
     for (const option of ['record_har', 'trace']) {
-        const r = await svc.post('/start', { owner: 'essai', url: 'about:blank', isolated: true, username: 'u', password: 'p', [option]: true });
+        const r = await svc.post('/start', { owner: 'essai', url: 'about:blank', isolated: true, relay_binding: LIAISON, [option]: true });
         assert.equal(r.statut, 400, `${option} : ${r.texte}`);
         assert.equal(r.corps.code, 'recording_with_credentials');
         assert.match(r.corps.error, /^[\x20-\x7e]+$/, 'message en anglais, ASCII');
     }
+    for (const liaison of [{ key: 'court', origins: LIAISON.origins }, { key: LIAISON.key, origins: [] }, { key: LIAISON.key, origins: ['http://127.0.0.1:9/chemin'] }, 'x']) {
+        const r = await svc.post('/start', { owner: 'essai', url: 'about:blank', isolated: true, relay_binding: liaison });
+        assert.equal(r.statut, 400, r.texte);
+        assert.equal(r.corps.code, 'invalid_option');
+    }
     assert.equal((await svc.get('/sessions?owner=essai')).corps.sessions?.length ?? 0, 0);
 });
 
-test('record_video avec identifiants, ou HAR sans identifiants : démarrés', async (t) => {
+test('record_video avec la liaison, ou HAR sans elle : démarrés', async (t) => {
     if (saut) return t.skip(saut);
-    for (const corps of [{ record_video: true, username: 'u', password: 'p' }, { record_har: true }]) {
+    for (const corps of [{ record_video: true, relay_binding: LIAISON }, { record_har: true }]) {
         const r = await svc.post('/start', { owner: 'essai', url: 'about:blank', isolated: true, ...corps });
         assert.equal(r.statut, 200, r.texte);
         await svc.post('/stop', { owner: 'essai', session_id: r.corps.session_id });

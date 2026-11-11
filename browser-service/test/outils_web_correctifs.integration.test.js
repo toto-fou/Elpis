@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/outils_web_correctifs.integration.test.js — vrai service et Chromium contre des pages locales (127.0.0.1, garde ouverte pour l'essai seulement) : clic qui navigue dans le délai du client, goto en échec, recorder sans secret, même cible même élément dans tous les outils, délai explicite d'une étape, sélecteurs uniques en shadow DOM, contenu de la page jamais masqué.
+// browser-service/test/outils_web_correctifs.integration.test.js — vrai service et Chromium contre des pages locales (127.0.0.1, boucle locale jointe directement comme dans le bac) : clic qui navigue dans le délai du client, goto en échec, recorder sans secret, même cible même élément dans tous les outils, délai explicite d'une étape, sélecteurs uniques en shadow DOM, contenu de la page jamais masqué.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -199,7 +199,7 @@ test('pw_observe en shadow DOM : chaque sélecteur désigne un seul élément po
     assert.deepEqual(cliques.sort(), ['1:Go', '1:Stop', '2:Go', '2:Stop', 'clair:Go']);
 });
 
-test('contenu de la page jamais réécrit : texte et URL citant le dossier du service, Date et URL d\'un eval', { skip: SAUTER, timeout: 60000 }, async () => {
+test('contenu de la page jamais réécrit : texte et URL citant un dossier personnel, Date et URL d\'un eval', { skip: SAUTER, timeout: 60000 }, async () => {
     await ouvrir('/chemins');
     const attendu = `Voir ${os.homedir()}/notes.txt ; dépôt http://git.lan${os.homedir()} ; fin`;
     const texte = await api('/extract_text', {});

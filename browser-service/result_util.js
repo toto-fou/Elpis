@@ -177,36 +177,19 @@ export function codeErreur(message) {
     return 'browser_error';
 }
 
-/** Racines du serveur à masquer, la plus longue d'abord : motif (racine en début de chemin, pas dans une URL, suivie de `/` ou d'une fin de nom) et remplacement. */
-export function racinesMasquees({ base = '', home = '' } = {}) {
-    const out = [];
-    for (const [r0, rempl] of [[base, ''], [home, '~']]) {
-        const r = String(r0 || '').replace(/\/+$/, '');
-        if (!r) continue;
-        out.push({ n: r.length, motif: new RegExp(`(?<![\\w.~%\\]-])${_escapeRegex(r)}(?:/|(?![\\w.-]))`, 'g'), rempl });
-    }
-    return out.sort((a, b) => b.n - a.n);
-}
-
 // Clés dont la valeur vient du service (message, chemin de l'hôte), jamais de la page ; `result` (evaluate) n'est jamais parcouru.
 const CLES_MESSAGES = new Set(['error', 'fix', 'warning', 'nav_warning', 'hint', 'note', 'tab_hint', 'fail_reason']);
 const estCleService = (k) => CLES_MESSAGES.has(k) || k === 'path' || k.endsWith('_path');
 
-/** Réponse JSON sans séquences ANSI ni chemins du serveur (dossier du service rendu relatif, dossier personnel en `~/`) dans ses messages et ses chemins ; contenu de la page et objets non simples (Date, URL) intacts. */
-export function nettoyerSortie(valeur, racines = [], profondeur = 0, cle = '') {
-    if (typeof valeur === 'string') {
-        if (!estCleService(cle)) return valeur;
-        let s = valeur.includes('\x1b') ? sansAnsi(valeur) : valeur;
-        for (const { motif, rempl } of racines)
-            s = s.replace(motif, (m) => (m.endsWith('/') ? (rempl ? `${rempl}/` : '') : (rempl || '.')));
-        return s;
-    }
+/** Réponse JSON sans séquences ANSI dans ses messages et ses chemins ; contenu de la page et objets non simples (Date, URL) intacts. */
+export function nettoyerSortie(valeur, profondeur = 0, cle = '') {
+    if (typeof valeur === 'string') return estCleService(cle) && valeur.includes('\x1b') ? sansAnsi(valeur) : valeur;
     if (profondeur > 40 || valeur === null || typeof valeur !== 'object') return valeur;
-    if (Array.isArray(valeur)) return valeur.map(v => nettoyerSortie(v, racines, profondeur + 1, cle));
+    if (Array.isArray(valeur)) return valeur.map(v => nettoyerSortie(v, profondeur + 1, cle));
     const proto = Object.getPrototypeOf(valeur);
     if (proto !== Object.prototype && proto !== null) return valeur;
     const out = {};
-    for (const [k, v] of Object.entries(valeur)) out[k] = k === 'result' ? v : nettoyerSortie(v, racines, profondeur + 1, k);
+    for (const [k, v] of Object.entries(valeur)) out[k] = k === 'result' ? v : nettoyerSortie(v, profondeur + 1, k);
     return out;
 }
 

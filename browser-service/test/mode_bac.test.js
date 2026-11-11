@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// browser-service/test/mode_bac.test.js — mode bac : boucle locale directe, tout le reste par le relais de l'hôte (socket unix, jeton), refus du relais rendu au navigateur.
+// browser-service/test/mode_bac.test.js — relais local du bac : boucle locale directe, tout le reste par le relais de l'hôte (socket unix, jeton), refus du relais rendu au navigateur.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,22 +9,7 @@ import net from 'net';
 import os from 'os';
 import path from 'path';
 import { demarrerRelais } from '../proxy_guard.js';
-import { analyserUrl, estBoucleLocale, verifierBac } from '../url_guard.js';
-
-test('boucle locale du bac : 127/8, ::1, localhost ; le reste part au relais', async () => {
-    for (const h of ['127.0.0.1', '127.8.9.10', '::1', '[::1]', 'localhost', 'app.localhost', '::ffff:127.0.0.1']) assert.ok(estBoucleLocale(h), h);
-    for (const h of ['10.0.0.1', '172.17.0.1', 'example.org', 'localhost.example.org', '']) assert.ok(!estBoucleLocale(h), h);
-    const v = verifierBac();
-    assert.deepEqual(await v('localhost', 8080), { ok: true, adresse: '127.0.0.1' });
-    assert.deepEqual(await v('127.0.0.2', 80), { ok: true, adresse: '127.0.0.2' });
-    assert.deepEqual(await v('intranet.lan', 443), { ok: true, amont: true });
-});
-
-test('analyserUrl : localhost admis seulement en mode bac', () => {
-    assert.equal(analyserUrl('http://localhost:8080/').ok, false);
-    assert.equal(analyserUrl('http://localhost:8080/', { boucleLocale: true }).ok, true);
-    assert.equal(analyserUrl('file:///etc/passwd', { boucleLocale: true }).ok, false);
-});
+import { verifierBac } from '../url_guard.js';
 
 // Faux relais de l'hôte sur socket unix : note les requêtes reçues, refuse « refuse.test ».
 function fauxRelais(chemin, recues) {
@@ -42,7 +27,7 @@ function fauxRelais(chemin, recues) {
     return new Promise((r) => s.listen(chemin, () => r(s)));
 }
 
-test('mode bac : http, tunnel et refus passent par le relais de l’hôte, avec le jeton ; la boucle locale reste directe', async () => {
+test('http, tunnel et refus passent par le relais de l’hôte, avec le jeton ; la boucle locale reste directe', async () => {
     const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'bac-relais-'));
     const chemin = path.join(dossier, 'relais.sock');
     const recues = [];

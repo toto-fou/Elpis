@@ -3,21 +3,13 @@
 //  proxy_guard.js — relais HTTP local par lequel passe TOUT le trafic du
 //  navigateur (2026-09-30).
 // ============================================================================
-//  Pourquoi : le routage Playwright (context.route) ne voit que la PREMIÈRE
-//  requête d'une chaîne de redirections, et le navigateur résout lui-même les
-//  noms. Une page pouvait donc atteindre la boucle locale ou le réseau interne
-//  de l'hôte par une simple redirection, ou par un nom qui change d'adresse
-//  entre la vérification et la connexion.
-//
-//  Ici, le navigateur est lancé avec ce relais comme proxy (boucle locale
-//  comprise : ``--proxy-bypass-list=<-loopback>``). Pour chaque connexion —
-//  requête http, tunnel CONNECT (https, wss), mise à niveau WebSocket — le
-//  relais résout le nom LUI-MÊME, juge chaque adresse (``verifier``) et se
-//  connecte à l'adresse jugée : redirections, sous-ressources, WebSocket et
-//  changement d'adresse DNS passent tous par le même contrôle.
-//
-//  ``verifier(hote, port)`` → ``{ ok, adresse, motif }`` est injecté (tests
-//  sans réseau ; en service : résolution DNS + url_guard.motifIp).
+//  Le navigateur est lancé avec ce relais comme proxy (boucle locale comprise :
+//  ``--proxy-bypass-list=<-loopback>``) : chaque connexion — requête http,
+//  tunnel CONNECT (https, wss), mise à niveau WebSocket — est jugée par
+//  ``verifier(hote, port)`` → ``{ ok, adresse, amont, motif }`` (en service :
+//  url_guard.verifierBac) ; la boucle locale du bac est jointe à l'adresse
+//  jugée, tout le reste part au relais de l'hôte (``amont``), qui résout, juge
+//  la destination et injecte les secrets.
 // ============================================================================
 import http from 'http';
 import net from 'net';
@@ -76,7 +68,7 @@ function _pageRefus(motif) {
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`;
 }
 
-// En-tête d'authentification auprès du relais de l'hôte (mode bac), ligne CRLF comprise ; vide sans jeton.
+// En-tête d'authentification auprès du relais de l'hôte, ligne CRLF comprise ; vide sans jeton.
 function _authAmont(amont) {
     return amont && amont.jeton ? `Proxy-Authorization: Bearer ${amont.jeton}\r\n` : '';
 }
@@ -112,7 +104,7 @@ export function tunnelAmont(amont, cible) {
 
 /**
  * Démarre le relais sur 127.0.0.1 (port libre si ``port`` = 0).
- * ``amont`` (mode bac) : ``{ socket, jeton }`` du relais de l'hôte, où partent les connexions que
+ * ``amont`` : ``{ socket, jeton }`` du relais de l'hôte, où partent les connexions que
  * ``verifier`` marque ``amont: true``.
  * → Promise<{ port, close() }>.
  */
@@ -253,41 +245,4 @@ export function demarrerRelais({ verifier, port = 0, journal = () => {}, amont =
             resolve({ port: serveur.address().port, close: () => new Promise(r => { serveur.close(() => r()); for (const c of ouvertes) c.destroy(); }) });
         });
     });
-}
-
-/**
- * Vérificateur de service : résout ``hote`` (sauf adresse littérale), juge
- * CHAQUE adresse avec ``motifIp`` et renvoie la première si toutes passent.
- * ``resoudre`` : ``async (nom) => [adresses]`` ; ``motifIp`` : ``(ip, nom) =>
- * motif|null``.
- */
-export function verifierDepuisPolitique({ resoudre, motifIp, cacheMs = 10000, cacheNegatifMs = 5000,
-                                         max = 2000, maintenant = () => Date.now() }) {
-    // Verdicts par nom, courts (négatifs compris) : une page ouvre des dizaines
-    // de connexions vers les mêmes hôtes, et un résolveur injoignable (site
-    // hors ligne) occuperait sinon le pool de threads à chaque connexion. La
-    // connexion se fait toujours à l'adresse JUGÉE, cache ou non.
-    const cache = new Map();
-    async function _juger(hote) {
-        const litteral = net.isIP(hote) ? [hote] : null;
-        let adresses;
-        try { adresses = litteral || await resoudre(hote); } catch (_) {
-            return { ok: false, motif: `nom introuvable (${hote})` };
-        }
-        if (!adresses || !adresses.length) return { ok: false, motif: `nom introuvable (${hote})` };
-        for (const a of adresses) {
-            const m = motifIp(a, hote);
-            if (m) return { ok: false, motif: m };
-        }
-        return { ok: true, adresse: adresses[0] };
-    }
-    return async (hote, _port) => {
-        const t = maintenant();
-        const e = cache.get(hote);
-        if (e && t < e.expire) return e.v;
-        const v = await _juger(hote);
-        if (cache.size >= max) cache.delete(cache.keys().next().value);
-        cache.set(hote, { v, expire: t + (v.ok ? cacheMs : cacheNegatifMs) });
-        return v;
-    };
 }

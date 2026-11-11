@@ -5,28 +5,23 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
-import os from 'os';
-import dns from 'dns';
 import { classifyNavOutcome, authHint, cleanNavError, estPageErreur, finalUrl, tlsWarning } from './nav_util.js';
 import { joindreOnglets, etatOnglets, urlOnglet } from './tab_util.js';
 import { pingPage, planScreenshotQuota, safeOwner, ownerFromRequest, ownerMatches,
-         stateFileName, resolveStateFile, isLegacyStateName, safeDownloadName,
+         stateFileName, resolveStateFile, safeDownloadName,
          planArtifactPurge, planSessionSlot, occupationGroupe, placesEnfants, quotasSessions, sessionsANettoyer,
-         sessionsEnfantsAnciennes, identifiantsPourOrigine, avisIdentifiants } from './session_util.js';
+         sessionsEnfantsAnciennes } from './session_util.js';
 import { makeLock, acquireLock, lockIdle } from './session_lock.js';
-import { analyserUrl, motifIp, motifUrl, hoteDepuisInterfaces, analyserListeBlanche,
-         interfacesDepuisProc, fusionnerInterfaces, verifierBac,
-         messageRefus, makeCache } from './url_guard.js';
+import { analyserUrl, verifierBac, messageRefus } from './url_guard.js';
 import { lirePs, orphelins } from './proc_util.js';
-import { preparerDonnees } from './donnees_util.js';
-import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
+import { demarrerRelais } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
-         codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
+         codeErreur, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
          noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './recorder_util.js';
-import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
+import { gardeJeton } from './service_auth.js';
 import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
          verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
 
@@ -38,41 +33,32 @@ const PW_MUTEX     = process.env.PW_SESSION_MUTEX !== '0';
 const LOCK_WAIT_MS = parseInt(process.env.PW_LOCK_WAIT_MS || '90000', 10);     // > goto 60 s
 const LOCK_MAX_W   = parseInt(process.env.PW_LOCK_MAX_WAITERS || '8', 10);
 
-// Mode bac (BROWSER_SANDBOX=1) : service lancé par l'hôte d'outils dans le bac d'un compte ; boucle locale du bac jointe
-// directement, tout le reste par le relais de l'hôte (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
-const MODE_BAC = process.env.BROWSER_SANDBOX === '1';
-// Arrêt du service après tant de secondes sans appel (mode bac ; 0 = jamais).
+// Service lancé par l'hôte d'outils dans le bac d'un compte : socket unix (FIREFOX_SERVICE_SOCKET) et jeton du bac
+// (BROWSER_SERVICE_TOKEN) exigés ; boucle locale du bac jointe directement, tout le reste par le relais de l'hôte
+// (BROWSER_RELAY_SOCKET), qui juge les destinations et injecte les secrets.
+const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
+const JETON = (process.env.BROWSER_SERVICE_TOKEN || '').trim();
+for (const [manque, nom] of [[!LISTEN_SOCKET, 'FIREFOX_SERVICE_SOCKET (its Unix socket)'], [!JETON, 'BROWSER_SERVICE_TOKEN (its call token)']]) {
+    if (!manque) continue;
+    console.error(`[browser-service] ${nom} is required: the browser service only runs inside an account's sandbox, started by the tool host.`);
+    process.exit(1);
+}
+// Arrêt du service après tant de secondes sans appel (0 = jamais).
 const ARRET_INACTIF_MS = Math.max(0, parseInt(process.env.BROWSER_IDLE_EXIT_S || '0', 10) || 0) * 1000;
 let _dernierAppel = Date.now();
 
 const app = express();
-// Jeton d'appel vérifié avant tout, statiques compris : sans jeton configuré, appels locaux directs seuls.
-app.use(gardeJeton);
+// Jeton d'appel vérifié avant tout, statiques compris.
+app.use(gardeJeton(JETON));
 app.use((_req, _res, next) => { _dernierAppel = Date.now(); next(); });
 app.use(express.json({ limit: '50mb' }));
 // Express 5 laisse req.body indéfini sans corps JSON : les routes le lisent comme un objet, comme sous Express 4.
 app.use((req, _res, next) => { req.body ??= {}; next(); });
 
-// ════════════════════════════════════════════════════════════════════
-//  SÉCURITÉ — bind interface
-// ════════════════════════════════════════════════════════════════════
-//
-//  Authentification : jeton Bearer (BROWSER_SERVICE_TOKEN ou user_db/.browser_service_token,
-//  écrit par ./elpis configure) ; sans jeton, seuls les appels locaux directs passent.
-//  Il écoute sur ``FIREFOX_SERVICE_HOST`` (défaut ``127.0.0.1``) : ne jamais l'exposer publiquement.
-
-// (2026-09-30) Un seul ``/health``, détaillé, plus bas : celui-ci, déclaré
-// en premier, masquait l'autre (Express sert la première route qui correspond).
-
 // ── Captures servies en statique (sans cache). Pas d'en-tête CORS : seul le
 // backend d'Elpis les relit, de serveur à serveur.
-// Données du service : BROWSER_DATA_DIR (service central : user_db/browser, 0700, hors du code monté dans les bacs), sinon le dossier courant (mode bac : /work/.elpis-browser).
-const CODE_DIR = process.cwd();
-const BASE_DIR = path.resolve(process.env.BROWSER_DATA_DIR || CODE_DIR);
-if (process.env.BROWSER_DATA_DIR) {
-    const repris = preparerDonnees(CODE_DIR, BASE_DIR, (m) => console.warn(`[DONNEES] ${m}`));
-    if (repris.length) console.log(`[DONNEES] repris du dossier du code dans ${BASE_DIR} : ${repris.join(', ')}`);
-}
+// Données du service : le dossier courant (/work/.elpis-browser du bac).
+const BASE_DIR = process.cwd();
 app.use('/screenshots', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
@@ -82,7 +68,7 @@ app.use('/screenshots', (req, res, next) => {
 // CONFIGURATION
 // ==========================================
 const SCREENSHOT_DIR = path.join(BASE_DIR, 'screenshots');
-// BROWSER_DOWNLOAD_DIR (mode bac : /work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
+// BROWSER_DOWNLOAD_DIR (/work/downloads) : dossier de l'utilisateur, jamais purgé par le service.
 const DOWNLOAD_DIR = process.env.BROWSER_DOWNLOAD_DIR || path.join(BASE_DIR, 'downloads');
 const COOKIES_DIR = path.join(BASE_DIR, 'cookies');
 const HAR_DIR = path.join(BASE_DIR, 'har');
@@ -94,21 +80,11 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
-const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
-// Mode bac : rien à masquer, tout est dans le /work de l'utilisateur (chemins rendus tels quels, ouvrables par ses outils).
-const RACINES_SORTIE = MODE_BAC ? [] : [
-    ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
-    ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
-    ...racinesMasquees({ base: CODE_DIR }),
-    ...racinesMasquees({ base: _reel(CODE_DIR) }),
-].sort((a, b) => b.n - a.n);
-
-// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI ni chemins du serveur (contenu de la page intact).
+// Toute réponse JSON : erreurs avec un code stable ; messages et chemins sans séquences ANSI (contenu de la page intact).
 app.use((req, res, next) => {
     req.recuA = Date.now();
     const json = res.json.bind(res);
-    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode), RACINES_SORTIE));
+    res.json = (corps) => json(nettoyerSortie(normaliserErreur(corps, res.statusCode)));
     next();
 });
 
@@ -118,76 +94,24 @@ app.use('/videos', express.static(VIDEO_DIR));
 app.use('/traces', express.static(TRACE_DIR));
 
 // ════════════════════════════════════════════════════════════════════
-//  DESTINATIONS AUTORISÉES (2026-09-30, cf. url_guard.js)
+//  DESTINATIONS (cf. url_guard.js, proxy_guard.js)
 // ════════════════════════════════════════════════════════════════════
 //  Le relais filtrant (proxy_guard.js) fait foi : TOUT le trafic du
 //  navigateur y passe (navigations, redirections, sous-ressources, WebSocket,
-//  service workers). S'y ajoute un refus ANTICIPÉ, avec un message clair pour
-//  le modèle, avant une navigation demandée (goto, nouvel onglet, /start).
-//  Pas de ``context.route`` de garde : le routage Playwright désactive le
-//  cache HTTP et coûte un aller-retour par requête, pour un contrôle que le
-//  relais fait déjà. Liste blanche du réseau local : ``browser.url_allowlist`` du
-//  config.json d'Elpis (relue quand le fichier change) ou la variable
-//  ``BROWSER_URL_ALLOWLIST``.
-const CONFIG_PATH = process.env.APP_CONFIG_PATH || path.join(CODE_DIR, '..', 'config.json');
-let _politique = { mtime: -1, listeBlanche: analyserListeBlanche(process.env.BROWSER_URL_ALLOWLIST || '') };
-function listeBlancheCourante() {
-    try {
-        const st = fs.statSync(CONFIG_PATH);
-        if (st.mtimeMs !== _politique.mtime) {
-            const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-            const brut = (cfg && cfg.browser && cfg.browser.url_allowlist) || process.env.BROWSER_URL_ALLOWLIST || '';
-            _politique = { mtime: st.mtimeMs, listeBlanche: analyserListeBlanche(brut) };
-            _verdicts = makeCache({ ttlMs: 30000 });
-        }
-    } catch (_) { /* pas de config lisible : on garde la politique courante */ }
-    return _politique.listeBlanche;
-}
-// os.networkInterfaces() complété par /proc : libuv omet les interfaces sans porteuse (pont Docker vide).
-function _interfaces() {
-    const lire = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } };
-    let vues = {};
-    try { vues = os.networkInterfaces(); } catch (_) { /* /proc seul */ }
-    return fusionnerInterfaces(vues, interfacesDepuisProc({
-        ifInet6: lire('/proc/net/if_inet6'), fibTrie: lire('/proc/net/fib_trie'), route: lire('/proc/net/route'),
-    }));
-}
-let _hote = { t: 0, v: hoteDepuisInterfaces(_interfaces()) };
-function hoteCourant() {
-    if (Date.now() - _hote.t > 60000) {
-        try { _hote = { t: Date.now(), v: hoteDepuisInterfaces(_interfaces()) }; } catch (_) {}
-    }
-    return _hote.v;
-}
-const _resoudre = async (nom) => (await dns.promises.lookup(nom, { all: true, verbatim: true })).map(r => r.address);
-// Verdict par nom d'hôte (une page charge des dizaines d'URL du même hôte).
-let _verdicts = makeCache({ ttlMs: 30000 });
+//  service workers) ; la boucle locale du bac y est jointe directement, le
+//  reste part au relais de l'hôte, qui juge la destination (profil réseau du
+//  bac, politique du navigateur). Avant une navigation demandée (goto, nouvel
+//  onglet, /start), seule la forme de l'adresse est contrôlée ici.
 
-/** Motif de refus d'une URL (``null`` = permise). */
+/** Motif de refus d'une URL (``null`` = permise) : forme seule. */
 async function refusUrl(url) {
-    // Mode bac : forme seule (boucle locale admise) ; le relais de l'hôte juge le reste à la connexion.
-    if (MODE_BAC) { const b = analyserUrl(url, { boucleLocale: true }); return b.ok ? null : b.motif; }
     const a = analyserUrl(url);
-    if (!a.ok) return a.motif;
-    if (a.vide) return null;
-    const listeBlanche = listeBlancheCourante();
-    const cle = a.hote;
-    const connu = _verdicts.get(cle);
-    if (connu !== undefined) return connu;
-    const m = await motifUrl(url, { resoudre: _resoudre, hote: hoteCourant(), listeBlanche });
-    _verdicts.set(cle, m);
-    return m;
+    return a.ok ? null : a.motif;
 }
 
-// Relais filtrant (proxy_guard.js) : TOUT le trafic du navigateur y passe,
-// boucle locale comprise. C'est lui qui fait foi (redirections, changements
-// d'adresse DNS) ; ``refusUrl`` n'est qu'un refus anticipé.
 const _relais = await demarrerRelais({
-    verifier: MODE_BAC ? verifierBac() : verifierDepuisPolitique({
-        resoudre: _resoudre,
-        motifIp: (ip, nom) => motifIp(ip, { hote: hoteCourant(), listeBlanche: listeBlancheCourante(), nomHote: nom }),
-    }),
-    amont: MODE_BAC ? { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' } : null,
+    verifier: verifierBac(),
+    amont: { socket: process.env.BROWSER_RELAY_SOCKET || '/run/elpis/browser-relay.sock', jeton: process.env.BROWSER_RELAY_TOKEN || '' },
     journal: (m) => console.warn(`[GARDE] ${m}`),
 });
 console.log(`[GARDE] relais filtrant sur 127.0.0.1:${_relais.port}`);
@@ -228,12 +152,10 @@ const sessions = new Map();
 // ==========================================
 const SESSION_TTL_MS = 15 * 60 * 1000;  // 15 minutes
 const REAPER_INTERVAL_MS = 60 * 1000;   // check every 60s
-// Plafonds de sessions (`quotasSessions`) : global (tous comptes ; les sous-agents à session isolée ont le leur, à part),
-// par propriétaire, et par groupe (le compte et les propriétaires dérivés de ses enfants). Au plafond d'un
-// propriétaire ou du groupe, la plus ancienne session du demandeur cède la place (jamais celle d'un autre
-// propriétaire du groupe ni d'un autre compte) ; sans session à céder, le démarrage est refusé. Une place du
-// groupe reste au compte : ses enfants n'ont que le reste.
-const { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
+// Plafonds de sessions du compte (`quotasSessions`) : par propriétaire, et par groupe (le compte et les propriétaires dérivés
+// de ses enfants). Au plafond, la plus ancienne session du demandeur cède la place (jamais celle d'un autre propriétaire du
+// groupe) ; sans session à céder, le démarrage est refusé. Une place du groupe reste au compte : ses enfants n'ont que le reste.
+const { maxPerOwner: MAX_SESSIONS_PER_OWNER, maxPerGroup: MAX_SESSIONS_PER_GROUP } = quotasSessions(process.env);
 // Budget accordé à la tentative « locator officiel » QUAND un selector de
 // repli est disponible. Court exprès : le repli smartResolveLocator doit
 // pouvoir s'exécuter dans le temps que le client accorde à la requête.
@@ -438,59 +360,39 @@ function reapScreenshots() {
     }
 }
 
-// ── Autres artefacts : purgés par âge (2026-09-30). Téléchargements, HAR,
-// vidéos et traces servent le temps d'une session ; les états sauvegardés
-// (cookies) se rechargent plus tard, d'où une durée plus longue.
+// ── Autres artefacts : purgés par âge (2026-09-30). HAR, vidéos et traces servent le temps d'une session ; les états
+// sauvegardés (cookies) se rechargent plus tard, d'où une durée plus longue ; les téléchargements (/work) ne le sont jamais.
 const ARTIFACT_MAX_AGE_MS = parseInt(process.env.PW_ARTIFACT_MAX_AGE_H || '24', 10) * 3600 * 1000;
 const STATE_MAX_AGE_D = parseInt(process.env.PW_STATE_MAX_AGE_D || '30', 10);
 const STATE_MAX_AGE_MS = STATE_MAX_AGE_D * 86400 * 1000;
 
-function _purgerDossier(dir, maxAgeMs, { recursif = false, garder } = {}) {
-    let n = 0;
+function _purgerDossier(dir, maxAgeMs) {
     let noms;
     try { noms = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return 0; }
     const entrees = [];
     for (const d of noms) {
-        const f = path.join(dir, d.name);
-        if (d.isDirectory()) {
-            if (recursif) {
-                n += _purgerDossier(f, maxAgeMs);
-                try { if (!fs.readdirSync(f).length) fs.rmdirSync(f); } catch (_) {}
-            }
-            continue;
-        }
-        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(f).mtimeMs }); } catch (_) {}
+        if (!d.isFile()) continue;
+        try { entrees.push({ name: d.name, mtimeMs: fs.statSync(path.join(dir, d.name)).mtimeMs }); } catch (_) {}
     }
-    for (const nom of planArtifactPurge(entrees, { maxAgeMs, keep: garder })) {
+    let n = 0;
+    for (const nom of planArtifactPurge(entrees, { maxAgeMs })) {
         try { fs.unlinkSync(path.join(dir, nom)); n++; } catch (_) {}
     }
     return n;
 }
 
 function reapArtifacts() {
-    // Les états sans propriétaire attendent leur rattachement : jamais purgés.
-    const n = (process.env.BROWSER_DOWNLOAD_DIR ? 0 : _purgerDossier(DOWNLOAD_DIR, ARTIFACT_MAX_AGE_MS, { recursif: true }))
-            + _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
+    const n = _purgerDossier(HAR_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(VIDEO_DIR, ARTIFACT_MAX_AGE_MS)
             + _purgerDossier(TRACE_DIR, ARTIFACT_MAX_AGE_MS)
-            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS, { garder: isLegacyStateName });
+            + _purgerDossier(COOKIES_DIR, STATE_MAX_AGE_MS);
     if (n) console.log(`[ARTIFACT-REAPER] ${n} fichier(s) purgé(s).`);
 }
 
-function signalerEtatsSansCompte() {
-    const n = fs.readdirSync(COOKIES_DIR).filter(isLegacyStateName).length;
-    if (n) {
-        console.warn(`[STATES] ${n} état(s) sauvegardé(s) avant la 0.0.1, sans compte : jamais rechargés, `
-                   + `à supprimer à la main (${COOKIES_DIR}/state_<id>.json).`);
-    }
-}
-
-// Run once on startup (catches crashes that left files behind across restarts)
-// and then on a timer. Les états sans compte ne sont signalés qu'au démarrage.
+// Run once on startup (catches crashes that left files behind across restarts) and then on a timer.
 setImmediate(() => {
     try { reapScreenshots(); } catch (e) { console.error('[SCREENSHOT-REAPER] startup:', e.message); }
     try { reapArtifacts(); } catch (e) { console.error('[ARTIFACT-REAPER] startup:', e.message); }
-    try { signalerEtatsSansCompte(); } catch (e) { console.error('[STATES] startup:', e.message); }
 });
 const _screenshotReaperInterval = setInterval(() => {
     try { reapScreenshots(); }
@@ -2299,34 +2201,29 @@ function _ownerStartLock(owner) {
     return ownerStartLocks.get(owner);
 }
 
-// Indice joint à un démarrage arrivé sur un 401/407 sans identifiants HTTP posés sur le contexte.
-const indiceAuthDemarrage = (nav, poses) => {
-    const h = poses ? null : authHint(nav.http_status ?? null);
+// Indice joint à un démarrage arrivé sur un 401/407.
+const indiceAuthDemarrage = (nav) => {
+    const h = authHint(nav.http_status ?? null);
     return h ? { auth_hint: h } : {};
 };
 
-// Mode bac : liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
+// Liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
 const ENTETE_LIAISON = 'x-elpis-binding';
 function liaisonRelais(b) {
     const l = b.relay_binding;
     if (l === undefined || l === null) return null;
-    if (!MODE_BAC || typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
+    if (typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
         || !Array.isArray(l.origins) || !l.origins.length || l.origins.some((o) => origineDe(o) !== o)) return undefined;
     return { cle: l.key, origines: new Set(l.origins) };
 }
 
-// Refus (400) d'un démarrage au `tls` inconnu ou au `credentials_origin` invalide (origine http(s), identifiants, adresse de départ sur elle) ; null sinon.
+// Refus (400) d'un démarrage au `tls` inconnu ou à la liaison du relais invalide, ou qui enregistrerait cette liaison (HAR, trace) ; null sinon.
 function refusDemarrage(b) {
     if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
     const liaison = liaisonRelais(b);
-    if (liaison === undefined) return { error: 'relay_binding must be { key, origins } in sandbox mode.', code: 'invalid_option' };
+    if (liaison === undefined) return { error: 'relay_binding must be { key, origins }.', code: 'invalid_option' };
     // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
     if (liaison && (b.record_har || b.trace)) return { error: 'HAR and trace recordings would keep the relay binding of HTTP authentication.', code: 'recording_with_credentials' };
-    if (b.credentials_origin === undefined || b.credentials_origin === null || b.credentials_origin === '') return null;
-    const o = origineDe(b.credentials_origin);
-    if (!o) return { error: 'credentials_origin must be an http(s) origin (scheme://host[:port]).', code: 'secret_scope_mismatch' };
-    if (!(b.username && b.password)) return { error: 'credentials_origin needs username and password.', code: 'invalid_option' };
-    if (b.url && origineDe(b.url) !== o) return { error: `The start URL is not on the credentials' origin (${o}).`, code: 'secret_scope_mismatch' };
     return null;
 }
 
@@ -2338,7 +2235,6 @@ const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch
 const LIMITES_SESSIONS = {
     owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
     group: () => `at most ${MAX_SESSIONS_PER_GROUP} sessions for an account and its sub-agents`,
-    global: () => `at most ${MAX_SESSIONS} sessions on the browser service`,
 };
 
 // Session qui va céder sa place : identifiant, adresse, inactivité et raison.
@@ -2358,7 +2254,7 @@ function avisEviction(evincees) {
 function refusSessionsProtegees(slot) {
     const protegees = (slot.protected || []).map((sid) => {
         const s = sessions.get(sid) || {};
-        return { session_id: sid, why: s.tls || s.identifiantsLies ? 'opened for a secret' : 'busy' };
+        return { session_id: sid, why: s.tls ? 'opened for a secret' : 'busy' };
     });
     return {
         error: `Browser session limit reached (${(LIMITES_SESSIONS[slot.limit] || LIMITES_SESSIONS.owner)()}) and none of your sessions can be closed for this one: each is busy or opened for a secret.`,
@@ -2370,7 +2266,7 @@ function refusSessionsProtegees(slot) {
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
-        const { url, username, password, credentials_origin, load_state_id, record_har = false,
+        const { url, load_state_id, record_har = false,
                 device, viewport, locale, timezone, color_scheme, touch,
                 isolated = false, trace = false, record_video = false } = req.body;
         // Propriétaire obligatoire (2026-09-30) : c'est lui qui borne l'accès
@@ -2386,16 +2282,6 @@ app.post('/start', async (req, res) => {
         if (url) {
             const motif = await refusUrl(url);
             if (motif) return repondreRefus(res, url, motif);
-        }
-        const identifiantsFournis = Boolean(username && password);
-        const identifiants = identifiantsPourOrigine(origineDe(credentials_origin) || url, username, password);
-        // HAR et trace écrivent les identifiants HTTP en clair (en-tête Authorization, options du contexte) : refusés ensemble.
-        if (identifiantsFournis && (record_har || trace)) {
-            return res.status(400).json({
-                error: 'HAR and trace recordings store HTTP credentials in clear: they cannot be combined with username/password.',
-                code: 'recording_with_credentials',
-                fix: 'Start the session without record_har/trace, or without credentials.',
-            });
         }
 
         // État sauvegardé : seulement ceux du même propriétaire (cf.
@@ -2479,8 +2365,7 @@ app.post('/start', async (req, res) => {
                         url: s.page.url(),
                         title: await s.page.title().catch(() => ''),
                         ...nav,
-                        ...indiceAuthDemarrage(nav, Boolean(s.identifiantsLies)),
-                        ...avisIdentifiants(identifiantsFournis, identifiants, s.identifiantsLies, nav.http_status, s.page.url()),
+                        ...indiceAuthDemarrage(nav),
                         note: 'Instance unique par utilisateur : session existante réutilisée'
                             + (url ? ', URL ouverte dans un nouvel onglet (utilisez switch_tab pour basculer).' : '.'),
                         // Un état ne se pose qu'à la création du contexte : le
@@ -2516,7 +2401,6 @@ app.post('/start', async (req, res) => {
             ignoreHTTPSErrors: tls !== 'strict',
             acceptDownloads: true,
             storageState,
-            httpCredentials: identifiants,
             permissions: ['geolocation'],
             bypassCSP: true,
         };
@@ -2576,19 +2460,15 @@ app.post('/start', async (req, res) => {
 
         const now = Date.now();
         // Enforce max sessions — close oldest if at limit
-        const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
+        const slot = planSessionSlot(sessions, owner, { maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
             if (slot.cause === 'protegees') return res.status(503).json(refusSessionsProtegees(slot));
-            return res.status(503).json(slot.cause === 'groupe' ? {
+            return res.status(503).json({
                 error: `Browser session quota reached for this account (${MAX_SESSIONS_PER_GROUP} sessions, sub-agents included).`,
                 code: 'browser_quota',
                 fix: "Close a session you no longer need with pw_session(action='stop'), or wait for a running browser sub-agent to finish: "
                    + 'the account and its sub-agents share this quota. A sub-agent that hits it returns Status: blocked to its parent.',
-            } : {
-                error: 'Browser service saturated: too many sessions are open across all accounts.',
-                code: 'browser_saturated',
-                fix: 'Do not loop on it: retry in a few minutes, or continue without the browser.',
             });
         }
         // Session cédée pour rester sous le plafond : dite dans la réponse, jamais en silence.
@@ -2596,8 +2476,7 @@ app.post('/start', async (req, res) => {
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
         sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
-                                identifiantsLies: identifiants ? { origin: identifiants.origin, username: identifiants.username } : null,
-                                har: Boolean(record_har), tls });
+                                tls });
         suivreOnglets(sessions.get(sessionId), page);
 
         let nav = {};
@@ -2613,8 +2492,7 @@ app.post('/start', async (req, res) => {
 
         res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
                    ...(evincees.length ? { evicted_sessions: evincees, warning: avisEviction(evincees) } : {}),
-                   ...indiceAuthDemarrage(nav, Boolean(identifiants)),
-                   ...avisIdentifiants(identifiantsFournis, identifiants, identifiants, nav.http_status, page.url()),
+                   ...indiceAuthDemarrage(nav),
                    ...(tls ? { tls } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
     finally { if (_startRelease) _startRelease(); }
@@ -2819,19 +2697,9 @@ function gardeReseau(formes, origineSecret, etat) {
         const bloquer = (raison) => { etat.bloquees++; return route.abort(raison).catch(() => {}); };
         if (rq.method() !== 'POST' || origineDe(rq.url()) !== origineSecret || (await refusUrl(rq.url()).catch(() => 'refus'))) return bloquer('blockedbyclient');
         etat.enVol++;
-        // Mode bac : la requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
-        if (MODE_BAC) {
-            rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
-            return route.fallback().catch(() => {});
-        }
-        try {
-            let r;
-            try { r = await route.fetch({ maxRedirects: 0, timeout: 30000 }); } catch (e) { return bloquer('failed'); }
-            let cible = null;
-            try { cible = origineDe(new URL(r.headers()['location'] || '', rq.url()).href); } catch (e) { cible = null; }
-            if ([307, 308].includes(r.status()) && cible !== origineSecret) return bloquer('blockedbyclient');
-            return route.fulfill({ response: r }).catch(() => {});
-        } finally { etat.enVol--; etat.repondu = Date.now(); }
+        // La requête suit le chemin du navigateur jusqu'au relais de l'hôte, qui seul remplace le substitut par la valeur.
+        rq.response().catch(() => null).finally(() => { etat.enVol--; etat.repondu = Date.now(); });
+        return route.fallback().catch(() => {});
     };
 }
 
@@ -2853,50 +2721,7 @@ function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
         fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
 }
 
-// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie (mode bac : seul le substitut est saisi).
-function refusEnregistrement(s) {
-    if (MODE_BAC) return;
-    if (s.har) throw erreurSecret('secret_recording_active', 'A HAR recording is active on this session: it would keep the typed value.', 409,
-        { fix: 'A HAR records until the session is closed: log in from a session started without record_har.' });
-    if (s.traceActive) throw erreurSecret('secret_recording_active', 'A trace recording is active on this session: it would keep the typed value.', 409,
-        { fix: 'Export the trace first (/trace_export, which stops it), then log in.' });
-}
-
-// Autres pages du contexte sans script le temps de la connexion (un script d'un onglet de même origine lirait le champ) ; sessions CDP à détacher pour les rétablir.
-async function figerAutresPages(s, page) {
-    const cdps = [];
-    const echec = async () => {
-        for (const c of cdps) await c.detach().catch(() => {});
-        throw erreurSecret('secret_login_failed', 'Another tab of this session could not be paused for the login: nothing was typed.', 500);
-    };
-    for (const pg of s.context.pages()) {
-        if (pg === page || pg.isClosed()) continue;
-        for (const cible of [pg, ...pg.frames().filter((f) => f !== pg.mainFrame())]) {
-            const cdp = await s.context.newCDPSession(cible).catch(() => null);
-            if (!cdp) { if (cible === pg && !pg.isClosed()) await echec(); continue; }
-            cdps.push(cdp);
-            if (!(await cdp.send('Emulation.setScriptExecutionDisabled', { value: true }).then(() => true, () => pg.isClosed()))) await echec();
-        }
-    }
-    return cdps;
-}
-
-// WebSocket de la session routés par le service dès sa première connexion : fermé s'il émet pendant la saisie d'un mot de passe.
-async function garderWebSockets(s) {
-    if (s._wsGardes) return;
-    await s.context.routeWebSocket(/.*/, (ws) => {
-        if (s._saisie) return ws.close({ code: 1008, reason: 'Login in progress' });
-        const serveur = ws.connectToServer();
-        ws.onMessage((m) => {
-            if (!s._saisie) return serveur.send(m);
-            ws.close({ code: 1008, reason: 'Login in progress' });
-            serveur.close({ code: 1008, reason: 'Login in progress' });
-        });
-    });
-    s._wsGardes = true;
-}
-
-// Isolement avant toute saisie : journaux sans corps ni requête porteuse, mocks suspendus, garde réseau, WebSocket gardés, autres pages figées, service workers de l'origine retirés, page rechargée depuis le réseau (aucun script d'avant n'y reste) ; chaque étape faite ajoute son retour à `defaire`.
+// Isolement avant toute saisie (le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret) : journaux sans corps ni requête porteuse, mocks suspendus, garde réseau, service workers de l'origine retirés, page rechargée depuis le réseau (aucun script d'avant n'y reste) ; chaque étape faite ajoute son retour à `defaire`.
 async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }) {
     s.networkLog.formes = formes;
     if (s.dialogState) s.dialogState.formes = formes;
@@ -2904,12 +2729,6 @@ async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }
     defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
     await s.context.route('**/*', garde);
     defaire.push(() => s.context.unroute('**/*', garde));
-    // Mode bac : le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret ; ni WebSocket ni autres onglets à figer.
-    if (!MODE_BAC) {
-        await garderWebSockets(s);
-        const figees = await figerAutresPages(s, page);
-        defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
-    }
     const cdp = await s.context.newCDPSession(page);
     try {
         await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
@@ -2924,7 +2743,6 @@ async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }
 app.post('/login_precheck', getSession, async (req, res) => {
     let p = null;
     try {
-        refusEnregistrement(req.session);
         p = await preparerLogin(req);
         const targets = {};
         for (const [champ, h] of Object.entries(p.champs)) targets[champ] = await decrireChamp(h);
@@ -2949,7 +2767,7 @@ app.post('/login', getSession, async (req, res) => {
     s._connexionEnCours = true;
     const etat = { navigue: false, enVol: 0, repondu: 0, bloquees: 0, coupees: 0, saisie: false };
     const garde = gardeReseau(formes, origineSecret, etat);
-    const phaseSaisie = (oui) => { etat.saisie = oui; s._saisie = oui; };
+    const phaseSaisie = (oui) => { etat.saisie = oui; };
     const saisies = new Set();
     const nouvelles = [];
     const surPage = (pg) => { nouvelles.push(pg); };
@@ -2962,7 +2780,6 @@ app.post('/login', getSession, async (req, res) => {
             if (!origineSecret) throw erreurSecret('secret_scope_mismatch', 'secret_origin must be an http(s) origin (scheme://host[:port]).', 400);
             if (!uv && !pv) throw erreurSecret('secret_target_required', 'Nothing to type: username_value and password_value are both empty.', 400);
             if (pv && !formes.length) throw erreurSecret('secret_login_failed', 'A password shorter than 3 characters cannot be guarded or purged: login refused.', 400);
-            refusEnregistrement(s);
             if (pv) await isolerConnexion(s, s.page, { garde, formes, origine: origineSecret, fin, defaire });
             const prep = preparerLogin(req, { fin, valeurs: { username: uv, password: pv } });
             try { p = await avecDelai(prep, Math.max(500, fin - Date.now())); }
@@ -5314,7 +5131,7 @@ app.post('/trace_export', getSession, async (req, res) => {
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
         await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
         req.session.traceActive = false;
-        res.json({ ok: true, trace_url: `/traces/${file}`, ...(MODE_BAC ? { file: path.join(TRACE_DIR, file) } : {}), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
+        res.json({ ok: true, trace_url: `/traces/${file}`, file: path.join(TRACE_DIR, file), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -5345,16 +5162,13 @@ app.get('/health', (req, res) => {
         service: 'browser',
         status: 'running',
         engine: 'chromium',
-        mode: MODE_BAC ? 'sandbox' : 'central',
         uptime_sec: Math.round((now - _DEMARRAGE) / 1000),
-        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes.
+        // ``sessions`` : celles du propriétaire (liste d'objets, comme /sessions) ; ``session_count`` : toutes celles du compte.
         sessions: sessionList,
         session_count: sessions.size,
-        max_sessions: MAX_SESSIONS,
         ...(groupe ? { group_sessions: groupe.compte + groupe.enfants, max_sessions_per_group: MAX_SESSIONS_PER_GROUP, child_slots_left: Math.max(0, placesEnfants(groupe, MAX_SESSIONS_PER_GROUP) - groupe.enfants) } : {}),
         session_ttl_min: SESSION_TTL_MS / 60000,
         browser_connected: globalBrowser?.isConnected() || false,
-        url_allowlist: !listeBlancheCourante().vide,
     });
 });
 
@@ -5828,15 +5642,15 @@ app.get('/sessions', (req, res) => {
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
-            ...(s.isolated ? { isolated: true } : {}), ...(s.tls || s.identifiantsLies ? { secret: true } : {}),
+            ...(s.isolated ? { isolated: true } : {}), ...(s.tls ? { secret: true } : {}),
         });
     }
-    // Plafonds : global (tous comptes), par propriétaire, par groupe (le compte et ses sous-agents), et ce que ce compte peut encore ouvrir.
+    // Plafonds : par propriétaire, par groupe (le compte et ses sous-agents), et ce que ce propriétaire peut encore ouvrir.
     const groupe = owner ? occupationGroupe(sessions, owner) : { compte: 0, enfants: 0 };
     const effectif = Math.max(0, Math.min(MAX_SESSIONS_PER_OWNER, MAX_SESSIONS_PER_GROUP - groupe.enfants));
-    res.json({ count: list.length, max: MAX_SESSIONS, max_per_owner: MAX_SESSIONS_PER_OWNER, max_per_group: MAX_SESSIONS_PER_GROUP,
+    res.json({ count: list.length, max_per_owner: MAX_SESSIONS_PER_OWNER, max_per_group: MAX_SESSIONS_PER_GROUP,
                effective_max: effectif, ttl_min: SESSION_TTL_MS / 60000, sessions: list,
-               limits_note: `You can keep ${effectif} session(s) at once (${MAX_SESSIONS_PER_OWNER} per owner, ${MAX_SESSIONS_PER_GROUP} for the account and its sub-agents, ${MAX_SESSIONS} on the service). At the limit, start closes your oldest idle session (an isolated one first) and says so; a busy session or one opened for a secret is never closed.` });
+               limits_note: `You can keep ${effectif} session(s) at once (${MAX_SESSIONS_PER_OWNER} per owner, ${MAX_SESSIONS_PER_GROUP} for the account and its sub-agents). At the limit, start closes your oldest idle session (an isolated one first) and says so; a busy session or one opened for a secret is never closed.` });
 });
 
 // ======================== FORCE CLEANUP ========================
@@ -5850,7 +5664,7 @@ app.post('/cleanup', async (req, res) => {
     res.json({ cleaned: siennes.length });
 });
 
-// Sessions des sous-agents de tous les comptes ouvertes depuis `older_than_ms`, jamais celle d'un compte ; sans propriétaire : le core, seul client du service, au démarrage (celles du process précédent).
+// Sessions des sous-agents ouvertes depuis `older_than_ms`, jamais celle du compte ; sans propriétaire : le core, à son démarrage (celles des runs du process précédent).
 app.post('/cleanup_children', async (req, res) => {
     const ageMinMs = req.body?.older_than_ms;
     if (typeof ageMinMs !== 'number' || !(ageMinMs >= 0)) return res.status(400).json({ error: 'older_than_ms requis (ms, >= 0).' });
@@ -6620,43 +6434,25 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     const { secret_variables, notes } = notesDuScript(events);
-    // Mode bac : le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
-    let fichier = null;
-    if (MODE_BAC) {
-        const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
-        try {
-            fs.mkdirSync('/work/recordings', { recursive: true });
-            fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
-            fs.writeFileSync(fichier, script);
-        } catch (e) { fichier = null; }
-    }
+    // Le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
+    const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
+    let fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+    try {
+        fs.mkdirSync('/work/recordings', { recursive: true });
+        fs.writeFileSync(fichier, script);
+    } catch (e) { fichier = null; }
     res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 
 
-// SECURITY FIX (critique) : on bind explicitement à 127.0.0.1 par défaut
-// pour empêcher l'exposition externe. L'opérateur peut exposer le service
-// sur d'autres interfaces via FIREFOX_SERVICE_HOST=0.0.0.0, en sachant que
-// le service n'a alors AUCUNE barrière. Le port reste configurable via
-// FIREFOX_SERVICE_PORT.
-const LISTEN_HOST = process.env.FIREFOX_SERVICE_HOST || '127.0.0.1';
-const LISTEN_PORT = parseInt(process.env.FIREFOX_SERVICE_PORT || '3000', 10);
-// FIREFOX_SERVICE_SOCKET : socket unix à la place du port (mode bac : /run/elpis/browser.sock, joint par l'hôte d'outils, jeton exigé).
-const LISTEN_SOCKET = (process.env.FIREFOX_SERVICE_SOCKET || '').trim();
-
-const _ecoute = () => {
-    journaliserMode(jetonAttendu());
-    if (LISTEN_SOCKET) { try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); } }
-    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET || `${LISTEN_HOST}:${LISTEN_PORT}`}${MODE_BAC ? ' (sandbox mode)' : ''} (TTL: 15min, max: ${MAX_SESSIONS} sessions + ${MAX_CHILD_SESSIONS} de sous-agents, ${MAX_SESSIONS_PER_OWNER} par propriétaire, ${MAX_SESSIONS_PER_GROUP} par compte sous-agents compris)`);
-};
-if (LISTEN_SOCKET) {
-    try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
-    app.listen(LISTEN_SOCKET, _ecoute);
-} else {
-    app.listen(LISTEN_PORT, LISTEN_HOST, _ecoute);
-}
-// Mode bac : sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
+// Socket unix du bac (/run/elpis/browser.sock), joint par l'hôte d'outils avec le jeton du bac.
+try { fs.unlinkSync(LISTEN_SOCKET); } catch (_) { /* absent */ }
+app.listen(LISTEN_SOCKET, () => {
+    try { fs.chmodSync(LISTEN_SOCKET, 0o666); } catch (e) { console.error('[LISTEN] chmod', e.message); }
+    console.log(`🌐 Browser AGENT Server (Playwright, Chromium headless) running on ${LISTEN_SOCKET} (TTL: 15min, ${MAX_SESSIONS_PER_OWNER} sessions par propriétaire, ${MAX_SESSIONS_PER_GROUP} pour le compte, sous-agents compris)`);
+});
+// Sans appel pendant BROWSER_IDLE_EXIT_S, le service s'arrête (l'hôte le relance au prochain outil pw_*).
 if (ARRET_INACTIF_MS > 0) {
     let arret = false;
     setInterval(() => {

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
-// test/aides/service.js — vrai service navigateur des essais d'intégration : dossier temporaire, port libre, garde ouverte à 127.0.0.1 seulement pour l'essai.
+// test/aides/service.js — vrai service navigateur des essais d'intégration : dossier temporaire, socket unix et jeton comme dans le bac.
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SERVICE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const GARDE_BOUCLE = pathToFileURL(path.join(SERVICE, 'test', 'aides', 'garde_boucle.mjs')).href;
+export const SERVEUR = path.join(SERVICE, 'server.js');
 export const NEUTRE_PS = pathToFileURL(path.join(SERVICE, 'test', 'aides', 'neutre_ps.mjs')).href;
 
 export async function portLibre() {
@@ -32,33 +34,42 @@ export async function raisonDeSauter() {
     }
 }
 
-// Service démarré et prêt (/health) : base, appels JSON, journal et arrêt (dossier temporaire supprimé).
-export async function demarrerService({ env = {}, jeton = env.BROWSER_SERVICE_TOKEN || '' } = {}) {
-    const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-pw-essai-'));
-    const port = await portLibre();
-    const base = `http://127.0.0.1:${port}`;
+// Requête HTTP au service par son socket : statut, corps JSON (null sinon), texte et en-têtes.
+export function requeteSocket(socket, methode, route, { corps, entetes = {} } = {}) {
+    return new Promise((resolve, reject) => {
+        const charge = methode === 'GET' ? null : JSON.stringify(corps ?? {});
+        const rq = http.request({ socketPath: socket, path: route, method: methode,
+            headers: { host: 'browser', ...(charge === null ? {} : { 'Content-Type': 'application/json' }), ...entetes } }, (r) => {
+            const morceaux = [];
+            r.on('data', (m) => morceaux.push(m));
+            r.on('end', () => {
+                const texte = Buffer.concat(morceaux).toString('utf8');
+                let json = null;
+                try { json = JSON.parse(texte); } catch (_) { /* corps non JSON */ }
+                resolve({ statut: r.statusCode, corps: json, texte, entetes: r.headers });
+            });
+            r.on('error', reject);
+        });
+        rq.on('error', reject);
+        rq.end(charge ?? undefined);
+    });
+}
+
+// Service démarré et prêt (/health) dans un dossier temporaire (son dossier courant, comme /work/.elpis-browser) : appels JSON, journal et arrêt (dossier supprimé).
+export async function demarrerService({ env = {}, jeton = env.BROWSER_SERVICE_TOKEN || crypto.randomBytes(16).toString('hex') } = {}) {
+    const dossier = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'elpis-pw-essai-')));
+    const socket = path.join(dossier, 'browser.sock');
     let journal = '';
-    const auth = jeton ? { Authorization: `Bearer ${jeton}` } : {};
-    const enfant = spawn(process.execPath, ['--import', NEUTRE_PS, '--import', GARDE_BOUCLE, path.join(SERVICE, 'server.js')], {
+    const auth = { Authorization: `Bearer ${jeton}` };
+    const enfant = spawn(process.execPath, ['--import', NEUTRE_PS, SERVEUR], {
         cwd: dossier,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: {
-            ...process.env, FIREFOX_SERVICE_PORT: String(port), FIREFOX_SERVICE_HOST: '127.0.0.1',
-            APP_CONFIG_PATH: path.join(dossier, 'config-absente.json'),
-            BROWSER_URL_ALLOWLIST: '', ...env,
-        },
+        env: { ...process.env, FIREFOX_SERVICE_SOCKET: socket, BROWSER_RELAY_SOCKET: path.join(dossier, 'relais-absent.sock'),
+               ...env, BROWSER_SERVICE_TOKEN: jeton },
     });
     enfant.stdout.on('data', (d) => { journal += d; });
     enfant.stderr.on('data', (d) => { journal += d; });
-    const appel = async (methode, route, corps) => {
-        const r = await fetch(`${base}${route}`, methode === 'GET' ? { headers: auth } : {
-            method: methode, headers: { 'Content-Type': 'application/json', ...auth }, body: JSON.stringify(corps ?? {}),
-        });
-        const texte = await r.text();
-        let json = null;
-        try { json = JSON.parse(texte); } catch (_) { /* corps non JSON */ }
-        return { statut: r.status, corps: json, texte };
-    };
+    const appel = (methode, route, corps) => requeteSocket(socket, methode, route, { corps, entetes: auth });
     const arreter = async () => {
         if (enfant.exitCode === null) {
             enfant.kill('SIGTERM');
@@ -70,15 +81,18 @@ export async function demarrerService({ env = {}, jeton = env.BROWSER_SERVICE_TO
     const limite = Date.now() + 20000;
     for (;;) {
         if (enfant.exitCode !== null) { await arreter(); throw new Error(`service arrêté (${enfant.exitCode}) : ${journal}`); }
-        try { if ((await (await fetch(`${base}/health`, { headers: auth })).json()).ok) break; } catch (_) { /* pas encore prêt */ }
+        try { if ((await appel('GET', '/health')).corps?.ok) break; } catch (_) { /* pas encore prêt */ }
         if (Date.now() > limite) { await arreter(); throw new Error(`service muet après 20 s : ${journal}`); }
         await new Promise(r => setTimeout(r, 200));
     }
     return {
-        base,
+        dossier,
+        socket,
+        jeton,
         journal: () => journal,
         post: (route, corps) => appel('POST', route, corps),
         get: (route) => appel('GET', route),
+        brute: (methode, route, options) => requeteSocket(socket, methode, route, options),
         arreter,
     };
 }

@@ -87,14 +87,17 @@ function jetonFichier(chemin: string): string {
   return j;
 }
 
-/** Certificat de l'autorité posé dans le dossier de l'agent du bac s'il manque ou diffère. */
-function poserCertificat(chemin: string, pem: string): void {
+/** Certificat de l'autorité posé dans le dossier de l'agent du bac s'il manque ou diffère ; vrai s'il a changé (rotation). */
+function poserCertificat(chemin: string, pem: string): boolean {
+  let present = false;
   try {
-    if (lstatSync(chemin).isFile() && readFileSync(chemin, "utf8") === pem) return;
+    present = lstatSync(chemin).isFile();
+    if (present && readFileSync(chemin, "utf8") === pem) return false;
   } catch {
     // absent
   }
   writeFileSync(chemin, pem, { mode: 0o644 });
+  return present;
 }
 
 /** Minutes sans appel avant l'arrêt du service du bac (`browser.sandbox_idle_minutes`, 15 par défaut). */
@@ -142,15 +145,19 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
   const c = cheminsNavigateurBac(username);
   const jetonRelais = jetonFichier(`${c.dossier}/.browser-relay.token`);
   await relaisDuCompte(e, username, jetonRelais);
-  poserCertificat(c.ca, autoriteInstance().certPem);
+  const rotation = poserCertificat(c.ca, autoriteInstance().certPem);
   const jeton = jetonFichier(c.jeton);
   const service: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: c.socket, jeton };
   const avant = await sante(service);
-  if (avant.ok) {
+  if (avant.ok && !rotation) {
     noterDebut(e, avant.uptime);
     return;
   }
-  if (avant.refus) await sb.stopNavigateur().catch(() => undefined);
+  // Jeton refusé, ou autorité renouvelée (le service n'importe le certificat qu'au démarrage) : service relancé.
+  if (avant.refus || avant.ok) {
+    await sb.stopNavigateur().catch(() => undefined);
+    for (let i = 0; i < 50 && (await sante(service)).ok; i++) await new Promise((ok) => setTimeout(ok, 100));
+  }
   const t0 = performance.now();
   await sb.startNavigateur({
     BROWSER_SANDBOX: "1",

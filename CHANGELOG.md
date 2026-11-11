@@ -545,6 +545,10 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **MCP relay: linear checks on unauthenticated input.** The `Origin` header and the `family`
+  path segment were trimmed with regular expressions that backtrack on long runs of slashes,
+  before any authentication; they are now trimmed by linear scans, and an `Origin` longer than
+  2,048 characters is refused at once.
 - **Routines: webhook and chained context as untrusted data.** The body of a webhook delivery
   and the summary of an upstream routine were appended to the routine's prompt under a plain
   heading, as if the user had written them. They now reach the model in a `<routine_event>` block

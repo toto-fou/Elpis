@@ -10,6 +10,7 @@ import {
   HttpError,
   intPy,
   lowerPy,
+  lstripPy,
   pyJsonLoadsOctets,
   rstripPy,
   stripPy,
@@ -103,6 +104,11 @@ export interface PontMcp {
   /** Flux GET terminés dès l'annonce de l'arrêt, connexions amont détruites à la fermeture. */
   readonly extension: Extension;
   fermer(): Promise<void>;
+}
+
+/** Segment `family` de l'URL, sans blancs ni barres aux extrémités ; lu avant toute authentification. */
+export function familleNette(family: string): string {
+  return lstripPy(rstripPy(stripPy(family), "/"), "/");
 }
 
 /** Première valeur d'un en-tête, comme `request.headers[...]` de Starlette (Node joint les doublons). */
@@ -211,7 +217,7 @@ export function creerPontMcp(dep: DependancesPontMcp): PontMcp {
     family: string,
   ): { enProcessus: ServiceMcpHttp | null; base: string } {
     const enService = dep.enProcessus?.() ?? null;
-    const local = stripPy(family).replace(/^\/+|\/+$/gu, "");
+    const local = familleNette(family);
     const enProcessus =
       enService !== null && isFamilyName(local) && estEntreeEnProcessus(local) ? enService : null;
     const [base] = serviceUpstream();
@@ -251,7 +257,7 @@ export function creerPontMcp(dep: DependancesPontMcp): PontMcp {
   async function avantCorps(requete: FastifyRequest): Promise<void> {
     const family = (requete.params as { family?: string }).family ?? "";
     joignable(requete, family);
-    await authentifier(requete, stripPy(family).replace(/^\/+|\/+$/gu, ""));
+    await authentifier(requete, familleNette(family));
   }
 
   /** Tout ce qui précède l'appel amont : refus dans l'ordre de `_relay_to_mcp`, puis URL, en-têtes et corps à relayer. */
@@ -270,7 +276,7 @@ export function creerPontMcp(dep: DependancesPontMcp): PontMcp {
         `Version de protocole MCP non prise en charge : ${Array.from(pv).slice(0, 40).join("")} ` +
           `(connues : ${SUPPORTED_PROTOCOL_VERSIONS.join(", ")}).`,
       );
-    const fam = stripPy(family).replace(/^\/+|\/+$/gu, "");
+    const fam = familleNette(family);
     const { jeton, client } = await authentifier(requete, fam);
     if (enProcessus !== null) {
       if (!stripPy(client.username))

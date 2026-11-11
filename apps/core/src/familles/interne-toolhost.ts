@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, identifiant git, hôtes des connecteurs (toolhost/routes_internal.py) ; notification, ancres du bureau, ouverture de PR et identifiant git saisi pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
-import { getUser, getUserSettings, ligneUtilisateur, resoudreJeton } from "@elpis/auth";
+/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité (toolhost/routes_internal.py) ; hôtes des comptes git, identifiant git lu dans le coffre (ou sa seule présence), notification, ancres du bureau, ouverture de PR et identifiant git saisi dans l'éditeur pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
+import { getUser, getUserSettings, ligneUtilisateur, nomCanonique, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -8,6 +8,7 @@ import { config } from "@elpis/config";
 import { corpsJson, entrees, premierEntete, py } from "@elpis/http";
 import { toolhostEntry } from "@elpis/mcp";
 import { IDENTITY_HEADER, verify } from "@elpis/securite";
+import type { Identity } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { ancresDeLaBase, obsKey } from "../bureau";
@@ -39,6 +40,13 @@ export interface DependancesInterne {
 }
 
 /** `_identity_dict` : compte, profil réseau effectif, admin plein seulement (`is_admin == 1`) ; `null` si le compte manque. */
+/** Seul compte dont la forme canonique (nom des dossiers et des anciennes clés des outils) vaut `nom`, `null` sinon. */
+async function idCanonique(base: DependancesInterne["auth"]["base"], nom: string): Promise<number | null> {
+  const comptes = await base.all<{ id: number; username: string }>("SELECT id, username FROM users");
+  const egaux = comptes.filter((c) => nomCanonique(String(c.username ?? "")) === nom);
+  return egaux.length === 1 && egaux[0] ? intPy(egaux[0].id) : null;
+}
+
 async function identite(dep: DependancesInterne, uid: number): Promise<Dict | null> {
   const ligne = await ligneUtilisateur(dep.auth.base, uid);
   if (!ligne) return null;
@@ -81,17 +89,16 @@ const ANCRE = py.model({
   center: py.optional(py.list(py.any(), { max_length: 4 })).defaut(null),
 });
 
-/** Compte de l'enveloppe `X-Elpis-Identity` signée au jeton de service, relu en base : jamais du corps ni de la requête. */
+/** Compte de l'enveloppe `X-Elpis-Identity` signée au jeton de service, relu en base : jamais du corps ni de la requête ; l'enveloppe vérifiée suit (conversation, sous-agent). */
 export async function compteSigne(
   dep: Pick<DependancesInterne, "auth">,
   req: FastifyRequest,
-): Promise<{ uid: number; username: string }> {
+): Promise<{ uid: number; username: string; identite: Identity }> {
   const ident = verify(premierEntete(req, IDENTITY_HEADER), jetonServiceDuManifeste());
-  if (ident === null || ident.user_id <= 0)
-    throw new HttpError(401, "enveloppe d'identité absente ou invalide");
+  if (ident === null || ident.user_id <= 0) throw new HttpError(401, "identity envelope missing or invalid");
   const ligne = await ligneUtilisateur(dep.auth.base, ident.user_id);
-  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "compte inconnu");
-  return { uid: ident.user_id, username: ident.username };
+  if (!ligne || strPy(ligne.username) !== ident.username) throw new HttpError(403, "unknown account");
+  return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 
 /** Corps JSON d'une route interne : objet attendu, sinon `{}`. */
@@ -158,12 +165,15 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { username } = entrees(req, { query: { username: py.str().defaut("") } }).query;
-          const nom = stripPy(username || "");
+          const q = entrees(req, {
+            query: { username: py.str().defaut(""), canonical: py.str().defaut("") },
+          }).query;
+          const nom = stripPy(q.username || "");
           if (!nom) throw new HttpError(400, "username requis");
           const ligne = await getUser(base, nom);
-          if (!ligne) return { ok: false };
-          const ident = await identite(dep, intPy(ligne.id));
+          const id = ligne ? intPy(ligne.id) : q.canonical === "1" ? await idCanonique(base, nom) : null;
+          if (id === null) return { ok: false };
+          const ident = await identite(dep, id);
           return ident ? { ok: true, ...ident } : { ok: false };
         },
       },

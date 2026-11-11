@@ -115,7 +115,7 @@ async function apresSuppression(base: Base, uid: number, ids: readonly string[])
 }
 
 /** `_chat_meta` : `meta_json` relu ; illisible ou pas un objet, `{}`. */
-function metaDe(brut: unknown): Dict {
+export function metaDe(brut: unknown): Dict {
   const texte = veritePy(brut) ? brut : "{}";
   if (typeof texte !== "string") return {};
   try {
@@ -160,6 +160,7 @@ export async function getChat(x: Executeur, uid: number, chatId: string): Promis
   const usage = getOu(meta, "ctx_usage", null);
   const suffixes = getOu(meta, "llm_user_suffixes", null);
   const rag = getOu(meta, "rag", null);
+  const secrets = getOu(meta, "secrets", null);
   return {
     id: r.id,
     title: r.title,
@@ -173,6 +174,7 @@ export async function getChat(x: Executeur, uid: number, chatId: string): Promis
     ctx_usage: estDict(usage) ? usage : null,
     llm_user_suffixes: estDict(suffixes) ? suffixes : {},
     ...(estDict(rag) ? { rag } : {}),
+    ...(Array.isArray(secrets) ? { secrets } : {}),
   };
 }
 

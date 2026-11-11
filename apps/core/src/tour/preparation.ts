@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/tour/preparation.ts — préparation d'un tour : payload client → plan (cible, serveurs MCP résolus côté serveur, interrupteurs du compte, historique, titre), ressources et base de l'enregistrement optimiste (chatbot_app/turn/preparation.py). */
+/** apps/core/src/tour/preparation.ts — préparation d'un tour : payload client → plan (cible, serveurs MCP résolus côté serveur, interrupteurs du compte, historique, titre, secrets attachés avant le flux), ressources et base de l'enregistrement optimiste (chatbot_app/turn/preparation.py). */
 import { getUserSettings, getUsernameById, ligneUtilisateur } from "@elpis/auth";
 import {
   estDict,
@@ -55,6 +55,8 @@ import {
   reglageRagDe,
 } from "../rag/chat";
 import { sourcesRagDesMessages } from "../rag/sources-message";
+import { annonceSecretsDuTour, annonceVisibleSecrets, derniereAnnonceSecrets } from "../secrets/annonce";
+import { idsDemandes, remplacerSecretsAttaches, secretsAttaches } from "../secrets/attache";
 import {
   expandHistoryForLlm,
   graftStoppedTurnState,
@@ -129,6 +131,8 @@ export interface TurnPlan {
   readonly runsAnnonces?: readonly string[];
   /** Bloc `<rag_context>` joint à la question, devant les événements de jobs (même suffixe persisté). */
   readonly ragSuffix?: string | null;
+  /** Bloc `<secrets>` (secrets attachés à la conversation), après le RAG (même suffixe persisté). */
+  readonly secretsSuffix?: string | null;
   /** Instantané sans secret ni adresse, porté par le registre des tours pendant le tour. */
   readonly instantane?: Readonly<Dict>;
 }
@@ -257,12 +261,50 @@ function refsServeurs(actifs: unknown): Dict[] {
   return refs;
 }
 
-/** Suffixe de la question du tour : bloc `<rag_context>` puis événements de jobs, comme il sera enregistré et rejoué. */
-export function suffixeDeQuestion(
-  ragSuffix: string | null | undefined,
-  jobSuffix: string | null | undefined,
-): string {
-  return [ragSuffix, jobSuffix].filter((s): s is string => typeof s === "string" && s !== "").join("\n\n");
+/** Suffixe de la question du tour : blocs `<rag_context>`, `<secrets>`, puis événements de jobs, comme il sera enregistré et rejoué. */
+export function suffixeDeQuestion(...blocs: (string | null | undefined)[]): string {
+  return blocs.filter((s): s is string => typeof s === "string" && s !== "").join("\n\n");
+}
+
+/** Secrets du tour : l'ensemble envoyé par le composeur (`secrets`) remplace celui de la conversation AVANT le flux (outils et sous-agents du tour le lisent ; chat neuf créé vierge), puis le bloc `<secrets>` s'il change ou si la compaction l'a résumé ; une panne n'empêche pas le tour. */
+async function secretsDuTour(
+  base: Base,
+  data: Dict,
+  o: {
+    uid: number;
+    username: string;
+    chatId: string;
+    existe: boolean;
+    annoncer: boolean;
+    messages: Dict[];
+    suffixes: unknown;
+    msgsForLlm: Dict[];
+  },
+): Promise<string | null> {
+  try {
+    const demandes = idsDemandes(data["secrets"]);
+    const acteur = { userId: o.uid, username: o.username, ip: null };
+    const remplaces =
+      demandes === null
+        ? null
+        : await remplacerSecretsAttaches(base, o.uid, o.chatId, demandes, acteur, {
+            strict: false,
+            creer: true,
+          });
+    if (!o.annoncer || (!o.existe && remplaces === null)) return null;
+    const attaches = remplaces ?? (await secretsAttaches(base, o.uid, o.chatId)) ?? [];
+    const rang = o.messages.filter((m) => m["role"] === "user").length - 1;
+    const derniere = derniereAnnonceSecrets(o.messages, o.suffixes, rang);
+    return annonceSecretsDuTour(
+      attaches,
+      derniere !== null && !annonceVisibleSecrets(o.msgsForLlm, derniere) ? null : derniere,
+    );
+  } catch (e) {
+    log.warn(
+      `[secrets] secrets attachés non appliqués à ce tour : ${e instanceof Error ? e.name : String(e)}`,
+    );
+    return null;
+  }
 }
 
 /** Événements de jobs joints à la dernière question vue par le modèle (même fusion que le rappel des tâches). */
@@ -548,6 +590,20 @@ export async function prepareTurn(
     }
   }
 
+  const secretsSuffix =
+    ephemeral || reveil !== null || chatReadFailed
+      ? null
+      : await secretsDuTour(base, data, {
+          uid,
+          username,
+          chatId,
+          existe: existingChat !== null,
+          annoncer: !isContinue,
+          messages,
+          suffixes: (existingChat ?? {})["llm_user_suffixes"],
+          msgsForLlm,
+        });
+
   let title = "Nouveau chat";
   const existingTitle = stripPy(veritePy((existingChat ?? {})["title"]) ? strPy(existingChat!["title"]) : "");
   let titleContent: string | null = null;
@@ -595,7 +651,7 @@ export async function prepareTurn(
     } catch (e) {
       log.debug(`[chat.enfants_interrompus] ${String(e)}`);
     }
-  const suffixe = suffixeDeQuestion(ragSuffix, jobSuffix);
+  const suffixe = suffixeDeQuestion(ragSuffix, secretsSuffix, jobSuffix);
   if (suffixe) joindreALaQuestion(msgsForLlm, suffixe);
   const plan: TurnPlan = {
     userId: uid,
@@ -645,6 +701,7 @@ export async function prepareTurn(
     jobSuffix,
     runsAnnonces,
     ragSuffix,
+    secretsSuffix,
     instantane: {
       run_id: runId,
       model: selectedModel,

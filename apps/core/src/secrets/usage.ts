@@ -143,7 +143,7 @@ function refuser(
   throw new ErreurSecret(statut, code, message);
 }
 
-/** Secret désigné par son nom : attaché (avec l'attachement exigé, un nom inconnu, d'un autre genre ou d'un autre compte a le même refus), du bon genre, vérifié, portée couvrant la cible. */
+/** Secret désigné par son nom : attaché (avec l'attachement exigé, un nom inconnu, d'un autre genre ou d'un autre compte a le même refus ; sans lui, un secret existant refusé par sa politique reste `secret_not_attached`), du bon genre, vérifié, portée couvrant la cible. */
 async function parNom(
   x: Executeur,
   d: DemandeUsage,
@@ -153,7 +153,7 @@ async function parNom(
 ): Promise<LigneSecret> {
   const l = await lireLigneParNom(x, c.proprietaire, nom);
   if (l === null || !(await attache(x, l, c)))
-    return c.exigeAttachement
+    return c.exigeAttachement || l !== null
       ? refuser(d, c, 422, "secret_not_attached", `Secret '${nom}' is not attached to this conversation.`)
       : refuser(d, c, 404, "secret_unknown", `No secret named '${nom}'.`);
   if (l.kind !== d.usage)

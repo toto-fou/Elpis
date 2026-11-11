@@ -34,7 +34,7 @@ function ligne(s: Secret): string {
 /** Empreinte de ce que le modèle voit (lignes), `none` sans secret. */
 export function empreinteSecrets(secrets: readonly Secret[]): string {
   if (!secrets.length) return "none";
-  return createHash("sha1").update(secrets.map(ligne).join("\n")).digest("hex").slice(0, 12);
+  return createHash("sha256").update(secrets.map(ligne).join("\n")).digest("hex").slice(0, 12);
 }
 
 /** Bloc `<secrets>` des secrets attachés, ou du retrait de tous. */

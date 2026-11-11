@@ -2223,6 +2223,10 @@ function refusDemarrage(b) {
     return null;
 }
 
+// Options fixées à la création d'un contexte : sans effet sur une session reprise.
+const OPTIONS_DE_CREATION = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
+const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
+
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
@@ -2287,6 +2291,14 @@ app.post('/start', async (req, res) => {
             const existing = await findLiveSessionByOwner(owner);
             if (existing) {
                 const [existingSid, s] = existing;
+                const sansEffet = optionsDeCreation(req.body);
+                if (sansEffet.length) {
+                    return res.status(409).json({
+                        error: `A session is already open for this account (one per account): ${sansEffet.join(', ')} can only be set when a session is created, so they were NOT applied and nothing was opened.`,
+                        code: 'session_options_need_new_session', ignored_options: sansEffet, session_id: existingSid,
+                        fix: `Start again with isolated=true to get a new separate session with these options, or close this one first (pw_session action='stop'), or drop ${sansEffet.join(', ')} to open the url in a new tab of the existing session.`,
+                    });
+                }
                 // AUDIT 2026-06 — la mutation tabs/page se fait SOUS le mutex
                 // de la session réutilisée (une op en vol sur cette page ne
                 // doit pas voir s.page changer sous ses pieds).

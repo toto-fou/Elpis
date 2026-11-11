@@ -112,3 +112,17 @@ test('pw_a11y : texte gris clair sur blanc signalé, grand texte à 3:1, fond h�
     assert.equal(r.contrast_skipped, 1);
     assert.match(r.contrast_note, /image or gradient/);
 });
+
+test('pw_session start : record_har, trace ou émulation sur une session reprise sont refusés explicitement, sans ouvrir ni appliquer', { skip: SAUTER, timeout: 60000 }, async () => {
+    const avant = (await service.get(`/list_tabs?owner=${OWNER}&session_id=${sid}`)).corps.tabs.length;
+    for (const option of [{ record_har: true }, { trace: true }, { record_video: true }, { device: 'iPhone 13' }, { color_scheme: 'dark' }]) {
+        const r = await service.post('/start', { owner: OWNER, url: `${base}/autre`, ...option });
+        assert.equal(r.statut, 409, r.texte);
+        assert.equal(r.corps.code, 'session_options_need_new_session');
+        assert.deepEqual(r.corps.ignored_options, Object.keys(option));
+        assert.match(r.corps.fix, /isolated=true/);
+    }
+    assert.equal((await service.get(`/list_tabs?owner=${OWNER}&session_id=${sid}`)).corps.tabs.length, avant);
+    const simple = await service.post('/start', { owner: OWNER, url: `${base}/autre`, record_har: false, trace: false });
+    assert.equal(simple.corps.reused, true, simple.texte);
+});

@@ -78,14 +78,42 @@ const FIX_IDENTIFIANT =
 const noteConnexion = (nom: string): string =>
   `Session opened for secret '${nom}' (TLS of its policy): call pw_login(session_id, secret="${nom}") on its login page; every other tool works as usual.`;
 
+/** Options fixées à la création du contexte : sans effet sur une session reprise. */
+function optionsDeCreation(a: Dict): string[] {
+  const noms = [
+    "record_har",
+    "trace",
+    "record_video",
+    "device",
+    "viewport",
+    "locale",
+    "timezone",
+    "color_scheme",
+  ];
+  return [...noms.filter((k) => veritePy(a[k])), ...(typeof a["touch"] === "boolean" ? ["touch"] : [])];
+}
+
 /** Session déjà ouverte par ce propriétaire pour le même secret, la même origine et le même TLS : l'adresse s'y ouvre (ni nouvelle session, ni usage du secret) ; `null` s'il n'y en a pas ou si elle n'existe plus. */
 async function reprendreSession(
   client: Appel["client"],
   choix: SecretDeSession,
   url: string,
+  sansEffet: string[],
 ): Promise<Dict | null> {
   const sid = sessionDuSecret(client.owner, choix.secret.name, choix.origine, choix.secret.tls);
   if (sid === null) return null;
+  if (sansEffet.length) {
+    const vivantes = await client.req("GET", "/sessions");
+    const ouverte =
+      estDict(vivantes) &&
+      Array.isArray(vivantes["sessions"]) &&
+      vivantes["sessions"].some((x) => estDict(x) && x["session_id"] === sid);
+    if (ouverte)
+      return errPw("session_options_need_new_session", "", {
+        message: `The session already open for secret '${choix.secret.name}' is reused (one per secret): ${sansEffet.join(", ")} can only be set when a session is created, so they were NOT applied and nothing was opened.`,
+        fix: `Close that session first (pw_session action='stop', session_id='${sid}') and start again with these options, or drop ${sansEffet.join(", ")} to open the url in a new tab of the existing session.`,
+      });
+  }
   const r = await client.req("POST", "/action", { json: { session_id: sid, type: "goto", url } });
   if (estDict(r) && SESSION_DISPARUE.has(strPy(r["error"] ?? ""))) {
     oublier(client.owner, sid);
@@ -122,17 +150,17 @@ async function demarrer(
   const coffre = await secretDeSession(s, url, a["secret"]);
   if ("refus" in coffre) return coffre.refus;
   const choix = coffre.choix;
-  if (choix !== null) {
-    const reprise = await reprendreSession(client, choix, url);
-    if (reprise !== null) return reprise;
-  }
-  let tls = choix?.secret.tls ?? "strict";
-  let identifiants: { username: string; password: string } | null = null;
   if (choix?.secret.kind === "http-auth" && (veritePy(a["record_har"]) || veritePy(a["trace"])))
     return errPw("recording_with_credentials", "", {
       message: `Secret '${choix.secret.name}' applies HTTP authentication to this session: a HAR or a trace would keep it in clear.`,
       fix: "Start again without record_har and trace.",
     });
+  if (choix !== null) {
+    const reprise = await reprendreSession(client, choix, url, optionsDeCreation(a));
+    if (reprise !== null) return reprise;
+  }
+  let tls = choix?.secret.tls ?? "strict";
+  let identifiants: { username: string; password: string } | null = null;
   if (choix !== null && choix.secret.kind === "http-auth") {
     const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
     if ("refus" in v) return v.refus;

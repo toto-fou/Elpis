@@ -5,10 +5,13 @@ import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
 import {
   ClientNavigateur,
+  errPw,
+  jugeRelaisBac,
   pwOwner,
   pwOwnerEnfant,
   rappelOnglet,
   refusSessionDAutrui,
+  refusUrl,
 } from "@elpis/navigateur";
 import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
@@ -16,6 +19,8 @@ import { current, lireSousAgent } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
+import { bacDuCompteOutil } from "../espace";
+import { ErreurNavigateurBac, injectionsNavigateurBac, serviceDuCompte } from "./bac";
 import { liaison } from "./liaisons";
 import { refusSecret } from "./secrets";
 import type { PortSecrets } from "./secrets";
@@ -72,15 +77,57 @@ export async function ouvrirAppel(
         "Leave this session to the main conversation and return your report; the user can allow sub-agents in the secret's policy (Settings › Secrets).",
       ),
     };
+  let service: Awaited<ReturnType<typeof serviceDuCompte>>;
+  try {
+    service = await serviceDuCompte(username);
+  } catch (e) {
+    return {
+      refus: errPw("browser_sandbox_unavailable", "", {
+        message: `The browser of your sandbox could not be started: ${e instanceof ErreurNavigateurBac ? e.message : e instanceof Error ? e.message : String(e)}.`,
+        fix: "Retry once; if it fails again, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
+      }),
+    };
+  }
   return {
     refus: null,
     appel: {
       username,
-      client: new ClientNavigateur({ owner }),
+      client: new ClientNavigateur({ owner, service }),
       ax: s.ax(),
       portee,
     },
   };
+}
+
+/** Refus anticipé d'une adresse : garde centrale ; en mode bac, boucle locale du bac admise et le reste jugé comme le relais (profil réseau du bac, machine d'Elpis). */
+export async function refusUrlAppel(appel: Appel, url: unknown): Promise<Dict | null> {
+  if (appel.client.bac === null) return refusUrl(url);
+  const texte = typeof url === "string" ? url.trim() : "";
+  if (/^about:blank$/iu.test(texte)) return null;
+  let u: URL | null;
+  try {
+    u = new URL(texte);
+  } catch {
+    u = null;
+  }
+  const refus = (motif: string): Dict =>
+    errPw("url_blocked", "", {
+      message: `Address refused by the browser policy: ${motif}. URL: ${texte.slice(0, 200)}.`,
+      fix: "Sites served inside your sandbox are reachable at http://localhost:<port>; other destinations depend on the sandbox network profile.",
+    });
+  if (u === null || (u.protocol !== "http:" && u.protocol !== "https:"))
+    return refus("only http and https addresses are allowed");
+  const hote = u.hostname.replace(/^\[|\]$/gu, "").toLowerCase();
+  if (hote === "localhost" || hote.endsWith(".localhost") || /^127\./u.test(hote) || hote === "::1")
+    return null;
+  const port = Number(u.port || (u.protocol === "https:" ? 443 : 80));
+  let juge = injectionsNavigateurBac.juge?.(appel.username) ?? null;
+  if (juge === null) {
+    const profil = (await bacDuCompteOutil(appel.username)).networkProfile;
+    juge = jugeRelaisBac(() => profil);
+  }
+  const v = await juge(hote, port);
+  return v.ok ? null : refus(v.motif);
 }
 
 /** Réglage entier de l'environnement lu à l'appel (`int(os.environ.get(nom, défaut))`). */

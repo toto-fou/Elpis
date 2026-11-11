@@ -2,14 +2,24 @@
 /** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse ; quand un secret attaché couvre l'origine, session ordinaire ouverte pour lui avec le TLS de sa politique et un `http-auth` appliqué, liée à ce secret et reprise pour lui ensuite ; propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import { errPw, origineExacte, pwOwner, recordPwSessionOwner, refusUrl } from "@elpis/navigateur";
+import { randomBytes } from "node:crypto";
+
+import { errPw, origineExacte, pwOwner, recordPwSessionOwner } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import type { SecretApplicable } from "../../rappel";
-import { minusculesPy, ouvrirAppel } from "./appel";
+import { minusculesPy, ouvrirAppel, refusUrlAppel } from "./appel";
 import type { Appel, ServicesBrowser } from "./appel";
 import { lier, oublier, oublierProprietaire, sessionDuSecret } from "./liaisons";
-import { applicables, refusSecret, resoudre, SANS_IDENTIFIANT } from "./secrets";
+import { lierAuRelais, oublierAuRelais } from "./bac";
+import {
+  applicables,
+  HORS_APPLICATION,
+  refusSecret,
+  resolutionDifferee,
+  resoudre,
+  SANS_IDENTIFIANT,
+} from "./secrets";
 
 /** Secret qui ouvre la session : désigné (`secret=`), sinon le seul attaché qui couvre l'origine (sans valeur). */
 interface SecretDeSession {
@@ -117,7 +127,7 @@ async function demarrer(
       message: "pw_session(action='start') requires url= — starting IS the navigation.",
       fix: "call pw_session(action='start', url='https://…'). An already-open session is reused and the url opens in a NEW TAB (pw_page action='tabs'/'tab_switch'). On a session you already have, pw_act(action='goto', url='https://…') navigates the current tab.",
     });
-  const bloque = await refusUrl(url);
+  const bloque = await refusUrlAppel(appel.appel, url);
   if (bloque !== null) return bloque;
   const coffre = await secretDeSession(s, url, a["secret"]);
   if ("refus" in coffre) return coffre.refus;
@@ -128,12 +138,42 @@ async function demarrer(
   }
   let tls = choix?.secret.tls ?? "strict";
   let identifiants: { username: string; password: string } | null = null;
-  if (choix?.secret.kind === "http-auth" && (veritePy(a["record_har"]) || veritePy(a["trace"])))
+  if (
+    choix?.secret.kind === "http-auth" &&
+    client.bac === null &&
+    (veritePy(a["record_har"]) || veritePy(a["trace"]))
+  )
     return errPw("recording_with_credentials", "", {
       message: `Secret '${choix.secret.name}' applies HTTP authentication to this session: a HAR or a trace would keep it in clear.`,
       fix: "Start again without record_har and trace.",
     });
-  if (choix !== null && choix.secret.kind === "http-auth") {
+  // Mode bac : le secret est lié au relais de l'hôte (origines déchiffrées, défis 401 résolus par lui) ; la valeur n'entre jamais dans le bac.
+  let relais: { compte: string; ids: string[] } | undefined;
+  if (choix !== null && client.bac !== null) {
+    const origines = choix.secret.origins.length ? choix.secret.origins : [choix.origine];
+    const differee =
+      choix.secret.kind === "http-auth"
+        ? resolutionDifferee(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name)
+        : async () => null;
+    if (differee === null) return HORS_APPLICATION;
+    const id = `${choix.secret.kind}-${randomBytes(8).toString("hex")}`;
+    if (
+      !lierAuRelais(username, {
+        id,
+        nom: choix.secret.name,
+        kind: choix.secret.kind,
+        origines,
+        tls,
+        substitut: null,
+        resoudre: differee,
+      })
+    )
+      return errPw("browser_sandbox_unavailable", "", {
+        message: "The secret relay of your sandbox browser is not running.",
+        fix: "Retry pw_session(action='start', ...).",
+      });
+    relais = { compte: username, ids: [id] };
+  } else if (choix !== null && choix.secret.kind === "http-auth") {
     const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
     if ("refus" in v) return v.refus;
     tls = v.valeur.tls;
@@ -172,12 +212,14 @@ async function demarrer(
         origines: choix.secret.origins.length ? choix.secret.origins : [choix.origine],
         tls,
         sousAgents: choix.secret.subagents,
+        ...(relais ? { relais } : {}),
       });
       resultat["secret"] = choix.secret.name;
       if (choix.secret.kind === "web-login") resultat["secret_note"] = noteConnexion(choix.secret.name);
     }
     if (coffre.avis && ouverte) resultat["secret_warning"] = coffre.avis;
-  }
+    if (relais && !(choix !== null && ouverte && veritePy(sid))) oublierAuRelais(relais.compte, relais.ids);
+  } else if (relais) oublierAuRelais(relais.compte, relais.ids);
   return resultat;
 }
 

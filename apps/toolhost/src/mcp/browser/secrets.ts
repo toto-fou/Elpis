@@ -6,6 +6,8 @@ import { errPw } from "@elpis/navigateur";
 import { getAccessToken } from "@elpis/outils-mcp";
 import { current } from "@elpis/securite";
 
+import type { IdentifiantsRelais } from "@elpis/navigateur";
+
 import type { AppelSigne, ReponseCoffre, SecretApplicable, SecretResolu } from "../../rappel";
 
 /** Ce que les outils pw_* demandent au core (`ClientRappel`). */
@@ -148,4 +150,19 @@ export async function resoudre(
   const appel = appelSigne();
   if (port === null || !port.actif || appel === null) return { refus: HORS_APPLICATION };
   return lue(await port.resoudreSecret(appel, { usage, origin: origine, name: nom }));
+}
+
+/** Résolution différée pour le relais du bac : enveloppe de l'appel saisie maintenant, valeur demandée au core (et journalisée par lui) au premier besoin du relais ; `null` hors de l'application. */
+export function resolutionDifferee(
+  port: PortSecrets | null,
+  usage: "web-login" | "http-auth",
+  origine: string,
+  nom: string,
+): (() => Promise<IdentifiantsRelais | null>) | null {
+  const appel = appelSigne();
+  if (port === null || !port.actif || appel === null) return null;
+  return async () => {
+    const r = await port.resoudreSecret(appel, { usage, origin: origine, name: nom });
+    return r !== null && r.ok ? { username: r.valeur.username ?? "", secret: r.valeur.secret } : null;
+  };
 }

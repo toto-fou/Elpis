@@ -2,7 +2,12 @@
 /** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : PNG du service navigateur, à son seul propriétaire. */
 import { HttpError, lowerPy } from "@elpis/commun";
 import { entrees, py } from "@elpis/http";
-import { enTetesServiceNavigateur, getPwSessionOwner } from "@elpis/navigateur";
+import {
+  enTetesServiceNavigateur,
+  getPwSessionOwner,
+  requeteService,
+  serviceNavigateur,
+} from "@elpis/navigateur";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { request } from "undici";
 
@@ -64,6 +69,22 @@ async function servirCapture(
   }
   const url = `${ctx.playwrightApi ?? process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000"}/screenshots/${filename}`;
   const attendre = ctx.attendre ?? ((ms: number) => new Promise<void>((fin) => setTimeout(fin, ms)));
+  // Mode bac : la capture est lue au service du bac du compte, par son socket.
+  const service = serviceNavigateur(proprietaire);
+  if (service.mode === "sandbox") {
+    try {
+      for (let essai = 0; essai < ESSAIS; essai++) {
+        const r = await requeteService(service, `/screenshots/${filename}`, { delaiMs: 5000 });
+        if (r.statut === 200) return rep.code(200).headers(SANS_CACHE).type("image/png").send(r.corps);
+        if (r.statut !== 404) throw new HttpError(502, `Playwright returned ${r.statut}`);
+        await attendre(300 * (essai + 1));
+      }
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      throw new HttpError(503, `Playwright unreachable: ${messageTransport(e)}`);
+    }
+    throw new HttpError(404, "Screenshot not ready");
+  }
   try {
     for (let essai = 0; essai < ESSAIS; essai++) {
       const r = await request(url, {

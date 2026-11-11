@@ -840,9 +840,12 @@ copy, run `sudo ./elpis vault setup`, then give each secret its value again (rot
    0700) and the Playwright cache. Restart the central browser service once after updating: it
    moves its data (saved states, HAR, traces, screenshots…) out of `browser-service/` into
    `user_db/browser/` (0700, `BROWSER_DATA_DIR`).
-3. `"browser": {"mode": "sandbox"}` in `config.json` (or `"sandbox_users": ["alice"]` for a
+3. Give the sandboxes two CPUs (`"executors": {"limits": {"cpu_quota_pct": 200}}`): Chromium
+   shares the sandbox's CPU quota, and at the default 100 % the step screenshot of a heavy page
+   misses its 3 s delay on about 5 % of actions (none at 200 %; `./elpis doctor` warns).
+4. `"browser": {"mode": "sandbox"}` in `config.json` (or `"sandbox_users": ["alice"]` for a
    gradual roll-out), then restart the tool host: it creates the relay CA.
-4. `./elpis doctor`.
+5. `./elpis doctor`.
 
 Rolling back: `"mode": "central"` (read live); the central service on port 3000 must be running.
 

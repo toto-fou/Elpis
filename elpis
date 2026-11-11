@@ -756,7 +756,7 @@ PY
 
 # Navigateur dans le bac (browser.mode = « sandbox ») : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
-    local mode ca pw nm sb s d j n=0
+    local mode ca cpu pw nm sb s d j n=0
     mode="$("${PY:-python3}" -c 'import json, sys
 try: print(str((json.load(open(sys.argv[1])).get("browser") or {}).get("mode") or "central").strip().lower())
 except Exception: print("central")' "$ROOT/config.json" 2>/dev/null)"
@@ -764,6 +764,11 @@ except Exception: print("central")' "$ROOT/config.json" 2>/dev/null)"
     ca="${ELPIS_BROWSER_CA_DIR:-$ROOT/user_db/browser-relay-ca}"
     check "navigateur dans le bac : autorité du relais ($ca)" "créée au démarrage de l'hôte d'outils : ./elpis restart" test -s "$ca/ca.crt" -a -s "$ca/ca.key"
     [ -f "$ca/ca.key" ] && check "navigateur dans le bac : clé de l'autorité en 0600" "chmod 600 $ca/ca.key" test "$(stat -c %a "$ca/ca.key")" = 600
+    # Chromium partage le quota CPU du bac : à 1 CPU, les captures d'étape des pages lourdes dépassent leur délai de 3 s (mesuré : ~5 % des actions, aucune à 2 CPU).
+    cpu="$("${PY:-python3}" -c 'import json, sys
+try: print(int(((json.load(open(sys.argv[1])).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
+except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
+    [ "${cpu:-100}" -ge 200 ] || warn "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
     pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
     check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
     # Le code du service est monté dans chaque bac : aucune donnée du service central n'y reste (reprises dans user_db/browser, 0700, au démarrage du service).

@@ -377,6 +377,7 @@ export const TABLES: readonly Table[] = [
       { name: "context_window", type: "int" },
       { name: "max_models", type: "int" },
       { name: "max_concurrency", type: "int" },
+      { name: "secret_id", type: "int", default: null },
     ],
     fks: [{"cols": ["owner_user_id"], "table": "users", "refCols": ["id"], "onDelete": "CASCADE"}],
     indexes: [{"name": "idx_llmconn_scope", "cols": ["scope"]}, {"name": "idx_llmconn_owner", "cols": ["owner_user_id"]}],

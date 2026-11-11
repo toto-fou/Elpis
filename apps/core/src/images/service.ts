@@ -14,7 +14,8 @@ import { entierPy, estDict, lire, longueurPy, prefixePy } from "../python";
 import type { Dict } from "../python";
 import { HINT_ADMIN, HORLOGES_SYSTEME, ImageError, imageRequest, QUEUE_MAX_S } from "./base";
 import type { Horloges, ImageProvider, ImageRequest, ImageResult, InfoProgres, SuiviProgres } from "./base";
-import { apiKey, effectiveMaxN, features, parseSize, roundStep } from "./config";
+import { cleImages } from "./cle";
+import { effectiveMaxN, features, parseSize, roundStep } from "./config";
 import { recentTimings, saveImages } from "./magasin";
 import type { RefImage } from "./magasin";
 import { OpenAIProvider } from "./openai";
@@ -35,9 +36,9 @@ const MODELE_FILE = "image";
 
 const sec = (): number => performance.now() / 1000;
 
-/** Client du moteur configuré ; `cfg` peut porter `api_key` (formulaire de la console). */
+/** Client du moteur configuré, avec la clé que porte `cfg` (`api_key` : formulaire de la console, ou clé du coffre posée par `avecCle`). */
 export function getProvider(cfg: Readonly<Dict>, horloges?: Horloges): ImageProvider {
-  const key = Object.hasOwn(cfg, "api_key") ? strPy(cfg["api_key"] ?? "") : apiKey(cfg);
+  const key = strPy(cfg["api_key"] ?? "");
   const commun = {
     timeoutSec: entierPy(Object.hasOwn(cfg, "timeout_sec") ? cfg["timeout_sec"] : 180),
     verify: veritePy(Object.hasOwn(cfg, "verify") ? cfg["verify"] : true),
@@ -49,6 +50,11 @@ export function getProvider(cfg: Readonly<Dict>, horloges?: Horloges): ImageProv
   if (cfg["provider"] === "openai")
     return new OpenAIProvider(url, { model: strPy(cfg["model"] ?? ""), ...commun });
   return new SdcppProvider(url, commun);
+}
+
+/** `cfg` complétée de la clé du coffre pour son adresse, sauf clé déjà donnée (formulaire de la console). */
+async function avecCle(cfg: Readonly<Dict>): Promise<Readonly<Dict>> {
+  return Object.hasOwn(cfg, "api_key") ? cfg : { ...cfg, api_key: await cleImages(cfg) };
 }
 
 function cleCapacites(cfg: Readonly<Dict>): string {
@@ -74,7 +80,7 @@ export async function capabilities(cfg: Readonly<Dict>, signal?: AbortSignal): P
   }
   let caps: Dict;
   try {
-    caps = await getProvider(cfg).capabilities(signal);
+    caps = await getProvider(await avecCle(cfg)).capabilities(signal);
   } catch (e) {
     if (e instanceof ImageError) {
       if (e.code === "unavailable" || e.code === "timeout") {
@@ -275,7 +281,7 @@ export async function runGeneration(
   signal?: AbortSignal,
   options: OptionsGeneration = {},
 ): Promise<ImageResult[]> {
-  const provider = getProvider(cfg, options.horloges);
+  const provider = getProvider(await avecCle(cfg), options.horloges);
   if (cfg["provider"] !== "openai") return provider.generate(req, onProgress, signal);
   const cap = Object.hasOwn(cfg, "max_concurrent") ? entierPy(cfg["max_concurrent"]) : 1;
   const creneau = await prendreCreneau(strPy(cfg["url"] ?? ""), cap, options.priorite ?? "high", signal, () =>

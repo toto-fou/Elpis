@@ -3606,6 +3606,29 @@ key, to move the former values into the vault (migrations and startup catch-ups)
 
 ### LLM connector and image engine keys
 
+| Part | Where | Role |
+|---|---|---|
+| Connector keys | `apps/core/src/llm/cle-coffre.ts`, `apps/core/src/llm/connecteurs.ts` | `llm_connectors.secret_id` links a connector to its secret (kind `llm`, scope `{"connector_id": N}`, owner = the account, `NULL` for a shared connector, name `llm-<provider>-<id>`). Every read joins the secret to the connector (`SELECT_CONNECTEUR`) and decrypts it with `dechiffrerLigne`; nothing is cached across requests |
+| Image engine key | `apps/core/src/images/cle.ts` | Instance secret `image-engine`, kind `token`, scope `{"origins": ["<engine origin>"]}` (exact WHATWG origin): returned only while the configured `url` has that origin, otherwise `stale` |
+| Migration | `packages/db/src/coffre-llm-images.ts` (`0028_vault_llm_images`), `apps/core/src/secrets/reprise.ts` | Moves the old keys (Fernet or clear `api_key_enc`, `config.json › image.api_key_enc`) into the vault in one transaction; `main` passes it with the core's ports (`portsMigrationsDuCore`: same row and AAD v2 as `creerSecret`, fallback key only on an empty vault; Fernet read without creating a key) |
+
+- **Writes.** Creating, editing or deleting a connector writes its secret in the same database
+  transaction (`creerSecret`, `rotation`, `supprimerSecret`, journalled as `vault.secret.*`); a key
+  field left empty keeps the secret. A connector created without a key has none (`secret_id`
+  `NULL`). If the vault key is unavailable, nothing is written: the route answers 503.
+- **Reads.** `getSecretForUser`, `getUserSecret` and `getSharedSecret` return the key decrypted from
+  the vault, or `api_key: ""` with `key_error`; `vuePublique` decrypts it only to tell
+  `has_key` (true for a key the current vault key decrypts). `resolveLlmTarget` refuses a connector
+  whose key is unusable (`EngineUnavailable("key")`) instead of calling the provider without it;
+  the target then carries the key for the turn, so a rotation applies to the next turn.
+  `testConnector` and `fetchModels` answer without calling the provider. Each resolution that
+  touches the connector also updates the secret's `use_count` and `last_used_at`; engine use is not
+  written to the security journal call by call.
+- **`key_error`** (`ERREURS_CLE_CONNECTEUR`): `vault_unavailable`, `undecryptable`, `missing`
+  (secret deleted, or no longer of this connector), `legacy_unreadable` (old key that the Fernet
+  key could not decrypt: kept in `api_key_enc`, `key_scheme` `unreadable`), `legacy_pending`
+  (migration not applied yet). `key_scheme` is `vault` for a key in the vault, `plain` without a
+  key.
 - **Migration.** `0028_vault_llm_images` is applied by `main` only (`MIGRATIONS_DU_CORE` with
   `portsMigrationsDuCore`, see [TS migrations](#database)); admin, the tool host, the installer and
   the commands leave it pending (logged as info). An unavailable vault key makes it fail loudly
@@ -3620,6 +3643,17 @@ key, to move the former values into the vault (migrations and startup catch-ups)
   once committed. The rewrite and the startup retry run with `PRAGMA secure_delete` on (SQLite),
   then `main` compacts the database once, and again after a retry that moved keys (older backups
   still hold the keys: rotate the provider keys).
+- **Downgrades are not supported.** If an older version writes a key again (Fernet
+  `api_key_enc` on a connector that has a `secret_id`, `image.api_key_enc` back in
+  `config.json`), the next start of `main` compares it with the vault, keeps the vault value,
+  clears the old one and logs a warning when they differ. A connector whose secret has gone
+  takes the old key back into the vault, as at the migration.
+- **Vault rules that apply to connector keys.** Each key is one secret: the limit of 200 secrets
+  per owner counts an account's connectors, and the instance's 200 are shared by the shared
+  connectors, `image-engine` and the instance secrets of the console. The `subagents`,
+  `routines` and `tls` policy of these secrets is not used: the engine reads the key of the
+  connector it calls, whatever the caller, with the connector's own TLS settings.
+
 ---
 
 ## Cross-cutting security

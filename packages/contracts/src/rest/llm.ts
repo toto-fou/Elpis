@@ -7,7 +7,17 @@ import { schemaChargeMoteur, schemaEtatModeles, schemaMoteurDeclare } from "../s
 
 const entierNul = entier.nullable();
 
-/** Connecteur sans sa clé : `has_key` dit seulement qu'elle existe ; les trois limites sont `null` en découverte automatique. */
+/** Clé d'un connecteur inutilisable : clé du coffre indisponible, secret indéchiffrable ou supprimé, ancienne clé illisible ou pas encore rangée dans le coffre. */
+export const ERREURS_CLE_CONNECTEUR = [
+  "vault_unavailable",
+  "undecryptable",
+  "missing",
+  "legacy_unreadable",
+  "legacy_pending",
+] as const;
+export type ErreurCleConnecteur = (typeof ERREURS_CLE_CONNECTEUR)[number];
+
+/** Connecteur sans sa clé : `has_key` vrai seulement pour une clé du coffre déchiffrable, sinon `key_error` dit pourquoi ; les trois limites sont `null` en découverte automatique. */
 export const schemaConnecteurLlm = z.object({
   id: entier,
   owner_user_id: entierNul,
@@ -24,6 +34,7 @@ export const schemaConnecteurLlm = z.object({
   updated_at: horodatage.nullable(),
   last_used: horodatage.nullable(),
   has_key: z.boolean(),
+  key_error: z.enum(ERREURS_CLE_CONNECTEUR).nullable().optional(),
   context_window: entierNul,
   max_models: entierNul,
   max_concurrency: entierNul,

@@ -545,6 +545,10 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Voice: text bounded before cleaning.** The text sent to speech synthesis went through its
+  cleaning regular expressions at full length, and three of them backtracked on long runs of
+  blank lines or spaces. Only the first 8,000 characters (twice the `tts.max_chars` ceiling) are
+  now cleaned, and those patterns no longer backtrack.
 - **Chat title: attached file blocks removed in linear time.** The regular expression that
   removed `--- FILE: … --- END FILE ---` blocks from the first message before deriving the chat
   title could take quadratic time on a crafted message and hold the core; a linear scan gives

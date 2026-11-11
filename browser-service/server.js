@@ -89,7 +89,8 @@ const TRACE_DIR = path.join(BASE_DIR, 'traces');        // traces Playwright (Ph
 
 // Chemins du serveur jamais rendus au modèle : dossier du service (rendu relatif) et dossier personnel (`~`).
 const _reel = (p) => { try { return fs.realpathSync(p); } catch (_) { return p; } };
-const RACINES_SORTIE = [
+// Mode bac : rien à masquer, tout est dans le /work de l'utilisateur (chemins rendus tels quels, ouvrables par ses outils).
+const RACINES_SORTIE = MODE_BAC ? [] : [
     ...racinesMasquees({ base: BASE_DIR, home: os.homedir() }),
     ...racinesMasquees({ base: _reel(BASE_DIR), home: _reel(os.homedir()) }),
 ].sort((a, b) => b.n - a.n);
@@ -2698,8 +2699,9 @@ function sortieConnexion(issue, { bloquee, docChange, p, nouvelles }) {
         fix: 'Look at the page (pw_page inspect). If a login field was not detected, pass username_target/password_target.' } };
 }
 
-// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie.
+// Refus d'une connexion pendant un enregistrement HAR ou trace de la session : ils garderaient la valeur saisie (mode bac : seul le substitut est saisi).
 function refusEnregistrement(s) {
+    if (MODE_BAC) return;
     if (s.har) throw erreurSecret('secret_recording_active', 'A HAR recording is active on this session: it would keep the typed value.', 409,
         { fix: 'A HAR records until the session is closed: log in from a session started without record_har.' });
     if (s.traceActive) throw erreurSecret('secret_recording_active', 'A trace recording is active on this session: it would keep the typed value.', 409,
@@ -2748,9 +2750,12 @@ async function isolerConnexion(s, page, { garde, formes, origine, fin, defaire }
     defaire.push(() => { s.networkLog.formes = null; if (s.dialogState) s.dialogState.formes = null; s._mocksSuspendus = false; });
     await s.context.route('**/*', garde);
     defaire.push(() => s.context.unroute('**/*', garde));
-    await garderWebSockets(s);
-    const figees = await figerAutresPages(s, page);
-    defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
+    // Mode bac : le champ ne reçoit que le substitut, inutile hors de la fenêtre et de l'origine du secret ; ni WebSocket ni autres onglets à figer.
+    if (!MODE_BAC) {
+        await garderWebSockets(s);
+        const figees = await figerAutresPages(s, page);
+        defaire.push(async () => { for (const c of figees) await c.detach().catch(() => {}); });
+    }
     const cdp = await s.context.newCDPSession(page);
     try {
         await cdp.send('Storage.clearDataForOrigin', { origin: origine, storageTypes: 'service_workers' });
@@ -5023,7 +5028,7 @@ app.post('/trace_export', getSession, async (req, res) => {
         const file = `trace_${req.body.session_id}_${Date.now()}.zip`;
         await req.session.context.tracing.stop({ path: path.join(TRACE_DIR, file) });
         req.session.traceActive = false;
-        res.json({ ok: true, trace_url: `/traces/${file}`, hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
+        res.json({ ok: true, trace_url: `/traces/${file}`, ...(MODE_BAC ? { file: path.join(TRACE_DIR, file) } : {}), hint: 'Ouvre avec: npx playwright show-trace <fichier>' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -6235,7 +6240,17 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     }
 
     const { secret_variables, notes } = notesDuScript(events);
-    res.json({ format, count: events.length, script,
+    // Mode bac : le script est aussi écrit dans /work/recordings, prêt à rejouer dans le bac.
+    let fichier = null;
+    if (MODE_BAC) {
+        const ext = { playwright: 'spec.js', cypress: 'cy.js', robot: 'robot', json: 'json' }[format] || 'txt';
+        try {
+            fs.mkdirSync('/work/recordings', { recursive: true });
+            fichier = `/work/recordings/recording-${String(req.query.session_id || '').substring(0, 8)}-${Date.now()}.${ext}`;
+            fs.writeFileSync(fichier, script);
+        } catch (e) { fichier = null; }
+    }
+    res.json({ format, count: events.length, script, ...(fichier ? { file: fichier } : {}),
         ...(secret_variables.length ? { secret_variables } : {}), ...(notes.length ? { notes } : {}) });
 });
 

@@ -768,7 +768,7 @@ The complete list of contributors can be found at:
 - https://github.com/garycourt/uri-js/graphs/contributors
 
 ==============================================================================
-fastify 5.12.7 — MIT
+fastify 5.12.8 — MIT
 ==============================================================================
 
 MIT License

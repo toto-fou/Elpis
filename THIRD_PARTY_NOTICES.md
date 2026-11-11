@@ -190,7 +190,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | fast-querystring | 1.1.2 | MIT |
 | fast-uri | 3.1.9 | BSD-3-Clause |
 | fast-uri | 4.2.3 | BSD-3-Clause |
-| fastify | 5.12.7 | MIT |
+| fastify | 5.12.8 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
 | find-my-way | 9.10.0 | MIT |
@@ -298,7 +298,7 @@ the core bundle.
 | fast-querystring | 1.1.2 | MIT |
 | fast-uri | 3.1.9 | BSD-3-Clause |
 | fast-uri | 4.2.3 | BSD-3-Clause |
-| fastify | 5.12.7 | MIT |
+| fastify | 5.12.8 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
 | find-my-way | 9.10.0 | MIT |

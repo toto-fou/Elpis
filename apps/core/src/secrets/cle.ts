@@ -5,11 +5,12 @@ import { aadWebhookRoutine, chiffrerSecret, dechiffrerSecret, kidDe } from "@elp
 import type { CleCoffre } from "@elpis/securite";
 
 import { estGenre } from "./portee";
-import { aadLigne, COLONNES_SECRET } from "./stockage";
+import { aadLigne, COLONNES_SECRET, colonneWebhooks } from "./stockage";
 import type { LigneSecret } from "./stockage";
 
-/** Secrets de webhook des routines (chiffrés sur place, hors `vault_secrets`). */
+/** Secrets de webhook des routines (chiffrés sur place, hors `vault_secrets`) ; colonne pas encore posée (services pas redémarrés) : aucun. */
 async function webhooks(x: Executeur): Promise<{ id: number; enc: string }[]> {
+  if (!(await colonneWebhooks(x))) return [];
   const lignes = await x.all<{ id: number; webhook_secret_enc: string }>(
     "SELECT id, webhook_secret_enc FROM editor_routines WHERE webhook_secret_enc IS NOT NULL AND webhook_secret_enc <> '' ORDER BY id",
   );

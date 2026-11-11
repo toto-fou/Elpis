@@ -5040,6 +5040,31 @@ function resultatBorne(valeur, max) {
         hint: `${INDICE_PLAFOND} Return only what you need: .slice(0, N), the fields you need, a count.` } : {}) };
 }
 
+// Délai d'un script de pw_page eval, sous celui du client (10 s) : à l'échéance la réponse part et la session est rendue, la promesse abandonnée ne retient rien.
+const EVAL_TIMEOUT_MS = parseInt(process.env.PW_EVAL_TIMEOUT_MS || '8000', 10);
+
+// Script exécuté comme une expression s'il en est une (`document.title`), sinon comme le corps d'une fonction asynchrone (instructions, `return`, `throw`) : l'erreur rendue est la sienne.
+async function evaluerAvecDelai(cadre, script, delaiMs) {
+    const enCours = cadre.evaluate(async (corps) => {
+        let fn;
+        try { fn = new Function(`return (async () => { return (${corps}\n); })();`); }
+        catch (e) {
+            if (!(e instanceof SyntaxError)) throw e;
+            fn = new Function(`return (async () => { ${corps}\n })();`);
+        }
+        return await fn();
+    }, script);
+    enCours.catch(() => {});
+    let minuterie;
+    const delai = new Promise((_, rejeter) => {
+        minuterie = setTimeout(() => rejeter(erreurCodee('eval_timeout',
+            `The script did not finish within ${Math.round(Math.max(0, delaiMs) / 1000)} s (a promise that never settles?); it was abandoned and may still run in the page.`,
+            { fix: 'Make the script settle on its own (add a timeout to what it awaits, e.g. Promise.race with a timer), or wait in the page with pw_wait.' })), Math.max(0, delaiMs));
+    });
+    try { return await Promise.race([enCours, delai]); }
+    finally { clearTimeout(minuterie); }
+}
+
 app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
@@ -5047,34 +5072,24 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
         if (!script || typeof script !== 'string') {
             return res.status(400).json({ error: 'script (string) required' });
         }
-        // Wrap script as an async function body. Supports both expression-style
-        // ("document.title") and statement-style ("return document.title").
-        // Auto-`return` the expression if no `return` keyword is present.
-        const hasReturn = /\breturn\b/.test(script);
-        const fnBody = hasReturn ? script : `return (${script});`;
+        const echeance = Date.now() + EVAL_TIMEOUT_MS;
         if (in_all_frames) {
             const results = [];
             for (const frame of page.frames()) {
                 if (frame.isDetached()) continue;
                 try {
-                    const r = await frame.evaluate(async (body) => {
-                        const fn = new Function(`return (async () => { ${body} })();`);
-                        return await fn();
-                    }, fnBody);
+                    const r = await evaluerAvecDelai(frame, script, echeance - Date.now());
                     results.push({ frame: frame.url(), result: r });
-                } catch (e) { results.push({ frame: frame.url(), error: e.message }); }
+                } catch (e) { results.push({ frame: frame.url(), error: e.message, ...detailsErreur(e) }); }
             }
             recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
             const part = Math.floor(PLAFOND_SORTIE / Math.max(1, results.length));
             return res.json({ results: results.map((x) => ('result' in x ? { ...x, ...resultatBorne(x.result, part) } : x)) });
         }
-        const result = await page.evaluate(async (body) => {
-            const fn = new Function(`return (async () => { ${body} })();`);
-            return await fn();
-        }, fnBody);
+        const result = await evaluerAvecDelai(page, script, EVAL_TIMEOUT_MS);
         recordEvent(req.session, { action: 'eval', script, url: page.url() });
         res.json(resultatBorne(result, PLAFOND_SORTIE));
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { res.status(e.code === 'eval_timeout' ? 408 : 500).json({ error: e.message, ...detailsErreur(e) }); }
 });
 
 

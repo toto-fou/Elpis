@@ -193,3 +193,29 @@ test('tailles de sortie : extract par pages sans styles, eval plafonné (chaîne
     const k = x.next_offset % 6;
     assert.equal(suite.text.slice(0, 6), 'mot é mot é '.slice(k, k + 6));
 });
+
+test('pw_page eval : instructions sans return exécutées comme un corps (vraie erreur rendue) ; promesse sans fin abandonnée à l\'échéance sans bloquer les suivantes', { skip: SAUTER, timeout: 60000 }, async () => {
+    await ouvrir('/');
+    const evaluer = (script) => api('/evaluate', { script });
+    for (const [script, attendu] of [['throw new Error("boum")', /boum/], ['const x = 1; throw new Error("deux " + x)', /deux 1/]]) {
+        const r = await evaluer(script);
+        assert.equal(r.statut, 500, r.texte);
+        assert.match(r.corps.error, attendu);
+        assert.doesNotMatch(r.corps.error, /SyntaxError/);
+    }
+    assert.equal((await evaluer('document.title // titre')).corps.result, '/');
+    assert.deepEqual((await evaluer('[1, 2].map(x => { return x * 2 })')).corps.result, [2, 4]);
+    assert.equal((await evaluer('let a = 2; return a * 3')).corps.result, 6);
+    assert.equal((await evaluer('await new Promise(r => setTimeout(() => r(7), 50))')).corps.result, 7);
+
+    const t0 = Date.now();
+    const bloquee = evaluer('await new Promise(() => {})');
+    await new Promise(r => setTimeout(r, 200));
+    const suivantes = [evaluer('return 1'), evaluer('return 2')];
+    const r = await bloquee;
+    assert.equal(r.statut, 408, r.texte);
+    assert.equal(r.corps.code, 'eval_timeout');
+    assert.ok(Date.now() - t0 < 9500, `${Date.now() - t0} ms`);
+    assert.deepEqual((await Promise.all(suivantes)).map(x => x.corps.result), [1, 2]);
+    assert.ok(Date.now() - t0 < 10000, `${Date.now() - t0} ms`);
+});

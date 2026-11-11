@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage (migrations du core comprises). */
+/** apps/core/src/base.ts — base de l'application : ouverture depuis la config, garde de génération, initialisation au démarrage, reprise des anciens identifiants AX dans le coffre. */
 import { config } from "@elpis/config";
 import {
   creerGardeGeneration,
   demarrerBase as demarrerBaseCommune,
   nettoyerSousVerrou,
+  prendreVerrouSchema,
   walCheckpoint,
 } from "@elpis/db";
 import type { Base, RapportInit } from "@elpis/db";
@@ -12,10 +13,7 @@ import type { Base, RapportInit } from "@elpis/db";
 import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
-import { compacterApresReprise, MIGRATION_AX, migrationAxCredentials } from "./secrets/import-ax";
-
-/** Migrations numérotées propres au core (jamais jouées par l'hôte d'outils sur sa base). */
-export const MIGRATIONS_CORE = [migrationAxCredentials] as const;
+import { repriseAxDuCore } from "./secrets/import-ax";
 
 export { creerGardeGeneration, generationPubliee, reglagesBase } from "@elpis/db";
 
@@ -42,18 +40,33 @@ export function nettoyerAuDemarrage(b: Base): Promise<boolean> {
   return nettoyerSousVerrou(b, nettoyer, journal);
 }
 
-/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage par main seulement ; après la reprise des anciens identifiants AX, le fichier est compacté. */
+/** Anciens identifiants AX de la base du core repris dans le coffre sous le verrou de schéma (un seul process à la fois) ; une panne n'empêche pas le démarrage, les lignes restantes attendent le suivant. */
+export async function reprendreAxAuDemarrage(b: Base): Promise<void> {
+  const log = journal("secrets");
+  const verrou = await prendreVerrouSchema(journal);
+  try {
+    const bilan = await repriseAxDuCore(b);
+    if (bilan.retirees || bilan.gardees)
+      log.info(
+        `anciens identifiants AX : ${bilan.retirees} ligne(s) reprise(s) ou écartée(s), ${bilan.gardees} gardée(s) pour le prochain démarrage`,
+      );
+    if (!bilan.propre)
+      log.warn("anciens identifiants AX : WAL occupé, fichier nettoyé au prochain démarrage");
+  } catch (e) {
+    log.warn(`anciens identifiants AX non repris : ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    await verrou?.rendre();
+  }
+}
+
+/** `init_db` : droits des fichiers SQLite, schéma et migrations sous verrou (rapport journalisé), puis nettoyage et reprise des anciens identifiants AX par main seulement. */
 export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   const { base: nouvelle, rapport } = await demarrerBaseCommune({
     garde: creerGardeGeneration({ journal }),
     ...(mode === "main" ? { apres: nettoyerAuDemarrage } : {}),
     journal,
-    migrations: MIGRATIONS_CORE,
   });
   courante = nouvelle;
-  if (rapport.appliquees.includes(MIGRATION_AX))
-    await compacterApresReprise(nouvelle).catch((e: unknown) =>
-      journal("db").warn(`VACUUM après la reprise des identifiants AX impossible : ${String(e)}`),
-    );
+  if (mode === "main") await reprendreAxAuDemarrage(nouvelle);
   return rapport;
 }

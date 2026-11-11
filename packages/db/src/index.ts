@@ -44,6 +44,7 @@ export {
   initialiserBase,
   MIGRATIONS_TS,
   registreMigrations,
+  supprimerSansTrace,
   walCheckpoint,
 } from "./init";
 export type { InfoBase, Migration, OptionsInfo, OptionsInit, RapportInit } from "./init";

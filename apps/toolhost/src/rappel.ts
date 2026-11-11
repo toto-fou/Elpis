@@ -488,15 +488,16 @@ export class ClientRappel {
     });
   }
 
-  /** Compte d'un nom (`/api/internal/identity`) : connu, inconnu du core, ou core injoignable ; jamais gardé en cache. */
+  /** Compte d'un nom (`/api/internal/identity`, `canonique` : le seul compte de cette forme canonique à défaut du nom exact) : connu, inconnu du core, ou core injoignable ; jamais gardé en cache. */
   async compteParNom(
     username: string,
+    canonique = false,
   ): Promise<{ etat: "connu"; compte: CompteSigne } | { etat: "inconnu" } | { etat: "injoignable" }> {
     const statut = { code: 0 };
     const d = await this.appeler(
       "GET",
       "/api/internal/identity",
-      { username },
+      canonique ? { username, canonical: "1" } : { username },
       undefined,
       undefined,
       this.delaiMs,

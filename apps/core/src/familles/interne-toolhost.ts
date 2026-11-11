@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, identifiant git, hôtes des connecteurs (toolhost/routes_internal.py) ; notification, ancres du bureau, ouverture de PR et identifiant git saisi pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
-import { getUser, getUserSettings, ligneUtilisateur, resoudreJeton } from "@elpis/auth";
+import { getUser, getUserSettings, ligneUtilisateur, nomCanonique, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
@@ -40,6 +40,13 @@ export interface DependancesInterne {
 }
 
 /** `_identity_dict` : compte, profil réseau effectif, admin plein seulement (`is_admin == 1`) ; `null` si le compte manque. */
+/** Seul compte dont la forme canonique (nom des dossiers et des anciennes clés des outils) vaut `nom`, `null` sinon. */
+async function idCanonique(base: DependancesInterne["auth"]["base"], nom: string): Promise<number | null> {
+  const comptes = await base.all<{ id: number; username: string }>("SELECT id, username FROM users");
+  const egaux = comptes.filter((c) => nomCanonique(String(c.username ?? "")) === nom);
+  return egaux.length === 1 && egaux[0] ? intPy(egaux[0].id) : null;
+}
+
 async function identite(dep: DependancesInterne, uid: number): Promise<Dict | null> {
   const ligne = await ligneUtilisateur(dep.auth.base, uid);
   if (!ligne) return null;
@@ -158,12 +165,15 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { username } = entrees(req, { query: { username: py.str().defaut("") } }).query;
-          const nom = stripPy(username || "");
+          const q = entrees(req, {
+            query: { username: py.str().defaut(""), canonical: py.str().defaut("") },
+          }).query;
+          const nom = stripPy(q.username || "");
           if (!nom) throw new HttpError(400, "username requis");
           const ligne = await getUser(base, nom);
-          if (!ligne) return { ok: false };
-          const ident = await identite(dep, intPy(ligne.id));
+          const id = ligne ? intPy(ligne.id) : q.canonical === "1" ? await idCanonique(base, nom) : null;
+          if (id === null) return { ok: false };
+          const ident = await identite(dep, id);
           return ident ? { ok: true, ...ident } : { ok: false };
         },
       },

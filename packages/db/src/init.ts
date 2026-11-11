@@ -249,6 +249,37 @@ export function durcirDroits(chemin: string, racineProjet?: string): string[] {
   return corriges;
 }
 
+/** Suppressions dont le contenu ne reste pas dans le fichier : `secure_delete` le temps de `supprimer` (SQLite, réglage rendu ensuite) puis WAL tronqué ; en PostgreSQL, `VACUUM FULL` de la seule `table` ; vrai si le fichier est propre (WAL tronqué ou table réécrite). */
+export async function supprimerSansTrace(
+  base: Base,
+  table: string,
+  supprimer: (x: Executeur) => Promise<number>,
+): Promise<{ supprimees: number; propre: boolean }> {
+  let supprimees = 0;
+  await base.ecriture(async (x) => {
+    if (base.dialecte !== "sqlite") {
+      supprimees = await supprimer(x);
+      return;
+    }
+    const avant = Number(
+      Object.values((await x.get<Record<string, unknown>>("PRAGMA secure_delete")) ?? {})[0],
+    );
+    await x.run("PRAGMA secure_delete = ON");
+    try {
+      supprimees = await supprimer(x);
+    } finally {
+      await x.run(`PRAGMA secure_delete = ${avant === 2 ? "FAST" : avant === 1 ? "ON" : "OFF"}`);
+    }
+  });
+  if (supprimees === 0) return { supprimees, propre: true };
+  if (base.dialecte !== "sqlite") {
+    await base.exec(`VACUUM FULL ${table}`);
+    return { supprimees, propre: true };
+  }
+  const r = await base.get<Record<string, unknown>>("PRAGMA wal_checkpoint(TRUNCATE)");
+  return { supprimees, propre: Number(r?.["busy"] ?? 0) === 0 };
+}
+
 /** `wal_checkpoint` : compacte le journal WAL (SQLite seulement), une fois au démarrage parmi les processus. */
 export async function walCheckpoint(base: Base): Promise<void> {
   if (base.dialecte === "sqlite") await base.exec("PRAGMA wal_checkpoint(TRUNCATE)").catch(() => undefined);

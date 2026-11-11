@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** browser-service/recorder_util.js — recorder : valeurs des champs secrets remplacées par une variable d'environnement (une par champ), secrets retirés des évaluations et des URL, évaluations notées sans être rejouées. */
+/** browser-service/recorder_util.js — recorder : valeurs des champs secrets remplacées par une variable d'environnement (une par champ), secrets retirés des évaluations et des URL, évaluations notées sans être rejouées, gestes dans des <iframe> rejoués dans leur cadre. */
 
 const MOTS_SECRETS = [
     [/pass(?:word|wd|phrase|code)?(?![a-z])|passw|pwd|mot.?de.?passe|kennwort|contrase/i, 'PASSWORD'],
@@ -110,5 +110,74 @@ export function notesDuScript(events) {
         notes.push(`${evals} eval call(s) kept as comments, not replayed: arbitrary page scripts are not user gestures; port them by hand if the test needs them.`);
     if (urls)
         notes.push(`${urls} goto URL(s) had credentials or sensitive parameters replaced by ***: put the real values back before replaying.`);
+    const envois = [...new Set(events.filter((e) => e.action === 'upload').flatMap((e) => e.files || []))];
+    if (envois.length)
+        notes.push(`Uploads are replayed by file name (${envois.join(', ')}): put these files where the test runs.`);
     return { secret_variables: secrets, notes };
+}
+
+/** Exécutée dans la page : sélecteur stable d'un élément (test id, rôle + nom, libellé, indice, texte, CSS), `null` si rien d'exploitable. */
+export function decrireElement(el) {
+    const txt = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const testId = el.getAttribute('data-testid') || el.getAttribute('data-test-id') || el.getAttribute('data-test');
+    if (testId) return { test_id: testId };
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const implicite = { button: 'button', a: el.hasAttribute('href') ? 'link' : '', select: 'combobox', textarea: 'textbox', h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading', h5: 'heading', h6: 'heading', img: 'img' }[tag]
+        || (tag === 'input' ? ({ button: 'button', submit: 'button', reset: 'button', checkbox: 'checkbox', radio: 'radio', range: 'slider', number: 'spinbutton', search: 'searchbox' }[type] || (['hidden', 'file', 'image', 'color', 'date', 'time'].includes(type) ? '' : 'textbox')) : '');
+    const role = el.getAttribute('role') || implicite;
+    const labels = Array.from(el.labels || []).map((l) => txt(l.textContent)).filter(Boolean);
+    const aria = txt(el.getAttribute('aria-label'));
+    const nomParContenu = ['button', 'link', 'option', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'treeitem', 'heading'];
+    const contenu = ['button', 'a'].includes(tag) || nomParContenu.includes(role) || /^h[1-6]$/.test(tag) ? txt(el.innerText || el.textContent) : '';
+    const valeur = tag === 'input' && ['button', 'submit', 'reset'].includes(type) ? txt(el.value) : '';
+    const nom = aria || labels[0] || contenu || valeur || txt(el.getAttribute('title')) || txt(el.getAttribute('alt'));
+    if (role && nom && nom.length <= 80) return { role, name: nom };
+    if (labels[0] && labels[0].length <= 80) return { label: labels[0] };
+    const indice = txt(el.getAttribute('placeholder'));
+    if (indice) return { placeholder: indice };
+    const direct = txt(Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' '));
+    if (direct && direct.length <= 80) return { text: direct };
+    const unique = (s) => { try { return document.querySelectorAll(s).length === 1; } catch (_) { return false; } };
+    if (el.id && unique(`#${CSS.escape(el.id)}`)) return { css: `#${CSS.escape(el.id)}` };
+    const nameAttr = el.getAttribute('name');
+    if (nameAttr && unique(`${tag}[name="${CSS.escape(nameAttr)}"]`)) return { css: `${tag}[name="${CSS.escape(nameAttr)}"]` };
+    const chemin = [];
+    for (let n = el; n && n.nodeType === 1 && n !== document.documentElement; n = n.parentElement) {
+        const t = n.tagName.toLowerCase();
+        if (n.id && unique(`#${CSS.escape(n.id)}`)) { chemin.unshift(`#${CSS.escape(n.id)}`); break; }
+        const freres = n.parentElement ? Array.from(n.parentElement.children).filter((c) => c.tagName === n.tagName) : [n];
+        chemin.unshift(freres.length > 1 ? `${t}:nth-of-type(${freres.indexOf(n) + 1})` : t);
+    }
+    return chemin.length ? { css: chemin.join(' > ') } : null;
+}
+
+/** Exécutée dans le document parent : sélecteur CSS d'une <iframe> qui la désigne seule (id, name, title, src, sinon chemin nth-of-type). */
+export function selecteurCadre(el) {
+    const unique = (s) => { try { return document.querySelectorAll(s).length === 1; } catch (_) { return false; } };
+    const tag = el.tagName.toLowerCase();
+    if (el.id && unique(`#${CSS.escape(el.id)}`)) return `#${CSS.escape(el.id)}`;
+    for (const attr of ['name', 'title', 'src']) {
+        const v = el.getAttribute(attr);
+        if (v && v.length <= 200 && unique(`${tag}[${attr}="${CSS.escape(v)}"]`)) return `${tag}[${attr}="${CSS.escape(v)}"]`;
+    }
+    const chemin = [];
+    for (let n = el; n && n.nodeType === 1 && n !== document.documentElement; n = n.parentElement) {
+        if (n.id && unique(`#${CSS.escape(n.id)}`)) { chemin.unshift(`#${CSS.escape(n.id)}`); break; }
+        const freres = n.parentElement ? Array.from(n.parentElement.children).filter((c) => c.tagName === n.tagName) : [n];
+        chemin.unshift(freres.length > 1 ? `${n.tagName.toLowerCase()}:nth-of-type(${freres.indexOf(n) + 1})` : n.tagName.toLowerCase());
+    }
+    return chemin.join(' > ');
+}
+
+/** Portée d'un geste enregistré dans des <iframe> (`frames`, de la page vers le cadre) : frameLocator chaînés (playwright), corps du document de chaque cadre (cypress), `>>>` (robot). */
+export function porteeCadres(frames, fmt, echapper = (s) => s) {
+    const f = Array.isArray(frames) ? frames.filter((x) => typeof x === 'string' && x) : [];
+    if (fmt === 'playwright') return f.reduce((acc, s) => `${acc}.frameLocator('${echapper(s)}')`, 'page');
+    if (fmt === 'cypress') {
+        if (!f.length) return '';
+        return f.map((s, i) => `${i ? '.find' : 'cy.get'}('${echapper(s)}').its('0.contentDocument.body').should('not.be.empty').then(cy.wrap)`).join('');
+    }
+    if (fmt === 'robot') return f.length ? `${f.join(' >>> ')} >>> ` : '';
+    return '';
 }

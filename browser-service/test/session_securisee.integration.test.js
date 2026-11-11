@@ -645,7 +645,7 @@ test('connexion en cours : toute autre route de la session répond 409 secret_lo
     await arreter(o, sid);
 });
 
-test('réutilisation et quota : une session à politique TLS n\'est ni reprise ni reprenante, mais cède sa place comme les autres', { skip: SAUTER }, async () => {
+test('réutilisation et quota : une session à politique TLS n\'est ni reprise ni reprenante, et ne cède jamais sa place', { skip: SAUTER }, async () => {
     const o = proprio();
     const a = await service.post('/start', { owner: o, url: `${site.base}/` });
     const b = await service.post('/start', { owner: o, url: `${site.base}/login`, tls: 'strict' });
@@ -656,10 +656,16 @@ test('réutilisation et quota : une session à politique TLS n\'est ni reprise n
     assert.equal(reprise.corps.session_id, a.corps.session_id);
     const c = await service.post('/start', { owner: o, url: `${site.base}/`, isolated: true });
     assert.equal(c.statut, 200, c.texte);
+    assert.deepEqual(c.corps.evicted_sessions.map((e) => e.session_id), [a.corps.session_id]);
     const d = await service.post('/start', { owner: o, url: `${site.base}/login`, tls: 'strict' });
     assert.equal(d.statut, 200, d.texte);
+    assert.deepEqual(d.corps.evicted_sessions.map((e) => e.session_id), [c.corps.session_id]);
     const ids = (await service.get(`/sessions?owner=${o}`)).corps.sessions.map((s) => s.session_id);
-    assert.deepEqual(ids.sort(), [c.corps.session_id, d.corps.session_id].sort());
+    assert.deepEqual(ids.sort(), [b.corps.session_id, d.corps.session_id].sort());
+    const e = await service.post('/start', { owner: o, url: `${site.base}/`, isolated: true });
+    assert.equal(e.statut, 503, e.texte);
+    assert.equal(e.corps.code, 'browser_quota');
+    assert.deepEqual(e.corps.protected_sessions.map((p) => p.why), ['opened for a secret', 'opened for a secret']);
     for (const sid of ids) await arreter(o, sid);
 });
 

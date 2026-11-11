@@ -2,7 +2,7 @@
 /** apps/toolhost/src/mcp/browser/page.ts — `pw_page` (inspection relevée par la mémoire AX, captures, texte, onglets…), `pw_dialog`, `pw_wait` (pause ou condition sondée par tranches, battement) et `pw_expect`. */
 import { setTimeout as dormir } from "node:timers/promises";
 
-import { estDict, prefixePy, pyJsonDumps, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
+import { estDict, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import {
   axExtractNodesFromInspect,
@@ -39,34 +39,6 @@ const CONDITIONS = [
 /** `selector` brut nettoyé, sinon le sélecteur de la cible DSL. */
 function selecteur(a: Dict): string {
   return stripPy((a["selector"] as string) || "") || dslToSelector(a["target"] as string);
-}
-
-/** `eval` : résultat texte plus long que `PLAYWRIGHT_EVAL_MAX_CHARS` coupé, liste ou objet trop long remplacé par un aperçu. */
-function borneEval(r: unknown): unknown {
-  if (!estDict(r)) return r;
-  const max = entierEnv("PLAYWRIGHT_EVAL_MAX_CHARS", "50000");
-  const res = r["result"];
-  if (typeof res === "string" && Array.from(res).length > max)
-    return {
-      ...r,
-      result: prefixePy(res, max),
-      truncated: true,
-      original_length: Array.from(res).length,
-      hint: "Result too large; narrow the script (e.g. .slice(0, N) or specific properties).",
-    };
-  if (Array.isArray(res) || estDict(res)) {
-    const texte = pyJsonDumps(res);
-    if (texte.length > max)
-      return {
-        ...r,
-        result_preview: prefixePy(texte, 5000),
-        result: null,
-        truncated: true,
-        original_length: texte.length,
-        hint: "Result too large; narrow the script.",
-      };
-  }
-  return r;
 }
 
 /** `pw_page` : opérations de page (`action`/`op`) ; l'inspection alimente la mémoire AX (périmés revus ou supprimés). */
@@ -123,10 +95,10 @@ export function pwPage(s: ServicesBrowser) {
         });
       return client.req("POST", "/wait_for", { json: { session_id: sid, selector: css, timeout: 5000 } });
     }
-    if (op === "eval")
-      return borneEval(await client.req("POST", "/evaluate", { json: { session_id: sid, script: v } }));
+    if (op === "eval") return client.req("POST", "/evaluate", { json: { session_id: sid, script: v } });
     if (op === "extract") {
-      const corps: Dict = { session_id: sid, max_rows: a["max"] };
+      const corps: Dict = { session_id: sid, max_rows: a["max"], offset: a["offset"] };
+      if (a["level"] === "full") corps["styles"] = true;
       const css = selecteur(a);
       if (css) corps["selector"] = css;
       return client.req("POST", "/extract_table", { json: corps });
@@ -142,7 +114,7 @@ export function pwPage(s: ServicesBrowser) {
     }
     if (op === "frames") return client.req("GET", "/frames", { params: { session_id: sid } });
     if (op === "text") {
-      const corps: Dict = { session_id: sid };
+      const corps: Dict = { session_id: sid, offset: a["offset"] };
       const css = selecteur(a);
       if (css) corps["selector"] = css;
       if (a["include_frames"]) corps["include_frames"] = true;

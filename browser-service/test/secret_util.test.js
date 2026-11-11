@@ -77,8 +77,8 @@ test('garde réseau : adresse, corps ou en-têtes qui portent une forme du mot d
     assert.ok(!requetePorteSecret('https://x/', 'u=alice', formes));
 });
 
-test('quota : la plus ancienne session du propriétaire cède la place, quelle que soit la session (plus de session protégée)', () => {
+test('quota : une session ouverte pour un secret ne cède jamais sa place, la plus ancienne des autres cède', () => {
     const sess = new Map([['s1', { owner: 'o', lastActivity: 1, tls: 'strict' }], ['n1', { owner: 'o', lastActivity: 2 }]]);
-    assert.deepEqual(planSessionSlot(sess, 'o', { maxTotal: 10, maxPerOwner: 2 }), { evict: 's1', refuse: false });
+    assert.deepEqual(planSessionSlot(sess, 'o', { maxTotal: 10, maxPerOwner: 2 }), { evict: 'n1', refuse: false, limit: 'owner' });
     assert.deepEqual(planSessionSlot(sess, 'o', { maxTotal: 10, maxPerOwner: 3 }), { evict: null, refuse: false });
 });

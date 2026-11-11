@@ -32,7 +32,7 @@ import { cleDeChiffrement } from "../secrets/stockage";
 
 const log = journal("routines");
 
-/** Champs secrets jamais persistés dans le snapshot MCP d'une routine : re-résolus à l'exécution. */
+/** Champs secrets (et référence au coffre) jamais persistés dans le snapshot MCP d'une routine : re-résolus à l'exécution. */
 export const MCP_SECRET_KEYS: readonly string[] = [
   "auth",
   "authorization",
@@ -51,6 +51,8 @@ export const MCP_SECRET_KEYS: readonly string[] = [
   "env",
   "env_enc",
   "extra_scheme",
+  "secret_id",
+  "secret_error",
 ];
 const SECRETS = new Set(MCP_SECRET_KEYS);
 

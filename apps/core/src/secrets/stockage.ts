@@ -2,7 +2,7 @@
 /** apps/core/src/secrets/stockage.ts — table `vault_secrets` : création, modification (« vide = inchangé »), rotation, vérification, suppression et liste, valeur chiffrée jamais relue par l'API et liée aux colonnes qui décident de son usage ; chaque écriture au journal de sécurité, sans valeur. */
 import { POLITIQUE_SECRET_DEFAUT, SECRETS_PAR_PROPRIETAIRE_MAX } from "@elpis/contracts";
 import type { EtatSecret, GenreSecret, PolitiqueSecret, PorteeSecret, Secret } from "@elpis/contracts";
-import { ErreurIntegrite, NOM_CLE_IMAGES, tableColumns } from "@elpis/db";
+import { apresValidation, ErreurIntegrite, NOM_CLE_IMAGES, tableColumns } from "@elpis/db";
 import type { Base, Executeur, Valeur } from "@elpis/db";
 import {
   auditEvent,
@@ -89,6 +89,16 @@ export function journaliser(
     ip: acteur.ip ?? null,
     ...(outcome ? { outcome } : {}),
   });
+}
+
+/** Changement d'un secret au journal de sécurité, écrit une fois la transaction englobante validée ; annulée, rien n'est écrit. */
+function journaliserChangement(
+  base: Base,
+  acteur: Acteur,
+  action: string,
+  details: Record<string, unknown>,
+): void {
+  apresValidation(base, () => journaliser(acteur, action, details));
 }
 
 /** `kid` de la clé courante, `null` sans clé ou si elle est illisible (la liste reste lisible). */
@@ -351,7 +361,7 @@ export async function creerSecret(
     );
     return (await lireLigne(x, p, id)) as LigneSecret;
   });
-  journaliser(acteur, "vault.secret.created", {
+  journaliserChangement(base, acteur, "vault.secret.created", {
     secret_id: Number(ligne.id),
     name: nom,
     kind: genre,
@@ -454,7 +464,7 @@ export async function modifierSecret(
     return { ligne: (await lireLigne(x, p, id)) as LigneSecret, champs };
   });
   if (r.champs.length > 0)
-    journaliser(acteur, "vault.secret.updated", {
+    journaliserChangement(base, acteur, "vault.secret.updated", {
       secret_id: id,
       name: r.ligne.name,
       kind: r.ligne.kind,
@@ -513,7 +523,7 @@ export async function rotation(
     );
     return (await lireLigne(x, p, id)) as LigneSecret;
   });
-  journaliser(acteur, "vault.secret.rotated", {
+  journaliserChangement(base, acteur, "vault.secret.rotated", {
     secret_id: id,
     name: ligne.name,
     kind: ligne.kind,
@@ -543,7 +553,7 @@ export async function verifierSecret(
     return { ligne: (await lireLigne(x, p, id)) as LigneSecret, change: true };
   });
   if (r.change)
-    journaliser(acteur, "vault.secret.verified", {
+    journaliserChangement(base, acteur, "vault.secret.verified", {
       secret_id: id,
       name: r.ligne.name,
       kind: r.ligne.kind,
@@ -569,7 +579,7 @@ export async function supprimerSecret(
     await x.run("DELETE FROM vault_secrets WHERE id = ?", [id]);
     return ligne;
   });
-  journaliser(acteur, "vault.secret.deleted", {
+  journaliserChangement(base, acteur, "vault.secret.deleted", {
     secret_id: id,
     name: l.name,
     kind: l.kind,

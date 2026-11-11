@@ -16,6 +16,7 @@ import { journal } from "./journal";
 import type { ModeApp } from "./mode";
 import { purgeOldMetrics } from "./observabilite/metriques-evenements";
 import { repriseAxDuCore } from "./secrets/import-ax";
+import { reprendreMcpAuDemarrage } from "./secrets/migration-mcp";
 import { journaliserMigrations, portsMigrationsDuCore, reprendreAuDemarrage } from "./secrets/reprise";
 
 /** Implémentations des migrations du registre (`MIGRATIONS_TS` de @elpis/db) que main applique avec les ports du core ; admin, l'hôte d'outils et les commandes les lui laissent. */
@@ -99,6 +100,7 @@ export async function demarrerBase(mode: ModeApp): Promise<RapportInit> {
   journaliserMigrations(rapport.audit);
   if (mode === "main") {
     await reprendreAuDemarrage(nouvelle, rapport, journal("coffre"));
+    await reprendreMcpAuDemarrage(nouvelle, rapport, journal("coffre"));
     await reprendreAxAuDemarrage(nouvelle);
     if (rapport.aCompacter.length) await compacterAuDemarrage(nouvelle, rapport.aCompacter);
   }

@@ -12,6 +12,7 @@ export {
 } from "./demarrage";
 export type { OptionsDemarrage } from "./demarrage";
 
+export { apresValidation } from "./base";
 export type { Base, Executeur, Ligne, Parametres, Resultat, StatsPool, Valeur } from "./base";
 export type { ReglagesPostgres } from "./postgres";
 export type { ReglagesSqlite } from "./sqlite";

@@ -64,6 +64,8 @@ interface Contexte {
   actif: boolean;
   profondeur: number;
   verrou: Verrou;
+  /** Suites à lancer une fois la transaction englobante validée ; oubliées si ce niveau est annulé. */
+  aValider: (() => void)[];
 }
 
 const CONTROLE = new Set(["BEGIN", "START", "COMMIT", "END", "ROLLBACK", "SAVEPOINT", "RELEASE"]);
@@ -154,6 +156,13 @@ export abstract class BaseCommune implements Base {
   abstract stats(): StatsPool | null;
   abstract fermer(): Promise<void>;
 
+  /** `fn` une fois la transaction englobante validée (tout de suite hors transaction) ; annulée, `fn` est oubliée. */
+  apresValidation(fn: () => void): void {
+    const c = this.actif();
+    if (c) c.aValider.push(fn);
+    else fn();
+  }
+
   private actif(): Contexte | undefined {
     for (let c: Contexte | null | undefined = this.contexte.getStore(); c; c = c.parent) {
       if (c.actif && c.base === this) return c;
@@ -240,6 +249,7 @@ export abstract class BaseCommune implements Base {
       actif: true,
       profondeur: 0,
       verrou: new Verrou(),
+      aValider: [],
     };
     let r: T;
     try {
@@ -252,6 +262,7 @@ export abstract class BaseCommune implements Base {
     }
     c.actif = false;
     await this.terminer(session, true);
+    lancerSuites(c.aValider);
     return r;
   }
 
@@ -266,7 +277,13 @@ export abstract class BaseCommune implements Base {
     );
     try {
       if (!parent.actif) throw new ErreurProgrammation("transaction parente déjà terminée");
-      const enfant: Contexte = { ...parent, parent, profondeur: parent.profondeur + 1, verrou: new Verrou() };
+      const enfant: Contexte = {
+        ...parent,
+        parent,
+        profondeur: parent.profondeur + 1,
+        verrou: new Verrou(),
+        aValider: [],
+      };
       const nom = `elpis_sp_${enfant.profondeur}`;
       await parent.session.executer(`SAVEPOINT ${nom}`, [], "run");
       const verrouPose = ecriture && !parent.ecriture;
@@ -280,6 +297,7 @@ export abstract class BaseCommune implements Base {
         (await enfant.verrou.prendre(this.delaiMs, EN_COURS))();
         enfant.actif = false;
         await parent.session.executer(`RELEASE SAVEPOINT ${nom}`, [], "run");
+        parent.aValider.push(...enfant.aValider);
         return r;
       } catch (e) {
         enfant.actif = false;
@@ -296,4 +314,21 @@ export abstract class BaseCommune implements Base {
       liberer();
     }
   }
+}
+
+/** Suites d'une transaction validée : une suite qui échoue (journal) ne change plus la validation. */
+function lancerSuites(suites: readonly (() => void)[]): void {
+  for (const suite of suites) {
+    try {
+      suite();
+    } catch {
+      /* déjà validée */
+    }
+  }
+}
+
+/** `fn` une fois la transaction englobante de `base` validée (tout de suite hors transaction, ou pour une base qui n'en tient pas) ; annulée, `fn` est oubliée. */
+export function apresValidation(base: Base, fn: () => void): void {
+  if (base instanceof BaseCommune) base.apresValidation(fn);
+  else fn();
 }

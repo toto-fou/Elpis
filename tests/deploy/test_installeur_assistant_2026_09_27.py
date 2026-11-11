@@ -122,13 +122,13 @@ def test_sans_droits_admin_rien_qui_en_demande(ctx_env, monkeypatch):
 
 
 def test_resume_paquets_apt_des_composants_coches(ctx_env, monkeypatch):
-    manquants = {"sandbox": ["docker.io (ou docker-ce)", "xz-utils"], "navigateur": ["xvfb", "fonts-liberation"],
+    manquants = {"sandbox": ["docker.io (ou docker-ce)", "xz-utils"],
                  "apercus-office": ["bubblewrap", "fonts-liberation"], "https": ["caddy"]}
     monkeypatch.setenv("ELPIS_WIZ_APT", json.dumps({"installer": True, "manquants": manquants}))
     ctx, st, _wiz = _wizard(monkeypatch=monkeypatch)
     st.update(components=["browser", "office"], sandbox="none")
     rows = dict(next(r for t, r in W.summary(st, ctx) if t == "Paquets système"))
-    assert rows == {"À installer (apt-get)": "3 : bubblewrap, fonts-liberation, xvfb"}
+    assert rows == {"À installer (apt-get)": "2 : bubblewrap, fonts-liberation"}     # navigateur : rien sur l'hôte
     st.update(components=["caddy"], sandbox="build")
     assert dict(next(r for t, r in W.summary(st, ctx) if t == "Paquets système")) == {
         "À installer (apt-get)": "3 : docker.io (ou docker-ce), xz-utils, caddy"}

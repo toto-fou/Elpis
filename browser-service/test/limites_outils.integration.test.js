@@ -38,6 +38,12 @@ const PAGES = {
         for (let i = 0; i < 3000; i++) l.insertAdjacentHTML('beforeend',
             '<div style="height:24px">Ligne ' + i + ' <button onclick="document.getElementById(\\'out\\').textContent=\\'edit ' + i + '\\'">Edit</button></div>');
     </script>`,
+    '/table': `<title>Table</title><table id="t"><thead><tr><th>N</th><th>Nom</th><th></th></tr></thead><tbody id="corps"></tbody></table>
+        <p id="long"></p><script>
+        const c = document.getElementById('corps');
+        for (let i = 0; i < 3000; i++) c.insertAdjacentHTML('beforeend', '<tr style="background:#eee"><td>' + i + '</td><td style="color:red">Ligne ' + i + '</td><td><button>Edit</button></td></tr>');
+        document.getElementById('long').textContent = 'mot é '.repeat(10000);
+    </script>`,
 };
 
 let service = null;
@@ -149,4 +155,41 @@ test('pw_page inspect : nom long coupé d\'une ellipse et actionnable, sélecteu
     assert.match(r.corps.resolved_selector, /\.nth\(2500\)$/);
     assert.equal(r.corps.matched, 3000);
     assert.match(r.corps.warning, /^3000 elements match .*acted on nth=2500/);
+});
+
+test('tailles de sortie : extract par pages sans styles, eval plafonné (chaîne, liste) avec ce qui manque, texte long par morceaux', { skip: SAUTER, timeout: 90000 }, async () => {
+    await ouvrir('/table');
+    const taille = (v) => JSON.stringify(v).length;
+    let t = (await api('/extract_table', { selector: '#t' })).corps;
+    assert.equal(t.rows.length, 50);
+    assert.equal(t.total_rows, 3000);
+    assert.equal(t.next_offset, 50);
+    assert.deepEqual(t.rows[0], { N: '0', Nom: 'Ligne 0', col_2: 'Edit', _actions: [{ column: 'col_2', text: 'Edit', tag: 'button' }] });
+    assert.ok(taille(t) < 20000);
+    t = (await api('/extract_table', { selector: '#t', offset: 2990, max_rows: 50, styles: true })).corps;
+    assert.equal(t.rows.length, 10);
+    assert.equal(t.next_offset, undefined);
+    assert.deepEqual(t.rows[0].Nom, { text: 'Ligne 2990', bg: null, color: '#ff0000' });
+    assert.equal(t.rows[0]._row_bg, '#eeeeee');
+    t = (await api('/extract_table', { selector: '#t', max_rows: 500 })).corps;
+    assert.ok(t.rows.length < 500 && t.next_offset === t.rows.length, `${t.rows.length} lignes, suite ${t.next_offset}`);
+    assert.match(t.hint, /^Output capped at 20000 characters/);
+    assert.ok(taille(t) < 24000);
+
+    let e = await api('/evaluate', { script: "return 'x'.repeat(60000)" });
+    assert.equal(e.corps.result.length, 19998);
+    assert.equal(e.corps.omitted, '40002 of 60000 characters');
+    assert.match(e.corps.hint, /capped at 20000/);
+    e = await api('/evaluate', { script: 'return Array.from({ length: 3000 }, (_, i) => ({ id: i, nom: "ligne " + i }))' });
+    assert.ok(Array.isArray(e.corps.result) && e.corps.result.length > 100);
+    assert.equal(e.corps.omitted, `${3000 - e.corps.result.length} of 3000 items`);
+    assert.ok(taille(e.corps) < 24000);
+
+    const x = (await api('/extract_text', { selector: '#long' })).corps;
+    assert.equal(x.total_length, 59999);
+    assert.ok(x.truncated && x.next_offset > 3000 && x.next_offset < 20000, JSON.stringify({ ...x, text: x.text.length }));
+    const suite = (await api('/extract_text', { selector: '#long', offset: x.next_offset })).corps;
+    assert.equal(suite.offset, x.next_offset);
+    const k = x.next_offset % 6;
+    assert.equal(suite.text.slice(0, 6), 'mot é mot é '.slice(k, k + 6));
 });

@@ -152,6 +152,28 @@ describe("famille browser servie par l'hôte", () => {
     ]);
   });
 
+  it("pw_page extract et text : max, offset et level='full' (couleurs) transmis ; eval rendu tel que le service l'a plafonné", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const page = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_page", { session_id: SESSION, ...args }, { username: "bob" });
+    await page({ action: "extract", target: "css=#t", max: 20, offset: 40, level: "full" });
+    await page({ action: "extract" });
+    await page({ action: "text", offset: 20000 });
+    const corps = faux.vues
+      .filter((v) => v.chemin === "/extract_table" || v.chemin === "/extract_text")
+      .map((v) => JSON.parse(v.corps) as Dict);
+    expect(corps).toEqual([
+      { session_id: SESSION, max_rows: 20, offset: 40, selector: "#t", styles: true, owner: "bob" },
+      { session_id: SESSION, max_rows: 50, offset: 0, owner: "bob" },
+      { session_id: SESSION, offset: 20000, owner: "bob" },
+    ]);
+    vi.stubEnv("PLAYWRIGHT_EVAL_MAX_CHARS", "100");
+    const r = contenu(await page({ action: "eval", value: "grand" }))["result"] as Dict;
+    expect(r["result"]).toBe("x".repeat(150));
+  });
+
   it("pw_act : délai dépassé sur une session à plusieurs onglets, onglet actif rappelé (lu sur /sessions) ; un seul onglet : message inchangé", async () => {
     const b = await client();
     await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });

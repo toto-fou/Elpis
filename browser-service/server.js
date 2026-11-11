@@ -21,7 +21,7 @@ import { lirePs, orphelins } from './proc_util.js';
 import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
-         noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
+         noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement } from './recorder_util.js';
@@ -822,6 +822,10 @@ function resolveRef(ref, page, sid = null) {
 
 // Attente courte d'une cible absente avant « element_not_found » (la page peut finir de s'afficher).
 const NOT_FOUND_GRACE_MS = parseInt(process.env.PW_NOT_FOUND_GRACE_MS || '2000', 10);
+// Plafond commun des grosses sorties (eval, extract, text), en caractères JSON comptés comme le client : sous son budget de 24 000, rien n'y est recoupé.
+const PLAFOND_SORTIE = parseInt(process.env.PW_OUTPUT_MAX_CHARS || '20000', 10);
+const INDICE_PLAFOND = `Output capped at ${PLAFOND_SORTIE} characters.`;
+
 // Délai par défaut d'un geste, commun à /action et /chain, sous le délai du client (10 s) : l'erreur du service arrive d'abord.
 const ACTION_TIMEOUT_MS = parseInt(process.env.PW_ACTION_TIMEOUT_MS || '8000', 10);
 
@@ -4758,11 +4762,15 @@ app.get('/network', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EXTRACT TABLE ========================
+// Lignes d'un tableau par pages (`max_rows`, 50 par défaut, `offset`), texte des cellules seul sauf `styles` (couleurs), sous le plafond commun.
 app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const selector = req.body.selector || 'table';
-        const data = await page.evaluate((sel) => {
+        const maxRows = Math.max(1, Math.min(parseInt(req.body.max_rows, 10) || 50, 500));
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+        const styles = req.body.styles === true;
+        const data = await page.evaluate(({ sel, offset, maxRows, styles }) => {
             function toHex(rgb) {
                 const m = rgb?.match(/[\d.]+/g);
                 if (!m || m.length < 3) return null;
@@ -4770,71 +4778,73 @@ app.post('/extract_table', getSession, autoSnapshot, async (req, res) => {
                 if (a !== undefined && a < 0.05) return null;
                 return '#' + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
             }
-            const table = document.querySelector(sel);
-            if (!table) return { error: `Aucun élément trouvé pour "${sel}"` };
+            const net = (c) => (c.innerText || '').replace(/\s+/g, ' ').trim();
+            let table;
+            try { table = document.querySelector(sel); } catch (e) { return { error: `Invalid selector "${sel}".` }; }
+            if (!table) return { error: `No element matches "${sel}".` };
             const tag = table.tagName.toLowerCase();
 
             if (tag === 'table') {
-                const headers = [];
-                table.querySelectorAll('thead th, thead td, tr:first-child th').forEach(c => {
-                    const style = window.getComputedStyle(c);
-                    headers.push({
-                        text: c.innerText.replace(/\s+/g, ' ').trim(),
-                        bg: toHex(style.backgroundColor),
-                        color: toHex(style.color),
+                const tete = Array.from(table.querySelectorAll('thead th, thead td, tr:first-child th'));
+                const headers = tete.map(net);
+                const lignes = Array.from(table.querySelectorAll('tbody tr, tr')).filter((row, i) =>
+                    !(i === 0 && headers.length > 0 && row.querySelector('th')) && row.querySelectorAll('td, th').length > 0);
+                const rows = lignes.slice(offset, offset + maxRows).map((row) => {
+                    const out = {};
+                    const actions = [];
+                    row.querySelectorAll('td, th').forEach((c, j) => {
+                        const key = headers[j] || `col_${j}`;
+                        if (styles) {
+                            const cs = window.getComputedStyle(c);
+                            out[key] = { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) };
+                        } else out[key] = net(c);
+                        for (const btn of c.querySelectorAll('button, a, [role="button"]'))
+                            actions.push({ column: key, text: btn.textContent.trim().substring(0, 50), tag: btn.tagName.toLowerCase(), ...(btn.href ? { href: btn.href } : {}) });
                     });
+                    if (styles) out._row_bg = toHex(window.getComputedStyle(row).backgroundColor);
+                    if (actions.length) out._actions = actions;
+                    return out;
                 });
-                const rows = [];
-                table.querySelectorAll('tbody tr, tr').forEach((row, i) => {
-                    if (i === 0 && headers.length > 0 && row.querySelector('th')) return;
-                    const cells = row.querySelectorAll('td, th');
-                    if (cells.length === 0) return;
-                    const rowData = {};
-                    const rowStyle = window.getComputedStyle(row);
-                    const rowMeta = { _row_bg: toHex(rowStyle.backgroundColor) };
-                    cells.forEach((c, j) => {
-                        const key = headers[j]?.text || `col_${j}`;
-                        const cellStyle = window.getComputedStyle(c);
-                        rowData[key] = {
-                            text: c.innerText.replace(/\s+/g, ' ').trim(),
-                            bg: toHex(cellStyle.backgroundColor),
-                            color: toHex(cellStyle.color),
-                            // Boutons/liens dans la cellule
-                            actions: Array.from(c.querySelectorAll('button, a, [role="button"]')).map(btn => ({
-                                text: btn.textContent.trim().substring(0, 50),
-                                tag: btn.tagName.toLowerCase(),
-                                href: btn.href || null,
-                            })),
-                        };
-                    });
-                    rows.push({ ...rowMeta, ...rowData });
-                });
-                return { headers: headers.map(h => h.text), headers_with_colors: headers, rows, count: rows.length, type: 'html-table' };
+                return { type: 'html-table', headers, rows, total_rows: lignes.length,
+                         ...(styles ? { headers_with_colors: tete.map(c => { const cs = window.getComputedStyle(c); return { text: net(c), bg: toHex(cs.backgroundColor), color: toHex(cs.color) }; }) } : {}) };
             }
 
             // Pseudo-table (divs avec role=grid, etc.)
-            const roleRows = table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]');
-            if (roleRows.length > 0) {
-                const rows = [];
-                roleRows.forEach(row => {
-                    const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]');
-                    if (cells.length > 0) rows.push(Array.from(cells).map(c => c.innerText.replace(/\s+/g, ' ').trim()));
-                });
-                return { rows, count: rows.length, type: 'pseudo-table' };
-            }
+            const roleRows = Array.from(table.querySelectorAll('[role="row"], [style*="display: table-row"], [class*="row"]'))
+                .map(row => Array.from(row.querySelectorAll('[role="gridcell"], [role="columnheader"], [style*="display: table-cell"], [class*="cell"], [class*="col"]')).map(net))
+                .filter(cells => cells.length > 0);
+            if (roleRows.length > 0) return { type: 'pseudo-table', rows: roleRows.slice(offset, offset + maxRows), total_rows: roleRows.length };
 
-            return { text: table.innerText.substring(0, 5000), type: 'raw' };
-        }, selector);
-        res.json(data);
+            return { text: net(table).substring(0, 5000), type: 'raw' };
+        }, { sel: selector, offset, maxRows, styles });
+        if (data.error) return res.status(404).json({ error: data.error, code: 'element_not_found',
+            fix: 'List the tables with pw_page(action="inspect") (tables[].selector) and pass one as target=.' });
+        if (!Array.isArray(data.rows)) return res.json(data);
+        const { rows, ...entete } = data;
+        const b = bornerValeur(rows, PLAFOND_SORTIE - longueurJsonPy(entete) - 400);
+        const rendues = b.value.length;
+        const suite = offset + rendues < data.total_rows ? offset + rendues : null;
+        res.json({ ...entete, rows: b.value, offset, count: rendues,
+                   ...(suite !== null ? { truncated: true, next_offset: suite, omitted: `${data.total_rows - offset - rendues} of ${data.total_rows} rows after this page`,
+                                          hint: `${b.truncated ? `${INDICE_PLAFOND} ` : ''}Call again with offset=${suite} for the next rows (max= rows per call, up to 500).` } : {}) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 
 // ======================== EXTRACT TEXT ========================
+// Morceau d'un texte à partir de `offset`, sous le plafond commun : longueur totale, et la suite à demander s'il en reste.
+function morceauTexte(complet, offset) {
+    const morceau = couperTexte(complet.slice(offset), PLAFOND_SORTIE);
+    const fin = offset + morceau.length;
+    return { text: morceau, total_length: complet.length, ...(offset ? { offset } : {}),
+             ...(fin < complet.length ? { truncated: true, next_offset: fin, omitted: `${complet.length - fin} of ${complet.length} characters after this part`,
+                                          hint: `${INDICE_PLAFOND} Call again with offset=${fin} for the rest, or narrow with target=.` } : {}) };
+}
 app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', include_hidden = false, include_frames = false, pierce_shadow = true } = req.body;
+        const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
         const { locator } = await resoudreRepli(page, selector);
         const text = include_hidden
             ? await locator.evaluate(el => el.textContent)
@@ -4886,12 +4896,12 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
             }
             if (shadowText) parts.push(shadowText);
             return res.json({
-                text: parts.join('\n').substring(0, 80000),
+                ...morceauTexte(parts.join('\n'), offset),
                 frames_read: read, frames_total: kids.length,
                 ...(shadowText ? { shadow_text_included: true } : {}),
             });
         }
-        res.json({ text: (clean(text) + (shadowText ? '\n' + shadowText : '')).substring(0, 80000),
+        res.json({ ...morceauTexte(clean(text) + (shadowText ? '\n' + shadowText : ''), offset),
                    ...(shadowText ? { shadow_text_included: true } : {}) });
     } catch (e) { repondreErreur(res, e); }
 });
@@ -5023,6 +5033,13 @@ app.post('/print_pdf', getSession, autoSnapshot, async (req, res) => {
 
 
 // ======================== EVALUATE JS ========================
+// Résultat d'un script tenu sous `max` caractères : chaîne coupée, liste ou objet réduit à ses premiers éléments, avec ce qui manque et un conseil.
+function resultatBorne(valeur, max) {
+    const b = bornerValeur(valeur, max);
+    return { result: b.value, ...(b.truncated ? { truncated: true, omitted: b.omitted,
+        hint: `${INDICE_PLAFOND} Return only what you need: .slice(0, N), the fields you need, a count.` } : {}) };
+}
+
 app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
     try {
         const { script, in_all_frames = false } = req.body;
@@ -5048,14 +5065,15 @@ app.post('/evaluate', getSession, autoSnapshot, async (req, res) => {
                 } catch (e) { results.push({ frame: frame.url(), error: e.message }); }
             }
             recordEvent(req.session, { action: 'eval', script, url: page.url(), in_all_frames: true });
-            return res.json({ results });
+            const part = Math.floor(PLAFOND_SORTIE / Math.max(1, results.length));
+            return res.json({ results: results.map((x) => ('result' in x ? { ...x, ...resultatBorne(x.result, part) } : x)) });
         }
         const result = await page.evaluate(async (body) => {
             const fn = new Function(`return (async () => { ${body} })();`);
             return await fn();
         }, fnBody);
         recordEvent(req.session, { action: 'eval', script, url: page.url() });
-        res.json({ result });
+        res.json(resultatBorne(result, PLAFOND_SORTIE));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

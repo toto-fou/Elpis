@@ -130,6 +130,8 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **One output size policy for pw_page eval, extract and text.** Every browser tool result stays under the client's budget (~24,000 characters); eval, extract and text now cap what they return at 20,000 characters themselves and say what they left out (`truncated`, `omitted`, a `hint`), instead of the generic clip that cut every string to 2,000 characters (a 60,000-character eval result came back as 2,000 although ~50 KB was documented) or turned a large list into an unreadable `partial` repr. A long eval string is cut, a list or object keeps its first items or keys. extract pages its rows (`max=`, default 50, up to 500; new `offset=`; `total_rows`, `next_offset`) and returns the cell text only, the buttons and links of a row in `_actions`; `level="full"` adds the colors. text comes in parts with `offset=`/`next_offset`. The tool host no longer re-cuts eval (`PLAYWRIGHT_EVAL_MAX_CHARS` is gone; the service reads `PW_OUTPUT_MAX_CHARS`).
+
 - **LLM connector and image engine keys move to the secrets vault.** The API key of a personal
   or shared LLM connector, including the one entered by `./elpis configure`, is now a vault secret
   (kind `llm`, `llm-<provider>-<id>`, linked by `llm_connectors.secret_id`), and the image engine's

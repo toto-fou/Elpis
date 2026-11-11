@@ -545,6 +545,10 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Chat title: attached file blocks removed in linear time.** The regular expression that
+  removed `--- FILE: … --- END FILE ---` blocks from the first message before deriving the chat
+  title could take quadratic time on a crafted message and hold the core; a linear scan gives
+  the same result.
 - **MCP relay: linear checks on unauthenticated input.** The `Origin` header and the `family`
   path segment were trimmed with regular expressions that backtrack on long runs of slashes,
   before any authentication; they are now trimmed by linear scans, and an `Origin` longer than

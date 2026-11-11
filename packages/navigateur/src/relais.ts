@@ -248,6 +248,9 @@ function lireCorps(req: IncomingMessage, max: number): Promise<Buffer | null> {
     });
     req.on("end", () => ok(n <= max ? Buffer.concat(morceaux) : null));
     req.on("error", ko);
+    req.on("close", () => {
+      if (!req.complete) ko(new Error("request aborted by the client"));
+    });
   });
 }
 
@@ -289,22 +292,31 @@ export class RelaisNavigateur {
     this.serveur = this.creerServeur();
     this.interne = serveurHttp((req, res) => {
       const origine = (req.socket as Socket & { origineElpis?: string }).origineElpis ?? "";
-      void this.versOrigine(req, res, origine, req.url ?? "/");
+      this.versOrigine(req, res, origine, req.url ?? "/").catch((e: unknown) => this.echec(res, e));
     });
-    this.interne.on(
-      "upgrade",
-      (req: IncomingMessage, s: Socket, tete: Buffer) =>
-        void this.miseANiveau(req, s, tete, (s as Socket & { origineElpis?: string }).origineElpis ?? null),
+    this.interne.on("upgrade", (req: IncomingMessage, s: Socket, tete: Buffer) =>
+      this.miseANiveau(req, s, tete, (s as Socket & { origineElpis?: string }).origineElpis ?? null).catch(
+        (e: unknown) => this.echec(s, e),
+      ),
     );
   }
 
+  /** Échec d'un traitement (client parti, amont coupé) : connexion fermée, jamais de rejet non traité (l'hôte d'outils sert tous les comptes). */
+  private echec(cible: ServerResponse | Socket, e: unknown): void {
+    this.journal(`request dropped: ${e instanceof Error ? e.message : String(e)}`);
+    cible.destroy();
+  }
+
   private creerServeur(): Server {
-    const srv = serveurHttp((req, res) => void this.requeteClaire(req, res));
-    srv.on("connect", (req: IncomingMessage, s: Socket, tete: Buffer) => void this.tunnel(req, s, tete));
-    srv.on(
-      "upgrade",
-      (req: IncomingMessage, s: Socket, tete: Buffer) => void this.miseANiveau(req, s, tete, null),
-    );
+    const srv = serveurHttp((req, res) => {
+      this.requeteClaire(req, res).catch((e: unknown) => this.echec(res, e));
+    });
+    srv.on("connect", (req: IncomingMessage, s: Socket, tete: Buffer) => {
+      this.tunnel(req, s, tete).catch((e: unknown) => this.echec(s, e));
+    });
+    srv.on("upgrade", (req: IncomingMessage, s: Socket, tete: Buffer) => {
+      this.miseANiveau(req, s, tete, null).catch((e: unknown) => this.echec(s, e));
+    });
     srv.on("connection", (s: Socket) => this.suivre(s));
     return srv;
   }
@@ -620,7 +632,7 @@ export class RelaisNavigateur {
     }
     if (liees.length === 0) {
       res.writeHead(r.statusCode ?? 502, r.statusMessage, sortie);
-      r.pipe(res);
+      await pipeline(r, res).catch(() => res.destroy());
       return;
     }
     res.writeHead(r.statusCode ?? 502, r.statusMessage, sortie);

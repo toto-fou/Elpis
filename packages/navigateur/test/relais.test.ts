@@ -360,6 +360,40 @@ describe("relais des secrets (socket unix réel)", () => {
     relais.oublier("s2");
   });
 
+  it("client qui abandonne au milieu du corps (fenêtre armée, origine couverte en clair et en TLS) : aucun rejet non traité, le relais sert encore", async () => {
+    const rejets: unknown[] = [];
+    const surveiller = (e: unknown): void => void rejets.push(e);
+    process.on("unhandledRejection", surveiller);
+    try {
+      const enClair = `http://abandon.test:${port(http)}`;
+      const chiffree = `https://abandon.test:${port(https)}`;
+      relais.lier(liaison({ id: "ab", origines: [enClair, chiffree], substitut: SUB }));
+      relais.armer("ab", 10_000);
+      const tete = (hote: string): string =>
+        `POST /session HTTP/1.1\r\nHost: ${hote}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100000\r\n`;
+      const clair = connexionNet(path.join(dossier, "relais.sock"));
+      clair.on("error", () => undefined);
+      clair.write(
+        `${tete(`abandon.test:${port(http)}`).replace("/session", `${enClair}/session`)}Proxy-Authorization: Bearer ${JETON}\r\n\r\np=${SUB}&u=`,
+      );
+      await new Promise((ok) => setTimeout(ok, 100));
+      clair.destroy();
+      const t = await tunnel(`abandon.test:${port(https)}`);
+      const tls = connexionTls({ socket: t.s, servername: "abandon.test", ca: ac.certPem });
+      tls.on("error", () => undefined);
+      await new Promise<void>((ok) => tls.once("secureConnect", () => ok()));
+      tls.write(`${tete(`abandon.test:${port(https)}`)}\r\np=${SUB}&u=`);
+      await new Promise((ok) => setTimeout(ok, 100));
+      tls.destroy();
+      await new Promise((ok) => setTimeout(ok, 200));
+      expect(rejets).toEqual([]);
+      expect((await viaRelais(`${enClair}/ok`)).statut).toBe(200);
+    } finally {
+      process.off("unhandledRejection", surveiller);
+      relais.oublier("ab");
+    }
+  });
+
   it("socket retiré par le bac : détecté, rouvert avec les liaisons", async () => {
     relais.lier(liaison({ id: "k1", origines: ["http://k.test"] }));
     rmSync(path.join(dossier, "relais.sock"));

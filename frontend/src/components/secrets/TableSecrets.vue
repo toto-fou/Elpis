@@ -7,6 +7,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { maintenantServeurS } from "../../platform/horloge";
 import { dernierUsage, porteeTexte } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
+import ChampValeur from "./ChampValeur.vue";
 import FormulaireSecret from "./FormulaireSecret.vue";
 
 const g = domaineSecrets();
@@ -264,13 +265,10 @@ watch(
                 @submit.prevent="g.tourner(s.id)"
               >
                 <label :for="`secret-rot-${s.id}`" class="elpis-secrets__etiq">Nouvelle valeur</label>
-                <input
+                <ChampValeur
                   :id="`secret-rot-${s.id}`"
                   v-model="g.valeurRotation"
-                  type="password"
                   class="set-input font-mono elpis-secrets__champ"
-                  autocomplete="new-password"
-                  spellcheck="false"
                 />
                 <span class="elpis-secrets__aide">version {{ s.version }} → {{ s.version + 1 }}</span>
                 <button

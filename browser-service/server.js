@@ -24,7 +24,7 @@ import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hos
          noeudsAria, classerSuggestions, echapperCss, litteralXPath, bornerValeur, couperTexte, longueurJsonPy } from './result_util.js';
 import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
-import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement } from './recorder_util.js';
+import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement, selecteurCadre, porteeCadres } from './recorder_util.js';
 import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
 import { origineDe, erreurSecret, formesSecret, purgerTexte, chargeRequete, requetePorteSecret, choisirVisible, controlerChamp, controlerPoignee,
          verifierFormulaire, verifierBoutonParDefaut, remplirChamp, viderChamp, decrireChamp, detecterChamps } from './secret_util.js';
@@ -1516,7 +1516,7 @@ async function smartClick(page, selector, opts = {}) {
     const FAST = 2000;
     const resolved = await resoudreRepli(page, selector, { params, coords: true });
     const fin = (strategy) => ({ success: true, strategy, resolved: resolved.strategy, locator: resolved.locator || null,
-                                 ...(decrit ? { element: decrit } : {}) });
+                                 cadre: resolved.frame || null, ...(decrit ? { element: decrit } : {}) });
 
     // Shadow DOM / parcours du texte : clic par coordonnées, point vérifié dans la page
     if (resolved.coords) {
@@ -3148,6 +3148,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 ? Math.min(timeout, OFFICIAL_TRY_MS)
                 : timeout;
             const _t = officialTimeout;
+            const cadresAvant = req.session._recorder?.recording ? await cheminCadres(officialLocator) : [];
             try {
                 if (type === 'click') {
                     await officialLocator.click({ timeout: _t, button, modifiers, force });
@@ -3215,6 +3216,8 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                     // L'option RÉELLEMENT choisie — le rejeu n'écrit plus
                     // selectOption('') (audit tools web 2026-09-05).
                     ...(selectedOption ? { value: selectedOption.value, option_label: selectedOption.label, selected: selectedOption } : {}),
+                    ...(uploadFiles ? { files: uploadFiles.map(f => f.name) } : {}),
+                    ...(cadresAvant.length ? { frames: cadresAvant } : {}),
                     url: page.url(), ref,
                 }, officialLocator);
                 return res.json({
@@ -3289,10 +3292,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC SMART (via smartClick)
         if (type === 'click') {
-            const { locator: cliqueSur, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams });
+            const { locator: cliqueSur, cadre, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams });
             const ancestors = cliqueSur ? await captureAncestors(cliqueSur).catch(() => []) : [];
             await postActionWait(page, wait_after);
-            await recordEvent(req.session, { action: 'click', selector, url: page.url() }, cliqueSur);
+            const cadres = req.session._recorder?.recording && cadre ? await cheminCadres(cadre) : [];
+            await recordEvent(req.session, { action: 'click', selector, url: page.url(), ...(cadres.length ? { frames: cadres } : {}) }, cliqueSur);
             return res.json({
                 status: 'success', ...result,
                 url: page.url(), ancestors, ..._landed(result.strategy, element),
@@ -3302,7 +3306,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // CLIC RELATIF
         if (type === 'click_relative') {
             const layoutSelector = `${selector}:${position}(${relative_to})`;
-            const { locator: _l, ...result } = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
+            const { locator: _l, cadre: _c, ...result } = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...result });
         }
@@ -3517,6 +3521,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'upload') {
             const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.setInputFiles(uploadFiles, { timeout: _lt });
+            await recordEvent(req.session, { action: 'upload', selector, files: uploadFiles.map(f => f.name), url: page.url() }, locator);
             return res.json({ status: 'success', uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })),
                               ..._landed('upload') });
         }
@@ -3675,8 +3680,10 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         if (tag === 'select') {
             const selected = await selectOptionSmart(locator, {
                 option_value, option_label: option_value ? undefined : option_text, timeout: ACTION_TIMEOUT_MS });
+            await recordEvent(req.session, { action: 'select', selector, value: selected.value, option_label: selected.label, selected, url: page.url() }, locator);
             return res.json({ status: 'success', type: 'native-select', selected });
         }
+
 
         // Cas 2 : combobox/input avec datalist
         const inputType = await locator.evaluate(el => el.getAttribute('type') || '').catch(() => '');
@@ -3694,17 +3701,23 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
                 const sl = page.locator(s).first();
                 if (await sl.count().catch(() => 0) > 0) {
                     const label = (await sl.innerText({ timeout: 1000 }).catch(() => '')).trim();
+                    const optionDecrite = await sl.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
                     await sl.click();
+                    await recordEvent(req.session, { action: 'pick', kind: 'autocomplete', selector, url: page.url(),
+                        value: search_text || option_text || option_value || '', option: label,
+                        ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                     const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
                     return res.json({ status: 'success', type: 'input-autocomplete', selected: { label, value: valeur } });
                 }
             }
             await page.keyboard.press('Enter');
             const valeur = await locator.inputValue({ timeout: 1000 }).catch(() => null);
+            await recordEvent(req.session, { action: 'pick', kind: 'enter', selector, url: page.url(), value: search_text || option_text || option_value || '' }, locator);
             return res.json({ status: 'success', type: 'input-enter', selected: { value: valeur } });
         }
 
-        // Cas 3 : dropdown custom (div/button)
+        // Cas 3 : dropdown custom (div/button) ; le déclencheur est décrit avant que la liste ne s'ouvre
+        const declencheur = req.session._recorder?.recording ? await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
         await smartClick(page, selector);
         await page.waitForTimeout(350);
 
@@ -3725,7 +3738,10 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
             const optLoc = page.locator(s).first();
             if (await optLoc.count().catch(() => 0) > 0 && await optLoc.isVisible({ timeout: 500 }).catch(() => false)) {
                 const label = (await optLoc.innerText({ timeout: 1000 }).catch(() => optionText)).trim();
+                const optionDecrite = req.session._recorder?.recording ? await optLoc.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null) : null;
                 await optLoc.click();
+                await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: label,
+                    ...(declencheur ? { locator: declencheur } : {}), ...(optionDecrite ? { option_locator: optionDecrite } : {}) }, locator);
                 return res.json({ status: 'success', type: 'custom-dropdown', matched_by: s, selected: { label } });
             }
         }
@@ -3734,6 +3750,8 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const shadowOpt = await shadowDOMQueryByText(page, optionText);
         if (shadowOpt?.found) {
             await page.mouse.click(shadowOpt.x, shadowOpt.y);
+            await recordEvent(req.session, { action: 'pick', kind: 'custom', selector, url: page.url(), option: optionText,
+                ...(declencheur ? { locator: declencheur } : {}) }, locator);
             return res.json({ status: 'success', type: 'shadow-dom-dropdown', selected: { label: optionText } });
         }
 
@@ -5417,6 +5435,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
             const act = actions[i];
             const actType = act.type || act.action || '';
             const startMs = Date.now();
+            let locEtape = null;
             const suivi = GESTES_NAVIGANTS.has(actType) ? suivreNavigation(page, { graceMs: NAV_GRACE_MS }) : null;
 
             try {
@@ -5435,9 +5454,10 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
-                            const { locator: _l, ...clic } = await smartClick(page, act.selector, {
+                            const { locator: cliqueSur, cadre: _c, ...clic } = await smartClick(page, act.selector, {
                                 human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
+                            locEtape = cliqueSur;
                             result = clic;
                         }
                         break;
@@ -5568,7 +5588,7 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                         ...(result && result.selected ? { value: result.selected.value, option_label: result.selected.label, selected: result.selected } : {}),
                         key: act.key,
                         url: page.url(),
-                    }, (saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null);
+                    }, locEtape || ((saisie || act.ref) && req.session._recorder?.recording ? await resolveChainTarget(act).then(r => r.locator, () => null) : null));
                 }
 
                 results.push({ step: i, action: actType, duration_ms: Date.now() - startMs, ...result });
@@ -6194,11 +6214,38 @@ async function attributsDuChamp(locator) {
     }), null, { timeout: 1000 }).catch(() => ({}));
 }
 
+// Cadres d'un geste, de la page vers celui de l'élément : sélecteur de chaque <iframe> dans son parent ; [] dans la page (cible = Frame ou Locator).
+async function cheminCadres(cible) {
+    let cadre = null;
+    if (cible && typeof cible.parentFrame === 'function') cadre = cible;
+    else if (cible) {
+        const h = await cible.elementHandle({ timeout: 1000 }).catch(() => null);
+        if (!h) return [];
+        cadre = await h.ownerFrame().catch(() => null);
+        await h.dispose().catch(() => {});
+    }
+    const chemin = [];
+    try {
+        while (cadre && cadre.parentFrame()) {
+            const el = await cadre.frameElement();
+            chemin.unshift(await el.evaluate(selecteurCadre));
+            await el.dispose().catch(() => {});
+            cadre = cadre.parentFrame();
+        }
+    } catch (_) { return []; }
+    return chemin;
+}
+
 // Aucun secret gardé : saisie d'un champ secret (variable d'environnement au rejeu, une par champ), littéraux d'une évaluation qui saisit, paramètres sensibles des URL.
 async function recordEvent(session, evt, locator = null) {
     if (!session || !session._recorder || !session._recorder.recording) return;
-    // Geste par `ref` : le sélecteur stable est lu sur l'élément visé, au moment du geste.
-    if (evt.ref && locator && !evt.selector && !Object.values(evt.locator || {}).some(Boolean)) {
+    if (locator && !evt.frames) {
+        const cadres = await cheminCadres(locator);
+        if (cadres.length) evt = { ...evt, frames: cadres };
+    }
+    // Geste par `ref` ou par un texte de repli : le sélecteur stable est lu sur l'élément visé, au moment du geste.
+    const parTexte = evt.selector && isLikelyText(evt.selector);
+    if (locator && ((evt.ref && !evt.selector) || parTexte) && !Object.values(evt.locator || {}).some(Boolean)) {
         const l = await locator.evaluate(decrireElement, null, { timeout: 1000 }).catch(() => null);
         if (l) evt = { ...evt, locator: l };
     }
@@ -6261,19 +6308,19 @@ app.get('/recorder/dump', getSession, async (req, res) => {
     const events = r.events;
 
     function escape(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-    function targetExpr(evt, fmt) {
-        // evt.locator is the resolved kw set (role, name, text, label, css, ...)
-        const l = evt.locator || {};
+    function targetExpr(evt, fmt, l = evt.locator || {}) {
+        // l : sélecteur stable relevé (role, name, text, label, css…) ; les cadres de evt.frames préfixent la cible
         if (fmt === 'playwright') {
-            if (l.role && l.name) return `page.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
-            if (l.role) return `page.getByRole('${escape(l.role)}')`;
-            if (l.label) return `page.getByLabel('${escape(l.label)}')`;
-            if (l.placeholder) return `page.getByPlaceholder('${escape(l.placeholder)}')`;
-            if (l.test_id) return `page.getByTestId('${escape(l.test_id)}')`;
-            if (l.text) return `page.getByText('${escape(l.text)}')`;
-            if (l.css) return `page.locator('${escape(l.css)}')`;
-            if (l.xpath) return `page.locator('xpath=${escape(l.xpath)}')`;
-            return `page.locator('${escape(evt.selector || '')}')`;
+            const page = porteeCadres(evt.frames, 'playwright', escape);
+            if (l.role && l.name) return `${page}.getByRole('${escape(l.role)}', { name: '${escape(l.name)}' })`;
+            if (l.role) return `${page}.getByRole('${escape(l.role)}')`;
+            if (l.label) return `${page}.getByLabel('${escape(l.label)}')`;
+            if (l.placeholder) return `${page}.getByPlaceholder('${escape(l.placeholder)}')`;
+            if (l.test_id) return `${page}.getByTestId('${escape(l.test_id)}')`;
+            if (l.text) return `${page}.getByText('${escape(l.text)}')`;
+            if (l.css) return `${page}.locator('${escape(l.css)}')`;
+            if (l.xpath) return `${page}.locator('xpath=${escape(l.xpath)}')`;
+            return `${page}.locator('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'cypress') {
             if (l.test_id) return `cy.get('[data-testid="${escape(l.test_id)}"]')`;
@@ -6285,18 +6332,22 @@ app.get('/recorder/dump', getSession, async (req, res) => {
             return `cy.get('${escape(evt.selector || '')}')`;
         }
         if (fmt === 'robot') {
-            // Robot Framework with Browser library
-            if (l.role && l.name) return `role=${l.role}[name="${l.name}"]`;
-            if (l.test_id) return `[data-testid="${l.test_id}"]`;
-            if (l.label) return `label=${l.label}`;
-            if (l.placeholder) return `[placeholder="${l.placeholder.replace(/"/g, '\\"')}"]`;
-            if (l.text) return `text=${l.text}`;
-            if (l.css) return l.css;
-            return evt.selector || '';
+            // Robot Framework with Browser library ; `>>>` entre dans chaque cadre
+            const cadres = porteeCadres(evt.frames, 'robot');
+            if (l.role && l.name) return `${cadres}role=${l.role}[name="${l.name}"]`;
+            if (l.test_id) return `${cadres}[data-testid="${l.test_id}"]`;
+            if (l.label) return `${cadres}label=${l.label}`;
+            if (l.placeholder) return `${cadres}[placeholder="${l.placeholder.replace(/"/g, '\\"')}"]`;
+            if (l.text) return `${cadres}text=${l.text}`;
+            if (l.css) return `${cadres}${l.css}`;
+            return `${cadres}${evt.selector || ''}`;
         }
         return evt.selector || '';
     }
 
+    // Option cliquée d'un choix (pick) : son sélecteur relevé, sinon son texte exact.
+    const optionDe = (e, fmt) => targetExpr(e, fmt, e.option_locator || { text: e.option || '' });
+    const fichiersJs = (e) => `[${(e.files || []).map(f => `'${escape(f)}'`).join(', ')}]`;
     let script = '';
     if (format === 'json') {
         script = JSON.stringify(events, null, 2);
@@ -6321,6 +6372,11 @@ app.get('/recorder/dump', getSession, async (req, res) => {
                 case 'check': lines.push(`  await ${t}.check();`); break;
                 case 'uncheck': lines.push(`  await ${t}.uncheck();`); break;
                 case 'hover': lines.push(`  await ${t}.hover();`); break;
+                case 'upload': lines.push(`  await ${t}.setInputFiles(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`  await ${t}.click();`, `  await ${optionDe(e, 'playwright')}.click();`);
+                    else lines.push(`  await ${t}.fill('${escape(e.value)}');`, e.kind === 'enter' ? `  await ${t}.press('Enter');` : `  await ${optionDe(e, 'playwright')}.click();`);
+                    break;
                 default: lines.push(`  // ${e.action}: ${escape(JSON.stringify(e)).replace(/[\u2028\u2029]/g, ' ')}`);
             }
         }
@@ -6330,17 +6386,27 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const lines = ["describe('recorded session', () => {", "  it('replays', () => {"];
         for (const e of events) {
             const t = targetExpr(e, 'cypress');
+            const geste = [];
             switch (e.action) {
-                case 'goto':  lines.push(`    cy.visit('${escape(e.url)}');`); break;
-                case 'click': lines.push(`    ${t}.click();`); break;
+                case 'goto':  geste.push(`cy.visit('${escape(e.url)}');`); break;
+                case 'click': geste.push(`${t}.click();`); break;
                 case 'fill':
-                case 'type':  lines.push(e.secret ? `    ${t}.type(Cypress.env('${e.secret}'), { log: false });` : `    ${t}.type('${escape(e.value)}');`); break;
-                case 'eval': lines.push(`    // eval not replayed: ${commentaireEval(e.script)}`); break;
-                case 'select': lines.push(`    ${t}.select(${selectOptionArg(e, 'cypress')});`); break;
-                case 'check': lines.push(`    ${t}.check();`); break;
-                case 'uncheck': lines.push(`    ${t}.uncheck();`); break;
-                default: lines.push(`    // ${e.action}`);
+                case 'type':  geste.push(e.secret ? `${t}.type(Cypress.env('${e.secret}'), { log: false });` : `${t}.type('${escape(e.value)}');`); break;
+                case 'eval': geste.push(`// eval not replayed: ${commentaireEval(e.script)}`); break;
+                case 'select': geste.push(`${t}.select(${selectOptionArg(e, 'cypress')});`); break;
+                case 'check': geste.push(`${t}.check();`); break;
+                case 'uncheck': geste.push(`${t}.uncheck();`); break;
+                case 'upload': geste.push(`${t}.selectFile(${fichiersJs(e)});`); break;
+                case 'pick':
+                    if (e.kind === 'custom') geste.push(`${t}.click();`, `${optionDe(e, 'cypress')}.click();`);
+                    else geste.push(`${t}.type('${escape(e.value)}${e.kind === 'enter' ? '{enter}' : ''}');`, ...(e.kind === 'enter' ? [] : [`${optionDe(e, 'cypress')}.click();`]));
+                    break;
+                default: geste.push(`// ${e.action}`);
             }
+            // Geste dans des <iframe> : joué dans le corps du document du cadre.
+            const cadre = e.action === 'goto' || e.action === 'eval' ? '' : porteeCadres(e.frames, 'cypress', escape);
+            if (cadre) lines.push(`    ${cadre}.within(() => { ${geste.join(' ')} });`);
+            else lines.push(...geste.map(g => `    ${g}`));
         }
         lines.push('  });', '});');
         script = lines.join('\n');
@@ -6349,16 +6415,25 @@ app.get('/recorder/dump', getSession, async (req, res) => {
         const { secret_variables: aFournir } = notesDuScript(events);
         if (aFournir.length) lines.push('*** Variables ***', ...aFournir.map(v => `\${${v}}    %{${v}}`), '');
         lines.push('*** Test Cases ***', 'Recorded Session');
+        let pageOuverte = false;
         for (const e of events) {
             const t = celluleRobot(targetExpr(e, 'robot'));
             switch (e.action) {
-                case 'goto':  lines.push(`    New Page    ${celluleRobot(e.url)}`); break;
+                // Le premier goto ouvre l'onglet ; les suivants naviguent dans le même.
+                case 'goto':  lines.push(`    ${pageOuverte ? 'Go To' : 'New Page'}    ${celluleRobot(e.url)}`); pageOuverte = true; break;
                 case 'click': lines.push(`    Click    ${t}`); break;
                 case 'fill':  lines.push(e.secret ? `    Fill Secret    ${t}    $${e.secret}` : `    Fill Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'type':  lines.push(e.secret ? `    Type Secret    ${t}    $${e.secret}` : `    Type Text    ${t}    ${celluleRobot(e.value)}`); break;
                 case 'eval':  lines.push(`    # eval not replayed: ${commentaireEval(e.script)}`); break;
                 case 'press': lines.push(`    Keyboard Key    press    ${celluleRobot(e.key || e.value)}`); break;
                 case 'select': lines.push(`    Select Options By    ${t}    ${selectOptionArg(e, 'robot')}`); break;
+                case 'check': lines.push(`    Check Checkbox    ${t}`); break;
+                case 'uncheck': lines.push(`    Uncheck Checkbox    ${t}`); break;
+                case 'upload': lines.push(`    Upload File By Selector    ${t}    ${(e.files || []).map(celluleRobot).join('    ')}`); break;
+                case 'pick':
+                    if (e.kind === 'custom') lines.push(`    Click    ${t}`, `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    else lines.push(`    Fill Text    ${t}    ${celluleRobot(e.value)}`, e.kind === 'enter' ? `    Keyboard Key    press    Enter` : `    Click    ${celluleRobot(optionDe(e, 'robot'))}`);
+                    break;
                 default: lines.push(`    # ${e.action}`);
             }
         }

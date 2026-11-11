@@ -44,6 +44,12 @@ const PAGES = {
         for (let i = 0; i < 3000; i++) c.insertAdjacentHTML('beforeend', '<tr style="background:#eee"><td>' + i + '</td><td style="color:red">Ligne ' + i + '</td><td><button>Edit</button></td></tr>');
         document.getElementById('long').textContent = 'mot é '.repeat(10000);
     </script>`,
+    '/cadres': `<title>Cadres</title><iframe id="ext" src="/cadre-ext"></iframe>
+        <div id="ville" onclick="document.getElementById('liste').hidden=false">Choisir une ville</div>
+        <ul id="liste" role="listbox" hidden><li role="option" onclick="window.ville='Lyon'">Lyon</li><li role="option">Paris</li></ul>
+        <input type="file" id="f" multiple>`,
+    '/cadre-ext': '<p>Extérieur</p><iframe name="int" src="/cadre-int"></iframe>',
+    '/cadre-int': '<input placeholder="Ville"><button onclick="window.ok=1">Valider</button>',
 };
 
 let service = null;
@@ -249,4 +255,39 @@ test('pw_mock : regex brute ou délimitée avec is_regex, champs invalides refus
     assert.equal(liste.count, 5);
     assert.match(liste.precedence, /first added/);
     await api('/mock/clear');
+});
+
+test('pw_recorder : gestes dans des iframes rejoués dans leur cadre, choix d\'une liste personnalisée, envoi de fichiers, Go To dans le même onglet', { skip: SAUTER, timeout: 60000 }, async () => {
+    await api('/recorder/start');
+    await ouvrir('/cadres');
+    await new Promise(r => setTimeout(r, 500));
+    const ref = async (corps) => (await api('/locator', { ...corps, include_frames: true, visible_only: false, max: 1 })).corps.matches[0].ref;
+    assert.equal((await api('/action', { type: 'fill', ref: await ref({ by_placeholder: 'Ville' }), text: 'Lyon' })).statut, 200);
+    assert.equal((await api('/action', { type: 'click', ref: await ref({ by_role: 'button', by_name: 'Valider' }) })).statut, 200);
+    const choix = await api('/handle_dropdown', { selector: '#ville', option_text: 'Lyon' });
+    assert.equal(choix.corps.type, 'custom-dropdown', choix.texte);
+    const envoi = await api('/action', { type: 'upload', by_css: '#f', files: [{ name: 'a.txt', content_base64: 'YQ==' }, { name: 'b.txt', content_base64: 'Yg==' }] });
+    assert.equal(envoi.statut, 200, envoi.texte);
+    await ouvrir('/cadres');
+    const dump = async (format) => (await service.get(`/recorder/dump?owner=${OWNER}&session_id=${sid}&format=${format}`)).corps;
+
+    const pw = (await dump('playwright')).script;
+    const cadre = `page.frameLocator('#ext').frameLocator('iframe[name="int"]')`;
+    assert.ok(pw.includes(`await ${cadre}.getByPlaceholder('Ville').fill('Lyon');`), pw);
+    assert.ok(pw.includes(`await ${cadre}.getByRole('button', { name: 'Valider' }).click();`), pw);
+    assert.ok(pw.includes(`await page.getByText('Choisir une ville').click();\n  await page.getByRole('option', { name: 'Lyon' }).click();`), pw);
+    assert.ok(pw.includes(`await page.locator('#f').setInputFiles(['a.txt', 'b.txt']);`), pw);
+
+    const cy = await dump('cypress');
+    assert.ok(cy.script.includes(`cy.get('#ext').its('0.contentDocument.body').should('not.be.empty').then(cy.wrap).find('iframe[name="int"]').its('0.contentDocument.body').should('not.be.empty').then(cy.wrap).within(() => { cy.findByPlaceholderText('Ville').type('Lyon'); });`), cy.script);
+    assert.ok(cy.script.includes(`cy.get('#f').selectFile(['a.txt', 'b.txt']);`), cy.script);
+    assert.ok(cy.script.includes(`cy.contains('Choisir une ville').click();\n    cy.findByRole('option', { name: 'Lyon' }).click();`), cy.script);
+    assert.match(cy.notes.join(' '), /a\.txt, b\.txt/);
+
+    const robot = (await dump('robot')).script.split('\n');
+    assert.ok(robot.includes(String.raw`    Fill Text    \#ext >>> iframe[name\="int"] >>> [placeholder\="Ville"]    Lyon`), robot.join('\n'));
+    assert.ok(robot.includes(String.raw`    Upload File By Selector    \#f    a.txt    b.txt`), robot.join('\n'));
+    assert.ok(robot.includes(String.raw`    Click    text\=Choisir une ville`) && robot.includes(String.raw`    Click    role\=option[name\="Lyon"]`), robot.join('\n'));
+    assert.deepEqual(robot.filter(l => /^ {4}(New Page|Go To) /.test(l)).map(l => l.trim().split(/ {4}/)[0]), ['New Page', 'Go To']);
+    await api('/recorder/stop');
 });

@@ -21,7 +21,7 @@ export interface DemandeUsage {
 export interface ContexteUsage {
   proprietaire: Proprietaire;
   acteur: Acteur;
-  /** Vrai pour un appel d'outil (hôte d'outils : `/resolve`, `/match`) : la conversation signée doit être du compte et le secret y être attaché ; faux pour les connecteurs du core (git, LLM, MCP, moteur d'images), qui n'ont pas de conversation. */
+  /** Vrai pour un appel d'outil (hôte d'outils : `/resolve`, `/match`) : la conversation signée doit être du compte et le secret y être attaché ; `lireSecretPourUsage` le tire du genre (exigé pour web-login et http-auth, jamais pour git, token et mcp : connecteurs sans conversation). */
   exigeAttachement: boolean;
   chatId?: string | null;
   run?: string | null;
@@ -229,7 +229,7 @@ export async function lireSecretPourUsage(
 ): Promise<SecretResolu> {
   const cible = cibleNormalisee(d.usage, d.cible);
   const nom = d.nom?.trim() || null;
-  const exige = { ...contexte, exigeAttachement: contexte.exigeAttachement || parOrigines(d.usage) };
+  const exige = { ...contexte, exigeAttachement: parOrigines(d.usage) };
   const c =
     (await contexteVerifie(base, exige)) ?? refuser(d, exige, 422, "secret_not_attached", HORS_CONVERSATION);
   if (cible === null && d.usage !== "token")

@@ -171,7 +171,7 @@ export async function demarrerBase(o: OptionsDemarrage = {}): Promise<{ base: Ba
     const verrou = await prendreVerrouSchema(journal);
     let rapport: RapportInit;
     try {
-      rapport = await initialiserBase(nouvelle, o.migrations ?? []);
+      rapport = await initialiserBase(nouvelle, { migrations: o.migrations ?? [] });
     } finally {
       await verrou?.rendre();
     }

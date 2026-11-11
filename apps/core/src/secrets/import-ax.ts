@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/import-ax.ts — reprise des anciens identifiants AX (`ax_credentials`) en secrets `http-auth` à vérifier : lignes remises par l'hôte d'outils pour un compte, et migration 0030 de celles de la base du core (Fernet déchiffré) ; nom tiré de l'hôte, doublons écartés, clés sans origine listées, journal sans valeur. */
+/** apps/core/src/secrets/import-ax.ts — reprise des anciens identifiants AX (`ax_credentials`) en secrets `http-auth` à vérifier : lignes remises par l'hôte d'outils pour un compte, et lignes de la base du core reprises à chaque démarrage tant qu'il en reste (Fernet déchiffré) ; nom tiré de l'hôte, doublons écartés, clés sans origine listées, lignes effacées sans trace, journal sans valeur. */
 import { nomCanonique } from "@elpis/auth";
 import type { IssueImportAx, LigneAx, ResultatImportAx } from "@elpis/contracts";
-import { hasTable, walCheckpoint } from "@elpis/db";
-import type { Base, Executeur, Migration } from "@elpis/db";
+import { hasTable, supprimerSansTrace } from "@elpis/db";
+import type { Base } from "@elpis/db";
 import { decrypt, encrypt, estJetonFernet } from "@elpis/securite";
 
 import { ErreurSecret } from "./erreurs";
@@ -11,11 +11,8 @@ import { normaliserPortee, origines, validerIdentifiant } from "./portee";
 import { creerSecret, journaliser, lignesDe, porteeDe } from "./stockage";
 import type { Acteur } from "./stockage";
 
-export const MIGRATION_AX = "0030_vault_ax_credentials";
 const NOM_MAX = 48;
 const LISTE_MAX = 10;
-/** Lignes retirées par la migration de ce process, à effacer du fichier par `compacterApresReprise`. */
-let retireesParLaMigration = 0;
 
 /** Origine exacte d'une clé d'`ax_credentials` ; `null` pour une ancienne clé sans schéma ou une clé qui n'est pas une origine seule. */
 export function origineDeCle(site: string): string | null {
@@ -173,57 +170,79 @@ function cleFernetPresente(): boolean {
 }
 
 /** Compte d'un propriétaire d'`ax_credentials` (nom assaini des outils) : nom exact, sinon la seule forme canonique égale. */
-function compteDe(
-  comptes: readonly { id: number; username: string }[],
-  owner: string,
-): { id: number; username: string } | null {
+export function compteDe<T extends { username: string }>(comptes: readonly T[], owner: string): T | null {
   const exact = comptes.find((c) => c.username === owner);
   if (exact) return exact;
   const canon = comptes.filter((c) => nomCanonique(c.username) === owner);
   return canon.length === 1 ? (canon[0] ?? null) : null;
 }
 
-/** Migration 0030 : lignes d'`ax_credentials` de la base du core reprises au coffre (`unverified`, une transaction imbriquée par secret) puis retirées ; compte disparu ou valeur indéchiffrable : retirées et listées ; sans clé Fernet, lignes chiffrées gardées ; limite du compte atteinte : gardée. */
-export const migrationAxCredentials: Migration = {
-  name: MIGRATION_AX,
-  async migrer(x: Executeur, base: Base): Promise<void> {
-    if (!(await hasTable(x, "ax_credentials"))) return;
-    const lignes = await x.all<LigneBrute & Record<string, unknown>>(
-      "SELECT owner, site, username, password FROM ax_credentials ORDER BY owner, site",
-    );
-    if (!lignes.length) return;
-    const comptes = (await x.all<{ id: number; username: string }>("SELECT id, username FROM users")).map(
-      (c) => ({ id: Number(c.id), username: String(c.username ?? "") }),
-    );
-    const fernet = cleFernetPresente();
-    const retirer = async (l: LigneBrute): Promise<void> => {
-      retireesParLaMigration += (
-        await x.run("DELETE FROM ax_credentials WHERE owner = ? AND site = ?", [l.owner, l.site])
+/** Lignes d'`ax_credentials` effacées sans trace (même mot de passe qu'à la lecture). */
+async function effacer(base: Base, lignes: readonly LigneBrute[]): Promise<{ propre: boolean }> {
+  return supprimerSansTrace(base, "ax_credentials", async (x) => {
+    let n = 0;
+    for (const l of lignes)
+      n += (
+        await x.run("DELETE FROM ax_credentials WHERE owner = ? AND site = ? AND password = ?", [
+          l.owner,
+          l.site,
+          l.password,
+        ])
       ).changes;
-    };
-    const parCompte = new Map<string, LigneBrute[]>();
-    for (const l of lignes) parCompte.set(String(l.owner), [...(parCompte.get(String(l.owner)) ?? []), l]);
+    return n;
+  });
+}
+
+export interface BilanRepriseCore {
+  readonly retirees: number;
+  readonly gardees: number;
+  /** Faux si le fichier n'a pas pu être nettoyé (WAL occupé) : retenté au prochain démarrage. */
+  readonly propre: boolean;
+}
+
+/** Lignes d'`ax_credentials` de la base du core reprises au coffre (à appeler sous le verrou de schéma, à chaque démarrage tant qu'il en reste) : chaque secret créé dans sa propre transaction (journal après validation, `unverified`) ; reprises, déjà présentes, jamais importables, d'un compte disparu ou indéchiffrables : effacées sans trace ; clé Fernet absente ou limite du compte : gardées pour le prochain démarrage ; une panne de la clé du coffre remonte après l'effacement de ce qui est fait. */
+export async function repriseAxDuCore(base: Base): Promise<BilanRepriseCore> {
+  if (!(await hasTable(base, "ax_credentials"))) return { retirees: 0, gardees: 0, propre: true };
+  const lignes = (
+    await base.all<Record<string, unknown>>(
+      "SELECT owner, site, username, password FROM ax_credentials ORDER BY owner, site",
+    )
+  ).map((r) => ({
+    owner: String(r["owner"] ?? ""),
+    site: String(r["site"] ?? ""),
+    username: String(r["username"] ?? ""),
+    password: String(r["password"] ?? ""),
+  }));
+  if (!lignes.length) return { retirees: 0, gardees: 0, propre: true };
+  const comptes = (await base.all<{ id: number; username: string }>("SELECT id, username FROM users")).map(
+    (c) => ({ id: Number(c.id), username: String(c.username ?? "") }),
+  );
+  const fernet = cleFernetPresente();
+  const parCompte = new Map<string, LigneBrute[]>();
+  for (const l of lignes) parCompte.set(l.owner, [...(parCompte.get(l.owner) ?? []), l]);
+  const aEffacer: LigneBrute[] = [];
+  let gardees = 0;
+  let propre = true;
+  try {
     for (const [owner, siennes] of parCompte) {
       const compte = compteDe(comptes, owner);
       if (compte === null) {
-        for (const l of siennes) await retirer(l);
-        const orphelines = siennes.map((l) => issue(String(l.site), "skipped", "owner_unknown"));
+        aEffacer.push(...siennes);
+        const orphelines = siennes.map((l) => issue(l.site, "skipped", "owner_unknown"));
         journaliserBilan({ userId: null, username: null, ip: null }, orphelines, "core");
         continue;
       }
       const lisibles: { brute: LigneBrute; ax: LigneAx }[] = [];
       const indechiffrables: LigneBrute[] = [];
       for (const l of siennes) {
-        const stocke = String(l.password ?? "");
-        const chiffre = estJetonFernet(stocke);
-        if (chiffre && !fernet) continue;
-        const clair = chiffre ? decrypt(stocke) : stocke;
+        const chiffre = estJetonFernet(l.password);
+        if (chiffre && !fernet) {
+          gardees += 1;
+          continue;
+        }
+        const clair = chiffre ? decrypt(l.password) : l.password;
         if (chiffre && !clair) indechiffrables.push(l);
-        else
-          lisibles.push({
-            brute: l,
-            ax: { site: String(l.site), username: String(l.username ?? ""), password: clair },
-          });
+        else lisibles.push({ brute: l, ax: { site: l.site, username: l.username, password: clair } });
       }
       const acteur: Acteur = { userId: compte.id, username: compte.username, ip: null };
       const results = await importerPourCompte(
@@ -234,19 +253,15 @@ export const migrationAxCredentials: Migration = {
       );
       for (const [i, r] of results.entries()) {
         const l = lisibles[i];
-        if (l !== undefined && r.status !== "failed") await retirer(l.brute);
+        if (l === undefined) continue;
+        if (r.status === "failed") gardees += 1;
+        else aEffacer.push(l.brute);
       }
-      for (const l of indechiffrables) await retirer(l);
+      aEffacer.push(...indechiffrables);
       journaliserBilan(acteur, results, "core", { undecryptable: indechiffrables.length });
     }
-  },
-};
-
-/** Après la migration 0030 qui a retiré des lignes : pages libres effacées (`VACUUM`, WAL vidé en SQLite), les anciens mots de passe ne restent pas dans le fichier. */
-export async function compacterApresReprise(base: Base): Promise<boolean> {
-  if (retireesParLaMigration === 0) return false;
-  retireesParLaMigration = 0;
-  await base.exec(base.dialecte === "sqlite" ? "VACUUM" : "VACUUM ax_credentials");
-  await walCheckpoint(base);
-  return true;
+  } finally {
+    if (aEffacer.length) propre = (await effacer(base, aEffacer)).propre;
+  }
+  return { retirees: aEffacer.length, gardees, propre };
 }

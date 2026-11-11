@@ -45,6 +45,7 @@ export const CODES_ERREUR_SECRET = [
   "secret_ambiguous",
   "secret_undecryptable",
   "secret_key_unavailable",
+  "secret_username_required",
 ] as const;
 export type CodeErreurSecret = (typeof CODES_ERREUR_SECRET)[number];
 
@@ -178,10 +179,18 @@ export const schemaSecretApplicable = z.object({
   name: z.string(),
   kind: z.enum(GENRES_ATTACHABLES),
   username: z.string().nullable(),
+  /** Origines de la portée : l'hôte d'outils y lie la session sécurisée ouverte pour ce secret. */
+  origins: z.array(z.string()),
   tls: z.enum(["strict", "insecure"]),
+  /** `policy.subagents` : faux, un sous-agent ne pilote pas la session ouverte pour ce secret. */
+  subagents: z.boolean(),
 });
 export type SecretApplicable = z.infer<typeof schemaSecretApplicable>;
 export const schemaReponseSecretsApplicables = z.object({ secrets: z.array(schemaSecretApplicable) });
+
+/** Session sécurisée fermée par le service navigateur sur un déclencheur (`secret_session_closed`) : le secret est détaché de la conversation signée et le refus journalisé (`reason: "tripwire"`). */
+export const schemaCorpsDeclencheurSecret = z.strictObject({ name: nom });
+export const schemaReponseDeclencheurSecret = z.object({ ok: z.literal(true), detached: z.boolean() });
 
 /** Lignes d'`ax_credentials` reprises en un appel, au plus. */
 export const IMPORT_AX_MAX = 500;

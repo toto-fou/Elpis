@@ -19,7 +19,12 @@ export interface PortSecrets {
     appel: AppelSigne,
     demande: { origin: string; name?: string | null },
   ): Promise<ReponseCoffre<SecretApplicable[]>>;
+  declencheur(appel: AppelSigne, name: string): Promise<ReponseCoffre<boolean>>;
 }
+
+/** Refus d'un secret `http-auth` sans nom d'utilisateur (aucune résolution, aucun usage compté). */
+export const SANS_IDENTIFIANT = (nom: string): string =>
+  `Secret '${nom}' has no user name: HTTP authentication needs one.`;
 
 export const FIX_SECRET =
   "Ask the user to attach the secret to this conversation with /secret attach <name>; never ask for a password in the chat.";
@@ -39,6 +44,8 @@ const FIX_COFFRE: Readonly<Record<string, string>> = {
     "The vault cannot use this secret: tell the user (they may need to enter it again in Settings › Secrets) and continue without logging in.",
   secret_key_unavailable:
     "The vault key is unavailable: tell the user that an administrator must check the vault, and continue without logging in.",
+  secret_username_required:
+    "Ask the user to add the user name of this secret in Settings › Secrets; never ask for it or for a password in the chat.",
 };
 
 /** Refus du service navigateur réécrits pour le modèle, sur toute session sécurisée. */
@@ -76,6 +83,25 @@ export function refusSecret(code: string, message: string, fix: string = FIX_SEC
   return errPw(code, "", { message, fix });
 }
 
+/** Session sécurisée fermée par le service sur un déclencheur (`secret_session_closed`) : le core détache le secret de la conversation et journalise le refus ; erreur rendue au modèle. */
+export async function declencheurSecret(port: PortSecrets | null, nom: string | null): Promise<Dict> {
+  const appel = appelSigne();
+  const r =
+    nom !== null && port !== null && port.actif && appel !== null ? await port.declencheur(appel, nom) : null;
+  const qui = nom === null ? "The secret" : `Secret '${nom}'`;
+  const suite =
+    r !== null && r.ok
+      ? r.valeur
+        ? `${qui} was detached from this conversation for safety.`
+        : `${qui} is not attached to this conversation.`
+      : `The vault could not be told: ask the user to detach ${nom === null ? "the secret" : `'${nom}'`} (/secret detach <name>).`;
+  return errPw("secret_session_closed", "", {
+    message: `The browser service closed this secure session (tripwire): the secret was about to be exposed. ${suite}`,
+    fix: "Do not retry the login. Tell the user what happened: they can check the site, then attach the secret again with /secret attach <name>.",
+    session_closed: true,
+  });
+}
+
 /** Refus `secret_*` du service navigateur dans le vocabulaire des outils (`connexion` : ceux de `pw_login` aussi) ; tout autre résultat est rendu tel quel. */
 export function conseilSecret(r: unknown, connexion = false): unknown {
   if (!estDict(r) || r["ok"] !== false || typeof r["error"] !== "string") return r;
@@ -85,7 +111,8 @@ export function conseilSecret(r: unknown, connexion = false): unknown {
   return { ...r, ...(c.message === undefined ? {} : { message: c.message }), fix: c.fix };
 }
 
-const HORS_APPLICATION = refusSecret(
+/** Refus hors d'une conversation de l'application (client externe, stdio, sans conversation signée). */
+export const HORS_APPLICATION = refusSecret(
   "secret_not_attached",
   "Secrets are only usable from an Elpis conversation they are attached to.",
 );

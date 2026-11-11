@@ -74,8 +74,15 @@ async function tamponner(x: Executeur, name: string): Promise<void> {
   ]);
 }
 
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; `propres` : migrations numérotées d'un seul process (le core), jouées avec celles du TS dans l'ordre des noms. */
-export async function initialiserBase(base: Base, propres: readonly Migration[] = []): Promise<RapportInit> {
+export interface OptionsInit {
+  /** Migrations numérotées d'un seul process, jouées avec celles du TS dans l'ordre des noms. */
+  readonly migrations?: readonly Migration[];
+  /** Réservé à l'annonce d'un travail réel (ligne d'essai) ; sans effet sur cette base. */
+  readonly annoncerTravail?: () => void;
+}
+
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations du TS et du process (`o.migrations`). */
+export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<RapportInit> {
   return base.ecriture(async (x) => {
     const neuve = await isFresh(x);
     if (!neuve) {
@@ -115,7 +122,7 @@ export async function initialiserBase(base: Base, propres: readonly Migration[] 
       colonnesImpossibles: schema.impossibles,
     };
     const faites = await appliquees(x);
-    const migrations = [...MIGRATIONS_TS, ...propres].sort((a, b) => (a.name < b.name ? -1 : 1));
+    const migrations = [...MIGRATIONS_TS, ...(o.migrations ?? [])].sort((a, b) => (a.name < b.name ? -1 : 1));
     registreMigrations(migrations);
     for (const m of migrations) {
       if (faites.has(m.name)) continue;
@@ -240,6 +247,37 @@ export function durcirDroits(chemin: string, racineProjet?: string): string[] {
     }
   }
   return corriges;
+}
+
+/** Suppressions dont le contenu ne reste pas dans le fichier : `secure_delete` le temps de `supprimer` (SQLite, réglage rendu ensuite) puis WAL tronqué ; en PostgreSQL, `VACUUM FULL` de la seule `table` ; vrai si le fichier est propre (WAL tronqué ou table réécrite). */
+export async function supprimerSansTrace(
+  base: Base,
+  table: string,
+  supprimer: (x: Executeur) => Promise<number>,
+): Promise<{ supprimees: number; propre: boolean }> {
+  let supprimees = 0;
+  await base.ecriture(async (x) => {
+    if (base.dialecte !== "sqlite") {
+      supprimees = await supprimer(x);
+      return;
+    }
+    const avant = Number(
+      Object.values((await x.get<Record<string, unknown>>("PRAGMA secure_delete")) ?? {})[0],
+    );
+    await x.run("PRAGMA secure_delete = ON");
+    try {
+      supprimees = await supprimer(x);
+    } finally {
+      await x.run(`PRAGMA secure_delete = ${avant === 2 ? "FAST" : avant === 1 ? "ON" : "OFF"}`);
+    }
+  });
+  if (supprimees === 0) return { supprimees, propre: true };
+  if (base.dialecte !== "sqlite") {
+    await base.exec(`VACUUM FULL ${table}`);
+    return { supprimees, propre: true };
+  }
+  const r = await base.get<Record<string, unknown>>("PRAGMA wal_checkpoint(TRUNCATE)");
+  return { supprimees, propre: Number(r?.["busy"] ?? 0) === 0 };
 }
 
 /** `wal_checkpoint` : compacte le journal WAL (SQLite seulement), une fois au démarrage parmi les processus. */

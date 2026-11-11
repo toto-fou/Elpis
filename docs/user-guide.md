@@ -1499,11 +1499,12 @@ Your MCP servers are managed from the [MCP panel](#the-mcp-panel).
 ### Secrets
 
 Settings › **Secrets** lists the vault of your account in one table: `name`, `type`, `scope`,
-`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user`, `tls` and the
-usage columns move to the tooltip of the name). An imported secret is marked `unverified`;
-`⚠ kid` marks a value encrypted with another key than the current vault key (rotate it, or ask
-the administrator for `./elpis vault rekey`). Values are write-only: no screen and no API returns
-them, and the model never reads them.
+`user`, `tls`, `version`, last use and number of uses (in a narrow window, `user` and `tls` show
+under the name and the usage columns move to its tooltip). An imported secret is marked
+`unverified`; `⚠ kid` marks a value encrypted with another key than the current vault key (rotate
+it, or ask the administrator for `./elpis vault rekey`). Values are write-only: no screen and no
+API returns them, and the model never reads them. The value fields are masked, cannot be copied
+and are left out of the browser's password manager.
 
 - **New** creates a `web-login`, `http-auth` or `token` secret. The name is a slug
   (`[a-z0-9][a-z0-9._-]{0,47}`, checked as you type); the scope lists exact origins,
@@ -1511,8 +1512,9 @@ them, and the model never reads them.
   `insecure`; the policy says whether the subagents and the routines may use it.
 - The **⋯** menu of a row offers **Rotation** (a new value, `version` + 1), **Edit** (an empty value
   keeps the current one; adding an origin or switching to `tls insecure` requires the value
-  again), **Verify** for an imported secret (read its scope, then it becomes `active`) and
-  **Delete**, confirmed by clicking the same button a second time.
+  again), **Verify** for any imported secret, `git` included (read its scope, then it becomes
+  `active`) and **Delete**, confirmed by clicking the same button a second time. Escape closes the
+  menu, then the panel, then the form, and asks before discarding what you typed.
 - Secrets of a connector are listed but managed where they are created: `git` and `llm` secrets
   offer **Rotation** and a link to Git accounts or AI models; `mcp` secrets are read-only here
   (their value holds the server's authentication, headers and variables) and link to the MCP
@@ -1547,7 +1549,7 @@ in local time; hover one for the exact UTC time. Old links (`#runs`, `#tool-call
 |---|---|
 | **Overview** | Landing page: what needs attention (*To review*), service status, last 24 hours, installation |
 | **Monitoring** | **Metrics** (widgets of your choice, visible automatic refresh, CSV export, Prometheus collection), **Report** (archived daily digest, A4 preview before printing, charts shown or removed), **Activity** (*Runs* and *Tool calls* tabs: search, sort, pagination with the total, error filters, clickable `run_id`), **Logs** (*Technical* tab: dated, filterable history, then live stream; *Security* tab: the security journal, administrators only) |
-| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly), **Secrets** (secrets of the instance: rotation, except `mcp`, and deletion confirmed in place) |
+| **Models & services** | **Inference** (engines, request scheduling), **Compression**, **RAG**, **Vision & machines** (annotation, target machines, accessibility memory), **Voice**, **MCP tools**, **Prompts** (system prompts by category, preview of the assembly), **Secrets** (secrets of the instance: rotation, except `mcp`; the keys of shared connectors and of the image engine are deleted from their own page, the others with a confirmation in place) |
 | **Users & access** | **Accounts** (role, groups, allowed servers and models, sandbox quota and network profile, machines), **Groups**, **Default permissions** (features, providers allowed to users), **Passwords & sessions** (password policy, cookie, session revocation) |
 | **Sandbox** | **Limits & policy** (memory, CPU, processes, command duration, idle shutdown), **Network** (profiles), **Tool hosts**, **Containers** |
 | **System** | **Instance** (identity, welcome screen, sign-in page, runtime), **Appearance** (skins offered), **HTTPS access**, **Data** (local and remote backup, database, restore), **Logging** (retention and hold of the security journal, forwarding through the host's syslog), **Maintenance** (periodic maintenance, restart, metrics purge) |

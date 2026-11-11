@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
-/** frontend/src/features/secrets/api.ts — coffre « Secrets » vu du navigateur : routes du compte (`/api/secrets*`), de la console (`/api/admin/secrets*`) et secrets attachés à une conversation ; réponses validées par les contrats, refus rendus par leur `detail` et leur code `secret_*`. */
+/** frontend/src/features/secrets/api.ts — coffre « Secrets » vu du navigateur : routes du compte (`/api/secrets*`), de la console (`/api/admin/secrets*`) et secrets attachés à une conversation ; réponses validées par les contrats, refus rendus en français par leur code `secret_*` (le `detail` anglais pour un code inconnu). */
 import { schemaReponseSecret, schemaReponseSecrets, schemaReponseSecretsChat } from "@elpis/contracts";
 import type { CorpsCreationSecret, CorpsMajSecret, Secret } from "@elpis/contracts";
 
 import type { ClientHttp } from "../../platform/http/client";
 import { messageErreur } from "../../platform/http/resultat";
 import type { ApiResult } from "../../platform/http/resultat";
+import { messageSecret } from "./format";
 
 /** Propriétaire des secrets lus : le compte de la session, ou l'instance (console). */
 export type PorteeCoffre = "compte" | "instance";
 
-/** Issue d'un appel : la valeur, ou le message du serveur (`detail`) et son code. */
+/** Issue d'un appel : la valeur, ou le message du refus et son code. */
 export type IssueSecrets<T> =
   | { readonly ok: true; readonly valeur: T }
   | { readonly ok: false; readonly message: string; readonly code: string | null };
@@ -22,7 +23,8 @@ function echec<T>(r: ApiResult<unknown>): IssueSecrets<T> {
     brut && typeof brut === "object" && typeof (brut as Record<string, unknown>)["code"] === "string"
       ? String((brut as Record<string, unknown>)["code"])
       : null;
-  return { ok: false, message: erreur?.detail || messageErreur(r), code };
+  const detail = erreur?.detail ?? null;
+  return { ok: false, message: messageSecret(code, detail) ?? (detail || messageErreur(r)), code };
 }
 
 function issue<T, U>(r: ApiResult<T>, lire: (v: T) => U): IssueSecrets<U> {

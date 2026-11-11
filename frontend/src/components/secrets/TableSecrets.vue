@@ -1,12 +1,13 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name, type, scope, user, tls, version, dernier usage, usages ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place) et panneau sous la ligne. -->
+<!-- frontend/src/components/secrets/TableSecrets.vue — table des secrets (compte ou instance) : name, type, scope, user, tls, version, dernier usage, usages ; menu ⋯ au clavier (rotation, modification, vérification, renvoi au connecteur, suppression confirmée sur place), panneau sous la ligne, focus rendu après chaque action. -->
 <script setup lang="ts">
 import type { Secret } from "@elpis/contracts";
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import { maintenantServeurS } from "../../platform/horloge";
 import { dernierUsage, porteeTexte } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
+import ChampValeur from "./ChampValeur.vue";
 import FormulaireSecret from "./FormulaireSecret.vue";
 
 const g = domaineSecrets();
@@ -38,21 +39,46 @@ function entrees(id: number): HTMLElement[] {
   return menu ? [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)')] : [];
 }
 
-function declencheur(id: number): HTMLElement | null {
+function declencheur(id: number | null | undefined): HTMLElement | null {
+  if (id === null || id === undefined) return null;
   return racine.value?.querySelector<HTMLElement>(`[data-declencheur="${id}"]`) ?? null;
 }
 
-// Menu ouvert : focus sur la première entrée ; refermé sans panneau ouvert (Échap, clic dehors), focus rendu à son bouton ⋯.
+/** Lignes voisines d'une ligne, lues avant la mise à jour du DOM (une ligne supprimée n'y est plus après). */
+function voisins(id: number): { suivant?: number; precedent?: number } {
+  const ids = [...(racine.value?.querySelectorAll<HTMLElement>("tr[data-secret-id]") ?? [])].map((tr) =>
+    Number(tr.dataset["secretId"]),
+  );
+  const i = ids.indexOf(id);
+  return i < 0 ? {} : { suivant: ids[i + 1], precedent: ids[i - 1] };
+}
+
+/** Focus rendu au bouton ⋯ de la ligne, à celui d'une voisine si elle a disparu, sinon à la table. */
+function rendreFocus(id: number, v: { suivant?: number; precedent?: number }): void {
+  (declencheur(id) ?? declencheur(v.suivant) ?? declencheur(v.precedent) ?? racine.value)?.focus();
+}
+
+const focusPerdu = (actif: Element | null): boolean => !actif || actif === globalThis.document.body;
+
+// Menu ouvert : focus sur la première entrée ; refermé sans panneau ouvert (Échap, clic dehors, suppression), focus rendu.
 watch(
   () => g.menu,
   async (ouvert, avant) => {
     const actif = globalThis.document.activeElement;
-    const dedans = !actif || actif === globalThis.document.body || !!racine.value?.contains(actif);
+    const dedans = focusPerdu(actif) || !!racine.value?.contains(actif);
+    const autour = avant !== null ? voisins(avant) : {};
     await nextTick();
     if (ouvert !== null) entrees(ouvert)[0]?.focus();
-    else if (avant !== null && dedans && g.panneau?.id !== avant) declencheur(avant)?.focus();
+    else if (avant !== null && dedans && g.panneau?.id !== avant) rendreFocus(avant, autour);
   },
 );
+
+// Suppression armée : annoncée hors du menu (un menu ne contient que ses entrées).
+const annonce = computed(() => {
+  const s = g.secrets.find((x) => x.id === g.confirmer);
+  return s ? `« ${s.name} » : cliquez de nouveau sur Supprimer pour confirmer.` : "";
+});
+const idAnnonce = `secrets-confirmation-${g.portee}`;
 
 function toucheMenu(e: KeyboardEvent, id: number): void {
   const liste = entrees(id);
@@ -72,24 +98,30 @@ function toucheMenu(e: KeyboardEvent, id: number): void {
   } else if (e.key === "Tab") g.fermerMenu();
 }
 
-// Panneau ouvert : focus sur son premier champ ou bouton.
+// Panneau ouvert : focus sur son premier champ ou bouton ; refermé avec le focus dedans, focus rendu au bouton ⋯.
 watch(
   () => g.panneau,
-  async (p) => {
-    if (!p) return;
+  async (p, avant) => {
+    const actif = globalThis.document.activeElement;
+    const dedans = focusPerdu(actif) || !!actif?.closest("[data-panneau]");
+    const autour = avant ? voisins(avant.id) : {};
     await nextTick();
-    racine.value
-      ?.querySelector<HTMLElement>(
-        `[data-panneau="${p.id}"] input, [data-panneau="${p.id}"] button:not(:disabled)`,
-      )
-      ?.focus();
+    if (p)
+      racine.value
+        ?.querySelector<HTMLElement>(
+          `[data-panneau="${p.id}"] input, [data-panneau="${p.id}"] button:not(:disabled)`,
+        )
+        ?.focus();
+    else if (avant && dedans) rendreFocus(avant.id, autour);
   },
 );
 </script>
 
 <template>
-  <div ref="racine" class="elpis-secrets" :data-secrets-portee="g.portee">
+  <div ref="racine" class="elpis-secrets" tabindex="-1" :data-secrets-portee="g.portee">
+    <p :id="idAnnonce" class="sr-only" role="status">{{ annonce }}</p>
     <p v-if="g.erreurListe" role="alert" class="elpis-secrets__refus">{{ g.erreurListe }}</p>
+    <p v-else-if="g.chargement && !g.charge" class="elpis-secrets__vide">Chargement…</p>
     <p v-else-if="g.charge && !g.secrets.length" class="elpis-secrets__vide">Aucun secret.</p>
     <table
       v-if="g.secrets.length"
@@ -114,14 +146,14 @@ watch(
       </thead>
       <tbody>
         <template v-for="s in g.secrets" :key="s.id">
-          <tr :data-secret="s.name" :class="{ 'is-sel': g.panneau?.id === s.id }">
+          <tr :data-secret="s.name" :data-secret-id="s.id" :class="{ 'is-sel': g.panneau?.id === s.id }">
             <td :title="infoNom(s)">
               <div class="elpis-secrets__cellnom">
                 <span class="elpis-secrets__nom font-mono">{{ s.name }}</span>
                 <span
                   v-if="s.state === 'unverified'"
                   class="elpis-secrets__etat font-mono"
-                  title="Importé : inutilisable avant Vérifier"
+                  title="Importé : inutilisable avant vérification"
                   >unverified</span
                 >
                 <span
@@ -129,6 +161,9 @@ watch(
                   class="elpis-secrets__etat elpis-secrets__etat--cle font-mono"
                   title="Chiffré par une autre clé que la clé courante : rotation, ou ./elpis vault rekey"
                   >⚠ kid</span
+                >
+                <span class="elpis-secrets__details font-mono"
+                  >user={{ s.username ?? "—" }} · tls={{ s.policy.tls }}</span
                 >
               </div>
             </td>
@@ -226,15 +261,13 @@ watch(
                           class="adm-menu__item elpis-secrets__suppr"
                           :class="{ 'is-arme': g.confirmer === s.id }"
                           :disabled="g.occupe"
-                          :aria-describedby="g.confirmer === s.id ? `secret-suppr-${s.id}` : undefined"
+                          :aria-describedby="g.confirmer === s.id ? idAnnonce : undefined"
                           @click="g.clicSupprimer(s.id)"
                         >
                           <i class="ph ph-trash" aria-hidden="true"></i> Supprimer
                         </button>
-                        <div v-if="g.confirmer === s.id" class="elpis-secrets__confirmer">
-                          <span :id="`secret-suppr-${s.id}`" role="status"
-                            >Cliquez de nouveau pour confirmer.</span
-                          >
+                        <div v-if="g.confirmer === s.id" class="elpis-secrets__confirmer" role="none">
+                          <span aria-hidden="true">Cliquez de nouveau pour confirmer.</span>
                           <button
                             type="button"
                             role="menuitem"
@@ -264,13 +297,10 @@ watch(
                 @submit.prevent="g.tourner(s.id)"
               >
                 <label :for="`secret-rot-${s.id}`" class="elpis-secrets__etiq">Nouvelle valeur</label>
-                <input
+                <ChampValeur
                   :id="`secret-rot-${s.id}`"
                   v-model="g.valeurRotation"
-                  type="password"
                   class="set-input font-mono elpis-secrets__champ"
-                  autocomplete="new-password"
-                  spellcheck="false"
                 />
                 <span class="elpis-secrets__aide">version {{ s.version }} → {{ s.version + 1 }}</span>
                 <button
@@ -306,11 +336,20 @@ watch(
                     Vérifier
                   </button>
                   <button
+                    v-if="g.droits(s).modification"
                     type="button"
                     class="adm-btn adm-tool adm-btn--sm"
                     @click="g.choisir(s.id, 'modifier')"
                   >
                     Modifier le scope
+                  </button>
+                  <button
+                    v-else-if="g.droits(s).gere"
+                    type="button"
+                    class="adm-btn adm-tool adm-btn--sm"
+                    @click="g.choisir(s.id, 'gerer')"
+                  >
+                    {{ g.droits(s).gere?.libelle }}
                   </button>
                   <button type="button" class="adm-btn adm-btn--quiet adm-btn--sm" @click="g.fermerPanneau()">
                     Annuler

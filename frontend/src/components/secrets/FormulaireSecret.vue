@@ -5,6 +5,7 @@ import { computed, ref, useId } from "vue";
 
 import { GENRES_CREABLES, parOrigines, verdictFormulaire } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
+import ChampValeur from "./ChampValeur.vue";
 
 const props = defineProps<{ mode: "creation" | "edition" }>();
 const g = domaineSecrets();
@@ -102,10 +103,10 @@ function annuler(): void {
         </div>
       </template>
 
-      <label :for="`${id}-user`">user</label>
+      <label :for="`${id}-ident`">user</label>
       <div>
         <input
-          :id="`${id}-user`"
+          :id="`${id}-ident`"
           v-model="f.username"
           class="set-input font-mono"
           autocomplete="off"
@@ -118,13 +119,10 @@ function annuler(): void {
 
       <label :for="`${id}-value`">valeur</label>
       <div>
-        <input
+        <ChampValeur
           :id="`${id}-value`"
           v-model="f.value"
-          type="password"
           class="set-input font-mono"
-          autocomplete="new-password"
-          spellcheck="false"
           :placeholder="mode === 'edition' ? 'inchangée' : ''"
           :title="mode === 'edition' ? 'Vide : valeur inchangée' : 'Écriture seule'"
           :aria-invalid="erreur('value') ? 'true' : undefined"

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** frontend/src/features/secrets/format.ts — règles pures du coffre côté interface : actions permises par genre et propriétaire, portée affichée, dernier usage, formulaire (slug, origines exactes, élargissement de portée) et corps des requêtes. */
-import { GENRES_ATTACHABLES, ORIGINES_SECRET_MAX, RE_NOM_SECRET, VALEUR_SECRET_MAX } from "@elpis/contracts";
+import {
+  GENRES_ATTACHABLES,
+  ORIGINES_SECRET_MAX,
+  RE_NOM_SECRET,
+  SECRETS_PAR_PROPRIETAIRE_MAX,
+  VALEUR_SECRET_MAX,
+} from "@elpis/contracts";
 import type { CorpsCreationSecret, CorpsMajSecret, GenreSecret, Secret } from "@elpis/contracts";
 
 import type { PorteeCoffre } from "./api";
@@ -32,6 +38,8 @@ const GERE_INSTANCE: Readonly<Partial<Record<GenreSecret, Gestionnaire>>> = {
   llm: { cible: "inference", libelle: "Inférence" },
   mcp: { cible: "mcp", libelle: "Outils MCP" },
 };
+/** Genres dont le secret appartient à un connecteur : modifié et supprimé depuis sa page (refus `secret_managed`). */
+const GENRES_CONNECTEUR: readonly GenreSecret[] = ["git", "llm", "mcp"];
 
 export function estCreable(kind: string): kind is GenreCreable {
   return (GENRES_CREABLES as readonly string[]).includes(kind);
@@ -41,28 +49,51 @@ export function estAttachable(s: Pick<Secret, "kind" | "state">): boolean {
   return (GENRES_ATTACHABLES as readonly string[]).includes(s.kind) && s.state === "active";
 }
 
-/** Une valeur `mcp` est un JSON (auth, en-têtes, variables) : jamais remplacée par une valeur nue. */
+/** Même règle pour le compte et l'instance : un secret de connecteur (git, llm, mcp, moteur d'images) se gère depuis sa page ; une valeur `mcp` est un JSON, jamais remplacée par une valeur nue ; la console n'a pas de route de vérification. */
 export function droitsDe(s: Pick<Secret, "kind" | "state" | "name">, portee: PorteeCoffre): DroitsSecret {
-  if (portee === "instance") {
-    const gere =
-      GERE_INSTANCE[s.kind] ??
-      (s.kind === "token" && s.name === "image-engine" ? { cible: "images", libelle: "Images" } : null);
-    return {
-      rotation: s.kind !== "mcp",
-      modification: false,
-      verification: false,
-      suppression: true,
-      gere,
-    };
-  }
-  const propre = estCreable(s.kind);
+  const moteurImages = portee === "instance" && s.kind === "token" && s.name === "image-engine";
+  const connecteur = GENRES_CONNECTEUR.includes(s.kind) || moteurImages;
+  const gere = moteurImages
+    ? { cible: "images", libelle: "Images" }
+    : ((portee === "instance" ? GERE_INSTANCE : GERE_COMPTE)[s.kind] ?? null);
   return {
     rotation: s.kind !== "mcp",
-    modification: propre,
-    verification: propre && s.state === "unverified",
-    suppression: propre,
-    gere: GERE_COMPTE[s.kind] ?? null,
+    modification: portee === "compte" && estCreable(s.kind),
+    verification: portee === "compte" && s.state === "unverified",
+    suppression: !connecteur,
+    gere,
   };
+}
+
+/** Refus du coffre en une ligne, par code ; le `detail` anglais du serveur ne sert que pour un code inconnu. */
+const MESSAGES_CODE: Readonly<Record<string, string>> = {
+  secret_request_invalid: "requête refusée (champ invalide).",
+  secret_name_invalid: "nom invalide : slug [a-z0-9][a-z0-9._-]{0,47}.",
+  secret_name_taken: "nom déjà pris.",
+  secret_scope_invalid: "scope invalide : origines exactes scheme://hôte[:port].",
+  secret_value_required: "valeur requise.",
+  secret_value_invalid: `valeur invalide : ${VALEUR_SECRET_MAX} caractères au plus.`,
+  secret_meta_invalid: "métadonnées ou politique refusées.",
+  secret_limit: `${SECRETS_PAR_PROPRIETAIRE_MAX} secrets au plus.`,
+  secret_unknown: "secret introuvable (supprimé ailleurs ?).",
+  secret_type_mismatch: "seuls web-login et http-auth s'attachent à une conversation.",
+  secret_unverified: "unverified, à vérifier dans Paramètres › Secrets.",
+  secret_scope_mismatch: "hors du scope du secret.",
+  secret_not_attached: "non attaché à cette conversation.",
+  secret_ambiguous: "plusieurs secrets possibles : précisez le nom.",
+  secret_undecryptable: "indéchiffrable avec la clé courante : rotation, ou ./elpis vault rekey.",
+  secret_key_unavailable: "clé du coffre indisponible sur le serveur (./elpis doctor).",
+  secret_managed: "géré par son connecteur : à modifier depuis sa page.",
+};
+
+const capitale = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** Message d'un refus : le nom cité par le serveur (`'nom'`) en tête quand il y en a un ; `null` pour un code inconnu. */
+export function messageSecret(code: string | null, detail: string | null): string | null {
+  const texte = code ? MESSAGES_CODE[code] : undefined;
+  if (texte === undefined) return null;
+  const nom = /'([a-z0-9][a-z0-9._-]{0,47})'/u.exec(detail ?? "")?.[1];
+  return nom ? `${nom} : ${texte}` : capitale(texte);
 }
 
 /** Portée lisible : origines, hôte, connecteur ou serveur ; vide pour un jeton. */

@@ -13,14 +13,17 @@ follow [SemVer](https://semver.org/).
   encrypted with another key) visible. **New** creates `web-login`, `http-auth` and `token`
   secrets (slug checked as you type, exact origins one per line, write-only value, `tls`,
   subagents and routines policy); the row menu offers **Rotation**, **Edit** (an empty value
-  keeps it; widening the scope or `tls insecure` asks for it again), **Verify** for imported
-  secrets and **Delete** confirmed by the same button. `git` and `llm` secrets offer rotation
-  only and `mcp` secrets are read-only, each with a link to the place that manages it. In the
-  chat, `/secret` lists the attached then the available secrets, `/secret attach <name>…` and
-  `/secret detach <name>|--all` complete the names, and a chip `secret:<name>` with a × stays
-  above the input; a new conversation keeps the selection and sends it with its first message.
-  The console lists the instance secrets (*Models & services › Secrets*) with rotation (not for
-  `mcp`) and deletion.
+  keeps it; widening the scope or `tls insecure` asks for it again), **Verify** for any imported
+  secret (`git` included) and **Delete** confirmed by the same button. `git` and `llm` secrets
+  offer rotation only and `mcp` secrets are read-only, each with a link to the place that manages
+  it; value fields are masked, not copyable and kept out of password managers, and a refusal is
+  one line read from its `secret_*` code. In the chat, `/secret` lists the attached then the
+  available secrets, `/secret attach <name>…` and `/secret detach <name>|--all` complete the
+  names, and a chip `secret:<name>` with a × stays above the input; a new conversation keeps the
+  selection and sends it with its first message. Changes to the attached set go one at a time,
+  after the chat's chips are loaded, so the chips and the server agree. The console lists the
+  instance secrets (*Models & services › Secrets*) with rotation (not for `mcp`); connector keys
+  (shared LLM and MCP, image engine) are deleted from their own page.
 - **Secrets in the chat: `/secret` attachment and `pw_login`.** A conversation can now use
   `web-login` and `http-auth` secrets of the vault that the user attaches to it
   (`chats.meta_json.secrets`, inherited by its sub-agents when the secret's policy allows them;

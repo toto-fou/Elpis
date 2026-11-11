@@ -67,8 +67,10 @@ interface DefiDigest {
 
 /** Bornes du relais ; réglables par les tests. */
 export const reglagesRelaisNavigateur = {
-  /** Corps de requête lu pour une origine de secret (au-delà : relayé tel quel, sans substitution). */
-  corpsMax: 32 * 1024 * 1024,
+  /** Corps de requête gardé en mémoire pour être inspecté (substitution, reprise d'un défi 401) ; au-delà, vers une origine en fenêtre de connexion : 413. */
+  corpsMax: 1024 * 1024,
+  /** Octets de corps gardés en mémoire à la fois par un relais (toutes requêtes) ; au-delà : 503. */
+  tamponsMax: 8 * 1024 * 1024,
   /** Substitutions par fenêtre armée : une soumission (une deuxième pourrait stocker la valeur pour la relire autrement). */
   substitutionsMax: 1,
 };
@@ -302,20 +304,53 @@ function egal(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
-function lireCorps(req: IncomingMessage, max: number): Promise<Buffer | null> {
+/** Corps lu en mémoire, borné à `max` octets et réservé au fur et à mesure dans le budget du relais : le corps, ou `trop` / `occupe` (lecture arrêtée). */
+function lireCorps(
+  req: IncomingMessage,
+  max: number,
+  reserver: (n: number) => boolean,
+): Promise<Buffer | "trop" | "occupe"> {
   return new Promise((ok, ko) => {
     const morceaux: Buffer[] = [];
     let n = 0;
-    req.on("data", (d: Buffer) => {
+    const arret = (issue: "trop" | "occupe"): void => {
+      req.removeListener("data", donnees);
+      req.pause();
+      ok(issue);
+    };
+    const donnees = (d: Buffer): void => {
       n += d.length;
-      if (n <= max) morceaux.push(d);
-    });
-    req.on("end", () => ok(n <= max ? Buffer.concat(morceaux) : null));
+      if (n > max) return arret("trop");
+      if (!reserver(d.length)) return arret("occupe");
+      morceaux.push(d);
+    };
+    req.on("data", donnees);
+    req.on("end", () => ok(Buffer.concat(morceaux)));
     req.on("error", ko);
     req.on("close", () => {
       if (!req.complete) ko(new Error("request aborted by the client"));
     });
   });
+}
+
+/** Flux de requête relayé sans être gardé : signale chaque substitut qui y passe (refus comptés), octets intacts. */
+class Detecteur extends Transform {
+  private reste: Buffer = Buffer.alloc(0);
+  private readonly cherches: readonly { sub: Buffer; vu: () => void }[];
+  private readonly traine: number;
+
+  constructor(cherches: readonly { sub: Buffer; vu: () => void }[]) {
+    super();
+    this.cherches = cherches;
+    this.traine = Math.max(0, ...cherches.map((c) => c.sub.length - 1));
+  }
+
+  override _transform(morceau: Buffer, _e: BufferEncoding, fin: TransformCallback): void {
+    const b = Buffer.concat([this.reste, morceau]);
+    for (const c of this.cherches) if (b.includes(c.sub)) c.vu();
+    this.reste = b.subarray(Math.max(0, b.length - this.traine));
+    fin(null, morceau);
+  }
 }
 
 const O_CLOEXEC = 0o2000000;
@@ -333,11 +368,17 @@ export function ouvrirSocketATous(chemin: string): number {
   }
 }
 
-function refuser(res: ServerResponse, statut: number, motif: string): void {
+/** Réponse de refus du relais ; avec `req` (corps non lu), la connexion est fermée après la réponse. */
+function refuser(res: ServerResponse, statut: number, motif: string, req?: IncomingMessage): void {
   if (res.headersSent) return void res.destroy();
   const texte = `Blocked by the Elpis browser relay: ${motif}.`;
-  res.writeHead(statut, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+  res.writeHead(statut, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+    ...(req ? { connection: "close" } : {}),
+  });
   res.end(texte);
+  if (req) res.once("finish", () => req.destroy());
 }
 
 export interface OptionsRelais {
@@ -361,6 +402,8 @@ export class RelaisNavigateur {
   private readonly ouvertes = new Set<Socket>();
   private readonly journal: (m: string) => void;
   private ino: number | null = null;
+  /** Octets de corps de requête gardés en mémoire en ce moment (borne `tamponsMax`). */
+  private tampons = 0;
 
   private readonly o: OptionsRelais;
 
@@ -663,20 +706,14 @@ export class RelaisNavigateur {
       return refuser(res, 403, v.motif);
     }
     const { liees, exactes } = await this.couvrant(p.schema, hote, port, v);
-    const armees = [...this.liaisons.values()].filter(
-      (e) => e.l.kind === "web-login" && e.l.substitut !== null && e.fenetreJusqua > Date.now(),
+    const maintenant = Date.now();
+    const substituts = [...this.liaisons.values()].filter(
+      (e) => e.l.kind === "web-login" && e.l.substitut !== null,
     );
-    const lire = liees.length > 0 || armees.length > 0;
-    let corps: Buffer | null = lire ? await lireCorps(req, reglagesRelaisNavigateur.corpsMax) : null;
-    for (const e of this.liaisons.values()) {
-      const sub = e.l.substitut;
-      if (e.l.kind !== "web-login" || sub === null) continue;
-      const dansUrl = chemin.includes(sub);
-      const dansCorps = corps !== null && corps.includes(sub);
-      if (!dansUrl && !dansCorps) continue;
-      const raison = !exactes.includes(e)
+    const raisonDe = (e: EtatLiaison, dansUrl: boolean): string | null =>
+      !exactes.includes(e)
         ? `towards ${origine}, not an origin of the secret`
-        : e.fenetreJusqua <= Date.now()
+        : e.fenetreJusqua <= maintenant
           ? "outside the login window"
           : dansUrl
             ? "in the URL (only request bodies are substituted)"
@@ -685,10 +722,55 @@ export class RelaisNavigateur {
               : e.substitutions >= reglagesRelaisNavigateur.substitutionsMax
                 ? "too many submissions in this window"
                 : null;
+    const refuserSubstitut = (e: EtatLiaison, raison: string): void => {
+      e.refus++;
+      this.journal(`placeholder of secret '${e.l.nom}' not substituted: ${raison}`);
+    };
+    const auth = exactes.find((e) => e.l.kind === "http-auth");
+    // Corps gardé en mémoire seulement s'il faut l'inspecter : substitution possible (origine exacte en fenêtre, méthode admise), ou reprise d'un défi 401 (petit corps connu) ; sinon relayé en flux.
+    const max = reglagesRelaisNavigateur.corpsMax;
+    const longueur =
+      req.headers["content-length"] === undefined ? null : Number(req.headers["content-length"]);
+    const sansCorps = longueur === 0 || (longueur === null && req.headers["transfer-encoding"] === undefined);
+    const enFenetre = substituts.some(
+      (e) => exactes.includes(e) && e.fenetreJusqua > maintenant && METHODES_SUBSTITUTION.has(methode),
+    );
+    const garder = enFenetre || (auth !== undefined && (sansCorps || (longueur !== null && longueur <= max)));
+    let corps: Buffer | null = null;
+    if (garder) {
+      if (longueur !== null && longueur > max)
+        return refuser(res, 413, `request body over ${max} bytes towards an origin covered by a secret`, req);
+      let reserve = 0;
+      const liberer = (): void => {
+        this.tampons -= reserve;
+        reserve = 0;
+      };
+      res.once("close", liberer);
+      const lu = await lireCorps(req, max, (n) => {
+        if (this.tampons + n > reglagesRelaisNavigateur.tamponsMax) return false;
+        this.tampons += n;
+        reserve += n;
+        return true;
+      });
+      if (lu === "trop") {
+        liberer();
+        return refuser(res, 413, `request body over ${max} bytes towards an origin covered by a secret`, req);
+      }
+      if (lu === "occupe") {
+        liberer();
+        return refuser(res, 503, "too many request bodies held by the relay, retry", req);
+      }
+      corps = lu;
+    }
+    for (const e of substituts) {
+      const sub = e.l.substitut ?? "";
+      const dansUrl = chemin.includes(sub);
+      const dansCorps = corps !== null && corps.includes(sub);
+      if (!dansUrl && !dansCorps) continue;
+      const raison = raisonDe(e, dansUrl);
       const id = raison === null ? await this.valeur(e) : null;
       if (raison !== null || id === null || corps === null) {
-        e.refus++;
-        this.journal(`placeholder of secret '${e.l.nom}' not substituted: ${raison ?? "value unavailable"}`);
+        refuserSubstitut(e, raison ?? "value unavailable");
         continue;
       }
       corps = remplacerOctets(
@@ -712,7 +794,20 @@ export class RelaisNavigateur {
       delete entetes["transfer-encoding"];
       entetes["content-length"] = String(corps.length);
     }
-    const auth = exactes.find((e) => e.l.kind === "http-auth");
+    // Corps relayé en flux : un substitut qui y passe est compté comme refusé (jamais substitué hors d'un corps gardé).
+    const flux: NodeJS.ReadableStream =
+      corps === null && substituts.length > 0 && !sansCorps
+        ? req.pipe(
+            new Detecteur(
+              substituts
+                .filter((e) => !chemin.includes(e.l.substitut ?? ""))
+                .map((e) => ({
+                  sub: Buffer.from(e.l.substitut ?? "", "utf8"),
+                  vu: (): void => refuserSubstitut(e, raisonDe(e, false) ?? "request body not inspected"),
+                })),
+            ),
+          )
+        : req;
     const envoyer = (autorisation: string | null): Promise<IncomingMessage> =>
       new Promise((ok, ko) => {
         const t = { ...entetes, ...(autorisation ? { authorization: autorisation } : {}) };
@@ -731,7 +826,7 @@ export class RelaisNavigateur {
         r.on("error", ko);
         res.once("close", () => r.destroy());
         if (corps !== null) r.end(corps);
-        else req.pipe(r);
+        else flux.pipe(r);
       });
     let r: IncomingMessage;
     try {

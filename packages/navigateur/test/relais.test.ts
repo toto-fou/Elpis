@@ -22,6 +22,7 @@ import {
   formesValeur,
   ouvrirSocketATous,
   Purgeur,
+  reglagesRelaisNavigateur,
   RelaisNavigateur,
   remplacerOctets,
   reponseDigest,
@@ -522,6 +523,47 @@ describe("relais des secrets (socket unix réel)", () => {
     };
     for (const v of [SECRET, "Pa/ss&<é>\u{1F600}x", "x'y\"z\u00a0q"])
       expect(formesValeur(v)).toEqual(service.formesSecret(v));
+  });
+
+  it("corps bornés : trop gros vers une origine en fenêtre de connexion, 413 aussitôt (connu ou en morceaux) ; budget du relais dépassé, 503 ; ailleurs, relayé en flux", async () => {
+    const origine = `http://borne.test:${port(http)}`;
+    relais.lier(liaison({ id: "c1", origines: [origine], substitut: SUB }));
+    relais.armer("c1", 10_000);
+    const avant = { ...reglagesRelaisNavigateur };
+    try {
+      reglagesRelaisNavigateur.corpsMax = 1024;
+      // Longueur annoncée trop grande : refus sans lire le corps (jamais d'attente sans fin).
+      const annonce = connexionNet(path.join(dossier, "relais.sock"));
+      annonce.on("error", () => undefined);
+      annonce.write(
+        `POST ${origine}/session HTTP/1.1\r\nHost: borne.test\r\nProxy-Authorization: Bearer ${JETON}\r\nContent-Length: 5000\r\n\r\np=${SUB}`,
+      );
+      expect((await lireReponse(annonce)).statut).toBe(413);
+      // En morceaux : refus dès la borne passée, connexion fermée.
+      const morceaux = connexionNet(path.join(dossier, "relais.sock"));
+      morceaux.on("error", () => undefined);
+      const bloc = "x".repeat(800);
+      morceaux.write(
+        `POST ${origine}/session HTTP/1.1\r\nHost: borne.test\r\nProxy-Authorization: Bearer ${JETON}\r\nTransfer-Encoding: chunked\r\n\r\n` +
+          `${bloc.length.toString(16)}\r\n${bloc}\r\n${bloc.length.toString(16)}\r\n${bloc}\r\n`,
+      );
+      expect((await lireReponse(morceaux)).statut).toBe(413);
+      // Budget du relais épuisé : 503.
+      reglagesRelaisNavigateur.tamponsMax = 10;
+      expect((await viaRelais(`${origine}/session`, { methode: "POST", corps: `p=${SUB}` })).statut).toBe(
+        503,
+      );
+      reglagesRelaisNavigateur.tamponsMax = avant.tamponsMax;
+      // Hors fenêtre et hors secret : un gros corps passe en flux, entier.
+      const gros = "y".repeat(50_000);
+      expect(
+        (await viaRelais(`http://flux.test:${port(http)}/x`, { methode: "POST", corps: gros })).statut,
+      ).toBe(200);
+      expect(recus.at(-1)?.corps.length).toBe(gros.length);
+    } finally {
+      Object.assign(reglagesRelaisNavigateur, avant);
+      relais.oublier("c1");
+    }
   });
 
   it("client qui abandonne au milieu du corps (fenêtre armée, origine couverte en clair et en TLS) : aucun rejet non traité, le relais sert encore", async () => {

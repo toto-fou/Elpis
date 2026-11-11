@@ -9,7 +9,7 @@ import { AGENT_RUN_DIR } from "@elpis/bac";
 import { surchargerConfig } from "@elpis/config";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { cheminsNavigateurBac, requeteService, serviceNavigateur } from "../src/mode";
+import { cheminsNavigateurBac, reglagesServiceBac, requeteService, serviceNavigateur } from "../src/mode";
 
 const tmp = mkdtempSync(path.join(tmpdir(), "nav-mode-"));
 let restaurer: () => void = () => undefined;
@@ -74,6 +74,24 @@ describe("résolveur du service navigateur", () => {
         code: "ENOTSOCK",
       });
     } finally {
+      srv.close();
+    }
+  });
+
+  it("réponse du service du bac bornée : au-delà de la borne, la requête échoue au lieu de tout garder en mémoire", async () => {
+    const c = cheminsNavigateurBac("alice");
+    const srv = createServer((_req, res) => res.end(Buffer.alloc(4096, 120)));
+    await new Promise<void>((ok) => srv.listen(c.socket, () => ok()));
+    const avant = reglagesServiceBac.reponseMax;
+    try {
+      const s = serviceNavigateur("alice");
+      expect((await requeteService(s, "/x", { delaiMs: 2000 })).corps.length).toBe(4096);
+      reglagesServiceBac.reponseMax = 1024;
+      await expect(requeteService(s, "/x", { delaiMs: 2000 })).rejects.toMatchObject({
+        code: "UND_ERR_RES_EXCEEDED_MAX_SIZE",
+      });
+    } finally {
+      reglagesServiceBac.reponseMax = avant;
       srv.close();
     }
   });

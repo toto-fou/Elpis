@@ -15,6 +15,12 @@ const DOSSIER_AGENT = ".elpis-agent";
 /** Jeton du service du bac, sur l'hôte seul (`<P>`, jamais monté). */
 export const FICHIER_JETON_BAC = ".browser-service.token";
 
+/** Bornes des lectures au service d'un bac (le bac est hostile) ; réglables par les tests. */
+export const reglagesServiceBac = {
+  /** Octets d'une réponse du service du bac lus au plus (captures et PDF compris) ; au-delà, la requête échoue. */
+  reponseMax: 64 * 1024 * 1024,
+};
+
 /** Service navigateur d'un compte : central (URL de l'instance) ou dans son bac (socket unix et jeton du bac). */
 export type ServiceNavigateur =
   | { readonly mode: "central"; readonly base: string; readonly jeton: string }
@@ -107,7 +113,10 @@ export async function requeteService(
     return { statut: r.statusCode, corps: Buffer.from(await r.body.arrayBuffer()) };
   }
   const fd = saisirSocket(s.socket);
-  const agent = new Agent({ connect: { socketPath: `/proc/self/fd/${fd}`, timeout: 5_000 } });
+  const agent = new Agent({
+    connect: { socketPath: `/proc/self/fd/${fd}`, timeout: 5_000 },
+    maxResponseSize: reglagesServiceBac.reponseMax,
+  });
   try {
     const r = await request(`${s.base}${chemin}`, { ...options, dispatcher: agent });
     return { statut: r.statusCode, corps: Buffer.from(await r.body.arrayBuffer()) };

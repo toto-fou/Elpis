@@ -220,6 +220,10 @@ follow [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Browser screenshots shown in the chat again with a vision model.** The tool host deleted a
+  capture as soon as it had served it once: the core fetched it first to show it to the model, so
+  the chat then got a 404. Captures now stay until the browser service's own sweep removes them
+  (5 minutes after the session ends, 4 hours at most, 300 per session).
 - **Metrics: tokens attributed to their account.** Chat turns, "Images" turns and `/compact`
   recorded their usage without an account or a source, so "Tokens per user" and "Peaks per
   user" filed nearly everything under "unattributed" while the Runs page knew the account.

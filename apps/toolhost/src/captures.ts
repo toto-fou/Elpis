@@ -25,26 +25,10 @@ export interface ContexteCaptures {
   readonly attendre?: (ms: number) => Promise<void>;
 }
 
-/** Tâches de suppression en cours : référence forte jusqu'à leur fin (AUDIT 2026-08-01, M3). */
-const suppressions = new Set<Promise<void>>();
-
-/** Suppressions de PNG encore en vol (tests et arrêt propre). */
-export async function attendreSuppressions(): Promise<void> {
-  await Promise.allSettled([...suppressions]);
-}
-
 function messageTransport(e: unknown): string {
   const code = (e as { code?: unknown } | null)?.code;
   if (typeof code === "string" && CONNEXION.test(code)) return "All connection attempts failed";
   return e instanceof Error ? e.message : String(e);
-}
-
-function supprimerApres(url: string): void {
-  const t = request(url, { method: "DELETE", headersTimeout: 2000, bodyTimeout: 2000 })
-    .then((r) => r.body.dump())
-    .catch(() => undefined)
-    .finally(() => suppressions.delete(t));
-  suppressions.add(t);
 }
 
 /** Nom de capture accepté et identifiant de session qu'il porte ; 400 sinon (même contrôle que le Python). */
@@ -85,7 +69,6 @@ async function servirCapture(
       const r = await request(url, { headersTimeout: 5000, bodyTimeout: 5000 });
       if (r.statusCode === 200) {
         const octets = Buffer.from(await r.body.arrayBuffer());
-        supprimerApres(url);
         return rep.code(200).headers(SANS_CACHE).type("image/png").send(octets);
       }
       await r.body.dump();

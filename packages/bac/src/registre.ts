@@ -16,6 +16,7 @@ import type { CliDocker } from "./cli";
 import { loadAdminConfig, UserSandbox } from "./conteneur";
 import { getReadinessCache } from "./disponibilite";
 import { decoderRemplace, labelFilter, which } from "./docker";
+import { navigateurDansLeBac } from "./navigateur";
 import { ensureWorkSubdir } from "./travail";
 
 const bacs = new Map<string, UserSandbox>();
@@ -33,16 +34,22 @@ export function getUserSandbox(
   networkProfileId: string | null = null,
 ): UserSandbox {
   const deja = bacs.get(cle(uid, username));
+  const navigateur = navigateurDansLeBac(username);
   if (deja !== undefined) {
     deja.cfg = loadAdminConfig();
-    if (networkProfileId !== null && networkProfileId !== deja.networkProfileId) {
-      deja.networkProfileId = networkProfileId;
+    if (
+      (networkProfileId !== null && networkProfileId !== deja.networkProfileId) ||
+      navigateur !== deja.navigateur
+    ) {
+      if (networkProfileId !== null) deja.networkProfileId = networkProfileId;
+      deja.navigateur = navigateur;
       deja.configVerified = false;
       deja.configRetryAt = 0;
     }
     return deja;
   }
   const sb = new UserSandbox(uid, username, sandboxPath, null, networkProfileId);
+  sb.navigateur = navigateur;
   bacs.set(cle(uid, username), sb);
   return sb;
 }

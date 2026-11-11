@@ -545,6 +545,13 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **MCP: output schemas cannot hang the core.** The `outputSchema` of a remote MCP tool was
+  compiled and run by ajv on the core's event loop with no bound, so a hostile server could hold
+  the core at 100 % CPU with a pattern such as `^(a+)+$`, a chain of `$ref` or a deeply nested
+  schema. Compilation is now limited to 1 second and each validation to 250 ms, and a schema
+  over 16 KiB or too deep to serialise is never compiled; in all those cases, and for a schema
+  that does not compile, the tool is served without output validation (logged) instead of
+  failing.
 - **Tool regular expressions run off the tool host's event loop.** A pattern given by the model
   to `read_file` (`grep`), `edit_file` (`regex`, `anchor_re`, `multi`), `git_write` (`replace`
   with `regex`) or `desktop_wait(match=true)` ran on the tool host's main thread, so a pattern with

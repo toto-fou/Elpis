@@ -107,6 +107,8 @@ export function pwVisual(s: ServicesBrowser) {
     };
     const sel = stripPy((a["selector"] as string) || "") || dslToSelector(a["target"] as string);
     if (sel) corps["selector"] = sel;
+    if (Array.isArray(a["mask"]) && a["mask"].length)
+      corps["mask"] = (a["mask"] as unknown[]).map((m) => String(m).replace(/^css=/u, ""));
     return client.req("POST", "/visual", { json: corps, timeout: Math.max(client.delaiS, 30) });
   };
 }

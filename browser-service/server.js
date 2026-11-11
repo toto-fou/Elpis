@@ -1762,6 +1762,25 @@ const BUDGET_GESTE_MS = parseInt(process.env.PW_GESTURE_BUDGET_MS || '9000', 10)
 const BUDGET_CHAINE_MS = parseInt(process.env.PW_CHAIN_BUDGET_MS || '55000', 10);
 
 // Geste de /action qui peut naviguer : la réponse attend la page d'arrivée et en donne l'URL (`navigated`, `url_before`).
+// Téléchargements lancés pendant un geste (depuis l'arrivée de la requête) joints à sa réponse : fichier, chemin, taille (attente bornée de leur enregistrement).
+function suiviTelechargements(req, res, next) {
+    const s = req.session;
+    if (!s || !Array.isArray(s.downloads)) return next();
+    const depuis = req.recuA || Date.now();
+    const envoyer = res.json.bind(res);
+    res.json = (corps) => {
+        const lances = s.downloads.filter(d => d.debut >= depuis);
+        if (!lances.length || res.statusCode >= 400 || !corps || typeof corps !== 'object' || Array.isArray(corps)) return envoyer(corps);
+        const delai = new Promise(r => setTimeout(r, TELECHARGEMENT_ATTENTE_MS, null));
+        Promise.all(lances.map(d => Promise.race([d.fini, delai]).then(f => f || { file: d.nom, status: 'in_progress' })))
+            .then((fichiers) => { corps.downloads = fichiers; }, () => {})
+            .finally(() => { try { envoyer(corps); } catch (e) { console.error('[téléchargement] réponse non envoyée :', e.message); } });
+        return res;
+    };
+    next();
+}
+const TELECHARGEMENT_ATTENTE_MS = parseInt(process.env.PW_DOWNLOAD_WAIT_MS || '5000', 10);
+
 function suiviNavigationGeste(req, res, next) {
     const page = req.session && req.session.page;
     if (!page || !GESTES_NAVIGANTS.has(req.body && req.body.type)) return next();
@@ -1832,13 +1851,13 @@ function detailsErreur(e) {
 }
 
 async function selectOptionSmart(locator, { option_value, option_label, value, text, timeout = 10000 }) {
-    const opts = await locator.evaluate((el) => {
+    const lu = await locator.evaluate((el) => {
         if (!el.options) return null;
-        return Array.from(el.options).map((o, i) => ({
+        return { multiple: el.multiple, opts: Array.from(el.options).map((o, i) => ({
             i, value: o.value, label: (o.text || '').trim(), disabled: !!o.disabled,
-        }));
+        })) };
     }).catch(() => null);
-    if (opts === null) {
+    if (lu === null) {
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '?');
         const e = new Error(
             `select: <${tag}> is not a native <select>. For a custom dropdown ` +
@@ -1847,34 +1866,55 @@ async function selectOptionSmart(locator, { option_value, option_label, value, t
         e.code = 'not_a_select';
         throw e;
     }
+    const opts = lu.opts;
     const pick = (pred) => opts.find(o => !o.disabled && pred(o));
-    let hit = null;
-    if (option_value) hit = pick(o => o.value === option_value);
-    else if (option_label) {
-        const w = String(option_label).trim();
-        hit = pick(o => o.label === w)
-           || pick(o => o.label.toLowerCase() === w.toLowerCase())
-           || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
-    }
-    if (!hit) {
-        const w = String(value || text || '').trim();
-        if (w) {
-            hit = pick(o => o.value === w)
-               || pick(o => o.label === w)
+    // Option voulue : par valeur (option_value), par libellé (option_label), sinon valeur ou libellé devinés (value/text).
+    const trouver = ({ option_value, option_label, value, text }) => {
+        let hit = null;
+        if (option_value) hit = pick(o => o.value === option_value);
+        else if (option_label) {
+            const w = String(option_label).trim();
+            hit = pick(o => o.label === w)
                || pick(o => o.label.toLowerCase() === w.toLowerCase())
-               || pick(o => o.value.toLowerCase() === w.toLowerCase())
                || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
         }
+        if (!hit) {
+            const w = String(value || text || '').trim();
+            if (w) {
+                hit = pick(o => o.value === w)
+                   || pick(o => o.label === w)
+                   || pick(o => o.label.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.value.toLowerCase() === w.toLowerCase())
+                   || pick(o => o.label.toLowerCase().includes(w.toLowerCase()));
+            }
+        }
+        return hit;
+    };
+    const absente = (wanted) => erreurCodee('option_not_found',
+        `No <option> matching "${wanted}". Available: ` +
+        opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
+        (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
+        { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
+          fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
+    // <select multiple> : une liste (ou des textes séparés par des virgules, sauf s'ils forment une option) sélectionne chaque option nommée.
+    const champ = ['option_value', 'option_label', 'value', 'text'].find(k => ({ option_value, option_label, value, text })[k]);
+    const brut = champ ? ({ option_value, option_label, value, text })[champ] : null;
+    const liste = Array.isArray(brut) ? brut.map(String).filter(Boolean)
+        : lu.multiple && typeof brut === 'string' && brut.includes(',') && !trouver({ [champ]: brut }) ? brut.split(',').map(x => x.trim()).filter(Boolean) : null;
+    if (liste && (lu.multiple || liste.length > 1)) {
+        if (!lu.multiple) throw erreurCodee('multiple_not_allowed', `This <select> takes one option; ${liste.length} were given.`,
+            { fix: 'Pass a single option_label= (or option_value=).' });
+        const touches = liste.map(w => [w, trouver({ [champ]: w })]);
+        const manquante = touches.find(([, h]) => !h);
+        if (manquante) throw absente(manquante[0]);
+        const retenues = [...new Map(touches.map(([, h]) => [h.i, h])).values()];
+        await locator.selectOption(retenues.map(h => ({ index: h.i })), { timeout });
+        return { value: retenues.map(h => h.value).join(','), label: retenues.map(h => h.label).join(', '), index: retenues[0].i,
+                 values: retenues.map(h => h.value), labels: retenues.map(h => h.label) };
     }
-    if (!hit) {
-        const wanted = option_value || option_label || value || text || '(none)';
-        throw erreurCodee('option_not_found',
-            `No <option> matching "${wanted}". Available: ` +
-            opts.slice(0, 12).map(o => `"${o.label}"(${o.value})`).join(', ') +
-            (opts.length > 12 ? `, … ${opts.length - 12} more` : ''),
-            { options: opts.slice(0, 30).map(o => ({ label: o.label, value: o.value, ...(o.disabled ? { disabled: true } : {}) })),
-              fix: 'Pass option_label= with one of the labels in `options` (or option_value= with its value).' });
-    }
+    const seule = liste ? { [champ]: liste[0] } : { option_value, option_label, value, text };
+    const hit = trouver(seule);
+    if (!hit) throw absente(seule.option_value || seule.option_label || seule.value || seule.text || '(none)');
     await locator.selectOption({ index: hit.i }, { timeout });
     return { value: hit.value, label: hit.label, index: hit.i };
 }
@@ -2472,12 +2512,18 @@ app.post('/start', async (req, res) => {
         });
 
         // Téléchargements rangés par propriétaire, pour TOUS les onglets.
+        // Chaque téléchargement est noté sur la session (début, fichier enregistré) : le geste qui l'a lancé le rapporte.
         const dossierTelechargements = path.join(DOWNLOAD_DIR, owner);
-        context.on('page', (pg) => pg.on('download', async download => {
-            try {
+        context.on('page', (pg) => pg.on('download', (download) => {
+            const nom = safeDownloadName(download.suggestedFilename());
+            const chemin = path.join(dossierTelechargements, nom);
+            const fini = (async () => {
                 fs.mkdirSync(dossierTelechargements, { recursive: true });
-                await download.saveAs(path.join(dossierTelechargements, safeDownloadName(download.suggestedFilename())));
-            } catch (e) {}
+                await download.saveAs(chemin);
+                return { file: nom, path: chemin, size: fs.statSync(chemin).size };
+            })().catch((e) => ({ file: nom, error: sansAnsi(e.message).split('\n')[0] }));
+            const s = sessions.get(sessionId);
+            if (s) { s.downloads.push({ debut: Date.now(), nom, fini }); if (s.downloads.length > 20) s.downloads.shift(); }
         }));
         const page = await context.newPage();
 
@@ -2940,7 +2986,7 @@ app.post('/login', getSession, async (req, res) => {
 
 
 // ======================== ACTIONS ========================
-app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, res) => {
+app.post('/action', getSession, autoSnapshot, suiviTelechargements, suiviNavigationGeste, async (req, res) => {
     try {
         const { page } = req.session;
         const {
@@ -2968,6 +3014,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         };
         const type = _TYPE_ALIASES[rawType] || rawType;
         const opts = { timeout, button, modifiers };
+        // Point de clic dans la cible ({x, y} depuis son coin haut gauche : canvas, carte), pour click, dblclick, rclick et hover.
+        const point = position && typeof position === 'object' ? position : null;
+        if (point && !(Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0))
+            return res.status(400).json({ error: 'position must be {x, y}: pixels from the top-left corner of the target, 0 or more.', code: 'invalid_position' });
+        const auPoint = point ? { position: { x: point.x, y: point.y } } : {};
         let selectedOption = null;
         let officialError = null;   // renseigné quand on retombe sur smartResolve
         let extra = {};             // champs additionnels du résultat (expanded, drag…)
@@ -3188,18 +3239,18 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             const cadresAvant = req.session._recorder?.recording ? await cheminCadres(officialLocator) : [];
             try {
                 if (type === 'click') {
-                    await officialLocator.click({ timeout: _t, button, modifiers, force });
+                    await officialLocator.click({ timeout: _t, button, modifiers, force, ...auPoint });
                     // Un treeitem / disclosure dit s'il s'est ouvert : sans ça un
                     // clic « réussi » qui n'a fait que SÉLECTIONNER passait pour
                     // un dépliage (audit tools web 2026-09-05).
                     const _ae = await officialLocator.getAttribute('aria-expanded', { timeout: 500 }).catch(() => null);
                     if (_ae !== null && _ae !== undefined) extra.expanded = _ae === 'true';
                 } else if (type === 'double_click' || type === 'dblclick') {
-                    await officialLocator.dblclick({ timeout: _t, button, modifiers });
+                    await officialLocator.dblclick({ timeout: _t, button, modifiers, ...auPoint });
                 } else if (type === 'right_click' || type === 'rclick') {
-                    await officialLocator.click({ timeout: _t, button: 'right', modifiers });
+                    await officialLocator.click({ timeout: _t, button: 'right', modifiers, ...auPoint });
                 } else if (type === 'hover') {
-                    await officialLocator.hover({ timeout: _t, modifiers });
+                    await officialLocator.hover({ timeout: _t, modifiers, ...auPoint });
                 } else if (type === 'check') {
                     await officialLocator.check({ timeout: _t, force });
                 } else if (type === 'uncheck') {
@@ -3329,7 +3380,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC SMART (via smartClick)
         if (type === 'click') {
-            const { locator: cliqueSur, cadre, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams });
+            const { locator: cliqueSur, cadre, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams, position: point });
             const ancestors = cliqueSur ? await captureAncestors(cliqueSur).catch(() => []) : [];
             await postActionWait(page, wait_after);
             const cadres = req.session._recorder?.recording && cadre ? await cheminCadres(cadre) : [];
@@ -3361,7 +3412,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'dblclick') {
             const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.dblclick({ timeout: _lt, force });
+            await locator.dblclick({ timeout: _lt, force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
@@ -3370,7 +3421,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'right_click') {
             const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
-            await locator.click({ timeout: _lt, button: 'right', force });
+            await locator.click({ timeout: _lt, button: 'right', force, ...auPoint });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
         }
@@ -3384,7 +3435,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 else await locator.hover({ timeout: _lt, force });
             } else {
                 await scrollIntoViewIfNeeded(locator);
-                await locator.hover({ timeout: _lt, force });
+                await locator.hover({ timeout: _lt, force, ...auPoint });
             }
             await postActionWait(page, wait_after);
             return res.json({ status: 'success' });
@@ -4630,6 +4681,26 @@ app.post('/a11y_audit', getSession, async (req, res) => {
 const VISUAL_MAX_REGIONS = 10;
 // Nombre de pixels changés toléré au plus quand aucun seuil n'est donné.
 const VISUAL_DEFAUT_MAX_PIXELS = 200;
+const VISUAL_ATTENTE_MS = parseInt(process.env.PW_VISUAL_WAIT_MS || '5000', 10);
+const COULEUR_MASQUE = '#FF00FF';
+
+// Rectangles des zones masquées en pixels de la capture (page entière, ou relatifs à l'élément `selector`), et les masques sans élément.
+async function zonesMasquees(page, selector, masques) {
+    const rects = [], absents = [];
+    const origine = selector ? await page.locator(selector).first().evaluate((e) => {
+        const r = e.getBoundingClientRect(); return { x: r.left, y: r.top };
+    }).catch(() => ({ x: 0, y: 0 })) : null;
+    for (const m of masques) {
+        const boites = await page.locator(m).evaluateAll((els, rel) => els.map((e) => {
+            const r = e.getBoundingClientRect(), k = window.devicePixelRatio || 1;
+            const x0 = rel ? r.left - rel.x : r.left + window.scrollX, y0 = rel ? r.top - rel.y : r.top + window.scrollY;
+            return { x: Math.floor(x0 * k), y: Math.floor(y0 * k), w: Math.ceil(r.width * k) + 1, h: Math.ceil(r.height * k) + 1 };
+        }).filter((b) => b.w > 1 && b.h > 1), origine).catch(() => []);
+        if (boites.length) rects.push(...boites); else absents.push(m);
+    }
+    return { rects, absents };
+}
+
 app.post('/visual', getSession, async (req, res) => {
     try {
         const { page } = req.session;
@@ -4646,19 +4717,29 @@ app.post('/visual', getSession, async (req, res) => {
         fs.mkdirSync(dossierRef, { recursive: true });
         const baselinePath = path.join(dossierRef, `${name}.png`);
 
+        // Élément absent : erreur claire après une courte attente, pas les 30 s de la capture.
+        if (selector && !(await attendrePresence(page.locator(selector), VISUAL_ATTENTE_MS))) {
+            return res.status(404).json({ error: `No element matches selector ${JSON.stringify(selector)} (waited ${VISUAL_ATTENTE_MS / 1000} s).`,
+                code: 'element_not_found', fix: 'Check the selector with pw_find, or compare the whole page without selector=.' });
+        }
+        // Zones masquées (mask=) : peintes de la même couleur dans la capture et dans la référence avant la comparaison.
+        const masques = Array.isArray(req.body.mask) ? req.body.mask.filter(m => typeof m === 'string' && m.trim()).slice(0, 20) : [];
         const target = selector ? page.locator(selector).first() : page;
-        const curBuf = await target.screenshot(selector ? {} : { fullPage: true });
+        const curBuf = await target.screenshot({ ...(selector ? {} : { fullPage: true }), timeout: VISUAL_ATTENTE_MS,
+                                                 ...(masques.length ? { mask: masques.map(m => page.locator(m)), maskColor: COULEUR_MASQUE } : {}) });
+        const zonesMasque = masques.length ? await zonesMasquees(page, selector, masques) : { rects: [], absents: [] };
 
         if (!fs.existsSync(baselinePath) || update) {
             fs.writeFileSync(baselinePath, curBuf);
             return res.json({ ok: true, name, baseline_created: true, passed: true,
+                ...(masques.length ? { masked: zonesMasque.rects.length } : {}),
                 size_mismatch: false, pixel_diff_failed: false, fail_reason: null,
                 message: update ? 'baseline mise à jour' : 'baseline créée (premier passage)' });
         }
 
         const baseB64 = 'data:image/png;base64,' + fs.readFileSync(baselinePath).toString('base64');
         const curB64 = 'data:image/png;base64,' + curBuf.toString('base64');
-        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions }) => {
+        const result = await page.evaluate(async ({ baseB64, curB64, tol, srcRegions, maxRegions, rects, couleur }) => {
             const load = src => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src; });
             const [a, b] = await Promise.all([load(baseB64), load(curB64)]);
             // Une capture fullPage n'est PAS stable au pixel près : mesuré, le
@@ -4678,8 +4759,9 @@ app.post('/visual', getSession, async (req, res) => {
             const size_drift = Math.max(dw / Math.max(1, w), dh / Math.max(1, h));
             const c = document.createElement('canvas'); c.width = w; c.height = h;
             const x = c.getContext('2d');
-            x.drawImage(a, 0, 0); const da = x.getImageData(0, 0, w, h).data;
-            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); const db = x.getImageData(0, 0, w, h).data;
+            const peindre = () => { x.fillStyle = couleur; for (const r of rects) x.fillRect(r.x, r.y, r.w, r.h); };
+            x.drawImage(a, 0, 0); peindre(); const da = x.getImageData(0, 0, w, h).data;
+            x.clearRect(0, 0, w, h); x.drawImage(b, 0, 0); peindre(); const db = x.getImageData(0, 0, w, h).data;
             const out = x.createImageData(w, h), od = out.data; let nd = 0;
             const C = 16, cols = Math.ceil(w / C), rows = Math.ceil(h / C);
             const nc = new Uint32Array(cols * rows), cx0 = new Uint32Array(cols * rows), cy0 = new Uint32Array(cols * rows);
@@ -4696,7 +4778,7 @@ app.post('/visual', getSession, async (req, res) => {
             const zones = new Function(`return (${srcRegions})`)()(cols, rows, nc, cx0, cy0, cx1, cy1, maxRegions);
             return { w, h, diff_pixels: nd, total: w * h, diff_ratio: nd / (w * h),
                      dims, size_drift, diff_png: c.toDataURL('image/png'), zones };
-        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS });
+        }, { baseB64, curB64, tol, srcRegions: sourceDe(regionsModifiees), maxRegions: VISUAL_MAX_REGIONS, rects: zonesMasque.rects, couleur: COULEUR_MASQUE });
 
         const ts = Date.now();
         const curName = `visual_${name}_current_${ts}.png`;
@@ -4723,6 +4805,7 @@ app.post('/visual', getSession, async (req, res) => {
         const pixelFailed = result.diff_ratio > threshold || (!seuilExplicite && result.diff_pixels > VISUAL_DEFAUT_MAX_PIXELS);
         const failReason = [pixelFailed ? 'pixel_diff' : null, sizeChanged ? 'size_mismatch' : null].filter(Boolean).join('+') || null;
         res.json({ ok: true, name, passed: !pixelFailed && !sizeChanged, threshold,
+            ...(masques.length ? { masked: zonesMasque.rects.length, ...(zonesMasque.absents.length ? { mask_not_found: zonesMasque.absents } : {}) } : {}),
             ...(seuilExplicite ? {} : { max_diff_pixels: VISUAL_DEFAUT_MAX_PIXELS }),
             pixel_diff_failed: pixelFailed, size_mismatch: sizeChanged, fail_reason: failReason,
             diff_ratio: result.diff_ratio, diff_pixels: result.diff_pixels,
@@ -5427,7 +5510,7 @@ async function findAlternatives(page, failedSelector, maxSuggestions = 5) {
 // ==========================================
 // ACTION CHAINING (Feature 2) — v2: prefers by_* params over selector strings
 // ==========================================
-app.post('/chain', getSession, autoSnapshot, async (req, res) => {
+app.post('/chain', getSession, autoSnapshot, suiviTelechargements, async (req, res) => {
     try {
         const { page } = req.session;
         const { actions = [], stop_on_error = true, screenshot_on_fail = true } = req.body;

@@ -50,6 +50,11 @@ const PAGES = {
         <input type="file" id="f" multiple>`,
     '/cadre-ext': '<p>Extérieur</p><iframe name="int" src="/cadre-int"></iframe>',
     '/cadre-int': '<input placeholder="Ville"><button onclick="window.ok=1">Valider</button>',
+    '/petits': `<title>Petits</title><select id="m" multiple><option>A</option><option>B</option><option value="c">C</option></select>
+        <a id="dl" href="/fichier.txt">Télécharger</a>
+        <canvas id="toile" width="200" height="100" style="border:1px solid"></canvas><p id="pos"></p>
+        <div id="horloge">00:00:00</div><div id="fixe" style="width:300px;height:60px;background:#08c"></div>
+        <script>document.getElementById('toile').addEventListener('click', (e) => { document.getElementById('pos').textContent = e.offsetX + ',' + e.offsetY; });</script>`,
 };
 
 let service = null;
@@ -64,6 +69,10 @@ const texteDe = async (css) => (await api('/evaluate', { script: `return documen
 before(async () => {
     if (SAUTER) return;
     pages = http.createServer((req, res) => {
+        if (req.url === '/fichier.txt') {
+            res.writeHead(200, { 'content-type': 'text/plain', 'content-disposition': 'attachment; filename="b.txt"' });
+            return res.end('abc');
+        }
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end(PAGES[req.url.split('?')[0]] || `<title>${req.url}</title>`);
     });
@@ -337,4 +346,38 @@ test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un
     assert.deepEqual([liste.max, liste.max_per_owner, liste.max_per_group, liste.effective_max], [10, 3, 4, 3]);
     assert.equal(liste.sessions.find(x => x.session_id === secret).secret, true);
     for (const x of liste.sessions) await service.post('/stop', { owner: o, session_id: x.session_id });
+});
+
+test('petits manques : <select multiple>, téléchargement rapporté, clic à une position, pw_visual avec masque et délai court', { skip: SAUTER, timeout: 90000 }, async () => {
+    await ouvrir('/petits');
+    let r = await api('/action', { type: 'select_option', by_css: '#m', option_label: 'A, C' });
+    assert.equal(r.statut, 200, r.texte);
+    assert.deepEqual(r.corps.selected.labels, ['A', 'C']);
+    assert.deepEqual((await api('/evaluate', { script: "return [...document.querySelector('#m').selectedOptions].map(o => o.value)" })).corps.result, ['A', 'c']);
+    const chaine = await api('/chain', { actions: [{ type: 'select', by_css: '#m', value: ['B', 'c'] }] });
+    assert.deepEqual(chaine.corps.results[0].selected.values, ['B', 'c'], chaine.texte);
+
+    r = await api('/action', { type: 'click', by_css: '#dl' });
+    assert.equal(r.statut, 200, r.texte);
+    assert.deepEqual(r.corps.downloads, [{ file: 'b.txt', path: `downloads/${OWNER}/b.txt`, size: 3 }]);
+
+    r = await api('/action', { type: 'click', by_css: '#toile', position: { x: 20, y: 80 } });
+    assert.equal(r.statut, 200, r.texte);
+    assert.equal(await texteDe('#pos'), '20,80');
+    r = await api('/action', { type: 'click', by_css: '#toile', position: { x: -1, y: 5 } });
+    assert.equal(r.corps.code, 'invalid_position');
+
+    assert.equal((await api('/visual', { name: 'masque', update: true })).corps.baseline_created, true);
+    await api('/evaluate', { script: "document.getElementById('horloge').textContent = '12:34:56'; return 1" });
+    const sans = (await api('/visual', { name: 'masque' })).corps;
+    assert.equal(sans.passed, false, JSON.stringify(sans));
+    const avec = (await api('/visual', { name: 'masque', mask: ['#horloge', '#absent'] })).corps;
+    assert.equal(avec.passed, true, JSON.stringify(avec));
+    assert.equal(avec.masked, 1);
+    assert.deepEqual(avec.mask_not_found, ['#absent']);
+    const t0 = Date.now();
+    r = await api('/visual', { name: 'absent', selector: '#nulle-part' });
+    assert.equal(r.statut, 404, r.texte);
+    assert.equal(r.corps.code, 'element_not_found');
+    assert.ok(Date.now() - t0 < 7000, `${Date.now() - t0} ms`);
 });

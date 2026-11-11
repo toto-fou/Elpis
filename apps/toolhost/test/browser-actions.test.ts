@@ -76,6 +76,17 @@ describe("pw_act : strict, nth et erreurs codées du service", () => {
     expect(c).not.toHaveProperty("strict");
   });
 
+  it("position du clic transmise telle quelle, seulement quand elle est donnée", async () => {
+    const b = await client();
+    const agir = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_act", { session_id: SESSION, observe: false, ...args }, { username: "bob" });
+    await agir({ action: "click", target: "css=#toile", position: { x: 20, y: 80 } });
+    await agir({ action: "click", target: "css=#toile" });
+    const [a, c] = actions();
+    expect(a).toMatchObject({ by_css: "#toile", position: { x: 20, y: 80 } });
+    expect(c).not.toHaveProperty("position");
+  });
+
   it("erreur codée du service (tout statut) : code, message, correctif et contexte (suggestions, candidats)", async () => {
     const b = await client();
     const suggestions = [{ role: "button", name: "Valider", target: "role=button|name=Valider" }];

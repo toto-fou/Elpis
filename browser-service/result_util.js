@@ -111,6 +111,13 @@ export function selectOptionArg(evt, fmt = 'playwright') {
     const label = e.option_label ?? sel.label;
     const hasValue = v => v !== undefined && v !== null && v !== '';
     const value = hasValue(e.option_value) ? e.option_value : (hasValue(sel.value) ? sel.value : e.value);
+    // <select multiple> : toutes les options retenues.
+    if (Array.isArray(sel.labels) && sel.labels.length > 1) {
+        if (fmt === 'playwright') return `[${sel.labels.map(l => `{ label: ${_q(l)} }`).join(', ')}]`;
+        if (fmt === 'cypress') return `[${sel.labels.map(_q).join(', ')}]`;
+        if (fmt === 'robot') return `label    ${sel.labels.map(celluleRobot).join('    ')}`;
+        return sel.labels.join(', ');
+    }
     if (fmt === 'playwright') {
         if (hasValue(label)) return `{ label: ${_q(label)} }`;
         if (hasValue(value)) return `{ value: ${_q(value)} }`;

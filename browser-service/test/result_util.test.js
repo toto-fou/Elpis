@@ -184,3 +184,10 @@ test('plafond des sorties : longueur comptée comme le client, chaîne coupée, 
     assert.equal(seul.omitted, '0 of 1 items, and part of the first one');
     assert.ok(longueurJsonPy(seul.value) <= 1000);
 });
+
+test('selectOptionArg : <select multiple>, toutes les options retenues dans chaque format', () => {
+    const e = { action: 'select', option_label: 'A, C', selected: { value: 'a,c', label: 'A, C', values: ['a', 'c'], labels: ['A', 'C'] } };
+    assert.equal(selectOptionArg(e, 'playwright'), "[{ label: 'A' }, { label: 'C' }]");
+    assert.equal(selectOptionArg(e, 'cypress'), "['A', 'C']");
+    assert.equal(selectOptionArg(e, 'robot'), 'label    A    C');
+});

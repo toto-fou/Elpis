@@ -189,6 +189,19 @@ describe("famille browser servie par l'hôte", () => {
     ]);
   });
 
+  it("pw_visual : masques transmis sans le préfixe css=, absents sans masque", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const visuel = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_visual", { session_id: SESSION, name: "accueil", ...args }, { username: "bob" });
+    await visuel({ mask: ["css=#horloge", ".pub"] });
+    await visuel({});
+    const [a, c] = faux.vues.filter((v) => v.chemin === "/visual").map((v) => JSON.parse(v.corps) as Dict);
+    expect(a).toMatchObject({ name: "accueil", mask: ["#horloge", ".pub"] });
+    expect(c).not.toHaveProperty("mask");
+  });
+
   it("pw_act : délai dépassé sur une session à plusieurs onglets, onglet actif rappelé (lu sur /sessions) ; un seul onglet : message inchangé", async () => {
     const b = await client();
     await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });

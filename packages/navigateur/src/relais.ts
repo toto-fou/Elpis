@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/src/relais.ts — relais des secrets du navigateur d'un bac (hors du conteneur, hôte d'outils) : proxy HTTP sur un socket unix par lequel passe tout le trafic sortant du navigateur du bac ; destinations jugées par l'hôte ; pour les origines d'un secret en usage seulement, TLS terminé par l'autorité de l'instance, substitut d'une connexion remplacé par la valeur (fenêtre armée, origine du secret, corps de requête), défis 401 Basic et Digest résolus par le relais, valeur et formes encodées purgées des réponses ; ailleurs, tunnel CONNECT intact. */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, closeSync, constants, lstatSync, openSync, unlinkSync } from "node:fs";
+import { chmodSync, closeSync, constants, fstatSync, lstatSync, openSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { createServer as serveurHttp, request as requeteHttp } from "node:http";
 import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from "node:http";
@@ -14,6 +14,8 @@ import type { TransformCallback } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { connect as connexionTls, getCACertificates, TLSSocket } from "node:tls";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
+
+import { O_PATH } from "@elpis/securite";
 
 import { Feuilles } from "./autorite";
 import type { Autorite } from "./autorite";
@@ -254,6 +256,21 @@ function lireCorps(req: IncomingMessage, max: number): Promise<Buffer | null> {
   });
 }
 
+const O_CLOEXEC = 0o2000000;
+
+/** Socket ouvert à tous (0666 : le service du bac n'a pas l'UID de l'hôte) sans suivre de lien posé par le bac : saisi en O_PATH|O_NOFOLLOW, vérifié socket, droits posés par /proc/self/fd sur ce seul inode ; son inode. */
+export function ouvrirSocketATous(chemin: string): number {
+  const fd = openSync(chemin, O_PATH | constants.O_NOFOLLOW | O_CLOEXEC);
+  try {
+    const st = fstatSync(fd);
+    if (!st.isSocket()) throw new Error(`${chemin}: not a socket`);
+    chmodSync(`/proc/self/fd/${fd}`, 0o666);
+    return st.ino;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function refuser(res: ServerResponse, statut: number, motif: string): void {
   if (res.headersSent) return void res.destroy();
   const texte = `Blocked by the Elpis browser relay: ${motif}.`;
@@ -351,8 +368,7 @@ export class RelaisNavigateur {
     } finally {
       closeSync(dossier);
     }
-    chmodSync(this.o.socket, 0o666);
-    this.ino = lstatSync(this.o.socket).ino;
+    this.ino = ouvrirSocketATous(this.o.socket);
   }
 
   /** Vrai si le socket écouté est toujours celui du relais (le bac peut retirer ou remplacer les fichiers de /run/elpis). */

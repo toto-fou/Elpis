@@ -728,6 +728,29 @@ sonde_du_core() {
     done <<< "$lignes"
 }
 
+# /health du service navigateur d'un bac (socket $1, jeton du fichier $2) : socket saisi sans suivre de lien (le bac écrit dans son dossier) en O_PATH|O_NOFOLLOW, vérifié, joint par /proc/self/fd ; vrai s'il répond ok.
+sante_navigateur_bac() {
+    "${PY:-python3}" -I - "$1" "$2" <<'PY' 2>/dev/null
+import os, socket, stat, sys
+fd = os.open(sys.argv[1], os.O_PATH | os.O_NOFOLLOW)
+if not stat.S_ISSOCK(os.fstat(fd).st_mode):
+    sys.exit(1)
+with open(sys.argv[2], encoding="utf-8") as f:
+    jeton = f.readline().strip()
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(3)
+s.connect(f"/proc/self/fd/{fd}")
+s.sendall(f"GET /health HTTP/1.0\r\nHost: browser\r\nAuthorization: Bearer {jeton}\r\n\r\n".encode())
+lu = b""
+while len(lu) < 65536:
+    m = s.recv(65536)
+    if not m:
+        break
+    lu += m
+sys.exit(0 if lu.startswith(b"HTTP/1.1 200") and b'"ok":true' in lu else 1)
+PY
+}
+
 # Navigateur dans le bac (browser.mode = « sandbox ») : autorité du relais (clé 0600), dossiers montés lisibles par l'UID du bac, headless shell, services des comptes en marche et leur relais ; appelée par cmd_doctor (compteur bad).
 doctor_navigateur_bac() {
     local mode ca pw nm sb s d j n=0
@@ -752,8 +775,8 @@ except Exception: print("central")' "$ROOT/config.json" 2>/dev/null)"
     for s in "${sb:-/nonexistent}"/*/.elpis-agent/browser.sock; do
         [ -S "$s" ] || continue
         d="$(dirname "$(dirname "$s")")"; j="$d/.browser-service.token"; n=$((n+1))
-        if [ -s "$j" ] && sed -n '1s/^/Authorization: Bearer /p' "$j" | curl --unix-socket "$s" -fsS -m 3 -H @- http://browser/health 2>/dev/null | grep -q '"ok":true'; then
-            check "navigateur du bac ${d##*/} : en marche, relais de l'hôte à l'écoute" "./elpis logs toolhost ; ./elpis logs browser ${d##*/}" test -S "$d/.elpis-agent/browser-relay.sock"
+        if [ -s "$j" ] && sante_navigateur_bac "$s" "$j"; then
+            check "navigateur du bac ${d##*/} : en marche, relais de l'hôte à l'écoute" "./elpis logs toolhost ; ./elpis logs browser ${d##*/}" test ! -L "$d/.elpis-agent/browser-relay.sock" -a -S "$d/.elpis-agent/browser-relay.sock"
         else
             info "navigateur du bac ${d##*/} : arrêté (relancé au prochain outil pw_* ; ./elpis logs browser ${d##*/})"
         fi

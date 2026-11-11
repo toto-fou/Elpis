@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/src/mcp/browser/bac.ts — navigateur dans le bac d'un compte (mode « sandbox ») : service démarré au premier outil pw_* (jeton du bac, certificat de l'autorité), relais des secrets du compte sur l'hôte, liaisons des secrets en usage ; le mode central passe tel quel. */
 import { randomBytes } from "node:crypto";
-import { lstatSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
 
 import {
   BROWSER_CA_CERT,
@@ -87,16 +97,38 @@ function jetonFichier(chemin: string): string {
   return j;
 }
 
-/** Certificat de l'autorité posé dans le dossier de l'agent du bac s'il manque ou diffère ; vrai s'il a changé (rotation). */
-function poserCertificat(chemin: string, pem: string): boolean {
+/** Certificat de l'autorité posé dans le dossier de l'agent du bac (où le bac écrit) s'il manque ou diffère, sans jamais suivre de lien : lu en O_NOFOLLOW|O_NONBLOCK (fichier ordinaire seul), écrit dans un temporaire O_EXCL|O_NOFOLLOW renommé sur la cible (rename remplace un lien sans le suivre) ; vrai s'il a changé (rotation). */
+export function poserCertificat(chemin: string, pem: string): boolean {
   let present = false;
   try {
-    present = lstatSync(chemin).isFile();
-    if (present && readFileSync(chemin, "utf8") === pem) return false;
+    const fd = openSync(chemin, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      const st = fstatSync(fd);
+      present = st.isFile();
+      if (present && st.size === Buffer.byteLength(pem) && readFileSync(fd, "utf8") === pem) return false;
+    } finally {
+      closeSync(fd);
+    }
   } catch {
-    // absent
+    // absent, lien ou autre type : remplacé
   }
-  writeFileSync(chemin, pem, { mode: 0o644 });
+  const tmp = `${chemin}.${randomBytes(8).toString("hex")}.tmp`;
+  const fd = openSync(
+    tmp,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o644,
+  );
+  try {
+    writeSync(fd, pem);
+  } finally {
+    closeSync(fd);
+  }
+  try {
+    renameSync(tmp, chemin);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
   return present;
 }
 

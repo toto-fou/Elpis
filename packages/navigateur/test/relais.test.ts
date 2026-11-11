@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** packages/navigateur/test/relais.test.ts — relais des secrets du navigateur du bac : substitution seulement dans la fenêtre et vers l'origine du secret, purge des réponses, Basic et Digest résolus par le relais, TLS terminé avec l'autorité de l'instance pour les seules origines d'un secret, tunnel intact ailleurs, refus du juge et du jeton ; juge des destinations d'un bac. */
 import { X509Certificate } from "node:crypto";
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer as createServerHttps } from "node:https";
@@ -19,6 +19,7 @@ import type { Autorite } from "../src/autorite";
 import {
   defisAuth,
   formesValeur,
+  ouvrirSocketATous,
   Purgeur,
   RelaisNavigateur,
   remplacerOctets,
@@ -392,6 +393,16 @@ describe("relais des secrets (socket unix réel)", () => {
       process.off("unhandledRejection", surveiller);
       relais.oublier("ab");
     }
+  });
+
+  it("droits du socket posés sans suivre de lien : un lien du bac vers un fichier de l'hôte refusé, le fichier intact", async () => {
+    const hote = path.join(dossier, "cle-hote");
+    writeFileSync(hote, "x", { mode: 0o600 });
+    const lien = path.join(dossier, "lien.sock");
+    symlinkSync(hote, lien);
+    expect(() => ouvrirSocketATous(lien)).toThrow(/not a socket/u);
+    expect(statSync(hote).mode & 0o777).toBe(0o600);
+    expect(statSync(path.join(dossier, "relais.sock")).mode & 0o777).toBe(0o666);
   });
 
   it("socket retiré par le bac : détecté, rouvert avec les liaisons", async () => {

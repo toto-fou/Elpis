@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 /** apps/toolhost/test/browser-bac-e2e.test.ts — bout en bout du navigateur dans le bac (`browser.mode` = « sandbox ») : vrai conteneur elpis/sandbox:1.8.0, service lancé dedans, relais des secrets de l'hôte, vrai core (coffre) ; site servi dans le bac piloté par pw_*, téléchargement dans /work, URL extérieure refusée par le profil sans réseau, web-login http et https (TLS strict, autorité de l'instance), Basic et Digest ; la valeur n'atteint ni le modèle ni le bac. Opt-in : ELPIS_TEST_SANDBOX_BROWSER=1 (Docker, image 1.8.0, headless shell). */
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { createServer as createServerHttps } from "node:https";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { creerGardes, dependancesParDefaut, installerAuth } from "@elpis/auth";
 import { definirFabriqueAgent, reglagesNavigateurBac } from "@elpis/bac";
@@ -18,7 +19,14 @@ import { initialiserBase } from "@elpis/db";
 import { AgentClient } from "@elpis/fichiers";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
-import { chargerAutorite, defisAuth, Feuilles, jugeRelaisBac, reponseDigest } from "@elpis/navigateur";
+import {
+  cheminsNavigateurBac,
+  chargerAutorite,
+  defisAuth,
+  Feuilles,
+  jugeRelaisBac,
+  reponseDigest,
+} from "@elpis/navigateur";
 import { ouvrirEnMemoire, ServeurOutils } from "@elpis/outils-mcp";
 import type { ConnexionEnMemoire } from "@elpis/outils-mcp";
 import { configurerCoffre, configureAudit, oublierConfigurationAudit } from "@elpis/securite";
@@ -32,7 +40,12 @@ import { creerFamilleSecrets } from "../../core/src/familles/secrets";
 import { Journal } from "../../core/src/journal";
 import { creerSecret } from "../../core/src/secrets/stockage";
 import { familleBrowser } from "../src/mcp/browser";
-import { arreterNavigateursBac, injectionsNavigateurBac } from "../src/mcp/browser/bac";
+import {
+  arreterNavigateursBac,
+  balayerNavigateursBac,
+  injectionsNavigateurBac,
+  relaisDe,
+} from "../src/mcp/browser/bac";
 import { ClientRappel } from "../src/rappel";
 import { journalMuet } from "./aides";
 
@@ -122,6 +135,9 @@ const port = (s: Server): number => (s.address() as AddressInfo).port;
 function docker(...args: string[]): string {
   return execFileSync("docker", args, { encoding: "utf8", timeout: 60_000 });
 }
+
+/** `docker` sans bloquer la boucle : le relais de l'hôte tourne dans ce processus. */
+const dockerAsync = promisify(execFile);
 
 beforeAll(async () => {
   if (!ACTIF) return;
@@ -362,9 +378,35 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
       expect(s).toMatchObject({ status: "started", secret: hote });
       const sid = String(s["session_id"]);
       expect(JSON.stringify(await outil("pw_page", { session_id: sid, action: "text" }))).toContain(titre);
+      // Un autre processus du bac, avec le jeton du relais, n'obtient pas l'Authorization de la session.
+      const jeton = readFileSync(
+        path.join(cheminsNavigateurBac(COMPTE).dossier, ".browser-relay.token"),
+        "utf8",
+      ).trim();
+      const cible = `http://${hote}.test:${port(http)}/${hote}`;
+      const { stdout: brut } = await dockerAsync("docker", [
+        "exec",
+        "-u",
+        "10001:10001",
+        CONTENEUR,
+        "python3",
+        "-c",
+        "import socket,sys;s=socket.socket(socket.AF_UNIX);s.connect('/run/elpis/browser-relay.sock');" +
+          "s.sendall(('GET '+sys.argv[1]+' HTTP/1.1\\r\\nHost: x\\r\\nProxy-Authorization: Bearer '+sys.argv[2]+'\\r\\nConnection: close\\r\\n\\r\\n').encode());" +
+          "print(s.recv(64).decode().split('\\r\\n')[0])",
+        cible,
+        jeton,
+      ]);
+      expect(brut.trim()).toBe("HTTP/1.1 401 Unauthorized");
       await outil("pw_session", { action: "stop", session_id: sid });
     }
   }, 120_000);
+
+  it("relais du compte rendu après l'arrêt de son service pour inactivité", async () => {
+    expect(relaisDe(COMPTE)).not.toBeNull();
+    expect(await balayerNavigateursBac(Date.now() + 24 * 3600_000)).toEqual([COMPTE]);
+    expect(relaisDe(COMPTE)).toBeNull();
+  });
 
   it("la valeur n'atteint ni le modèle ni le bac", () => {
     expect(resultats.join("\n")).not.toContain(SECRET);

@@ -754,7 +754,7 @@ doctor_navigateur_bac() {
     cpu="$("${PY:-python3}" -c 'import json, sys
 try: print(int(((json.load(open(sys.argv[1])).get("executors") or {}).get("limits") or {}).get("cpu_quota_pct") or 100))
 except Exception: print(100)' "$ROOT/config.json" 2>/dev/null)"
-    [ "${cpu:-100}" -ge 200 ] || warn "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
+    [ "${cpu:-100}" -ge 200 ] || info "navigateur dans le bac : ${cpu:-100} % de CPU par bac (executors.limits.cpu_quota_pct) ; Chromium y partage ce quota, 200 conseillé (captures d'étape des pages lourdes hors délai à 100)."
     pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
     check "navigateur dans le bac : headless shell de Chromium ($pw)" "./install.sh" compgen -G "$pw/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell"
     nm="$(readlink -f "$ROOT/browser-service/node_modules" 2>/dev/null)"

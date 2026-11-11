@@ -29,7 +29,7 @@ export function formesSecret(v) {
     if (typeof v !== 'string' || v.length < LONGUEUR_MIN_PURGE) return [];
     const octets = Buffer.from(v, 'utf8');
     const b64 = octets.toString('base64');
-    const out = new Set([v, b64, b64.replace(/=+$/, ''), octets.toString('base64url'), octets.toString('hex')]);
+    const out = new Set([v, b64, b64.replace(/={1,2}$/, ''), octets.toString('base64url'), octets.toString('hex')]);
     const pourcents = [[...octets].map((o) => `%${o.toString(16).padStart(2, '0').toUpperCase()}`).join('')];
     try {
         const url = encodeURIComponent(v);

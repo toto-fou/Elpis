@@ -116,7 +116,7 @@ export function formesValeur(v: string): string[] {
   if (v.length < 3) return [];
   const o = Buffer.from(v, "utf8");
   const b64 = o.toString("base64");
-  const f = new Set([v, b64, b64.replace(/=+$/u, ""), o.toString("base64url"), o.toString("hex")]);
+  const f = new Set([v, b64, b64.replace(/={1,2}$/u, ""), o.toString("base64url"), o.toString("hex")]);
   const pourcents = [[...o].map((x) => `%${x.toString(16).padStart(2, "0").toUpperCase()}`).join("")];
   try {
     const u = encodeURIComponent(v);
@@ -172,7 +172,7 @@ export function formesValeur(v: string): string[] {
 export function formesBasic(username: string, secret: string): string[] {
   const brut = `${username}:${secret}`;
   const b64 = Buffer.from(brut, "utf8").toString("base64");
-  return [brut, b64, b64.replace(/=+$/u, ""), Buffer.from(brut, "utf8").toString("base64url")];
+  return [brut, b64, b64.replace(/={1,2}$/u, ""), Buffer.from(brut, "utf8").toString("base64url")];
 }
 
 /** Valeur encodée pour le corps où elle remplace le substitut : formulaire, JSON, sinon brute. */
@@ -269,23 +269,72 @@ interface Couverture {
   readonly schemas: ReadonlySet<"http" | "https">;
 }
 
-/** Défis `WWW-Authenticate` d'une réponse (en-têtes répétés gardés) : schéma et paramètres. */
+/** Défis `WWW-Authenticate` d'une réponse (en-têtes répétés gardés) : schéma et paramètres, lus en un seul passage (l'en-tête vient de l'origine). */
 export function defisAuth(brut: readonly string[]): { schema: string; params: Record<string, string> }[] {
   const sortie: { schema: string; params: Record<string, string> }[] = [];
-  for (let i = 0; i + 1 < brut.length; i += 2) {
-    if ((brut[i] ?? "").toLowerCase() !== "www-authenticate") continue;
-    const texte = brut[i + 1] ?? "";
-    const re = /([A-Za-z][\w-]*)(?:\s+((?:[\w-]+\s*=\s*(?:"(?:[^"\\]|\\.)*"|[^,\s]*)\s*,?\s*)*))?/gy;
-    for (let m = re.exec(texte); m !== null && m[0] !== ""; m = re.exec(texte)) {
-      const params: Record<string, string> = {};
-      for (const p of (m[2] ?? "").matchAll(/([\w-]+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^,\s]*))/gu))
-        params[(p[1] ?? "").toLowerCase()] =
-          p[2] !== undefined ? p[2].replace(/\\(.)/gu, "$1") : (p[3] ?? "");
-      sortie.push({ schema: (m[1] ?? "").toLowerCase(), params });
-      while (re.lastIndex < texte.length && /[\s,]/u.test(texte[re.lastIndex] ?? "")) re.lastIndex++;
-    }
-  }
+  for (let i = 0; i + 1 < brut.length; i += 2)
+    if ((brut[i] ?? "").toLowerCase() === "www-authenticate") lireDefis(brut[i + 1] ?? "", sortie);
   return sortie;
+}
+
+/** Caractère de jeton : lettre ASCII, chiffre, `_` ou `-`. */
+function estCaractereJeton(c: number): boolean {
+  return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95 || c === 45;
+}
+
+/** Blanc d'en-tête : espace, tabulation, retour chariot, saut de ligne. */
+function estBlanc(c: string | undefined): boolean {
+  return c === " " || c === "\t" || c === "\r" || c === "\n";
+}
+
+/** Ajoute à `sortie` les défis d'une valeur : un jeton suivi de `=` est un paramètre du défi en cours, sinon un nouveau schéma. */
+function lireDefis(t: string, sortie: { schema: string; params: Record<string, string> }[]): void {
+  const n = t.length;
+  let i = 0;
+  let courant: { schema: string; params: Record<string, string> } | null = null;
+  const sauter = (avecVirgule: boolean): void => {
+    while (i < n && (estBlanc(t[i]) || (avecVirgule && t[i] === ","))) i++;
+  };
+  sauter(true);
+  while (i < n) {
+    const debut = i;
+    while (i < n && estCaractereJeton(t.charCodeAt(i))) i++;
+    const nom = t.slice(debut, i);
+    if (!nom) {
+      i++;
+      sauter(true);
+      continue;
+    }
+    sauter(false);
+    if (courant !== null && t[i] === "=") {
+      i++;
+      sauter(false);
+      let valeur: string;
+      if (t[i] === '"') {
+        const morceaux: string[] = [];
+        i++;
+        while (i < n && t[i] !== '"') {
+          if (t[i] === "\\" && i + 1 < n) i++;
+          morceaux.push(t[i] ?? "");
+          i++;
+        }
+        i++;
+        valeur = morceaux.join("");
+      } else {
+        const d = i;
+        while (i < n && t[i] !== "," && !estBlanc(t[i])) i++;
+        valeur = t.slice(d, i);
+      }
+      courant.params[nom.toLowerCase()] = valeur;
+    } else {
+      const c = nom.charCodeAt(0);
+      if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) {
+        courant = { schema: nom.toLowerCase(), params: {} };
+        sortie.push(courant);
+      }
+    }
+    sauter(true);
+  }
 }
 
 /** Réponse Digest (RFC 7616 : MD5, SHA-256 et leurs variantes -sess, qop auth ou sans qop). */

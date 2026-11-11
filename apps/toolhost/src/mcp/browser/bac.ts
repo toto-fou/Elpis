@@ -24,6 +24,7 @@ import type { UserSandbox } from "@elpis/bac";
 import { journalDe } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 import {
+  autoriteARenouveler,
   chargerAutorite,
   cheminsNavigateurBac,
   jetonDuBac,
@@ -46,6 +47,10 @@ export const reglagesNavigateurBac = {
   sondeMs: 200,
   /** Activité du compte poussée au bac au plus une fois par période (ms). */
   activiteMs: 60_000,
+  /** Relais d'un compte sans appel rendu après l'arrêt de son service pour inactivité, plus cette marge (ms). */
+  margeInactiviteMs: 60_000,
+  /** Période du balayage des relais inactifs (ms). */
+  balayageMs: 60_000,
 };
 
 /** Surcharges de test : juge des destinations du relais, autorité (sinon celle de l'instance). */
@@ -63,6 +68,8 @@ interface EtatCompte {
   activite: number;
   /** Instant de démarrage du service connu (uptime) : un autre signale une relance, les liaisons sont oubliées. */
   debut: number;
+  /** Dernier outil pw_* du compte (ms). */
+  dernierAppel: number;
 }
 
 const etats = new Map<string, EtatCompte>();
@@ -76,14 +83,16 @@ export class ErreurNavigateurBac extends Error {
 function etatDe(username: string): EtatCompte {
   let e = etats.get(username);
   if (e === undefined) {
-    e = { relais: null, bac: null, demarrage: null, activite: 0, debut: 0 };
+    e = { relais: null, bac: null, demarrage: null, activite: 0, debut: 0, dernierAppel: Date.now() };
     etats.set(username, e);
   }
   return e;
 }
 
-/** Autorité de l'instance (chargée ou créée une fois par processus). */
+/** Autorité de l'instance (chargée ou créée une fois par processus, renouvelée quand son terme approche). */
 export function autoriteInstance(): Autorite {
+  if (autorite !== null && injectionsNavigateurBac.autorite === null && autoriteARenouveler(autorite))
+    autorite = null;
   autorite ??= injectionsNavigateurBac.autorite ?? chargerAutorite();
   return autorite;
 }
@@ -146,6 +155,11 @@ export function dureeLiaisonMs(): number {
 /** Relais du compte à l'écoute (rouvert si le bac a retiré son socket). */
 async function relaisDuCompte(e: EtatCompte, username: string, jeton: string): Promise<RelaisNavigateur> {
   const c = cheminsNavigateurBac(username);
+  // Autorité renouvelée : relais recréé (ses certificats viennent de l'ancienne) ; le service, relancé par la rotation du certificat, s'y raccroche.
+  if (e.relais !== null && e.relais.empreinteAutorite !== autoriteInstance().empreinte) {
+    await e.relais.fermer();
+    e.relais = null;
+  }
   if (e.relais === null) {
     const profil = (): ReturnType<Parameters<typeof jugeRelaisBac>[0]> =>
       e.bac?.networkProfile ?? { id: "isolated", mode: "none", ips: [], domains: [], ports: [] };
@@ -236,6 +250,8 @@ export async function serviceDuCompte(username: string): Promise<ServiceNavigate
   const s = serviceNavigateur(username);
   if (s.mode === "central") return s;
   const e = etatDe(username);
+  e.dernierAppel = Date.now();
+  veiller();
   e.demarrage ??= assurer(username, e).finally(() => {
     e.demarrage = null;
   });
@@ -269,10 +285,45 @@ export function oublierAuRelais(username: string, ids: readonly string[]): void 
   for (const id of ids) r?.oublier(id);
 }
 
+let veille: NodeJS.Timeout | null = null;
+
+/** Balayage périodique des relais inactifs, tant qu'un compte a un état. */
+function veiller(): void {
+  veille ??= setInterval(() => void balayerNavigateursBac(), reglagesNavigateurBac.balayageMs);
+  veille.unref();
+}
+
+/** Rend les relais des comptes sans outil pw_* depuis l'arrêt de leur service pour inactivité (plus une marge) : liaisons oubliées, socket fermé ; comptes rendus. */
+export async function balayerNavigateursBac(maintenant = Date.now()): Promise<string[]> {
+  const rendus: string[] = [];
+  for (const [u, e] of [...etats]) {
+    if (e.demarrage !== null) continue;
+    if (maintenant - e.dernierAppel <= dureeLiaisonMs() + reglagesNavigateurBac.margeInactiviteMs) continue;
+    etats.delete(u);
+    rendus.push(u);
+    await e.relais?.fermer().catch(() => undefined);
+    log().info(`[browser] ${u}: idle, secret relay released`);
+  }
+  if (etats.size === 0 && veille !== null) {
+    clearInterval(veille);
+    veille = null;
+  }
+  return rendus;
+}
+
+/** Tests : relais posé pour un compte comme après un démarrage, dernier appel à `dernierAppel`. */
+export function poserRelaisPourTests(username: string, relais: RelaisNavigateur, dernierAppel: number): void {
+  const e = etatDe(username);
+  e.relais = relais;
+  e.dernierAppel = dernierAppel;
+}
+
 /** Tests et arrêt : relais fermés, états oubliés. */
 export async function arreterNavigateursBac(): Promise<void> {
   const tous = [...etats.values()];
   etats.clear();
   autorite = null;
+  if (veille !== null) clearInterval(veille);
+  veille = null;
   await Promise.all(tous.map((e) => e.relais?.fermer() ?? Promise.resolve()));
 }

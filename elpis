@@ -535,7 +535,10 @@ cmd_logs() {
     if [ "$svc" = browser ] && [ -n "$compte" ]; then
         c="$(docker ps -q --filter "label=elpis.username=$compte" | head -n1)"
         [ -n "$c" ] || die "Aucun bac en marche pour le compte $compte."
-        exec docker exec "$c" tail -n 50 $([ "$follow" -eq 1 ] && echo -F) /work/.elpis-browser/service.log
+        # Journal écrit dans le bac (hostile) : caractères de contrôle et séquences C1 retirés avant le terminal (tabulation et fin de ligne gardées).
+        docker exec "$c" tail -n 50 $([ "$follow" -eq 1 ] && echo -F) /work/.elpis-browser/service.log \
+            | LC_ALL=C sed -u -e 's/[\x00-\x08\x0b-\x1f\x7f]//g' -e 's/\xc2[\x80-\x9f]//g'
+        exit "${PIPESTATUS[0]}"
     fi
     if systemd_active && [ -n "$svc" ]; then
         exec journalctl -u "${UNIT_PREFIX}-$svc" $([ "$follow" -eq 1 ] && echo -f)

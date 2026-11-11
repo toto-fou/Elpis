@@ -26,7 +26,13 @@ export {
   serviceNavigateur,
 } from "./mode";
 export type { ServiceNavigateur } from "./mode";
-export { chargerAutorite, dossierAutorite, Feuilles } from "./autorite";
+export {
+  autoriteARenouveler,
+  chargerAutorite,
+  dossierAutorite,
+  Feuilles,
+  reglagesAutorite,
+} from "./autorite";
 export type { Autorite } from "./autorite";
 export {
   defisAuth,

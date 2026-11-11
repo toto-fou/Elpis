@@ -133,13 +133,36 @@ function certificat(o: {
 
 // ── Autorité ─────────────────────────────────────────────────────────
 
-/** Autorité chargée : certificat (PEM), clé privée (jamais hors de l'hôte), sujet et identifiant de clé pour signer les feuilles. */
+/** Autorité chargée : certificat (PEM), clé privée (jamais hors de l'hôte), sujet et identifiant de clé pour signer les feuilles, échéance (ms). */
 export interface Autorite {
   readonly certPem: string;
   readonly cle: KeyObject;
   readonly sujet: Buffer;
   readonly idCle: Buffer;
   readonly empreinte: string;
+  readonly echeance: number;
+}
+
+/** Validité de l'autorité et renouvellement : une autorité plus courte limite la durée d'une clé volée (pas de contraintes de noms possibles, les origines des secrets changent sans cesse). */
+export const reglagesAutorite = {
+  /** Validité d'une autorité créée (jours). */
+  jours: 365,
+  /** Renouvelée au chargement quand il lui reste moins que cela (jours). */
+  renouvelerAvantJours: 30,
+};
+
+/** Vrai si l'autorité arrive à son terme à `maintenant` (renouvellement dû). */
+export function autoriteARenouveler(a: Pick<Autorite, "echeance">, maintenant = Date.now()): boolean {
+  return a.echeance - maintenant < reglagesAutorite.renouvelerAvantJours * 86400_000;
+}
+
+/** Échéance (ms) d'un certificat PEM, 0 s'il est illisible. */
+function echeanceDe(pem: string): number {
+  try {
+    return Date.parse(new X509Certificate(pem).validTo) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** Dossier de l'autorité : `ELPIS_BROWSER_CA_DIR`, sinon `<racine>/user_db/browser-relay-ca`. */
@@ -150,11 +173,14 @@ export function dossierAutorite(): string {
   );
 }
 
-/** Autorité de `dossier` (`ca.key` 0600, `ca.crt`), créée au premier appel (clé ECDSA P-256, 10 ans) ; la supprimer puis relancer l'hôte d'outils la renouvelle. */
-export function chargerAutorite(dossier: string = dossierAutorite()): Autorite {
+/** Autorité de `dossier` (`ca.key` 0600, `ca.crt`), créée au premier appel (clé ECDSA P-256, `reglagesAutorite.jours`) et recréée quand son terme approche (`renouvelerAvantJours`) ; la supprimer puis relancer l'hôte d'outils la renouvelle aussi. */
+export function chargerAutorite(dossier: string = dossierAutorite(), maintenant = Date.now()): Autorite {
   const fCle = path.join(dossier, "ca.key");
   const fCert = path.join(dossier, "ca.crt");
-  if (!existsSync(fCle) || !existsSync(fCert)) {
+  const echue =
+    existsSync(fCert) &&
+    autoriteARenouveler({ echeance: echeanceDe(readFileSync(fCert, "utf8")) }, maintenant);
+  if (!existsSync(fCle) || !existsSync(fCert) || echue) {
     mkdirSync(dossier, { recursive: true, mode: 0o700 });
     chmodSync(dossier, 0o700);
     const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
@@ -164,7 +190,7 @@ export function chargerAutorite(dossier: string = dossierAutorite()): Autorite {
       emetteur: sujet,
       sujet,
       spki,
-      jours: 3650,
+      jours: reglagesAutorite.jours,
       cleSignature: privateKey,
       extensions: [
         extension("2.5.29.19", seq(vrai, entier(Buffer.from([0]))), true),
@@ -174,8 +200,10 @@ export function chargerAutorite(dossier: string = dossierAutorite()): Autorite {
     });
     const tmp = `${fCle}.${process.pid}.tmp`;
     writeFileSync(tmp, privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+    const tmpCert = `${fCert}.${process.pid}.tmp`;
+    writeFileSync(tmpCert, pem, { mode: 0o644 });
     renameSync(tmp, fCle);
-    writeFileSync(fCert, pem, { mode: 0o644 });
+    renameSync(tmpCert, fCert);
   }
   const certPem = readFileSync(fCert, "utf8");
   const x = new X509Certificate(certPem);
@@ -191,6 +219,7 @@ export function chargerAutorite(dossier: string = dossierAutorite()): Autorite {
     sujet: x.raw.subarray(s[0], s[1]),
     idCle: idCle(x.publicKey.export({ type: "spki", format: "der" })),
     empreinte: x.fingerprint256,
+    echeance: Date.parse(x.validTo) || 0,
   };
 }
 

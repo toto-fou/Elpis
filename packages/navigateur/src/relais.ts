@@ -522,6 +522,11 @@ export class RelaisNavigateur {
     return srv;
   }
 
+  /** Empreinte de l'autorité qui signe les certificats de ce relais (une autre après une rotation : relais à recréer). */
+  get empreinteAutorite(): string {
+    return this.o.autorite.empreinte;
+  }
+
   /** Écoute de nouveau (socket retiré ou remplacé dans le bac), liaisons gardées. */
   async rouvrir(): Promise<void> {
     this.serveur.close();

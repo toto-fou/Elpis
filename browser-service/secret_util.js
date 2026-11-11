@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// browser-service/secret_util.js — session sécurisée : valeurs retenues (purge des réponses, scan des pages, captures gardées), contrôle et détection des champs de connexion, saisie d'un secret du coffre.
+// browser-service/secret_util.js — connexion avec un secret du coffre : formes encodées du mot de passe (garde réseau, purge des sorties de /login), contrôle et détection des champs, saisie.
 
 const LONGUEUR_MIN_PURGE = 3;
 const MASQUE = '[secret]';
@@ -13,7 +13,7 @@ export function origineDe(adresse) {
     return u.origin === 'null' ? null : u.origin;
 }
 
-/** Erreur codée de la session sécurisée : code stable, statut HTTP et champs joints à la réponse. */
+/** Erreur codée d'une connexion : code stable, statut HTTP et champs joints à la réponse. */
 export function erreurSecret(code, message, statut = 403, details = null) {
     const e = new Error(message);
     e.code = code;
@@ -22,7 +22,7 @@ export function erreurSecret(code, message, statut = 403, details = null) {
     return e;
 }
 
-// ── Valeurs retenues et purge ───────────────────────────────────────────
+// ── Formes du mot de passe et purge ─────────────────────────────────────
 
 /** Formes sous lesquelles une valeur peut revenir : brute, URL, formulaire, HTML (entités, texte et attribut sérialisés), JSON, base64 (trois variantes), hexadécimal. */
 export function formesSecret(v) {
@@ -44,25 +44,6 @@ export function formesSecret(v) {
     return [...out].filter((x) => x.length >= LONGUEUR_MIN_PURGE).sort((a, b) => b.length - a.length);
 }
 
-/** Retient un secret pour la vie de la session, sous toutes ses formes (purge, contrôle des pages) ; `basic` ajoute `identifiant:secret`. */
-export function retenirSecret(session, secret, { identifiant = '', basic = false } = {}) {
-    if (typeof secret !== 'string' || secret.length < LONGUEUR_MIN_PURGE) return;
-    session._valeursSecretes ??= new Set();
-    for (const f of formesSecret(secret)) session._valeursSecretes.add(f);
-    if (basic && identifiant) for (const f of formesSecret(`${identifiant}:${secret}`)) session._valeursSecretes.add(f);
-}
-
-/** Oublie les valeurs retenues (fermeture de la session). */
-export function oublierSecrets(session) {
-    if (!session) return;
-    session._valeursSecretes?.clear();
-}
-
-function formesRetenues(session) {
-    return session && session._valeursSecretes && session._valeursSecretes.size
-        ? [...session._valeursSecretes].sort((a, b) => b.length - a.length) : [];
-}
-
 // Chaîne purgée des seules occurrences ENTIÈRES d'une forme : un morceau n'est jamais masqué (le masquage partiel ferait un oracle sur un texte fourni).
 function purgerChaine(s, formes) {
     let t = s;
@@ -70,139 +51,21 @@ function purgerChaine(s, formes) {
     return t;
 }
 
-/** Copie de la charge JSON où chaque forme d'une valeur retenue (textes et clés) devient `[secret]`. */
-export function purgerValeurs(charge, session) {
-    const formes = formesRetenues(session);
-    if (!formes.length) return charge;
-    const marche = (v, n) => {
-        if (typeof v === 'string') return purgerChaine(v, formes);
-        if (n > 40 || !v || typeof v !== 'object') return v;
-        if (Array.isArray(v)) return v.map((x) => marche(x, n + 1));
-        const proto = Object.getPrototypeOf(v);
-        if (proto !== Object.prototype && proto !== null) return v;
-        return Object.fromEntries(Object.entries(v).map(([k, x]) => [purgerChaine(k, formes), marche(x, n + 1)]));
-    };
-    return marche(charge, 0);
+/** Texte purgé des `formes` (adresse, titre, message, ligne de journal), à appeler AVANT toute coupure ; tel quel sans formes. */
+export function purgerTexte(texte, formes) {
+    const s = typeof texte === 'string' ? texte : String(texte ?? '');
+    return formes && formes.length ? purgerChaine(s, formes) : s;
 }
 
-/** Texte purgé (adresse, titre, message, ligne de journal), à appeler AVANT toute coupure. */
-export function purgerTexte(texte, session) {
-    const s = typeof texte === 'string' ? texte : String(texte ?? '');
-    const formes = formesRetenues(session);
-    return formes.length ? purgerChaine(s, formes) : s;
+/** Corps et en-têtes d'une requête Playwright en un texte ; vide s'ils ne sont pas lisibles. */
+export function chargeRequete(rq) {
+    try { return [rq.postData() || '', ...Object.values(rq.headers())].join('\n'); } catch (e) { return ''; }
 }
 
 /** Une requête sortante porte-t-elle l'une des formes (adresse, corps ou en-têtes) ? */
 export function requetePorteSecret(url, corps, formes) {
     for (const f of formes) if ((url && url.includes(f)) || (corps && corps.includes(f))) return true;
     return false;
-}
-
-// ── Pages qui montrent un secret retenu ─────────────────────────────────
-
-// Lecture d'une page qui peut naviguer : nouvel essai jusqu'à `fin` (course avec une navigation), puis erreur ; null si la page est fermée.
-async function lireBorne(page, lecture, fin) {
-    for (;;) {
-        let minuteur;
-        try {
-            const reste = fin - Date.now();
-            if (reste <= 0) throw new Error('délai');
-            return await Promise.race([lecture(), new Promise((_, rej) => { minuteur = setTimeout(() => rej(new Error('délai')), reste); })]);
-        } catch (e) {
-            if (page.isClosed()) return null;
-            if (Date.now() > fin - 200) throw e;
-            await new Promise((r) => setTimeout(r, 150));
-        } finally { clearTimeout(minuteur); }
-    }
-}
-
-// Chaînes de l'instantané DOM du navigateur (texte, attributs, valeurs saisies, racines d'ombre, frames du même processus), sans passer par la page ; null pour un frame sans session à lui (déjà dans l'instantané de sa page).
-async function chainesInstantane(context, cible, frame = false) {
-    let cdp;
-    try { cdp = await context.newCDPSession(cible); } catch (e) { if (frame) return null; throw e; }
-    try { return (await cdp.send('DOMSnapshot.captureSnapshot', { computedStyles: [] })).strings || []; }
-    finally { await cdp.detach().catch(() => {}); }
-}
-
-/** La page contient-elle une forme retenue (instantané DOM du navigateur et de chaque frame hors processus, HTML sérialisé hors monde de la page, adresses) ? Lecture impossible à temps = oui. */
-export async function pageMontreSecret(page, session, delaiMs = 5000) {
-    const formes = formesRetenues(session);
-    if (!formes.length || page.isClosed()) return false;
-    const contient = (t) => typeof t === 'string' && formes.some((f) => t.includes(f));
-    const fin = Date.now() + delaiMs;
-    try {
-        const ctx = page.context();
-        if ((await lireBorne(page, () => chainesInstantane(ctx, page), fin) || []).some(contient)) return true;
-        for (const f of page.frames()) {
-            if (f.isDetached()) continue;
-            if (contient(f.url())) return true;
-            if (f !== page.mainFrame() && (await lireBorne(page, () => chainesInstantane(ctx, f, true), fin) || []).some(contient)) return true;
-            if (contient(await lireBorne(page, () => (f.isDetached() ? '' : f.content()), fin))) return true;
-        }
-    } catch (e) { return !page.isClosed(); }
-    return false;
-}
-
-/** Vide une page (about:blank, sinon fermeture) et le note sur la session : une réponse en cours pendant ce temps est retenue. */
-export async function viderPage(pg, session) {
-    session._blanchiments = (session._blanchiments || 0) + 1;
-    await pg.goto('about:blank', { timeout: 5000 }).catch(() => { pg.__elpisFermeParService = true; return pg.close().catch(() => {}); });
-}
-
-/** Vide chaque onglet qui contient un secret retenu ; vrai s'il y en avait un. */
-export async function viderPagesAvecSecret(session) {
-    let vu = false;
-    for (const pg of [...(session.tabs || [])]) {
-        if (!(await pageMontreSecret(pg, session))) continue;
-        vu = true;
-        await viderPage(pg, session);
-    }
-    return vu;
-}
-
-/** Contrôle d'une page à chaque document engagé, puis chargé (page et chaque frame), hors connexion en cours : une page qui contient un secret retenu est vidée aussitôt. */
-export function surveillerPage(session, page) {
-    if (!page || page.__elpisSurveillee) return;
-    page.__elpisSurveillee = true;
-    let prevu = false;
-    let file = Promise.resolve();
-    const planifier = () => {
-        if (prevu || page.isClosed()) return;
-        prevu = true;
-        file = file.then(() => new Promise((r) => setTimeout(r, 50))).then(async () => {
-            prevu = false;
-            if (session._connexionEnCours || page.isClosed() || !session._valeursSecretes?.size) return;
-            if (await pageMontreSecret(page, session)) await viderPage(page, session);
-        }).catch(() => {});
-    };
-    page.on('framenavigated', (frame) => {
-        planifier();
-        if (frame !== page.mainFrame()) frame.waitForLoadState('load', { timeout: 15000 }).then(planifier, () => {});
-    });
-    page.on('domcontentloaded', planifier);
-    page.on('load', planifier);
-}
-
-const contextesSecurises = new WeakMap();
-let capturesGardees = false;
-export const CAPTURE_REFUSEE = 'Screenshot refused: the page shows a vault secret.';
-
-/** Toute capture (page ou élément) d'un contexte sécurisé est refusée tant que sa page montre un secret retenu. */
-export function garderCaptures(context, page, session) {
-    contextesSecurises.set(context, session);
-    if (capturesGardees) return;
-    capturesGardees = true;
-    const garder = (proto, pageDe) => {
-        const capturer = proto.screenshot;
-        proto.screenshot = async function (opts) {
-            const pg = pageDe(this);
-            const sess = contextesSecurises.get(pg.context());
-            if (sess && (await pageMontreSecret(pg, sess))) throw erreurSecret('secret_in_page', CAPTURE_REFUSEE, 409);
-            return capturer.call(this, opts);
-        };
-    };
-    garder(Object.getPrototypeOf(page), (p) => p);
-    garder(Object.getPrototypeOf(page.locator('body')), (l) => l.page());
 }
 
 // ── Champs de connexion ─────────────────────────────────────────────────

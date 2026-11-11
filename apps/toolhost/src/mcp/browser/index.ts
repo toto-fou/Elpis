@@ -11,7 +11,7 @@ import type { Journal } from "../../journal";
 import { proprietaireDe, sousAgentDe } from "./appel";
 import type { ServicesBrowser } from "./appel";
 import { liaison, oublier } from "./liaisons";
-import { conseilSecret, declencheurSecret } from "./secrets";
+import { declencheurSecret } from "./secrets";
 import type { PortSecrets } from "./secrets";
 import { pwAct, pwChain, pwFind } from "./elements";
 import { pwA11y, pwMock, pwObserve, pwRecorder, pwVisual } from "./essais";
@@ -26,7 +26,7 @@ const GOLDEN = goldenBrowser as unknown as Golden;
 
 type Traitement = (args: Dict, ctx: ContexteAppel, brut: Dict) => Promise<unknown>;
 
-/** Résultat d'un outil pw_* : liaison oubliée pour une session disparue ; session fermée sur un déclencheur : secret détaché par le core, erreur en clair ; refus `secret_*` réécrits pour le modèle. */
+/** Résultat d'un outil pw_* : liaison oubliée pour une session disparue ; session fermée sur un déclencheur : secret détaché par le core, erreur en clair. */
 async function apresOutil(s: ServicesBrowser, a: Dict, ctx: ContexteAppel, r: unknown): Promise<unknown> {
   const sid = typeof a["session_id"] === "string" ? a["session_id"] : "";
   if (sid && estDict(r) && r["ok"] === false) {
@@ -39,7 +39,7 @@ async function apresOutil(s: ServicesBrowser, a: Dict, ctx: ContexteAppel, r: un
       return declencheurSecret(s.secrets ?? null, nom);
     }
   }
-  return conseilSecret(r);
+  return r;
 }
 
 /** Les 15 outils dans l'ordre d'enregistrement (`firefox_tools.register`, puis `pw_login` après `pw_chain`) ; résultats revus par `apresOutil`. */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/liaisons.ts — sessions sécurisées liées par l'hôte d'outils au secret qui les a ouvertes (nom, genre, origines, TLS, politique des sous-agents), par propriétaire du service et session ; oubliées à l'arrêt, au nettoyage, à l'expiration ou sur un déclencheur, bornées en mémoire. */
+/** apps/toolhost/src/mcp/browser/liaisons.ts — sessions ouvertes pour un secret, liées par l'hôte d'outils à ce secret (nom, genre, origines, TLS, politique des sous-agents), par propriétaire du service et session ; oubliées à l'arrêt, au nettoyage, à l'expiration ou sur un déclencheur, bornées en mémoire. */
 
-/** Secret pour lequel une session sécurisée a été ouverte. */
+/** Secret pour lequel une session a été ouverte. */
 export interface LiaisonSession {
   readonly secret: string;
   readonly kind: "web-login" | "http-auth";

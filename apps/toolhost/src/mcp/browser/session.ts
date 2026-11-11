@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, session sécurisée quand un secret attaché couvre l'origine, liée à ce secret et reprise pour lui ensuite, propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
+/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse ; quand un secret attaché couvre l'origine, session ordinaire ouverte pour lui avec le TLS de sa politique et un `http-auth` appliqué, liée à ce secret et reprise pour lui ensuite ; propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { errPw, origineExacte, pwOwner, recordPwSessionOwner, refusUrl } from "@elpis/navigateur";
@@ -51,7 +51,7 @@ async function secretDeSession(
     if (nom !== null || r.refus["error"] !== "secret_unavailable") return r;
     return {
       choix: null,
-      avis: "The vault did not answer: this is not a secure session, pw_login cannot be used in it.",
+      avis: "The vault did not answer: this session was not opened for a secret, pw_login cannot be used in it.",
     };
   }
   if (r.valeur.length > 1)
@@ -74,11 +74,11 @@ async function secretDeSession(
 const FIX_IDENTIFIANT =
   "Ask the user to add the user name of this secret in Settings › Secrets, then start again; never ask for it or for a password in the chat.";
 
-/** Note jointe à une session sécurisée `web-login`. */
+/** Note jointe à une session ouverte pour un secret `web-login`. */
 const noteConnexion = (nom: string): string =>
-  `Secure session for secret '${nom}': call pw_login(session_id, secret="${nom}") on its login page.`;
+  `Session opened for secret '${nom}' (TLS of its policy): call pw_login(session_id, secret="${nom}") on its login page; every other tool works as usual.`;
 
-/** Session sécurisée déjà ouverte par ce propriétaire pour le même secret, la même origine et le même TLS : l'adresse s'y ouvre (ni nouvelle session, ni usage du secret) ; `null` s'il n'y en a pas ou si elle n'existe plus. */
+/** Session déjà ouverte par ce propriétaire pour le même secret, la même origine et le même TLS : l'adresse s'y ouvre (ni nouvelle session, ni usage du secret) ; `null` s'il n'y en a pas ou si elle n'existe plus. */
 async function reprendreSession(
   client: Appel["client"],
   choix: SecretDeSession,
@@ -96,15 +96,14 @@ async function reprendreSession(
     status: estDict(r) && r["ok"] === false ? r["status"] : "reused",
     session_id: sid,
     reused: true,
-    secure: true,
     tls: choix.secret.tls,
     secret: choix.secret.name,
-    reuse_note: `The secure session already open for secret '${choix.secret.name}' was reused (one session per secret).`,
+    reuse_note: `The session already open for secret '${choix.secret.name}' was reused (one session per secret).`,
     ...(choix.secret.kind === "web-login" ? { secret_note: noteConnexion(choix.secret.name) } : {}),
   };
 }
 
-/** `start` : url exigée et autorisée, session sécurisée quand un secret attaché couvre l'origine (`http-auth` appliqué au contexte, TLS de sa politique), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée. */
+/** `start` : url exigée et autorisée, session ouverte pour le secret attaché qui couvre l'origine (TLS de sa politique ; `http-auth` appliqué au contexte, sans HAR ni trace), groupe du compte joint pour le quota d'un enfant isolé, propriété de la session posée. */
 async function demarrer(
   a: Dict,
   s: ServicesBrowser,
@@ -129,6 +128,11 @@ async function demarrer(
   }
   let tls = choix?.secret.tls ?? "strict";
   let identifiants: { username: string; password: string } | null = null;
+  if (choix?.secret.kind === "http-auth" && (veritePy(a["record_har"]) || veritePy(a["trace"])))
+    return errPw("recording_with_credentials", "", {
+      message: `Secret '${choix.secret.name}' applies HTTP authentication to this session: a HAR or a trace would keep it in clear.`,
+      fix: "Start again without record_har and trace.",
+    });
   if (choix !== null && choix.secret.kind === "http-auth") {
     const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
     if ("refus" in v) return v.refus;
@@ -142,7 +146,6 @@ async function demarrer(
     owner: client.owner,
   };
   if (choix !== null) {
-    corps["secure"] = true;
     corps["tls"] = tls;
     if (identifiants !== null) Object.assign(corps, { credentials_origin: choix.origine, ...identifiants });
   }

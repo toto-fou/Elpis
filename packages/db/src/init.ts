@@ -7,7 +7,7 @@ import type { Base, Executeur, StatsPool } from "./base";
 import { ErreurBase } from "./erreurs";
 import { MigrationDifferee, MIGRATIONS_TS } from "./migration";
 import type { ContexteMigration, Migration, NotesMigration, PortsMigration } from "./migration";
-import { createAll, hasTable, isFresh } from "./schema";
+import { createAll, hasTable, isFresh, schemaIncomplet } from "./schema";
 import { BASELINE_COVERS, MIGRATIONS_PYTHON } from "./schema.gen";
 
 export class ErreurBaseNonAJour extends ErreurBase {
@@ -94,11 +94,11 @@ export interface OptionsInit {
   readonly migrations?: readonly Migration[];
   /** Ports des migrations (coffre, Fernet sans création de clé) ; absents : `null`. */
   readonly ports?: Partial<PortsMigration>;
-  /** Réservé à l'annonce d'un travail réel (ligne d'essai) ; sans effet sur cette base. */
+  /** Appelé juste avant un travail réel (schéma à poser ou compléter, migration que ce process applique). */
   readonly annoncerTravail?: () => void;
 }
 
-/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée (registre entier) ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; migrations TS en attente jouées dans l'ordre du registre avec `secure_delete`, jusqu'à la première différée (implémentation absente de ce process, `MigrationDifferee`) ou en échec ; leur journal de sécurité part après la validation (`apresValidation`). */
+/** `init_db` sous verrou d'écriture : base neuve créée d'un coup et tamponnée (registre entier) ; base existante exigée à jour côté Python, sans quoi rien n'est modifié ; `annoncerTravail` juste avant un travail réel ; migrations TS en attente jouées dans l'ordre du registre avec `secure_delete`, jusqu'à la première différée (implémentation absente de ce process, `MigrationDifferee`) ou en échec ; leur journal de sécurité part après la validation (`apresValidation`). */
 export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<RapportInit> {
   const ctx: ContexteMigration = { coffre: o.ports?.coffre ?? null, fernet: o.ports?.fernet ?? null };
   const implementations = new Map((o.migrations ?? []).map((m) => [m.name, m]));
@@ -124,6 +124,13 @@ export async function initialiserBase(base: Base, o: OptionsInit = {}): Promise<
         );
       }
     }
+    const dejaFaites = await appliquees(x);
+    if (
+      neuve ||
+      MIGRATIONS_TS.some((n) => !dejaFaites.has(n) && implementations.has(n)) ||
+      (await schemaIncomplet(x))
+    )
+      o.annoncerTravail?.();
     const schema = await createAll(base);
     const avant = await appliquees(x);
     const couvertes = [...BASELINE_COVERS, ...MIGRATIONS_TS];

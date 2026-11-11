@@ -27,7 +27,7 @@ export const ORIGINES_SECRET_MAX = 10;
 export const VALEUR_SECRET_MAX = 16_384;
 export const SECRETS_PAR_PROPRIETAIRE_MAX = 200;
 
-/** Codes d'erreur du coffre (réponses `{detail, code}`, messages en anglais) ; ceux du navigateur viennent avec la session sécurisée. */
+/** Codes d'erreur du coffre (réponses `{detail, code}`, messages en anglais) ; ceux du navigateur viennent avec la connexion (`pw_login`). */
 export const CODES_ERREUR_SECRET = [
   "secret_request_invalid",
   "secret_name_invalid",
@@ -171,7 +171,7 @@ export type CorpsSecretsChat = z.infer<typeof schemaCorpsSecretsChat>;
 export const schemaReponseSecretsChat = z.object({ secrets: z.array(schemaSecret) });
 export type ReponseSecretsChat = z.infer<typeof schemaReponseSecretsChat>;
 
-/** Secrets applicables à une origine pour la conversation de l'enveloppe signée (sans valeur) : `pw_session` ouvre une session sécurisée s'il y en a un. */
+/** Secrets applicables à une origine pour la conversation de l'enveloppe signée (sans valeur) : `pw_session` ouvre une session pour lui s'il y en a un. */
 export const schemaCorpsSecretsApplicables = z.strictObject({
   origin: z.string().min(1).max(2048),
   name: nom.nullable().optional(),
@@ -180,7 +180,7 @@ export const schemaSecretApplicable = z.object({
   name: z.string(),
   kind: z.enum(GENRES_ATTACHABLES),
   username: z.string().nullable(),
-  /** Origines de la portée : l'hôte d'outils y lie la session sécurisée ouverte pour ce secret. */
+  /** Origines de la portée : l'hôte d'outils y lie la session ouverte pour ce secret. */
   origins: z.array(z.string()),
   tls: z.enum(["strict", "insecure"]),
   /** `policy.subagents` : faux, un sous-agent ne pilote pas la session ouverte pour ce secret. */

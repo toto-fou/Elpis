@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/secrets/usage.ts — `lireSecretPourUsage` : secret d'un propriétaire choisi par son nom ou par sa cible (origine, hôte, connecteur, serveur), contrôlé (genre, attachement à la conversation, état, portée), déchiffré, compté et journalisé ; `secretsApplicables` : les mêmes contrôles sans valeur, pour ouvrir une session sécurisée. */
+/** apps/core/src/secrets/usage.ts — `lireSecretPourUsage` : secret d'un propriétaire choisi par son nom ou par sa cible (origine, hôte, connecteur, serveur), contrôlé (genre, attachement à la conversation, état, portée), déchiffré, compté et journalisé ; `secretsApplicables` : les mêmes contrôles sans valeur, pour ouvrir une session pour un secret. */
 import type { GenreSecret, PolitiqueSecret, SecretApplicable } from "@elpis/contracts";
 import type { Base, Executeur } from "@elpis/db";
 

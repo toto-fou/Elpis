@@ -17,11 +17,16 @@ export function pwMock(s: ServicesBrowser) {
     const sid = a["session_id"];
     const action = a["action"] as string;
     if (action === "add") {
-      if (!a["url_pattern"]) return errPw("url_pattern required", "pass the URL (glob) pattern to mock");
+      if (!a["url_pattern"])
+        return errPw(
+          "url_pattern required",
+          "pass a substring of the URL to mock (or a regular expression with is_regex=true)",
+        );
       return client.req("POST", "/mock/add", {
         json: {
           session_id: sid,
           url_pattern: a["url_pattern"],
+          is_regex: a["is_regex"] === true,
           status: a["status"],
           body: a["body"],
           content_type: a["content_type"],

@@ -219,3 +219,34 @@ test('pw_page eval : instructions sans return exécutées comme un corps (vraie 
     assert.deepEqual((await Promise.all(suivantes)).map(x => x.corps.result), [1, 2]);
     assert.ok(Date.now() - t0 < 10000, `${Date.now() - t0} ms`);
 });
+
+test('pw_mock : regex brute ou délimitée avec is_regex, champs invalides refusés, le premier ajouté l\'emporte, dit dans le résultat', { skip: SAUTER, timeout: 60000 }, async () => {
+    await ouvrir('/');
+    const lire = async (chemin) => (await api('/evaluate', { script: `return await (await fetch(${JSON.stringify(chemin)})).text()` })).corps.result;
+    let r = await api('/mock/add', { url_pattern: '/api/.*\\?id=\\d+$', is_regex: true, body: 'brute' });
+    assert.equal(r.statut, 200, r.texte);
+    assert.equal(r.corps.is_regex, true);
+    assert.equal(await lire('/api/x?id=12'), 'brute');
+    assert.notEqual(await lire('/api/x?id=ab'), 'brute');
+    await api('/mock/add', { url_pattern: '/ITEMS\\/\\d+/i', is_regex: true, body: 'délimitée' });
+    assert.equal(await lire('/items/5'), 'délimitée');
+    for (const [corps, champ] of [[{ url_pattern: '([', is_regex: true }, 'url_pattern'], [{ url_pattern: '/a', status: 999 }, 'status'],
+        [{ url_pattern: '/a', times: 0 }, 'times'], [{ url_pattern: '/a', delay_ms: -5 }, 'delay_ms'], [{ url_pattern: '/a', method: 'FOO' }, 'method'],
+        [{ url_pattern: '/a', body: { a: 1 } }, 'body'], [{ url_pattern: '' }, 'url_pattern']]) {
+        r = await api('/mock/add', corps);
+        assert.equal(r.statut, 400, r.texte);
+        assert.equal(r.corps.code, 'invalid_mock');
+        assert.equal(r.corps.field, champ);
+    }
+    assert.match((await api('/mock/add', { url_pattern: '([', is_regex: true })).corps.error, /not a valid regular expression/);
+    r = await api('/mock/add', { url_pattern: '/api/.*', body: 'sous-chaîne' });
+    assert.match(r.corps.warning, /is_regex=true/);
+    await api('/mock/add', { url_pattern: '/api/p', body: 'premier' });
+    r = await api('/mock/add', { url_pattern: '/api/p', body: 'dernier' });
+    assert.match(r.corps.note, /first added \(still active\) wins/);
+    assert.equal(await lire('/api/p'), 'premier');
+    const liste = (await service.get(`/mock/list?owner=${OWNER}&session_id=${sid}`)).corps;
+    assert.equal(liste.count, 5);
+    assert.match(liste.precedence, /first added/);
+    await api('/mock/clear');
+});

@@ -2386,7 +2386,7 @@
     {
       "name": "pw_mock",
       "title": "Pw Mock",
-      "description": "Mock network responses to test UI under controlled backend conditions.\n\naction= :\n  add    : register a mock. url_pattern= (substring or regex), status=,\n           body= (string), content_type=, delay_ms=, times= (-1 = unlimited).\n  list   : list active mocks for this session.\n  clear  : remove all mocks for this session.\n  remove : remove mocks matching url_pattern=.\n\nEXAMPLES \u2014 testing UI under failure conditions:\n  pw_mock(sid, \"add\", url_pattern=\"/api/users\", status=500, body='{\"error\":\"DB down\"}')\n  pw_mock(sid, \"add\", url_pattern=\"/api/slow\", delay_ms=3000)\n  pw_mock(sid, \"add\", url_pattern=\"/api/login\", status=401, times=1,\n          body='{\"error\":\"bad creds\"}')\n\nReturns {status, mocks_count?, removed?}.",
+      "description": "Mock network responses to test UI under controlled backend conditions.\n\naction= :\n  add    : register a mock. url_pattern= : a substring of the request URL;\n           with is_regex=true, a regular expression, raw (\"/api/.*\\?id=\\d+$\")\n           or between slashes with flags (\"/api/users/i\"). status= (100-599),\n           body= (string), content_type=, delay_ms= (0-60000), times= (-1 =\n           unlimited, else 1 or more). An invalid field is refused\n           (invalid_mock, with the field and a fix).\n           When several mocks match a request, the FIRST added (still\n           active) wins: add the most specific first, a catch-all last.\n  list   : list active mocks for this session.\n  clear  : remove all mocks for this session.\n  remove : remove mocks matching url_pattern=.\n\nEXAMPLES \u2014 testing UI under failure conditions:\n  pw_mock(sid, \"add\", url_pattern=\"/api/users\", status=500, body='{\"error\":\"DB down\"}')\n  pw_mock(sid, \"add\", url_pattern=\"/api/slow\", delay_ms=3000)\n  pw_mock(sid, \"add\", url_pattern=\"/api/login\", status=401, times=1,\n          body='{\"error\":\"bad creds\"}')\n\nReturns {status, id?, mocks_count?, removed?}; add warns when a substring\nurl_pattern looks like a regular expression.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2419,6 +2419,11 @@
           "times": {
             "default": -1,
             "type": "integer"
+          },
+          "is_regex": {
+            "default": false,
+            "type": "boolean",
+            "description": "add: url_pattern is a regular expression (raw, or /\u2026/flags)."
           }
         },
         "required": [
@@ -4614,6 +4619,12 @@
           "annotation": "int",
           "requis": false,
           "defaut": -1
+        },
+        {
+          "nom": "is_regex",
+          "annotation": "bool",
+          "requis": false,
+          "defaut": false
         }
       ]
     },

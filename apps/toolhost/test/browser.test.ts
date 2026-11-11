@@ -174,6 +174,21 @@ describe("famille browser servie par l'hôte", () => {
     expect(r["result"]).toBe("x".repeat(150));
   });
 
+  it("pw_mock add : is_regex transmis (faux par défaut), url_pattern exigé avant tout appel", async () => {
+    const b = await client();
+    await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });
+    faux.vues.length = 0;
+    const mock = (args: Dict): Promise<Dict> =>
+      b.appeler("pw_mock", { session_id: SESSION, action: "add", ...args }, { username: "bob" });
+    await mock({ url_pattern: "/api/.*\\?id=\\d+$", is_regex: true });
+    await mock({ url_pattern: "/api/users", status: 500 });
+    expect(texte(await mock({}))).toContain("is_regex=true");
+    expect(faux.vues.map((v) => JSON.parse(v.corps) as Dict)).toEqual([
+      expect.objectContaining({ url_pattern: "/api/.*\\?id=\\d+$", is_regex: true, status: 200, times: -1 }),
+      expect.objectContaining({ url_pattern: "/api/users", is_regex: false, status: 500 }),
+    ]);
+  });
+
   it("pw_act : délai dépassé sur une session à plusieurs onglets, onglet actif rappelé (lu sur /sessions) ; un seul onglet : message inchangé", async () => {
     const b = await client();
     await b.appeler("pw_session", { action: "start", url: `${SITE}/` }, { username: "bob" });

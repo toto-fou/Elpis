@@ -17,8 +17,7 @@ import {
   supprimerSecret,
 } from "../secrets/stockage";
 import type { Acteur, LigneSecret } from "../secrets/stockage";
-import { lireSecretPourUsage } from "../secrets/usage";
-import type { ContexteUsage } from "../secrets/usage";
+import { lireSecretPourUsage, permisPourContexte } from "../secrets/usage";
 import { detectProvider } from "./detection";
 import { getProvider, hostIsPrivate } from "./fournisseurs";
 
@@ -63,8 +62,19 @@ export interface LigneConnecteur {
   [colonne: string]: unknown;
 }
 
-/** Contexte d'une lecture du jeton (journal du coffre) : acteur, conversation, sous-agent ; le propriétaire est celui du compte git. */
-export type ContexteGit = Omit<ContexteUsage, "proprietaire">;
+/** Contexte d'une lecture du jeton (politique et journal du coffre) : acteur, conversation, run de routine, sous-agent, routine ; le propriétaire est celui du compte git. */
+export interface ContexteGit {
+  readonly acteur: Acteur;
+  readonly chatId: string | null;
+  readonly run: string | null;
+  readonly sousAgent: boolean;
+  readonly routine: boolean;
+}
+
+/** Lecture par l'utilisateur lui-même (page Comptes Git) : ni conversation, ni sous-agent, ni routine. */
+export function contexteUtilisateur(acteur: Acteur): ContexteGit {
+  return { acteur, chatId: null, run: null, sousAgent: false, routine: false };
+}
 
 function colonnes(r: Record<string, unknown>): Dict {
   const d: Dict = {};
@@ -381,31 +391,53 @@ function clairPermis(remoteUrl: string, host: string, apiBase: string): boolean 
   );
 }
 
-/** `resolve_git_credential` : compte git de l'hôte exact du dépôt, port compris (aucun repli par type), jamais en clair vers un hôte public ; jeton lu dans le coffre (journalisé), `last_used` mis à jour ; `null` sans compte ni jeton utilisable. */
+/** Compte git de l'hôte exact du dépôt, port compris (aucun repli par type), et son API ; `null` sans compte, ou si l'identifiant partirait en clair vers un hôte public. */
+async function compteDuDepot(
+  base: Base,
+  uid: number,
+  remoteUrl: string,
+): Promise<{ l: LigneConnecteur; host: string; apiBase: string } | null> {
+  if (!uid || !remoteUrl) return null;
+  const info = detectProvider(remoteUrl);
+  if (!info) return null;
+  const host = hoteJoint(remoteUrl, lowerPy(info.host || ""));
+  const l = host ? (await findForHost(base, uid, host))[0] : undefined;
+  if (!l) return null;
+  const apiBase = getProvider(l.provider_type).apiBase(host, l.api_base || "");
+  return clairPermis(remoteUrl, host, apiBase) ? { l, host, apiBase } : null;
+}
+
+/** `resolve_git_credential` : compte git de l'hôte exact du dépôt, jamais en clair vers un hôte public ; jeton lu dans le coffre (compté, journalisé), `last_used` mis à jour ; `null` sans compte ni jeton utilisable. */
 export async function resolveGitCredential(
   base: Base,
   uid: number,
   remoteUrl: string,
   contexte: ContexteGit,
 ): Promise<IdentifiantGit | null> {
-  if (!uid || !remoteUrl) return null;
-  const info = detectProvider(remoteUrl);
-  if (!info) return null;
-  const host = hoteJoint(remoteUrl, lowerPy(info.host || ""));
-  const lignes = host ? await findForHost(base, uid, host) : [];
-  const l = lignes[0];
-  if (!l) return null;
-  const apiBase = getProvider(l.provider_type).apiBase(host, l.api_base || "");
-  if (!clairPermis(remoteUrl, host, apiBase)) return null;
-  const token = await jetonDuConnecteur(base, l, contexte);
+  const c = await compteDuDepot(base, uid, remoteUrl);
+  if (c === null) return null;
+  const token = await jetonDuConnecteur(base, c.l, contexte);
   if (!token) return null;
-  await bumpLastUsed(base, l.id);
+  await bumpLastUsed(base, c.l.id);
   return {
-    username: strPy(l.username || ""),
+    username: strPy(c.l.username || ""),
     token,
-    provider_type: l.provider_type,
-    host,
-    api_base: apiBase,
-    connector_id: l.id,
+    provider_type: c.l.provider_type,
+    host: c.host,
+    api_base: c.apiBase,
+    connector_id: c.l.id,
   };
+}
+
+/** Un jeton que `resolveGitCredential` rendrait à ce contexte existe (compte de l'hôte exact, secret actif, portée, politique, attachement, clé courante), sans être lu : rien n'est compté ni journalisé. */
+export async function identifiantGitDisponible(
+  base: Base,
+  uid: number,
+  remoteUrl: string,
+  contexte: ContexteGit,
+): Promise<boolean> {
+  const c = await compteDuDepot(base, uid, remoteUrl);
+  const s = c === null ? null : await secretDe(base, c.l);
+  if (c === null || s === null || !jetonLisible(s, c.l.host)) return false;
+  return permisPourContexte(base, s, { ...contexte, proprietaire: c.l.owner_user_id });
 }

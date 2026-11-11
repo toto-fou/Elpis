@@ -3,6 +3,7 @@
 import type { Dict } from "@elpis/commun";
 import { BLANC_PY, lowerPy, prefixePy, reprPy, splitlinesPy, stripPy, strPy } from "@elpis/commun";
 import { RelayRefused } from "@elpis/fichiers";
+import type { CompteRappel } from "@elpis/fichiers";
 import { ok } from "@elpis/outils-mcp";
 
 import { enAnglais } from "../anglais";
@@ -24,6 +25,7 @@ import {
   executer,
   executerReseau,
   intentionValide,
+  jetonDisponible,
   lectureGit,
   ligneEchec,
   politique,
@@ -348,10 +350,10 @@ export interface IssuePr {
   readonly [champ: string]: unknown;
 }
 
-/** Ce que l'hôte demande au core pour ouvrir la PR : le jeton de l'API de PR ne quitte jamais main. */
+/** Ce que l'hôte demande au core pour ouvrir la PR (compte et appelant signés) : le jeton de l'API de PR ne quitte jamais main. */
 export interface PortPr {
   ouvrirPr(
-    compte: { user_id: number; username: string },
+    compte: CompteRappel,
     demande: { remote_url: string; head: string; base: string; title: string; body: string; draft: boolean },
   ): Promise<IssuePr | null>;
 }
@@ -403,9 +405,7 @@ export function gitSubmit(
     if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
-        jeton = Boolean(
-          (await c.source.gitCredential({ user_id: uid, username: c.username }, remote))?.["token"],
-        );
+        jeton = await jetonDisponible(c, uid, remote);
       } catch {
         jeton = false;
       }
@@ -468,10 +468,7 @@ export function gitSubmit(
       body: prefixePy(corps, CORPS_MAX).toWellFormed(),
       draft: a.draft,
     };
-    const issue =
-      pr === null
-        ? null
-        : await pr.ouvrirPr({ user_id: uid, username: c.username }, demande).catch(() => null);
+    const issue = pr === null ? null : await pr.ouvrirPr(c.compte(uid), demande).catch(() => null);
     if (issue === null)
       return errGit(
         "pr_service_unavailable",

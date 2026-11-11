@@ -19,9 +19,11 @@ import {
 } from "@elpis/commun";
 import { config, parseJsonPy } from "@elpis/config";
 import { AgentError, RelayRefused } from "@elpis/fichiers";
-import type { GitResult, SourceGit } from "@elpis/fichiers";
+import type { CompteRappel, GitResult, SourceGit } from "@elpis/fichiers";
 import { err, ok } from "@elpis/outils-mcp";
-import { userIdFor } from "@elpis/securite";
+import type { ContexteAppel } from "@elpis/outils-mcp";
+import { current, lireSousAgent, userIdFor } from "@elpis/securite";
+import type { SousAgentHote } from "@elpis/securite";
 
 import { agentEnAnglais, enAnglais, strErreurAnglais } from "../anglais";
 import type { Espace } from "../espace";
@@ -215,19 +217,58 @@ export function etendreTilde(repo: string): string {
   return "/" + (i < 0 ? "" : repo.slice(i + 1));
 }
 
-/** Compte d'un appel : espace de son bac, source des identifiants git (rappel au core), id du compte. */
+/** Conversation et sous-agent d'un appel d'outil, signés avec le compte dans chaque rappel git au core (politique et journal du coffre). */
+export interface AppelGit {
+  readonly chat_id: string;
+  readonly subagent: SousAgentHote | null;
+}
+
+const SANS_APPEL: AppelGit = { chat_id: "", subagent: null };
+
+/** Appelant d'un outil git : identité vérifiée de l'appel (posée depuis le `_meta` du core), sinon le `_meta` lui-même. */
+export function appelDe(ctx: Pick<ContexteAppel, "meta">): AppelGit {
+  const ident = current();
+  const chat = ident?.chat_id || ctx.meta?.["chat_id"];
+  return {
+    chat_id: typeof chat === "string" ? chat : "",
+    subagent: ident?.subagent ?? lireSousAgent(ctx.meta?.["subagent"]),
+  };
+}
+
+/** Compte d'un appel : espace de son bac, source des identifiants git (rappel au core), id du compte, appelant (conversation, sous-agent). */
 export class CompteGit {
   readonly username: string;
   readonly source: SourceGit & {
     identityForUsername?: (u: string) => Promise<{ readonly user_id: number } | null>;
+    identifiantGitDisponible?: (compte: CompteRappel, remoteUrl: string) => Promise<boolean>;
   };
+  readonly appel: AppelGit;
   private readonly espace: Espace | null;
   private idConnu: number | null = null;
 
-  constructor(username: string, esp: Espace | null, source: CompteGit["source"]) {
+  constructor(
+    username: string,
+    esp: Espace | null,
+    source: CompteGit["source"],
+    appel: AppelGit = SANS_APPEL,
+  ) {
     this.username = username;
     this.espace = esp;
     this.source = source;
+    this.appel = appel;
+  }
+
+  /** Conversation et sous-agent tels que signés avec le compte (absents : rien). */
+  get signe(): { chat_id?: string; subagent?: SousAgentHote } {
+    return {
+      ...(this.appel.chat_id ? { chat_id: this.appel.chat_id } : {}),
+      ...(this.appel.subagent ? { subagent: this.appel.subagent } : {}),
+    };
+  }
+
+  /** Compte signé d'un rappel au core pour `uid`, appelant compris. */
+  compte(uid: number): CompteRappel {
+    return { user_id: uid, username: this.username, ...this.signe };
   }
 
   get esp(): Espace {
@@ -245,6 +286,12 @@ export class CompteGit {
     this.idConnu = id;
     return id;
   }
+}
+
+/** Un compte git fournit un jeton utilisable pour `url` à cet appelant, sans le lire (rien n'est compté ni journalisé au coffre) ; source sans ce rappel : non. */
+export async function jetonDisponible(c: CompteGit, uid: number, url: string): Promise<boolean> {
+  const f = c.source.identifiantGitDisponible;
+  return f ? f.call(c.source, c.compte(uid), url) : false;
 }
 
 /** `_safe_repo_path` : dépôt `repo` (relatif à /work, ou ancienne disposition `git_repos/`) contenant `.git`, vu par l'agent ; rend son chemin relatif à /work. */
@@ -379,7 +426,6 @@ export async function executerReseau(
   o: {
     url: string;
     pushRefs?: Iterable<string>;
-    auth?: readonly [string, string] | null;
     timeout?: number;
   },
 ): Promise<Dict> {
@@ -390,10 +436,10 @@ export async function executerReseau(
     r = await c.esp.gitReseau(rel, args, {
       uid: await c.uid(),
       username: c.username,
+      ...c.signe,
       url: o.url,
       source: c.source,
       ...(o.pushRefs === undefined ? {} : { pushRefs: o.pushRefs }),
-      ...(o.auth ? { auth: o.auth } : {}),
       timeoutS: timeout,
       maxOut: MAX_OUT * 4,
     });
@@ -422,6 +468,7 @@ export async function tirer(
     r = await c.esp.gitPull(rel, remote, branche, mode, {
       uid: await c.uid(),
       username: c.username,
+      ...c.signe,
       source: c.source,
       timeoutS: timeout,
       maxOut: MAX_OUT * 4,

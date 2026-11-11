@@ -3,7 +3,7 @@
 import type { PortProfilRappel } from "@elpis/bac";
 import { strPy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
-import type { SourceGit } from "@elpis/fichiers";
+import type { CompteRappel, SourceGit } from "@elpis/fichiers";
 import { py } from "@elpis/http";
 import { getUsername, outilDuGolden } from "@elpis/outils-mcp";
 import type { ContexteAppel, DefinitionOutil, Golden } from "@elpis/outils-mcp";
@@ -15,7 +15,7 @@ import { gitAction } from "./action";
 import type { ArgsActionGit } from "./action";
 import { gitClone } from "./clone";
 import type { ArgsClone } from "./clone";
-import { CompteGit, errGit, strExc } from "./commun";
+import { appelDe, CompteGit, errGit, strExc } from "./commun";
 import { gitWrite } from "./ecriture";
 import type { ArgsEcritureGit } from "./ecriture";
 import { gitQuery } from "./requete";
@@ -27,13 +27,14 @@ import type { PortPr } from "./travail";
 
 type Signature = DefinitionOutil["signature"];
 
-/** Ce que la famille demande au core : identifiants et hôtes des comptes git, identité, profil réseau, PR. */
+/** Ce que la famille demande au core : identifiants et hôtes des comptes git (présence sans lecture comprise), identité, profil réseau, PR. */
 export type RappelGit = SourceGit &
   PortProfilRappel &
   Partial<PortPr> & {
     identityForUsername(
       username: string,
     ): Promise<{ readonly user_id: number; readonly network_profile_id: string } | null>;
+    identifiantGitDisponible?(compte: CompteRappel, remoteUrl: string): Promise<boolean>;
   };
 
 const SANS_RAPPEL: SourceGit = { gitCredential: async () => null, connectorHosts: async () => [] };
@@ -150,7 +151,7 @@ export function outilsGit(rappel: RappelGit | null = null): DefinitionOutil[] {
       const username = getUsername(ctx);
       let c: CompteGit;
       try {
-        c = new CompteGit(username, await Espace.pour(username), source);
+        c = new CompteGit(username, await Espace.pour(username), source, appelDe(ctx));
       } catch (e) {
         return errGit(`unexpected: ${strExc(e)}`);
       }

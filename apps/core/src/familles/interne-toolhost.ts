@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité, hôtes des connecteurs (toolhost/routes_internal.py) ; identifiant git lu dans le coffre, notification, ancres du bureau, ouverture de PR et identifiant git saisi dans l'éditeur pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
+/** apps/core/src/familles/interne-toolhost.ts — `/api/internal/*` appelées par l'hôte d'outils (jeton de service) : introspection de jeton, identité (toolhost/routes_internal.py) ; hôtes des comptes git, identifiant git lu dans le coffre (ou sa seule présence), notification, ancres du bureau, ouverture de PR et identifiant git saisi dans l'éditeur pour le compte de l'enveloppe signée ; quota du bac et anciens identifiants git importés (propres au TS). */
 import { getUser, getUserSettings, ligneUtilisateur, resoudreJeton } from "@elpis/auth";
 import type { DependancesAuth, DependancesJetons } from "@elpis/auth";
 import { estDict, getPy, HttpError, intPy, lowerPy, ouPy, stripPy, strPy, texteNet } from "@elpis/commun";
@@ -12,7 +12,12 @@ import type { Identity } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { ancresDeLaBase, obsKey } from "../bureau";
-import { hoteEnregistre, listConnectorHosts, resolveGitCredential } from "../git/connecteurs";
+import {
+  hoteEnregistre,
+  identifiantGitDisponible,
+  listConnectorHosts,
+  resolveGitCredential,
+} from "../git/connecteurs";
 import type { ContexteGit } from "../git/connecteurs";
 import { detectProvider, normalizeHost } from "../git/detection";
 import { ouvrirPrPourHote } from "../git/pr";
@@ -96,12 +101,18 @@ export async function compteSigne(
   return { uid: ident.user_id, username: ident.username, identite: ident };
 }
 
-/** Lecture d'un jeton git pour le compte signé : journal du coffre avec la conversation et le sous-agent de l'enveloppe. */
+/** Conversation d'un run de routine (`runChatKey` : `routine:<id>:run:<id>`), sous-agents du run compris (`…#task-<id>`) ; groupe 1 : la clé du run. */
+const RUN_DE_ROUTINE = /^(routine:-?\d+:run:-?\d+)(?:#|$)/u;
+
+/** Lecture d'un jeton git pour le compte signé : politique et journal du coffre selon la conversation, le run de routine et le sous-agent de l'enveloppe. */
 function contexteSigne(uid: number, username: string, identite: Identity): ContexteGit {
+  const run = RUN_DE_ROUTINE.exec(identite.chat_id)?.[1] ?? null;
   return {
     acteur: { userId: uid, username, ip: null },
     chatId: identite.chat_id || null,
+    run,
     sousAgent: identite.subagent !== undefined && identite.subagent !== null,
+    routine: run !== null,
   };
 }
 
@@ -208,15 +219,39 @@ export function creerFamilleInterneToolhost(dep: DependancesInterne): Famille {
       },
       {
         methode: "GET",
+        chemin: "/api/internal/git/credential/available",
+        processus: ["main"],
+        acces: "service",
+        traiter: async (req, rep) => {
+          const { uid, username, identite } = await compteSigne(dep, req);
+          const { remote_url } = entrees(req, { query: { remote_url: py.str().defaut("") } }).query;
+          if (!remote_url) throw new HttpError(400, "remote_url requis");
+          let available = false;
+          try {
+            available = await identifiantGitDisponible(
+              base,
+              uid,
+              remote_url,
+              contexteSigne(uid, username, identite),
+            );
+          } catch (e) {
+            const nom = e instanceof Error ? e.name : typeof e;
+            dep.journal.warn(`[internal] présence d'identifiant git non vérifiée : ${nom}`);
+          }
+          rep.header("cache-control", "no-store");
+          return { ok: true, available };
+        },
+      },
+      {
+        methode: "GET",
         chemin: "/api/internal/git/connector-hosts",
         processus: ["main"],
         acces: "service",
         traiter: async (req) => {
-          const { user_id } = entrees(req, { query: { user_id: py.int().defaut(0) } }).query;
-          if (!user_id) throw new HttpError(400, "user_id requis");
+          const { uid } = await compteSigne(dep, req);
           let hosts: string[];
           try {
-            hosts = await listConnectorHosts(base, user_id);
+            hosts = await listConnectorHosts(base, uid);
           } catch {
             hosts = [];
           }

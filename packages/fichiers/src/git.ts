@@ -18,7 +18,7 @@ import {
 } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { adresseCritique, blockRemoteUrlReason } from "@elpis/securite";
-import type { Resolveur } from "@elpis/securite";
+import type { Resolveur, SousAgentHote } from "@elpis/securite";
 
 import { AgentError } from "./agent";
 import type { AgentClient, ResultatGitAgent } from "./agent";
@@ -63,16 +63,18 @@ export class GitResult {
   }
 }
 
-/** Compte d'un rappel signé au core (enveloppe d'identité) : id et nom. */
+/** Compte d'un rappel signé au core (enveloppe d'identité) : id et nom ; conversation et sous-agent de l'appel d'outil, qui décident de la politique du coffre (absents : l'éditeur). */
 export interface CompteRappel {
   readonly user_id: number;
   readonly username: string;
+  readonly chat_id?: string;
+  readonly subagent?: SousAgentHote | null;
 }
 
-/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base ; l'identifiant git, pour le compte de l'enveloppe signée seulement. */
+/** Ce que l'hôte demande au core (`ClientRappel` : /api/internal/git/*) : il n'ouvre jamais la base ; identifiant git et hôtes des comptes git, pour le compte de l'enveloppe signée seulement. */
 export interface SourceGit {
   gitCredential(compte: CompteRappel, remoteUrl: string): Promise<Dict | null>;
-  connectorHosts(uid: number): Promise<string[]>;
+  connectorHosts(compte: CompteRappel): Promise<string[]>;
 }
 
 /** Garde d'un dépôt distant : motif de refus, ou adresses validées à joindre. */
@@ -95,10 +97,13 @@ export async function run(
   );
 }
 
-/** `connector_hosts` : hôtes des connecteurs du compte (permis malgré une adresse privée) ; vide en cas de panne. */
-export async function connectorHosts(source: SourceGit, uid: number): Promise<Set<string>> {
+/** `connector_hosts` : hôtes des connecteurs du compte signé (permis malgré une adresse privée) ; vide sans nom de compte ou en cas de panne. */
+export async function connectorHosts(source: SourceGit, compte: CompteRappel): Promise<Set<string>> {
+  if (!compte.user_id || !compte.username) return new Set();
   try {
-    return new Set(await source.connectorHosts(Math.trunc(uid)));
+    return new Set(
+      await source.connectorHosts({ user_id: Math.trunc(compte.user_id), username: compte.username }),
+    );
   } catch {
     return new Set();
   }
@@ -111,14 +116,14 @@ async function resoudreSysteme(hote: string): Promise<string[]> {
 /** Garde anti-SSRF d'un dépôt (`critical_only` : LAN permis, boucle et métadonnées non, connecteurs permis), puis boucle et lien local refusés pour TOUT hôte ; adresses retenues pour la connexion. */
 export async function gardeDepot(
   url: string,
-  uid: number,
+  compte: CompteRappel,
   source: SourceGit,
   resoudre: Resolveur = (h) => resoudreSysteme(h),
 ): Promise<VerdictDepot> {
   let vues: string[] | null = null;
   const motif = await blockRemoteUrlReason(url, {
     allowSchemes: REMOTE_SCHEMES,
-    allowHosts: await connectorHosts(source, uid),
+    allowHosts: await connectorHosts(source, compte),
     criticalOnly: true,
     resoudre: async (h, p) => (vues = await resoudre(h, p)),
   });
@@ -146,8 +151,12 @@ export async function gardeDepot(
 }
 
 /** `remote_block_reason` : motif de refus d'un dépôt distant, `null` s'il est permis. */
-export async function remoteBlockReason(url: string, uid: number, source: SourceGit): Promise<string | null> {
-  return (await gardeDepot(url, uid, source)).motif;
+export async function remoteBlockReason(
+  url: string,
+  compte: CompteRappel,
+  source: SourceGit,
+): Promise<string | null> {
+  return (await gardeDepot(url, compte, source)).motif;
 }
 
 /** `hôte[:port]` que joint le relais pour `url` (forme de l'hôte d'un connecteur). */
@@ -165,7 +174,7 @@ export async function credential(
   try {
     cred =
       compte.user_id && compte.username
-        ? await source.gitCredential({ user_id: Math.trunc(compte.user_id), username: compte.username }, url)
+        ? await source.gitCredential({ ...compte, user_id: Math.trunc(compte.user_id) }, url)
         : null;
   } catch {
     journalDe("git").warn(`[git] connecteur non résolu pour ${url}`);
@@ -306,6 +315,9 @@ export interface OptionsReseau {
   readonly uid: number;
   /** Nom du compte (enveloppe signée des rappels : identifiant git du compte, import des anciens identifiants) ; absent : ni l'un ni l'autre. */
   readonly username?: string;
+  /** Conversation et sous-agent de l'appel d'outil, signés avec le compte (politique du coffre) ; absents : l'éditeur. */
+  readonly chat_id?: string;
+  readonly subagent?: SousAgentHote | null;
   readonly url: string;
   readonly source: SourceGit;
   /** Refs permises au push ; absent : fetch, clone, ls-remote. */
@@ -317,6 +329,16 @@ export interface OptionsReseau {
   readonly garde?: GardeDepot;
 }
 
+/** Compte signé d'une opération réseau : id, nom, conversation et sous-agent de l'appel. */
+function compteReseau(o: OptionsReseau): CompteRappel {
+  return {
+    user_id: Math.trunc(o.uid),
+    username: o.username ?? "",
+    ...(o.chat_id ? { chat_id: o.chat_id } : {}),
+    ...(o.subagent ? { subagent: o.subagent } : {}),
+  };
+}
+
 /** `run_network` : commande git réseau vers `url` seule, par le relais ; identifiants saisis, sinon ceux du connecteur de l'hôte exact. */
 export async function runNetwork(
   agent: AgentClient,
@@ -325,7 +347,8 @@ export async function runNetwork(
   o: OptionsReseau,
 ): Promise<GitResult> {
   const timeoutS = o.timeoutS ?? 120;
-  const garde: GardeDepot = o.garde ?? ((u, id) => gardeDepot(u, id, o.source));
+  const compte = compteReseau(o);
+  const garde: GardeDepot = o.garde ?? ((u) => gardeDepot(u, compte, o.source));
   const verdict = await garde(o.url, o.uid);
   if (verdict.motif) throw new RelayRefused("blocked_remote", `Dépôt refusé (anti-SSRF) : ${verdict.motif}`);
   amont(o.url);
@@ -333,7 +356,7 @@ export async function runNetwork(
   const saisis = Boolean(o.auth && o.auth[1]);
   const [user, token] = saisis
     ? (o.auth as readonly [string, string])
-    : await credential(o.source, { user_id: o.uid, username: o.username ?? "" }, o.url);
+    : await credential(o.source, compte, o.url);
   const service = o.pushRefs === undefined ? UPLOAD : RECEIVE;
   let d: ResultatGitAgent | null = null;
   let refus: string[] = [];

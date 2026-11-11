@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/git/clone.ts — `git_clone` (git_tools.py) : clone par le relais authentifiant, avec le jeton du compte git de l'hôte lu par le core (aucun jeton n'est reçu de l'agent). */
+/** apps/toolhost/src/mcp/git/clone.ts — `git_clone` (git_tools.py) : clone par le relais authentifiant, avec le jeton du compte git de l'hôte lu par le core pour l'opération réseau seulement (aucun jeton n'est reçu de l'agent). */
 import type { Dict } from "@elpis/commun";
 import { prefixePy, reprPy, stripPy } from "@elpis/commun";
 import { AgentError } from "@elpis/fichiers";
@@ -13,6 +13,7 @@ import {
   estErreurValeur,
   etendreTilde,
   executerReseau,
+  jetonDisponible,
   reussi,
   strExc,
 } from "./commun";
@@ -37,7 +38,7 @@ function cheminPosix(brut: string): { absolu: boolean; parties: string[]; posix:
   return { absolu, parties, posix: (absolu ? "/" : "") + parties.join("/") || "." };
 }
 
-/** `git_clone` : dossier déduit de l'URL, jeton du compte git de l'hôte (lu par le core), clone par le relais. */
+/** `git_clone` : dossier déduit de l'URL, clone par le relais (qui demande au core le jeton du compte git de l'hôte) ; la présence d'un jeton, vérifiée sans le lire, choisit le conseil en cas d'échec. */
 export async function gitClone(c: CompteGit, a: ArgsClone): Promise<Dict> {
   try {
     const url = stripPy(a.url || "");
@@ -76,25 +77,19 @@ export async function gitClone(c: CompteGit, a: ArgsClone): Promise<Dict> {
       );
     }
     const uid = await c.uid();
-    let cred: readonly [string, string] | null = null;
+    let avecJeton = false;
     if (uid)
       try {
         await c.esp.gitAnciensIdentifiants(uid, c.username);
-        const d = await c.source.gitCredential({ user_id: uid, username: c.username }, url);
-        if (d && d["token"]) cred = [String(d["username"] ?? ""), String(d["token"])];
+        avecJeton = await jetonDisponible(c, uid, url);
       } catch {
-        cred = null;
+        avecJeton = false;
       }
-    const avecJeton = Boolean(cred?.[1]);
     const cmd = ["git", "clone"];
     if (a.branch) cmd.push("--branch", brancheValide(a.branch), "--single-branch");
     cmd.push("--", url, rel);
     const jumeau = await c.esp.jumeauUnicode(rel);
-    const cl = await executerReseau(c, "", cmd.slice(1), {
-      url,
-      timeout: 120,
-      auth: avecJeton ? cred : null,
-    });
+    const cl = await executerReseau(c, "", cmd.slice(1), { url, timeout: 120 });
     if (["blocked_remote", "scheme_not_relayed", "malformed_url"].includes(String(cl["error"])))
       return errGit(
         `clone_url_blocked: ${String(cl["fix"] || cl["message"])}`,

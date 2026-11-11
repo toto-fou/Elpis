@@ -3,7 +3,8 @@
 import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
-import { creerIdentite, IDENTITY_HEADER, sign } from "@elpis/securite";
+import { creerIdentite, IDENTITY_HEADER, sign, sousAgentEnDict } from "@elpis/securite";
+import type { SousAgentHote } from "@elpis/securite";
 import { request } from "undici";
 import type { Dispatcher } from "undici";
 
@@ -160,11 +161,11 @@ export class ClientRappel {
     );
   }
 
-  /** `{username, token, host}` du compte de l'enveloppe signée (le core ne lit le compte nulle part ailleurs) : SECRET, jamais journalisé ni gardé au-delà du TTL court, retenu par compte signé. */
+  /** `{username, token, host}` du compte de l'enveloppe signée, avec la conversation et le sous-agent de l'appel (politique du coffre) : SECRET, jamais journalisé ni gardé au-delà du TTL court, retenu par compte et par appelant signés. */
   async gitCredential(compte: CompteSigne, remoteUrl: string): Promise<Dict | null> {
-    if (compte.user_id <= 0 || !compte.username || !remoteUrl) return null;
-    const signe = { user_id: Math.trunc(compte.user_id), username: compte.username };
-    const cle = `git:${JSON.stringify([signe.user_id, signe.username, remoteUrl])}`;
+    const signe = compteGit(compte);
+    if (signe === null || !remoteUrl) return null;
+    const cle = `git:${cleAppelant(signe, remoteUrl)}`;
     const c = this.lu(cle);
     if (c.trouve) return c.valeur as Dict | null;
     const d = await this.appeler(
@@ -178,12 +179,31 @@ export class ClientRappel {
     return this.retenir(cle, estDict(cred) && veritePy(cred) ? { ...cred } : null);
   }
 
-  async connectorHosts(uid: number): Promise<string[]> {
-    if (!uid) return [];
-    const cle = `hosts:${Math.trunc(uid)}`;
+  /** Un compte git fournit un jeton utilisable par cet appelant pour `remoteUrl`, sans le lire : rien n'est compté ni journalisé au coffre (messages des outils). */
+  async identifiantGitDisponible(compte: CompteSigne, remoteUrl: string): Promise<boolean> {
+    const signe = compteGit(compte);
+    if (signe === null || !remoteUrl) return false;
+    const cle = `gitdispo:${cleAppelant(signe, remoteUrl)}`;
+    const c = this.lu(cle);
+    if (c.trouve) return c.valeur === true;
+    const d = await this.appeler(
+      "GET",
+      "/api/internal/git/credential/available",
+      { remote_url: remoteUrl },
+      undefined,
+      signe,
+    );
+    return this.retenir(cle, d !== null && getPy(d, "available") === true);
+  }
+
+  /** Hôtes des comptes git du compte de l'enveloppe signée (liste blanche anti-SSRF). */
+  async connectorHosts(compte: CompteSigne): Promise<string[]> {
+    if (compte.user_id <= 0 || !compte.username) return [];
+    const signe = { user_id: Math.trunc(compte.user_id), username: compte.username };
+    const cle = `hosts:${JSON.stringify([signe.user_id, signe.username])}`;
     const c = this.lu(cle);
     if (c.trouve) return [...((c.valeur as string[] | null) ?? [])];
-    const d = await this.appeler("GET", "/api/internal/git/connector-hosts", { user_id: Math.trunc(uid) });
+    const d = await this.appeler("GET", "/api/internal/git/connector-hosts", undefined, undefined, signe);
     const hotes = d === null ? null : liste(getPy(d, "hosts")).map(strPy);
     return [...(this.retenir(cle, hotes) ?? [])];
   }
@@ -378,10 +398,29 @@ function sansGrandsEntiers(_cle: string, v: unknown): unknown {
   return typeof v === "bigint" ? Number(v) : v;
 }
 
-/** Compte d'une enveloppe signée par l'hôte pour un rappel au nom d'un utilisateur. */
+/** Compte d'une enveloppe signée par l'hôte pour un rappel au nom d'un utilisateur ; conversation et sous-agent de l'appel d'outil s'il y en a un. */
 export interface CompteSigne {
   readonly user_id: number;
   readonly username: string;
+  readonly chat_id?: string;
+  readonly subagent?: SousAgentHote | null;
+}
+
+/** Compte d'une lecture de jeton git, appelant compris ; `null` sans id ni nom. */
+function compteGit(compte: CompteSigne): CompteSigne | null {
+  if (compte.user_id <= 0 || !compte.username) return null;
+  return {
+    user_id: Math.trunc(compte.user_id),
+    username: compte.username,
+    ...(compte.chat_id ? { chat_id: compte.chat_id } : {}),
+    ...(compte.subagent ? { subagent: compte.subagent } : {}),
+  };
+}
+
+/** Clé de cache d'une lecture git : compte, conversation et sous-agent signés, dépôt ; l'entrée d'un parent ne sert jamais à un sous-agent. */
+function cleAppelant(signe: CompteSigne, remoteUrl: string): string {
+  const sa = signe.subagent ? sousAgentEnDict(signe.subagent) : null;
+  return JSON.stringify([signe.user_id, signe.username, signe.chat_id ?? "", sa, remoteUrl]);
 }
 
 /** `d[cle]` : une clé absente lève (KeyError). */

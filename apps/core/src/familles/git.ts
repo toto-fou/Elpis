@@ -22,6 +22,7 @@ import type { FastifyRequest } from "fastify";
 
 import { textePy } from "../comptes/aides";
 import {
+  contexteUtilisateur,
   createConnector,
   deleteConnector,
   getConnector,
@@ -249,7 +250,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api", repos: [] };
         if (motif) return { ok: false, error: `blocked: ${motif}`, repos: [] };
-        const jeton = await jetonDuConnecteur(base, ligne, { acteur: acteur(req, uid) });
+        const jeton = await jetonDuConnecteur(base, ligne, contexteUtilisateur(acteur(req, uid)));
         const res = copieDict(await prov.listRepos(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "repos", []);
@@ -273,7 +274,7 @@ export function creerFamilleGit(dep: DependancesGit): Famille {
         const { prov, apiBase, motif, http } = await preparer(dep, ligne);
         if (!apiBase) return { ok: false, error: "no_api" };
         if (motif) return { ok: false, error: `blocked: ${motif}` };
-        const jeton = await jetonDuConnecteur(base, ligne, { acteur: acteur(req, uid) });
+        const jeton = await jetonDuConnecteur(base, ligne, contexteUtilisateur(acteur(req, uid)));
         const res = copieDict(await prov.testConnection(http, apiBase, jeton, ligne.username || ""));
         poserSiAbsent(res, "host", ligne.host);
         poserSiAbsent(res, "api_base", apiBase);

@@ -168,13 +168,14 @@ watch(
               </div>
             </td>
             <td class="font-mono">{{ s.kind }}</td>
-            <td class="font-mono" :title="porteeTexte(s).join('\n') || undefined">
-              <template v-if="porteeTexte(s).length">
-                {{ porteeTexte(s)[0]
-                }}<span v-if="porteeTexte(s).length > 1" class="adm-muted">
-                  +{{ porteeTexte(s).length - 1 }}</span
-                >
-              </template>
+            <td class="font-mono">
+              <ul
+                v-if="porteeTexte(s).length"
+                class="elpis-secrets__sites"
+                :aria-label="`Sites de ${s.name}`"
+              >
+                <li v-for="o in porteeTexte(s)" :key="o" class="elpis-secrets__site" :title="o">{{ o }}</li>
+              </ul>
               <span v-else class="adm-muted">—</span>
             </td>
             <td class="font-mono elpis-secrets__opt" :title="s.username ?? undefined">
@@ -319,7 +320,9 @@ watch(
                 <dl class="elpis-secrets__dl">
                   <dt>scope</dt>
                   <dd class="font-mono">
-                    <span v-for="o in porteeTexte(s)" :key="o" class="block">{{ o }}</span>
+                    <ul class="elpis-secrets__sites" :aria-label="`Sites de ${s.name}`">
+                      <li v-for="o in porteeTexte(s)" :key="o" class="elpis-secrets__site">{{ o }}</li>
+                    </ul>
                   </dd>
                   <dt>user</dt>
                   <dd class="font-mono">{{ s.username ?? "—" }}</dd>

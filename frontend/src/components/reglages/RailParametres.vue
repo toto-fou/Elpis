@@ -27,8 +27,7 @@ function choisir(id: string): void {
   const charger: Record<string, (() => unknown) | undefined> = {
     ai_models: () => rg.loadLlmConnectors(),
     usage: () => rg.loadUsageData(),
-    connexions: () => rg.loadConnexions(),
-    secrets: () => rg.loadSecrets(),
+    secrets: () => Promise.all([rg.loadSecrets(), rg.loadConnexions()]),
     memory: () => rg.loadUserMemory(),
     prompts: () => {
       void rg.loadSavedPrompts();

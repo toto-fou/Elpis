@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/login.ts — `pw_login` : connexion avec un secret attaché à la conversation, valeur jamais vue du modèle ; ordre fixe : pré-contrôle des champs sans valeur, résolution par le core sur l'origine du frame des champs, puis saisie, soumission et remplacement des documents par le service en une requête. */
+/** apps/toolhost/src/mcp/browser/login.ts — `pw_login` : connexion avec un secret attaché à la conversation, valeur jamais vue du modèle ; ordre fixe : pré-contrôle des champs sans valeur, secret choisi sans valeur et contrôlé contre la liaison de la session (secret qui l'a ouverte, origines, TLS), résolution par le core sur l'origine du frame des champs, puis saisie, soumission et remplacement des documents par le service en une requête. */
 import { estDict, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { buildLocatorPayload, errPw } from "@elpis/navigateur";
 import type { ContexteAppel } from "@elpis/outils-mcp";
 
+import type { SecretApplicable } from "../../rappel";
 import { ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
-import { AVIS_SECRET_DANS_PAGE, conseilSecret, refusSecret, resoudre } from "./secrets";
+import { liaison } from "./liaisons";
+import type { LiaisonSession } from "./liaisons";
+import {
+  applicables,
+  AVIS_SECRET_DANS_PAGE,
+  conseilSecret,
+  HORS_APPLICATION,
+  refusSecret,
+  resoudre,
+} from "./secrets";
 
 /** Clés de cible que le service accepte pour une connexion (jamais xpath). */
 const CLES_CIBLE = [
@@ -48,7 +58,63 @@ function avecConseilOutil(r: unknown): unknown {
   };
 }
 
-/** `pw_login` : pré-contrôle sans valeur, résolution sur l'origine du frame des champs, puis connexion ; le modèle ne reprend la main qu'après le remplacement des onglets qui ont reçu le secret (page qui le montrait : avertissement), la valeur n'est jamais rendue. */
+/** Secret admis dans la session liée : celui qui l'a ouverte, ou un secret dont toutes les origines sont dans sa liaison ; jamais un secret à TLS vérifié dans une session ouverte sans vérification des certificats. */
+function refusLiaison(
+  lien: LiaisonSession,
+  s: Pick<SecretApplicable, "name" | "origins" | "tls">,
+): Dict | null {
+  const ouvrir = `Open the login page in a session of its own with pw_session(action="start", url=..., secret="${s.name}"), then call pw_login there.`;
+  if (s.tls === "strict" && lien.tls === "insecure")
+    return refusSecret(
+      "secret_scope_mismatch",
+      `Secret '${s.name}' requires verified certificates, but this session was opened for secret '${lien.secret}' with certificate checks off.`,
+      ouvrir,
+    );
+  if (s.name !== lien.secret && (!s.origins.length || !s.origins.every((o) => lien.origines.includes(o))))
+    return refusSecret(
+      "secret_scope_mismatch",
+      `This secure session was opened for secret '${lien.secret}' (${lien.origines.join(", ")}): secret '${s.name}' covers other origins.`,
+      ouvrir,
+    );
+  return null;
+}
+
+/** Secret web-login de la connexion, sans valeur : celui nommé, sinon le seul attaché qui couvre l'origine du frame (refus codés sinon). */
+async function secretDeConnexion(
+  s: ServicesBrowser,
+  origine: string,
+  nom: string | null,
+): Promise<{ secret: SecretApplicable } | { refus: Dict }> {
+  const m = await applicables(s.secrets ?? null, origine, nom);
+  if (m === null) return { refus: HORS_APPLICATION };
+  if ("refus" in m) return m;
+  const web = m.valeur.filter((x) => x.kind === "web-login");
+  const choisi = web[0];
+  if (web.length > 1)
+    return {
+      refus: refusSecret(
+        "secret_ambiguous",
+        `Several attached secrets cover ${origine}: ${web.map((x) => x.name).join(", ")}.`,
+        `Call pw_login again with secret="<name>", one of: ${web.map((x) => x.name).join(", ")}.`,
+      ),
+    };
+  if (choisi !== undefined) return { secret: choisi };
+  return {
+    refus:
+      nom !== null && m.valeur.length
+        ? refusSecret(
+            "secret_type_mismatch",
+            `Secret '${nom}' is an http-auth secret: pw_login types web-login secrets only.`,
+            "An http-auth secret is applied by pw_session(action='start', url=..., secret=...); pw_login needs a web-login secret.",
+          )
+        : refusSecret(
+            "secret_not_attached",
+            `No web-login secret attached to this conversation covers ${origine}.`,
+          ),
+  };
+}
+
+/** `pw_login` : pré-contrôle sans valeur, secret contrôlé contre la liaison de la session, résolution sur l'origine du frame des champs, puis connexion ; le modèle ne reprend la main qu'après le remplacement des onglets qui ont reçu le secret (page qui le montrait : avertissement), la valeur n'est jamais rendue. */
 export function pwLogin(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const sid = typeof a["session_id"] === "string" ? a["session_id"].trim() : "";
@@ -60,7 +126,15 @@ export function pwLogin(s: ServicesBrowser) {
     const o = await ouvrirAppel(ctx, s, sid);
     if (o.refus !== null) return o.refus;
     const { client } = o.appel;
-    const nom = typeof a["secret"] === "string" && a["secret"].trim() ? a["secret"].trim() : null;
+    const lien = liaison(client.owner, sid);
+    if (lien === undefined)
+      return refusSecret(
+        "secret_route_refused",
+        "This session was not opened for a vault secret by Elpis (an ordinary session, or one opened before a restart).",
+        'Open the login page with pw_session(action="start", url=..., secret="<name>"), then call pw_login in that session.',
+      );
+    const demande = typeof a["secret"] === "string" && a["secret"].trim() ? a["secret"].trim() : null;
+    const nom = demande ?? (lien.kind === "web-login" ? lien.secret : null);
     const charge: Dict = { session_id: sid };
     for (const k of CIBLES) {
       const brut = a[k];
@@ -80,8 +154,14 @@ export function pwLogin(s: ServicesBrowser) {
         ? avecConseilOutil(pre)
         : errPw("secret_login_failed", "", { message: "The login fields could not be checked." });
     const champs = Array.isArray(pre["fields"]) ? pre["fields"] : [];
-    const r = await resoudre(s.secrets ?? null, "web-login", pre["frame_origin"], nom);
+    const choix = await secretDeConnexion(s, pre["frame_origin"], nom);
+    if ("refus" in choix) return choix.refus;
+    const refus = refusLiaison(lien, choix.secret);
+    if (refus !== null) return refus;
+    const r = await resoudre(s.secrets ?? null, "web-login", pre["frame_origin"], choix.secret.name);
     if ("refus" in r) return r.refus;
+    const tardif = refusLiaison(lien, { ...choix.secret, tls: r.valeur.tls });
+    if (tardif !== null) return tardif;
     const brut = await client.req("POST", "/login", {
       json: {
         ...charge,

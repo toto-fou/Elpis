@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, session sécurisée quand un secret attaché couvre l'origine, propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
+/** apps/toolhost/src/mcp/browser/session.ts — `pw_session` : ouverture (garde de l'adresse, session sécurisée quand un secret attaché couvre l'origine, liée à ce secret et reprise pour lui ensuite, propriété posée par l'outil), arrêt, état, liste, nettoyage ; aucun identifiant n'est accepté ni retenu. */
 import { estDict, intPy, lowerPy, nomTypePy, reprPy, stripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { errPw, origineExacte, pwOwner, recordPwSessionOwner, refusUrl } from "@elpis/navigateur";
@@ -7,15 +7,18 @@ import type { ContexteAppel } from "@elpis/outils-mcp";
 
 import type { SecretApplicable } from "../../rappel";
 import { minusculesPy, ouvrirAppel } from "./appel";
-import type { ServicesBrowser } from "./appel";
-import { applicables, refusSecret, resoudre } from "./secrets";
+import type { Appel, ServicesBrowser } from "./appel";
+import { lier, oublier, oublierProprietaire, sessionDuSecret } from "./liaisons";
+import { applicables, refusSecret, resoudre, SANS_IDENTIFIANT } from "./secrets";
 
-/** Secret qui ouvre la session : désigné (`secret=`), sinon le seul attaché qui couvre l'origine ; `http-auth` résolu pour le contexte du navigateur. */
+/** Secret qui ouvre la session : désigné (`secret=`), sinon le seul attaché qui couvre l'origine (sans valeur). */
 interface SecretDeSession {
   readonly secret: SecretApplicable;
   readonly origine: string;
-  readonly identifiants: { username: string; password: string } | null;
 }
+
+/** Erreurs du service pour une session qui n'existe plus. */
+export const SESSION_DISPARUE = new Set(["session_not_found", "session_expired"]);
 
 /** `viewport="LxH"` → `{width, height}`, `null` si illisible. */
 function fenetre(viewport: string): Dict | null {
@@ -29,7 +32,7 @@ function fenetre(viewport: string): Dict | null {
   }
 }
 
-/** Secret de la session à ouvrir sur `url` : `secret=` contrôlé par le core, sinon le seul secret attaché qui couvre l'origine (plusieurs : `secret_ambiguous`) ; `null` : session ordinaire ; un `http-auth` est résolu ici (valeur passée au service, jamais rendue). */
+/** Secret de la session à ouvrir sur `url` : `secret=` contrôlé par le core, sinon le seul secret attaché qui couvre l'origine (plusieurs : `secret_ambiguous`) ; `null` : session ordinaire ; un `http-auth` sans nom d'utilisateur est refusé avant toute résolution. */
 async function secretDeSession(
   s: ServicesBrowser,
   url: string,
@@ -61,15 +64,43 @@ async function secretDeSession(
     };
   const choisi = r.valeur[0];
   if (choisi === undefined) return { choix: null };
-  if (choisi.kind !== "http-auth") return { choix: { secret: choisi, origine, identifiants: null } };
-  const v = await resoudre(port, "http-auth", origine, choisi.name);
-  if ("refus" in v) return v;
+  if (choisi.kind === "http-auth" && !choisi.username)
+    return {
+      refus: refusSecret("secret_username_required", SANS_IDENTIFIANT(choisi.name), FIX_IDENTIFIANT),
+    };
+  return { choix: { secret: choisi, origine } };
+}
+
+const FIX_IDENTIFIANT =
+  "Ask the user to add the user name of this secret in Settings › Secrets, then start again; never ask for it or for a password in the chat.";
+
+/** Note jointe à une session sécurisée `web-login`. */
+const noteConnexion = (nom: string): string =>
+  `Secure session for secret '${nom}': call pw_login(session_id, secret="${nom}") on its login page.`;
+
+/** Session sécurisée déjà ouverte par ce propriétaire pour le même secret, la même origine et le même TLS : l'adresse s'y ouvre (ni nouvelle session, ni usage du secret) ; `null` s'il n'y en a pas ou si elle n'existe plus. */
+async function reprendreSession(
+  client: Appel["client"],
+  choix: SecretDeSession,
+  url: string,
+): Promise<Dict | null> {
+  const sid = sessionDuSecret(client.owner, choix.secret.name, choix.origine, choix.secret.tls);
+  if (sid === null) return null;
+  const r = await client.req("POST", "/action", { json: { session_id: sid, type: "goto", url } });
+  if (estDict(r) && SESSION_DISPARUE.has(strPy(r["error"] ?? ""))) {
+    oublier(client.owner, sid);
+    return null;
+  }
   return {
-    choix: {
-      secret: { ...choisi, tls: v.valeur.tls },
-      origine,
-      identifiants: { username: v.valeur.username ?? "", password: v.valeur.secret },
-    },
+    ...(estDict(r) ? r : {}),
+    status: estDict(r) && r["ok"] === false ? r["status"] : "reused",
+    session_id: sid,
+    reused: true,
+    secure: true,
+    tls: choix.secret.tls,
+    secret: choix.secret.name,
+    reuse_note: `The secure session already open for secret '${choix.secret.name}' was reused (one session per secret).`,
+    ...(choix.secret.kind === "web-login" ? { secret_note: noteConnexion(choix.secret.name) } : {}),
   };
 }
 
@@ -92,6 +123,18 @@ async function demarrer(
   const coffre = await secretDeSession(s, url, a["secret"]);
   if ("refus" in coffre) return coffre.refus;
   const choix = coffre.choix;
+  if (choix !== null) {
+    const reprise = await reprendreSession(client, choix, url);
+    if (reprise !== null) return reprise;
+  }
+  let tls = choix?.secret.tls ?? "strict";
+  let identifiants: { username: string; password: string } | null = null;
+  if (choix !== null && choix.secret.kind === "http-auth") {
+    const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
+    if ("refus" in v) return v.refus;
+    tls = v.valeur.tls;
+    identifiants = { username: v.valeur.username ?? "", password: v.valeur.secret };
+  }
   const corps: Dict = {
     url,
     load_state_id: a["load_state_id"],
@@ -100,9 +143,8 @@ async function demarrer(
   };
   if (choix !== null) {
     corps["secure"] = true;
-    corps["tls"] = choix.secret.tls;
-    if (choix.identifiants !== null)
-      Object.assign(corps, { credentials_origin: choix.origine, ...choix.identifiants });
+    corps["tls"] = tls;
+    if (identifiants !== null) Object.assign(corps, { credentials_origin: choix.origine, ...identifiants });
   }
   if (a["device"]) corps["device"] = a["device"];
   if (a["viewport"]) {
@@ -120,11 +162,16 @@ async function demarrer(
     const ouverte = !veritePy(resultat["error"]) && resultat["ok"] !== false;
     if (veritePy(sid) && username && ouverte)
       await recordPwSessionOwner(strPy(sid), username).catch(() => undefined);
-    if (choix !== null && ouverte) {
+    if (choix !== null && ouverte && veritePy(sid)) {
+      lier(client.owner, strPy(sid), {
+        secret: choix.secret.name,
+        kind: choix.secret.kind,
+        origines: choix.secret.origins.length ? choix.secret.origins : [choix.origine],
+        tls,
+        sousAgents: choix.secret.subagents,
+      });
       resultat["secret"] = choix.secret.name;
-      if (choix.secret.kind === "web-login")
-        resultat["secret_note"] =
-          `Secure session for secret '${choix.secret.name}': call pw_login(session_id, secret="${choix.secret.name}") on its login page.`;
+      if (choix.secret.kind === "web-login") resultat["secret_note"] = noteConnexion(choix.secret.name);
     }
     if (coffre.avis && ouverte) resultat["secret_warning"] = coffre.avis;
   }
@@ -153,6 +200,7 @@ export function pwSession(s: ServicesBrowser) {
     )
       return refusFermetureCompte(action);
     const sid = a["session_id"];
+    if (action === "stop") oublier(client.owner, strPy(sid ?? ""));
     if (action === "stop" || action === "trace_export" || action === "save_state")
       return client.req("POST", `/${action}`, { json: { session_id: sid } });
     if (action === "list") {
@@ -168,6 +216,8 @@ export function pwSession(s: ServicesBrowser) {
       }
       return r;
     }
+    if (action === "cleanup" || (action === "cleanup_own" && appel.appel.portee === "isolee"))
+      oublierProprietaire(client.owner);
     if (action === "cleanup") return client.req("POST", "/cleanup");
     if (action === "cleanup_own")
       return appel.appel.portee === "isolee"

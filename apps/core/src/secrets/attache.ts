@@ -14,7 +14,7 @@ import {
   upsertChat,
 } from "../chats/stockage";
 import { ErreurSecret } from "./erreurs";
-import { COLONNES_SECRET, journaliser, vueSecret } from "./stockage";
+import { COLONNES_SECRET, journaliser, lireLigneParNom, vueSecret } from "./stockage";
 import type { Acteur, LigneSecret } from "./stockage";
 
 /** Clé d'un run de routine (`runChatKey`) : aucune conversation, seule la politique `routines` du secret autorise. */
@@ -188,6 +188,45 @@ export async function remplacerSecretsAttaches(
     await journaliserChangement(base, uid, racine, precedents, ids, acteur);
   }
   return gardees.map((l) => vueSecret(l));
+}
+
+/** Déclencheur du service navigateur (session sécurisée fermée, `secret_session_closed`) : le secret `nom` est détaché de la conversation racine signée du compte (rien pour un run de routine) et `vault.secret.refused` journalisé (`reason: "tripwire"`) ; vrai s'il était attaché. */
+export async function detacherSurDeclencheur(
+  base: Base,
+  uid: number,
+  identite: { chat_id: string; subagent?: unknown },
+  nom: string,
+  acteur: Acteur,
+): Promise<boolean> {
+  const conv = await contexteDeConversation(base, uid, identite.chat_id);
+  const racine = conversationRacine(identite.chat_id);
+  let detache = false;
+  if (conv !== null && !conv.routine) {
+    const ids = (await idsAttaches(base, uid, racine)) ?? [];
+    const l = await lireLigneParNom(base, uid, nom);
+    if (l !== null && ids.includes(Number(l.id))) {
+      const restants = ids.filter((id) => id !== Number(l.id));
+      await remplacerSecretsAttaches(base, uid, racine, restants, acteur, { strict: false });
+      detache = true;
+    }
+  }
+  journaliser(
+    acteur,
+    "vault.secret.refused",
+    {
+      code: "secret_session_closed",
+      reason: "tripwire",
+      usage: null,
+      target: null,
+      name: nom.slice(0, 64),
+      chat_id: identite.chat_id || null,
+      run: conv?.routine ? racine : null,
+      subagent: Boolean(identite.subagent) || conv?.sousAgent === true,
+      detached: detache,
+    },
+    "failure",
+  );
+  return detache;
 }
 
 /** `vault.secret.attached` / `vault.secret.detached` pour chaque secret ajouté ou retiré (jamais de valeur). */

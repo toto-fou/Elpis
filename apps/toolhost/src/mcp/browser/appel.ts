@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/appel.ts — appel d'un outil pw_* : compte, refus d'une session d'autrui, client du service au propriétaire du compte, mémoire AX de la base de l'hôte. */
+/** apps/toolhost/src/mcp/browser/appel.ts — appel d'un outil pw_* : compte, refus d'une session d'autrui ou, pour un sous-agent, d'une session ouverte pour un secret qui exclut les sous-agents, client du service au propriétaire du compte, mémoire AX de la base de l'hôte. */
 import { estDict, intPy, lowerPy, nomTypePy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import type { Base } from "@elpis/db";
@@ -16,6 +16,8 @@ import { current, lireSousAgent } from "@elpis/securite";
 import type { SousAgentHote } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
+import { liaison } from "./liaisons";
+import { refusSecret } from "./secrets";
 import type { PortSecrets } from "./secrets";
 
 /** Services d'un outil pw_* : base AX de l'hôte (`null` = mémoire AX éteinte, `_AX_ENABLED` faux), journal, coffre du core (absent : sessions ordinaires seulement). */
@@ -50,7 +52,7 @@ export function proprietaireDe(
   return { owner: pwOwnerEnfant(username, sa.id), portee: "isolee" };
 }
 
-/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
+/** `_refus_session_d_autrui` en tête de chaque outil : refus (session inconnue ou d'un autre compte ; session ouverte pour un secret dont la politique exclut les sous-agents, pour un sous-agent), ou l'appel au propriétaire du compte, ou de l'enfant isolé. */
 export async function ouvrirAppel(
   ctx: ContexteAppel,
   s: ServicesBrowser,
@@ -59,7 +61,17 @@ export async function ouvrirAppel(
   const username = getUsername(ctx);
   const refus = await refusSessionDAutrui(sessionId, username);
   if (refus !== null) return { refus };
-  const { owner, portee } = proprietaireDe(username, sousAgentDe(ctx));
+  const sa = sousAgentDe(ctx);
+  const { owner, portee } = proprietaireDe(username, sa);
+  const lien = sa !== null && typeof sessionId === "string" ? liaison(owner, sessionId) : undefined;
+  if (lien !== undefined && !lien.sousAgents)
+    return {
+      refus: refusSecret(
+        "secret_not_attached",
+        `This browser session was opened for secret '${lien.secret}', which sub-agents may not use.`,
+        "Leave this session to the main conversation and return your report; the user can allow sub-agents in the secret's policy (Settings › Secrets).",
+      ),
+    };
   return {
     refus: null,
     appel: {

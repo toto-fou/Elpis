@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception ; secrets du coffre (résolution, recherche, reprise AX) jamais gardés ni journalisés. */
+/** apps/toolhost/src/rappel.ts — rappels de l'hôte vers l'API interne du core (`/api/internal/*`, shared_infra/toolhost/client.py) : jeton de service, cache court, jamais d'exception ; secrets du coffre (résolution, recherche, déclencheur, reprise AX) jamais gardés ni journalisés. */
 import { estDict, getPy, intPy, pyJsonLoads, rstripPy, strPy, veritePy } from "@elpis/commun";
 import type { Dict } from "@elpis/commun";
 import { IMPORT_GARDE } from "@elpis/fichiers";
@@ -463,9 +463,20 @@ export class ClientRappel {
         name: strPy(x["name"] ?? ""),
         kind: x["kind"] === "http-auth" ? ("http-auth" as const) : ("web-login" as const),
         username: typeof x["username"] === "string" ? x["username"] : null,
+        origins: Array.isArray(x["origins"])
+          ? x["origins"].filter((o): o is string => typeof o === "string")
+          : [],
         tls: x["tls"] === "insecure" ? ("insecure" as const) : ("strict" as const),
+        subagents: x["subagents"] === true,
       }));
     });
+  }
+
+  /** `POST /api/internal/secrets/tripwire` : session sécurisée fermée par le service ; le core détache le secret de la conversation de `appel` et journalise le refus ; vrai s'il était attaché. */
+  declencheur(appel: AppelSigne, name: string): Promise<ReponseCoffre<boolean>> {
+    return this.rappelCoffre("/api/internal/secrets/tripwire", { name }, appel, (d) =>
+      d["ok"] === true ? d["detached"] === true : null,
+    );
   }
 
   /** `POST /api/internal/secrets/import-ax` pour `compte` : une issue par ligne (`imported`, `exists`, `skipped`, `failed`) ; `null` : non acquitté. */
@@ -563,12 +574,14 @@ export interface SecretResolu {
   readonly tls: "strict" | "insecure";
 }
 
-/** Secret applicable à une origine (sans valeur). */
+/** Secret applicable à une origine (sans valeur) : origines de sa portée et politique des sous-agents pour lier la session. */
 export interface SecretApplicable {
   readonly name: string;
   readonly kind: "web-login" | "http-auth";
   readonly username: string | null;
+  readonly origins: readonly string[];
   readonly tls: "strict" | "insecure";
+  readonly subagents: boolean;
 }
 
 /** Ligne d'`ax_credentials` remise au core, mot de passe déchiffré. */

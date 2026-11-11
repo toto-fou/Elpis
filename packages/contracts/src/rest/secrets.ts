@@ -188,6 +188,10 @@ export const schemaSecretApplicable = z.object({
 export type SecretApplicable = z.infer<typeof schemaSecretApplicable>;
 export const schemaReponseSecretsApplicables = z.object({ secrets: z.array(schemaSecretApplicable) });
 
+/** Session sécurisée fermée par le service navigateur sur un déclencheur (`secret_session_closed`) : le secret est détaché de la conversation signée et le refus journalisé (`reason: "tripwire"`). */
+export const schemaCorpsDeclencheurSecret = z.strictObject({ name: nom });
+export const schemaReponseDeclencheurSecret = z.object({ ok: z.literal(true), detached: z.boolean() });
+
 /** Lignes d'`ax_credentials` reprises en un appel, au plus. */
 export const IMPORT_AX_MAX = 500;
 /** Ligne d'`ax_credentials` remise par l'hôte d'outils pour le compte de l'enveloppe, mot de passe déchiffré (jamais rendu). */

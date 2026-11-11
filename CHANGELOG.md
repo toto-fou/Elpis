@@ -545,6 +545,12 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Images: PNG decompression bombs bounded.** A small PNG could expand without limit when its
+  compressed metadata (`zTXt`, `iTXt`, `iCCP`) or its interlaced image data were inflated. The
+  metadata is now inflated within 1 MiB per text chunk, 16 MiB per ICC profile and 64 MiB in all
+  (a chunk over its ceiling is ignored and the image still opens); interlaced data is bounded by
+  the size its dimensions allow, and a PNG with a second `IHDR` or over the pixel ceiling is
+  refused before decoding.
 - **Voice: text bounded before cleaning.** The text sent to speech synthesis went through its
   cleaning regular expressions at full length, and three of them backtracked on long runs of
   blank lines or spaces. Only the first 8,000 characters (twice the `tts.max_chars` ceiling) are

@@ -4,7 +4,7 @@ import { nomCanonique } from "@elpis/auth";
 import type { IssueImportAx, LigneAx, ResultatImportAx } from "@elpis/contracts";
 import { hasTable, supprimerSansTrace } from "@elpis/db";
 import type { Base } from "@elpis/db";
-import { decrypt, encrypt, estJetonFernet } from "@elpis/securite";
+import { cleFernetPresente, decryptStrict, estJetonFernet, InvalidToken } from "@elpis/securite";
 
 import { ErreurSecret } from "./erreurs";
 import { normaliserPortee, origines, validerIdentifiant } from "./portee";
@@ -159,13 +159,13 @@ interface LigneBrute {
   password: string;
 }
 
-/** Clé Fernet du core présente et configurée (les lignes chiffrées se déchiffrent ; sans elle, elles sont gardées pour plus tard). */
-function cleFernetPresente(): boolean {
+/** Mot de passe Fernet relu sans jamais créer de clé ; "" s'il est illisible (clé changée). */
+function dechiffrer(jeton: string): string {
   try {
-    encrypt("x");
-    return true;
-  } catch {
-    return false;
+    return decryptStrict(jeton);
+  } catch (e) {
+    if (e instanceof InvalidToken) return "";
+    throw e;
   }
 }
 
@@ -240,7 +240,7 @@ export async function repriseAxDuCore(base: Base): Promise<BilanRepriseCore> {
           gardees += 1;
           continue;
         }
-        const clair = chiffre ? decrypt(l.password) : l.password;
+        const clair = chiffre ? dechiffrer(l.password) : l.password;
         if (chiffre && !clair) indechiffrables.push(l);
         else lisibles.push({ brute: l, ax: { site: l.site, username: l.username, password: clair } });
       }

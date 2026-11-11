@@ -5,7 +5,7 @@ import { setTimeout as attendre } from "node:timers/promises";
 import { prendreVerrouSchema, supprimerSansTrace } from "@elpis/db";
 import type { Base } from "@elpis/db";
 import { verrouAx } from "@elpis/navigateur";
-import { decrypt, encrypt, estJetonFernet } from "@elpis/securite";
+import { cleFernetPresente, decryptStrict, estJetonFernet, InvalidToken } from "@elpis/securite";
 
 import type { Journal } from "./journal";
 import type { ClientRappel, LigneAxRemise } from "./rappel";
@@ -30,13 +30,13 @@ export interface BilanRepriseAx {
   readonly gardees: number;
 }
 
-/** Clé Fernet de l'hôte présente et configurée (sans elle, les lignes chiffrées attendent). */
-function cleFernetPresente(): boolean {
+/** Mot de passe Fernet relu sans jamais créer de clé ; "" s'il est illisible (clé changée). */
+function dechiffrer(jeton: string): string {
   try {
-    encrypt("x");
-    return true;
-  } catch {
-    return false;
+    return decryptStrict(jeton);
+  } catch (e) {
+    if (e instanceof InvalidToken) return "";
+    throw e;
   }
 }
 
@@ -120,7 +120,7 @@ export async function reprendreIdentifiantsAx(
         gardees += 1;
         continue;
       }
-      const clair = chiffre ? decrypt(l.password) : l.password;
+      const clair = chiffre ? dechiffrer(l.password) : l.password;
       if (chiffre && !clair) {
         aEffacer.push(l);
         ecartees.push(`${l.site} (undecryptable)`);

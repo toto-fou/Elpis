@@ -2,6 +2,7 @@
 /** packages/securite/src/index.ts — point d'entrée de la sécurité partagée du core et du toolhost. */
 export {
   coerceToFernetKey,
+  cleFernetPresente,
   configurerChiffrement,
   decrypt,
   decryptStrict,

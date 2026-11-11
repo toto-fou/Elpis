@@ -105,7 +105,8 @@ test('quota: fail_ éligibles (timestampés, ils s\'accumulent)', () => {
 });
 
 // ── Place d'une nouvelle session : jamais au détriment d'un autre compte ────
-import { occupationGroupe, placesEnfants, planSessionSlot, quotasSessions } from '../session_util.js';
+import { occupationGroupe, placesEnfants, planSessionSlot, quotasSessions, sessionCessible } from '../session_util.js';
+import { makeLock } from '../session_lock.js';
 
 const _sess = (entries) => new Map(entries.map(([sid, owner, t]) => [sid, { owner, lastActivity: t }]));
 
@@ -116,7 +117,7 @@ test('planSessionSlot : sous les plafonds → rien à évincer', () => {
 
 test('planSessionSlot : quota du compte atteint → SA plus ancienne cède', () => {
     const s = _sess([['a1', 'alice', 5], ['b1', 'bob', 1], ['a2', 'alice', 2], ['a3', 'alice', 9]]);
-    assert.deepEqual(planSessionSlot(s, 'alice', { maxTotal: 10, maxPerOwner: 3 }), { evict: 'a2', refuse: false });
+    assert.deepEqual(planSessionSlot(s, 'alice', { maxTotal: 10, maxPerOwner: 3 }), { evict: 'a2', refuse: false, limit: 'owner' });
 });
 
 test('planSessionSlot : plafond global, le compte n\'a rien → refus, les autres intacts', () => {
@@ -126,7 +127,7 @@ test('planSessionSlot : plafond global, le compte n\'a rien → refus, les autre
 
 test('planSessionSlot : plafond global, le compte a une session → la sienne cède', () => {
     const s = _sess([['a1', 'alice', 1], ['c1', 'carol', 7], ['b1', 'bob', 3]]);
-    assert.deepEqual(planSessionSlot(s, 'carol', { maxTotal: 3, maxPerOwner: 3 }), { evict: 'c1', refuse: false });
+    assert.deepEqual(planSessionSlot(s, 'carol', { maxTotal: 3, maxPerOwner: 3 }), { evict: 'c1', refuse: false, limit: 'global' });
 });
 
 // Sessions d'un compte (`alice`) et de ses sous-agents (`alice~t1`… groupe `alice`).
@@ -145,7 +146,7 @@ test('planSessionSlot : session du chat et trois enfants web parallèles → le 
     assert.deepEqual(planSessionSlot(s, 'alice~t3', { ..._quota, group: 'alice' }), { evict: null, refuse: false });
     s.set('e3', { owner: 'alice~t3', group: 'alice', lastActivity: 4 });
     assert.deepEqual(planSessionSlot(s, 'alice~t4', { ..._quota, group: 'alice' }), { evict: null, refuse: true, cause: 'groupe' });
-    assert.deepEqual(planSessionSlot(s, 'alice~t1', { ..._quota, group: 'alice' }), { evict: 'e1', refuse: false });
+    assert.deepEqual(planSessionSlot(s, 'alice~t1', { ..._quota, group: 'alice' }), { evict: 'e1', refuse: false, limit: 'group' });
 });
 
 test('planSessionSlot : enfants sur toutes leurs places → la place réservée laisse démarrer le compte', () => {
@@ -160,8 +161,8 @@ test('planSessionSlot : plafond global → le demandeur sans session est refusé
     const q = { maxTotal: 2, maxChildren: 2, maxPerOwner: 3, maxPerGroup: 10 };
     assert.deepEqual(planSessionSlot(s, 'carol', { ...q, group: 'carol' }), { evict: null, refuse: true, cause: 'global' });
     assert.deepEqual(planSessionSlot(s, 'alice~t3', { ...q, group: 'alice' }), { evict: null, refuse: true, cause: 'global' });
-    assert.deepEqual(planSessionSlot(s, 'bob', { ...q, group: 'bob' }), { evict: 'b', refuse: false });
-    assert.deepEqual(planSessionSlot(s, 'alice~t1', { ...q, group: 'alice' }), { evict: 'e1', refuse: false });
+    assert.deepEqual(planSessionSlot(s, 'bob', { ...q, group: 'bob' }), { evict: 'b', refuse: false, limit: 'global' });
+    assert.deepEqual(planSessionSlot(s, 'alice~t1', { ...q, group: 'alice' }), { evict: 'e1', refuse: false, limit: 'global' });
 });
 
 test('planSessionSlot : les enfants web de plusieurs comptes ne prennent jamais la place d’un compte sans session', () => {
@@ -211,4 +212,24 @@ test('sessionsEnfantsAnciennes : enfants de tous les comptes plus vieux que le s
     assert.deepEqual(sessionsEnfantsAnciennes(s, { ageMinMs: 0, now: 1000 }), ['e1', 'e2', 'f1']);
     assert.deepEqual(sessionsEnfantsAnciennes(s, { ageMinMs: 500, now: 1000 }), ['e1', 'f1']);
     assert.deepEqual(sessionsEnfantsAnciennes(s, { ageMinMs: 5000, now: 1000 }), []);
+});
+
+test('planSessionSlot : une session occupée ou liée à un secret ne cède jamais ; une isolée cède avant la principale ; rien à céder → refus', () => {
+    const occupee = makeLock();
+    occupee.held = 1;
+    const s = new Map([
+        ['main', { owner: 'o', lastActivity: 1 }],
+        ['iso', { owner: 'o', lastActivity: 5, isolated: true }],
+        ['occ', { owner: 'o', lastActivity: 0, isolated: true, _lock: occupee }],
+        ['sec', { owner: 'o', lastActivity: 0, tls: 'strict' }],
+    ]);
+    const q = { maxTotal: 10, maxPerOwner: 4 };
+    assert.deepEqual(planSessionSlot(s, 'o', q), { evict: 'iso', refuse: false, limit: 'owner' });
+    s.delete('iso');
+    s.set('auth', { owner: 'o', lastActivity: 0, identifiantsLies: { origin: 'http://x' } });
+    assert.deepEqual(planSessionSlot(s, 'o', q), { evict: 'main', refuse: false, limit: 'owner' });
+    s.delete('main');
+    s.set('login', { owner: 'o', lastActivity: 0, _connexionEnCours: true });
+    assert.deepEqual(planSessionSlot(s, 'o', q), { evict: null, refuse: true, cause: 'protegees', limit: 'owner', protected: ['occ', 'sec', 'auth', 'login'] });
+    assert.equal(sessionCessible({ owner: 'o', _lock: makeLock() }), true);
 });

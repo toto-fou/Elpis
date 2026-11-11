@@ -291,3 +291,50 @@ test('pw_recorder : gestes dans des iframes rejoués dans leur cadre, choix d\'u
     assert.deepEqual(robot.filter(l => /^ {4}(New Page|Go To) /.test(l)).map(l => l.trim().split(/ {4}/)[0]), ['New Page', 'Go To']);
     await api('/recorder/stop');
 });
+
+test('pw_session : jamais d\'éviction silencieuse — session occupée ou d\'un secret gardée, éviction dite, refus clair sans session à céder, plafonds listés', { skip: SAUTER, timeout: 120000 }, async () => {
+    const o = 'quota';
+    const demarrer = (corps) => service.post('/start', { owner: o, url: `${base}/`, ...corps });
+    const occuper = (sid, ms) => service.post('/evaluate', { owner: o, session_id: sid, script: `await new Promise(r => setTimeout(r, ${ms})); return ${ms}` });
+    const pause = (ms) => new Promise(r => setTimeout(r, ms));
+    const evincees = (r) => (r.corps.evicted_sessions || []).map(e => e.session_id);
+    const principale = (await demarrer({})).corps.session_id;
+    const s1 = (await demarrer({ isolated: true })).corps.session_id;
+    const s2 = (await demarrer({ isolated: true })).corps.session_id;
+
+    let r = await demarrer({ isolated: true });
+    assert.equal(r.statut, 200, r.texte);
+    assert.deepEqual(evincees(r), [s1], 'une isolée cède avant la session principale');
+    assert.match(r.corps.warning, /closed \(.*\): to stay within at most 3 sessions per owner/);
+    assert.equal(r.corps.evicted_sessions[0].isolated, true);
+    const s3 = r.corps.session_id;
+
+    const occupee = occuper(s2, 5000);
+    await pause(300);
+    r = await demarrer({ isolated: true });
+    assert.deepEqual(evincees(r), [s3], 'la session occupée est gardée');
+    const s4 = r.corps.session_id;
+    assert.equal((await occupee).corps.result, 5000);
+
+    r = await demarrer({ tls: 'strict' });
+    assert.deepEqual(evincees(r), [s2]);
+    const secret = r.corps.session_id;
+    r = await demarrer({ isolated: true });
+    assert.deepEqual(evincees(r), [s4], 'la session du secret est gardée');
+    const s5 = r.corps.session_id;
+
+    const occupees = [occuper(principale, 4000), occuper(s5, 4000)];
+    await pause(300);
+    r = await demarrer({ isolated: true });
+    assert.equal(r.statut, 503, r.texte);
+    assert.equal(r.corps.code, 'browser_quota');
+    assert.deepEqual(r.corps.protected_sessions.map(p => p.why).sort(), ['busy', 'busy', 'opened for a secret']);
+    assert.match(r.corps.fix, /pw_session\(action='stop'/);
+    await Promise.all(occupees);
+
+    const liste = (await service.get(`/sessions?owner=${o}`)).corps;
+    assert.deepEqual(liste.sessions.map(x => x.session_id).sort(), [principale, secret, s5].sort());
+    assert.deepEqual([liste.max, liste.max_per_owner, liste.max_per_group, liste.effective_max], [10, 3, 4, 3]);
+    assert.equal(liste.sessions.find(x => x.session_id === secret).secret, true);
+    for (const x of liste.sessions) await service.post('/stop', { owner: o, session_id: x.session_id });
+});

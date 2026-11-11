@@ -1317,7 +1317,10 @@ quota), 10 in all for accounts (`BROWSER_MAX_SESSIONS`) and, separately, 6 in al
 subagents (`BROWSER_MAX_CHILD_SESSIONS`): a subagent never takes an account's place;
 a new session never closes
 another account's session, nor the account's or a sibling's session when a subagent
-is the one asking. Each `task` subagent that drives the browser has its own private session, which
+is the one asking. At a cap, the requester's oldest idle session gives way (an
+isolated one before the account's main session), never one that is busy or opened
+for a vault secret; the start result names it (`evicted_sessions` and a warning), and
+when none can give way the start is refused (`browser_quota`, `protected_sessions`). Each `task` subagent that drives the browser has its own private session, which
 counts toward its account's group quota, with one place left for the chat's session:
 the chat and three `web` agents fit in the four places by default, and a batch that contains a `web`
 agent launches only three at a time. At the quota, startup is refused with the error `browser_quota` (with

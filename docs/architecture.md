@@ -1444,7 +1444,9 @@ now knows `task` only through its own bound (`bornesDuLot`) and the refusal of a
   `BROWSER_MAX_SESSIONS_PER_OWNER` (3) per owner, `BROWSER_MAX_SESSIONS_PER_GROUP` (4) for the
   account and its children, one place of which stays with the account (`placesEnfants`), `BROWSER_MAX_CHILD_SESSIONS`
   (6) for the children of all accounts, separate from `BROWSER_MAX_SESSIONS` (10); at the cap, the requester's
-  oldest session gives way, otherwise `browser_quota` or `browser_saturated` with a `fix`. The
+  oldest idle session gives way (isolated first; never a busy one or one opened for a secret, `sessionCessible`),
+  reported in `evicted_sessions`, otherwise `browser_quota` (with `protected_sessions`) or `browser_saturated` with a `fix`;
+  `/sessions` gives `max_per_owner`, `max_per_group` and `effective_max`. The
   harness refuses an isolated `web` when the group is full (`task_unavailable`, `child_slots_left` of
   `/health`, `santeNavigateur`) and closes the private session at the end of the run (`cleanup_own`, whatever the
   state; 20 s at most); at startup, main closes orphaned child sessions in one call

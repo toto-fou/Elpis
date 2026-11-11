@@ -2258,6 +2258,39 @@ function refusDemarrage(b) {
 const OPTIONS_DE_CREATION = ['record_har', 'trace', 'record_video', 'device', 'viewport', 'locale', 'timezone', 'color_scheme', 'touch'];
 const optionsDeCreation = (b) => OPTIONS_DE_CREATION.filter((k) => (k === 'touch' ? typeof b[k] === 'boolean' : Boolean(b[k])));
 
+// Plafond qui a fait céder une session, en clair pour le modèle.
+const LIMITES_SESSIONS = {
+    owner: () => `at most ${MAX_SESSIONS_PER_OWNER} sessions per owner`,
+    group: () => `at most ${MAX_SESSIONS_PER_GROUP} sessions for an account and its sub-agents`,
+    global: () => `at most ${MAX_SESSIONS} sessions on the browser service`,
+};
+
+// Session qui va céder sa place : identifiant, adresse, inactivité et raison.
+function descriptionEviction(sid, limite, now) {
+    const s = sessions.get(sid) || {};
+    let url = ''; try { url = s.page?.url?.() || ''; } catch (_) { /* page fermée */ }
+    return { session_id: sid, url: url.substring(0, 120), idle_sec: Math.round((now - (s.lastActivity || now)) / 1000),
+             isolated: Boolean(s.isolated), reason: `closed to stay within ${(LIMITES_SESSIONS[limite] || LIMITES_SESSIONS.owner)()}` };
+}
+
+function avisEviction(evincees) {
+    return `To open this session, ${evincees.length} older idle session(s) of yours were closed (${evincees.map(e => e.session_id).join(', ')}): `
+        + `${evincees[0].reason.replace(/^closed /, '')}. Their session_id no longer works; a session that is busy or opened for a secret is never closed.`;
+}
+
+// Refus quand toutes les sessions du demandeur sont protégées (occupées ou liées à un secret) : lesquelles, et quoi faire.
+function refusSessionsProtegees(slot) {
+    const protegees = (slot.protected || []).map((sid) => {
+        const s = sessions.get(sid) || {};
+        return { session_id: sid, why: s.tls || s.identifiantsLies ? 'opened for a secret' : 'busy' };
+    });
+    return {
+        error: `Browser session limit reached (${(LIMITES_SESSIONS[slot.limit] || LIMITES_SESSIONS.owner)()}) and none of your sessions can be closed for this one: each is busy or opened for a secret.`,
+        code: 'browser_quota', protected_sessions: protegees,
+        fix: "Stop a session you no longer need with pw_session(action='stop', session_id=…), or reuse one: start without isolated=true reuses your main session (a new tab), and starting again for the same secret reuses its session.",
+    };
+}
+
 app.post('/start', async (req, res) => {
     let _startRelease = null;
     try {
@@ -2459,6 +2492,7 @@ app.post('/start', async (req, res) => {
         const slot = planSessionSlot(sessions, owner, { maxTotal: MAX_SESSIONS, maxChildren: MAX_CHILD_SESSIONS, maxPerOwner: MAX_SESSIONS_PER_OWNER, group, maxPerGroup: MAX_SESSIONS_PER_GROUP, now });
         if (slot.refuse) {
             await context.close().catch(() => {});
+            if (slot.cause === 'protegees') return res.status(503).json(refusSessionsProtegees(slot));
             return res.status(503).json(slot.cause === 'groupe' ? {
                 error: `Browser session quota reached for this account (${MAX_SESSIONS_PER_GROUP} sessions, sub-agents included).`,
                 code: 'browser_quota',
@@ -2470,9 +2504,11 @@ app.post('/start', async (req, res) => {
                 fix: 'Do not loop on it: retry in a few minutes, or continue without the browser.',
             });
         }
+        // Session cédée pour rester sous le plafond : dite dans la réponse, jamais en silence.
+        const evincees = slot.evict ? [descriptionEviction(slot.evict, slot.limit, now)] : [];
         if (slot.evict) await closeSession(slot.evict, 'max_sessions');
 
-        sessions.set(sessionId, { context, page, owner, group, consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
+        sessions.set(sessionId, { context, page, owner, group, isolated: Boolean(isolated), consoleLogs, networkLog, downloads: [], tabs: [page], mousePos: { x: 960, y: 540 }, createdAt: now, lastActivity: now, traceActive: _traceActive, _lock: makeLock(), dialogState,
                                 identifiantsLies: identifiants ? { origin: identifiants.origin, username: identifiants.username } : null,
                                 har: Boolean(record_har), tls });
         suivreOnglets(sessions.get(sessionId), page);
@@ -2489,6 +2525,7 @@ app.post('/start', async (req, res) => {
         await safeRemoveOverlays(page, false);
 
         res.json({ status: 'started', session_id: sessionId, url: page.url(), title: await page.title().catch(() => ''), ...nav,
+                   ...(evincees.length ? { evicted_sessions: evincees, warning: avisEviction(evincees) } : {}),
                    ...indiceAuthDemarrage(nav, Boolean(identifiants)),
                    ...avisIdentifiants(identifiantsFournis, identifiants, identifiants, nav.http_status, page.url()),
                    ...(tls ? { tls } : {}) });
@@ -5657,9 +5694,15 @@ app.get('/sessions', (req, res) => {
             tabs: s.tabs?.length || 1,
             active_tab: s.tabs ? s.tabs.indexOf(s.page) : 0,
             ttl_remaining_sec: Math.max(0, Math.round((SESSION_TTL_MS - (now - (s.lastActivity || now))) / 1000)),
+            ...(s.isolated ? { isolated: true } : {}), ...(s.tls || s.identifiantsLies ? { secret: true } : {}),
         });
     }
-    res.json({ count: list.length, max: MAX_SESSIONS, ttl_min: SESSION_TTL_MS / 60000, sessions: list });
+    // Plafonds : global (tous comptes), par propriétaire, par groupe (le compte et ses sous-agents), et ce que ce compte peut encore ouvrir.
+    const groupe = owner ? occupationGroupe(sessions, owner) : { compte: 0, enfants: 0 };
+    const effectif = Math.max(0, Math.min(MAX_SESSIONS_PER_OWNER, MAX_SESSIONS_PER_GROUP - groupe.enfants));
+    res.json({ count: list.length, max: MAX_SESSIONS, max_per_owner: MAX_SESSIONS_PER_OWNER, max_per_group: MAX_SESSIONS_PER_GROUP,
+               effective_max: effectif, ttl_min: SESSION_TTL_MS / 60000, sessions: list,
+               limits_note: `You can keep ${effectif} session(s) at once (${MAX_SESSIONS_PER_OWNER} per owner, ${MAX_SESSIONS_PER_GROUP} for the account and its sub-agents, ${MAX_SESSIONS} on the service). At the limit, start closes your oldest idle session (an isolated one first) and says so; a busy session or one opened for a secret is never closed.` });
 });
 
 // ======================== FORCE CLEANUP ========================

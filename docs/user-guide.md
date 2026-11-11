@@ -809,7 +809,10 @@ once. For a login form it calls `pw_login`: the browser service checks the form,
 and password, submits, then reopens the page in a new tab so that the password is no longer in it.
 The assistant only learns whether the login worked. If a site shows the password back on a page,
 that page is blanked and the assistant is told to go elsewhere; a form placed inside another
-site's frame is refused. If a page asks for a login that is not attached,
+site's frame is refused. If the browser service suspects that the password is about to leak, it
+closes the session and the secret is detached from the conversation: check the site, then attach
+it again if you trust it. A secure session serves one secret: the assistant goes back to it for that
+secret instead of opening new ones. If a page asks for a login that is not attached,
 the assistant asks you to attach one with `/secret attach <name>`: never give it a password in the
 chat. Each use is written to the security journal.
 

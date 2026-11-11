@@ -2987,7 +2987,17 @@ therefore removes every way to read a typed value back.
   (never target a field through its value) for every `pw_*` tool; `secret_scope_mismatch`,
   `secret_target_required` and `secret_login_failed` for `pw_login`; and the vault's codes
   (`secret_unknown`, `secret_unverified`, `secret_type_mismatch`, `secret_scope_mismatch`,
-  `secret_ambiguous`, `secret_undecryptable`, `secret_key_unavailable`) each with its own `fix`.
+  `secret_ambiguous`, `secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`)
+  each with its own `fix`. The tool host binds every secure session it opens to its secret (name,
+  kind, origins, TLS, `policy.subagents`), in memory, until the session is stopped, cleaned up,
+  expires or trips: `pw_login` refuses a session it did not bind, a secret with verified TLS in a
+  session opened with `tls: insecure`, and a secret whose origins the binding does not cover unless
+  the session was opened for it (`secret_scope_mismatch`); a sub-agent cannot drive a session bound
+  to a secret whose policy excludes sub-agents (`secret_not_attached`). `pw_session(start)` on an
+  origin of a secret that already has a secure session of the caller reuses it (the URL opens there;
+  no new session, no use of the secret). When the browser service closes a secure session on a
+  tripwire (`409 secret_session_closed`), the tool host forgets the binding, asks the core to detach
+  the secret (`/api/internal/secrets/tripwire`) and tells the model in plain English.
 - **Limits**: a script on the secret's own origin receives the password, as when a person types
   it. Text supplied by the agent that equals the whole secret is purged, which tells it the guess
   was right (one guess per call). With strict TLS and an internal CA, the CA must be trusted by
@@ -3515,6 +3525,7 @@ vault_secrets
 | `GET /api/chats/:chat_id/secrets` · `PUT /api/chats/:chat_id/secrets` | main, session | Secrets attached to a conversation (below) |
 | `POST /api/internal/secrets/resolve` | main, service token and signed identity (`X-Elpis-Identity`) | Value for the tool host |
 | `POST /api/internal/secrets/match` | main, service token and signed identity | Attached secrets that cover an origin, without value (`pw_session`) |
+| `POST /api/internal/secrets/tripwire` | main, service token and signed identity | A secure session closed by the browser service (`secret_session_closed`): detach the secret, journal the refusal |
 | `POST /api/internal/secrets/import-ax` | main, service token and signed identity | The tool host's former AX credentials of one account |
 
 Responses carry metadata only (`schemaSecret`: scope, user name, state, version, policy, uses,
@@ -3537,11 +3548,18 @@ whose scope covers the origin is used (`secret_ambiguous` when there are several
 `{name, username, secret, tls, version}` with `Cache-Control: no-store`; `use_count` and
 `last_used_at` are updated and `vault.secret.used` is written, a refusal writes
 `vault.secret.refused` ([audit-events.md](audit-events.md#secrets-vault)). A ciphertext of another
-key gives `secret_undecryptable`, a missing key `secret_key_unavailable`. `lireSecretPourUsage`
-takes an explicit `exigeAttachement`: `true` for the tool host's calls, `false` for the core's own
-connector readers (Git, LLM, MCP, image engine), which have no conversation.
-`POST /api/internal/secrets/match` (`{origin, name?}` → `{secrets: [{name, kind, username, tls}]}`)
-applies the same checks without a value, a use count or a journal line.
+key gives `secret_undecryptable`, a missing key `secret_key_unavailable`, an `http-auth` secret
+without a user name `secret_username_required` (no use counted). `lireSecretPourUsage` takes an
+explicit `exigeAttachement`: `true` for the tool host's calls, `false` for the core's own connector
+readers (Git, LLM, MCP, image engine), which have no conversation; `web-login` and `http-auth`
+always require it, whatever the caller passes. When attachment is required, a name that is unknown,
+of another kind or of another account gets the same answer as a secret that is not attached
+(`secret_not_attached`), and so does an origin that only non-attached secrets cover: the tool host
+learns nothing about secrets it may not use.
+`POST /api/internal/secrets/match` (`{origin, name?}` → `{secrets: [{name, kind, username, origins,
+tls, subagents}]}`) applies the same checks without a value, a use count or a journal line.
+`POST /api/internal/secrets/tripwire` (`{name}` → `{ok: true, detached}`) detaches the secret from
+the signed conversation and writes `vault.secret.refused` with `reason: "tripwire"`.
 
 **Attachment to a conversation.** The user attaches `web-login` and `http-auth` secrets to a
 conversation (`/secret attach <name>`); the ids are stored on the root conversation,
@@ -3572,16 +3590,24 @@ the former `ax_credentials` table become `http-auth` secrets in state `unverifie
 `{origins: [site]}`, named after the host (`intranet.lan-8443`, `-2`… when taken), user name kept,
 `meta {source: "ax_credentials"}`; a row whose key has no scheme (an old site key, origin unknown)
 is skipped and listed, a row that matches an `http-auth` secret of the same origin and user name is
-`exists`. The core imports the rows of its own database in the numbered migration
-`0030_vault_ax_credentials` (owner found by user name, or by its canonical form; Fernet rows
-decrypted with the core's key, kept while the key is missing; rows of a deleted account or that no
-longer decrypt are removed and listed), then runs `VACUUM`. The tool host (local or remote) imports
-the rows of its own database at startup: it decrypts them with its Fernet key, sends them account by
-account to `POST /api/internal/secrets/import-ax` (signed identity of that account,
-`{rows: [{site, username, password}]}` → one `{site, status: imported | exists | skipped | failed,
-reason?, name?}` per row), deletes every acknowledged row that did not fail, runs `VACUUM`, and
-retries while the core does not answer. `vault.secret.created` is written for each secret and a
-summary `vault.ax.imported` for each account. The console's AX pages (`/api/ax/sites`) show
+`exists`. Owners are found by user name, or by the single account of that canonical form (the
+tools stored sanitised names). The core imports the rows of its own database at every start of
+`main` while some remain, under the schema lock (`.init_db.lock`, one process at a time): each
+secret is created in its own transaction, so `vault.secret.created` is written only once it is
+committed; Fernet rows are decrypted with the core's key; rows kept for a missing Fernet key or the
+account's limit (`failed`) wait for the next start; rows of a deleted account or that no longer
+decrypt are removed and listed. The tool host (local or remote) imports the rows of its own
+database in the background at startup (it never holds up the start): it decrypts them with its
+Fernet key, sends them account by account to `POST /api/internal/secrets/import-ax` (signed
+identity of that account, `{rows: [{site, username, password}]}` → one `{site, status: imported |
+exists | skipped | failed, reason?, name?}` per row), and retries a few times while rows wait (core
+unreachable, Fernet key missing, limit), then at its next start. This route is a write path of the
+service token: it creates secrets for the account of the signed identity, nothing else. Rows are
+deleted only when acknowledged and unchanged since they were read, with `PRAGMA secure_delete` on
+(SQLite) followed by a `wal_checkpoint(TRUNCATE)` under the schema lock, so the old passwords stay
+neither in the file nor in its WAL; on PostgreSQL the table is rewritten with
+`VACUUM FULL ax_credentials`. No process runs a `VACUUM` of the whole database for this. A summary
+`vault.ax.imported` is written for each account. The console's AX pages (`/api/ax/sites`) show
 `has_credentials`, `cred_username`, `cred_origin`, `cred_use_count` and `cred_last_ok` from the
 session account's own vault secrets.
 
@@ -3589,7 +3615,7 @@ Error codes (`CODES_ERREUR_SECRET`): `secret_request_invalid`, `secret_name_inva
 `secret_name_taken`, `secret_scope_invalid`, `secret_value_required`, `secret_value_invalid`,
 `secret_meta_invalid`, `secret_limit`, `secret_unknown`, `secret_type_mismatch`,
 `secret_unverified`, `secret_scope_mismatch`, `secret_not_attached`, `secret_ambiguous`,
-`secret_undecryptable`, `secret_key_unavailable`.
+`secret_undecryptable`, `secret_key_unavailable`, `secret_username_required`.
 
 **Key.** `ELPIS_VAULT_KEY`, otherwise `/etc/elpis/vault.key` (`ELPIS_VAULT_KEY_PATH`, created by
 `sudo ./elpis vault setup` like the key of the security journal), otherwise `user_db/.vault.key`.

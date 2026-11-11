@@ -80,6 +80,10 @@ export const reglagesRelaisNavigateur = {
   corpsMax: 1024 * 1024,
   /** Octets de corps gardés en mémoire à la fois par un relais (toutes requêtes) ; au-delà : 503. */
   tamponsMax: 8 * 1024 * 1024,
+  /** Connexion à l'amont : délai total, toutes adresses essayées (ms). */
+  connexionMs: 10_000,
+  /** Délai avant d'essayer l'adresse suivante pendant qu'une connexion traîne (ms, RFC 8305). */
+  essaiSuivantMs: 250,
   /** Durée de vie par défaut d'une liaison sans prolongation (ms). */
   liaisonMs: 15 * 60_000,
   /** Substitutions par fenêtre armée : une soumission (une deuxième pourrait stocker la valeur pour la relire autrement). */
@@ -381,6 +385,63 @@ export function ouvrirSocketATous(chemin: string): number {
   }
 }
 
+/** Adresses alternées par famille, la famille de la première d'abord (RFC 8305). */
+function alterner(adresses: readonly string[]): string[] {
+  const premiere = isIP(adresses[0] ?? "");
+  const a = adresses.filter((x) => isIP(x) === premiere);
+  const b = adresses.filter((x) => isIP(x) !== premiere);
+  const sortie: string[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++)
+    sortie.push(...[a[i], b[i]].filter((x) => x !== undefined));
+  return sortie;
+}
+
+/** Connexion TCP à la première des adresses jugées qui répond : essai suivant après `essaiSuivantMs` ou dès un échec (Happy Eyeballs), le tout borné par `connexionMs`. */
+export function connecterAdresses(adresses: readonly string[], port: number): Promise<Socket> {
+  const liste = alterner(adresses);
+  return new Promise((ok, ko) => {
+    const essais = new Set<Socket>();
+    let i = 0;
+    let fini = false;
+    let derniere: unknown = new Error("no address to connect to");
+    let pas: NodeJS.Timeout | undefined;
+    const total = setTimeout(
+      () => terminer(new Error(`connection to port ${port} timed out`)),
+      reglagesRelaisNavigateur.connexionMs,
+    );
+    const terminer = (e: unknown, s?: Socket): void => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(total);
+      clearTimeout(pas);
+      for (const x of essais) if (x !== s) x.destroy();
+      if (s) ok(s);
+      else ko(e);
+    };
+    const suivant = (): void => {
+      clearTimeout(pas);
+      if (fini) return;
+      const adresse = liste[i++];
+      if (adresse === undefined) {
+        if (essais.size === 0) terminer(derniere);
+        return;
+      }
+      const s = connexionNet({ host: adresse, port });
+      essais.add(s);
+      s.once("connect", () => terminer(null, s));
+      s.on("error", (e) => {
+        if (fini) return;
+        essais.delete(s);
+        s.destroy();
+        derniere = e;
+        suivant();
+      });
+      pas = setTimeout(suivant, reglagesRelaisNavigateur.essaiSuivantMs);
+    };
+    suivant();
+  });
+}
+
 /** Réponse de refus du relais ; avec `req` (corps non lu), la connexion est fermée après la réponse. */
 function refuser(res: ServerResponse, statut: number, motif: string, req?: IncomingMessage): void {
   if (res.headersSent) return void res.destroy();
@@ -677,22 +738,26 @@ export class RelaisNavigateur {
       return;
     }
     if (c.liees.length === 0) {
-      const amont = connexionNet(hp.port, v.adresse, () => {
-        client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-        if (tete.length) amont.write(tete);
-        amont.pipe(client);
-        client.pipe(amont);
-      });
+      let amont: Socket;
+      try {
+        amont = await connecterAdresses(v.adresses ?? [v.adresse], hp.port);
+      } catch (e) {
+        this.journal(`tunnel ${req.url ?? ""} unreachable: ${e instanceof Error ? e.message : String(e)}`);
+        if (!client.destroyed) client.end("HTTP/1.1 502 Bad Gateway\r\ncontent-length: 0\r\n\r\n");
+        return;
+      }
       this.suivre(amont);
       const fin = (): void => {
         amont.destroy();
         client.destroy();
       };
-      amont.on("error", () => {
-        if (!client.destroyed) client.end("HTTP/1.1 502 Bad Gateway\r\ncontent-length: 0\r\n\r\n");
-        fin();
-      });
+      amont.on("error", fin);
       client.on("close", fin);
+      if (client.destroyed) return fin();
+      client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (tete.length) amont.write(tete);
+      amont.pipe(client);
+      client.pipe(amont);
       return;
     }
     let contexte: ReturnType<Feuilles["contexte"]>;
@@ -840,18 +905,24 @@ export class RelaisNavigateur {
     const envoyer = (autorisation: string | null): Promise<IncomingMessage> =>
       new Promise((ok, ko) => {
         const t = { ...entetes, ...(autorisation ? { authorization: autorisation } : {}) };
+        // Connexion par les adresses jugées (essai suivant, délai borné), TLS posé dessus ; sans agent (pas de réutilisation).
+        const connecter = (_o: unknown, fini: (e: Error | null, s?: Socket) => void): undefined => {
+          void connecterAdresses(v.adresses ?? [v.adresse], port).then(
+            (tcp) =>
+              fini(null, https ? connexionTls({ socket: tcp, ...this.optionsTls(hote, exactes) }) : tcp),
+            (e: unknown) => fini(e instanceof Error ? e : new Error(String(e))),
+          );
+          return undefined;
+        };
         const options = {
-          host: v.adresse,
           port,
           method: methode,
           path: chemin,
           headers: t,
           setHost: false,
-          agent: false as const,
+          createConnection: connecter,
         };
-        const r = https
-          ? requeteHttps({ ...options, ...this.optionsTls(hote, exactes) } as OptionsHttps, ok)
-          : requeteHttp(options, ok);
+        const r = https ? requeteHttps(options as OptionsHttps, ok) : requeteHttp(options, ok);
         r.on("error", ko);
         res.once("close", () => r.destroy());
         if (corps !== null) r.end(corps);
@@ -984,16 +1055,23 @@ export class RelaisNavigateur {
         (req.rawHeaders[i] ?? "").toLowerCase() !== ENTETE_LIAISON
       )
         lignes.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
-    const amont = tls
-      ? connexionTls({ host: v.adresse, port, ...this.optionsTls(hote, exactes) })
-      : connexionNet(port, v.adresse);
+    let tcp: Socket;
+    try {
+      tcp = await connecterAdresses(v.adresses ?? [v.adresse], port);
+    } catch {
+      return void client.destroy();
+    }
+    if (client.destroyed) return void tcp.destroy();
+    const amont = tls ? connexionTls({ socket: tcp, ...this.optionsTls(hote, exactes) }) : tcp;
     this.suivre(amont);
-    amont.once(tls ? "secureConnect" : "connect", () => {
+    const pret = (): void => {
       amont.write(lignes.join("\r\n") + "\r\n\r\n");
       if (tete.length) amont.write(tete);
       amont.pipe(client);
       client.pipe(amont);
-    });
+    };
+    if (tls) amont.once("secureConnect", pret);
+    else pret();
     amont.on("error", () => client.destroy());
     client.on("close", () => amont.destroy());
   }

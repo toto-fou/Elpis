@@ -15,7 +15,7 @@ export {
   trackPwSessionOwnership,
   unregisterPwSessionOwner,
 } from "./session";
-export { browserUrlBlockReason, hostAddresses, jugeRelaisBac, refusMessage } from "./url";
+export { browserUrlBlockReason, hostAddresses, jugeRelaisBac, refusMessage, reglagesJugeBac } from "./url";
 export type { HoteNavigateur, OptionsGardeNavigateur, ProfilRelais } from "./url";
 export {
   cheminsNavigateurBac,

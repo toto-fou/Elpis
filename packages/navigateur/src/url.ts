@@ -309,32 +309,32 @@ function hoteRecent(): Promise<HoteNavigateur> {
   return hoteEnCache.v;
 }
 
+/** Verdict du juge d'un bac (adresses jugées, la première d'abord, ou motif). */
+type VerdictBac = { ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string };
+
+/** Cache des verdicts du juge d'un bac (comme le relais du service central, proxy_guard.js) ; réglable par les tests. */
+export const reglagesJugeBac = {
+  /** Verdict favorable gardé (ms). */
+  cacheMs: 10_000,
+  /** Refus gardé (ms) : un nom introuvable ne repasse pas par le résolveur à chaque connexion. */
+  cacheNegatifMs: 5_000,
+  /** Noms gardés au plus. */
+  max: 2000,
+};
+
 /**
- * Juge du relais d'un bac (`hôte`, `port`) → adresse à joindre ou motif en anglais : le profil réseau du bac
+ * Juge du relais d'un bac (`hôte`, `port`) → adresses à joindre ou motif en anglais : le profil réseau du bac
  * d'abord (`none` : rien hors du bac ; `allowlist_ip` : ses adresses, domaines et ports), puis la politique du
  * navigateur (jamais la machine d'Elpis, ses réseaux de conteneurs, la boucle locale ni le lien-local ; liste
- * blanche du réseau local).
+ * blanche du réseau local). Verdict par nom et profil gardé 10 s (refus 5 s), une seule résolution à la fois par
+ * nom : une page ouvre des dizaines de connexions vers les mêmes hôtes, chacune passait par le pool de threads.
  */
 export function jugeRelaisBac(
   profil: () => ProfilRelais,
   options: OptionsGardeNavigateur = {},
-): (
-  hote: string,
-  port: number,
-) => Promise<{ ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string }> {
-  return async (hote, portVoulu) => {
-    const p = profil();
-    if (p.mode === "none")
-      return {
-        ok: false,
-        motif: `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
-      };
-    if (p.mode === "allowlist_ip" && p.ports.length > 0 && !p.ports.includes(portVoulu))
-      return {
-        ok: false,
-        motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
-      };
-    const nom = lowerPy(hote);
+): (hote: string, port: number) => Promise<VerdictBac> {
+  const cache = new Map<string, { expire: number; v: Promise<VerdictBac> }>();
+  const juger = async (p: ProfilRelais, nom: string): Promise<VerdictBac> => {
     const litterale = ipNav(nom);
     let adresses: string[];
     if (litterale !== null) adresses = [texteIp(litterale)];
@@ -370,5 +370,37 @@ export function jugeRelaisBac(
     }
     const jugees = adresses.map((a) => texteIp(ipNav(a) as AdresseIp));
     return { ok: true, adresse: jugees[0] ?? "", adresses: jugees };
+  };
+  return async (hote, portVoulu) => {
+    const p = profil();
+    if (p.mode === "none")
+      return {
+        ok: false,
+        motif: `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
+      };
+    if (p.mode === "allowlist_ip" && p.ports.length > 0 && !p.ports.includes(portVoulu))
+      return {
+        ok: false,
+        motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
+      };
+    const nom = lowerPy(hote);
+    const cle = `${strPy(p.id)}\u0000${strPy(p.mode)}\u0000${nom}`;
+    const t = Date.now();
+    const connu = cache.get(cle);
+    if (connu !== undefined && t < connu.expire) return connu.v;
+    const v = juger(p, nom);
+    if (cache.size >= reglagesJugeBac.max) {
+      const premiere = cache.keys().next();
+      if (!premiere.done) cache.delete(premiere.value);
+    }
+    const entree = { expire: t + reglagesJugeBac.cacheMs, v };
+    cache.set(cle, entree);
+    void v.then(
+      (r) => {
+        if (!r.ok) entree.expire = t + reglagesJugeBac.cacheNegatifMs;
+      },
+      () => cache.delete(cle),
+    );
+    return v;
   };
 }

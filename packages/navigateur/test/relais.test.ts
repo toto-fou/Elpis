@@ -20,6 +20,7 @@ import type { Autorite } from "../src/autorite";
 import {
   defisAuth,
   formesValeur,
+  connecterAdresses,
   ouvrirSocketATous,
   Purgeur,
   reglagesRelaisNavigateur,
@@ -29,7 +30,7 @@ import {
   valeurPourCorps,
 } from "../src/relais";
 import type { LiaisonRelais } from "../src/relais";
-import { jugeRelaisBac } from "../src/url";
+import { jugeRelaisBac, reglagesJugeBac } from "../src/url";
 
 const SECRET = "p@ss w&rd=1";
 const SUB = "Ep.0123456789abcdef-X";
@@ -679,6 +680,63 @@ describe("juge des destinations d'un bac", () => {
     });
     expect(await j("127.0.0.1", 80)).toMatchObject({ ok: false });
     expect(await j("169.254.169.254", 80)).toMatchObject({ ok: false });
+  });
+
+  it("verdicts gardés comme ceux du service central : une résolution par nom (appels simultanés compris), refus gardé moins longtemps", async () => {
+    const vus: string[] = [];
+    const lent = async (n: string): Promise<string[]> => {
+      vus.push(n);
+      await new Promise((ok) => setTimeout(ok, 20));
+      if (n === "absent.example") throw new Error("ENOTFOUND");
+      return ["93.184.216.34", "2606:2800:220:1:248:1893:25c8:1946"];
+    };
+    const avant = { ...reglagesJugeBac };
+    reglagesJugeBac.cacheNegatifMs = 50;
+    try {
+      const j = jugeRelaisBac(() => ({ id: "web", mode: "bridge", ips: [], domains: [], ports: [] }), {
+        hote,
+        resoudre: lent,
+        allowlist: [],
+      });
+      const v = await Promise.all([j("example.org", 443), j("example.org", 443), j("EXAMPLE.org", 80)]);
+      expect(v[0]).toEqual({
+        ok: true,
+        adresse: "93.184.216.34",
+        adresses: ["93.184.216.34", "2606:2800:220:1:248:1893:25c8:1946"],
+      });
+      expect(await j("example.org", 8443)).toEqual(v[0]);
+      expect(vus).toEqual(["example.org"]);
+      expect(await j("absent.example", 443)).toMatchObject({ ok: false });
+      expect(await j("absent.example", 443)).toMatchObject({ ok: false });
+      expect(vus.filter((n) => n === "absent.example")).toHaveLength(1);
+      await new Promise((ok) => setTimeout(ok, 80));
+      await j("absent.example", 443);
+      expect(vus.filter((n) => n === "absent.example")).toHaveLength(2);
+    } finally {
+      Object.assign(reglagesJugeBac, avant);
+    }
+  });
+
+  it("connexion à l'amont : adresse suivante si la première traîne ou échoue, délai total borné", async () => {
+    const srv = createServerNet((s) => s.end());
+    await new Promise<void>((ok) => srv.listen(0, "127.0.0.1", () => ok()));
+    const p = (srv.address() as AddressInfo).port;
+    const avant = { ...reglagesRelaisNavigateur };
+    try {
+      reglagesRelaisNavigateur.essaiSuivantMs = 100;
+      reglagesRelaisNavigateur.connexionMs = 1500;
+      // 192.0.2.1 (TEST-NET-1) ne répond jamais, ::1 sur ce port refuse : 127.0.0.1 est jointe vite.
+      const t0 = performance.now();
+      const s = await connecterAdresses(["192.0.2.1", "::1", "127.0.0.1"], p);
+      expect(s.remoteAddress).toBe("127.0.0.1");
+      expect(performance.now() - t0).toBeLessThan(1000);
+      s.destroy();
+      reglagesRelaisNavigateur.connexionMs = 300;
+      await expect(connecterAdresses(["192.0.2.1"], p)).rejects.toThrow();
+    } finally {
+      Object.assign(reglagesRelaisNavigateur, avant);
+      srv.close();
+    }
   });
 
   it("liste blanche IP du profil : adresses, domaines et ports", async () => {

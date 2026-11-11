@@ -135,6 +135,22 @@ export function origineExacte(brut: string): string | null {
   return u.origin;
 }
 
+/** Origine d'une saisie de site : une URL complète (chemin, requête, fragment) est ramenée à son origine ; `null` si ce n'est pas une adresse http(s) avec hôte. */
+export function origineDeSaisie(brut: string): string | null {
+  const t = brut.trim();
+  if (!t || t.length > 2048 || !URL.canParse(t)) return null;
+  const u = new URL(t);
+  if ((u.protocol !== "http:" && u.protocol !== "https:") || !u.hostname || u.username || u.password)
+    return null;
+  return u.origin;
+}
+
+/** Message d'une ligne de site refusée, au plus près de la cause. */
+export function erreurOrigine(brut: string): string {
+  if (!/^https?:\/\//iu.test(brut.trim())) return "Commencez par http:// ou https://.";
+  return "Adresse invalide : scheme://hôte[:port], sans compte.";
+}
+
 /** Lignes non vides d'une saisie d'origines, sans doublon. */
 export function lignesOrigines(texte: string): string[] {
   return [...new Set(texte.split(/\r?\n/u).map((l) => l.trim()))].filter(Boolean);

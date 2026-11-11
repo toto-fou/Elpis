@@ -161,14 +161,24 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
         id: "secrets",
         libelle: "Secrets",
         icone: "ph-vault",
-        mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login",
-      },
-      {
-        id: "connexions",
-        libelle: "Jetons d'accès",
-        icone: "ph-key",
-        mots: "token jeton mcp openapi opencode connexions",
-        ancien: "Connexions",
+        mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login jeton mcp openapi opencode connexions",
+        ancien: "Jetons d'accès Connexions",
+        sections: [
+          {
+            id: "web",
+            libelle: "Secrets web",
+            icone: "ph-vault",
+            mots: "coffre vault secret identifiant mot de passe login token rotation http-auth web-login site origine",
+            aide: "Identifiants et jetons que l'agent utilise sur les sites, chiffrés dans le coffre : il n'en voit jamais la valeur.",
+          },
+          {
+            id: "jetons",
+            libelle: "Jetons MCP",
+            icone: "ph-key",
+            mots: "token jeton mcp openapi opencode connexions acces client",
+            aide: "Jetons pour utiliser vos outils Elpis depuis un autre client (MCP, OpenAPI, opencode).",
+          },
+        ],
       },
       {
         id: "connectors",
@@ -200,6 +210,11 @@ export const GROUPES_RAIL: readonly GroupeRail[] = [
     ],
   },
 ];
+
+/** Anciens identifiants d'onglet, avec l'onglet et la section où ils mènent désormais. */
+export const ANCIENS_ONGLETS: Readonly<Record<string, { onglet: string; section: string }>> = {
+  connexions: { onglet: "secrets", section: "jetons" },
+};
 
 export function sansAccent(texte: string): string {
   return texte.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

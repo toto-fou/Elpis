@@ -8,6 +8,11 @@ follow [SemVer](https://semver.org/).
 
 ### Added
 
+- **Settings › Secrets in two parts.** Secrets now has two sub-menus like Skills: *Secrets web*
+  (the vault) and *Jetons MCP* (the access tokens formerly under their own rail entry; old links
+  to `connexions` open it). A secret's sites are edited as a list (one row each, a pasted URL is
+  reduced to its origin, per-row errors, http and https accepted), and the table and detail show
+  every site instead of the first one and a count.
 - **Secrets in the interface.** Settings › Secrets shows the account's vault in one table (`name`,
   `type`, `scope`, `user`, `tls`, `version`, last use, uses), with `unverified` and `⚠ kid` (value
   encrypted with another key) visible. **New** creates `web-login`, `http-auth` and `token`

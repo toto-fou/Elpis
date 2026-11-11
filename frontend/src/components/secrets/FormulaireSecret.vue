@@ -1,11 +1,12 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- frontend/src/components/secrets/FormulaireSecret.vue — formulaire d'un secret (création ou modification) : name en slug vérifié à la frappe, type, scope (une origine par ligne), user, valeur en écriture seule, tls, politique. -->
+<!-- frontend/src/components/secrets/FormulaireSecret.vue — formulaire d'un secret (création ou modification) : name en slug vérifié à la frappe, type, sites (liste éditable), user, valeur en écriture seule, tls, politique. -->
 <script setup lang="ts">
 import { computed, ref, useId } from "vue";
 
 import { GENRES_CREABLES, parOrigines, verdictFormulaire } from "../../features/secrets/format";
 import { domaineSecrets } from "../../features/secrets/gestion";
 import ChampValeur from "./ChampValeur.vue";
+import SitesSecret from "./SitesSecret.vue";
 
 const props = defineProps<{ mode: "creation" | "edition" }>();
 const g = domaineSecrets();
@@ -81,25 +82,9 @@ function annuler(): void {
       </select>
 
       <template v-if="parOrigines(f.kind)">
-        <label :for="`${id}-scope`" title="Origines exactes : scheme://hôte[:port], une par ligne"
-          >scope</label
-        >
+        <span :id="`${id}-scope-l`" title="Sites exacts : scheme://hôte[:port]">sites</span>
         <div>
-          <textarea
-            :id="`${id}-scope`"
-            v-model="f.origins"
-            class="set-textarea font-mono"
-            rows="2"
-            spellcheck="false"
-            placeholder="https://intranet.example.lan:8443"
-            title="Origines exactes : scheme://hôte[:port], une par ligne"
-            :aria-invalid="erreur('origins') ? 'true' : undefined"
-            :aria-describedby="erreur('origins') ? `${id}-scope-e` : undefined"
-            data-champ="scope"
-          ></textarea>
-          <p v-if="erreur('origins')" :id="`${id}-scope-e`" class="elpis-secret-form__err">
-            {{ erreur("origins") }}
-          </p>
+          <SitesSecret v-model="f.origins" :id-base="`${id}-scope`" :erreur="erreur('origins')" />
         </div>
       </template>
 

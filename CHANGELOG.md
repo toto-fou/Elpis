@@ -545,6 +545,11 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Routines: webhook and chained context as untrusted data.** The body of a webhook delivery
+  and the summary of an upstream routine were appended to the routine's prompt under a plain
+  heading, as if the user had written them. They now reach the model in a `<routine_event>` block
+  announced as untrusted data, never instructions, where every `<` of the sender becomes `&lt;`,
+  so the block cannot be closed or a harness tag forged from outside.
 - **Tool calls written as text: only a reply that is nothing but the call runs.** When the engine
   gives no native `tool_calls`, any JSON object with a `name` found in the reply, or a
   `<tool_call>` tag quoted in a sentence, used to run as a tool call, so a model quoting a web

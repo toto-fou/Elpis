@@ -1212,6 +1212,10 @@ agent mène, même si les sous-agents sont activés pour vos conversations.
   les cas ». Les chaînes sont bornées en profondeur pour éviter les boucles.
 - **Manuel** — bouton ▶ à tout moment.
 
+Le contenu d'un événement webhook et le résumé d'une routine amont sont remis au
+modèle comme une donnée non fiable, jamais comme une consigne : c'est le prompt
+de la routine qui dit quoi en faire.
+
 ### Suivre les exécutions
 
 Chaque routine a son **journal** : statut (succès, échec, ignorée, annulée),

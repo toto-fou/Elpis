@@ -2827,7 +2827,8 @@ the question), memory (`MarkdownMemoryProvider`), the skills index and bodies
 (`blocSkills`, also for children and routines), the `<todo_status>` reminder, the summary
 and compaction ledger (`formatSummaryAsSystemMessage`) and their input
 (`serializeForCompression`), a subagent's brief (`task`), a routine's prompt and context
-(including an upstream routine's output and the triggering event), the chat title
+(including an upstream routine's output and the triggering event, delivered in a
+`<routine_event>` block announced as untrusted, where every `<` of the third party becomes `&lt;`), the chat title
 input. Job events, tool results (including `pw_memory`,
 `session_search`, `skill_get`) and subagent reports already go through
 `prepareToolResultForModel`; desktop memory anchors (`desktop_*`, query to

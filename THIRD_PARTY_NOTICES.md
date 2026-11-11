@@ -91,7 +91,7 @@ chunks (editor, language workers) imported only when the editor opens. License t
 | chartjs-chart-treemap | 4.2.2 | MIT | `dist/chartjs-chart-treemap.min.js` | https://github.com/kurkle/chartjs-chart-treemap |
 | chartjs-plugin-annotation | 3.0.1 | MIT | `dist/chartjs-plugin-annotation.min.js` | https://github.com/chartjs/chartjs-plugin-annotation |
 | chartjs-plugin-datalabels | 2.2.0 | MIT | `dist/chartjs-plugin-datalabels.min.js` | https://github.com/chartjs/chartjs-plugin-datalabels |
-| xterm.js | 5.4.0 | MIT | `lib/xterm.js`, `css/xterm.css` (`@xterm/xterm`) | https://github.com/xtermjs/xterm.js |
+| xterm.js | 6.0.0 | MIT | `lib/xterm.js`, `css/xterm.css` (`@xterm/xterm`) | https://github.com/xtermjs/xterm.js |
 | xterm addon-fit | 0.11.0 | MIT | `lib/addon-fit.js` (`@xterm/addon-fit`) | https://github.com/xtermjs/xterm.js |
 | Monaco Editor (ESM build, its workers and CSS; loaded on demand when the editor opens) | 0.45.0 | MIT | `esm/vs/` (`monaco-editor`): chunks `monaco-*.js`, `editor.api-*.js`, `*.worker-*.js`, `monaco-*.css` | https://github.com/microsoft/monaco-editor |
 | TypeScript (language service bundled in Monaco) | 5.0.2 | Apache-2.0 | `esm/vs/language/typescript/` (`monaco-editor`), chunk `ts.worker-*.js` | https://github.com/microsoft/TypeScript — text in `THIRD_PARTY_LICENSES/monaco-editor-ThirdPartyNotices.txt` |
@@ -190,7 +190,7 @@ BSD-3-Clause, 0BSD, Unlicense) are accepted: the build stops on any other.
 | fast-querystring | 1.1.2 | MIT |
 | fast-uri | 3.1.9 | BSD-3-Clause |
 | fast-uri | 4.2.3 | BSD-3-Clause |
-| fastify | 5.12.7 | MIT |
+| fastify | 5.12.8 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
 | find-my-way | 9.10.0 | MIT |
@@ -298,7 +298,7 @@ the core bundle.
 | fast-querystring | 1.1.2 | MIT |
 | fast-uri | 3.1.9 | BSD-3-Clause |
 | fast-uri | 4.2.3 | BSD-3-Clause |
-| fastify | 5.12.7 | MIT |
+| fastify | 5.12.8 | MIT |
 | fastify-plugin | 6.0.0 | MIT |
 | fastq | 1.20.3 | ISC |
 | find-my-way | 9.10.0 | MIT |

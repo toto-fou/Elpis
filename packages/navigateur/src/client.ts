@@ -25,6 +25,8 @@ import type { Dict } from "@elpis/commun";
 import { config } from "@elpis/config";
 import { clipText, err } from "@elpis/outils-mcp";
 
+import { requeteService } from "./mode";
+import type { ServiceNavigateur } from "./mode";
 import { getPwSessionOwner, pwVerbOf } from "./session";
 import { browserUrlBlockReason, refusMessageAnglais } from "./url";
 import type { OptionsGardeNavigateur } from "./url";
@@ -300,6 +302,8 @@ export interface OptionsClientNavigateur {
   base?: string;
   /** `PLAYWRIGHT_TIMEOUT` en secondes, 10 par défaut. */
   delaiS?: number;
+  /** Service du compte rendu par `serviceNavigateur` ; en mode bac, la requête passe par son socket (absent : service central). */
+  service?: ServiceNavigateur;
 }
 
 export interface OptionsRequete {
@@ -336,11 +340,14 @@ export class ClientNavigateur {
   readonly owner: string;
   readonly base: string;
   readonly delaiS: number;
+  /** Service du bac du compte, `null` pour le service central. */
+  readonly bac: Extract<ServiceNavigateur, { mode: "sandbox" }> | null;
 
   constructor(o: OptionsClientNavigateur) {
     if (!o.owner) throw new Error("client du service navigateur sans propriétaire");
     this.owner = o.owner;
-    this.base = o.base ?? urlServiceNavigateur();
+    this.bac = o.service?.mode === "sandbox" ? o.service : null;
+    this.base = this.bac?.base ?? o.base ?? urlServiceNavigateur();
     this.delaiS = o.delaiS ?? intPy(process.env["PLAYWRIGHT_TIMEOUT"] ?? "10");
   }
 
@@ -367,6 +374,15 @@ export class ClientNavigateur {
         message: `Attempted to set connect timeout to ${t}, but the timeout cannot be set to a value less than or equal to 0.`,
       };
     try {
+      if (this.bac !== null) {
+        const r = await requeteService(this.bac, url.slice(this.base.length), {
+          methode: methode === "GET" ? "GET" : "POST",
+          entetes: charge === undefined ? {} : { "content-type": "application/json" },
+          ...(charge === undefined ? {} : { corps: charge }),
+          delaiMs: t * 1000,
+        });
+        return { statut: r.statut, texte: r.corps.toString("utf8") };
+      }
       const r = await request(url, {
         method: methode === "GET" ? "GET" : "POST",
         headers: enTetesServiceNavigateur(charge === undefined ? {} : { "content-type": "application/json" }),

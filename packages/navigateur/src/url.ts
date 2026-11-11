@@ -290,3 +290,81 @@ export function refusMessageAnglais(url: string | null | undefined, motif: strin
     `outside the machine hosting Elpis.`
   );
 }
+
+/** Profil réseau d'un bac, vu du relais : identifiant, mode (`none`, `bridge`, `allowlist_ip`), adresses ou réseaux, domaines, ports. */
+export interface ProfilRelais {
+  readonly id: string;
+  readonly mode: unknown;
+  readonly ips: readonly unknown[];
+  readonly domains: readonly string[];
+  readonly ports: readonly number[];
+}
+
+let hoteEnCache: { t: number; v: Promise<HoteNavigateur> } | null = null;
+
+/** Adresses de l'hôte relues au plus toutes les 60 s (une page ouvre des dizaines de connexions). */
+function hoteRecent(): Promise<HoteNavigateur> {
+  if (hoteEnCache === null || Date.now() - hoteEnCache.t > 60_000)
+    hoteEnCache = { t: Date.now(), v: hostAddresses() };
+  return hoteEnCache.v;
+}
+
+/**
+ * Juge du relais d'un bac (`hôte`, `port`) → adresse à joindre ou motif en anglais : le profil réseau du bac
+ * d'abord (`none` : rien hors du bac ; `allowlist_ip` : ses adresses, domaines et ports), puis la politique du
+ * navigateur (jamais la machine d'Elpis, ses réseaux de conteneurs, la boucle locale ni le lien-local ; liste
+ * blanche du réseau local).
+ */
+export function jugeRelaisBac(
+  profil: () => ProfilRelais,
+  options: OptionsGardeNavigateur = {},
+): (hote: string, port: number) => Promise<{ ok: true; adresse: string } | { ok: false; motif: string }> {
+  return async (hote, portVoulu) => {
+    const p = profil();
+    if (p.mode === "none")
+      return {
+        ok: false,
+        motif: `the sandbox network profile '${p.id}' has no network access: only sites served inside the sandbox (localhost) are reachable`,
+      };
+    if (p.mode === "allowlist_ip" && p.ports.length > 0 && !p.ports.includes(portVoulu))
+      return {
+        ok: false,
+        motif: `port ${portVoulu} is not allowed by the sandbox network profile '${p.id}'`,
+      };
+    const nom = lowerPy(hote);
+    const litterale = ipNav(nom);
+    let adresses: string[];
+    if (litterale !== null) adresses = [texteIp(litterale)];
+    else
+      try {
+        adresses = await (options.resoudre ?? resoudreSysteme)(nom, null);
+      } catch {
+        return { ok: false, motif: `name not found (${nom})` };
+      }
+    if (adresses.length === 0) return { ok: false, motif: `name not found (${nom})` };
+    let allowlist = options.allowlist;
+    if (allowlist === undefined || allowlist === null) {
+      try {
+        allowlist = liveConfigValue("browser.url_allowlist", []) || [];
+      } catch {
+        allowlist = [];
+      }
+    }
+    const liste = listeBlanche(allowlist);
+    const h = options.hote ?? (await hoteRecent());
+    const reseauxProfil = p.ips.map((x) => reseauPy(strPy(x))).filter((r): r is Reseau => r !== null);
+    for (const a of adresses) {
+      const ip = ipNav(a);
+      if (ip === null) return { ok: false, motif: `invalid address (${a})` };
+      const m = motifIp(ip, nom, h, liste);
+      if (m) return { ok: false, motif: motifEnAnglais(m) };
+      if (
+        p.mode === "allowlist_ip" &&
+        !p.domains.includes(nom) &&
+        !reseauxProfil.some((r) => r.version === ip.version && dansReseau(ip, r))
+      )
+        return { ok: false, motif: `${nom} is not allowed by the sandbox network profile '${p.id}'` };
+    }
+    return { ok: true, adresse: texteIp(ipNav(adresses[0] ?? "") as AdresseIp) };
+  };
+}

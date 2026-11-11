@@ -11,10 +11,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { creerGardes, dependancesParDefaut, installerAuth } from "@elpis/auth";
-import { reglagesNavigateurBac } from "@elpis/bac";
+import { definirFabriqueAgent, reglagesNavigateurBac } from "@elpis/bac";
 import type { Dict } from "@elpis/commun";
 import { surchargerConfig } from "@elpis/config";
 import { initialiserBase } from "@elpis/db";
+import { AgentClient } from "@elpis/fichiers";
 import { ouvrirBaseDeTest } from "@elpis/db/test";
 import type { BaseDeTest } from "@elpis/db/test";
 import { chargerAutorite, defisAuth, Feuilles, jugeRelaisBac, reponseDigest } from "@elpis/navigateur";
@@ -146,6 +147,7 @@ beforeAll(async () => {
   process.env["ELPIS_BROWSER_CA_DIR"] = path.join(dossier, "ca");
   process.env["PW_OWNERS_DIR"] = path.join(dossier, "owners");
   reglagesNavigateurBac.service = process.env["ELPIS_TEST_BROWSER_SERVICE_DIR"] || null;
+  definirFabriqueAgent((bac) => new AgentClient(bac));
   // Juge du relais : les sites d'essai (*.test) sont ceux de l'hôte ; le reste suit le profil réel du bac (isolé : rien).
   const isole = jugeRelaisBac(() => ({ id: "isolated", mode: "none", ips: [], domains: [], ports: [] }));
   injectionsNavigateurBac.juge = () => async (h, p) =>
@@ -238,6 +240,7 @@ afterAll(async () => {
   injectionsNavigateurBac.juge = null;
   injectionsNavigateurBac.caAmont = null;
   reglagesNavigateurBac.service = null;
+  definirFabriqueAgent(null);
   delete process.env["ELPIS_BROWSER_CA_DIR"];
   delete process.env["PW_OWNERS_DIR"];
   oublierConfigurationAudit();
@@ -263,7 +266,7 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
       CONTENEUR,
       "sh",
       "-c",
-      'mkdir -p /work/site && printf \'<title>Sandbox site</title><h1>Sandbox site</h1><a href="file.txt" download>Get file</a>\' > /work/site/index.html && printf "contenu" > /work/site/file.txt',
+      'mkdir -p /work/site && printf \'<title>Sandbox site</title><h1>Sandbox site</h1><a href="file.txt" download>Get file</a><input type="file" id="f">\' > /work/site/index.html && printf "contenu" > /work/site/file.txt',
     );
     docker(
       "exec",
@@ -294,7 +297,39 @@ describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais
     expect(docker("exec", CONTENEUR, "sh", "-c", "cat /work/downloads/*/file.txt")).toBe("contenu");
     const capture = await outil("pw_page", { session_id: sid, action: "screenshot" });
     expect(String(capture["screenshot_url"])).toMatch(/^\/api\/playwright\/screenshot\//u);
+    // Envoi d'un fichier du bac (lu par l'agent), enregistreur écrit dans /work/recordings.
+    await outil("pw_recorder", { session_id: sid, action: "start" });
+    expect(
+      await outil("pw_act", {
+        session_id: sid,
+        action: "upload",
+        target: "css=#f",
+        files: ["/work/site/file.txt"],
+      }),
+    ).not.toMatchObject({ ok: false });
+    const nom = await outil("pw_page", {
+      session_id: sid,
+      action: "eval",
+      value: "document.getElementById('f').files[0].name",
+    });
+    expect(JSON.stringify(nom)).toContain("file.txt");
+    const dump = await outil("pw_recorder", { session_id: sid, action: "dump" });
+    expect(String(dump["file"])).toMatch(/^\/work\/recordings\/recording-.*\.spec\.js$/u);
+    expect(docker("exec", CONTENEUR, "cat", String(dump["file"]))).toBe(String(dump["script"]));
     await outil("pw_session", { action: "stop", session_id: sid });
+    // Trace exportée dans /work/.elpis-browser/traces.
+    const tr = await outil("pw_session", {
+      action: "start",
+      url: "http://localhost:8080/",
+      trace: true,
+      isolated: true,
+    });
+    const trace = await outil("pw_session", { action: "trace_export", session_id: tr["session_id"] });
+    expect(String(trace["file"])).toMatch(/^\/work\/\.elpis-browser\/traces\/trace_.*\.zip$/u);
+    expect(docker("exec", CONTENEUR, "sh", "-c", `test -s ${String(trace["file"])} && echo ok`).trim()).toBe(
+      "ok",
+    );
+    await outil("pw_session", { action: "stop", session_id: tr["session_id"] });
   }, 120_000);
 
   it("URL extérieure : refus clair du profil réseau sans réseau", async () => {

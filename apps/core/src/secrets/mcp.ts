@@ -53,7 +53,7 @@ function motifDe(e: ErreurSecret): MotifSecretMcp {
   return e.code === "secret_undecryptable" ? "undecryptable" : "missing";
 }
 
-/** Secret du serveur, de ce propriétaire, actif et permis à l'appelant (routine, sous-agent), déchiffré à chaque appel. */
+/** Secret du serveur, de ce propriétaire, actif et permis à l'appelant (routine, sous-agent), déchiffré à chaque appel (une fois par tour avec `contexte.cache`, par version et clé). */
 export async function lireSecretMcp(
   base: Base,
   p: Proprietaire,
@@ -70,8 +70,13 @@ export async function lireSecretMcp(
     (contexte.sousAgent === true && !politique.subagents)
   )
     throw new SecretMcpIndisponible("refused", `secret ${l.name} refusé par sa politique`);
+  const cle = `${Number(l.id)}:${Number(l.version)}:${l.kid}`;
+  const deja = contexte.cache?.get(cle);
+  if (deja !== undefined) return deja;
   try {
-    return secretsDeJson(dechiffrerLigne(l));
+    const valeur = secretsDeJson(dechiffrerLigne(l));
+    contexte.cache?.set(cle, valeur);
+    return valeur;
   } catch (e) {
     if (e instanceof ErreurSecret) throw new SecretMcpIndisponible(motifDe(e), e.message);
     throw e;

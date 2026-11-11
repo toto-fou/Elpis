@@ -26,18 +26,20 @@ import { config, configView, pyJoin, realpathPy, safeSandboxName } from "@elpis/
 import type { Base } from "@elpis/db";
 import {
   appliquerSecretsPerso,
+  drapeauSecret,
   FAMILY_NAMES,
   ID_PREFIX,
   invaliderMcp,
   mergePersonalMcp,
   personalPublic,
   personalToConfig,
+  prechaufferGardeUrl,
+  repriseHeritee,
   secretsPerso,
   sharedId,
   StdioNotAllowed,
 } from "@elpis/mcp";
 import type { ActeurMcp, EtatSecrets, FusionPerso } from "@elpis/mcp";
-import { EncryptionUnavailable } from "@elpis/securite";
 
 import { resolveSkinCompte } from "../apparence/comptes-perso";
 import {
@@ -312,6 +314,11 @@ function deuxCentsPremiers(v: unknown): unknown[] {
   throw new ErreurPython("TypeError", `'${nomTypePy(v)}' object is not subscriptable`);
 }
 
+/** Secret enregistré inutilisable (illisible, retiré du coffre, resté hors du coffre) : son propriétaire peut le ressaisir, même sans droit de modifier le serveur. */
+function aRessaisir(ancien: Dict, etat: EtatSecrets | undefined): boolean {
+  return (etat?.erreur ?? null) !== null || drapeauSecret(ancien) !== null;
+}
+
 /** Secret NEUF dans l'entrée : `auth_secret`, ou une valeur d'en-tête ou de variable. */
 function porteUneValeur(s: Dict): boolean {
   if (strPy(ouPy(getOu(s, "auth_secret", null), ""))) return true;
@@ -332,15 +339,18 @@ function parIdentifiant(liste: unknown): Map<unknown, Dict> {
   return out;
 }
 
-/** Entrées enregistrées ramenées à la forme que la fusion donne à un enregistrement neuf (type, mode et utilisateur d'authentification, clés anciennes retirées) : la comparaison d'un non-admin se fait entre formes normalisées, jamais contre une entrée d'avant ces champs (le Python répond 403 à chaque PUT). */
+/** Entrées enregistrées ramenées à la forme que la fusion donne à leur vue renvoyée telle quelle (type, mode et utilisateur d'authentification, mode implicite d'un ancien `authorization` ou `basic_auth` compris, clés anciennes retirées) : la comparaison d'un non-admin se fait entre formes normalisées, jamais contre une entrée d'avant ces champs (le Python répond 403 à chaque PUT). */
 async function anciennesNormalisees(
   anciens: unknown,
   secrets: ReadonlyMap<string, EtatSecrets>,
 ): Promise<unknown> {
   if (!Array.isArray(anciens)) return anciens;
-  const sansPaires = anciens.map((s: unknown) =>
-    estDict(s) ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== "headers" && k !== "env")) : s,
-  );
+  const sansPaires = anciens.map((s: unknown) => {
+    if (!estDict(s)) return s;
+    const e = Object.fromEntries(Object.entries(s).filter(([k]) => k !== "headers" && k !== "env"));
+    const mode = repriseHeritee(s)?.mode;
+    return mode ? { ...e, ...mode } : e;
+  });
   try {
     return (await mergePersonalMcp(anciens, sansPaires, { allowStdio: true, secrets })).map((f) => f.entree);
   } catch {
@@ -379,7 +389,7 @@ interface PlanMcp {
   secrets: Map<string, EtatSecrets>;
 }
 
-/** Bloc `mcp_servers` du PUT : ids partagés renommés, droits d'un non-admin, fusion « vide = inchangé » sur les secrets lus au coffre ; écriture laissée à `appliquerMcp`. */
+/** Bloc `mcp_servers` du PUT, dans sa transaction : ids partagés renommés, ids en double refusés (400), droits d'un non-admin (ressaisie d'un secret inutilisable permise), fusion « vide = inchangé » sur les secrets lus au coffre ; écriture laissée à `appliquerMcp`. */
 async function serveursMcp(
   base: Base,
   uid: number,
@@ -395,28 +405,34 @@ async function serveursMcp(
   });
   const anciens = ouPy(getOu(current, "mcp_servers", []), []);
   const recus = ouPy(getOu(data, "mcp_servers", []), []);
+  const vus = new Set<string>();
+  for (const s of iterExige(recus)) {
+    if (!estDict(s) || !veritePy(getOu(s, "id", null))) continue;
+    const id = strPy(s["id"]);
+    if (vus.has(id))
+      throw new HttpError(400, `Identifiant de serveur MCP en double : « ${id.slice(0, 80)} ».`);
+    vus.add(id);
+  }
   const moi = await ligneUtilisateur(base, uid);
   const admin = moi !== undefined && moi !== null && Number(moi.is_admin) === 1;
   const ancienneListe = iterExige(anciens);
-  if (!admin) {
-    const idsAnciens = new Set<string>();
-    for (const s of ancienneListe)
-      if (estDict(s) && veritePy(getOu(s, "id", null))) idsAnciens.add(strPy(s["id"]));
-    for (const s of iterExige(recus))
-      if (estDict(s) && idsAnciens.has(strPy(getOu(s, "id", null))) && porteUneValeur(s))
-        throw new HttpError(403, REFUS_MODIFICATION);
-  }
   const secrets = await secretsDesEntrees(base, uid, ancienneListe);
+  if (!admin) {
+    const parId = new Map<string, Dict>();
+    for (const s of ancienneListe)
+      if (estDict(s) && veritePy(getOu(s, "id", null))) parId.set(strPy(s["id"]), s);
+    for (const s of iterExige(recus)) {
+      const id = estDict(s) ? strPy(getOu(s, "id", null)) : "";
+      const ancien = parId.get(id);
+      if (ancien !== undefined && porteUneValeur(s as Dict) && !aRessaisir(ancien, secrets.get(id)))
+        throw new HttpError(403, REFUS_MODIFICATION);
+    }
+  }
   let fusion: FusionPerso[];
   try {
     fusion = await mergePersonalMcp(anciens, recus, { allowStdio: admin, secrets });
   } catch (e) {
     if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
-    if (e instanceof EncryptionUnavailable)
-      throw new HttpError(
-        503,
-        "Chiffrement indisponible : impossible de relire un ancien secret MCP. Configurez app.encryption_key.",
-      );
     throw e;
   }
   if (!admin) {
@@ -555,9 +571,21 @@ export async function ecrireReglages(
     }
     poserCle(data, "shared_mcp_visible", vus);
   }
-  const plan = a("mcp_servers") ? await serveursMcp(base, uid, data, current, journal) : null;
+  const avecMcp = a("mcp_servers");
+  if (avecMcp && Number((await ligneUtilisateur(base, uid))?.is_admin ?? 0) !== 1)
+    await prechaufferGardeUrl(data["mcp_servers"], getOu(current, "mcp_servers", null));
   const invalider = await base.ecriture(async () => {
-    const apres = plan === null ? null : await appliquerMcp(base, uid, plan, data, acteur);
+    let apres: (() => Promise<void>) | null = null;
+    if (avecMcp) {
+      const actuels = await getUserSettings(base, uid, (m) => journal.error(m));
+      apres = await appliquerMcp(
+        base,
+        uid,
+        await serveursMcp(base, uid, data, actuels, journal),
+        data,
+        acteur,
+      );
+    }
     await mergeUserSettings(base, uid, (s) => {
       for (const k of clesOrdonnees(data)) poserCle(s, k, data[k]);
     });

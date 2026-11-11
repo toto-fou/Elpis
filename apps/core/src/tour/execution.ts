@@ -651,7 +651,7 @@ export async function* runTurn(
                   customAgents: Array.isArray(plan.userSettings["custom_agents"])
                     ? (plan.userSettings["custom_agents"] as unknown[])
                     : [],
-                  userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid),
+                  userMcpConfigs: await agentMcpConfigs(db, plan.userSettings, uid, plan.secretsMcp),
                   userId: uid,
                   thinkingMode: plan.thinkingMode,
                   slotParent: () => slotParent,
@@ -675,7 +675,7 @@ export async function* runTurn(
               ? buildAgentBuiltinTool({
                   base: db,
                   userId: uid,
-                  serveurs: () => agentMcpConfigs(db, plan.userSettings, uid),
+                  serveurs: () => agentMcpConfigs(db, plan.userSettings, uid, plan.secretsMcp),
                   reveil: plan.origin === "job_wake",
                 })
               : {};

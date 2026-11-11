@@ -52,7 +52,6 @@ import {
   updateShared,
 } from "@elpis/mcp";
 import type { ActeurMcp, ChampsPartage, ClientMcp, ConfigMcp, EtatSecrets } from "@elpis/mcp";
-import { EncryptionUnavailable } from "@elpis/securite";
 import type { FastifyRequest } from "fastify";
 
 import { ipDeRequete } from "../journal-securite/auditer";
@@ -73,8 +72,6 @@ export const reglagesMcp = { delaiEssaiMs: 20_000 };
 export const STDIO_REFUSE =
   "Serveur MCP de type stdio (commande lancée sur le serveur) : non pris en charge par le core " +
   "(plus aucun sous-processus) — publiez-le en HTTP streamable ou SSE.";
-const SANS_CHIFFREMENT =
-  "Clé de chiffrement indisponible : impossible de relire un ancien identifiant. Configurez APP_ENCRYPTION_KEY.";
 const FICHIERS_DEMARRAGE = ["start", "start.txt", "start.sh", "start.bat"];
 const POINTS_ENTREE = ["main.py", "server.py", "__main__.py", "index.js", "server.js", "app.py", "app.js"];
 const BOM = Buffer.from([0xef, 0xbb, 0xbf]);
@@ -355,7 +352,6 @@ function acteurDe(req: FastifyRequest): ActeurMcp {
 
 /** Refus du coffre ou ancienne clé Fernet absente, en erreur HTTP ; le reste remonte. */
 function refusEcriture(e: unknown): unknown {
-  if (e instanceof EncryptionUnavailable) return new HttpError(503, SANS_CHIFFREMENT);
   return refusMcpEnHttp(e) ?? e;
 }
 
@@ -455,6 +451,14 @@ function verifierPaires(data: Dict): void {
 }
 
 /** Mêmes droits qu'à l'enregistrement : partagé = admin ; perso = son propriétaire (stdio réservé à l'admin, refusé à l'usage). */
+/** Cible d'un serveur (type normalisé, adresse ou commande) : le bouton « Tester » ne joint jamais les secrets enregistrés d'un serveur à une autre cible. */
+function cibleServeur(s: Dict): string {
+  const brut = lowerPy(stripPy(strPy(veritePy(getPy(s, "type")) ? getPy(s, "type") : "sse")));
+  const type = (SERVER_TYPES as readonly string[]).includes(brut) ? brut : "sse";
+  const lieu = getPy(s, type === "stdio" ? "command" : "url");
+  return `${type}\u0000${prefixePy(strPy(veritePy(lieu) ? lieu : ""), 2000)}`;
+}
+
 async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
   const uid = utilisateur(req);
   const data = corpsObjet(req);
@@ -472,6 +476,7 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
     const p = champsPartage(data);
     url = p.url;
     ancien = rid !== null ? await rawShared(dep.base, rid) : null;
+    if (ancien !== null && cibleServeur(ancien) !== cibleServeur({ type: p.type, url: p.url })) ancien = null;
     if (ancien !== null) etat = await secretsPartage(dep.base, ancien);
     brouillon = { ...p, id: "t" };
   } else {
@@ -485,8 +490,9 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
         break;
       }
     }
-    if (ancien !== null) etat = await secretsPerso(dep.base, uid, ancien);
     brouillon = { ...data, id: "t" };
+    if (ancien !== null && cibleServeur(ancien) !== cibleServeur(brouillon)) ancien = null;
+    if (ancien !== null) etat = await secretsPerso(dep.base, uid, ancien);
     admin = await estAdmin(dep, uid);
     const type = lowerPy(stripPy(strPy(veritePy(getPy(brouillon, "type")) ? getPy(brouillon, "type") : "")));
     if (type === "stdio" && !admin)
@@ -505,11 +511,6 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
     });
   } catch (e) {
     if (e instanceof StdioNotAllowed) throw new HttpError(403, e.message);
-    if (e instanceof EncryptionUnavailable)
-      throw new HttpError(
-        503,
-        "Clé de chiffrement indisponible : impossible d'éprouver un identifiant. Configurez APP_ENCRYPTION_KEY.",
-      );
     throw e;
   }
   const premier = fusion[0];
@@ -517,7 +518,8 @@ async function tester(dep: DependancesMcp, req: FastifyRequest): Promise<Dict> {
   if (premier.valeur === null)
     return {
       ok: false,
-      error: "Secret enregistré illisible (clé du coffre changée ou indisponible) : ressaisissez-le.",
+      error:
+        "Secret enregistré inutilisable (illisible, retiré du coffre ou clé indisponible) : ressaisissez-le.",
     };
   const resultat = await sonderMcp(
     await personalToConfig(premier.entree, { allowStdio: admin, secrets: premier.valeur }),

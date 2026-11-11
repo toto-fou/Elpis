@@ -545,6 +545,15 @@ follow [SemVer](https://semver.org/).
 
 ### Security
 
+- **Tool calls written as text: only a reply that is nothing but the call runs.** When the engine
+  gives no native `tool_calls`, any JSON object with a `name` found in the reply, or a
+  `<tool_call>` tag quoted in a sentence, used to run as a tool call, so a model quoting a web
+  page, a file or a tool result could be led to run a tool. A text reply now runs as a call only
+  when it holds nothing else (`<tool_call>` / `<function=…>` markup, or bare JSON outside a code
+  block); JSON or tags inside prose are shown as written. The markup that ends a text still counts
+  in two cases: an SGLang engine that reports no tool-call parser, and the reasoning of an empty
+  reply. A reply cut by the length limit inside an open call tag gets the compact retry, with a
+  note that it may only have been a quotation, and nothing runs.
 - **Login: failed attempts throttled.** `POST /api/login-lite` counts attempts per (username,
   client address), 8 refilled one every 5 minutes, and per client address, 50 refilled one every
   15 seconds, before any password hashing. Repeated failures are answered more slowly (up to

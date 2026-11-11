@@ -651,7 +651,13 @@ the orchestrator: it imports them.
 | `@elpis/contracts` (`stream-events.gen.ts`) | NDJSON stream registry | `STREAM_EVENTS`, `LOOP_EVENTS`, `NOT_DISPLAYED` |
 
 Calls written as text are parsed in `boucle/analyse-appels.ts`
-(`extractToolCalls`, `stripToolCallMarkup`).
+(`extractToolCalls`, `stripToolCallMarkup`). A reply is a call only when it
+contains nothing else (`<tool_call>` or `<function=…>` tags, or bare JSON
+outside a code block); JSON or tags inside prose stay text and are shown as
+written. Two exceptions for the markup that ends the text: the reply of an
+engine that reports no tool-call parser (SGLang), and the reasoning of an empty
+reply. A reply cut by the length limit inside a call tag left open is sent back
+for a compact retry, and nothing runs.
 
 ```mermaid
 flowchart TB
@@ -1352,9 +1358,10 @@ sequenceDiagram
   cascade of failures. Counters and outcomes:
   [The agent loop](#the-agent-loop).
 - If the engine does not produce native `tool_calls`, the text channel reads the
-  calls written in the response with `extractToolCalls()` (native JSON,
-  backticks, multi-object, GLM XML; `classifyTextReply`); the batch then goes
-  through the same core (`runToolBatch`) as native calls.
+  calls written in the response with `extractToolCalls()` (bare JSON,
+  multi-object, GLM XML; `classifyTextReply`), only when the response holds
+  nothing but the calls; the batch then goes through the same core
+  (`runToolBatch`) as native calls.
 - Each call is timed and logged in `tool_call_metrics` (basis of the
   Observability pages).
 

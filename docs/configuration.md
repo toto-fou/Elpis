@@ -688,7 +688,10 @@ python -m sglang.launch_server --model-path Qwen/Qwen3-8B --host 0.0.0.0 --port 
   `gpt-oss`. An unsuitable parser swallows the calls or delivers them as text; the
   probe flags it when the model name allows. An empty response after
   thinking when tools were offered can come from the tool parser
-  or the thinking parser.
+  or the thinking parser. A call delivered as text runs only when the reply
+  holds nothing else: with a sentence around it or inside a code block, it is
+  shown as text (only SGLang without a tool parser accepts a sentence before
+  `<tool_call>` or `<function=…>` tags at the end of the reply).
 - **API key**: vLLM's `--api-key` protects only `/v1/*` (`/tokenize`,
   `/metrics`, `/version` stay open); SGLang's protects everything except
   `/health`, `/ready` and `/metrics`. Keep these servers on a closed network.

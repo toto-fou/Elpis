@@ -207,7 +207,7 @@
           "role": "assistant"
         },
         {
-          "content": "A tool call was detected in your reply but could not be parsed (invalid JSON/markup). Re-issue it in EXACTLY this format, one valid JSON object per block, with no text between the braces:\n<tool_call>{\"name\": \"<tool_name>\", \"arguments\": {<key>: <value>}}</tool_call>",
+          "content": "A tool call was detected in your reply but could not be parsed (invalid JSON/markup). Re-issue it in EXACTLY this format, one valid JSON object per block, with no text between the braces and nothing else in your reply:\n<tool_call>{\"name\": \"<tool_name>\", \"arguments\": {<key>: <value>}}</tool_call>",
           "role": "user"
         }
       ],

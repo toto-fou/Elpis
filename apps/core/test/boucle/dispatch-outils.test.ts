@@ -658,7 +658,12 @@ describe("lot complet et relances", () => {
   it("relances bornées : appel illisible, outil inconnu, appel perdu dans le raisonnement", async () => {
     const ctx = contexte({ builtinHandlers: new Map([["lire", () => "ok"]]) });
     const live = new LiveText(null);
-    const illisible = D.classifyTextReply(ctx, live, '<tool_call>{"name": "lire", oops}</tool_call>', 1);
+    const illisible = await D.classifyTextReply(
+      ctx,
+      live,
+      '<tool_call>{"name": "lire", oops}</tool_call>',
+      1,
+    );
     const wm: Dict[] = [];
     const rec = new RunRecord();
     let [relance, n] = await D.relaunchUnparsedCall(rec, wm, illisible, {
@@ -670,7 +675,7 @@ describe("lot complet et relances", () => {
     expect([relance, n]).toEqual([true, 1]);
     expect(String(wm[wm.length - 1]!["content"])).toContain("could not be parsed");
     live.parts.push('{"name": "inconnu", "arguments": {}}');
-    const inconnu = D.classifyTextReply(ctx, live, '{"name": "inconnu", "arguments": {}}', 2);
+    const inconnu = await D.classifyTextReply(ctx, live, '{"name": "inconnu", "arguments": {}}', 2);
     expect([inconnu.rawText, inconnu.unknownNames, live.parts]).toEqual(["", ["inconnu"], []]);
     [relance, n] = await D.relaunchUnparsedCall(rec, wm, inconnu, {
       live,
@@ -679,7 +684,7 @@ describe("lot complet et relances", () => {
       malformedRetry: n,
     });
     expect([relance, n]).toEqual([true, 2]);
-    const perdu = D.classifyTextReply(ctx, live, "", 3);
+    const perdu = await D.classifyTextReply(ctx, live, "", 3);
     [relance, n] = await D.relaunchUnparsedCall(rec, wm, perdu, {
       live,
       iterThinking: "</parameter></function>",

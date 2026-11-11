@@ -265,7 +265,7 @@
       }
     ],
     "tool_history_delta": true,
-    "tool_input_tokens": 807,
+    "tool_input_tokens": 808,
     "tool_limit_calls": 1,
     "tool_limit_effective_iters": 1,
     "tool_limit_iters": 5,
@@ -360,7 +360,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         }
       ],
@@ -432,7 +432,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -523,7 +523,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -550,7 +550,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         }
       ],
@@ -622,7 +622,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -649,7 +649,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -657,7 +657,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         }
       ],
@@ -729,7 +729,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -756,7 +756,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -764,7 +764,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {
@@ -772,7 +772,7 @@
           "role": "assistant"
         },
         {
-          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write.",
+          "content": "[SYSTEM] Your previous tool call was cut off mid-emission when the generation hit its length limit: it is incomplete and was NOT executed. Re-issue it MUCH more compactly — for example, to write a large file, split it into several smaller successive write_file calls (append mode) instead of one giant write. This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool yourself, do NOT call anything; continue your answer as plain text without repeating the markup.",
           "role": "user"
         },
         {

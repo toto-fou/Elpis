@@ -39,7 +39,7 @@ import {
 } from "../contexte/elagage";
 import { currentEngine } from "../llm/moteurs";
 import { reflexionDuTourRendue } from "../llm/parametres";
-import { noterObservation } from "../llm/sonde-moteur";
+import { noterObservation, outilsEnTexteDeclares } from "../llm/sonde-moteur";
 import { journal } from "../journal";
 import type { ContexteParent, OutilIntegre } from "../outils/catalogue";
 import { categorize, isHidden } from "../outils/categories";
@@ -611,13 +611,17 @@ export function isLocalTool(toolCfgMap: ReadonlyMap<string, ConfigMcp>, toolName
   return c["command"] === "DEFAULT_LOCAL_PYTHON" || c["identity"] === "meta";
 }
 
+const CITATION_COUPEE =
+  " This may be a false alarm: if you were only quoting or showing that text and did not decide to call a tool " +
+  "yourself, do NOT call anything; continue your answer as plain text without repeating the markup.";
+
 /** Appel coupé par `finish=length` : ni exécuté ni persisté ; le texte est gardé et une relance compacte demandée. */
 async function handleTruncatedToolCall(
   ctx: RunContext,
   workingMessages: Dict[],
   iterClean: string,
   iteration: number,
-  o: { channel: string; runHistory: Dict[] | null; ctxFull: boolean | null },
+  o: { channel: string; runHistory: Dict[] | null; ctxFull: boolean | null; citationPossible: boolean },
 ): Promise<void> {
   log.warn(
     `[run_chat_multi_mcp] tool_call ${o.channel} tronqué (finish=length, iter ${iteration}) — appel(s) NON exécuté(s), relance compacte demandée`,
@@ -647,7 +651,7 @@ async function handleTruncatedToolCall(
   } catch {
     consigne = defaut;
   }
-  workingMessages.push(ephemeral("user", consigne));
+  workingMessages.push(ephemeral("user", o.citationPossible ? consigne + CITATION_COUPEE : consigne));
 }
 
 export class TruncationGuard {
@@ -666,13 +670,14 @@ export class TruncationGuard {
     ctx: RunContext,
     rec: RunRecord,
     workingMessages: Dict[],
-    o: { usage: Dict; iterClean: string; iteration: number },
+    o: { usage: Dict; iterClean: string; iteration: number; citationPossible?: boolean },
   ): Promise<boolean> {
     const plein = lengthCutIsCtxFull(o.usage, rec.ctxSize);
     await handleTruncatedToolCall(ctx, workingMessages, o.iterClean, o.iteration, {
       channel,
       runHistory: rec.runToolHistory,
       ctxFull: plein,
+      citationPossible: o.citationPossible ?? false,
     });
     this.streak += 1;
     if (plein === true) this.ctxFull = true;
@@ -829,22 +834,29 @@ export interface TextReply {
   rawText: string;
   iterClean: string;
   calls: AppelTexte[] | null;
+  /** Le texte s'arrête dans un appel vers un outil connu sans en être un : à relancer s'il a été coupé par la longueur, jamais exécuté. */
+  appelOuvert: boolean;
   unknownText: string;
   unknownNames: string[];
 }
 
-export function classifyTextReply(
+/** Seule une réponse faite d'appels en est un ; le balisage final d'une prose compte si le moteur déclare n'avoir aucun parseur d'outils. */
+export async function classifyTextReply(
   ctx: RunContext,
   live: LiveText,
   iterClean: string,
   iteration: number,
-): TextReply {
+): Promise<TextReply> {
   let rawText = iterClean;
   let legacy = rawText ? Analyse.extractToolCalls(rawText) : null;
+  if (!legacy) {
+    const enQueue = Analyse.extractTrailingToolCalls(rawText);
+    if (enQueue && (await outilsEnTexteDeclares(currentEngine()))) legacy = enQueue;
+  }
   let unknownText = "";
   let unknownNames: string[] = [];
+  const connus = new Set([...ctx.c.toolCfgMap.keys(), ...ctx.c.builtinHandlers.keys()]);
   if (legacy) {
-    const connus = new Set([...ctx.c.toolCfgMap.keys(), ...ctx.c.builtinHandlers.keys()]);
     const retenus = legacy.filter(([n]) => typeof n === "string" && connus.has(n));
     if (!retenus.length) {
       if (looksLikePureToolCallText(rawText)) {
@@ -861,7 +873,9 @@ export function classifyTextReply(
     } else legacy = retenus;
   }
   if (legacy) noterObservation(currentEngine(), "outils_en_texte");
-  return { rawText, iterClean, calls: legacy, unknownText, unknownNames };
+  const ouvert = legacy || Analyse.LAST_PARSE_DIAGNOSTIC ? null : Analyse.openCallAtEnd(rawText);
+  const appelOuvert = ouvert === "" || (ouvert !== null && connus.has(ouvert));
+  return { rawText, iterClean, calls: legacy, appelOuvert, unknownText, unknownNames };
 }
 
 export const MALFORMED_RETRY_MAX = 2;

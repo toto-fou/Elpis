@@ -3112,7 +3112,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ==============================================================================
-ws 8.22.0 — MIT
+ws 8.22.1 — MIT
 ==============================================================================
 
 Copyright (c) 2011 Einar Otto Stangvik <einaros@gmail.com>

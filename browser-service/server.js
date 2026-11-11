@@ -5963,10 +5963,8 @@ async function ensureMockHandler(session) {
             } catch (e) { match = url.includes(m.url_pattern); }
             if (!match) continue;
             if (m.delay_ms && m.delay_ms > 0) await new Promise(r => setTimeout(r, m.delay_ms));
-            if (m.times !== -1) {
-                m._used = (m._used || 0) + 1;
-                if (m._used >= m.times) m._exhausted = true;
-            }
+            m._used = (m._used || 0) + 1;
+            if (m.times !== -1 && m._used >= m.times) m._exhausted = true;
             try {
                 await route.fulfill({
                     status: m.status,
@@ -5974,7 +5972,7 @@ async function ensureMockHandler(session) {
                     body: m.body || '',
                     headers: m.headers || {},
                 });
-            } catch (e) { /* route may have been aborted by another handler */ }
+            } catch (e) { m._used -= 1; /* route may have been aborted by another handler */ }
             return;
         }
         // Aucun mock : on passe la main (la garde des destinations décide).

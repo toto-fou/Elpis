@@ -62,3 +62,16 @@ test('recorder : un geste par ref est noté avec un sélecteur stable dans tous 
         }
     }
 });
+
+test('pw_mock list : chaque réponse servie par un mock est comptée, avec ou sans limite de fois', { skip: SAUTER, timeout: 60000 }, async () => {
+    await ouvrir('/');
+    const illimite = (await api('/mock/add', { url_pattern: '/api/libre', body: '{"a":1}' })).corps.id;
+    const limite = (await api('/mock/add', { url_pattern: '/api/limite', body: '{"b":1}', times: 2 })).corps.id;
+    const appels = (chemin, n) => api('/evaluate', { script: `for (let i = 0; i < ${n}; i++) await fetch('${chemin}'); return 1` });
+    assert.equal((await appels('/api/libre', 3)).statut, 200);
+    assert.equal((await appels('/api/limite', 2)).statut, 200);
+    const liste = (await service.get(`/mock/list?owner=${OWNER}&session_id=${sid}`)).corps.mocks;
+    assert.equal(liste.find(m => m.id === illimite).used, 3);
+    assert.deepEqual(liste.find(m => m.id === limite), { ...liste.find(m => m.id === limite), used: 2, exhausted: true });
+    await api('/mock/clear');
+});

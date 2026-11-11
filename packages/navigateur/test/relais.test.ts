@@ -34,6 +34,8 @@ import { jugeRelaisBac } from "../src/url";
 const SECRET = "p@ss w&rd=1";
 const SUB = "Ep.0123456789abcdef-X";
 const JETON = "jeton-du-relais";
+const CLE = "c1e".repeat(16);
+const AVEC_CLE = `X-Elpis-Binding: ${CLE}\r\n`;
 
 describe("formes, encodages, purge en flux, Digest", () => {
   it("valeur encodée selon le corps, formes de la valeur", () => {
@@ -347,21 +349,47 @@ describe("relais des secrets (socket unix réel)", () => {
 
   it("http-auth : défis Basic et Digest résolus par le relais, le navigateur ne voit que la réponse", async () => {
     const origine = `http://auth.test:${port(http)}`;
-    relais.lier(liaison({ id: "a1", kind: "http-auth", origines: [origine] }));
-    const b = await viaRelais(`${origine}/basic`);
+    relais.lier(liaison({ id: "a1", kind: "http-auth", origines: [origine], cle: CLE }));
+    const b = await viaRelais(`${origine}/basic`, { entetes: AVEC_CLE });
     expect([b.statut, b.corps]).toEqual([200, "basic ok"]);
-    const b2 = await viaRelais(`${origine}/basic`);
+    const b2 = await viaRelais(`${origine}/basic`, { entetes: AVEC_CLE });
     expect(b2.corps).toBe("basic ok");
     expect(recus.at(-1)?.auth).toMatch(/^Basic /u);
-    const d = await viaRelais(`${origine}/digest`);
+    const d = await viaRelais(`${origine}/digest`, { entetes: AVEC_CLE });
     expect([d.statut, d.corps]).toEqual([200, "digest ok"]);
     expect(recus.at(-1)?.auth).toMatch(/^Digest .*nc=00000001/u);
-    const d2 = await viaRelais(`${origine}/digest`);
+    const d2 = await viaRelais(`${origine}/digest`, { entetes: AVEC_CLE });
     expect(d2.corps).toBe("digest ok");
     expect(recus.at(-1)?.auth).toMatch(/nc=00000002/u);
     // Sans liaison : le 401 revient au navigateur.
     expect((await viaRelais(`http://autre.test:${port(http)}/basic`)).statut).toBe(401);
     relais.oublier("a1");
+  });
+
+  it("http-auth lié à la session qui l'a demandé : sans sa clé (autre processus du bac), aucun Authorization ; clé jamais transmise à l'amont ; liaison échue sans prolongation", async () => {
+    const origine = `http://session.test:${port(http)}`;
+    relais.lier(liaison({ id: "k1", kind: "http-auth", origines: [origine], cle: CLE }));
+    for (const entetes of ["", `X-Elpis-Binding: ${"0".repeat(48)}\r\n`]) {
+      const r = await viaRelais(`${origine}/basic`, { entetes });
+      expect(r.statut).toBe(401);
+      expect(recus.at(-1)?.auth).toBe("");
+    }
+    expect((await viaRelais(`${origine}/basic`, { entetes: AVEC_CLE })).statut).toBe(200);
+    const vus: string[] = [];
+    const ecoute = (q: IncomingMessage): void => void vus.push(String(q.headers["x-elpis-binding"] ?? "-"));
+    http.on("request", ecoute);
+    await viaRelais(`${origine}/basic`, { entetes: AVEC_CLE });
+    http.off("request", ecoute);
+    expect(vus).toEqual(["-"]);
+    relais.oublier("k1");
+    // Échéance : prolongée à chaque appel du compte, sinon la liaison est oubliée.
+    relais.lier(liaison({ id: "k2", kind: "http-auth", origines: [origine], cle: CLE, dureeMs: 200 }));
+    relais.prolonger(500);
+    await new Promise((ok) => setTimeout(ok, 300));
+    expect(relais.ids()).toContain("k2");
+    await new Promise((ok) => setTimeout(ok, 350));
+    expect(relais.ids()).not.toContain("k2");
+    expect((await viaRelais(`${origine}/basic`, { entetes: AVEC_CLE })).statut).toBe(401);
   });
 
   it("HTTPS : tunnel intact hors secret ; TLS terminé par l'autorité de l'instance pour l'origine d'un secret, amont vérifié", async () => {
@@ -434,8 +462,8 @@ describe("relais des secrets (socket unix réel)", () => {
     expect((await lireReponse(tls)).statut).toBe(405);
     relais.oublier("f1");
     const basic = `http://echo.test:${port(http)}`;
-    relais.lier(liaison({ id: "b1", kind: "http-auth", origines: [basic] }));
-    const e = await viaRelais(`${basic}/echo-auth`);
+    relais.lier(liaison({ id: "b1", kind: "http-auth", origines: [basic], cle: CLE }));
+    const e = await viaRelais(`${basic}/echo-auth`, { entetes: AVEC_CLE });
     expect(e.statut).toBe(200);
     expect(recus.at(-1)?.auth).toBe("Basic " + Buffer.from(`alice:${SECRET}`).toString("base64"));
     expect(JSON.stringify(e)).not.toMatch(

@@ -42,11 +42,20 @@ export interface LiaisonRelais {
   readonly tls: "strict" | "insecure";
   /** Substitut à usage unique qu'une connexion saisit à la place du mot de passe (web-login). */
   readonly substitut: string | null;
+  /** http-auth : clé de la session du service qui a demandé la liaison ; Authorization n'est ajouté qu'aux requêtes qui la portent (en-tête `ENTETE_LIAISON`), jamais aux autres processus du bac. */
+  readonly cle?: string | null;
+  /** Durée de vie de la liaison sans prolongation (défaut `liaisonMs`). */
+  readonly dureeMs?: number;
   resoudre(): Promise<IdentifiantsRelais | null>;
 }
 
+/** En-tête qui porte la clé d'une liaison http-auth (posé par la session du service du bac, retiré par le relais). */
+export const ENTETE_LIAISON = "x-elpis-binding";
+
 interface EtatLiaison {
   readonly l: LiaisonRelais;
+  /** Échéance de la liaison (prolongée à chaque appel du compte). */
+  jusqua: number;
   fenetreJusqua: number;
   valeur: IdentifiantsRelais | null;
   formes: Buffer[];
@@ -71,6 +80,8 @@ export const reglagesRelaisNavigateur = {
   corpsMax: 1024 * 1024,
   /** Octets de corps gardés en mémoire à la fois par un relais (toutes requêtes) ; au-delà : 503. */
   tamponsMax: 8 * 1024 * 1024,
+  /** Durée de vie par défaut d'une liaison sans prolongation (ms). */
+  liaisonMs: 15 * 60_000,
   /** Substitutions par fenêtre armée : une soumission (une deuxième pourrait stocker la valeur pour la relire autrement). */
   substitutionsMax: 1,
 };
@@ -86,6 +97,8 @@ const SAUT_PAR_SAUT = new Set([
   "upgrade",
 ]);
 const METHODES_SUBSTITUTION = new Set(["POST", "PUT", "PATCH"]);
+/** En-têtes de la requête jamais transmis à l'amont. */
+const NON_RELAYES = new Set([...SAUT_PAR_SAUT, ENTETE_LIAISON]);
 const MASQUE = "[secret]";
 
 /** Formes sous lesquelles une valeur peut revenir, même liste que `formesSecret` du service (browser-service/secret_util.js) : brute, URL et formulaire (%xx en majuscules et en minuscules, tout octet encodé), HTML (entités nommées, décimales, hexadécimales), JSON (`\/`, `\uXXXX` des non-ASCII, des caractères HTML ou de tous), base64, hexadécimal. */
@@ -500,6 +513,7 @@ export class RelaisNavigateur {
   lier(l: LiaisonRelais): void {
     this.liaisons.set(l.id, {
       l,
+      jusqua: Date.now() + (l.dureeMs ?? reglagesRelaisNavigateur.liaisonMs),
       fenetreJusqua: 0,
       valeur: null,
       formes: [],
@@ -538,7 +552,20 @@ export class RelaisNavigateur {
 
   /** Liaisons en cours (identifiants, pour les tests et l'état). */
   ids(): string[] {
-    return [...this.liaisons.keys()];
+    return this.vivantes().map((e) => e.l.id);
+  }
+
+  /** Repousse l'échéance de toutes les liaisons à `dureeMs` d'ici (appel d'un outil du compte). */
+  prolonger(dureeMs: number): void {
+    const fin = Date.now() + dureeMs;
+    for (const e of this.vivantes()) e.jusqua = Math.max(e.jusqua, fin);
+  }
+
+  /** Liaisons non échues ; les échues sont oubliées. */
+  private vivantes(): EtatLiaison[] {
+    const t = Date.now();
+    for (const [id, e] of this.liaisons) if (e.jusqua <= t) this.liaisons.delete(id);
+    return [...this.liaisons.values()];
   }
 
   /** Liaisons qui couvrent la destination jugée `v` (`schema://hote:port`) : décidé sur le nom normalisé ET sur l'adresse jointe, pour qu'une origine de secret soit interceptée quelle que soit la façon de la nommer (adresse IP, point final, autre nom). */
@@ -554,7 +581,7 @@ export class RelaisNavigateur {
     if (this.liaisons.size === 0) return { liees, exactes, schemas };
     const nom = hoteNormal(hote);
     const cible = new Set(v.adresses ?? [v.adresse]);
-    for (const e of [...this.liaisons.values()]) {
+    for (const e of this.vivantes()) {
       let touchee = false;
       for (const o of e.l.origines) {
         const p = partiesOrigine(o);
@@ -707,9 +734,7 @@ export class RelaisNavigateur {
     }
     const { liees, exactes } = await this.couvrant(p.schema, hote, port, v);
     const maintenant = Date.now();
-    const substituts = [...this.liaisons.values()].filter(
-      (e) => e.l.kind === "web-login" && e.l.substitut !== null,
-    );
+    const substituts = this.vivantes().filter((e) => e.l.kind === "web-login" && e.l.substitut !== null);
     const raisonDe = (e: EtatLiaison, dansUrl: boolean): string | null =>
       !exactes.includes(e)
         ? `towards ${origine}, not an origin of the secret`
@@ -726,7 +751,11 @@ export class RelaisNavigateur {
       e.refus++;
       this.journal(`placeholder of secret '${e.l.nom}' not substituted: ${raison}`);
     };
-    const auth = exactes.find((e) => e.l.kind === "http-auth");
+    // Authorization pour la seule session qui a demandé la liaison : sa clé dans la requête.
+    const cle = String(req.headers[ENTETE_LIAISON] ?? "");
+    const auth = exactes.find(
+      (e) => e.l.kind === "http-auth" && typeof e.l.cle === "string" && cle !== "" && egal(cle, e.l.cle),
+    );
     // Corps gardé en mémoire seulement s'il faut l'inspecter : substitution possible (origine exacte en fenêtre, méthode admise), ou reprise d'un défi 401 (petit corps connu) ; sinon relayé en flux.
     const max = reglagesRelaisNavigateur.corpsMax;
     const longueur =
@@ -782,7 +811,7 @@ export class RelaisNavigateur {
     }
     const entetes: Record<string, string | string[]> = {};
     for (const [k, val] of Object.entries(req.headers as IncomingHttpHeaders))
-      if (val !== undefined && !SAUT_PAR_SAUT.has(k)) entetes[k] = val;
+      if (val !== undefined && !NON_RELAYES.has(k)) entetes[k] = val;
     entetes["host"] = new URL(origine).host;
     if (liees.length > 0) {
       // Réponse entière et sans codage inconnu : une plage ne porterait qu'un morceau de la valeur, hors d'atteinte de la purge.
@@ -950,7 +979,10 @@ export class RelaisNavigateur {
     if (client.destroyed) return;
     const lignes = [`${req.method ?? "GET"} ${u.pathname}${u.search} HTTP/1.1`];
     for (let i = 0; i + 1 < req.rawHeaders.length; i += 2)
-      if (!/^proxy-/iu.test(req.rawHeaders[i] ?? ""))
+      if (
+        !/^proxy-/iu.test(req.rawHeaders[i] ?? "") &&
+        (req.rawHeaders[i] ?? "").toLowerCase() !== ENTETE_LIAISON
+      )
         lignes.push(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}`);
     const amont = tls
       ? connexionTls({ host: v.adresse, port, ...this.optionsTls(hote, exactes) })

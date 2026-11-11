@@ -138,6 +138,11 @@ function inactiviteS(): number {
   return Math.max(1, Number.isFinite(n) ? Math.round(n * 60) : 900);
 }
 
+/** Durée de vie d'une liaison au relais sans appel du compte : celle du service du bac (il s'arrête au même terme), prolongée à chaque outil pw_*. */
+export function dureeLiaisonMs(): number {
+  return inactiviteS() * 1000;
+}
+
 /** Relais du compte à l'écoute (rouvert si le bac a retiré son socket). */
 async function relaisDuCompte(e: EtatCompte, username: string, jeton: string): Promise<RelaisNavigateur> {
   const c = cheminsNavigateurBac(username);
@@ -235,6 +240,7 @@ export async function serviceDuCompte(username: string): Promise<ServiceNavigate
     e.demarrage = null;
   });
   await e.demarrage;
+  e.relais?.prolonger(dureeLiaisonMs());
   if (Date.now() - e.activite > reglagesNavigateurBac.activiteMs) {
     e.activite = Date.now();
     void bacDuCompteOutil(username)

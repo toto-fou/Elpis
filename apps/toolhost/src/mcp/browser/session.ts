@@ -11,7 +11,7 @@ import type { SecretApplicable } from "../../rappel";
 import { minusculesPy, ouvrirAppel, refusUrlAppel } from "./appel";
 import type { Appel, ServicesBrowser } from "./appel";
 import { lier, oublier, oublierProprietaire, sessionDuSecret } from "./liaisons";
-import { lierAuRelais, oublierAuRelais } from "./bac";
+import { dureeLiaisonMs, lierAuRelais, oublierAuRelais } from "./bac";
 import {
   applicables,
   HORS_APPLICATION,
@@ -138,17 +138,15 @@ async function demarrer(
   }
   let tls = choix?.secret.tls ?? "strict";
   let identifiants: { username: string; password: string } | null = null;
-  if (
-    choix?.secret.kind === "http-auth" &&
-    client.bac === null &&
-    (veritePy(a["record_har"]) || veritePy(a["trace"]))
-  )
+  if (choix?.secret.kind === "http-auth" && (veritePy(a["record_har"]) || veritePy(a["trace"])))
     return errPw("recording_with_credentials", "", {
       message: `Secret '${choix.secret.name}' applies HTTP authentication to this session: a HAR or a trace would keep it in clear.`,
       fix: "Start again without record_har and trace.",
     });
   // Mode bac : le secret est lié au relais de l'hôte (origines déchiffrées, défis 401 résolus par lui) ; la valeur n'entre jamais dans le bac.
+  // http-auth : la liaison ne sert que la session ouverte ici (clé posée par le service sur ses seules requêtes), le temps de son activité.
   let relais: { compte: string; ids: string[] } | undefined;
+  let liaisonService: { key: string; origins: string[] } | null = null;
   if (choix !== null && client.bac !== null) {
     const origines = choix.secret.origins.length ? choix.secret.origins : [choix.origine];
     const differee =
@@ -157,6 +155,7 @@ async function demarrer(
         : async () => null;
     if (differee === null) return HORS_APPLICATION;
     const id = `${choix.secret.kind}-${randomBytes(8).toString("hex")}`;
+    const cle = choix.secret.kind === "http-auth" ? randomBytes(24).toString("hex") : null;
     if (
       !lierAuRelais(username, {
         id,
@@ -165,6 +164,8 @@ async function demarrer(
         origines,
         tls,
         substitut: null,
+        cle,
+        dureeMs: dureeLiaisonMs(),
         resoudre: differee,
       })
     )
@@ -173,6 +174,7 @@ async function demarrer(
         fix: "Retry pw_session(action='start', ...).",
       });
     relais = { compte: username, ids: [id] };
+    if (cle !== null) liaisonService = { key: cle, origins: [...origines] };
   } else if (choix !== null && choix.secret.kind === "http-auth") {
     const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
     if ("refus" in v) return v.refus;
@@ -188,6 +190,7 @@ async function demarrer(
   if (choix !== null) {
     corps["tls"] = tls;
     if (identifiants !== null) Object.assign(corps, { credentials_origin: choix.origine, ...identifiants });
+    if (liaisonService !== null) corps["relay_binding"] = liaisonService;
   }
   if (a["device"]) corps["device"] = a["device"];
   if (a["viewport"]) {

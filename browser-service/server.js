@@ -2234,9 +2234,23 @@ const indiceAuthDemarrage = (nav, poses) => {
     return h ? { auth_hint: h } : {};
 };
 
+// Mode bac : liaison d'authentification HTTP du relais de l'hôte (clé et origines) ; la clé part dans l'en-tête ENTETE_LIAISON des seules requêtes de la session vers ces origines, le relais y ajoute Authorization.
+const ENTETE_LIAISON = 'x-elpis-binding';
+function liaisonRelais(b) {
+    const l = b.relay_binding;
+    if (l === undefined || l === null) return null;
+    if (!MODE_BAC || typeof l !== 'object' || typeof l.key !== 'string' || !/^[0-9a-f]{32,128}$/.test(l.key)
+        || !Array.isArray(l.origins) || !l.origins.length || l.origins.some((o) => origineDe(o) !== o)) return undefined;
+    return { cle: l.key, origines: new Set(l.origins) };
+}
+
 // Refus (400) d'un démarrage au `tls` inconnu ou au `credentials_origin` invalide (origine http(s), identifiants, adresse de départ sur elle) ; null sinon.
 function refusDemarrage(b) {
     if (b.tls !== undefined && b.tls !== null && b.tls !== 'strict' && b.tls !== 'insecure') return { error: "tls must be 'strict' or 'insecure'.", code: 'invalid_option' };
+    const liaison = liaisonRelais(b);
+    if (liaison === undefined) return { error: 'relay_binding must be { key, origins } in sandbox mode.', code: 'invalid_option' };
+    // La clé de la liaison part dans les requêtes : un HAR ou une trace la garderaient.
+    if (liaison && (b.record_har || b.trace)) return { error: 'HAR and trace recordings would keep the relay binding of HTTP authentication.', code: 'recording_with_credentials' };
     if (b.credentials_origin === undefined || b.credentials_origin === null || b.credentials_origin === '') return null;
     const o = origineDe(b.credentials_origin);
     if (!o) return { error: 'credentials_origin must be an http(s) origin (scheme://host[:port]).', code: 'secret_scope_mismatch' };
@@ -2399,6 +2413,11 @@ app.post('/start', async (req, res) => {
 
         const context = await browser.newContext(contextOpts);
         await installerGarde(context);
+        const liaison = liaisonRelais(req.body);
+        if (liaison) {
+            await context.route((u) => liaison.origines.has(origineDe(u.href)),
+                (route) => route.fallback({ headers: { ...route.request().headers(), [ENTETE_LIAISON]: liaison.cle } }).catch(() => {}));
+        }
 
         // Trace Playwright (Phase 5) : screenshots + snapshots DOM + sources,
         // exportable en .zip ouvrable avec `npx playwright show-trace`.

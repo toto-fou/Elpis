@@ -11,7 +11,7 @@ import type { ContexteAppel } from "@elpis/outils-mcp";
 import type { SecretApplicable } from "../../rappel";
 import { ouvrirAppel } from "./appel";
 import type { ServicesBrowser } from "./appel";
-import { lierAuRelais, relaisDe } from "./bac";
+import { dureeLiaisonMs, lierAuRelais, relaisDe } from "./bac";
 import { liaison } from "./liaisons";
 import type { LiaisonSession } from "./liaisons";
 import {
@@ -196,6 +196,7 @@ async function connexionParRelais(
     origines: secret.origins.length ? secret.origins : [origine],
     tls: lien.tls,
     substitut: sub,
+    dureeMs: dureeLiaisonMs(),
     resoudre: differee,
   });
   lien.relais?.ids.push(id);

@@ -20,9 +20,10 @@ import { O_PATH } from "@elpis/securite";
 import { Feuilles } from "./autorite";
 import type { Autorite } from "./autorite";
 
-/** Verdict de l'hôte sur une destination : adresse à joindre (jamais résolue de nouveau), ou motif de refus en anglais. */
+/** Verdict de l'hôte sur une destination : adresse à joindre (jamais résolue de nouveau) et toutes les adresses jugées, ou motif de refus en anglais. */
 export type VerdictRelais =
-  { readonly ok: true; readonly adresse: string } | { readonly ok: false; readonly motif: string };
+  | { readonly ok: true; readonly adresse: string; readonly adresses?: readonly string[] }
+  | { readonly ok: false; readonly motif: string };
 export type JugeRelais = (hote: string, port: number) => Promise<VerdictRelais>;
 
 /** Identifiants d'un secret, résolus par le core au dernier moment : SECRET, gardés en mémoire le temps de la liaison (purge des réponses). */
@@ -68,8 +69,8 @@ interface DefiDigest {
 export const reglagesRelaisNavigateur = {
   /** Corps de requête lu pour une origine de secret (au-delà : relayé tel quel, sans substitution). */
   corpsMax: 32 * 1024 * 1024,
-  /** Substitutions par fenêtre armée (une soumission, plus une reprise). */
-  substitutionsMax: 3,
+  /** Substitutions par fenêtre armée : une soumission (une deuxième pourrait stocker la valeur pour la relire autrement). */
+  substitutionsMax: 1,
 };
 
 const SAUT_PAR_SAUT = new Set([
@@ -207,11 +208,39 @@ export function origineDe(schema: "http" | "https", hote: string, port: number):
   return `${schema}://${h}${port === defaut ? "" : `:${port}`}`;
 }
 
+/** Nom d'hôte comparable : minuscules, crochets et point final retirés (`exemple.fr.` est `exemple.fr`). */
+function hoteNormal(h: string): string {
+  return h
+    .toLowerCase()
+    .replace(/^\[|\]$/gu, "")
+    .replace(/\.+$/u, "");
+}
+
 function hotePort(brut: string, defaut: number): { hote: string; port: number } | null {
   const m = /^\[([^\]]+)\](?::(\d+))?$/u.exec(brut) ?? /^([^:/\s]+)(?::(\d+))?$/u.exec(brut);
   if (!m?.[1]) return null;
   const port = m[2] ? Number(m[2]) : defaut;
-  return port > 0 && port < 65536 ? { hote: m[1].toLowerCase(), port } : null;
+  const hote = hoteNormal(m[1]);
+  return hote && port > 0 && port < 65536 ? { hote, port } : null;
+}
+
+/** Schéma, hôte (normalisé) et port d'une origine `scheme://hôte[:port]`, `null` si illisible. */
+function partiesOrigine(o: string): { schema: "http" | "https"; hote: string; port: number } | null {
+  try {
+    const u = new URL(o);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    const schema = u.protocol === "https:" ? "https" : "http";
+    return { schema, hote: hoteNormal(u.hostname), port: Number(u.port || (schema === "https" ? 443 : 80)) };
+  } catch {
+    return null;
+  }
+}
+
+/** Couverture d'une destination par les liaisons : `exactes` par son origine, `liees` aussi par le même hôte ou la même adresse au même port, `schemas` des origines ainsi touchées. */
+interface Couverture {
+  readonly liees: EtatLiaison[];
+  readonly exactes: EtatLiaison[];
+  readonly schemas: ReadonlySet<"http" | "https">;
 }
 
 /** Défis `WWW-Authenticate` d'une réponse (en-têtes répétés gardés) : schéma et paramètres. */
@@ -469,8 +498,51 @@ export class RelaisNavigateur {
     return [...this.liaisons.keys()];
   }
 
-  private couvrant(origine: string): EtatLiaison[] {
-    return [...this.liaisons.values()].filter((e) => e.l.origines.includes(origine));
+  /** Liaisons qui couvrent la destination jugée `v` (`schema://hote:port`) : décidé sur le nom normalisé ET sur l'adresse jointe, pour qu'une origine de secret soit interceptée quelle que soit la façon de la nommer (adresse IP, point final, autre nom). */
+  private async couvrant(
+    schema: "http" | "https",
+    hote: string,
+    port: number,
+    v: { readonly adresse: string; readonly adresses?: readonly string[] },
+  ): Promise<Couverture> {
+    const liees: EtatLiaison[] = [];
+    const exactes: EtatLiaison[] = [];
+    const schemas = new Set<"http" | "https">();
+    if (this.liaisons.size === 0) return { liees, exactes, schemas };
+    const nom = hoteNormal(hote);
+    const cible = new Set(v.adresses ?? [v.adresse]);
+    for (const e of [...this.liaisons.values()]) {
+      let touchee = false;
+      for (const o of e.l.origines) {
+        const p = partiesOrigine(o);
+        if (p === null || p.port !== port) continue;
+        let meme = p.hote === nom;
+        if (!meme) {
+          const w = await this.o.juger(p.hote, p.port).catch(() => null);
+          meme = w !== null && w.ok && (w.adresses ?? [w.adresse]).some((a) => cible.has(a));
+        }
+        if (!meme) continue;
+        touchee = true;
+        schemas.add(p.schema);
+        if (p.hote === nom && p.schema === schema && !exactes.includes(e)) exactes.push(e);
+      }
+      if (touchee) liees.push(e);
+    }
+    return { liees, exactes, schemas };
+  }
+
+  /** TLS de l'amont pour des liaisons exactes : strict, sauf si toutes celles qui couvrent l'origine (une au moins) le relâchent. */
+  private optionsTls(
+    hote: string,
+    exactes: readonly EtatLiaison[],
+  ): Pick<OptionsHttps, "servername" | "rejectUnauthorized" | "ca"> {
+    return {
+      ...(isIP(hote) ? {} : { servername: hote }),
+      rejectUnauthorized: !(exactes.length > 0 && exactes.every((e) => e.l.tls === "insecure")),
+      ca: this.o.caAmont
+        ? [...this.o.caAmont]
+        : [...new Set([...getCACertificates("default"), ...getCACertificates("system")])],
+    };
   }
 
   private autorise(req: IncomingMessage): boolean {
@@ -503,7 +575,9 @@ export class RelaisNavigateur {
       return refuser(res, 400, "malformed proxy request");
     }
     if (u.protocol !== "http:") return refuser(res, 400, "only http requests are relayed in clear");
-    await this.versOrigine(req, res, u.origin, u.pathname + u.search);
+    const hote = hoteNormal(u.hostname);
+    if (!hote) return refuser(res, 400, "malformed proxy request");
+    await this.versOrigine(req, res, origineDe("http", hote, Number(u.port || 80)), u.pathname + u.search);
   }
 
   /** CONNECT : refus, tunnel intact, ou TLS terminé pour une origine de secret. */
@@ -513,7 +587,6 @@ export class RelaisNavigateur {
       return void client.end("HTTP/1.1 407 Proxy Authentication Required\r\ncontent-length: 0\r\n\r\n");
     const hp = hotePort(req.url ?? "", 443);
     if (hp === null) return void client.end("HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\n\r\n");
-    const origine = origineDe("https", hp.hote, hp.port);
     const v = await this.o.juger(hp.hote, hp.port);
     if (client.destroyed) return;
     if (!v.ok) {
@@ -523,7 +596,17 @@ export class RelaisNavigateur {
         `HTTP/1.1 403 Forbidden\r\ncontent-type: text/plain; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(corps)}\r\n\r\n${corps}`,
       );
     }
-    if (this.couvrant(origine).length === 0) {
+    const c = await this.couvrant("https", hp.hote, hp.port, v);
+    if (client.destroyed) return;
+    if (c.liees.length > 0 && !c.schemas.has("https")) {
+      // Port d'une origine http d'un secret : la même interception, en clair (HTTP ou WebSocket dans le tunnel).
+      client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (tete.length) client.unshift(tete);
+      (client as Socket & { origineElpis?: string }).origineElpis = origineDe("http", hp.hote, hp.port);
+      this.interne.emit("connection", client);
+      return;
+    }
+    if (c.liees.length === 0) {
       const amont = connexionNet(hp.port, v.adresse, () => {
         client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
         if (tete.length) amont.write(tete);
@@ -554,7 +637,7 @@ export class RelaisNavigateur {
     const ts = new TLSSocket(client, { isServer: true, secureContext: contexte }) as TLSSocket & {
       origineElpis?: string;
     };
-    ts.origineElpis = origine;
+    ts.origineElpis = origineDe("https", hp.hote, hp.port);
     ts.on("error", () => client.destroy());
     this.interne.emit("connection", ts);
   }
@@ -570,16 +653,16 @@ export class RelaisNavigateur {
     const methode = (req.method ?? "GET").toUpperCase();
     // TRACE et TRACK renvoient la requête reçue par l'amont (substitution, Authorization) : jamais relayées.
     if (methode === "TRACE" || methode === "TRACK") return refuser(res, 405, `${methode} is not relayed`);
-    const u = new URL(origine);
-    const https = u.protocol === "https:";
-    const port = Number(u.port || (https ? 443 : 80));
-    const hote = u.hostname.replace(/^\[|\]$/gu, "");
+    const p = partiesOrigine(origine);
+    if (p === null) return refuser(res, 400, "malformed destination");
+    const https = p.schema === "https";
+    const { port, hote } = p;
     const v = await this.o.juger(hote, port);
     if (!v.ok) {
       this.journal(`refused ${origine}: ${v.motif}`);
       return refuser(res, 403, v.motif);
     }
-    const liees = this.couvrant(origine);
+    const { liees, exactes } = await this.couvrant(p.schema, hote, port, v);
     const armees = [...this.liaisons.values()].filter(
       (e) => e.l.kind === "web-login" && e.l.substitut !== null && e.fenetreJusqua > Date.now(),
     );
@@ -591,7 +674,7 @@ export class RelaisNavigateur {
       const dansUrl = chemin.includes(sub);
       const dansCorps = corps !== null && corps.includes(sub);
       if (!dansUrl && !dansCorps) continue;
-      const raison = !liees.includes(e)
+      const raison = !exactes.includes(e)
         ? `towards ${origine}, not an origin of the secret`
         : e.fenetreJusqua <= Date.now()
           ? "outside the login window"
@@ -618,7 +701,7 @@ export class RelaisNavigateur {
     const entetes: Record<string, string | string[]> = {};
     for (const [k, val] of Object.entries(req.headers as IncomingHttpHeaders))
       if (val !== undefined && !SAUT_PAR_SAUT.has(k)) entetes[k] = val;
-    entetes["host"] = u.host;
+    entetes["host"] = new URL(origine).host;
     if (liees.length > 0) {
       // Réponse entière et sans codage inconnu : une plage ne porterait qu'un morceau de la valeur, hors d'atteinte de la purge.
       entetes["accept-encoding"] = "identity";
@@ -629,7 +712,7 @@ export class RelaisNavigateur {
       delete entetes["transfer-encoding"];
       entetes["content-length"] = String(corps.length);
     }
-    const auth = liees.find((e) => e.l.kind === "http-auth");
+    const auth = exactes.find((e) => e.l.kind === "http-auth");
     const envoyer = (autorisation: string | null): Promise<IncomingMessage> =>
       new Promise((ok, ko) => {
         const t = { ...entetes, ...(autorisation ? { authorization: autorisation } : {}) };
@@ -643,17 +726,7 @@ export class RelaisNavigateur {
           agent: false as const,
         };
         const r = https
-          ? requeteHttps(
-              {
-                ...options,
-                servername: isIP(hote) ? undefined : hote,
-                rejectUnauthorized: liees.some((e) => e.l.tls === "strict"),
-                ca: this.o.caAmont
-                  ? [...this.o.caAmont]
-                  : [...new Set([...getCACertificates("default"), ...getCACertificates("system")])],
-              } as OptionsHttps,
-              ok,
-            )
+          ? requeteHttps({ ...options, ...this.optionsTls(hote, exactes) } as OptionsHttps, ok)
           : requeteHttp(options, ok);
         r.on("error", ko);
         res.once("close", () => r.destroy());

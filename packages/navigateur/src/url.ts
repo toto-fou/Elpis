@@ -318,7 +318,10 @@ function hoteRecent(): Promise<HoteNavigateur> {
 export function jugeRelaisBac(
   profil: () => ProfilRelais,
   options: OptionsGardeNavigateur = {},
-): (hote: string, port: number) => Promise<{ ok: true; adresse: string } | { ok: false; motif: string }> {
+): (
+  hote: string,
+  port: number,
+) => Promise<{ ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string }> {
   return async (hote, portVoulu) => {
     const p = profil();
     if (p.mode === "none")
@@ -365,6 +368,7 @@ export function jugeRelaisBac(
       )
         return { ok: false, motif: `${nom} is not allowed by the sandbox network profile '${p.id}'` };
     }
-    return { ok: true, adresse: texteIp(ipNav(adresses[0] ?? "") as AdresseIp) };
+    const jugees = adresses.map((a) => texteIp(ipNav(a) as AdresseIp));
+    return { ok: true, adresse: jugees[0] ?? "", adresses: jugees };
   };
 }

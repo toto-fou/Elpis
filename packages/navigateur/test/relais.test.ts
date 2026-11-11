@@ -137,6 +137,7 @@ function site(req: IncomingMessage, res: ServerResponse): void {
     }
     if (req.url === "/gzip")
       return void res.writeHead(200, { "content-encoding": "gzip" }).end(gzipSync(`x ${dernier} y`));
+    if (req.url === "/relit") return void res.end(`valeur: ${dernier}`);
     if (req.url === "/zstd") return void res.writeHead(200, { "content-encoding": "zstd" }).end("zz");
     if (req.url === "/empile") return void res.writeHead(200, { "content-encoding": "gzip, br" }).end("zz");
     if (req.url === "/plage") return void res.end(`range=${String(req.headers["range"] ?? "none")}`);
@@ -179,7 +180,9 @@ function site(req: IncomingMessage, res: ServerResponse): void {
 }
 
 const juge = async (h: string): Promise<{ ok: true; adresse: string } | { ok: false; motif: string }> =>
-  h.endsWith(".test") ? { ok: true, adresse: "127.0.0.1" } : { ok: false, motif: `${h} is not allowed` };
+  h.endsWith(".test") || h === "127.0.0.1"
+    ? { ok: true, adresse: "127.0.0.1" }
+    : { ok: false, motif: `${h} is not allowed` };
 
 function liaison(o: Partial<LiaisonRelais> & { id: string; origines: string[] }): LiaisonRelais {
   return {
@@ -325,11 +328,15 @@ describe("relais des secrets (socket unix réel)", () => {
     expect(r.corps).toBe(`recu: ${SUB}`);
     expect(r.entetes["x-echo"]).toBe(SUB);
     expect(JSON.stringify(r)).not.toContain(SECRET);
-    // JSON : valeur échappée en JSON.
+    // Une seule substitution par fenêtre : la deuxième soumission part avec le substitut.
+    await viaRelais(`${origine}/api`, { methode: "POST", corps: `{"p":"${SUB}"}`, type: "application/json" });
+    expect(recus.at(-1)?.corps).toBe(`{"p":"${SUB}"}`);
+    expect(relais.desarmer("l1")).toEqual({ substitutions: 1, refus: 3 });
+    // JSON, dans une nouvelle fenêtre : valeur échappée en JSON.
+    relais.armer("l1", 10_000);
     await viaRelais(`${origine}/api`, { methode: "POST", corps: `{"p":"${SUB}"}`, type: "application/json" });
     expect(JSON.parse(recus.at(-1)?.corps ?? "{}")).toEqual({ p: SECRET });
-    const bilan = relais.desarmer("l1");
-    expect(bilan).toEqual({ substitutions: 2, refus: 2 });
+    expect(relais.desarmer("l1")).toEqual({ substitutions: 1, refus: 0 });
     expect(resolutions).toBe(1);
     // Fenêtre fermée : de nouveau refusé, et la réponse reste purgée (valeur connue).
     await viaRelais(`${origine}/session`, { methode: "POST", corps: `p=${SUB}` });
@@ -436,6 +443,41 @@ describe("relais des secrets (socket unix réel)", () => {
     relais.oublier("b1");
   });
 
+  it("interception décidée sur la destination jugée : adresse IP ou point final d'une origine de secret, port d'une origine http par CONNECT (en clair) ; lecture en retour purgée", async () => {
+    const claire = `http://cible.test:${port(http)}`;
+    relais.lier(
+      liaison({ id: "i1", origines: [claire, `https://cible.test:${port(https)}`], substitut: SUB }),
+    );
+    relais.armer("i1", 10_000);
+    await viaRelais(`${claire}/formes`, { methode: "POST", corps: `p=${SUB}` });
+    expect(dernier).toBe(SECRET);
+    // L'origine a gardé la valeur : relue par son adresse IP ou avec un point final, la réponse est purgée.
+    for (const u of [`http://127.0.0.1:${port(http)}/relit`, `http://cible.test.:${port(http)}/relit`])
+      expect((await viaRelais(u)).corps).toBe(`valeur: ${SUB}`);
+    // CONNECT vers le port de l'origine http : intercepté en clair, purgé.
+    const enClair = await tunnel(`127.0.0.1:${port(http)}`);
+    expect(enClair.ligne).toBe("HTTP/1.1 200 Connection Established");
+    enClair.s.write("GET /relit HTTP/1.1\r\nHost: cible.test\r\nConnection: close\r\n\r\n");
+    expect((await lireReponse(enClair.s)).corps).toBe(`valeur: ${SUB}`);
+    // CONNECT par l'adresse IP ou le nom à point final : TLS terminé par l'autorité de l'instance, jamais un tunnel intact.
+    for (const [cible, sni] of [
+      [`127.0.0.1:${port(https)}`, undefined],
+      [`cible.test.:${port(https)}`, "cible.test"],
+    ] as const) {
+      const t = await tunnel(cible);
+      const tls = connexionTls({ socket: t.s, ca: ac.certPem, ...(sni ? { servername: sni } : {}) });
+      await new Promise<void>((ok, ko) => {
+        tls.once("secureConnect", () => ok());
+        tls.once("error", ko);
+      });
+      tls.write("GET /relit HTTP/1.1\r\nHost: cible.test\r\nConnection: close\r\n\r\n");
+      const r = await lireReponse(tls);
+      expect(r.corps).not.toContain(SECRET);
+      if (sni) expect(r.corps).toBe(`valeur: ${SUB}`);
+    }
+    relais.oublier("i1");
+  });
+
   it("formes du relais et du service identiques", async () => {
     const service = (await import(
       new URL("../../../browser-service/secret_util.js", import.meta.url).href
@@ -524,7 +566,11 @@ describe("juge des destinations d'un bac", () => {
       resoudre,
       allowlist: [],
     });
-    expect(await j("example.org", 443)).toEqual({ ok: true, adresse: "93.184.216.34" });
+    expect(await j("example.org", 443)).toEqual({
+      ok: true,
+      adresse: "93.184.216.34",
+      adresses: ["93.184.216.34"],
+    });
     expect(await j("127.0.0.1", 80)).toMatchObject({ ok: false });
     expect(await j("169.254.169.254", 80)).toMatchObject({ ok: false });
   });
@@ -534,7 +580,7 @@ describe("juge des destinations d'un bac", () => {
       () => ({ id: "lan", mode: "allowlist_ip", ips: ["192.168.1.0/24"], domains: [], ports: [443] }),
       { hote, resoudre, allowlist: [] },
     );
-    expect(await j("nas.lan", 443)).toEqual({ ok: true, adresse: "192.168.1.10" });
+    expect(await j("nas.lan", 443)).toMatchObject({ ok: true, adresse: "192.168.1.10" });
     expect(await j("nas.lan", 80)).toMatchObject({ ok: false, motif: expect.stringContaining("port 80") });
     expect(await j("example.org", 443)).toMatchObject({
       ok: false,

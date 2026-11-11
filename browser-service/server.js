@@ -22,7 +22,7 @@ import { demarrerRelais, verifierDepuisPolitique } from './proxy_guard.js';
 import { compactConsole, summarizeNetwork, describeLocator, selectOptionArg, hostOf,
          codeErreur, racinesMasquees, nettoyerSortie, normaliserErreur, sansAnsi, echapperDsl,
          noeudsAria, classerSuggestions, echapperCss, litteralXPath } from './result_util.js';
-import { sourceDe, selecteurUnique, regionsModifiees } from './page_util.js';
+import { sourceDe, selecteurUnique, regionsModifiees, pointDeClic } from './page_util.js';
 import { GESTES_NAVIGANTS, suivreNavigation, champsNavigation } from './geste_util.js';
 import { masquerSecret, masquerScript, masquerUrl, commentaireEval, notesDuScript, celluleRobot, decrireElement } from './recorder_util.js';
 import { gardeJeton, jetonAttendu, journaliserMode } from './service_auth.js';
@@ -554,73 +554,61 @@ async function _lancerNavigateur() {
 // ==========================================
 // SHADOW DOM — SCAN RÉCURSIF PROFOND
 // ==========================================
-/**
- * Trouve un élément dans le shadow DOM (toute profondeur) via JS evaluate.
- * Retourne { found, x, y, w, h, text, tag } ou null.
- */
+// Élément trouvé dans les racines shadow ouvertes par un sélecteur CSS (toute profondeur) : point de clic vérifié (`pointDeClic`), null sinon.
 async function shadowDOMQuery(page, selector) {
     try {
-        return await page.evaluate((sel) => {
-            function deepQuery(root, selector) {
+        return await page.evaluate(({ sel, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            function deepQuery(root) {
                 try {
-                    const el = root.querySelector(selector);
-                    if (el) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            return {
-                                found: true,
-                                x: Math.round(rect.left + rect.width / 2),
-                                y: Math.round(rect.top + rect.height / 2),
-                                w: Math.round(rect.width), h: Math.round(rect.height),
-                                text: (el.textContent || (el.type === 'password' ? '' : el.value) || '').trim().substring(0, 100),
-                                tag: el.tagName.toLowerCase(),
-                            };
-                        }
-                    }
+                    const el = root.querySelector(sel);
+                    const p = el ? auPoint(el) : null;
+                    if (p) return { found: true, ...p };
                 } catch (e) {}
-                // Scan shadow roots
-                const allEls = root.querySelectorAll('*');
-                for (const child of allEls) {
-                    if (child.shadowRoot) {
-                        const result = deepQuery(child.shadowRoot, selector);
-                        if (result) return result;
-                    }
+                for (const child of root.querySelectorAll('*')) {
+                    if (!child.shadowRoot) continue;
+                    const result = deepQuery(child.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepQuery(document, sel);
-        }, selector);
+            return deepQuery(document);
+        }, { sel: selector, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
-/**
- * Trouve un élément dans le shadow DOM par son texte visible.
- */
+// Élément dont le texte RENDU (sans <script> ni <style>) contient `text`, page et racines shadow ouvertes : point de clic vérifié, null sinon.
 async function shadowDOMQueryByText(page, text) {
     try {
-        return await page.evaluate((txt) => {
-            function deepTextQuery(root, text) {
-                const allEls = root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label');
-                for (const el of allEls) {
-                    const elText = (el.textContent || '').trim();
-                    if (elText.toLowerCase().includes(text.toLowerCase()) && elText.length < 200) {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width > 0 && rect.height > 0) {
-                            const style = window.getComputedStyle(el);
-                            if (style.display !== 'none' && style.visibility !== 'hidden') {
-                                return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
-                            }
-                        }
+        return await page.evaluate(({ txt, srcPoint }) => {
+            const auPoint = new Function(`return (${srcPoint})`)();
+            const voulu = txt.toLowerCase();
+            const texteRendu = (el) => {
+                let t = '';
+                const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
+                while (w.nextNode()) t += w.currentNode.textContent;
+                return t.replace(/\s+/g, ' ').trim();
+            };
+            function deepTextQuery(root) {
+                for (const el of root.querySelectorAll('button, a, [role="button"], [role="link"], span, div, li, td, th, label')) {
+                    const elText = texteRendu(el);
+                    if (elText.length < 200 && elText.toLowerCase().includes(voulu)) {
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
-                    if (el.shadowRoot) {
-                        const result = deepTextQuery(el.shadowRoot, text);
-                        if (result) return result;
-                    }
+                }
+                for (const el of root.querySelectorAll('*')) {
+                    if (!el.shadowRoot) continue;
+                    const result = deepTextQuery(el.shadowRoot);
+                    if (result) return result;
                 }
                 return null;
             }
-            return deepTextQuery(document, txt);
-        }, text);
+            return deepTextQuery(document);
+        }, { txt: text, srcPoint: sourceDe(pointDeClic) });
     } catch (e) { return null; }
 }
 
@@ -868,9 +856,44 @@ async function resoudreCible(scope, params, graceMs = 0) {
 async function trouveParRepli(page, selector) {
     try {
         const r = await smartResolveLocator(page, selector);
-        if (r.coords || r.strategy !== 'fallback') return true;
-        return (await r.locator.count().catch(() => 0)) > 0;
+        if (r.coords) return true;
+        if (!r.locator) return false;
+        return r.strategy !== 'fallback' || (await r.locator.count().catch(() => 0)) > 0;
     } catch (_) { return false; }
+}
+
+// Repli par chaîne : un élément réel (un sélecteur CSS/XPath peut apparaître pendant `graceMs`), sinon element_not_found avec les cibles proches ; `coords` admis pour un clic seulement.
+async function resoudreRepli(page, selector, { params = null, coords = false, graceMs = NOT_FOUND_GRACE_MS } = {}) {
+    const r = await smartResolveLocator(page, selector);
+    if (r.coords && coords) return r;
+    if (r.locator && (r.strategy !== 'fallback' || await attendrePresence(r.locator, graceMs) > 0)) return r;
+    throw await erreurIntrouvable(page, params, selector, r.coords ? ' (only reachable by its position: use action=click)' : '');
+}
+
+// Case cochée par script en dernier recours : une vraie case ou un bouton radio seulement, sinon l'erreur du geste.
+async function cocherParScript(locator, etat, erreur) {
+    const fait = await locator.evaluate((el, v) => {
+        if (el.tagName !== 'INPUT' || !['checkbox', 'radio'].includes(el.type)) return false;
+        el.checked = v;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }, etat, { timeout: 1000 }).catch(() => false);
+    if (!fait) throw erreur;
+}
+
+// Clic qui atteindrait un autre élément que la cible (calque, bandeau, dialogue posé dessus) : rien n'a été cliqué.
+function erreurInterception(cible, couvert) {
+    const quoi = cible && cible.css ? `<${cible.css}>` : 'the target';
+    const par = couvert && couvert.css ? `<${couvert.css}>${couvert.text ? ` ("${couvert.text}")` : ''}` : 'another element';
+    return erreurCodee('click_intercepted', `The click on ${quoi} would land on ${par}, which covers it: nothing was clicked.`, {
+        covering_element: couvert || null, target_element: cible || null,
+        fix: 'Close or remove what covers the element (its close button, pw_act action="press" value="Escape"), or wait until it is gone (pw_wait condition="hidden" on it), then retry.',
+    });
+}
+
+// État de clic d'un locator (`pointDeClic` dans sa frame) ; null s'il n'est plus attaché.
+async function etatClic(loc, position = null) {
+    return loc.evaluate(pointDeClic, position, { timeout: 1500 }).then((p) => (p ? { visible: true, ...p } : { visible: false }), () => null);
 }
 
 // Cibles proposées pour une cible introuvable : rôles et noms de l'instantané ARIA de la page, les plus proches d'abord.
@@ -953,9 +976,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
         // Critical for: <div class="btn"><span>Valider</span></div>
         try {
             for (const tag of ['button', 'a', '[role="button"]', '[onclick]', 'div', 'span', 'li', 'td', 'label']) {
-                const ht = page.locator(`${tag}:has-text("${echapperCss(selector)}")`).first();
-                if (await ht.count().catch(() => 0) > 0 && await ht.isVisible({ timeout: VIS_T }).catch(() => false))
-                    return { locator: ht, frame: page, strategy: `has-text(${tag})` };
+                const ht = await plusInterieurVisible(page.locator(`${tag}:has-text("${echapperCss(selector)}")`));
+                if (ht) return { locator: ht, frame: page, strategy: `has-text(${tag})` };
             }
         } catch (e) {}
 
@@ -968,15 +990,16 @@ async function smartResolveLocator(page, selector, opts = {}) {
             }
         } catch (e) {}
 
-        // 2d. XPath normalize-space contains — handles whitespace, nested text, case variations
+        // 2d. XPath sur le texte PROPRE d'un élément rendu (jamais html/body ni le source d'un <script>), casse ignorée en second.
         try {
+            const rendu = 'not(ancestor-or-self::script or ancestor-or-self::style or ancestor-or-self::noscript or ancestor-or-self::template)';
             const xpaths = [
-                `//*[contains(normalize-space(), ${litteralXPath(selector)})]`,
-                `//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]`,
+                `//body//*[${rendu}][text()[contains(normalize-space(.), ${litteralXPath(selector)})]]`,
+                `//body//*[${rendu}][text()[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÄÉÈÊËÏÎÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüç'), ${litteralXPath(selector.toLowerCase())})]]`,
             ];
             for (const xp of xpaths) {
-                const xl = page.locator(`xpath=${xp}`).first();
-                if (await xl.count().catch(() => 0) > 0 && await xl.isVisible({ timeout: VIS_T }).catch(() => false)) {
+                const xl = await premierVisible(page.locator(`xpath=${xp}`));
+                if (xl) {
                     const climbed = await climbToInteractive(xl);
                     return { locator: climbed || xl, frame: page, strategy: climbed ? 'xpath-text+climb' : 'xpath-text' };
                 }
@@ -989,9 +1012,8 @@ async function smartResolveLocator(page, selector, opts = {}) {
             for (const frame of allFrames) {
                 if (frame === page.mainFrame() || frame.isDetached()) continue;
                 try {
-                    const fl = frame.getByText(selector, { exact: false }).first();
-                    if (await fl.count().catch(() => 0) > 0)
-                        return { locator: fl, frame, strategy: 'iframe-text' };
+                    const fl = await premierVisible(frame.getByText(selector, { exact: false }));
+                    if (fl) return { locator: fl, frame, strategy: 'iframe-text' };
                 } catch (e) {}
             }
         } catch (e) {}
@@ -1040,11 +1062,11 @@ async function smartResolveLocator(page, selector, opts = {}) {
     if (!isXPath) {
         const shadowResult = await shadowDOMQuery(page, selector);
         if (shadowResult?.found)
-            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y } };
+            return { locator: null, frame: page, strategy: 'shadow-dom', coords: { x: shadowResult.x, y: shadowResult.y }, hit: shadowResult.hit, cover: shadowResult.cover, element: shadowResult.element };
         if (textLike) {
             const shadowTextResult = await shadowDOMQueryByText(page, selector);
             if (shadowTextResult?.found)
-                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y } };
+                return { locator: null, frame: page, strategy: 'shadow-dom-text', coords: { x: shadowTextResult.x, y: shadowTextResult.y }, hit: shadowTextResult.hit, cover: shadowTextResult.cover, element: shadowTextResult.element };
         }
     }
 
@@ -1052,8 +1074,12 @@ async function smartResolveLocator(page, selector, opts = {}) {
     // Last resort: find ANY element containing the text via JS, then climb to clickable ancestor
     if (textLike) {
         try {
-            const jsResult = await page.evaluate((text) => {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+            const jsResult = await page.evaluate(({ text, srcPoint }) => {
+                const auPoint = new Function(`return (${srcPoint})`)();
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (n) => (n.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(n.parentElement.tagName)
+                        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+                });
                 const needle = text.toLowerCase().trim();
                 while (walker.nextNode()) {
                     const node = walker.currentNode;
@@ -1078,21 +1104,43 @@ async function smartResolveLocator(page, selector, opts = {}) {
                             candidate = candidate.parentElement;
                         }
                         if (!el) continue;
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width === 0 || rect.height === 0) continue;
-                        return { found: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                        const p = auPoint(el);
+                        if (p) return { found: true, ...p };
                     }
                 }
                 return { found: false };
-            }, selector);
+            }, { text: selector, srcPoint: sourceDe(pointDeClic) });
             if (jsResult?.found)
-                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y } };
+                return { locator: null, frame: page, strategy: 'js-text-walk', coords: { x: jsResult.x, y: jsResult.y }, hit: jsResult.hit, cover: jsResult.cover, element: jsResult.element };
         } catch (e) {}
     }
 
-    // ─── Strategy 7 : Fallback without visibility check ───
+    // ─── Strategy 7 : sélecteur CSS/XPath tel quel, jamais un texte pris pour un sélecteur ───
+    if (textLike && !isPlaywrightSyntax) return { locator: null, frame: page, strategy: 'not_found' };
     const fallback = isXPath ? page.locator(`xpath=${selector}`) : page.locator(selector);
     return { locator: fallback.first(), frame: page, strategy: 'fallback' };
+}
+
+// Premier élément visible d'une liste (les `max` premiers examinés), null sinon.
+async function premierVisible(loc, max = 10) {
+    const n = Math.min(await loc.count().catch(() => 0), max);
+    for (let i = 0; i < n; i++) if (await loc.nth(i).isVisible({ timeout: 150 }).catch(() => false)) return loc.nth(i);
+    return null;
+}
+
+// Élément visible le plus intérieur d'une liste (aucun autre élément de la liste en dessous) : le bouton, pas la page qui le contient.
+async function plusInterieurVisible(loc) {
+    const k = await loc.evaluateAll((els) => {
+        const liste = els.slice(0, 400);
+        for (let i = 0; i < liste.length; i++) {
+            const e = liste[i];
+            if (liste.some((o) => o !== e && e.contains(o))) continue;
+            const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+            if (r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none') return i;
+        }
+        return -1;
+    }).catch(() => -1);
+    return k >= 0 ? loc.nth(k) : null;
 }
 
 // Remonte d'un nœud de texte vers l'ancêtre RÉELLEMENT interactif.
@@ -1456,112 +1504,77 @@ async function captureAncestors(locator) {
 }
 
 
+// Clic par l'échelle de repli : succès seulement sur un élément réel, visible, et que le clic atteint (point vérifié avant tout clic forcé ou par coordonnées) ; sinon element_not_found, click_intercepted ou l'erreur du premier essai.
 async function smartClick(page, selector, opts = {}) {
-    const { timeout = 8000, button = 'left', modifiers = [], human = false } = opts;
-    // Reduced cascade timeouts: element is already resolved, no need for long waits
+    const { timeout = 8000, button = 'left', modifiers = [], human = false, position = null, params = null } = opts;
     const FAST = 2000;
+    const resolved = await resoudreRepli(page, selector, { params, coords: true });
+    const fin = (strategy) => ({ success: true, strategy, resolved: resolved.strategy, locator: resolved.locator || null,
+                                 ...(decrit ? { element: decrit } : {}) });
 
-    // Résoudre le locateur d'abord
-    let resolved;
-    try { resolved = await smartResolveLocator(page, selector, opts); }
-    catch (e) { resolved = { locator: page.locator(selector).first(), frame: page, strategy: 'direct' }; }
-
-    // Cas shadow DOM / JS text walk : clic par coordonnées directement
+    // Shadow DOM / parcours du texte : clic par coordonnées, point vérifié dans la page
     if (resolved.coords) {
-        try {
-            if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
-            else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
-            return { success: true, strategy: resolved.strategy };
-        } catch (e) {}
+        if (!resolved.hit) throw erreurInterception(resolved.element, resolved.cover);
+        if (resolved.element && resolved.element.disabled)
+            throw erreurCodee('element_disabled', `<${resolved.element.css}> is disabled: nothing was clicked.`);
+        if (human) await humanClick(page, resolved.coords.x, resolved.coords.y);
+        else await page.mouse.click(resolved.coords.x, resolved.coords.y, { button });
+        return { success: true, strategy: resolved.strategy, resolved: resolved.strategy, element: resolved.element };
     }
 
     const loc = resolved.locator;
     const errors = [];
+    let premiere = null;
+    const vu = await loc.evaluate(decrireNoeud, {}, { timeout: 1000 }).catch(() => null);
+    const decrit = vu ? { css: vu.tag, ...(vu.role ? { role: vu.role } : {}), ...(vu.name ? { name: vu.name } : {}) } : null;
 
-    // Stratégie 1 : Clic Playwright normal
+    // Stratégie 1 : clic Playwright (attend que l'élément soit actionnable et non couvert)
     try {
         await scrollIntoViewIfNeeded(loc);
         if (human) {
-            const box = await loc.boundingBox({ timeout: FAST });
-            if (box) {
-                const ox = box.width * (0.3 + Math.random() * 0.4);
-                const oy = box.height * (0.3 + Math.random() * 0.4);
-                await humanClick(page, box.x + ox, box.y + oy);
-                return { success: true, strategy: '1-human', resolved: resolved.strategy };
+            const etat = await etatClic(loc, position);
+            if (etat && etat.visible && etat.hit) {
+                await humanClick(page, etat.x, etat.y);
+                return fin('1-human');
             }
         }
-        await loc.click({ timeout, button, modifiers });
-        return { success: true, strategy: '1-playwright', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S1: ${e.message.substring(0, 80)}`); }
+        await loc.click({ timeout, button, modifiers, ...(position ? { position } : {}) });
+        return fin('1-playwright');
+    } catch (e) { premiere = e; errors.push(`S1: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 2 : Suppression d'overlays + pointer-events fix + clic
+    // Stratégie 2 : bandeaux connus retirés, pointer-events rétablis, puis point vérifié
+    await safeRemoveOverlays(page);
+    await loc.evaluate(el => {
+        let node = el;
+        for (let i = 0; i < 10 && node; i++) {
+            if (window.getComputedStyle(node).pointerEvents === 'none') node.style.pointerEvents = 'auto';
+            node = node.parentElement;
+        }
+    }).catch(() => {});
+    await page.waitForTimeout(100);
+    const etat = await etatClic(loc, position);
+    if (!etat) throw await erreurIntrouvable(page, params, selector, ' (it left the page)');
+    if (!etat.visible) throw Object.assign(premiere, { code: codeErreur(premiere.message) === 'timeout' ? 'timeout' : 'element_not_visible' });
+    if (!etat.hit) throw erreurInterception(etat.element, etat.cover);
+    if (etat.disabled) throw Object.assign(premiere, { code: 'element_disabled' });
     try {
-        await safeRemoveOverlays(page);
-        // Fix pointer-events:none on element and ancestors
-        await loc.evaluate(el => {
-            let node = el;
-            for (let i = 0; i < 10 && node; i++) {
-                const style = window.getComputedStyle(node);
-                if (style.pointerEvents === 'none') {
-                    node.style.pointerEvents = 'auto';
-                }
-                node = node.parentElement;
-            }
-        }).catch(() => {});
-        await page.waitForTimeout(100);
-        await scrollIntoViewIfNeeded(loc);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '2-overlay+pointer-fix', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, button, modifiers, ...(position ? { position } : {}) });
+        return fin('2-overlay+pointer-fix');
     } catch (e) { errors.push(`S2: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 3 : Force click
+    // Stratégie 3 : clic forcé au point vérifié (l'élément y est le premier touché)
     try {
-        await loc.click({ timeout: FAST, force: true, button, modifiers });
-        return { success: true, strategy: '3-force', resolved: resolved.strategy };
+        await loc.click({ timeout: FAST, force: true, button, modifiers, ...(position ? { position } : {}) });
+        return fin('3-force');
     } catch (e) { errors.push(`S3: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 4 : Scroll au centre + pause + clic
-    try {
-        await loc.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }));
-        await page.waitForTimeout(200);
-        await loc.click({ timeout: FAST, button, modifiers });
-        return { success: true, strategy: '4-scroll-center', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S4: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 5 : JS element.click()
+    // Stratégie 5 : clic JS sur l'élément visible lui-même
     try {
         await loc.evaluate(el => el.click());
-        return { success: true, strategy: '5-js-click', resolved: resolved.strategy };
+        return fin('5-js-click');
     } catch (e) { errors.push(`S5: ${e.message.substring(0, 80)}`); }
 
-    // Stratégie 6 : Dispatch MouseEvent complet (mousedown + mouseup + click + pointer)
-    try {
-        await loc.evaluate(el => {
-            const rect = el.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const init = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, which: 1, button: 0, view: window };
-            el.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mousedown', init));
-            el.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerId: 1 }));
-            el.dispatchEvent(new MouseEvent('mouseup', init));
-            el.dispatchEvent(new MouseEvent('click', init));
-        });
-        return { success: true, strategy: '6-mouse-event-dispatch', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S6: ${e.message.substring(0, 80)}`); }
-
-    // Stratégie 7 : Clic par coordonnées via boundingBox
-    try {
-        const box = await loc.boundingBox({ timeout: FAST });
-        if (!box) throw new Error('No bounding box');
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
-        if (human) await humanClick(page, cx, cy);
-        else await page.mouse.click(cx, cy, { button });
-        return { success: true, strategy: '7-coords', resolved: resolved.strategy };
-    } catch (e) { errors.push(`S7: ${e.message.substring(0, 80)}`); }
-
-    throw new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`);
+    throw Object.assign(new Error(`smartClick failed on "${selector}" (resolved via ${resolved.strategy}):\n${errors.join('\n')}`), { code: 'click_failed' });
 }
 
 // ==========================================
@@ -1795,6 +1808,13 @@ function erreurCodee(code, message, details = null) {
     e.code = code;
     if (details) e.details = details;
     return e;
+}
+
+// Réponse d'erreur d'une route : statut selon le code (introuvable 404, clic intercepté 409, sinon 500), code et contexte de l'erreur.
+function repondreErreur(res, e, extra = {}) {
+    const code = detailsErreur(e).code || codeErreur(e.message);
+    const statut = code === 'element_not_found' ? 404 : code === 'click_intercepted' ? 409 : 500;
+    return res.status(statut).json({ error: e.message, ...detailsErreur(e), ...extra });
 }
 
 // Code propre et contexte d'une erreur levée par le service, pour le corps de la réponse.
@@ -3239,10 +3259,11 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
             : {};
         // Chaque réponse de repli complète la liste des tentatives : la dernière
         // est celle qui a atterri (via = stratégie smartResolve).
-        const _landed = (via) => ({
+        const _landed = (via, element = null) => ({
             ..._fb,
             attempts: [...(_fb.attempts || []), { via: `smart:${via || 'selector'}`, ok: true, ms: Date.now() - _t0 }],
             resolved_selector: describeLocator({ selector }, { first: true }),
+            ...(element ? { resolved_element: element } : {}),
         });
         // Budget du repli : l'essai officiel a déjà consommé jusqu'à
         // OFFICIAL_TRY_MS. Sans plafond ici, une cible RÉELLEMENT absente
@@ -3252,7 +3273,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // AMENER À L'ÉCRAN (cible + pas de direction)
         if (type === 'scroll_into_view') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', strategy: 'scroll_into_view', ..._landed('scroll_into_view') });
@@ -3260,25 +3281,20 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC SMART (via smartClick)
         if (type === 'click') {
-            const result = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, force });
+            const { locator: cliqueSur, element, ...result } = await smartClick(page, selector, { timeout: _lt, button, modifiers, human, params: cibleParams });
+            const ancestors = cliqueSur ? await captureAncestors(cliqueSur).catch(() => []) : [];
             await postActionWait(page, wait_after);
-            // AX Memory : essai de capture des ancetres (best-effort)
-            let ancestors = [];
-            try {
-                const loc = page.locator(selector).first();
-                ancestors = await captureAncestors(loc).catch(() => []);
-            } catch (e) { ancestors = []; }
-            recordEvent(req.session, { action: 'click', selector, url: page.url() });
+            await recordEvent(req.session, { action: 'click', selector, url: page.url() }, cliqueSur);
             return res.json({
                 status: 'success', ...result,
-                url: page.url(), ancestors, ..._landed(result && result.strategy),
+                url: page.url(), ancestors, ..._landed(result.strategy, element),
             });
         }
 
         // CLIC RELATIF
         if (type === 'click_relative') {
             const layoutSelector = `${selector}:${position}(${relative_to})`;
-            const result = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
+            const { locator: _l, ...result } = await smartClick(page, layoutSelector, { timeout: _lt, button, modifiers, human });
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...result });
         }
@@ -3294,7 +3310,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DOUBLE-CLIC
         if (type === 'dblclick') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
             await locator.dblclick({ timeout: _lt, force });
             await postActionWait(page, wait_after);
@@ -3303,7 +3319,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CLIC DROIT
         if (type === 'right_click') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await scrollIntoViewIfNeeded(locator);
             await locator.click({ timeout: _lt, button: 'right', force });
             await postActionWait(page, wait_after);
@@ -3312,7 +3328,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // HOVER
         if (type === 'hover') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             if (human) {
                 const box = await locator.boundingBox().catch(() => null);
                 if (box) { await humanMouseMove(page, 960, 540, box.x + box.width / 2, box.y + box.height / 2); }
@@ -3327,7 +3343,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // FILL — gère input natif, contentEditable, React/Vue/Angular
         if (type === 'fill') {
-            let resolved = await smartResolveLocator(page, selector);
+            let resolved = await resoudreRepli(page, selector, { params: cibleParams });
             let loc = resolved.locator;
             let fillMethod = '';
 
@@ -3385,9 +3401,10 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
                 return res.json({ status: 'success', method: `${fillMethod}ctrl-a-type` });
             } catch (e) { errors.push(`ctrl+a: ${e.message.substring(0, 80)}`); }
 
-            // Tentative 3 : JS value + React/Vue native setter
+            // Tentative 3 : JS value + React/Vue native setter, sur un vrai champ seulement
             try {
                 await loc.evaluate((el, val) => {
+                    if (!['INPUT', 'TEXTAREA'].includes(el.tagName)) throw new Error(`<${el.tagName.toLowerCase()}> is not a text field`);
                     // React native setter (works with React 16+, 17, 18)
                     const nativeInput = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value') ||
                         Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
@@ -3415,7 +3432,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // TYPE (frappe humaine)
         if (type === 'type') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.click({ timeout: 3000 }).catch(() => {});
             if (human) {
                 for (const char of text) {
@@ -3433,7 +3450,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         // CLAVIER
         if (type === 'press') {
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.press(key, { timeout: _lt });
             } else {
                 await page.keyboard.press(key);
@@ -3445,7 +3462,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // SELECT (natif)
         if (type === 'select') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             // Même résolution sans essai-erreur que la branche officielle : on
             // lit les <option> puis on choisit. L'ancien code enchaînait deux
             // selectOption avec le timeout PLEIN chacun (10 s + 10 s).
@@ -3458,23 +3475,23 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // CHECK/UNCHECK
         if (type === 'check') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.check({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, true, e); }
             recordEvent(req.session, { action: 'check', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
         if (type === 'uncheck') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             try { await locator.uncheck({ timeout: _lt, force }); }
-            catch { await locator.evaluate(el => { el.checked = false; el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+            catch (e) { await cocherParScript(locator, false, e); }
             recordEvent(req.session, { action: 'uncheck', selector, url: page.url() });
             return res.json({ status: 'success' });
         }
 
         // DÉPLIER / REPLIER (arbre, accordéon)
         if (type === 'expand' || type === 'collapse') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await expandTreeItem(page, locator, type === 'expand', _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed(type) });
@@ -3482,7 +3499,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // DRAG & DROP (même moteur que le chemin officiel : dragTo → HTML5 → décalage)
         if (type === 'drag') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             const r = await performDrag(page, locator, req.body, _lt);
             await postActionWait(page, wait_after);
             return res.json({ status: 'success', ...r, ..._landed('drag') });
@@ -3490,7 +3507,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
 
         // UPLOAD
         if (type === 'upload') {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
             await locator.setInputFiles(uploadFiles, { timeout: _lt });
             return res.json({ status: 'success', uploaded: uploadFiles.map(f => ({ name: f.name, size: f.buffer.length })),
                               ..._landed('upload') });
@@ -3500,7 +3517,7 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'scroll') {
             const { direction = 'down', amount = 500 } = req.body;
             if (selector) {
-                const { locator } = await smartResolveLocator(page, selector);
+                const { locator } = await resoudreRepli(page, selector, { params: cibleParams });
                 await locator.evaluate((el, { direction, amount }) => {
                     const map = { down: [0, amount], up: [0, -amount], right: [amount, 0], left: [-amount, 0] };
                     const [x, y] = map[direction] || [0, amount];
@@ -3535,7 +3552,12 @@ app.post('/action', getSession, autoSnapshot, suiviNavigationGeste, async (req, 
         if (type === 'remove_overlays') { await safeRemoveOverlays(page); return res.json({ status: 'success' }); }
 
         return res.status(400).json({ error: `Type d'action inconnu: "${type}"` });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
+    } catch (e) {
+        const code = detailsErreur(e).code || codeErreur(e.message);
+        const proches = ['timeout', 'element_not_visible', 'element_disabled', 'click_failed'].includes(code) && req.body.selector
+            ? await findAlternatives(req.session.page, req.body.selector, 3).catch(() => []) : [];
+        repondreErreur(res, e, proches.length ? { alternatives: proches } : {});
+    }
 });
 
 
@@ -3638,7 +3660,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
         const { page } = req.session;
         const { selector, option_text, option_value, search_text } = req.body;
 
-        const { locator } = await smartResolveLocator(page, selector);
+        const { locator } = await resoudreRepli(page, selector);
         const tag = await locator.evaluate(el => el.tagName.toLowerCase()).catch(() => '');
 
         // Cas 1 : select natif (même choix que select, l'option retenue est rendue)
@@ -3709,7 +3731,7 @@ app.post('/handle_dropdown', getSession, autoSnapshot, async (req, res) => {
 
         return res.status(404).json({ error: `Option "${optionText}" not found in the dropdown.`, code: 'option_not_found',
             fix: 'Open the dropdown and read its options with pw_page(action="inspect"), then pass the visible text as option_label=.' });
-    } catch (e) { res.status(500).json({ error: e.message, ...detailsErreur(e) }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4357,7 +4379,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
         const filepath = path.join(SCREENSHOT_DIR, filename);
 
         if (selector && !skip_image) {
-            const { locator } = await smartResolveLocator(page, selector);
+            const { locator } = await resoudreRepli(page, selector);
             await locator.screenshot({ path: filepath });
         } else if (annotate) {
             const elementsMap = await page.evaluate(() => {
@@ -4400,7 +4422,7 @@ app.post('/screenshot', getSession, autoSnapshot, async (req, res) => {
             await page.screenshot({ path: filepath, fullPage: full_page });
         }
         res.json({ status: 'success', screenshot: skip_image ? null : filename });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4638,7 +4660,7 @@ app.post('/visual', getSession, async (req, res) => {
 app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
-        const { locator } = await smartResolveLocator(page, req.body.selector);
+        const { locator } = await resoudreRepli(page, req.body.selector);
         const info = await locator.evaluate(el => {
             const rect = el.getBoundingClientRect();
             const style = window.getComputedStyle(el);
@@ -4675,7 +4697,7 @@ app.post('/element_info', getSession, autoSnapshot, async (req, res) => {
             };
         });
         res.json(info);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -4792,7 +4814,7 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
     try {
         const { page } = req.session;
         const { selector = 'body', include_hidden = false, include_frames = false, pierce_shadow = true } = req.body;
-        const { locator } = await smartResolveLocator(page, selector);
+        const { locator } = await resoudreRepli(page, selector);
         const text = include_hidden
             ? await locator.evaluate(el => el.textContent)
             : await locator.innerText();
@@ -4850,7 +4872,7 @@ app.post('/extract_text', getSession, autoSnapshot, async (req, res) => {
         }
         res.json({ text: (clean(text) + (shadowText ? '\n' + shadowText : '')).substring(0, 80000),
                    ...(shadowText ? { shadow_text_included: true } : {}) });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { repondreErreur(res, e); }
 });
 
 
@@ -5328,8 +5350,8 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                 }
             }
             if (act.selector) {
-                const r = await smartResolveLocator(page, act.selector);
-                if (r && r.locator) return { locator: r.locator, source: r.strategy || 'selector' };
+                const r = await resoudreRepli(page, act.selector, { params });
+                return { locator: r.locator, source: r.strategy || 'selector' };
             }
             throw new Error('No target: provide by_*/ref or selector');
         }
@@ -5359,9 +5381,10 @@ app.post('/chain', getSession, autoSnapshot, async (req, res) => {
                             await locator.click({ timeout: act.timeout || ACTION_TIMEOUT_MS, button: act.button || 'left' });
                             result = { success: true, action: 'click', strategy: 'official' };
                         } else {
-                            result = await smartClick(page, act.selector, {
+                            const { locator: _l, ...clic } = await smartClick(page, act.selector, {
                                 human: act.human, button: act.button || 'left', timeout: act.timeout || ACTION_TIMEOUT_MS
                             });
+                            result = clic;
                         }
                         break;
                     }

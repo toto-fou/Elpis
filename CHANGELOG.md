@@ -20,6 +20,12 @@ follow [SemVer](https://semver.org/).
   `user_db/browser-relay-ca`), replaces the one-time placeholder typed by `pw_login` with the
   value only in requests to the secret's origins during the login, answers Basic and Digest
   challenges itself and scrubs the value from responses: vault values never enter the sandbox.
+  The relay treats the sandbox as hostile: only the service code is mounted (never its data), no
+  host-side write follows a link planted in `/run/elpis`, coverage is decided on the checked
+  destination (IP or trailing-dot names included), one submission per login window, HTTP
+  authentication only for the session that asked (binding key, expiry), every common encoding
+  scrubbed and unscrubbable codings or methods refused, bounded memory, cached verdicts with Happy
+  Eyeballs connections, and a 365-day relay CA renewed automatically.
   `./elpis doctor` and `./elpis logs browser <account>` cover it. The default stays
   `"central"`, which is also the runtime rollback.
 
@@ -145,6 +151,9 @@ follow [SemVer](https://semver.org/).
 
 ### Changed
 
+- **Central browser service data in `user_db/browser`.** Saved states, HAR, traces, screenshots,
+  downloads, videos and baselines leave `browser-service/` for `user_db/browser/` (0700,
+  `BROWSER_DATA_DIR`); the service moves them there at its first start after the update.
 - **Sandbox image 1.8.0.** `elpis/sandbox:1.8.0` is 1.7.0 plus the NSS tools of the browser
   relay; `build_offline.sh` builds both layers and exports `elpis-sandbox-1.8.0.tar.gz`.
   Containers are recreated on it at their next use (`/work` is kept).

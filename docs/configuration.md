@@ -1339,7 +1339,8 @@ safe closing of a child's sessions: upgrade them together.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `ELPIS_BROWSER_CA_DIR` | `user_db/browser-relay-ca` | Folder of the instance CA of the secret relay (`ca.key` 0600, `ca.crt`). |
+| `ELPIS_BROWSER_CA_DIR` | `user_db/browser-relay-ca` | Folder of the instance CA of the secret relay (`ca.key` 0600, `ca.crt`, 365 days, renewed 30 days before its end). |
+| `BROWSER_DATA_DIR` | `user_db/browser` (set by `./elpis`) | Data folder of the central browser service (saved states, HAR, traces, screenshots, downloads, videos, baselines), created 0700, outside the code mounted in the sandboxes; without it, the service's working directory. |
 | `PLAYWRIGHT_BROWSERS_PATH` | `~/.cache/ms-playwright` | Playwright cache mounted read-only in the sandboxes (Chromium headless shell). |
 
 In sandbox mode the account's network profile decides where its browser may go: with the

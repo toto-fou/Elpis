@@ -235,6 +235,7 @@ export function pwAct(s: ServicesBrowser) {
     }
     if (direction) corps["direction"] = direction;
     if (veritePy(amount)) corps["amount"] = amount;
+    if (estDict(a["position"])) corps["position"] = a["position"];
     if (geste === "drag") {
       const vers = mergeTarget(a["to"] as string, "");
       if (vers) {

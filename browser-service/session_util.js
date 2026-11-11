@@ -12,6 +12,8 @@
 //     l'âge (orphan 5 min / stale 4 h) : une session active de longue durée
 //     pouvait accumuler des milliers de PNG sans limite.
 
+import { lockIdle } from './session_lock.js';
+
 // Rejet d'une page VIVANTE dont le contexte d'exécution change (navigation, page d'erreur après un goto échoué).
 const _CONTEXTE_EN_NAVIGATION = /Execution context was destroyed|Cannot find context with specified id|most likely because of a navigation/i;
 
@@ -209,14 +211,13 @@ export function placesEnfants(occupation, maxPerGroup) {
     return Math.max(0, maxPerGroup - Math.max(1, occupation.compte));
 }
 
-// Place pour une nouvelle session (audit 2026-09-30). Une session n'évince
-// JAMAIS celle d'un autre propriétaire : au quota du propriétaire, ou du
-// GROUPE (le compte et ses sous-agents, chacun a son propriétaire dérivé),
-// sa plus ancienne session cède la place ; sans session à céder, le plafond
-// du groupe ou le plafond global refuse. Un sous-agent n'évince donc ni la
-// session du compte ni celle d'un frère ; une place du groupe reste au compte, et les enfants ont leur plafond global (`maxChildren`).
-// → { evict: sid|null, refuse: bool, cause?: 'groupe'|'global' }
-export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group = owner, maxPerGroup = maxPerOwner, maxChildren = maxTotal, now = Date.now() } = {}) {
+// Session qui peut céder sa place : aucune requête en cours ni en attente, aucune connexion, pas ouverte pour un secret du coffre.
+export function sessionCessible(s) {
+    return Boolean(s) && lockIdle(s._lock) && !s._connexionEnCours && !s.tls;
+}
+
+// Place d'une nouvelle session : au plafond (propriétaire, groupe), une session du demandeur que `cessible` ne protège pas cède (isolée avant principale, plus ancienne d'abord), jamais celle d'un autre ; sinon refus (`protegees`, `groupe`).
+export function planSessionSlot(sessions, owner, { maxPerOwner, group = owner, maxPerGroup = maxPerOwner, now = Date.now(), cessible = sessionCessible } = {}) {
     const age = (s) => (s && (s.lastActivity || s.createdAt)) || now;
     const own = [];
     const protegees = [];
@@ -227,9 +228,11 @@ export function planSessionSlot(sessions, owner, { maxTotal, maxPerOwner, group 
     const groupePlein = owner === group
         ? occupation.compte + occupation.enfants >= maxPerGroup
         : occupation.enfants >= placesEnfants(occupation, maxPerGroup);
-    const plafond = enfant ? maxChildren : maxTotal;
-    if (own.length >= maxPerOwner || ((total >= plafond || groupePlein) && own.length)) {
-        return { evict: own[0][0], refuse: false };
+    const siennes = own.length + protegees.length;
+    const limite = siennes >= maxPerOwner ? 'owner' : groupePlein ? 'group' : null;
+    if (limite && siennes) {
+        if (own.length) return { evict: own[0][0], refuse: false, limit: limite };
+        return { evict: null, refuse: true, cause: 'protegees', limit: limite, protected: protegees.map((p) => p[0]) };
     }
     if (groupePlein) return { evict: null, refuse: true, cause: 'groupe' };
     return { evict: null, refuse: false };

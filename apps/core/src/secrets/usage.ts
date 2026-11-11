@@ -62,6 +62,11 @@ async function contexteVerifie(x: Executeur, c: ContexteUsage): Promise<Contexte
   return { ...c, sousAgent: c.sousAgent === true || conv.sousAgent, routine: conv.routine };
 }
 
+/** Refus d'un secret `http-auth` sans nom d'utilisateur (jamais compté comme un usage). */
+export function sansIdentifiant(nom: string): string {
+  return `Secret '${nom}' has no user name: HTTP authentication needs one. Ask the user to add it in Settings › Secrets.`;
+}
+
 const HORS_CONVERSATION =
   "This call comes from no conversation of this account: secrets are only usable in a conversation they are attached to.";
 
@@ -133,7 +138,7 @@ function refuser(
   throw new ErreurSecret(statut, code, message);
 }
 
-/** Secret désigné par son nom : connu, attaché, du bon genre, vérifié, portée couvrant la cible. */
+/** Secret désigné par son nom : attaché (avec l'attachement exigé, un nom inconnu, d'un autre genre ou d'un autre compte a le même refus), du bon genre, vérifié, portée couvrant la cible. */
 async function parNom(
   x: Executeur,
   d: DemandeUsage,
@@ -142,9 +147,10 @@ async function parNom(
   cible: string | number | null,
 ): Promise<LigneSecret> {
   const l = await lireLigneParNom(x, c.proprietaire, nom);
-  if (l === null) return refuser(d, c, 404, "secret_unknown", `No secret named '${nom}'.`);
-  if (!(await attache(x, l, c)))
-    return refuser(d, c, 422, "secret_not_attached", `Secret '${nom}' is not attached to this conversation.`);
+  if (l === null || !(await attache(x, l, c)))
+    return c.exigeAttachement
+      ? refuser(d, c, 422, "secret_not_attached", `Secret '${nom}' is not attached to this conversation.`)
+      : refuser(d, c, 404, "secret_unknown", `No secret named '${nom}'.`);
   if (l.kind !== d.usage)
     return refuser(
       d,
@@ -183,18 +189,18 @@ async function parCible(
   if (d.usage === "token")
     return refuser(d, c, 404, "secret_unknown", "A token secret is designated by its name.");
   const candidats = (await lignesDe(x, c.proprietaire, d.usage)).filter((l) => couvre(l, d.usage, cible));
-  if (candidats.length === 0)
-    return refuser(d, c, 404, "secret_unknown", `No secret applies to ${cibleLue}.`);
   const attaches: LigneSecret[] = [];
   for (const l of candidats) if (await attache(x, l, c)) attaches.push(l);
   if (attaches.length === 0)
-    return refuser(
-      d,
-      c,
-      422,
-      "secret_not_attached",
-      `No secret attached to this conversation applies to ${cibleLue}.`,
-    );
+    return c.exigeAttachement
+      ? refuser(
+          d,
+          c,
+          422,
+          "secret_not_attached",
+          `No secret attached to this conversation applies to ${cibleLue}.`,
+        )
+      : refuser(d, c, 404, "secret_unknown", `No secret applies to ${cibleLue}.`);
   const actifs = attaches.filter((l) => l.state === "active");
   if (actifs.length === 0)
     return refuser(
@@ -223,9 +229,9 @@ export async function lireSecretPourUsage(
 ): Promise<SecretResolu> {
   const cible = cibleNormalisee(d.usage, d.cible);
   const nom = d.nom?.trim() || null;
+  const exige = { ...contexte, exigeAttachement: contexte.exigeAttachement || parOrigines(d.usage) };
   const c =
-    (await contexteVerifie(base, contexte)) ??
-    refuser(d, contexte, 422, "secret_not_attached", HORS_CONVERSATION);
+    (await contexteVerifie(base, exige)) ?? refuser(d, exige, 422, "secret_not_attached", HORS_CONVERSATION);
   if (cible === null && d.usage !== "token")
     refuser(
       d,
@@ -235,6 +241,8 @@ export async function lireSecretPourUsage(
       parOrigines(d.usage) ? "Secrets apply to http(s) origins only." : "Invalid target for this secret.",
     );
   const l = await (nom === null ? parCible(base, d, c, cible) : parNom(base, d, c, nom, cible));
+  if (d.usage === "http-auth" && !l.username)
+    refuser({ ...d, nom: l.name }, c, 422, "secret_username_required", sansIdentifiant(l.name));
   let secret: string;
   try {
     secret = dechiffrerLigne(l);
@@ -268,17 +276,20 @@ export async function lireSecretPourUsage(
   };
 }
 
-/** Secret applicable vu de l'hôte d'outils : nom, genre, identifiant et TLS, jamais la valeur. */
+/** Secret applicable vu de l'hôte d'outils : nom, genre, identifiant, origines, TLS et politique des sous-agents, jamais la valeur. */
 function applicable(l: LigneSecret): SecretApplicable {
+  const p = lirePolitique(l.policy_json);
   return {
     name: l.name,
     kind: l.kind === "http-auth" ? "http-auth" : "web-login",
     username: l.username ?? null,
-    tls: lirePolitique(l.policy_json).tls,
+    origins: origines(porteeDe(l)),
+    tls: p.tls,
+    subagents: p.subagents,
   };
 }
 
-/** `secretsApplicables` : par nom, le secret désigné (connu, du navigateur, attaché, vérifié, portée couvrant l'origine) ou son refus codé ; sans nom, tous les secrets attachés et vérifiés qui couvrent l'origine (ni valeur, ni usage compté, ni journal). */
+/** `secretsApplicables` : par nom, le secret désigné (attaché — un nom inconnu, d'un autre genre ou d'un autre compte a le même refus —, vérifié, portée couvrant l'origine) ou son refus codé ; sans nom, tous les secrets attachés et vérifiés qui couvrent l'origine (ni valeur, ni usage compté, ni journal). */
 export async function secretsApplicables(
   x: Executeur,
   origine: string,
@@ -292,14 +303,7 @@ export async function secretsApplicables(
     throw new ErreurSecret(422, "secret_scope_mismatch", "Secrets apply to http(s) origins only.");
   if (nom !== null) {
     const l = await lireLigneParNom(x, c.proprietaire, nom);
-    if (l === null) throw new ErreurSecret(404, "secret_unknown", `No secret named '${nom}'.`);
-    if (!genreAttachable(l.kind))
-      throw new ErreurSecret(
-        422,
-        "secret_type_mismatch",
-        `Secret '${nom}' is a ${l.kind} secret: the browser uses web-login and http-auth secrets only.`,
-      );
-    if (!(await attache(x, l, c)))
+    if (l === null || !genreAttachable(l.kind) || !(await attache(x, l, c)))
       throw new ErreurSecret(
         422,
         "secret_not_attached",

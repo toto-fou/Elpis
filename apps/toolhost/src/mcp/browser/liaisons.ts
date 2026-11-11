@@ -10,7 +10,7 @@ export interface LiaisonSession {
   readonly origines: readonly string[];
   readonly tls: "strict" | "insecure";
   readonly sousAgents: boolean;
-  /** Mode bac : compte et liaisons du relais des secrets de la session (oubliées avec elle). */
+  /** Compte et liaisons du relais des secrets de la session (oubliées avec elle). */
   readonly relais?: { readonly compte: string; readonly ids: string[] };
 }
 

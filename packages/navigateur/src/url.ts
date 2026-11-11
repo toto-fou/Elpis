@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/url.ts — destinations du navigateur (port de shared_infra/security/browser_url.py) : refus anticipé, avec un message clair, avant d'appeler le service navigateur. */
+/** packages/navigateur/src/url.ts — destinations du navigateur, jugées par le relais du bac : profil réseau du bac, puis politique du navigateur (jamais la machine d'Elpis, ses réseaux de conteneurs, la boucle locale ni le lien-local ; liste blanche du réseau local). */
 import { lookup } from "node:dns/promises";
 import { readFile } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
@@ -13,27 +13,21 @@ import {
   estMulticastIp,
   estNonSpecifieeIp,
   estReserveeIp,
-  hostname,
   ipv4Mappee,
   iterExige,
   lowerPy,
-  port,
-  prefixePy,
   reseauPy,
   splitPy,
   stripPy,
   strPy,
   texteIp,
-  urlsplit,
-  urlunsplit,
   veritePy,
 } from "@elpis/commun";
-import type { AdresseIp, Reseau, UrlDecoupee } from "@elpis/commun";
+import type { AdresseIp, Reseau } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
-import { blockRemoteUrlReason, urlNonAmbigue } from "@elpis/securite";
 import type { Resolveur } from "@elpis/securite";
 
-// Mêmes réseaux « locaux » que url_guard.js (soumis à la liste blanche).
+// Réseaux « locaux » : joignables, sauf liste blanche qui ne les nomme pas.
 const RESEAUX_LOCAUX: readonly Reseau[] = [
   "10.0.0.0/8",
   "172.16.0.0/12",
@@ -44,7 +38,7 @@ const RESEAUX_LOCAUX: readonly Reseau[] = [
   .map((n) => reseauPy(n))
   .filter((r): r is Reseau => r !== null);
 const INTERFACES_CONTENEURS = /^(docker|br-|veth|virbr|cni|flannel|podman|lxc|lxd|incus|vnet|kube)/u;
-const RESERVEE = "adresse réservée à l'hôte ou au réseau local de la machine";
+const RESERVEE = "address reserved to the host or its local network";
 
 /** Adresses de l'hôte et sous-réseaux de ses interfaces de conteneurs (ponts Docker…). */
 export interface HoteNavigateur {
@@ -166,129 +160,17 @@ function motifIp(ip: AdresseIp, nom: string, hote: HoteNavigateur, liste: ListeB
   )
     return `${RESERVEE} (${texteIp(ip)})`;
   if (hote.adresses.some((a) => memeIp(a, ip)))
-    return `adresse de la machine qui héberge Elpis (${texteIp(ip)})`;
-  if (hote.reseaux.some(meme)) return `réseau interne de la machine qui héberge Elpis (${texteIp(ip)})`;
+    return `address of the machine hosting Elpis (${texteIp(ip)})`;
+  if (hote.reseaux.some(meme)) return `internal network of the machine hosting Elpis (${texteIp(ip)})`;
   if (
     (liste.hotes.size > 0 || liste.suffixes.length > 0 || liste.reseaux.length > 0) &&
     RESEAUX_LOCAUX.some(meme)
   ) {
     const parNom = liste.hotes.has(nom) || liste.suffixes.some((s) => nom.endsWith(s));
     if (!parNom && !liste.reseaux.some(meme))
-      return `hôte du réseau local absent de la liste autorisée (${nom || texteIp(ip)})`;
+      return `local network host not in the allowlist (${nom || texteIp(ip)})`;
   }
   return null;
-}
-
-/** E40 (écart au Python) : une URL que le Python laisse passer est refusée si le navigateur (WHATWG) n'y lit pas le même hôte et le même port. */
-function accord(u: string): string | null {
-  return urlNonAmbigue(u)
-    ? null
-    : "adresse ambiguë : le navigateur n'y lirait pas le même hôte ou le même port";
-}
-
-/** `browser_url_block_reason` : motif de refus d'une URL pour le navigateur, ou `null` ; un nom qui ne résout pas n'est pas refusé ici. */
-export async function browserUrlBlockReason(
-  url: string | null | undefined,
-  options: OptionsGardeNavigateur = {},
-): Promise<string | null> {
-  const u = stripPy(url || "");
-  if (!u) return "adresse vide";
-  if (lowerPy(u) === "about:blank") return null;
-  let p: UrlDecoupee;
-  try {
-    p = urlsplit(u);
-  } catch {
-    return "adresse mal formée";
-  }
-  const schema = lowerPy(p.scheme || "");
-  if (schema !== "http" && schema !== "https")
-    return `schéma non autorisé (${schema || "aucun"}:) — seuls http et https le sont`;
-  const nom = lowerPy(hostname(p) ?? "");
-  if (!nom) return "adresse sans hôte";
-  if (nom === "localhost" || nom.endsWith(".localhost")) return `${RESERVEE} (${nom})`;
-  let portUrl: number | null;
-  try {
-    portUrl = port(p);
-  } catch {
-    return "adresse mal formée";
-  }
-  const hoteUrl = nom.includes(":") ? `[${nom}]` : nom;
-  const sansId = urlunsplit({ ...p, netloc: hoteUrl + (portUrl ? `:${portUrl}` : ""), fragment: "" });
-  const resoudre: Resolveur = options.resoudre ?? resoudreSysteme;
-  const motif = await blockRemoteUrlReason(sansId, {
-    allowSchemes: ["http", "https"],
-    criticalOnly: true,
-    resoudre,
-  });
-  if (motif && !motif.startsWith("unresolvable_host")) return `${RESERVEE} (${motif})`;
-  let allowlist = options.allowlist;
-  if (allowlist === undefined || allowlist === null) {
-    try {
-      allowlist = liveConfigValue("browser.url_allowlist", []) || [];
-    } catch {
-      allowlist = [];
-    }
-  }
-  const liste = listeBlanche(allowlist);
-  const hote = options.hote ?? (await hostAddresses());
-  const ip = ipNav(nom);
-  if (ip !== null) return motifIp(ip, nom, hote, liste) ?? accord(u);
-  let adresses: string[];
-  try {
-    adresses = await resoudre(nom, null);
-  } catch {
-    return accord(u);
-  }
-  for (const a of adresses) {
-    const rip = ipNav(String(a));
-    const m = rip === null ? null : motifIp(rip, nom, hote, liste);
-    if (m) return m;
-  }
-  return accord(u);
-}
-
-/** `refus_message` : même message que le service (url_guard.messageRefus). */
-export function refusMessage(url: string | null | undefined, motif: string): string {
-  return (
-    `Adresse refusée par la politique du navigateur : ${motif}. ` +
-    `URL : ${prefixePy(url || "", 200)}. Le navigateur ne peut joindre que des sites ` +
-    `http/https hors de la machine qui héberge Elpis.`
-  );
-}
-
-/** Motif de refus en anglais pour le modèle (connus, sinon inchangé). */
-export function motifEnAnglais(motif: string): string {
-  return motif
-    .replace(
-      /^adresse réservée à l'hôte ou au réseau local de la machine/u,
-      "address reserved to the host or its local network",
-    )
-    .replace(/^adresse de la machine qui héberge Elpis/u, "address of the machine hosting Elpis")
-    .replace(
-      /^réseau interne de la machine qui héberge Elpis/u,
-      "internal network of the machine hosting Elpis",
-    )
-    .replace(/^hôte du réseau local absent de la liste autorisée/u, "local network host not in the allowlist")
-    .replace(
-      /^adresse ambiguë : le navigateur n'y lirait pas le même hôte ou le même port$/u,
-      "ambiguous address: the browser would not read the same host or port",
-    )
-    .replace(/^adresse mal formée$/u, "malformed address")
-    .replace(/^adresse sans hôte$/u, "address without a host")
-    .replace(/^adresse vide$/u, "empty address")
-    .replace(
-      /^schéma non autorisé \((.*)\) — seuls http et https le sont$/u,
-      "scheme not allowed ($1) - only http and https are",
-    );
-}
-
-/** `refus_message` en anglais pour le modèle. */
-export function refusMessageAnglais(url: string | null | undefined, motif: string): string {
-  return (
-    `Address refused by the browser policy: ${motifEnAnglais(motif)}. ` +
-    `URL: ${prefixePy(url || "", 200)}. The browser can only reach http/https sites ` +
-    `outside the machine hosting Elpis.`
-  );
 }
 
 /** Profil réseau d'un bac, vu du relais : identifiant, mode (`none`, `bridge`, `allowlist_ip`), adresses ou réseaux, domaines, ports. */
@@ -312,7 +194,7 @@ function hoteRecent(): Promise<HoteNavigateur> {
 /** Verdict du juge d'un bac (adresses jugées, la première d'abord, ou motif). */
 type VerdictBac = { ok: true; adresse: string; adresses: string[] } | { ok: false; motif: string };
 
-/** Cache des verdicts du juge d'un bac (comme le relais du service central, proxy_guard.js) ; réglable par les tests. */
+/** Cache des verdicts du juge d'un bac ; réglable par les tests. */
 export const reglagesJugeBac = {
   /** Verdict favorable gardé (ms). */
   cacheMs: 10_000,
@@ -360,7 +242,7 @@ export function jugeRelaisBac(
       const ip = ipNav(a);
       if (ip === null) return { ok: false, motif: `invalid address (${a})` };
       const m = motifIp(ip, nom, h, liste);
-      if (m) return { ok: false, motif: motifEnAnglais(m) };
+      if (m) return { ok: false, motif: m };
       if (
         p.mode === "allowlist_ip" &&
         !p.domains.includes(nom) &&

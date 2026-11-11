@@ -28,7 +28,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   base = ouvrirBase({ backend: "sqlite", path: path.join(dossier, `ax-${Date.now()}.db`) });
   await initialiserBase(base);
@@ -49,6 +49,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });

@@ -15,17 +15,9 @@ export {
   trackPwSessionOwnership,
   unregisterPwSessionOwner,
 } from "./session";
-export { browserUrlBlockReason, hostAddresses, jugeRelaisBac, refusMessage, reglagesJugeBac } from "./url";
+export { hostAddresses, jugeRelaisBac, reglagesJugeBac } from "./url";
 export type { HoteNavigateur, OptionsGardeNavigateur, ProfilRelais } from "./url";
-export {
-  cheminsNavigateurBac,
-  enTetesDuService,
-  FICHIER_JETON_BAC,
-  jetonDuBac,
-  requeteService,
-  serviceNavigateur,
-  servicesDesBacs,
-} from "./mode";
+export { cheminsNavigateurBac, jetonDuBac, requeteService, serviceNavigateur, servicesDesBacs } from "./mode";
 export type { ServiceNavigateur } from "./mode";
 export {
   autoriteARenouveler,
@@ -103,10 +95,8 @@ export {
   dslToSelector,
   echapperDsl,
   encoderParams,
-  enTetesServiceNavigateur,
   errPw,
   first,
-  jetonServiceNavigateur,
   mergeTarget,
   mergeValue,
   parseTargetDsl,
@@ -114,11 +104,9 @@ export {
   pwVerb,
   rappelOnglet,
   refusSessionDAutrui,
-  refusUrl,
   sansAnsi,
   SCREENSHOT_URL_PREFIX,
   screenshotResult,
-  urlServiceNavigateur,
   waitPayload,
 } from "./client";
 export type { Echec, Locateur, OptionsClientNavigateur, OptionsRequete } from "./client";

@@ -32,13 +32,14 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });
 
 /** Client en mémoire de la famille browser, session ouverte au nom de bob. */
 async function client(): Promise<ClientBrut> {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   const serveur = new ServeurOutils({ limiteDebit: null, limiteConcurrence: null });
   serveur.enregistrerFamille("browser", familleBrowser({ journal: journalMuet }).outils);

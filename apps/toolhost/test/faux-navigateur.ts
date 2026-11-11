@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/faux-navigateur.ts — service navigateur factice (server.js) : réponses déterministes par route et par page courante, requêtes reçues relevées telles quelles. */
+/** apps/toolhost/test/faux-navigateur.ts — service navigateur factice (server.js) sur un socket unix, comme celui d'un bac : réponses déterministes par route et par page courante, requêtes reçues relevées telles quelles. */
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { setTimeout as dormir } from "node:timers/promises";
 
 import type { Dict } from "@elpis/commun";
+import type { ServiceNavigateur } from "@elpis/navigateur";
+
+import { injectionsNavigateurBac } from "../src/mcp/browser/bac";
 
 export interface RequeteNavigateur {
   readonly methode: string;
@@ -27,9 +32,11 @@ export class FauxNavigateur {
   private attentes = 0;
 
   private readonly serveur: Server;
+  private readonly dossier: string;
 
-  private constructor(serveur: Server) {
+  private constructor(serveur: Server, dossier: string) {
     this.serveur = serveur;
+    this.dossier = dossier;
   }
 
   static async demarrer(): Promise<FauxNavigateur> {
@@ -49,13 +56,32 @@ export class FauxNavigateur {
           });
       });
     });
-    faux = new FauxNavigateur(serveur);
-    await new Promise<void>((fin) => serveur.listen(0, "127.0.0.1", () => fin()));
+    const dossier = mkdtempSync(path.join(tmpdir(), "elpis-faux-nav-"));
+    faux = new FauxNavigateur(serveur, dossier);
+    await new Promise<void>((fin) => serveur.listen(path.join(dossier, "browser.sock"), () => fin()));
     return faux;
   }
 
-  get url(): string {
-    return `http://127.0.0.1:${(this.serveur.address() as AddressInfo).port}`;
+  /** Service du bac tel que le résolveur le rend (sans jeton). */
+  get service(): ServiceNavigateur {
+    return { socket: path.join(this.dossier, "browser.sock"), jeton: "" };
+  }
+
+  /** Service d'un bac dont le socket n'existe pas (service arrêté). */
+  get absent(): ServiceNavigateur {
+    return { socket: path.join(this.dossier, "absent.sock"), jeton: "" };
+  }
+
+  /** Hôte d'outils branché sur ce service comme sur celui du bac de chaque compte (ni bac ni relais démarrés), toute destination admise. */
+  brancher(): void {
+    injectionsNavigateurBac.service = () => this.service;
+    injectionsNavigateurBac.juge = () => async () => ({ ok: true, adresse: "" });
+  }
+
+  /** Hôte d'outils rendu à ses bacs. */
+  static debrancher(): void {
+    injectionsNavigateurBac.service = null;
+    injectionsNavigateurBac.juge = null;
   }
 
   /** Page courante et requêtes relevées remises à zéro (un passage par service comparé). */
@@ -69,6 +95,7 @@ export class FauxNavigateur {
   async arreter(): Promise<void> {
     this.serveur.closeAllConnections();
     await new Promise<void>((fin) => this.serveur.close(() => fin()));
+    rmSync(this.dossier, { recursive: true, force: true });
   }
 
   private async servir(methode: string, brut: string, texte: string): Promise<Reponse> {

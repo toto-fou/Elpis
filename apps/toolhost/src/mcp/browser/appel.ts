@@ -11,7 +11,6 @@ import {
   pwOwnerEnfant,
   rappelOnglet,
   refusSessionDAutrui,
-  refusUrl,
 } from "@elpis/navigateur";
 import { getUsername } from "@elpis/outils-mcp";
 import type { ContexteAppel } from "@elpis/outils-mcp";
@@ -20,7 +19,7 @@ import type { SousAgentHote } from "@elpis/securite";
 
 import type { Journal } from "../../journal";
 import { bacDuCompteOutil } from "../espace";
-import { ErreurNavigateurBac, injectionsNavigateurBac, serviceDuCompte } from "./bac";
+import { demarrageImpossible, ErreurNavigateurBac, injectionsNavigateurBac, serviceDuCompte } from "./bac";
 import { liaison } from "./liaisons";
 import { refusSecret } from "./secrets";
 import type { PortSecrets } from "./secrets";
@@ -81,12 +80,8 @@ export async function ouvrirAppel(
   try {
     service = await serviceDuCompte(username);
   } catch (e) {
-    return {
-      refus: errPw("browser_sandbox_unavailable", "", {
-        message: `The browser of your sandbox could not be started: ${e instanceof ErreurNavigateurBac ? e.message : e instanceof Error ? e.message : String(e)}.`,
-        fix: "Retry once; if it fails again, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).",
-      }),
-    };
+    const panne = e instanceof ErreurNavigateurBac ? e : new ErreurNavigateurBac(demarrageImpossible(e));
+    return { refus: errPw("browser_sandbox_unavailable", "", { message: panne.message, fix: panne.fix }) };
   }
   return {
     refus: null,
@@ -99,9 +94,8 @@ export async function ouvrirAppel(
   };
 }
 
-/** Refus anticipé d'une adresse : garde centrale ; en mode bac, boucle locale du bac admise et le reste jugé comme le relais (profil réseau du bac, machine d'Elpis). */
+/** Refus anticipé d'une adresse : boucle locale du bac admise, le reste jugé comme le relais (profil réseau du bac, machine d'Elpis). */
 export async function refusUrlAppel(appel: Appel, url: unknown): Promise<Dict | null> {
-  if (appel.client.bac === null) return refusUrl(url);
   const texte = typeof url === "string" ? url.trim() : "";
   if (/^about:blank$/iu.test(texte)) return null;
   let u: URL | null;

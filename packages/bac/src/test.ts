@@ -29,8 +29,8 @@ case "$1" in
       *Mounts*) sed -n 's/^\\(.*\\):\\/work:rw$/\\1/p' "$d/$n.run" ;;
       *elpis.netcfg*)
         net=$(sed -n 's/^elpis.netcfg=//p' "$d/$n.run"); spec=$(sed -n 's/^elpis.spec=//p' "$d/$n.run")
-        ag=$(sed -n 's/^elpis.agent=//p' "$d/$n.run")
-        echo "$net|$spec|elpis/sandbox:1.8.0|$ag" ;;
+        ag=$(sed -n 's/^elpis.agent=//p' "$d/$n.run"); nav=$(sed -n 's/^elpis.browser=//p' "$d/$n.run")
+        echo "$net|$spec|elpis/sandbox:1.8.0|$ag|$nav" ;;
       *State.Status*) echo "running|0" ;;
       *ExitCode*) echo "0|false" ;;
       *) echo "" ;;

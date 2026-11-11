@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/login.ts — `pw_login` : connexion avec un secret attaché à la conversation, valeur jamais vue du modèle, dans une session ouverte pour un secret ; ordre fixe : pré-contrôle des champs sans valeur, secret choisi sans valeur et contrôlé contre le TLS de la session, résolution par le core sur l'origine du frame des champs, puis étape isolée du service (page rechargée, saisie, soumission, remplacement des documents) en une requête. */
+/** apps/toolhost/src/mcp/browser/login.ts — `pw_login` : connexion avec un secret attaché à la conversation, valeur jamais vue du modèle ni du bac, dans une session ouverte pour un secret ; ordre fixe : pré-contrôle des champs sans valeur, secret choisi sans valeur et contrôlé contre le TLS de la session, puis étape isolée du service (page rechargée, substitut saisi, soumission, remplacement des documents) en une requête, le relais de l'hôte remplaçant le substitut par la valeur résolue par le core sur l'origine du frame des champs. */
 import { randomBytes } from "node:crypto";
 
 import { estDict, strPy, veritePy } from "@elpis/commun";
@@ -14,14 +14,7 @@ import type { ServicesBrowser } from "./appel";
 import { dureeLiaisonMs, lierAuRelais, relaisDe } from "./bac";
 import { liaison } from "./liaisons";
 import type { LiaisonSession } from "./liaisons";
-import {
-  applicables,
-  conseilSecret,
-  HORS_APPLICATION,
-  refusSecret,
-  resolutionDifferee,
-  resoudre,
-} from "./secrets";
+import { applicables, conseilSecret, HORS_APPLICATION, refusSecret, resolutionDifferee } from "./secrets";
 
 /** Clés de cible que le service accepte pour une connexion (jamais xpath). */
 const CLES_CIBLE = [
@@ -98,7 +91,7 @@ async function secretDeConnexion(
   };
 }
 
-/** `pw_login` : pré-contrôle sans valeur, secret contrôlé contre le TLS de la session liée, résolution sur l'origine du frame des champs, puis connexion ; le modèle ne reprend la main qu'après le remplacement des onglets qui ont reçu le secret, la valeur n'est jamais rendue. */
+/** `pw_login` : pré-contrôle sans valeur, secret contrôlé contre le TLS de la session liée, puis connexion par le relais ; le modèle ne reprend la main qu'après le remplacement des onglets qui ont reçu le secret, la valeur n'est jamais rendue. */
 export function pwLogin(s: ServicesBrowser) {
   return async (a: Dict, ctx: ContexteAppel): Promise<unknown> => {
     const sid = typeof a["session_id"] === "string" ? a["session_id"].trim() : "";
@@ -142,24 +135,7 @@ export function pwLogin(s: ServicesBrowser) {
     if ("refus" in choix) return choix.refus;
     const refus = refusTls(lien, choix.secret);
     if (refus !== null) return refus;
-    if (client.bac !== null)
-      return connexionParRelais(s, client, lien, charge, champs, pre["frame_origin"], choix.secret);
-    const r = await resoudre(s.secrets ?? null, "web-login", pre["frame_origin"], choix.secret.name);
-    if ("refus" in r) return r.refus;
-    const tardif = refusTls(lien, { ...choix.secret, tls: r.valeur.tls });
-    if (tardif !== null) return tardif;
-    const brut = await client.req("POST", "/login", {
-      json: {
-        ...charge,
-        secret_origin: pre["frame_origin"],
-        username_value: champs.includes("username") ? (r.valeur.username ?? "") : "",
-        password_value: champs.includes("password") ? r.valeur.secret : "",
-      },
-      timeout: DELAI_LOGIN_S,
-    });
-    const conseil = conseilSecret(brut);
-    if (!estDict(conseil)) return conseil;
-    return client.finishAct({ ...conseil, secret: r.valeur.name }, sid, true, 25);
+    return connexionParRelais(s, client, lien, charge, champs, pre["frame_origin"], choix.secret);
   };
 }
 
@@ -168,7 +144,7 @@ function substitut(): string {
   return `Ep.${randomBytes(8).toString("hex")}-X`;
 }
 
-/** Mode bac : le service saisit un substitut ; le relais de l'hôte le remplace par la valeur (résolue au dernier moment par le core) dans les seules requêtes vers les origines du secret, pendant la connexion ; la valeur n'entre jamais dans le bac. */
+/** Le service saisit un substitut ; le relais de l'hôte le remplace par la valeur (résolue au dernier moment par le core) dans les seules requêtes vers les origines du secret, pendant la connexion ; la valeur n'entre jamais dans le bac. */
 async function connexionParRelais(
   s: ServicesBrowser,
   client: ClientNavigateur,

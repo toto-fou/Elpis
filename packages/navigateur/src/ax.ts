@@ -23,7 +23,6 @@ import type { Executeur } from "@elpis/db";
 import { Verrou } from "@elpis/mcp";
 import { neutraliserJetonsRole, neutraliserMarqueursTour } from "@elpis/securite";
 
-import { enTetesServiceNavigateur, urlServiceNavigateur } from "./client";
 import { requeteService, serviceNavigateur } from "./mode";
 import { pwOwner } from "./session";
 
@@ -471,7 +470,7 @@ export function detectSitesFromText(text: string | null | undefined): string[] {
   return out;
 }
 
-/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur (2 s) ; `null` au moindre échec. */
+/** `detect_session_url` : dernière session Playwright citée par un résultat d'outil, puis son URL courante au service navigateur du bac du compte (2 s) ; `null` au moindre échec. */
 export async function detectSessionUrl(
   messages: readonly unknown[] | null | undefined,
   owner = "",
@@ -497,29 +496,14 @@ export async function detectSessionUrl(
       skip_screenshot: "true",
       level: "lite",
     });
-    const service = serviceNavigateur(owner);
-    if (service.mode === "sandbox") {
-      const r = await requeteService(service, `/smart_inspect?${qs.toString()}`, {
-        delaiMs: 2000,
-        ...(signal ? { signal } : {}),
-      });
-      if (r.statut !== 200) return null;
-      const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
-      const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
-      return typeof u === "string" && u ? u : null;
-    }
-    const base = urlServiceNavigateur();
-    const delai = AbortSignal.timeout(2000);
-    const r = await fetch(`${base}/smart_inspect?${qs.toString()}`, {
-      method: "GET",
-      headers: enTetesServiceNavigateur(),
-      signal: signal ? AbortSignal.any([signal, delai]) : delai,
+    const r = await requeteService(serviceNavigateur(owner), `/smart_inspect?${qs.toString()}`, {
+      delaiMs: 2000,
+      ...(signal ? { signal } : {}),
     });
-    if (!r.ok) return null;
-    const data = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(await r.arrayBuffer()));
-    if (!estDict(data)) return null;
-    const url = veritePy(data["url"]) ? data["url"] : data["current_url"];
-    return typeof url === "string" && url ? url : null;
+    if (r.statut !== 200) return null;
+    const d = pyJsonLoads(new TextDecoder("utf-8", { fatal: true }).decode(r.corps));
+    const u = estDict(d) ? (veritePy(d["url"]) ? d["url"] : d["current_url"]) : null;
+    return typeof u === "string" && u ? u : null;
   } catch {
     if (signal?.aborted) throw signal.reason;
     return null;

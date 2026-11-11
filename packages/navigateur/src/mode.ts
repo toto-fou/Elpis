@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
-/** packages/navigateur/src/mode.ts — service navigateur d'un compte : le service central (URL et jeton de l'instance) ou celui de son bac (socket de `<P>/.elpis-agent`, jeton du bac), et la requête qui le joint. */
+/** packages/navigateur/src/mode.ts — service navigateur d'un compte, dans son bac (socket de `<P>/.elpis-agent`, jeton du bac), et la requête qui le joint. */
 import { closeSync, constants, fstatSync, openSync, readdirSync, readFileSync } from "node:fs";
 
-import { navigateurDansLeBac, NOMS_HOTE } from "@elpis/bac";
+import { NOMS_HOTE } from "@elpis/bac";
 import { config, pyJoin, safeSandboxName } from "@elpis/config";
 import { O_PATH } from "@elpis/securite";
 import { Agent, request } from "undici";
-
-import { jetonServiceNavigateur, urlServiceNavigateur } from "./client";
 
 const O_CLOEXEC = 0o2000000;
 /** Dossier de l'agent dans `<P>` (`AGENT_RUN_DIR` de @elpis/bac), monté sur /run/elpis. */
 const DOSSIER_AGENT = ".elpis-agent";
 /** Jeton du service du bac, sur l'hôte seul (`<P>`, jamais monté). */
-export const FICHIER_JETON_BAC = ".browser-service.token";
+const FICHIER_JETON_BAC = ".browser-service.token";
 
 /** Bornes des lectures au service d'un bac (le bac est hostile) ; réglables par les tests. */
 export const reglagesServiceBac = {
@@ -21,10 +19,11 @@ export const reglagesServiceBac = {
   reponseMax: 64 * 1024 * 1024,
 };
 
-/** Service navigateur d'un compte : central (URL de l'instance) ou dans son bac (socket unix et jeton du bac). */
-export type ServiceNavigateur =
-  | { readonly mode: "central"; readonly base: string; readonly jeton: string }
-  | { readonly mode: "sandbox"; readonly base: string; readonly socket: string; readonly jeton: string };
+/** Service navigateur d'un compte, dans son bac : socket unix sur l'hôte et jeton du bac. */
+export interface ServiceNavigateur {
+  readonly socket: string;
+  readonly jeton: string;
+}
 
 /** Chemins sur l'hôte du navigateur d'un compte : `<P>` (`<SANDBOX_DIR>/<nom sûr>`), socket du service, socket du relais, certificat, jeton. */
 export function cheminsNavigateurBac(username: string): {
@@ -54,12 +53,10 @@ export function jetonDuBac(chemin: string): string {
   }
 }
 
-/** LE résolveur : service navigateur du compte `username` (mode « sandbox » de @elpis/bac, sinon central) ; ne démarre rien. */
-export function serviceNavigateur(username: string | null | undefined): ServiceNavigateur {
-  if (!username || !navigateurDansLeBac(username))
-    return { mode: "central", base: urlServiceNavigateur(), jeton: jetonServiceNavigateur() };
+/** LE résolveur : service navigateur du bac du compte `username` ; ne démarre rien. */
+export function serviceNavigateur(username: string): ServiceNavigateur {
   const c = cheminsNavigateurBac(username);
-  return { mode: "sandbox", base: "http://browser", socket: c.socket, jeton: jetonDuBac(c.jeton) };
+  return { socket: c.socket, jeton: jetonDuBac(c.jeton) };
 }
 
 /** Services des bacs dont le jeton existe (service lancé au moins une fois) : un par dossier de `SANDBOX_DIR`, nom sûr d'un compte. */
@@ -72,18 +69,11 @@ export function servicesDesBacs(): ServiceNavigateur[] {
   } catch {
     return [];
   }
-  return noms.flatMap((nom): ServiceNavigateur[] => {
-    const c = cheminsNavigateurBac(nom);
-    const jeton = jetonDuBac(c.jeton);
-    return jeton ? [{ mode: "sandbox", base: "http://browser", socket: c.socket, jeton }] : [];
-  });
+  return noms.map(serviceNavigateur).filter((s) => s.jeton !== "");
 }
 
 /** En-têtes d'appel d'un service : `authorization` quand il a un jeton. */
-export function enTetesDuService(
-  s: ServiceNavigateur,
-  autres: Record<string, string> = {},
-): Record<string, string> {
+function enTetesDuService(s: ServiceNavigateur, autres: Record<string, string> = {}): Record<string, string> {
   return s.jeton ? { ...autres, authorization: `Bearer ${s.jeton}` } : { ...autres };
 }
 
@@ -125,17 +115,13 @@ export async function requeteService(
     bodyTimeout: o.delaiMs,
     ...(o.signal ? { signal: o.signal } : {}),
   };
-  if (s.mode === "central") {
-    const r = await request(`${s.base}${chemin}`, options);
-    return { statut: r.statusCode, corps: Buffer.from(await r.body.arrayBuffer()) };
-  }
   const fd = saisirSocket(s.socket);
   const agent = new Agent({
     connect: { socketPath: `/proc/self/fd/${fd}`, timeout: 5_000 },
     maxResponseSize: reglagesServiceBac.reponseMax,
   });
   try {
-    const r = await request(`${s.base}${chemin}`, { ...options, dispatcher: agent });
+    const r = await request(`http://browser${chemin}`, { ...options, dispatcher: agent });
     return { statut: r.statusCode, corps: Buffer.from(await r.body.arrayBuffer()) };
   } finally {
     await agent.close().catch(() => undefined);

@@ -12,14 +12,7 @@ import { minusculesPy, ouvrirAppel, refusUrlAppel } from "./appel";
 import type { Appel, ServicesBrowser } from "./appel";
 import { lier, oublier, oublierProprietaire, sessionDuSecret } from "./liaisons";
 import { dureeLiaisonMs, lierAuRelais, oublierAuRelais } from "./bac";
-import {
-  applicables,
-  HORS_APPLICATION,
-  refusSecret,
-  resolutionDifferee,
-  resoudre,
-  SANS_IDENTIFIANT,
-} from "./secrets";
+import { applicables, HORS_APPLICATION, refusSecret, resolutionDifferee, SANS_IDENTIFIANT } from "./secrets";
 
 /** Secret qui ouvre la session : désigné (`secret=`), sinon le seul attaché qui couvre l'origine (sans valeur). */
 interface SecretDeSession {
@@ -169,13 +162,12 @@ async function demarrer(
     const reprise = await reprendreSession(client, choix, url, optionsDeCreation(a));
     if (reprise !== null) return reprise;
   }
-  let tls = choix?.secret.tls ?? "strict";
-  let identifiants: { username: string; password: string } | null = null;
-  // Mode bac : le secret est lié au relais de l'hôte (origines déchiffrées, défis 401 résolus par lui) ; la valeur n'entre jamais dans le bac.
+  const tls = choix?.secret.tls ?? "strict";
+  // Le secret est lié au relais de l'hôte (origines déchiffrées, défis 401 résolus par lui) ; la valeur n'entre jamais dans le bac.
   // http-auth : la liaison ne sert que la session ouverte ici (clé posée par le service sur ses seules requêtes), le temps de son activité.
   let relais: { compte: string; ids: string[] } | undefined;
   let liaisonService: { key: string; origins: string[] } | null = null;
-  if (choix !== null && client.bac !== null) {
+  if (choix !== null) {
     const origines = choix.secret.origins.length ? choix.secret.origins : [choix.origine];
     const differee =
       choix.secret.kind === "http-auth"
@@ -203,11 +195,6 @@ async function demarrer(
       });
     relais = { compte: username, ids: [id] };
     if (cle !== null) liaisonService = { key: cle, origins: [...origines] };
-  } else if (choix !== null && choix.secret.kind === "http-auth") {
-    const v = await resoudre(s.secrets ?? null, "http-auth", choix.origine, choix.secret.name);
-    if ("refus" in v) return v.refus;
-    tls = v.valeur.tls;
-    identifiants = { username: v.valeur.username ?? "", password: v.valeur.secret };
   }
   const corps: Dict = {
     url,
@@ -217,7 +204,6 @@ async function demarrer(
   };
   if (choix !== null) {
     corps["tls"] = tls;
-    if (identifiants !== null) Object.assign(corps, { credentials_origin: choix.origine, ...identifiants });
     if (liaisonService !== null) corps["relay_binding"] = liaisonService;
   }
   if (a["device"]) corps["device"] = a["device"];

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/src/navigateur.ts — navigateur dans le bac : mode par compte (`browser.mode`, `browser.sandbox_users`), montages en lecture seule (code du service fichier par fichier, ses modules, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
+/** packages/bac/src/navigateur.ts — navigateur dans le bac de chaque compte : montages en lecture seule (code du service fichier par fichier, ses modules, runtime Node, headless shell), chemins dans le conteneur et script de démarrage. */
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
-import { config, liveConfigValue, pyJoin, racineDepot, realpathPy } from "@elpis/config";
+import { config, pyJoin, racineDepot, realpathPy } from "@elpis/config";
 
 /** Socket du service navigateur dans le conteneur (dossier de l'agent, `<P>/.elpis-agent` sur l'hôte). */
 export const BROWSER_SOCKET = "/run/elpis/browser.sock";
@@ -32,7 +32,7 @@ export const MONTAGES_NAVIGATEUR = {
   playwright: "/opt/elpis/ms-playwright",
 } as const;
 
-/** Code du service monté dans le bac : modules `*.js` et `package.json` du dossier, jamais ses sous-dossiers ni ses autres fichiers (données du service central, jetons, paquets hors ligne). */
+/** Code du service monté dans le bac : modules `*.js` et `package.json` du dossier, jamais ses sous-dossiers ni ses autres fichiers (données d'anciennes installations, paquets hors ligne). */
 const CODE_SERVICE = /^(?:[\w.-]+\.(?:js|mjs|cjs)|package\.json)$/u;
 
 /** Surcharges de test des sources des montages (`null` : celles de l'installation). */
@@ -41,17 +41,6 @@ export const reglagesNavigateurBac: {
   node: string | null;
   playwright: string | null;
 } = { service: null, node: null, playwright: null };
-
-/** Mode du navigateur pour un compte : « sandbox » si `browser.mode` l'est et que `browser.sandbox_users` (vide = tous, « * ») le nomme. */
-export function navigateurDansLeBac(username: string | null | undefined): boolean {
-  const mode = String(liveConfigValue("browser.mode", "central") ?? "central")
-    .trim()
-    .toLowerCase();
-  if (mode !== "sandbox") return false;
-  const brut = liveConfigValue("browser.sandbox_users", []);
-  const liste = Array.isArray(brut) ? brut.map((x) => String(x).trim()).filter(Boolean) : [];
-  return liste.length === 0 || liste.includes("*") || liste.includes(String(username ?? ""));
-}
 
 function dossier(p: string): string | null {
   try {
@@ -110,7 +99,7 @@ export function montagesNavigateur(): string[] | null {
   return v.flatMap((m) => ["-v", m]);
 }
 
-/** Étiquette `elpis.browser` : 12 hex du SHA-256 des montages et des inodes de leurs sources (un fichier remplacé par une mise à jour reste monté à l'ancien inode) ; un changement fait recréer les conteneurs en mode bac. */
+/** Étiquette `elpis.browser` : 12 hex du SHA-256 des montages et des inodes de leurs sources (un fichier remplacé par une mise à jour reste monté à l'ancien inode), `""` sans montage ; un changement fait recréer le conteneur. */
 export function empreinteNavigateur(): string {
   const m = montagesNavigateur();
   if (m === null) return "";

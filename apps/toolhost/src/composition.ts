@@ -166,9 +166,15 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
     cycle.alArret("conversions Office", arreterOffice);
     cycle.alArret("worker Office", arreterWorkerOffice);
     cycle.alArret("abonnement docker events", arreterReadinessCache);
-    cycle.auDemarrage("autorité du relais du navigateur dans le bac", () => {
-      if (String(liveConfigValue("browser.mode", "central")).trim().toLowerCase() === "sandbox")
-        autoriteInstance();
+    cycle.auDemarrage("autorité du relais du navigateur des bacs", () => {
+      autoriteInstance();
+      if (
+        liveConfigValue("browser.mode", null) !== null ||
+        liveConfigValue("browser.sandbox_users", null) !== null
+      )
+        o.journal.info(
+          "[browser] config.json: browser.mode and browser.sandbox_users are ignored, the browser always runs in each account's sandbox",
+        );
     });
     cycle.alArret("relais des navigateurs des bacs", arreterNavigateursBac);
     cycle.auDemarrage(
@@ -196,10 +202,7 @@ export function composer(tc: ToolhostConfig, o: OptionsComposition): Composition
         ...(o.demarreA !== undefined ? { demarreA: o.demarreA } : {}),
       }),
       creerFamilleBac({ journal: o.journal, ...(cycle ? { arret: cycle.signalArret } : {}) }),
-      creerFamilleCaptures({
-        journal: o.journal,
-        playwrightApi: process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000",
-      }),
+      creerFamilleCaptures({ journal: o.journal }),
       creerFamilleTrames({ journal: o.journal }),
       creerFamilleApercuFichiers(o.bacDuCompte ?? o.bacFichiers ?? BAC_DU_COMPTE),
       creerFamilleMandataireApercu({

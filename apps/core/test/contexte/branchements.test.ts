@@ -2,9 +2,9 @@
 /** apps/core/test/contexte/branchements.test.ts — ports du contexte branchés sur la base (vecteurs Python) : ligne réseau, détection et rendu contextuel de la mémoire AX, URL de session Playwright, index des sessions en masse. */
 import "../moteur-environnement";
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
+import type { RequestListener, Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -167,21 +167,28 @@ describe.each(MOTEURS)("ports du contexte branchés (%s)", (moteur) => {
   });
 });
 
-describe("URL de la session Playwright (service simulé, vecteurs Python)", () => {
+describe("URL de la session Playwright (service simulé du bac du compte, vecteurs Python)", () => {
   it("dernière session citée, propriétaire du service navigateur, réponses et pannes", async () => {
     const demandes: string[] = [];
     let corps = "";
-    const serveur = createServer((req, rep) => {
+    const servir: RequestListener = (req, rep) => {
       demandes.push(`${req.method} ${req.url}`);
       if (corps === "<panne>") {
         req.socket.destroy();
         return;
       }
       rep.writeHead(200, { "content-type": "application/json" }).end(corps);
-    });
-    await new Promise<void>((ok) => serveur.listen(0, "127.0.0.1", ok));
-    const avant = process.env["PLAYWRIGHT_API_URL"];
-    process.env["PLAYWRIGHT_API_URL"] = `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`;
+    };
+    // Service du bac de chaque compte des vecteurs (nom sûr : « rené » → « ren »), sur son socket.
+    const sb = mkdtempSync(join(tmpdir(), "elpis-sb-ax-"));
+    const restaurer = surchargerConfig({ SANDBOX_DIR: sb });
+    const serveurs: Server[] = [];
+    for (const compte of ["bob", "ren"]) {
+      mkdirSync(join(sb, compte, ".elpis-agent"), { recursive: true });
+      const s = createServer(servir);
+      await new Promise<void>((ok) => s.listen(join(sb, compte, ".elpis-agent", "browser.sock"), ok));
+      serveurs.push(s);
+    }
     try {
       let k = 0;
       for (const [messages, owner] of V.sessions)
@@ -199,9 +206,9 @@ describe("URL de la session Playwright (service simulé, vecteurs Python)", () =
           );
         }
     } finally {
-      if (avant === undefined) delete process.env["PLAYWRIGHT_API_URL"];
-      else process.env["PLAYWRIGHT_API_URL"] = avant;
-      await new Promise((ok) => serveur.close(ok));
+      restaurer();
+      for (const s of serveurs) await new Promise((ok) => s.close(ok));
+      rmSync(sb, { recursive: true, force: true });
     }
   });
 });

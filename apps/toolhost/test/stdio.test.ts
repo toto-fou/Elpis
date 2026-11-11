@@ -7,13 +7,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import type { Dict } from "@elpis/commun";
-import { proprietaire } from "@elpis/navigateur";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { SVC } from "./aides";
-import { FauxNavigateur, SITE } from "./faux-navigateur";
 import { portLibre } from "./interop/aides-python";
 
 const RACINE = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -21,7 +19,6 @@ const MAIN = path.join(RACINE, "apps", "toolhost", "src", "main.ts");
 
 let dossier = "";
 let port = 0;
-let navigateur: FauxNavigateur;
 const ouverts: (() => Promise<void>)[] = [];
 
 beforeAll(async () => {
@@ -40,15 +37,16 @@ beforeAll(async () => {
   );
   writeFileSync(path.join(dossier, "user_skills", "alice", "perso", "x.rb"), "puts 1\n");
   port = await portLibre();
-  navigateur = await FauxNavigateur.demarrer();
+  // Session de navigateur d'alice connue de l'hôte (fichier compagnon) : seule alice passe le contrôle de propriété.
+  mkdirSync(path.join(dossier, "owners"), { recursive: true, mode: 0o700 });
+  writeFileSync(path.join(dossier, "owners", "sessAAAA1111.owner"), "alice");
 });
 
 afterEach(async () => {
   for (const f of ouverts.splice(0).reverse()) await f();
 });
 
-afterAll(async () => {
-  await navigateur?.arreter();
+afterAll(() => {
   if (dossier) rmSync(dossier, { recursive: true, force: true });
 });
 
@@ -71,7 +69,7 @@ function environnement(plus: Record<string, string> = {}): Record<string, string
     LOCAL_MCP_HOST: "127.0.0.1",
     LOCAL_MCP_PORT: String(port),
     LOCAL_MCP_TOKEN: SVC,
-    PLAYWRIGHT_API_URL: navigateur.url,
+    PW_OWNERS_DIR: path.join(dossier, "owners"),
     ...plus,
   };
 }
@@ -118,24 +116,21 @@ const nomsDuGolden = (famille: string): string[] =>
 
 const texte = (r: Dict): string => (r["content"] as { text: string }[])[0]?.text ?? "";
 
-/** Propriétaire transmis au service navigateur par le dernier `pw_session start`. */
-async function proprietaireDe(client: Client, meta: Dict | undefined): Promise<string> {
-  navigateur.reinitialiser();
+/** Code d'erreur de `pw_session stop` sur la session d'alice pour ce `_meta` : refus de propriété pour un autre compte ; pour alice, contrôle passé et navigateur du bac non installé ici (pas de cache Playwright sous HOME). */
+async function codeDeLArret(client: Client, meta: Dict | undefined): Promise<string> {
   const r = await client.callTool({
     name: "pw_session",
-    arguments: { action: "start", url: `${SITE}/` },
+    arguments: { action: "stop", session_id: "sessAAAA1111" },
     ...(meta ? { _meta: meta } : {}),
   });
-  expect(r.isError, texte(r)).toBeFalsy();
-  const vue = navigateur.vues.find((v) => v.chemin === "/start");
-  return String((JSON.parse(vue?.corps ?? "{}") as Dict)["owner"]);
+  return String((JSON.parse(texte(r)) as Dict)["error"]);
 }
 
 describe("hôte d'outils en stdio (familles natives)", () => {
   it("browser : les 14 outils du golden, appel réel pour le compte du `_meta`", async () => {
     const { client } = await ouvrir("browser");
     expect((await client.listTools()).tools.map((o) => o.name)).toEqual(nomsDuGolden("browser"));
-    expect(await proprietaireDe(client, { username: "alice" })).toBe(proprietaire("alice"));
+    expect(await codeDeLArret(client, { username: "alice" })).toBe("browser_sandbox_unavailable");
   }, 60_000);
 
   it("desktop : outils exposés du golden, appel réel sans cible configurée (erreur du Python)", async () => {
@@ -172,11 +167,11 @@ describe("hôte d'outils en stdio (familles natives)", () => {
 
   it("compte = `_meta.username` (guest sans lui) ; jeton de service, is_admin et jeton du `_meta` sans effet ; aucun port ouvert", async () => {
     const { client, journal } = await ouvrir("browser");
-    expect(await proprietaireDe(client, undefined)).toBe(proprietaire("guest"));
-    expect(await proprietaireDe(client, { username: "  " })).toBe(proprietaire("guest"));
-    expect(await proprietaireDe(client, { username: "alice" })).toBe(proprietaire("alice"));
+    expect(await codeDeLArret(client, undefined)).toBe("not_your_session");
+    expect(await codeDeLArret(client, { username: "  " })).toBe("not_your_session");
+    expect(await codeDeLArret(client, { username: "alice" })).toBe("browser_sandbox_unavailable");
     expect(
-      await proprietaireDe(client, {
+      await codeDeLArret(client, {
         username: "alice",
         user_id: 1,
         is_admin: true,
@@ -184,8 +179,8 @@ describe("hôte d'outils en stdio (familles natives)", () => {
         claims: { username: "bob", families: [] },
         trusted_meta: { username: "bob" },
       }),
-    ).toBe(proprietaire("alice"));
-    expect(await proprietaireDe(client, { username: "bob" })).toBe(proprietaire("bob"));
+    ).toBe("browser_sandbox_unavailable");
+    expect(await codeDeLArret(client, { username: "bob" })).toBe("not_your_session");
     const refus = await new Promise<string>((fin) => {
       const s = connect(port, "127.0.0.1");
       s.once("connect", () => {

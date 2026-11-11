@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/browser-bac-e2e.test.ts — bout en bout du navigateur dans le bac (`browser.mode` = « sandbox ») : vrai conteneur elpis/sandbox:1.8.0, service lancé dedans, relais des secrets de l'hôte, vrai core (coffre) ; site servi dans le bac piloté par pw_*, téléchargement dans /work, URL extérieure refusée par le profil sans réseau, web-login http et https (TLS strict, autorité de l'instance), Basic et Digest ; la valeur n'atteint ni le modèle ni le bac. Opt-in : ELPIS_TEST_SANDBOX_BROWSER=1 (Docker, image 1.8.0, headless shell). */
+/** apps/toolhost/test/browser-bac-e2e.test.ts — bout en bout du navigateur dans le bac : vrai conteneur elpis/sandbox:1.8.0, service lancé dedans, relais des secrets de l'hôte, vrai core (coffre) ; site servi dans le bac piloté par pw_*, téléchargement dans /work, URL extérieure refusée par le profil sans réseau, web-login http et https (TLS strict, autorité de l'instance), Basic et Digest ; la valeur n'atteint ni le modèle ni le bac. Opt-in : ELPIS_TEST_SANDBOX_BROWSER=1 (Docker, image 1.8.0, headless shell). */
 import { execFile, execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -154,7 +154,7 @@ beforeAll(async () => {
   https = createServerHttps({ SNICallback: (h, cb) => cb(null, feuilles.contexte(h)) }, site);
   for (const s of [http, https]) await new Promise<void>((ok) => s.listen(0, "127.0.0.1", () => ok()));
   mkdirSync(path.join(dossier, "sb"), { recursive: true });
-  writeFileSync(path.join(dossier, "config.json"), JSON.stringify({ browser: { mode: "sandbox" } }));
+  writeFileSync(path.join(dossier, "config.json"), "{}");
   restaurer = surchargerConfig({
     LOCAL_MCP_TOKEN: SVC,
     CONFIG_JSON_PATH: path.join(dossier, "config.json"),
@@ -274,7 +274,7 @@ async function outil(nom: string, args: Dict): Promise<Dict> {
 
 describe.skipIf(!ACTIF)("navigateur dans le bac, de bout en bout (Docker, relais, core)", () => {
   it("site servi dans le bac piloté par pw_*, téléchargement dans /work/downloads", async () => {
-    expect(await outil("pw_session", { action: "health" })).toMatchObject({ ok: true, mode: "sandbox" });
+    expect(await outil("pw_session", { action: "health" })).toMatchObject({ ok: true });
     docker(
       "exec",
       "-u",

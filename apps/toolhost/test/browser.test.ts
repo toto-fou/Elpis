@@ -14,9 +14,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { ClientBrut } from "../../../packages/outils-mcp/test/aides";
 import { familleBrowser } from "../src/mcp/browser";
+import { injectionsNavigateurBac } from "../src/mcp/browser/bac";
 import { journalMuet } from "./aides";
 import { FauxNavigateur, SESSION, SITE } from "./faux-navigateur";
-import { portLibre } from "./interop/aides-python";
 
 const dossier = mkdtempSync(path.join(tmpdir(), "elpis-browser-"));
 let faux: FauxNavigateur;
@@ -33,13 +33,14 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  FauxNavigateur.debrancher();
   await faux.arreter();
   rmSync(dossier, { recursive: true, force: true });
 });
 
 /** Client en mémoire de la famille telle que l'hôte la sert (base de l'hôte non ouverte : mémoire AX éteinte). */
 async function client(): Promise<ClientBrut> {
-  vi.stubEnv("PLAYWRIGHT_API_URL", faux.url);
+  faux.brancher();
   vi.stubEnv("PW_OWNERS_DIR", path.join(dossier, "owners"));
   const serveur = new ServeurOutils({ limiteDebit: null, limiteConcurrence: null });
   serveur.enregistrerFamille("browser", familleBrowser({ journal: journalMuet }).outils);
@@ -118,7 +119,7 @@ describe("famille browser servie par l'hôte", () => {
     expect(texte(await attendre())).toContain('"error": "session_expired"');
     faux.imposees.set("POST /wait_for_dynamic", [[500, { error: { cause: "x" } }]]);
     expect(texte(await attendre())).toContain(`"message": "{'cause': 'x'}"`);
-    vi.stubEnv("PLAYWRIGHT_API_URL", `http://127.0.0.1:${await portLibre()}`);
+    injectionsNavigateurBac.service = () => faux.absent;
     expect(texte(await attendre())).toContain('"message": "connection_refused"');
   });
 

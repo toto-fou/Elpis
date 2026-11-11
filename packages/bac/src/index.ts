@@ -79,7 +79,6 @@ export {
   empreinteNavigateur,
   MONTAGES_NAVIGATEUR,
   montagesNavigateur,
-  navigateurDansLeBac,
   NOMS_HOTE,
   reglagesNavigateurBac,
   SCRIPT_NAVIGATEUR,

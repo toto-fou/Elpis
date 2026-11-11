@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : PNG du service navigateur, à son seul propriétaire. */
+/** apps/toolhost/src/captures.ts — captures servies par l'hôte (shared_infra/routes/tools.py) : PNG du service navigateur du bac du compte, à son seul propriétaire. */
 import { HttpError, lowerPy } from "@elpis/commun";
 import { entrees, py } from "@elpis/http";
-import {
-  enTetesServiceNavigateur,
-  getPwSessionOwner,
-  requeteService,
-  serviceNavigateur,
-} from "@elpis/navigateur";
+import { getPwSessionOwner, requeteService } from "@elpis/navigateur";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { request } from "undici";
 
 import type { Famille } from "./app";
 import type { Journal } from "./journal";
+import { serviceLu } from "./mcp/browser/bac";
 
 export const CHEMIN_CAPTURE = "/api/playwright/screenshot/:filename";
 const MOTIF_ETAPE = /^(?:step|shot)_([A-Za-z0-9-]{8,64})_[0-9]+\.png$/u;
@@ -24,8 +19,6 @@ const CONNEXION = /^(E(?!RR_)[A-Z_]+|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET)$/u;
 
 export interface ContexteCaptures {
   readonly journal: Journal;
-  /** `PLAYWRIGHT_API_URL` lu au démarrage, comme le module Python à l'import. */
-  readonly playwrightApi?: string;
   /** Attente entre deux essais (tests). */
   readonly attendre?: (ms: number) => Promise<void>;
 }
@@ -67,45 +60,22 @@ async function servirCapture(
     );
     throw new HttpError(403, "Access denied: not your session");
   }
-  const url = `${ctx.playwrightApi ?? process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:3000"}/screenshots/${filename}`;
   const attendre = ctx.attendre ?? ((ms: number) => new Promise<void>((fin) => setTimeout(fin, ms)));
-  // Mode bac : la capture est lue au service du bac du compte, par son socket.
-  const service = serviceNavigateur(proprietaire);
-  if (service.mode === "sandbox") {
-    try {
-      for (let essai = 0; essai < ESSAIS; essai++) {
-        const r = await requeteService(service, `/screenshots/${filename}`, { delaiMs: 5000 });
-        if (r.statut === 200) return rep.code(200).headers(SANS_CACHE).type("image/png").send(r.corps);
-        if (r.statut !== 404) throw new HttpError(502, `Playwright returned ${r.statut}`);
-        await attendre(300 * (essai + 1));
-      }
-    } catch (e) {
-      if (e instanceof HttpError) throw e;
-      throw new HttpError(503, `Playwright unreachable: ${messageTransport(e)}`);
-    }
-    throw new HttpError(404, "Screenshot not ready");
-  }
+  // La capture est lue au service du bac du compte, par son socket.
+  const service = serviceLu(proprietaire);
   try {
     for (let essai = 0; essai < ESSAIS; essai++) {
-      const r = await request(url, {
-        headers: enTetesServiceNavigateur(),
-        headersTimeout: 5000,
-        bodyTimeout: 5000,
-      });
-      if (r.statusCode === 200) {
-        const octets = Buffer.from(await r.body.arrayBuffer());
-        return rep.code(200).headers(SANS_CACHE).type("image/png").send(octets);
-      }
-      await r.body.dump();
-      if (r.statusCode !== 404) {
-        ctx.journal.warn(`[pw_screenshot] PLAYWRIGHT_ERROR: ${filename} → ${r.statusCode}`);
-        throw new HttpError(502, `Playwright returned ${r.statusCode}`);
+      const r = await requeteService(service, `/screenshots/${filename}`, { delaiMs: 5000 });
+      if (r.statut === 200) return rep.code(200).headers(SANS_CACHE).type("image/png").send(r.corps);
+      if (r.statut !== 404) {
+        ctx.journal.warn(`[pw_screenshot] PLAYWRIGHT_ERROR: ${filename} → ${r.statut}`);
+        throw new HttpError(502, `Playwright returned ${r.statut}`);
       }
       await attendre(300 * (essai + 1));
     }
   } catch (e) {
     if (e instanceof HttpError) throw e;
-    ctx.journal.error(`[pw_screenshot] PLAYWRIGHT_DOWN: ${url} (${messageTransport(e)})`);
+    ctx.journal.error(`[pw_screenshot] PLAYWRIGHT_DOWN: ${proprietaire} (${messageTransport(e)})`);
     throw new HttpError(503, `Playwright unreachable: ${messageTransport(e)}`);
   }
   ctx.journal.warn(

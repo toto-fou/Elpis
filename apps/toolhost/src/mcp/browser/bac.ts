@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/src/mcp/browser/bac.ts — navigateur dans le bac d'un compte (mode « sandbox ») : service démarré au premier outil pw_* (jeton du bac, certificat de l'autorité), relais des secrets du compte sur l'hôte, liaisons des secrets en usage ; le mode central passe tel quel. */
+/** apps/toolhost/src/mcp/browser/bac.ts — navigateur dans le bac d'un compte : service démarré au premier outil pw_* (jeton du bac, certificat de l'autorité), relais des secrets du compte sur l'hôte, liaisons des secrets en usage ; bac indisponible dit au modèle avec le correctif. */
 import { randomBytes } from "node:crypto";
 import {
   closeSync,
@@ -18,9 +18,11 @@ import {
   BROWSER_DOWNLOADS,
   BROWSER_RELAY_SOCKET,
   BROWSER_SOCKET,
+  ErreurLancement,
   MONTAGES_NAVIGATEUR,
+  montagesNavigateur,
 } from "@elpis/bac";
-import type { UserSandbox } from "@elpis/bac";
+import type { EtatBac, UserSandbox } from "@elpis/bac";
 import { journalDe } from "@elpis/commun";
 import { liveConfigValue } from "@elpis/config";
 import {
@@ -53,12 +55,13 @@ export const reglagesNavigateurBac = {
   balayageMs: 60_000,
 };
 
-/** Surcharges de test : juge des destinations du relais, autorité (sinon celle de l'instance). */
+/** Surcharges de test : juge des destinations du relais, autorité (sinon celle de l'instance), service déjà joignable d'un compte (ni bac ni relais démarrés). */
 export const injectionsNavigateurBac: {
   juge: ((username: string) => JugeRelais) | null;
   autorite: Autorite | null;
   caAmont: readonly string[] | null;
-} = { juge: null, autorite: null, caAmont: null };
+  service: ((username: string) => ServiceNavigateur) | null;
+} = { juge: null, autorite: null, caAmont: null, service: null };
 
 interface EtatCompte {
   relais: RelaisNavigateur | null;
@@ -75,9 +78,45 @@ interface EtatCompte {
 const etats = new Map<string, EtatCompte>();
 let autorite: Autorite | null = null;
 
-/** Panne du navigateur du bac, rendue au modèle par l'outil. */
+const FIX_RELANCE =
+  "Retry once; if it fails again, tell the user (an administrator can read /work/.elpis-browser/service.log and run ./elpis doctor).";
+
+/** Panne du navigateur du bac, rendue au modèle par l'outil avec son correctif. */
 export class ErreurNavigateurBac extends Error {
   override readonly name = "ErreurNavigateurBac";
+  readonly fix: string;
+
+  constructor(message: string, fix = FIX_RELANCE) {
+    super(message);
+    this.fix = fix;
+  }
+}
+
+/** Message d'un démarrage du navigateur en échec, avec le détail de la panne. */
+export function demarrageImpossible(panne: unknown): string {
+  return `The browser of your sandbox could not be started: ${panne instanceof Error ? panne.message : String(panne)}.`;
+}
+
+/** Bac qui ne démarre pas : Docker absent ou arrêté, image absente (sondés), sinon le détail de la panne. */
+export async function bacIndisponible(sb: UserSandbox, panne: unknown): Promise<ErreurNavigateurBac> {
+  const code = (args: string[]): Promise<number> =>
+    sb.cli.call(args, { timeoutS: 10 }).then(
+      ([rc]) => rc,
+      () => -1,
+    );
+  if (panne instanceof ErreurLancement || (await code(["version", "--format", "{{.Server.Version}}"])) !== 0)
+    return new ErreurNavigateurBac(
+      "Docker is not available on the Elpis server (not installed or not running), and the browser only runs inside your sandbox.",
+      "Tell the user: an administrator installs or starts Docker, then checks ./elpis doctor.",
+    );
+  if ((await code(["image", "inspect", sb.cfg.image])) !== 0)
+    return new ErreurNavigateurBac(
+      `The sandbox image ${sb.cfg.image} is not available on the Elpis server, and the browser only runs inside your sandbox.`,
+      "Tell the user: an administrator builds or loads it (./install.sh --sandbox build, or deploy/docker/sandbox/load_image.sh), then checks ./elpis doctor.",
+    );
+  return new ErreurNavigateurBac(
+    demarrageImpossible(panne ?? `the sandbox of ${sb.username} is not running`),
+  );
 }
 
 function etatDe(username: string): EtatCompte {
@@ -189,16 +228,26 @@ async function sante(s: ServiceNavigateur): Promise<{ ok: boolean; refus: boolea
 
 /** Service du bac du compte en marche : conteneur, relais, certificat, jetons, puis service lancé et attendu s'il ne répond pas. */
 async function assurer(username: string, e: EtatCompte): Promise<void> {
+  if (montagesNavigateur() === null)
+    throw new ErreurNavigateurBac(
+      "The browser is not installed on the Elpis server (browser-service, its Node modules, the Node runtime or the Chromium headless shell is missing).",
+      "Tell the user: an administrator installs it (./install.sh --with-browser), then checks ./elpis doctor.",
+    );
   const sb = await bacDuCompteOutil(username);
   e.bac = sb;
-  const st = await sb.ensureRunning();
-  if (!st.running) throw new ErreurNavigateurBac(`the sandbox of ${username} is not running`);
+  let st: EtatBac;
+  try {
+    st = await sb.ensureRunning();
+  } catch (x) {
+    throw await bacIndisponible(sb, x);
+  }
+  if (!st.running) throw await bacIndisponible(sb, null);
   const c = cheminsNavigateurBac(username);
   const jetonRelais = jetonFichier(`${c.dossier}/.browser-relay.token`);
   await relaisDuCompte(e, username, jetonRelais);
   const rotation = poserCertificat(c.ca, autoriteInstance().certPem);
   const jeton = jetonFichier(c.jeton);
-  const service: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: c.socket, jeton };
+  const service: ServiceNavigateur = { socket: c.socket, jeton };
   const avant = await sante(service);
   if (avant.ok && !rotation) {
     noterDebut(e, avant.uptime);
@@ -211,7 +260,6 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
   }
   const t0 = performance.now();
   await sb.startNavigateur({
-    BROWSER_SANDBOX: "1",
     FIREFOX_SERVICE_SOCKET: BROWSER_SOCKET,
     BROWSER_SERVICE_TOKEN: jeton,
     BROWSER_RELAY_SOCKET,
@@ -220,7 +268,6 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
     BROWSER_DOWNLOAD_DIR: BROWSER_DOWNLOADS,
     BROWSER_IDLE_EXIT_S: String(inactiviteS()),
     NODE_EXTRA_CA_CERTS: BROWSER_CA_CERT,
-    APP_CONFIG_PATH: `${MONTAGES_NAVIGATEUR.service}/.no-config.json`,
   });
   for (const fin = Date.now() + reglagesNavigateurBac.demarrageMs; Date.now() < fin;) {
     await new Promise((ok) => setTimeout(ok, reglagesNavigateurBac.sondeMs));
@@ -234,7 +281,9 @@ async function assurer(username: string, e: EtatCompte): Promise<void> {
     }
   }
   throw new ErreurNavigateurBac(
-    `the browser service did not start in the sandbox of ${username} (log: /work/.elpis-browser/service.log)`,
+    demarrageImpossible(
+      `the browser service did not start in the sandbox of ${username} (log: /work/.elpis-browser/service.log)`,
+    ),
   );
 }
 
@@ -245,10 +294,15 @@ function noterDebut(e: EtatCompte, uptimeS: number): void {
   e.debut = debut;
 }
 
-/** Service navigateur du compte pour un outil pw_* : central tel quel ; en mode bac, service et relais assurés, activité comptée au bac. */
+/** Service navigateur du bac du compte, sans le démarrer (captures) ; celui des tests s'il est injecté. */
+export function serviceLu(username: string): ServiceNavigateur {
+  return injectionsNavigateurBac.service?.(username) ?? serviceNavigateur(username);
+}
+
+/** Service navigateur du compte pour un outil pw_* : bac, service et relais assurés, activité comptée au bac ; `ErreurNavigateurBac` si le bac ne peut pas servir. */
 export async function serviceDuCompte(username: string): Promise<ServiceNavigateur> {
-  const s = serviceNavigateur(username);
-  if (s.mode === "central") return s;
+  const injecte = injectionsNavigateurBac.service?.(username);
+  if (injecte !== undefined) return injecte;
   const e = etatDe(username);
   e.dernierAppel = Date.now();
   veiller();

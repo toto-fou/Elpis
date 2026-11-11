@@ -244,8 +244,6 @@ export class UserSandbox implements BacPourAgent {
   configVerified = false;
   configRetryAt = 0;
   recreationReportee = "";
-  /** Navigateur dans le bac (mode « sandbox » du compte) : montages du service et étiquette `elpis.browser`. */
-  navigateur = false;
   private agentClient: AgentBac | null = null;
   readonly cli: CliDocker;
   private readonly chargerImage: ChargeurImage;
@@ -370,8 +368,10 @@ export class UserSandbox implements BacPourAgent {
   /** `_config_matches` : options de lancement, image, agent et config réseau du conteneur à jour ; vrai sur incertitude. */
   async configMatches(signal?: AbortSignal): Promise<boolean> {
     const profil = this.networkProfile;
+    // Navigateur installé : son étiquette doit suivre les montages (sinon, rien à comparer).
+    const navigateur = empreinteNavigateur();
     const champs = [labelTpl("netcfg"), labelTpl("spec"), "{{.Config.Image}}", labelTpl("agent")];
-    if (this.navigateur) champs.push(labelTpl("browser"));
+    if (navigateur) champs.push(labelTpl("browser"));
     const [rc, out] = await this.appel(
       ["inspect", "--format", champs.join("|"), this.containerName],
       5,
@@ -387,7 +387,7 @@ export class UserSandbox implements BacPourAgent {
     ];
     if (spec !== RUN_SPEC || (image && image !== this.cfg.image) || !["", agentEmpreinte()].includes(agent))
       return false;
-    if (this.navigateur && nav !== empreinteNavigateur()) return false;
+    if (navigateur && nav !== navigateur) return false;
     if (!cur || cur === "<no value>") return profil.mode !== "allowlist_ip";
     return cur === netcfgHash(profil);
   }
@@ -670,7 +670,7 @@ export class UserSandbox implements BacPourAgent {
         for (const ip of profil.dns) args.push("--dns", ip);
       }
     }
-    const navigateur = this.navigateur ? montagesNavigateur() : null;
+    const navigateur = montagesNavigateur();
     if (navigateur !== null) args.push(...navigateur, "--label", label("browser", empreinteNavigateur()));
     for (const a of this.cfg.extra_run_args) args.push(a);
     args.push(this.cfg.image, "sleep", "infinity");

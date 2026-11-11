@@ -83,8 +83,8 @@ describe("navigateur des sous-agents", () => {
 
   it("démarrage : un POST /cleanup_children sans propriétaire par service de bac, nombres additionnés ; service en panne : 0", async () => {
     const corps: unknown[] = [];
-    const a: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: "/a", jeton: "j" };
-    const b: ServiceNavigateur = { mode: "sandbox", base: "http://browser", socket: "/b", jeton: "j" };
+    const a: ServiceNavigateur = { socket: "/a", jeton: "j" };
+    const b: ServiceNavigateur = { socket: "/b", jeton: "j" };
     const services = (): ServiceNavigateur[] => [a, b];
     const n = await fermerNavigateursEnfantsOrphelins({
       ageMs: () => 4200,

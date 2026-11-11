@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** apps/toolhost/test/browser-bac.test.ts — navigateur du bac côté hôte d'outils : certificat de l'autorité posé dans le dossier où le bac écrit sans jamais suivre de lien ; relais d'un compte inactif rendu ; autorité renouvelée avant son terme. */
+/** apps/toolhost/test/browser-bac.test.ts — navigateur du bac côté hôte d'outils : certificat de l'autorité posé dans le dossier où le bac écrit sans jamais suivre de lien ; relais d'un compte inactif rendu ; autorité renouvelée avant son terme ; bac qui ne peut pas servir (navigateur non installé, Docker, image) dit avec son correctif. */
 import { execFileSync } from "node:child_process";
 import {
   lstatSync,
@@ -16,16 +16,26 @@ import path from "node:path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
+import {
+  ErreurLancement,
+  reglagesNavigateurBac as montagesDuNavigateur,
+  sandboxAdminConfigDepuis,
+  UserSandbox,
+} from "@elpis/bac";
 import { chargerAutorite, RelaisNavigateur, reglagesAutorite } from "@elpis/navigateur";
 
+import { FauxCli } from "../../../packages/bac/test/aides";
+import type { Regle } from "../../../packages/bac/test/aides";
 import {
   arreterNavigateursBac,
+  bacIndisponible,
   balayerNavigateursBac,
   dureeLiaisonMs,
   poserCertificat,
   poserRelaisPourTests,
   reglagesNavigateurBac,
   relaisDe,
+  serviceDuCompte,
 } from "../src/mcp/browser/bac";
 
 const dossier = mkdtempSync(path.join(tmpdir(), "nav-bac-"));
@@ -96,5 +106,54 @@ describe("relais d'un compte inactif et autorité", () => {
     expect(b.empreinte).not.toBe(a.empreinte);
     expect(statSync(path.join(d, "ca.key")).mode & 0o777).toBe(0o600);
     expect(readdirSync(d).sort()).toEqual(["ca.crt", "ca.key"]);
+  });
+});
+
+describe("bac qui ne peut pas servir le navigateur : erreur claire avec le correctif, jamais de repli", () => {
+  const bac = (regles: Regle[] = []): UserSandbox =>
+    new UserSandbox(1, "alice", path.join(dossier, "a", "work"), sandboxAdminConfigDepuis({}), null, {
+      cli: new FauxCli(regles),
+    });
+
+  it("Docker absent ou arrêté, image absente (sondés) ; sinon le détail de la panne et un nouvel essai", async () => {
+    const absent = new ErreurLancement(
+      Object.assign(new Error("spawn docker ENOENT"), { syscall: "spawn docker", code: "ENOENT" }),
+      "docker",
+    );
+    for (const [b, panne] of [
+      [bac(), absent],
+      [bac([{ motif: ["version"], rc: 1, err: "Cannot connect to the Docker daemon" }]), new Error("x")],
+    ] as const)
+      expect(await bacIndisponible(b, panne)).toMatchObject({
+        message:
+          "Docker is not available on the Elpis server (not installed or not running), and the browser only runs inside your sandbox.",
+        fix: expect.stringContaining("installs or starts Docker, then checks ./elpis doctor"),
+      });
+    expect(
+      await bacIndisponible(bac([{ motif: ["image", "inspect"], rc: 1 }]), new Error("x")),
+    ).toMatchObject({
+      message:
+        "The sandbox image elpis/sandbox:1.8.0 is not available on the Elpis server, and the browser only runs inside your sandbox.",
+      fix: expect.stringContaining("./install.sh --sandbox build"),
+    });
+    expect(await bacIndisponible(bac(), new Error("boom"))).toMatchObject({
+      message: "The browser of your sandbox could not be started: boom.",
+      fix: expect.stringContaining("Retry once"),
+    });
+    expect((await bacIndisponible(bac(), null)).message).toContain("the sandbox of alice is not running");
+  });
+
+  it("navigateur non installé (headless shell absent) : refus avant tout appel au bac", async () => {
+    montagesDuNavigateur.playwright = path.join(dossier, "ms-playwright-absent");
+    try {
+      await expect(serviceDuCompte("alice")).rejects.toMatchObject({
+        name: "ErreurNavigateurBac",
+        message: expect.stringContaining("The browser is not installed on the Elpis server"),
+        fix: expect.stringContaining("./install.sh --with-browser"),
+      });
+    } finally {
+      montagesDuNavigateur.playwright = null;
+      await arreterNavigateursBac();
+    }
   });
 });

@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
-/** packages/bac/test/navigateur.test.ts — navigateur dans le bac : bascule par compte (`browser.mode`, `browser.sandbox_users`), montages et étiquette en mode bac seulement, recréation sur changement, démarrage détaché à l'environnement passé par un fichier 0600 retiré ensuite, arrêt. */
+/** packages/bac/test/navigateur.test.ts — navigateur dans le bac de chaque compte : montages et étiquette quand le navigateur est installé, recréation sur changement, démarrage détaché à l'environnement passé par un fichier 0600 retiré ensuite, arrêt. */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { surchargerConfig } from "@elpis/config";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   empreinteNavigateur,
-  getUserSandbox,
   MONTAGES_NAVIGATEUR,
   montagesNavigateur,
-  navigateurDansLeBac,
   privdrop,
   reglagesNavigateurBac,
-  resetUserSandboxCache,
   sandboxAdminConfigDepuis,
   SCRIPT_NAVIGATEUR,
   UserSandbox,
@@ -22,14 +18,6 @@ import {
 import { dossierTemporaire, FauxCli } from "./aides";
 
 const [tmp, nettoyer] = dossierTemporaire("bac-nav-");
-const cfg = path.join(tmp, "config.json");
-let restaurer: () => void = () => undefined;
-
-function config(browser: unknown): void {
-  writeFileSync(cfg, JSON.stringify({ browser }));
-  restaurer();
-  restaurer = surchargerConfig({ CONFIG_JSON_PATH: cfg });
-}
 
 beforeAll(() => {
   for (const d of ["service/node_modules", "service/cookies", "service/test", "node/bin", "pw"])
@@ -51,47 +39,16 @@ beforeAll(() => {
   });
 });
 
-afterEach(() => resetUserSandboxCache());
-
 afterAll(() => {
-  restaurer();
   Object.assign(reglagesNavigateurBac, { service: null, node: null, playwright: null });
   nettoyer();
 });
 
-describe("bascule par compte", () => {
-  it("central par défaut ; sandbox pour tous, ou pour les comptes nommés", () => {
-    config({});
-    expect(navigateurDansLeBac("alice")).toBe(false);
-    config({ mode: "sandbox" });
-    expect(navigateurDansLeBac("alice")).toBe(true);
-    config({ mode: "sandbox", sandbox_users: ["bob"] });
-    expect([navigateurDansLeBac("alice"), navigateurDansLeBac("bob")]).toEqual([false, true]);
-    config({ mode: "sandbox", sandbox_users: ["*"] });
-    expect(navigateurDansLeBac("alice")).toBe(true);
-    config({ mode: "central", sandbox_users: ["alice"] });
-    expect(navigateurDansLeBac("alice")).toBe(false);
-  });
-
-  it("le registre marque le bac et le fait revérifier quand la bascule change", () => {
-    config({ mode: "sandbox", sandbox_users: ["alice"] });
-    const a = getUserSandbox(1, "alice", path.join(tmp, "alice", "work"));
-    expect(a.navigateur).toBe(true);
-    a.configVerified = true;
-    config({ mode: "central" });
-    expect(getUserSandbox(1, "alice", path.join(tmp, "alice", "work"))).toBe(a);
-    expect([a.navigateur, a.configVerified]).toEqual([false, false]);
-  });
-});
-
-describe("conteneur en mode bac", () => {
-  it("montages en lecture seule et étiquette elpis.browser, absents en mode central", () => {
+describe("conteneur du bac", () => {
+  it("montages en lecture seule et étiquette elpis.browser", () => {
     const sb = new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
       cli: new FauxCli(),
     });
-    const central = sb.buildRunArgs(sb.networkProfile);
-    expect(central.join(" ")).not.toContain("/opt/elpis/browser-service");
-    sb.navigateur = true;
     const bac = sb.buildRunArgs(sb.networkProfile);
     for (const dst of [
       `${MONTAGES_NAVIGATEUR.service}/server.js`,
@@ -102,7 +59,7 @@ describe("conteneur en mode bac", () => {
       expect(bac).toContain(bac.find((x) => x.endsWith(`:${dst}:ro`)));
     expect(bac).toContain(`elpis.browser=${empreinteNavigateur()}`);
     expect(empreinteNavigateur()).toMatch(/^[0-9a-f]{12}$/u);
-    expect(bac.slice(-3)).toEqual(central.slice(-3));
+    expect(bac.slice(-3)).toEqual(["elpis/sandbox:1.8.0", "sleep", "infinity"]);
   });
 
   it("seul le code du service est monté : ni ses données, ni ses jetons, ni ses autres dossiers ; un fichier remplacé change l'empreinte", () => {
@@ -124,10 +81,11 @@ describe("conteneur en mode bac", () => {
     expect(empreinteNavigateur()).not.toBe(avant);
   });
 
-  it("sans cache Playwright, le mode bac n'ajoute rien au conteneur", () => {
+  it("navigateur non installé (sans cache Playwright) : ni montage ni étiquette", () => {
     reglagesNavigateurBac.playwright = path.join(tmp, "absent");
     try {
       expect(montagesNavigateur()).toBeNull();
+      expect(empreinteNavigateur()).toBe("");
       const sb = new UserSandbox(
         1,
         "alice",
@@ -138,30 +96,35 @@ describe("conteneur en mode bac", () => {
           cli: new FauxCli(),
         },
       );
-      const central = sb.buildRunArgs(sb.networkProfile);
-      sb.navigateur = true;
-      expect(sb.buildRunArgs(sb.networkProfile)).toEqual(central);
+      expect(sb.buildRunArgs(sb.networkProfile).join(" ")).not.toMatch(
+        /\/opt\/elpis\/(browser-service|node|ms-playwright)|elpis\.browser/u,
+      );
     } finally {
       reglagesNavigateurBac.playwright = path.join(tmp, "pw");
     }
   });
 
-  it("étiquette exigée en mode bac seulement (recréation), ignorée en mode central", async () => {
-    const reponse = (nav: string): FauxCli =>
+  it("étiquette absente ou ancienne : recréation ; à jour, ou navigateur non installé (étiquette non lue) : conteneur gardé", async () => {
+    const cli = (nav: string): FauxCli =>
       new FauxCli([
         { motif: ["inspect", "~elpis.browser"], out: `|6|elpis/sandbox:1.8.0||${nav}\n` },
         { motif: ["inspect"], out: "|6|elpis/sandbox:1.8.0|\n" },
       ]);
-    const sb = (cli: FauxCli, nav: boolean): UserSandbox => {
-      const s = new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
-        cli,
+    const sb = (nav: string): UserSandbox =>
+      new UserSandbox(1, "alice", path.join(tmp, "a", "work"), sandboxAdminConfigDepuis({}), null, {
+        cli: cli(nav),
       });
-      s.navigateur = nav;
-      return s;
-    };
-    expect(await sb(reponse(""), false).configMatches()).toBe(true);
-    expect(await sb(reponse(""), true).configMatches()).toBe(false);
-    expect(await sb(reponse(empreinteNavigateur()), true).configMatches()).toBe(true);
+    expect(await sb("<no value>").configMatches()).toBe(false);
+    expect(await sb("0123456789ab").configMatches()).toBe(false);
+    expect(await sb(empreinteNavigateur()).configMatches()).toBe(true);
+    reglagesNavigateurBac.playwright = path.join(tmp, "absent");
+    try {
+      const s = sb("<no value>");
+      expect(await s.configMatches()).toBe(true);
+      expect(((s.cli as FauxCli).appels[0] ?? []).join(" ")).not.toContain("elpis.browser");
+    } finally {
+      reglagesNavigateurBac.playwright = path.join(tmp, "pw");
+    }
   });
 
   it("démarrage détaché sous exec_user, environnement par un fichier 0600 de l'hôte retiré ensuite, jamais en argument", async () => {
@@ -180,13 +143,13 @@ describe("conteneur en mode bac", () => {
       contenu = readFileSync(fichier, "utf8");
       return Promise.resolve([0, Buffer.alloc(0), Buffer.alloc(0)]);
     };
-    await sb.startNavigateur({ BROWSER_SERVICE_TOKEN: "tok-123", BROWSER_SANDBOX: "1" });
+    await sb.startNavigateur({ BROWSER_SERVICE_TOKEN: "tok-123", BROWSER_IDLE_EXIT_S: "900" });
     const args = cli.appels.at(-1) as string[];
     expect(args.slice(0, 3)).toEqual(["exec", "-d", "--user"]);
     expect(args.join(" ")).toContain("10001");
     expect(args).toContain(SCRIPT_NAVIGATEUR);
     expect(args.join(" ")).not.toContain("tok-123");
-    expect(contenu).toBe("BROWSER_SERVICE_TOKEN=tok-123\nBROWSER_SANDBOX=1\n");
+    expect(contenu).toBe("BROWSER_SERVICE_TOKEN=tok-123\nBROWSER_IDLE_EXIT_S=900\n");
     expect(path.dirname(fichier)).toBe(path.join(tmp, "a"));
     expect(existsSync(fichier)).toBe(false);
     await sb.stopNavigateur();
